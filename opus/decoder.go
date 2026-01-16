@@ -3,6 +3,7 @@ package opus
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"unsafe"
 
 	"modernc.org/libc"
@@ -20,6 +21,8 @@ var (
 //
 // It supports both mapping family 0 (mono/stereo) and multistream mappings.
 type Decoder struct {
+	mu sync.Mutex
+
 	tls *libc.TLS
 	st  uintptr
 
@@ -108,6 +111,9 @@ func (d *Decoder) Close() error {
 	if d == nil {
 		return nil
 	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	if d.tls != nil {
 		if d.st != 0 {
 			if d.multistream {
@@ -117,6 +123,7 @@ func (d *Decoder) Close() error {
 			}
 			d.st = 0
 		}
+		opuscc.FreePseudostackTLS(d.tls)
 		d.tls.Close()
 		d.tls = nil
 	}
@@ -133,6 +140,12 @@ func (d *Decoder) Channels() int   { return d.channels }
 //
 // Returns the number of samples per channel written into pcm.
 func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bool) (int, error) {
+	if d == nil {
+		return 0, errors.New("opus: decoder closed")
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	if d == nil || d.tls == nil || d.st == 0 {
 		return 0, errors.New("opus: decoder closed")
 	}
