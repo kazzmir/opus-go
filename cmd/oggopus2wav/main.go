@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/pprof"
 
 	"opusgo/oggopus"
 	"opusgo/opus"
@@ -12,8 +13,26 @@ import (
 )
 
 func main() {
-	var out = flag.String("out", "out.wav", "output wav file")
+	var (
+		out        = flag.String("out", "out.wav", "output wav file")
+		cpuProfile = flag.String("cpuprofile", "cpu.pprof", "write CPU profile to file (set to empty to disable)")
+	)
 	flag.Parse()
+
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			fatal(err)
+		}
+		defer func() {
+			_ = f.Close()
+		}()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			fatal(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: oggopus2wav --out out.wav input.ogg")
 		os.Exit(2)
