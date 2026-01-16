@@ -75,7 +75,8 @@ func (r *PacketReader) ReadPacket() (*Packet, error) {
 		// Walk lacing values to assemble all completed packets on this page.
 		body := page.SegmentData
 		off := 0
-		completed := make([][]byte, 0, 4)
+		pagePackets := make([]*Packet, 0, 4)
+		pktIndex := 0
 		for _, segLenU8 := range page.SegmentTable {
 			segLen := int(segLenU8)
 			if off+segLen > len(body) {
@@ -86,30 +87,33 @@ func (r *PacketReader) ReadPacket() (*Packet, error) {
 			off += segLen
 
 			if segLenU8 < 255 {
-				completed = append(completed, append([]byte{}, r.pending...))
-				r.pending = r.pending[:0]
+				data := r.pending
+				// Detach the backing array so future appends won't overwrite returned data.
+				r.pending = nil
 				r.havePending = false
+				pagePackets = append(pagePackets, &Packet{
+					Data:            data,
+					Serial:          page.BitstreamSerial,
+					PageSequenceEnd: page.PageSequence,
+					GranulePosition: page.GranulePosition,
+					GranuleValid:    false, // set below for last packet only
+					BOS:             page.IsBOS() && pktIndex == 0,
+					EOS:             false, // set below for last packet only
+				})
+				pktIndex++
 			}
 		}
 
-		if len(completed) == 0 {
+		if len(pagePackets) == 0 {
 			// Page ended with an incomplete packet; keep pending and read next page.
 			continue
 		}
 
 		granuleValid := page.GranulePosition != math.MaxUint64
-		for i := range completed {
-			pkt := &Packet{
-				Data:            completed[i],
-				Serial:          page.BitstreamSerial,
-				PageSequenceEnd: page.PageSequence,
-				GranulePosition: page.GranulePosition,
-				GranuleValid:    granuleValid && i == len(completed)-1,
-				BOS:             page.IsBOS() && i == 0,
-				EOS:             page.IsEOS() && i == len(completed)-1,
-			}
-			r.queue = append(r.queue, pkt)
-		}
+		last := pagePackets[len(pagePackets)-1]
+		last.GranuleValid = granuleValid
+		last.EOS = page.IsEOS()
+		r.queue = append(r.queue, pagePackets...)
 
 		pkt := r.queue[0]
 		r.queue[0] = nil

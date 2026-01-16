@@ -1,6 +1,7 @@
 package oggopus
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -16,6 +17,11 @@ var (
 	ErrUnexpectedBOS  = errors.New("oggopus: unexpected BOS placement")
 	ErrUnexpectedEOS  = errors.New("oggopus: unexpected EOS placement")
 	ErrHeaderSequence = errors.New("oggopus: missing OpusHead/OpusTags")
+)
+
+var (
+	opusHeadMagic = []byte("OpusHead")
+	opusTagsMagic = []byte("OpusTags")
 )
 
 // OpusHead is the Opus identification header (RFC 7845).
@@ -108,10 +114,10 @@ func (r *Reader) ReadAudioPacket() (*Packet, error) {
 	if pkt.BOS {
 		return nil, fmt.Errorf("%w: BOS after headers", ErrUnexpectedBOS)
 	}
-	if len(pkt.Data) >= 8 && string(pkt.Data[:8]) == "OpusHead" {
+	if len(pkt.Data) >= 8 && bytes.Equal(pkt.Data[:8], opusHeadMagic) {
 		return nil, ErrBadOpusHead
 	}
-	if len(pkt.Data) >= 8 && string(pkt.Data[:8]) == "OpusTags" {
+	if len(pkt.Data) >= 8 && bytes.Equal(pkt.Data[:8], opusTagsMagic) {
 		return nil, ErrBadOpusTags
 	}
 	return &Packet{

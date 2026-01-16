@@ -24,10 +24,8 @@ type Page struct {
 	BitstreamSerial  uint32
 	PageSequence     uint32
 	Checksum         uint32
-	SegmentTable     []uint8
+	SegmentTable     []byte
 	SegmentData      []byte
-	HeaderBytes      []byte // header bytes as read (including segment table)
-	BodyBytes        []byte // body bytes as read
 	CRCVerified      bool
 	RawPageBytesSize int
 }
@@ -70,8 +68,8 @@ func NewPageReader(r io.Reader) *PageReader {
 // ReadPage reads the next Ogg page.
 func (pr *PageReader) ReadPage() (*Page, error) {
 	// Fixed header is 27 bytes.
-	header := make([]byte, 27)
-	if _, err := io.ReadFull(pr.r, header); err != nil {
+	var header [27]byte
+	if _, err := io.ReadFull(pr.r, header[:]); err != nil {
 		return nil, err
 	}
 	if string(header[0:4]) != "OggS" {
@@ -101,7 +99,6 @@ func (pr *PageReader) ReadPage() (*Page, error) {
 		return nil, err
 	}
 
-	fullHeader := append(append([]byte{}, header...), segTable...)
 	p := &Page{
 		Version:          version,
 		HeaderType:       headerType,
@@ -109,15 +106,13 @@ func (pr *PageReader) ReadPage() (*Page, error) {
 		BitstreamSerial:  serial,
 		PageSequence:     seq,
 		Checksum:         checksum,
-		SegmentTable:     bytesToU8(segTable),
+		SegmentTable:     segTable,
 		SegmentData:      body,
-		HeaderBytes:      fullHeader,
-		BodyBytes:        body,
-		RawPageBytesSize: len(fullHeader) + len(body),
+		RawPageBytesSize: 27 + len(segTable) + len(body),
 	}
 
 	if pr.VerifyCRC {
-		crcOk, err := pr.verifyCRC(fullHeader, body, checksum)
+		crcOk, err := pr.verifyCRC(header, segTable, body, checksum)
 		if err != nil {
 			return nil, err
 		}
@@ -130,34 +125,32 @@ func (pr *PageReader) ReadPage() (*Page, error) {
 	return p, nil
 }
 
-func (pr *PageReader) verifyCRC(fullHeader []byte, body []byte, expected uint32) (bool, error) {
+
+func (pr *PageReader) verifyCRC(header [27]byte, segTable []byte, body []byte, expected uint32) (bool, error) {
 	// CRC is computed over the entire page with the checksum field set to 0.
-	buf := make([]byte, 0, len(fullHeader)+len(body))
-	buf = append(buf, fullHeader...)
-	buf = append(buf, body...)
-	if len(buf) < 27 {
-		return false, errors.New("ogg: internal crc buffer too small")
+	// Avoid allocating a concatenated buffer by running CRC over slices.
+	if len(header) != 27 {
+		return false, errors.New("ogg: internal header size mismatch")
 	}
-	buf[22] = 0
-	buf[23] = 0
-	buf[24] = 0
-	buf[25] = 0
-	got := oggCRC(buf, pr.crcTable)
+	header[22] = 0
+	header[23] = 0
+	header[24] = 0
+	header[25] = 0
+	got := oggCRC3(header[:], segTable, body, pr.crcTable)
 	return got == expected, nil
 }
 
-func oggCRC(page []byte, table [256]uint32) uint32 {
+
+func oggCRC3(a []byte, b []byte, c []byte, table [256]uint32) uint32 {
 	var crc uint32
-	for _, b := range page {
-		crc = (crc << 8) ^ table[byte(crc>>24)^b]
+	for _, v := range a {
+		crc = (crc << 8) ^ table[byte(crc>>24)^v]
+	}
+	for _, v := range b {
+		crc = (crc << 8) ^ table[byte(crc>>24)^v]
+	}
+	for _, v := range c {
+		crc = (crc << 8) ^ table[byte(crc>>24)^v]
 	}
 	return crc
-}
-
-func bytesToU8(b []byte) []uint8 {
-	u := make([]uint8, len(b))
-	for i := range b {
-		u[i] = b[i]
-	}
-	return u
 }
