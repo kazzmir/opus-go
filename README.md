@@ -1,5 +1,3 @@
-# Go Ogg/Opus packet extractor (no cgo)
-
 This is a pure go implementation of an Ogg/Opus parser, decoder, and encoder. It was produced by transpiling the libopus C sources to Go using [ccgo](modernc.org/ccgo), as well as using GPT 5.2 help. No cgo is used.
 
 Directory structure:
