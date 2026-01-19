@@ -1,19 +1,39 @@
 # Go Ogg/Opus packet extractor (no cgo)
 
-This folder contains a small Go module that can:
+This is a pure go implementation of an Ogg/Opus parser, decoder, and encoder. It was produced by transpiling the libopus C sources to Go using [ccgo](modernc.org/ccgo), as well as using GPT 5.2 help. No cgo is used.
 
-- Parse Ogg pages and reassemble laced packets
-- Parse `OpusHead` and `OpusTags`
-- Stream Opus **audio** packets (`[]byte`) that you can pass to an Opus decoder
-- Decode Ogg Opus to signed 16-bit PCM via a pure-Go libopus translation (no cgo)
+Directory structure:
+- `cmd/oggopusdump`: command-line tool to dump Ogg/Opus headers and packet sizes
+- `cmd/oggopusextract`: command-line tool to extract Opus audio packets
+- `cmd/oggopus2wav`: command-line tool to decode Ogg/Opus
+- `cmd/wav2oggopus`: command-line tool to encode WAV to Ogg/Opus
+- `ogg` - Parser for the Ogg format and Opus packet reader
+- `opus` - Encoder and decoder opus API
+- `opuscc` - Transpiled libopus C source of the decoder logic
+- `opusccenc` - Transpiled libopus C source of the encoder logic
+- `libcshim` - Small libc shim for the transpiled C code, replaces some modernc.org/libc functionality
 
-The Opus decoder is backed by a ccgo-transpiled build of the libopus C sources.
+## Minimal API example
 
-The generated bindings use a small stdlib-only runtime (`opusgo/libcshim`) that provides the minimal TLS/allocator/varargs functionality needed by the translated C.
+Decoding an opus file to get PCM samples. Note the sample rate of the PCM data is always 48000 Hz.
+```go
+// error handling omitted for brevity
+input, _ := os.Open("file.opus")
+reader, _ := ogg.NewOpusReader(input) // input can be any io.Reader
+decoder, _ := opus.NewDecoderFromHead(reader.Head)
+for {
+  packet, err := reader.ReadAudioPacket()
+  if err != nil {
+    // no more audio packets
+    break
+  }
+  decoded, n, _ := decoder.DecodePacket(packet, nil) // nil can instead be a pre-allocated []int16, otherwise new memory is allocated
+  // decoded is an []int16 PCM audio buffer with n samples per channel, so total samples = n * reader.Head.Channels
+  // use decoded PCM samples...
+}
+```
 
-Concurrency: the ccgo build uses `NONTHREADSAFE_PSEUDOSTACK` for speed, but patched so its scratch state is stored per-decoder/TLS (no shared global variables). The Go `opus.Decoder` also serializes `Decode`/`Close` with a mutex so using a single decoder from multiple goroutines won’t race (but it will decode sequentially).
-
-## Usage
+## Example program usage
 
 From this folder:
 
@@ -42,4 +62,10 @@ go run ./cmd/oggopus2wav --out out.wav path/to/file.opus
 ```sh
 go run ./cmd/oggopus2wav --cpuprofile cpu.pprof --out out.wav path/to/file.opus
 go tool pprof -top cpu.pprof
+```
+
+- Encoding `.wav` to `.opus`:
+
+```sh
+go run ./cmd/wav2oggopus --bitrate 64000 --out out.opus path/to/file.wav
 ```
