@@ -34,12 +34,7 @@ func Opus_silk_VAD_Init(tls *libc.TLS, psSilk_VAD uintptr) (r int32) {
 			v6 = v3
 		}
 		v4 = v6
-		goto _5
-	_5:
 		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 92 + uintptr(b1)*4)) = v4
-		goto _1
-	_1:
-		;
 		b1 = b1 + 1
 	}
 	/* Initialize state */
@@ -50,9 +45,6 @@ func Opus_silk_VAD_Init(tls *libc.TLS, psSilk_VAD uintptr) (r int32) {
 		}
 		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4)) = int32(100) * *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 92 + uintptr(b1)*4))
 		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(b1)*4)) = int32(silk_int32_MAX) / *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4))
-		goto _7
-	_7:
-		;
 		b1 = b1 + 1
 	}
 	(*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD)).Fcounter = int32(15)
@@ -63,9 +55,6 @@ func Opus_silk_VAD_Init(tls *libc.TLS, psSilk_VAD uintptr) (r int32) {
 			break
 		}
 		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 40 + uintptr(b1)*4)) = int32(100) * int32(256) /* 100 * 256 --> 20 dB SNR */
-		goto _8
-	_8:
-		;
 		b1 = b1 + 1
 	}
 	return ret
@@ -105,8 +94,6 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _2
-	_2:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -114,8 +101,6 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _4
-_4:
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	/* Safety checks */
 	_ = true
@@ -148,8 +133,6 @@ _4:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _6
-	_6:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -157,13 +140,9 @@ _4:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _8
-_8:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v5 = libc.Xmalloc(tls, uint64(16))
-		goto _10
-	_10:
 		st = v5
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -171,14 +150,10 @@ _8:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v7 = st
-	goto _12
-_12:
 	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(2)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(2)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v9 = libc.Xmalloc(tls, uint64(16))
-		goto _14
-	_14:
 		st = v9
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -186,13 +161,9 @@ _12:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v11 = st
-	goto _16
-_16:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v13 = libc.Xmalloc(tls, uint64(16))
-		goto _18
-	_18:
 		st = v13
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -200,16 +171,12 @@ _16:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v15 = st
-	goto _20
-_20:
 	if !(int64(int32(uint64(uint32(X_offset[int32(3)]+decimated_framelength1))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
 		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+6855, int32(127))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v17 = libc.Xmalloc(tls, uint64(16))
-		goto _22
-	_22:
 		st = v17
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -217,14 +184,10 @@ _20:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v19 = st
-	goto _24
-_24:
 	*(*uintptr)(unsafe.Pointer(v19 + 8)) += uintptr(uint64(uint32(X_offset[int32(3)]+decimated_framelength1)) * (uint64(2) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v21 = libc.Xmalloc(tls, uint64(16))
-		goto _26
-	_26:
 		st = v21
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -232,8 +195,6 @@ _24:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v23 = st
-	goto _28
-_28:
 	X = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(X_offset[int32(3)]+decimated_framelength1))*(uint64(2)/uint64(1)))
 	/* 0-8 kHz to 0-4 kHz and 4-8 kHz */
 	Opus_silk_ana_filt_bank_1(tls, pIn, psSilk_VAD, X, X+uintptr(X_offset[int32(3)])*2, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length)
@@ -254,9 +215,6 @@ _28:
 		*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(i-int32(1))*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(i-int32(1))*2))) >> int32(1))
 		v1 = X + uintptr(i)*2
 		*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(i-int32(1))*2))))
-		goto _29
-	_29:
-		;
 		i = i - 1
 	}
 	v1 = X
@@ -279,8 +237,6 @@ _28:
 			v37 = v34
 		}
 		v35 = v37
-		goto _36
-	_36:
 		decimated_framelength = (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length >> v35
 		/* Split length into subframe lengths */
 		dec_subframe_length = decimated_framelength >> int32(VAD_INTERNAL_SUBFRAMES_LOG2)
@@ -305,9 +261,6 @@ _28:
 				sumSquared = sumSquared + int32(int16(x_tmp))*int32(int16(x_tmp))
 				/* Safety check */
 				_ = sumSquared >= int32(0)
-				goto _39
-			_39:
-				;
 				i = i + 1
 			}
 			/* Add/saturate summed energy of current subframe */
@@ -328,15 +281,9 @@ _28:
 				(*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1] = v33
 			}
 			dec_subframe_offset = dec_subframe_offset + dec_subframe_length
-			goto _38
-		_38:
-			;
 			s = s + 1
 		}
 		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 24 + uintptr(b1)*4)) = sumSquared
-		goto _32
-	_32:
-		;
 		b1 = b1 + 1
 	}
 	/********************/
@@ -381,8 +328,6 @@ _28:
 					v33 = int32(32)
 				}
 				v48 = v33
-				goto _49
-			_49:
 				lzeros = v48
 				*(*OpusT_opus_int32)(unsafe.Pointer(bp)) = lzeros
 				v51 = v46
@@ -412,7 +357,6 @@ _28:
 				y = y >> (*(*OpusT_opus_int32)(unsafe.Pointer(bp)) >> int32(1))
 				y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))))))>>int32(16))
 				v44 = y
-				goto _45
 			_45:
 				SNR_Q7 = int32(int64(int32(uint32(v44)<<int32(6))) * int64(int16(SNR_Q7)) >> int32(16))
 			}
@@ -420,9 +364,6 @@ _28:
 		} else {
 			NrgToNoiseRatio_Q8[b1] = int32(256)
 		}
-		goto _42
-	_42:
-		;
 		b1 = b1 + 1
 	}
 	/* Mean-of-squares */
@@ -441,8 +382,6 @@ _28:
 		v33 = int32(32)
 	}
 	v48 = v33
-	goto _61
-_61:
 	lzeros = v48
 	*(*OpusT_opus_int32)(unsafe.Pointer(bp)) = lzeros
 	v51 = v46
@@ -472,7 +411,6 @@ _66:
 	y = y >> (*(*OpusT_opus_int32)(unsafe.Pointer(bp)) >> int32(1))
 	y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))))))>>int32(16))
 	v44 = y
-	goto _57
 _57:
 	pSNR_dB_Q7 = int32(int16(int32(3) * v44)) /* Q7 */
 	/*********************************/
@@ -494,9 +432,6 @@ _57:
 		}
 		/* Accumulate signal-without-noise energies, higher frequency bands have more weight */
 		speech_nrg = speech_nrg + (b1+int32(1))*(((*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1]-*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4)))>>int32(4))
-		goto _67
-	_67:
-		;
 		b1 = b1 + 1
 	}
 	if (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length == int32(20)*(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Ffs_kHz {
@@ -522,8 +457,6 @@ _57:
 				v33 = int32(32)
 			}
 			v48 = v33
-			goto _74
-		_74:
 			lzeros = v48
 			*(*OpusT_opus_int32)(unsafe.Pointer(bp)) = lzeros
 			v51 = v46
@@ -553,7 +486,6 @@ _57:
 			y = y >> (*(*OpusT_opus_int32)(unsafe.Pointer(bp)) >> int32(1))
 			y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))))))>>int32(16))
 			v44 = y
-			goto _70
 		_70:
 			speech_nrg = v44
 			SA_Q15 = int32(int64(int32(32768)+speech_nrg) * int64(int16(SA_Q15)) >> int32(16))
@@ -568,8 +500,6 @@ _57:
 		v37 = v34
 	}
 	v35 = v37
-	goto _83
-_83:
 	(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fspeech_activity_Q8 = v35
 	/***********************************/
 	/* Energy Level and SNR estimation */
@@ -590,16 +520,11 @@ _83:
 		SNR_Q7 = int32(3) * (Opus_silk_lin2log(tls, *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 40 + uintptr(b1)*4))) - int32(8)*int32(128))
 		/* quality = sigmoid( 0.25 * ( SNR_dB - 16 ) ); */
 		*(*int32)(unsafe.Pointer(psEncC + 4712 + uintptr(b1)*4)) = Opus_silk_sigm_Q15(tls, (SNR_Q7-int32(16)*int32(128))>>int32(4))
-		goto _85
-	_85:
-		;
 		b1 = b1 + 1
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _87
-	_87:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -607,8 +532,6 @@ _83:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _89
-_89:
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	return ret
 }
@@ -668,8 +591,6 @@ func silk_VAD_GetNoiseLevels(tls *libc.TLS, pX uintptr, psSilk_VAD uintptr) {
 			v5 = v3
 		}
 		v4 = v5
-		goto _6
-	_6:
 		coef = v4
 		/* Smooth inverse energies */
 		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(k)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(k)*4))) + int64(inv_nrg-*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(k)*4)))*int64(int16(coef))>>int32(16))
@@ -686,9 +607,6 @@ func silk_VAD_GetNoiseLevels(tls *libc.TLS, pX uintptr, psSilk_VAD uintptr) {
 		nl = v2
 		/* Store as part of state */
 		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(k)*4)) = nl
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 }
@@ -743,17 +661,11 @@ func Opus_silk_NLSF_VQ(tls *libc.TLS, err_Q24 uintptr, in_Q15 uintptr, pCB_Q8 ui
 			sum_error_Q24 = sum_error_Q24 + v3
 			pred_Q24 = diffw_Q24
 			_ = sum_error_Q24 >= int32(0)
-			goto _2
-		_2:
-			;
 			m = m - int32(2)
 		}
 		*(*OpusT_opus_int32)(unsafe.Pointer(err_Q24 + uintptr(i)*4)) = sum_error_Q24
 		cb_Q8_ptr = cb_Q8_ptr + uintptr(LPC_order)
 		w_Q9_ptr = w_Q9_ptr + uintptr(LPC_order)*2
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 }
@@ -779,9 +691,6 @@ func Opus_silk_NLSF_unpack(tls *libc.TLS, ec_ix uintptr, pred_Q8 uintptr, psNLSF
 		*(*OpusT_opus_uint8)(unsafe.Pointer(pred_Q8 + uintptr(i))) = *(*OpusT_opus_uint8)(unsafe.Pointer((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Fpred_Q8 + uintptr(i+int32(entry)&int32(1)*(int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)-int32(1)))))
 		*(*OpusT_opus_int16)(unsafe.Pointer(ec_ix + uintptr(i+int32(1))*2)) = int16(int32(int16(int32(entry)>>int32(5)&int32(7))) * int32(int16(int32(2)*int32(NLSF_QUANT_MAX_AMPLITUDE)+int32(1))))
 		*(*OpusT_opus_uint8)(unsafe.Pointer(pred_Q8 + uintptr(i+int32(1)))) = *(*OpusT_opus_uint8)(unsafe.Pointer((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Fpred_Q8 + uintptr(i+int32(entry)>>int32(4)&int32(1)*(int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)-int32(1))+int32(1))))
-		goto _1
-	_1:
-		;
 		i = i + int32(2)
 	}
 }
@@ -827,9 +736,6 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 		}
 		out0_Q10_table[i+int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)] = int32(out0_Q10) * int32(int16(quant_step_size_Q16)) >> int32(16)
 		out1_Q10_table[i+int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)] = int32(out1_Q10) * int32(int16(quant_step_size_Q16)) >> int32(16)
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 	_ = int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)&(int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)-int32(1)) == int32(0) /* must be power of two */
@@ -898,9 +804,6 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 			RD_Q25[j] = RD_tmp_Q25 + int32(int16(diff_Q10))*int32(int16(diff_Q10))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(w_Q5 + uintptr(i)*2))) + int32(int16(mu_Q20))*int32(int16(rate0_Q5))
 			diff_Q10 = in_Q10 - int32(out1_Q10)
 			RD_Q25[j+nStates] = RD_tmp_Q25 + int32(int16(diff_Q10))*int32(int16(diff_Q10))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(w_Q5 + uintptr(i)*2))) + int32(int16(mu_Q20))*int32(int16(rate1_Q5))
-			goto _3
-		_3:
-			;
 			j = j + 1
 		}
 		if nStates <= int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)/int32(2) {
@@ -911,9 +814,6 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 					break
 				}
 				*(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(j+nStates)*16 + uintptr(i))) = int8(int32(*(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(j)*16 + uintptr(i)))) + int32(1))
-				goto _6
-			_6:
-				;
 				j = j + 1
 			}
 			nStates = int32(uint32(nStates) << int32(1))
@@ -923,9 +823,6 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 					break
 				}
 				*(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(j)*16 + uintptr(i))) = *(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(j-nStates)*16 + uintptr(i)))
-				goto _7
-			_7:
-				;
 				j = j + 1
 			}
 		} else {
@@ -950,9 +847,6 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 					RD_max_Q25[j] = RD_Q25[j+int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)]
 					ind_sort[j] = j
 				}
-				goto _8
-			_8:
-				;
 				j = j + 1
 			}
 			/* compare the highest RD values of the winning half with the lowest one in the losing half, and copy if necessary */
@@ -975,9 +869,6 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 						max_min_Q25 = RD_min_Q25[j]
 						ind_max_min = j
 					}
-					goto _9
-				_9:
-					;
 					j = j + 1
 				}
 				if min_max_Q25 >= max_min_Q25 {
@@ -999,15 +890,9 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 				}
 				v11 = bp + uintptr(j)*16 + uintptr(i)
 				*(*OpusT_opus_int8)(unsafe.Pointer(v11)) = OpusT_opus_int8(int32(*(*OpusT_opus_int8)(unsafe.Pointer(v11))) + ind_sort[j]>>int32(NLSF_QUANT_DEL_DEC_STATES_LOG2))
-				goto _10
-			_10:
-				;
 				j = j + 1
 			}
 		}
-		goto _2
-	_2:
-		;
 		i = i - 1
 	}
 	/* last sample: find winner, copy indices and return RD value */
@@ -1022,9 +907,6 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 			min_Q25 = RD_Q25[j]
 			ind_tmp = j
 		}
-		goto _12
-	_12:
-		;
 		j = j + 1
 	}
 	j = 0
@@ -1035,9 +917,6 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 		*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(j))) = *(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(ind_tmp&(int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)-int32(1)))*16 + uintptr(j)))
 		_ = int32(*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(j)))) >= -int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)
 		_ = int32(*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(j)))) <= int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)
-		goto _13
-	_13:
-		;
 		j = j + 1
 	}
 	v11 = indices

@@ -165,9 +165,6 @@ func Opus_silk_ResetDecoder(tls *libc.TLS, decState uintptr) (r int32) {
 			break
 		}
 		ret = Opus_silk_reset_decoder(tls, channel_state+uintptr(n)*4392)
-		goto _1
-	_1:
-		;
 		n = n + 1
 	}
 	libc.Xmemset(tls, decState+8784, 0, uint64(12))
@@ -190,9 +187,6 @@ func Opus_silk_InitDecoder(tls *libc.TLS, decState uintptr) (r int32) {
 			break
 		}
 		ret = Opus_silk_init_decoder(tls, channel_state+uintptr(n)*4392)
-		goto _1
-	_1:
-		;
 		n = n + 1
 	}
 	libc.Xmemset(tls, decState+8784, 0, uint64(12))
@@ -225,8 +219,6 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _2
-	_2:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -234,8 +226,6 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _4
-_4:
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	if !((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(1) || (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(2)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6520, __ccgo_ts+6611, int32(165))
@@ -250,9 +240,6 @@ _4:
 				break
 			}
 			(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesDecoded = 0 /* Used to count frames in packet */
-			goto _5
-		_5:
-			;
 			n = n + 1
 		}
 	}
@@ -294,8 +281,6 @@ _4:
 								st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 								if !(st != 0) {
 									v1 = libc.Xmalloc(tls, uint64(16))
-									goto _8
-								_8:
 									st = v1
 									if st != 0 {
 										libc.Xmemset(tls, st, 0, uint64(16))
@@ -303,8 +288,6 @@ _4:
 									libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 								}
 								v3 = st
-								goto _10
-							_10:
 								(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 								return -int32(203)
 							}
@@ -320,8 +303,6 @@ _4:
 				st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 				if !(st != 0) {
 					v1 = libc.Xmalloc(tls, uint64(16))
-					goto _12
-				_12:
 					st = v1
 					if st != 0 {
 						libc.Xmemset(tls, st, 0, uint64(16))
@@ -329,15 +310,10 @@ _4:
 					libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 				}
 				v3 = st
-				goto _14
-			_14:
 				(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 				return -int32(200)
 			}
 			ret = ret + Opus_silk_decoder_set_fs(tls, channel_state+uintptr(n)*4392, fs_kHz_dec, (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FAPI_sampleRate)
-			goto _6
-		_6:
-			;
 			n = n + 1
 		}
 	}
@@ -353,8 +329,6 @@ _4:
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v1 = libc.Xmalloc(tls, uint64(16))
-			goto _16
-		_16:
 			st = v1
 			if st != 0 {
 				libc.Xmemset(tls, st, 0, uint64(16))
@@ -362,8 +336,6 @@ _4:
 			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 		}
 		v3 = st
-		goto _18
-	_18:
 		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 		return ret
 	}
@@ -381,15 +353,9 @@ _4:
 					break
 				}
 				*(*int32)(unsafe.Pointer(channel_state + uintptr(n)*4392 + 2416 + uintptr(i)*4)) = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
-				goto _20
-			_20:
-				;
 				i = i + 1
 			}
 			(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FLBRR_flag = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
-			goto _19
-		_19:
-			;
 			n = n + 1
 		}
 		/* Decode LBRR flags */
@@ -410,16 +376,10 @@ _4:
 							break
 						}
 						*(*int32)(unsafe.Pointer(channel_state + uintptr(n)*4392 + 2432 + uintptr(i)*4)) = LBRR_symbol >> i & int32(1)
-						goto _22
-					_22:
-						;
 						i = i + 1
 					}
 				}
 			}
-			goto _21
-		_21:
-			;
 			n = n + 1
 		}
 		if lostFlag == FLAG_DECODE_NORMAL {
@@ -450,14 +410,8 @@ _4:
 						Opus_silk_decode_indices(tls, channel_state+uintptr(n)*4392, psRangeDec, i, int32(1), condCoding)
 						Opus_silk_decode_pulses(tls, psRangeDec, bp+16, int32((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).Findices.FsignalType), int32((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).Findices.FquantOffsetType), (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).Fframe_length)
 					}
-					goto _24
-				_24:
-					;
 					n = n + 1
 				}
-				goto _23
-			_23:
-				;
 				i = i + 1
 			}
 		}
@@ -479,9 +433,6 @@ _4:
 					break
 				}
 				(*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[n] = int32(*(*OpusT_opus_int16)(unsafe.Pointer(psDec + 8784 + uintptr(n)*2)))
-				goto _25
-			_25:
-				;
 				n = n + 1
 			}
 		}
@@ -501,8 +452,6 @@ _4:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _27
-	_27:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -510,13 +459,9 @@ _4:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _29
-_29:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v7 = libc.Xmalloc(tls, uint64(16))
-		goto _31
-	_31:
 		st = v7
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -524,14 +469,10 @@ _29:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v9 = st
-	goto _33
-_33:
 	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(2)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v9)).Fglobal_stack))) & (uint64(uint32(2)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v11 = libc.Xmalloc(tls, uint64(16))
-		goto _35
-	_35:
 		st = v11
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -539,13 +480,9 @@ _33:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v13 = st
-	goto _37
-_37:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v15 = libc.Xmalloc(tls, uint64(16))
-		goto _39
-	_39:
 		st = v15
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -553,16 +490,12 @@ _37:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v17 = st
-	goto _41
-_41:
 	if !(int64(int32(uint64(uint32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal*((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Fframe_length+int32(2))))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v13)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fglobal_stack)) {
 		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+6611, int32(319))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v26 = libc.Xmalloc(tls, uint64(16))
-		goto _43
-	_43:
 		st = v26
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -570,14 +503,10 @@ _41:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v28 = st
-	goto _45
-_45:
 	*(*uintptr)(unsafe.Pointer(v28 + 8)) += uintptr(uint64(uint32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal*((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Fframe_length+int32(2)))) * (uint64(2) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v30 = libc.Xmalloc(tls, uint64(16))
-		goto _47
-	_47:
 		st = v30
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -585,8 +514,6 @@ _45:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v32 = st
-	goto _49
-_49:
 	samplesOut1_tmp_storage1 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v32)).Fglobal_stack - uintptr(uint64(uint32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal*((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Fframe_length+int32(2))))*(uint64(2)/uint64(1)))
 	samplesOut1_tmp[0] = samplesOut1_tmp_storage1
 	samplesOut1_tmp[int32(1)] = samplesOut1_tmp_storage1 + uintptr((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Fframe_length)*2 + uintptr(2)*2
@@ -630,9 +557,6 @@ _49:
 			libc.Xmemset(tls, samplesOut1_tmp[n]+2*2, 0, uint64(uint32(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))))*uint64(2))
 		}
 		(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesDecoded = (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesDecoded + 1
-		goto _50
-	_50:
-		;
 		n = n + 1
 	}
 	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsAPI == int32(2) && (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(2) {
@@ -649,8 +573,6 @@ _49:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _53
-	_53:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -658,13 +580,9 @@ _49:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _55
-_55:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v7 = libc.Xmalloc(tls, uint64(16))
-		goto _57
-	_57:
 		st = v7
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -672,14 +590,10 @@ _55:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v9 = st
-	goto _59
-_59:
 	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(2)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v9)).Fglobal_stack))) & (uint64(uint32(2)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v11 = libc.Xmalloc(tls, uint64(16))
-		goto _61
-	_61:
 		st = v11
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -687,13 +601,9 @@ _59:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v13 = st
-	goto _63
-_63:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v15 = libc.Xmalloc(tls, uint64(16))
-		goto _65
-	_65:
 		st = v15
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -701,16 +611,12 @@ _63:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v17 = st
-	goto _67
-_67:
 	if !(int64(int32(uint64(uint32(*(*OpusT_opus_int32)(unsafe.Pointer(nSamplesOut))))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v13)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fglobal_stack)) {
 		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+6611, int32(382))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v26 = libc.Xmalloc(tls, uint64(16))
-		goto _69
-	_69:
 		st = v26
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -718,14 +624,10 @@ _67:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v28 = st
-	goto _71
-_71:
 	*(*uintptr)(unsafe.Pointer(v28 + 8)) += uintptr(uint64(uint32(*(*OpusT_opus_int32)(unsafe.Pointer(nSamplesOut)))) * (uint64(2) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v30 = libc.Xmalloc(tls, uint64(16))
-		goto _73
-	_73:
 		st = v30
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -733,8 +635,6 @@ _71:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v32 = st
-	goto _75
-_75:
 	samplesOut2_tmp = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v32)).Fglobal_stack - uintptr(uint64(uint32(*(*OpusT_opus_int32)(unsafe.Pointer(nSamplesOut))))*(uint64(2)/uint64(1)))
 	resample_out_ptr = samplesOut2_tmp
 	n = 0
@@ -757,9 +657,6 @@ _75:
 					break
 				}
 				*(*OpusT_opus_res)(unsafe.Pointer(samplesOut + uintptr(n+int32(2)*i)*4)) = float32(float32(*(*OpusT_opus_int16)(unsafe.Pointer(resample_out_ptr + uintptr(i)*2))) * (float32(1) / float32(32768)))
-				goto _78
-			_78:
-				;
 				i = i + 1
 			}
 		} else {
@@ -769,15 +666,9 @@ _75:
 					break
 				}
 				*(*OpusT_opus_res)(unsafe.Pointer(samplesOut + uintptr(i)*4)) = float32(float32(*(*OpusT_opus_int16)(unsafe.Pointer(resample_out_ptr + uintptr(i)*2))) * (float32(1) / float32(32768)))
-				goto _79
-			_79:
-				;
 				i = i + 1
 			}
 		}
-		goto _76
-	_76:
-		;
 		n = n + 1
 	}
 	/* Create two channel output from mono stream */
@@ -792,9 +683,6 @@ _75:
 					break
 				}
 				*(*OpusT_opus_res)(unsafe.Pointer(samplesOut + uintptr(int32(1)+int32(2)*i)*4)) = float32(float32(*(*OpusT_opus_int16)(unsafe.Pointer(resample_out_ptr + uintptr(i)*2))) * (float32(1) / float32(32768)))
-				goto _80
-			_80:
-				;
 				i = i + 1
 			}
 		} else {
@@ -804,9 +692,6 @@ _75:
 					break
 				}
 				*(*OpusT_opus_res)(unsafe.Pointer(samplesOut + uintptr(int32(1)+int32(2)*i)*4)) = *(*OpusT_opus_res)(unsafe.Pointer(samplesOut + uintptr(0+int32(2)*i)*4))
-				goto _81
-			_81:
-				;
 				i = i + 1
 			}
 		}
@@ -831,9 +716,6 @@ _75:
 				break
 			}
 			(*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec + uintptr(i)*4392))).FLastGainIndex = int8(10)
-			goto _82
-		_82:
-			;
 			i = i + 1
 		}
 	} else {
@@ -842,8 +724,6 @@ _75:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _84
-	_84:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -851,8 +731,6 @@ _75:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _86
-_86:
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	return ret
 }

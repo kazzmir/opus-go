@@ -34,9 +34,6 @@ func Opus__celt_lpc(tls *libc.TLS, _lpc uintptr, ac uintptr, p int32) {
 					break
 				}
 				rr = rr + float32(*(*float32)(unsafe.Pointer(lpc + uintptr(j)*4))**(*OpusT_opus_val32)(unsafe.Pointer(ac + uintptr(i-j)*4)))
-				goto _2
-			_2:
-				;
 				j = j + 1
 			}
 			rr = rr + *(*OpusT_opus_val32)(unsafe.Pointer(ac + uintptr(i+int32(1))*4))
@@ -52,9 +49,6 @@ func Opus__celt_lpc(tls *libc.TLS, _lpc uintptr, ac uintptr, p int32) {
 				tmp2 = *(*float32)(unsafe.Pointer(lpc + uintptr(i-int32(1)-j)*4))
 				*(*float32)(unsafe.Pointer(lpc + uintptr(j)*4)) = tmp1 + OpusT_opus_val32(r*tmp2)
 				*(*float32)(unsafe.Pointer(lpc + uintptr(i-int32(1)-j)*4)) = tmp2 + OpusT_opus_val32(r*tmp1)
-				goto _3
-			_3:
-				;
 				j = j + 1
 			}
 			error1 = error1 - OpusT_opus_val32(OpusT_opus_val32(r*r)*error1)
@@ -62,9 +56,6 @@ func Opus__celt_lpc(tls *libc.TLS, _lpc uintptr, ac uintptr, p int32) {
 			if error1 <= OpusT_opus_val32(float32(0.001)**(*OpusT_opus_val32)(unsafe.Pointer(ac))) {
 				break
 			}
-			goto _1
-		_1:
-			;
 			i = i + 1
 		}
 	}
@@ -82,8 +73,6 @@ func Opus_celt_fir_c(tls *libc.TLS, x1 uintptr, num uintptr, y1 uintptr, N int32
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _2
-	_2:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -91,8 +80,6 @@ func Opus_celt_fir_c(tls *libc.TLS, x1 uintptr, num uintptr, y1 uintptr, N int32
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _4
-_4:
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	if !(x1 != y1) {
 		Opus_celt_fatal(tls, __ccgo_ts+3305, __ccgo_ts+3330, int32(157))
@@ -100,8 +87,6 @@ _4:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _6
-	_6:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -109,13 +94,9 @@ _4:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _8
-_8:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v5 = libc.Xmalloc(tls, uint64(16))
-		goto _10
-	_10:
 		st = v5
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -123,14 +104,10 @@ _8:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v7 = st
-	goto _12
-_12:
 	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v9 = libc.Xmalloc(tls, uint64(16))
-		goto _14
-	_14:
 		st = v9
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -138,13 +115,9 @@ _12:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v11 = st
-	goto _16
-_16:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v13 = libc.Xmalloc(tls, uint64(16))
-		goto _18
-	_18:
 		st = v13
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -152,16 +125,12 @@ _16:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v15 = st
-	goto _20
-_20:
 	if !(int64(int32(uint64(uint32(ord))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
 		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3330, int32(158))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v17 = libc.Xmalloc(tls, uint64(16))
-		goto _22
-	_22:
 		st = v17
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -169,14 +138,10 @@ _20:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v19 = st
-	goto _24
-_24:
 	*(*uintptr)(unsafe.Pointer(v19 + 8)) += uintptr(uint64(uint32(ord)) * (uint64(4) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v21 = libc.Xmalloc(tls, uint64(16))
-		goto _26
-	_26:
 		st = v21
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -184,8 +149,6 @@ _24:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v23 = st
-	goto _28
-_28:
 	rnum = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(ord))*(uint64(4)/uint64(1)))
 	i = 0
 	for {
@@ -193,9 +156,6 @@ _28:
 			break
 		}
 		*(*OpusT_opus_val16)(unsafe.Pointer(rnum + uintptr(i)*4)) = *(*OpusT_opus_val16)(unsafe.Pointer(num + uintptr(ord-i-int32(1))*4))
-		goto _29
-	_29:
-		;
 		i = i + 1
 	}
 	i = 0
@@ -270,9 +230,6 @@ _28:
 			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) + OpusT_opus_val32(tmp*y_0)
 			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp*y_1)
 			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp*y_2)
-			goto _38
-		_38:
-			;
 			j = j + int32(4)
 		}
 		v47 = j
@@ -319,9 +276,6 @@ _28:
 		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+int32(1))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(1)]
 		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+int32(2))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)]
 		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+int32(3))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)]
-		goto _30
-	_30:
-		;
 		i = i + int32(4)
 	}
 	for {
@@ -335,22 +289,14 @@ _28:
 				break
 			}
 			sum2 = sum2 + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(rnum + uintptr(j1)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x1 + uintptr(i+j1-ord)*4)))
-			goto _56
-		_56:
-			;
 			j1 = j1 + 1
 		}
 		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i)*4)) = sum2
-		goto _55
-	_55:
-		;
 		i = i + 1
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _58
-	_58:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -358,8 +304,6 @@ _28:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _60
-_60:
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
@@ -375,8 +319,6 @@ func Opus_celt_iir(tls *libc.TLS, _x uintptr, den uintptr, _y uintptr, N int32, 
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _2
-	_2:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -384,8 +326,6 @@ func Opus_celt_iir(tls *libc.TLS, _x uintptr, den uintptr, _y uintptr, N int32, 
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _4
-_4:
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	if !(ord&int32(3) == int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+3390, __ccgo_ts+3330, int32(225))
@@ -393,8 +333,6 @@ _4:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _6
-	_6:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -402,13 +340,9 @@ _4:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _8
-_8:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v5 = libc.Xmalloc(tls, uint64(16))
-		goto _10
-	_10:
 		st = v5
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -416,14 +350,10 @@ _8:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v7 = st
-	goto _12
-_12:
 	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v9 = libc.Xmalloc(tls, uint64(16))
-		goto _14
-	_14:
 		st = v9
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -431,13 +361,9 @@ _12:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v11 = st
-	goto _16
-_16:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v13 = libc.Xmalloc(tls, uint64(16))
-		goto _18
-	_18:
 		st = v13
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -445,16 +371,12 @@ _16:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v15 = st
-	goto _20
-_20:
 	if !(int64(int32(uint64(uint32(ord))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
 		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3330, int32(226))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v17 = libc.Xmalloc(tls, uint64(16))
-		goto _22
-	_22:
 		st = v17
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -462,14 +384,10 @@ _20:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v19 = st
-	goto _24
-_24:
 	*(*uintptr)(unsafe.Pointer(v19 + 8)) += uintptr(uint64(uint32(ord)) * (uint64(4) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v21 = libc.Xmalloc(tls, uint64(16))
-		goto _26
-	_26:
 		st = v21
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -477,14 +395,10 @@ _24:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v23 = st
-	goto _28
-_28:
 	rden = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(ord))*(uint64(4)/uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _30
-	_30:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -492,13 +406,9 @@ _28:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _32
-_32:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v5 = libc.Xmalloc(tls, uint64(16))
-		goto _34
-	_34:
 		st = v5
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -506,14 +416,10 @@ _32:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v7 = st
-	goto _36
-_36:
 	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v9 = libc.Xmalloc(tls, uint64(16))
-		goto _38
-	_38:
 		st = v9
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -521,13 +427,9 @@ _36:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v11 = st
-	goto _40
-_40:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v13 = libc.Xmalloc(tls, uint64(16))
-		goto _42
-	_42:
 		st = v13
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -535,16 +437,12 @@ _40:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v15 = st
-	goto _44
-_44:
 	if !(int64(int32(uint64(uint32(N+ord))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
 		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3330, int32(227))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v17 = libc.Xmalloc(tls, uint64(16))
-		goto _46
-	_46:
 		st = v17
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -552,14 +450,10 @@ _44:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v19 = st
-	goto _48
-_48:
 	*(*uintptr)(unsafe.Pointer(v19 + 8)) += uintptr(uint64(uint32(N+ord)) * (uint64(4) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v21 = libc.Xmalloc(tls, uint64(16))
-		goto _50
-	_50:
 		st = v21
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -567,8 +461,6 @@ _48:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v23 = st
-	goto _52
-_52:
 	y1 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N+ord))*(uint64(4)/uint64(1)))
 	i = 0
 	for {
@@ -576,9 +468,6 @@ _52:
 			break
 		}
 		*(*OpusT_opus_val16)(unsafe.Pointer(rden + uintptr(i)*4)) = *(*OpusT_opus_val16)(unsafe.Pointer(den + uintptr(ord-i-int32(1))*4))
-		goto _53
-	_53:
-		;
 		i = i + 1
 	}
 	i = 0
@@ -587,9 +476,6 @@ _52:
 			break
 		}
 		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i)*4)) = -*(*OpusT_opus_val16)(unsafe.Pointer(mem + uintptr(ord-i-int32(1))*4))
-		goto _54
-	_54:
-		;
 		i = i + 1
 	}
 	for {
@@ -597,9 +483,6 @@ _52:
 			break
 		}
 		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i)*4)) = float32(0)
-		goto _55
-	_55:
-		;
 		i = i + 1
 	}
 	i = 0
@@ -674,9 +557,6 @@ _52:
 			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) + OpusT_opus_val32(tmp*y_0)
 			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp*y_1)
 			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp*y_2)
-			goto _64
-		_64:
-			;
 			j = j + int32(4)
 		}
 		v73 = j
@@ -734,9 +614,6 @@ _52:
 		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4))**(*OpusT_opus_val16)(unsafe.Pointer(den + 2*4)))
 		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+int32(3))*4)) = -(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)]
 		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+int32(3))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)]
-		goto _56
-	_56:
-		;
 		i = i + int32(4)
 	}
 	for {
@@ -750,16 +627,10 @@ _52:
 				break
 			}
 			sum2 = sum2 - OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(rden + uintptr(j1)*4))**(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+j1)*4)))
-			goto _82
-		_82:
-			;
 			j1 = j1 + 1
 		}
 		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) = sum2
 		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i)*4)) = sum2
-		goto _81
-	_81:
-		;
 		i = i + 1
 	}
 	i = 0
@@ -768,16 +639,11 @@ _52:
 			break
 		}
 		*(*OpusT_opus_val16)(unsafe.Pointer(mem + uintptr(i)*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(N-i-int32(1))*4))
-		goto _83
-	_83:
-		;
 		i = i + 1
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _85
-	_85:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -785,8 +651,6 @@ _52:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _87
-_87:
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
@@ -800,8 +664,6 @@ func Opus__celt_autocorr(tls *libc.TLS, x uintptr, ac uintptr, window uintptr, o
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _2
-	_2:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -809,14 +671,10 @@ func Opus__celt_autocorr(tls *libc.TLS, x uintptr, ac uintptr, window uintptr, o
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _4
-_4:
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _6
-	_6:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -824,13 +682,9 @@ _4:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _8
-_8:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v5 = libc.Xmalloc(tls, uint64(16))
-		goto _10
-	_10:
 		st = v5
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -838,14 +692,10 @@ _8:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v7 = st
-	goto _12
-_12:
 	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v9 = libc.Xmalloc(tls, uint64(16))
-		goto _14
-	_14:
 		st = v9
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -853,13 +703,9 @@ _12:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v11 = st
-	goto _16
-_16:
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v13 = libc.Xmalloc(tls, uint64(16))
-		goto _18
-	_18:
 		st = v13
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -867,16 +713,12 @@ _16:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v15 = st
-	goto _20
-_20:
 	if !(int64(int32(uint64(uint32(n))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
 		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3330, int32(301))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v17 = libc.Xmalloc(tls, uint64(16))
-		goto _22
-	_22:
 		st = v17
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -884,14 +726,10 @@ _20:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v19 = st
-	goto _24
-_24:
 	*(*uintptr)(unsafe.Pointer(v19 + 8)) += uintptr(uint64(uint32(n)) * (uint64(4) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v21 = libc.Xmalloc(tls, uint64(16))
-		goto _26
-	_26:
 		st = v21
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -899,8 +737,6 @@ _24:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v23 = st
-	goto _28
-_28:
 	xx = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(n))*(uint64(4)/uint64(1)))
 	if !(n > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+3419, __ccgo_ts+3330, int32(302))
@@ -917,9 +753,6 @@ _28:
 				break
 			}
 			*(*OpusT_opus_val16)(unsafe.Pointer(xx + uintptr(i)*4)) = *(*OpusT_opus_val16)(unsafe.Pointer(x + uintptr(i)*4))
-			goto _29
-		_29:
-			;
 			i = i + 1
 		}
 		i = 0
@@ -930,9 +763,6 @@ _28:
 			w = *(*OpusT_celt_coef)(unsafe.Pointer(window + uintptr(i)*4))
 			*(*OpusT_opus_val16)(unsafe.Pointer(xx + uintptr(i)*4)) = OpusT_opus_val16(*(*OpusT_opus_val16)(unsafe.Pointer(x + uintptr(i)*4)) * w)
 			*(*OpusT_opus_val16)(unsafe.Pointer(xx + uintptr(n-i-int32(1))*4)) = OpusT_opus_val16(*(*OpusT_opus_val16)(unsafe.Pointer(x + uintptr(n-i-int32(1))*4)) * w)
-			goto _30
-		_30:
-			;
 			i = i + 1
 		}
 		xptr = xx
@@ -951,22 +781,14 @@ _28:
 				break
 			}
 			d = d + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(xptr + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(xptr + uintptr(i-k)*4)))
-			goto _32
-		_32:
-			;
 			i = i + 1
 		}
 		*(*OpusT_opus_val32)(unsafe.Pointer(ac + uintptr(k)*4)) += d
-		goto _31
-	_31:
-		;
 		k = k + 1
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
-		goto _34
-	_34:
 		st = v1
 		if st != 0 {
 			libc.Xmemset(tls, st, 0, uint64(16))
@@ -974,8 +796,6 @@ _28:
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	goto _36
-_36:
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	return shift
 }
