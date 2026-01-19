@@ -125,7 +125,6 @@ func (pr *PageReader) ReadPage() (*Page, error) {
 	return p, nil
 }
 
-
 func (pr *PageReader) verifyCRC(header [27]byte, segTable []byte, body []byte, expected uint32) (bool, error) {
 	// CRC is computed over the entire page with the checksum field set to 0.
 	// Avoid allocating a concatenated buffer by running CRC over slices.
@@ -139,7 +138,6 @@ func (pr *PageReader) verifyCRC(header [27]byte, segTable []byte, body []byte, e
 	got := oggCRC3(header[:], segTable, body, pr.crcTable)
 	return got == expected, nil
 }
-
 
 func oggCRC3(a []byte, b []byte, c []byte, table [256]uint32) uint32 {
 	var crc uint32

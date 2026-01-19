@@ -7,7 +7,7 @@ import (
 	"os"
 	"runtime/pprof"
 
-	"opusgo/oggopus"
+	"opusgo/ogg"
 	"opusgo/opus"
 	"opusgo/wav"
 )
@@ -44,7 +44,7 @@ func main() {
 	}
 	defer in.Close()
 
-	r, err := oggopus.NewReader(in)
+	r, err := ogg.NewOpusReader(in)
 	if err != nil {
 		fatal(err)
 	}

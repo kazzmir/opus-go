@@ -7,7 +7,7 @@ import (
 
 	libc "opusgo/libcshim"
 
-	"opusgo/oggopus"
+	"opusgo/ogg"
 	"opusgo/opuscc"
 )
 
@@ -31,7 +31,7 @@ type Decoder struct {
 	multistream bool
 }
 
-func NewDecoderFromHead(head oggopus.OpusHead) (*Decoder, error) {
+func NewDecoderFromHead(head ogg.OpusHead) (*Decoder, error) {
 	// RFC 7845: Opus is decoded at 48 kHz.
 	const fs = 48000
 

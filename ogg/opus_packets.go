@@ -1,4 +1,4 @@
-package oggopus
+package ogg
 
 import (
 	"bytes"

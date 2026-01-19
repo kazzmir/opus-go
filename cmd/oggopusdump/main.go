@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"opusgo/oggopus"
+	"opusgo/ogg"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 	}
 	defer f.Close()
 
-	r, err := oggopus.NewReader(f)
+	r, err := ogg.NewOpusReader(f)
 	if err != nil {
 		fatal(err)
 	}

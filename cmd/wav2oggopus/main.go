@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"opusgo/ogg"
-	"opusgo/oggopus"
 	"opusgo/opus"
 	"opusgo/wav"
 )
@@ -117,7 +116,7 @@ func main() {
 	serial := randomSerial()
 	pw := ogg.NewPacketWriter(outBW, serial)
 
-	head := oggopus.OpusHead{
+	head := ogg.OpusHead{
 		Version:         1,
 		Channels:        uint8(wr.Channels()),
 		PreSkip:         uint16(lookahead),
@@ -126,16 +125,16 @@ func main() {
 		// ChannelMappingFamily=0 covers mono/stereo and lets decoders infer mapping.
 		ChannelMappingFamily: 0,
 	}
-	headPkt, err := oggopus.BuildOpusHeadPacket(head)
+	headPkt, err := ogg.BuildOpusHeadPacket(head)
 	if err != nil {
 		fatal(err)
 	}
 
-	tags := oggopus.OpusTags{
+	tags := ogg.OpusTags{
 		Vendor:   *vendor,
 		Comments: []string{"ENCODER=opusgo", "ENCODED=" + time.Now().UTC().Format(time.RFC3339)},
 	}
-	tagsPkt, err := oggopus.BuildOpusTagsPacket(tags)
+	tagsPkt, err := ogg.BuildOpusTagsPacket(tags)
 	if err != nil {
 		fatal(err)
 	}

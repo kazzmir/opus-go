@@ -1,4 +1,4 @@
-package oggopus
+package ogg
 
 import (
 	"bytes"
@@ -7,17 +7,15 @@ import (
 	"fmt"
 	"io"
 	"time"
-
-	"opusgo/ogg"
 )
 
 var (
-	ErrNotOpusOgg     = errors.New("oggopus: not an Ogg Opus stream")
-	ErrBadOpusHead    = errors.New("oggopus: invalid OpusHead")
-	ErrBadOpusTags    = errors.New("oggopus: invalid OpusTags")
-	ErrUnexpectedBOS  = errors.New("oggopus: unexpected BOS placement")
-	ErrUnexpectedEOS  = errors.New("oggopus: unexpected EOS placement")
-	ErrHeaderSequence = errors.New("oggopus: missing OpusHead/OpusTags")
+	ErrNotOpusOgg     = errors.New("ogg: not an Ogg Opus stream")
+	ErrBadOpusHead    = errors.New("ogg: invalid OpusHead")
+	ErrBadOpusTags    = errors.New("ogg: invalid OpusTags")
+	ErrUnexpectedBOS  = errors.New("ogg: unexpected BOS placement")
+	ErrUnexpectedEOS  = errors.New("ogg: unexpected EOS placement")
+	ErrHeaderSequence = errors.New("ogg: missing OpusHead/OpusTags")
 )
 
 var (
@@ -26,6 +24,9 @@ var (
 )
 
 // OpusHead is the Opus identification header (RFC 7845).
+//
+// Opus is always decoded at 48 kHz; granule positions are in 48 kHz samples.
+// InputSampleRate is informational.
 type OpusHead struct {
 	Version              uint8
 	Channels             uint8
@@ -46,16 +47,16 @@ type OpusTags struct {
 	Comments []string
 }
 
-type Packet struct {
+type OpusAudioPacket struct {
 	Data         []byte
 	GranulePos   uint64
 	GranuleValid bool
 	EOS          bool
 }
 
-// Reader reads an Ogg Opus file/stream and yields audio packets.
-type Reader struct {
-	pr *ogg.PacketReader
+// OpusReader reads an Ogg Opus file/stream and yields Opus audio packets.
+type OpusReader struct {
+	pr *PacketReader
 
 	Head OpusHead
 	Tags OpusTags
@@ -64,19 +65,24 @@ type Reader struct {
 	tagsRead bool
 }
 
+// OpusSampleRateHz is the Opus decoding sample rate (RFC 7845).
 const OpusSampleRateHz = 48000
 
-func NewReader(r io.Reader) (*Reader, error) {
-	or := &Reader{pr: ogg.NewPacketReader(r)}
+func NewOpusReader(r io.Reader) (*OpusReader, error) {
+	or := &OpusReader{pr: NewPacketReader(r)}
 	if err := or.readHeaders(); err != nil {
 		return nil, err
 	}
 	return or, nil
 }
 
-func (r *Reader) SetVerifyCRC(v bool) { r.pr.SetVerifyCRC(v) }
+func (r *OpusReader) SetVerifyCRC(v bool) {
+	if r != nil && r.pr != nil {
+		r.pr.SetVerifyCRC(v)
+	}
+}
 
-func (r *Reader) readHeaders() error {
+func (r *OpusReader) readHeaders() error {
 	// Opus in Ogg is: BOS page contains OpusHead packet first, then OpusTags.
 	pkt1, err := r.pr.ReadPacket()
 	if err != nil {
@@ -106,7 +112,7 @@ func (r *Reader) readHeaders() error {
 }
 
 // ReadAudioPacket returns the next Opus audio packet (excluding OpusHead/Tags).
-func (r *Reader) ReadAudioPacket() (*Packet, error) {
+func (r *OpusReader) ReadAudioPacket() (*OpusAudioPacket, error) {
 	if !r.headRead || !r.tagsRead {
 		return nil, ErrHeaderSequence
 	}
@@ -123,7 +129,7 @@ func (r *Reader) ReadAudioPacket() (*Packet, error) {
 	if len(pkt.Data) >= 8 && bytes.Equal(pkt.Data[:8], opusTagsMagic) {
 		return nil, ErrBadOpusTags
 	}
-	return &Packet{
+	return &OpusAudioPacket{
 		Data:         pkt.Data,
 		GranulePos:   pkt.GranulePosition,
 		GranuleValid: pkt.GranuleValid,
@@ -137,9 +143,9 @@ func (r *Reader) ReadAudioPacket() (*Packet, error) {
 // and does not require decoding to PCM.
 //
 // Note: This method consumes packets until EOF.
-func (r *Reader) TotalSamples() (int64, error) {
+func (r *OpusReader) TotalSamples() (int64, error) {
 	if r == nil {
-		return 0, errors.New("oggopus: nil reader")
+		return 0, errors.New("ogg: nil OpusReader")
 	}
 	if !r.headRead || !r.tagsRead {
 		return 0, ErrHeaderSequence
@@ -166,7 +172,7 @@ func (r *Reader) TotalSamples() (int64, error) {
 	}
 
 	if !have {
-		return 0, errors.New("oggopus: no granule positions found")
+		return 0, errors.New("ogg: no granule positions found")
 	}
 
 	total := int64(lastGranule) - int64(r.Head.PreSkip)
@@ -179,7 +185,7 @@ func (r *Reader) TotalSamples() (int64, error) {
 // TotalDuration returns the decoded playback duration, derived from TotalSamples.
 //
 // Note: This method consumes packets until EOF.
-func (r *Reader) TotalDuration() (time.Duration, error) {
+func (r *OpusReader) TotalDuration() (time.Duration, error) {
 	samples, err := r.TotalSamples()
 	if err != nil {
 		return 0, err

@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"opusgo/oggopus"
+	"opusgo/ogg"
 )
 
 // Writes length-prefixed Opus packets (u32le length + bytes) for audio packets only.
@@ -29,7 +29,7 @@ func main() {
 	}
 	defer in.Close()
 
-	r, err := oggopus.NewReader(in)
+	r, err := ogg.NewOpusReader(in)
 	if err != nil {
 		fatal(err)
 	}
