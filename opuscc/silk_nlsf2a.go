@@ -51,9 +51,6 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 		delta = int32(Opus_silk_LSFCosTab_FIX_Q12[f_int+int32(1)]) - cos_val /* Q12, with a range of 0..200 */
 		/* Linear interpolation */
 		(*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp)))[*(*uint8)(unsafe.Pointer(ordering + uintptr(k)))] = ((int32(uint32(cos_val)<<int32(8))+delta*f_frac)>>(int32(20)-int32(QA1)-int32(1)) + int32(1)) >> int32(1) /* QA */
-		goto _2
-	_2:
-		;
 		k = k + 1
 	}
 	dd = d >> int32(1)
@@ -71,9 +68,6 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 		/* the Ptmp and Qtmp values at this stage need to fit in int32 */
 		(*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp + 200)))[k] = -Qtmp - Ptmp           /* QA+1 */
 		(*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp + 200)))[d-k-int32(1)] = Qtmp - Ptmp /* QA+1 */
-		goto _3
-	_3:
-		;
 		k = k + 1
 	}
 	/* Convert int32 coefficients to Q12 int16 coefs */
@@ -93,14 +87,8 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 				break
 			}
 			*(*OpusT_opus_int16)(unsafe.Pointer(a_Q12 + uintptr(k)*2)) = int16(((*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp + 200)))[k]>>(int32(QA1)+int32(1)-int32(12)-int32(1)) + int32(1)) >> int32(1)) /* QA+1 -> Q12 */
-			goto _5
-		_5:
-			;
 			k = k + 1
 		}
-		goto _4
-	_4:
-		;
 		i = i + 1
 	}
 }
@@ -236,9 +224,6 @@ func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uin
 				min_diff_Q15 = diff_Q15
 				I = i
 			}
-			goto _2
-		_2:
-			;
 			i = i + 1
 		}
 		/* Last element */
@@ -269,9 +254,6 @@ func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uin
 						break
 					}
 					min_center_Q15 = min_center_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(k)*2)))
-					goto _3
-				_3:
-					;
 					k = k + 1
 				}
 				min_center_Q15 = min_center_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(I)*2)))>>int32(1)
@@ -283,9 +265,6 @@ func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uin
 						break
 					}
 					max_center_Q15 = max_center_Q15 - int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(k)*2)))
-					goto _4
-				_4:
-					;
 					k = k - 1
 				}
 				max_center_Q15 = max_center_Q15 - int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(I)*2)))>>int32(1)
@@ -320,9 +299,6 @@ func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uin
 				*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2))) + int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(I)*2))))
 			}
 		}
-		goto _1
-	_1:
-		;
 		loops = loops + 1
 	}
 	/* Safe and simple fall back method, which is less ideal than the above */
@@ -340,8 +316,6 @@ func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uin
 			v8 = v6
 		}
 		v7 = v8
-		goto _13
-	_13:
 		*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15)) = int16(v7)
 		/* Keep delta_min distance between the NLSFs */
 		i = int32(1)
@@ -367,12 +341,7 @@ func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uin
 				v10 = v8
 			}
 			v9 = v10
-			goto _21
-		_21:
 			*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i)*2)) = int16(v9)
-			goto _15
-		_15:
-			;
 			i = i + 1
 		}
 		/* Last NLSF should be no higher than 1 - NDeltaMin[L] */
@@ -384,8 +353,6 @@ func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uin
 			v8 = v6
 		}
 		v7 = v8
-		goto _26
-	_26:
 		*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(L-int32(1))*2)) = int16(v7)
 		/* Keep NDeltaMin distance between the NLSFs */
 		i = L - int32(2)
@@ -401,12 +368,7 @@ func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uin
 				v8 = v6
 			}
 			v7 = v8
-			goto _32
-		_32:
 			*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i)*2)) = int16(v7)
-			goto _28
-		_28:
-			;
 			i = i - 1
 		}
 	}
@@ -498,8 +460,6 @@ func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT uintptr, pNLSF
 		v5 = v2
 	}
 	v3 = v5
-	goto _4
-_4:
 	tmp1_int = v3
 	tmp1_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp1_int
 	v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + 1*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15)))
@@ -510,8 +470,6 @@ _4:
 		v5 = v2
 	}
 	v3 = v5
-	goto _9
-_9:
 	tmp2_int = v3
 	tmp2_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp2_int
 	v1 = tmp1_int + tmp2_int
@@ -522,8 +480,6 @@ _9:
 		v5 = v2
 	}
 	v3 = v5
-	goto _14
-_14:
 	*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT)) = int16(v3)
 	_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT))) > int32(0)
 	/* Main loop */
@@ -540,8 +496,6 @@ _14:
 			v5 = v2
 		}
 		v3 = v5
-		goto _20
-	_20:
 		tmp1_int = v3
 		tmp1_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp1_int
 		v1 = tmp1_int + tmp2_int
@@ -552,8 +506,6 @@ _14:
 			v5 = v2
 		}
 		v3 = v5
-		goto _25
-	_25:
 		*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k)*2)) = int16(v3)
 		_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k)*2))) > int32(0)
 		v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k+int32(2))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k+int32(1))*2)))
@@ -564,8 +516,6 @@ _14:
 			v5 = v2
 		}
 		v3 = v5
-		goto _30
-	_30:
 		tmp2_int = v3
 		tmp2_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp2_int
 		v1 = tmp1_int + tmp2_int
@@ -576,13 +526,8 @@ _14:
 			v5 = v2
 		}
 		v3 = v5
-		goto _35
-	_35:
 		*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k+int32(1))*2)) = int16(v3)
 		_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k+int32(1))*2))) > int32(0)
-		goto _16
-	_16:
-		;
 		k = k + int32(2)
 	}
 	/* Last value */
@@ -594,8 +539,6 @@ _14:
 		v5 = v2
 	}
 	v3 = v5
-	goto _40
-_40:
 	tmp1_int = v3
 	tmp1_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp1_int
 	v1 = tmp1_int + tmp2_int
@@ -606,8 +549,6 @@ _40:
 		v5 = v2
 	}
 	v3 = v5
-	goto _45
-_45:
 	*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(D-int32(1))*2)) = int16(v3)
 	_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(D-int32(1))*2))) > int32(0)
 }

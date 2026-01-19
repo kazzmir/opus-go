@@ -48,9 +48,6 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 			v2 = v3
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)) = int16(v2)
-		goto _1
-	_1:
-		;
 		n = n + 1
 	}
 	pred0_Q13 = *(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13))
@@ -74,9 +71,6 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 			v2 = v3
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)) = int16(v2)
-		goto _4
-	_4:
-		;
 		n = n + 1
 	}
 	*(*OpusT_opus_int16)(unsafe.Pointer(state)) = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13)))
@@ -111,9 +105,6 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 			v2 = v3
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)) = int16(v2)
-		goto _7
-	_7:
-		;
 		n = n + 1
 	}
 }
@@ -233,9 +224,6 @@ func Opus_silk_ana_filt_bank_1(tls *libc.TLS, in uintptr, S uintptr, outL uintpt
 			v2 = v3
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(outH + uintptr(k)*2)) = int16(v2)
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 }
@@ -336,9 +324,6 @@ func Opus_silk_biquad_alt_stride1(tls *libc.TLS, in uintptr, B_Q28 uintptr, A_Q2
 			v2 = v3
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(k)*2)) = int16(v2)
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 }
@@ -396,9 +381,6 @@ func Opus_silk_biquad_alt_stride2_c(tls *libc.TLS, in uintptr, B_Q28 uintptr, A_
 			v2 = v3
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(int32(2)*k+int32(1))*2)) = int16(v2)
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 }
@@ -479,9 +461,6 @@ func Opus_silk_bwexpander_32(tls *libc.TLS, ar uintptr, d int32, chirp_Q16 OpusT
 		}
 		*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(i)*4)) = int32(int64(chirp_Q16) * int64(*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(i)*4))) >> int32(16))
 		chirp_Q16 = chirp_Q16 + (chirp_Q16*chirp_minus_one_Q16>>(int32(16)-int32(1))+int32(1))>>int32(1)
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 	*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(d-int32(1))*4)) = int32(int64(chirp_Q16) * int64(*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(d-int32(1))*4))) >> int32(16))
@@ -562,9 +541,6 @@ func Opus_silk_bwexpander(tls *libc.TLS, ar uintptr, d int32, chirp_Q16 OpusT_op
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(i)*2)) = int16((chirp_Q16*int32(*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(i)*2)))>>(int32(16)-int32(1)) + int32(1)) >> int32(1))
 		chirp_Q16 = chirp_Q16 + (chirp_Q16*chirp_minus_one_Q16>>(int32(16)-int32(1))+int32(1))>>int32(1)
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 	*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(d-int32(1))*2)) = int16((chirp_Q16*int32(*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(d-int32(1))*2)))>>(int32(16)-int32(1)) + int32(1)) >> int32(1))
@@ -918,9 +894,6 @@ func Opus_silk_decode_pitch(tls *libc.TLS, lagIndex OpusT_opus_int16, contourInd
 			v2 = v5
 		}
 		*(*int32)(unsafe.Pointer(pitch_lags + uintptr(k)*4)) = v2
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 }
@@ -994,9 +967,6 @@ func Opus_silk_inner_prod_aligned_scale(tls *libc.TLS, inVec1 uintptr, inVec2 ui
 			break
 		}
 		sum = sum + int32(*(*OpusT_opus_int16)(unsafe.Pointer(inVec1 + uintptr(i)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(inVec2 + uintptr(i)*2)))>>scale
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 	return sum
@@ -1081,8 +1051,6 @@ func Opus_silk_lin2log(tls *libc.TLS, inLin OpusT_opus_int32) (r1 OpusT_opus_int
 		v5 = int32(32)
 	}
 	v3 = v5
-	goto _4
-_4:
 	lzeros = v3
 	*(*OpusT_opus_int32)(unsafe.Pointer(bp)) = lzeros
 	v6 = v1
@@ -1232,11 +1200,11 @@ func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uin
 		out32_Q12 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(B)))
 		/* Allowing wrap around so that two wraps can cancel each other. The rare
 		   cases where the result wraps around can only be triggered by invalid streams*/
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr-uintptr(1)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 1*2)))))
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr-uintptr(2)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 2*2)))))
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr-uintptr(3)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 3*2)))))
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr-uintptr(4)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 4*2)))))
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr-uintptr(5)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 5*2)))))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(1)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 1*2)))))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(2)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 2*2)))))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(3)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 3*2)))))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(4)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 4*2)))))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(5)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 5*2)))))
 		j = int32(6)
 		for {
 			if !(j < d) {
@@ -1244,9 +1212,6 @@ func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uin
 			}
 			out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-j)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + uintptr(j)*2)))))
 			out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-j-int32(1))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + uintptr(j+int32(1))*2)))))
-			goto _2
-		_2:
-			;
 			j = j + int32(2)
 		}
 		/* Subtract prediction */
@@ -1265,9 +1230,6 @@ func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uin
 			v3 = v4
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(ix)*2)) = int16(v3)
-		goto _1
-	_1:
-		;
 		ix = ix + 1
 	}
 	/* Set first d output samples to zero */
@@ -1587,8 +1549,6 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 			v6 = int32(32)
 		}
 		v4 = v6
-		goto _5
-	_5:
 		mult2Q = int32(32) - v4
 		v3 = rc_mult1_Q30
 		v2 = mult2Q + int32(30)
@@ -1606,8 +1566,6 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 			v8 = int32(32)
 		}
 		v7 = v8
-		goto _12
-	_12:
 		b_headrm = v7 - int32(1)
 		b32_nrm = int32(uint32(v3) << b_headrm)
 		b32_inv = int32(silk_int32_MAX) >> int32(2) / (b32_nrm >> int32(16))
@@ -1772,14 +1730,8 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 				return 0
 			}
 			*(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(k-n-int32(1))*4)) = int32(tmp64)
-			goto _21
-		_21:
-			;
 			n = n + 1
 		}
-		goto _1
-	_1:
-		;
 		k = k - 1
 	}
 	/* Check for stability */
@@ -1820,9 +1772,6 @@ func Opus_silk_LPC_inverse_pred_gain_c(tls *libc.TLS, A_Q12 uintptr, order int32
 		}
 		DC_resp = DC_resp + int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))
 		(*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp)))[k] = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))) << (int32(QA) - int32(12)))
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 	/* If the DC is unstable, we don't even need to do the full calculations */
@@ -1924,9 +1873,6 @@ func Opus_silk_LPC_fit(tls *libc.TLS, a_QOUT uintptr, a_QIN uintptr, QOUT int32,
 				maxabs = absval
 				idx = k
 			}
-			goto _2
-		_2:
-			;
 			k = k + 1
 		}
 		if QIN-QOUT == int32(1) {
@@ -1948,9 +1894,6 @@ func Opus_silk_LPC_fit(tls *libc.TLS, a_QOUT uintptr, a_QIN uintptr, QOUT int32,
 		} else {
 			break
 		}
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 	if i == int32(10) {
@@ -1987,9 +1930,6 @@ func Opus_silk_LPC_fit(tls *libc.TLS, a_QOUT uintptr, a_QIN uintptr, QOUT int32,
 			}
 			*(*OpusT_opus_int16)(unsafe.Pointer(a_QOUT + uintptr(k)*2)) = int16(v3)
 			*(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4)) = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(a_QOUT + uintptr(k)*2)))) << (QIN - QOUT))
-			goto _6
-		_6:
-			;
 			k = k + 1
 		}
 	} else {
@@ -2004,9 +1944,6 @@ func Opus_silk_LPC_fit(tls *libc.TLS, a_QOUT uintptr, a_QIN uintptr, QOUT int32,
 				v3 = (*(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))>>(QIN-QOUT-int32(1)) + int32(1)) >> int32(1)
 			}
 			*(*OpusT_opus_int16)(unsafe.Pointer(a_QOUT + uintptr(k)*2)) = int16(v3)
-			goto _12
-		_12:
-			;
 			k = k + 1
 		}
 	}
@@ -2038,15 +1975,9 @@ func silk_NLSF2A_find_poly(tls *libc.TLS, out uintptr, cLSF uintptr, dd int32) {
 				break
 			}
 			*(*OpusT_opus_int32)(unsafe.Pointer(out + uintptr(n)*4)) += *(*OpusT_opus_int32)(unsafe.Pointer(out + uintptr(n-int32(2))*4)) - int32((int64(ftmp)*int64(*(*OpusT_opus_int32)(unsafe.Pointer(out + uintptr(n-int32(1))*4)))>>(int32(QA1)-int32(1))+int64(1))>>int32(1))
-			goto _2
-		_2:
-			;
 			n = n - 1
 		}
 		*(*OpusT_opus_int32)(unsafe.Pointer(out + 1*4)) -= ftmp
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 }

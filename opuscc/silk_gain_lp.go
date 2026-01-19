@@ -100,8 +100,6 @@ func Opus_silk_gains_quant(tls *libc.TLS, ind uintptr, gain_Q16 uintptr, prev_in
 					v5 = v3
 				}
 				v4 = v5
-				goto _15
-			_15:
 				*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind)) = int8(v4)
 			} else {
 				v11 = prev_ind
@@ -120,12 +118,7 @@ func Opus_silk_gains_quant(tls *libc.TLS, ind uintptr, gain_Q16 uintptr, prev_in
 			v2 = v20
 		}
 		v21 = v2
-		goto _22
-	_22:
 		*(*OpusT_opus_int32)(unsafe.Pointer(gain_Q16 + uintptr(k)*4)) = Opus_silk_log2lin(tls, v21) /* 3967 = 31 in Q7 */
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 }
@@ -153,8 +146,6 @@ func Opus_silk_gains_dequant(tls *libc.TLS, gain_Q16 uintptr, ind uintptr, prev_
 				v6 = v3
 			}
 			v4 = v6
-			goto _5
-		_5:
 			*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind)) = int8(v4)
 		} else {
 			/* Delta index */
@@ -189,12 +180,7 @@ func Opus_silk_gains_dequant(tls *libc.TLS, gain_Q16 uintptr, ind uintptr, prev_
 			v2 = v12
 		}
 		v13 = v2
-		goto _14
-	_14:
 		*(*OpusT_opus_int32)(unsafe.Pointer(gain_Q16 + uintptr(k)*4)) = Opus_silk_log2lin(tls, v13) /* 3967 = 31 in Q7 */
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 }
@@ -213,9 +199,6 @@ func Opus_silk_gains_ID(tls *libc.TLS, ind uintptr, nb_subfr int32) (r OpusT_opu
 			break
 		}
 		gainsID = int32(*(*OpusT_opus_int8)(unsafe.Pointer(ind + uintptr(k)))) + int32(uint32(gainsID)<<int32(8))
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 	return gainsID
@@ -239,9 +222,6 @@ func Opus_silk_interpolate(tls *libc.TLS, xi uintptr, x0 uintptr, x1 uintptr, if
 			break
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(xi + uintptr(i)*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x0 + uintptr(i)*2))) + int32(int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(i)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(x0 + uintptr(i)*2)))))*int32(int16(ifact_Q2))>>int32(2))
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 }
@@ -264,9 +244,6 @@ func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr
 						break
 					}
 					*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + uintptr(nb)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind)*12 + uintptr(nb)*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind+int32(1))*12 + uintptr(nb)*4))-*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind)*12 + uintptr(nb)*4)))*int64(int16(fac_Q16))>>int32(16))
-					goto _1
-				_1:
-					;
 					nb = nb + 1
 				}
 				na = 0
@@ -275,9 +252,6 @@ func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr
 						break
 					}
 					*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28 + uintptr(na)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind)*8 + uintptr(na)*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind+int32(1))*8 + uintptr(na)*4))-*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind)*8 + uintptr(na)*4)))*int64(int16(fac_Q16))>>int32(16))
-					goto _2
-				_2:
-					;
 					na = na + 1
 				}
 			} else { /* ( fac_Q16 - ( 1 << 16 ) ) is in range of a 16-bit int */
@@ -299,9 +273,6 @@ func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr
 						break
 					}
 					*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + uintptr(nb)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind+int32(1))*12 + uintptr(nb)*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind+int32(1))*12 + uintptr(nb)*4))-*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind)*12 + uintptr(nb)*4)))*int64(int16(fac_Q16-int32(1)<<int32(16)))>>int32(16))
-					goto _5
-				_5:
-					;
 					nb = nb + 1
 				}
 				na = 0
@@ -310,9 +281,6 @@ func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr
 						break
 					}
 					*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28 + uintptr(na)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind+int32(1))*8 + uintptr(na)*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind+int32(1))*8 + uintptr(na)*4))-*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind)*8 + uintptr(na)*4)))*int64(int16(fac_Q16-int32(1)<<int32(16)))>>int32(16))
-					goto _6
-				_6:
-					;
 					na = na + 1
 				}
 			}
@@ -396,9 +364,6 @@ func silk_NLSF_residual_dequant(tls *libc.TLS, x_Q10 uintptr, indices uintptr, p
 		}
 		out_Q10 = int32(int64(pred_Q10) + int64(out_Q10)*int64(int16(quant_step_size_Q16))>>int32(16))
 		*(*OpusT_opus_int16)(unsafe.Pointer(x_Q10 + uintptr(i)*2)) = int16(out_Q10)
-		goto _1
-	_1:
-		;
 		i = i - 1
 	}
 }

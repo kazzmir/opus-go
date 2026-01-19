@@ -54,9 +54,6 @@ func kf_bfly2(tls *libc.TLS, Fout uintptr, m int32, N int32) {
 		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 3*8))).Fr += t.Fr
 		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 3*8))).Fi += t.Fi
 		Fout = Fout + uintptr(8)*8
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 }
@@ -91,9 +88,6 @@ func kf_bfly4(tls *libc.TLS, Fout uintptr, fstride OpusT_size_t, st uintptr, m i
 			(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 3*8))).Fr = scratch0.Fr - scratch1.Fi
 			(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 3*8))).Fi = scratch0.Fi + scratch1.Fr
 			Fout = Fout + uintptr(4)*8
-			goto _1
-		_1:
-			;
 			i = i + 1
 		}
 	} else {
@@ -143,14 +137,8 @@ func kf_bfly4(tls *libc.TLS, Fout uintptr, fstride OpusT_size_t, st uintptr, m i
 				(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m3)*8))).Fr = scratch[int32(5)].Fr - scratch[int32(4)].Fi
 				(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m3)*8))).Fi = scratch[int32(5)].Fi + scratch[int32(4)].Fr
 				Fout += 8
-				goto _5
-			_5:
-				;
 				j = j + 1
 			}
-			goto _2
-		_2:
-			;
 			i = i + 1
 		}
 	}
@@ -199,18 +187,12 @@ func kf_bfly3(tls *libc.TLS, Fout uintptr, fstride OpusT_size_t, st uintptr, m i
 			(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fr = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fr - scratch[0].Fi
 			(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fi = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fi + scratch[0].Fr
 			Fout += 8
-			goto _4
-		_4:
-			;
 			k = k - 1
 			v3 = k
 			if !(v3 != 0) {
 				break
 			}
 		}
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 }
@@ -282,14 +264,8 @@ func kf_bfly5(tls *libc.TLS, Fout uintptr, fstride OpusT_size_t, st uintptr, m i
 			Fout2 += 8
 			Fout3 += 8
 			Fout4 += 8
-			goto _2
-		_2:
-			;
 			u = u + 1
 		}
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 }
@@ -336,9 +312,6 @@ func Opus_opus_fft_impl(tls *libc.TLS, st uintptr, fout uintptr) {
 			break
 		}
 		m = m2
-		goto _2
-	_2:
-		;
 		i = i - 1
 	}
 }
@@ -361,9 +334,6 @@ func Opus_opus_fft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
 		x = *(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fin + uintptr(i)*8))
 		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fbitrev + uintptr(i)*2)))*8))).Fr = float32(x.Fr * scale)
 		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fbitrev + uintptr(i)*2)))*8))).Fi = float32(x.Fi * scale)
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 	Opus_opus_fft_impl(tls, st, fout)
@@ -382,9 +352,6 @@ func Opus_opus_ifft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
 			break
 		}
 		*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fbitrev + uintptr(i)*2)))*8)) = *(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fin + uintptr(i)*8))
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 	i = 0
@@ -393,9 +360,6 @@ func Opus_opus_ifft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
 			break
 		}
 		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi = -(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi
-		goto _2
-	_2:
-		;
 		i = i + 1
 	}
 	Opus_opus_fft_impl(tls, st, fout)
@@ -405,9 +369,6 @@ func Opus_opus_ifft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
 			break
 		}
 		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi = -(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi
-		goto _3
-	_3:
-		;
 		i = i + 1
 	}
 }
@@ -507,9 +468,6 @@ func Opus_opus_limit2_checkwithin1_c(tls *libc.TLS, samples uintptr, cnt int32) 
 		}
 		clippedVal = v2
 		*(*float32)(unsafe.Pointer(samples + uintptr(i)*4)) = clippedVal
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 	/* C implementation can't provide quick hint. Assume it might exceed -1/+1. */

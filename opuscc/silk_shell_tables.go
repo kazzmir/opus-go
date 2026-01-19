@@ -21,9 +21,6 @@ func combine_pulses(tls *libc.TLS, out uintptr, in uintptr, len1 int32) {
 			break
 		}
 		*(*int32)(unsafe.Pointer(out + uintptr(k)*4)) = *(*int32)(unsafe.Pointer(in + uintptr(int32(2)*k)*4)) + *(*int32)(unsafe.Pointer(in + uintptr(int32(2)*k+int32(1))*4))
-		goto _1
-	_1:
-		;
 		k = k + 1
 	}
 }

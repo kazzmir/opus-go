@@ -45,16 +45,10 @@ func Opus_silk_encode_signs(tls *libc.TLS, psRangeEnc uintptr, pulses uintptr, l
 				if int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j)))) != 0 {
 					Opus_ec_enc_icdf(tls, psRangeEnc, int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j))))>>int32(15)+int32(1), bp, uint32(8))
 				}
-				goto _3
-			_3:
-				;
 				j = j + 1
 			}
 		}
 		q_ptr = q_ptr + uintptr(SHELL_CODEC_FRAME_LENGTH)
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 }
@@ -98,16 +92,10 @@ func Opus_silk_decode_signs(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, l
 					v4 = q_ptr + uintptr(j)*2
 					*(*OpusT_opus_int16)(unsafe.Pointer(v4)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v4))) * (int32(uint32(Opus_ec_dec_icdf(tls, psRangeDec, bp, uint32(8)))<<int32(1)) - int32(1)))
 				}
-				goto _3
-			_3:
-				;
 				j = j + 1
 			}
 		}
 		q_ptr = q_ptr + uintptr(SHELL_CODEC_FRAME_LENGTH)*2
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 }

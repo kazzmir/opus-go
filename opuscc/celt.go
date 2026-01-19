@@ -167,9 +167,6 @@ func comb_filter_const_c(tls *libc.TLS, y uintptr, x uintptr, T int32, N int32, 
 		x3 = x2
 		x2 = x1
 		x1 = x0
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 }
@@ -227,9 +224,6 @@ func Opus_comb_filter(tls *libc.TLS, y uintptr, x uintptr, T0 int32, T1 int32, N
 		x3 = x2
 		x2 = x1
 		x1 = x0
-		goto _3
-	_3:
-		;
 		i = i + 1
 	}
 	if g1 == float32(0) {
@@ -270,9 +264,6 @@ func Opus_init_caps(tls *libc.TLS, m uintptr, cap1 uintptr, LM int32, C int32) {
 		}
 		N = (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i)*2)))) << LM
 		*(*int32)(unsafe.Pointer(cap1 + uintptr(i)*4)) = (int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).Fcache.Fcaps + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands*(int32(2)*LM+C-int32(1))+i)))) + int32(64)) * C * N >> int32(2)
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 }

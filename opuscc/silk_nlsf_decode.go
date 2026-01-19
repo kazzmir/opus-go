@@ -46,9 +46,6 @@ func Opus_silk_NLSF_decode(tls *libc.TLS, pNLSF_Q15 uintptr, NLSFIndices uintptr
 			v2 = v3
 		}
 		*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(i)*2)) = int16(v2)
-		goto _1
-	_1:
-		;
 		i = i + 1
 	}
 	/* NLSF stabilization */

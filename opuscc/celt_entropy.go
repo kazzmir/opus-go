@@ -92,8 +92,6 @@ func Opus_ec_decode(tls *libc.TLS, _this uintptr, _ft uint32) (r uint32) {
 	v1 = _ft
 	_ = v1 > uint32(0)
 	v2 = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng / v1
-	goto _3
-_3:
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext = v2
 	s = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval / (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext
 	return _ft - (s + uint32(1) + (_ft-(s+uint32(1)))&uint32(-libc.BoolInt32(_ft < s+uint32(1))))
@@ -1656,9 +1654,6 @@ func cwrsi(tls *libc.TLS, _n int32, _k int32, _i OpusT_opus_uint32, _y uintptr) 
 						break
 					}
 					_k = _k - 1
-					goto _2
-				_2:
-					;
 					p = *(*OpusT_opus_uint32)(unsafe.Pointer(row + uintptr(_k)*4))
 				}
 			}
