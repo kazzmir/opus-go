@@ -2,8 +2,6 @@ package opuscc
 
 import (
 	"fmt"
-
-	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
 // OpusError represents a libopus error code returned by the ccgo-transpiled API.
@@ -29,10 +27,5 @@ func opusErrorFromCode(code int32) error {
 	if code == OPUS_OK {
 		return nil
 	}
-	msg := ""
-	p := Opus_opus_strerror(code)
-	if p != 0 {
-		msg = libc.GoString(p)
-	}
-	return &OpusError{Code: code, Message: msg}
+	return &OpusError{Code: code, Message: Opus_opus_strerror(code)}
 }

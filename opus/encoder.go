@@ -186,12 +186,10 @@ func (e *Encoder) Encode(pcm []int16, frameSize int, packet []byte) (int, error)
 }
 
 func opusccencErrorString(tls *libc.TLS, code int32) string {
-	if tls == nil {
-		return "(no tls)"
-	}
-	p := opusccenc.Opus_opus_strerror(code)
-	if p == 0 {
+	_ = tls
+	s := opusccenc.Opus_opus_strerror(code)
+	if s == "" {
 		return "(unknown)"
 	}
-	return libc.GoString(p)
+	return s
 }
