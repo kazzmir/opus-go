@@ -59,15 +59,15 @@ func NewDecoder(sampleRate, channels int) (*Decoder, error) {
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	errPtr := tls.Alloc(4)
-	defer tls.Free(4)
-
-	st := opuscc.Opus_opus_decoder_create(tls, opuscc.OpusT_opus_int32(sampleRate), int32(channels), errPtr)
-	errCode := libc.LoadInt32(errPtr)
-	if errCode != opuscc.OPUS_OK || st == 0 {
-		opuscc.Opus_opus_decoder_destroy(tls, st)
+	st, err := opuscc.Opus_opus_decoder_create(tls, opuscc.OpusT_opus_int32(sampleRate), int32(channels))
+	if err != nil || st == 0 {
+		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
+			msg := opusccErrorString(oe.Code)
+			tls.Close()
+			return nil, fmt.Errorf("opus: decoder_create failed: %s (%d)", msg, oe.Code)
+		}
 		tls.Close()
-		return nil, fmt.Errorf("opus: decoder_create failed: %s (%d)", opusccErrorString(tls, errCode), errCode)
+		return nil, fmt.Errorf("opus: decoder_create failed: %w", err)
 	}
 
 	return &Decoder{tls: tls, st: st, sampleRate: sampleRate, channels: channels}, nil
@@ -79,25 +79,24 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	errPtr := tls.Alloc(4)
-	defer tls.Free(4)
-
 	mappingPtr := libc.PtrUint8(mapping)
 
-	st := opuscc.Opus_opus_multistream_decoder_create(
+	st, err := opuscc.Opus_opus_multistream_decoder_create(
 		tls,
 		opuscc.OpusT_opus_int32(sampleRate),
 		int32(channels),
 		int32(streams),
 		int32(coupledStreams),
 		mappingPtr,
-		errPtr,
 	)
-	errCode := libc.LoadInt32(errPtr)
-	if errCode != opuscc.OPUS_OK || st == 0 {
-		opuscc.Opus_opus_multistream_decoder_destroy(tls, st)
+	if err != nil || st == 0 {
+		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
+			msg := opusccErrorString(oe.Code)
+			tls.Close()
+			return nil, fmt.Errorf("opus: multistream_decoder_create failed: %s (%d)", msg, oe.Code)
+		}
 		tls.Close()
-		return nil, fmt.Errorf("opus: multistream_decoder_create failed: %s (%d)", opusccErrorString(tls, errCode), errCode)
+		return nil, fmt.Errorf("opus: multistream_decoder_create failed: %w", err)
 	}
 
 	return &Decoder{tls: tls, st: st, sampleRate: sampleRate, channels: channels, multistream: true}, nil
@@ -169,7 +168,7 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 	}
 
 	if ret < 0 {
-		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(d.tls, ret), ret)
+		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(ret), ret)
 	}
 	return int(ret), nil
 }
@@ -190,13 +189,10 @@ func (decoder *Decoder) DecodePacket(packet *ogg.OpusAudioPacket, pcm []int16) (
     return pcm[:n*decoder.channels], n, nil
 }
 
-func opusccErrorString(tls *libc.TLS, code int32) string {
-	if tls == nil {
-		return "(no tls)"
-	}
-	p := opuscc.Opus_opus_strerror(tls, code)
-	if p == 0 {
+func opusccErrorString(code int32) string {
+	s := opuscc.Opus_opus_strerror(code)
+	if s == "" {
 		return "(unknown)"
 	}
-	return libc.GoString(p)
+	return s
 }

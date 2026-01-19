@@ -22376,42 +22376,31 @@ _56:
 	return r
 }
 
-func Opus_opus_encoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, application int32, error1 uintptr) (r uintptr) {
+func Opus_opus_encoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, application int32) (uintptr, error) {
 	var ret, size1 int32
 	var st, v1 uintptr
 	_, _, _, _ = ret, size1, st, v1
 	if Fs != int32(48000) && Fs != int32(24000) && Fs != int32(16000) && Fs != int32(12000) && Fs != int32(8000) || channels != int32(1) && channels != int32(2) || application != int32(OPUS_APPLICATION_VOIP) && application != int32(OPUS_APPLICATION_AUDIO) && application != int32(OPUS_APPLICATION_RESTRICTED_LOWDELAY) && application != int32(OPUS_APPLICATION_RESTRICTED_SILK) && application != int32(OPUS_APPLICATION_RESTRICTED_CELT) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(1)
-		}
-		return libc.UintptrFromInt32(0)
+		return libc.UintptrFromInt32(0), opusErrorFromCode(-int32(1))
 	}
 	size1 = Opus_opus_encoder_init(tls, libc.UintptrFromInt32(0), Fs, channels, application)
 	if size1 <= 0 {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(3)
-		}
-		return libc.UintptrFromInt32(0)
+		return libc.UintptrFromInt32(0), opusErrorFromCode(-int32(3))
 	}
 	v1 = libc.Xmalloc(tls, libc.Uint64FromInt32(size1))
 	goto _2
 _2:
 	st = v1
 	if st == libc.UintptrFromInt32(0) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(7)
-		}
-		return libc.UintptrFromInt32(0)
+		return libc.UintptrFromInt32(0), opusErrorFromCode(-int32(7))
 	}
 	ret = Opus_opus_encoder_init(tls, st, Fs, channels, application)
-	if error1 != 0 {
-		*(*int32)(unsafe.Pointer(error1)) = ret
-	}
 	if ret != OPUS_OK {
 		libc.Xfree(tls, st)
 		st = libc.UintptrFromInt32(0)
+		return libc.UintptrFromInt32(0), opusErrorFromCode(ret)
 	}
-	return st
+	return st, nil
 }
 
 func Opus_opus_encoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
@@ -29182,24 +29171,33 @@ _90:
 	return tot_size
 }
 
-func Opus_opus_strerror(tls *libc.TLS, error1 int32) (r uintptr) {
+func Opus_opus_strerror(error1 int32) string {
 	if error1 > 0 || error1 < -int32(7) {
-		return __ccgo_ts + 4056
-	} else {
-		return error_strings[-error1]
+		return opus_unknown_error_string
 	}
-	return r
+	return error_strings[-error1]
 }
 
-var error_strings = [8]uintptr{
-	0: __ccgo_ts + 3919,
-	1: __ccgo_ts + 3927,
-	2: __ccgo_ts + 3944,
-	3: __ccgo_ts + 3961,
-	4: __ccgo_ts + 3976,
-	5: __ccgo_ts + 3993,
-	6: __ccgo_ts + 4017,
-	7: __ccgo_ts + 4031,
+func __ccgo_cstring(s string, start int) string {
+	for i := start; i < len(s); i++ {
+		if s[i] == 0 {
+			return s[start:i]
+		}
+	}
+	return s[start:]
+}
+
+var opus_unknown_error_string = __ccgo_cstring(__ccgo_ts1, 4056)
+
+var error_strings = []string{
+	__ccgo_cstring(__ccgo_ts1, 3919),
+	__ccgo_cstring(__ccgo_ts1, 3927),
+	__ccgo_cstring(__ccgo_ts1, 3944),
+	__ccgo_cstring(__ccgo_ts1, 3961),
+	__ccgo_cstring(__ccgo_ts1, 3976),
+	__ccgo_cstring(__ccgo_ts1, 3993),
+	__ccgo_cstring(__ccgo_ts1, 4017),
+	__ccgo_cstring(__ccgo_ts1, 4031),
 }
 
 func Opus_pitch_downsample(tls *libc.TLS, x uintptr, x_lp uintptr, len1 int32, C int32, factor int32, arch int32) {

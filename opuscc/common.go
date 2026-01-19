@@ -2429,35 +2429,27 @@ _7:
 	return OPUS_OK
 }
 
-func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, error1 uintptr) (r uintptr) {
+func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (uintptr, error) {
 	var ret int32
 	var st, v1 uintptr
 	_, _, _ = ret, st, v1
 	if Fs != int32(48000) && Fs != int32(24000) && Fs != int32(16000) && Fs != int32(12000) && Fs != int32(8000) || channels != int32(1) && channels != int32(2) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(1)
-		}
-		return uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(-int32(1))
 	}
 	v1 = libc.Xmalloc(tls, uint64(uint32(Opus_opus_decoder_get_size(tls, channels))))
 	goto _2
 _2:
 	st = v1
 	if st == uintptr(uint32(0)) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(7)
-		}
-		return uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
 	}
 	ret = Opus_opus_decoder_init(tls, st, Fs, channels)
-	if error1 != 0 {
-		*(*int32)(unsafe.Pointer(error1)) = ret
-	}
 	if ret != OPUS_OK {
 		libc.Xfree(tls, st)
 		st = uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(ret)
 	}
-	return st
+	return st, nil
 }
 
 func smooth_fade(tls *libc.TLS, in1 uintptr, in2 uintptr, out uintptr, overlap int32, channels int32, window uintptr, Fs OpusT_opus_int32) {
@@ -4452,7 +4444,7 @@ _2:
 	return v1
 }
 
-func Opus_opus_dred_decoder_create(tls *libc.TLS, error1 uintptr) (r uintptr) {
+func Opus_opus_dred_decoder_create(tls *libc.TLS) (uintptr, error) {
 	var dec, v1 uintptr
 	var ret int32
 	_, _, _ = dec, ret, v1
@@ -4461,20 +4453,15 @@ func Opus_opus_dred_decoder_create(tls *libc.TLS, error1 uintptr) (r uintptr) {
 _2:
 	dec = v1
 	if dec == uintptr(uint32(0)) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(7)
-		}
-		return uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
 	}
 	ret = Opus_opus_dred_decoder_init(tls, dec)
-	if error1 != 0 {
-		*(*int32)(unsafe.Pointer(error1)) = ret
-	}
 	if ret != OPUS_OK {
 		libc.Xfree(tls, dec)
 		dec = uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(ret)
 	}
-	return dec
+	return dec, nil
 }
 
 func Opus_opus_dred_decoder_destroy(tls *libc.TLS, dec uintptr) {
@@ -4494,11 +4481,8 @@ func Opus_opus_dred_get_size(tls *libc.TLS) (r int32) {
 	return 0
 }
 
-func Opus_opus_dred_alloc(tls *libc.TLS, error1 uintptr) (r uintptr) {
-	if error1 != 0 {
-		*(*int32)(unsafe.Pointer(error1)) = -int32(5)
-	}
-	return uintptr(uint32(0))
+func Opus_opus_dred_alloc(tls *libc.TLS) (uintptr, error) {
+	return uintptr(uint32(0)), opusErrorFromCode(-int32(5))
 }
 
 func Opus_opus_dred_free(tls *libc.TLS, dec uintptr) {
@@ -4871,35 +4855,27 @@ _3:
 	return OPUS_OK
 }
 
-func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, mapping uintptr, error1 uintptr) (r uintptr) {
+func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, mapping uintptr) (uintptr, error) {
 	var ret int32
 	var st, v1 uintptr
 	_, _, _ = ret, st, v1
 	if channels > int32(255) || channels < int32(1) || coupled_streams > streams || streams < int32(1) || coupled_streams < 0 || streams > int32(255)-coupled_streams {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(1)
-		}
-		return uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(-int32(1))
 	}
 	v1 = libc.Xmalloc(tls, uint64(uint32(Opus_opus_multistream_decoder_get_size(tls, streams, coupled_streams))))
 	goto _2
 _2:
 	st = v1
 	if st == uintptr(uint32(0)) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(7)
-		}
-		return uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
 	}
 	ret = Opus_opus_multistream_decoder_init(tls, st, Fs, channels, streams, coupled_streams, mapping)
-	if error1 != 0 {
-		*(*int32)(unsafe.Pointer(error1)) = ret
-	}
 	if ret != OPUS_OK {
 		libc.Xfree(tls, st)
 		st = uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(ret)
 	}
-	return st
+	return st, nil
 }
 
 func opus_multistream_packet_validate(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, nb_streams int32, Fs OpusT_opus_int32) (r int32) {
@@ -6433,38 +6409,30 @@ _64:
 	return ret
 }
 
-func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, demixing_matrix uintptr, demixing_matrix_size OpusT_opus_int32, error1 uintptr) (r uintptr) {
+func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, demixing_matrix uintptr, demixing_matrix_size OpusT_opus_int32) (uintptr, error) {
 	var ret, size1 int32
 	var st, v1 uintptr
 	_, _, _, _ = ret, size1, st, v1
 	/* Allocate space for the projection decoder. */
 	size1 = Opus_opus_projection_decoder_get_size(tls, channels, streams, coupled_streams)
 	if !(size1 != 0) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(7)
-		}
-		return uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
 	}
 	v1 = libc.Xmalloc(tls, uint64(uint32(size1)))
 	goto _2
 _2:
 	st = v1
 	if !(st != 0) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(7)
-		}
-		return uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
 	}
 	/* Initialize projection decoder with provided settings. */
 	ret = Opus_opus_projection_decoder_init(tls, st, Fs, channels, streams, coupled_streams, demixing_matrix, demixing_matrix_size)
 	if ret != OPUS_OK {
 		libc.Xfree(tls, st)
 		st = uintptr(uint32(0))
+		return uintptr(uint32(0)), opusErrorFromCode(ret)
 	}
-	if error1 != 0 {
-		*(*int32)(unsafe.Pointer(error1)) = ret
-	}
-	return st
+	return st, nil
 }
 
 func Opus_opus_projection_decode(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {

@@ -277,24 +277,33 @@ func Opus_init_caps(tls *libc.TLS, m uintptr, cap1 uintptr, LM int32, C int32) {
 	}
 }
 
-func Opus_opus_strerror(tls *libc.TLS, error1 int32) (r uintptr) {
+func Opus_opus_strerror(error1 int32) string {
 	if error1 > 0 || error1 < -int32(7) {
-		return __ccgo_ts + 3277
-	} else {
-		return error_strings[-error1]
+		return opus_unknown_error_string
 	}
-	return r
+	return error_strings[-error1]
 }
 
-var error_strings = [8]uintptr{
-	0: __ccgo_ts + 3140,
-	1: __ccgo_ts + 3148,
-	2: __ccgo_ts + 3165,
-	3: __ccgo_ts + 3182,
-	4: __ccgo_ts + 3197,
-	5: __ccgo_ts + 3214,
-	6: __ccgo_ts + 3238,
-	7: __ccgo_ts + 3252,
+func __ccgo_cstring(s string, start int) string {
+	for i := start; i < len(s); i++ {
+		if s[i] == 0 {
+			return s[start:i]
+		}
+	}
+	return s[start:]
+}
+
+var opus_unknown_error_string = __ccgo_cstring(__ccgo_ts1, 3277)
+
+var error_strings = []string{
+	__ccgo_cstring(__ccgo_ts1, 3140),
+	__ccgo_cstring(__ccgo_ts1, 3148),
+	__ccgo_cstring(__ccgo_ts1, 3165),
+	__ccgo_cstring(__ccgo_ts1, 3182),
+	__ccgo_cstring(__ccgo_ts1, 3197),
+	__ccgo_cstring(__ccgo_ts1, 3214),
+	__ccgo_cstring(__ccgo_ts1, 3238),
+	__ccgo_cstring(__ccgo_ts1, 3252),
 }
 
 func Opus_opus_get_version_string(tls *libc.TLS) (r uintptr) {

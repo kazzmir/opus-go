@@ -44,16 +44,17 @@ func NewEncoder(sampleRate, channels, application int) (*Encoder, error) {
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	errPtr := tls.Alloc(4)
-	defer tls.Free(4)
-
-	st := opusccenc.Opus_opus_encoder_create(tls, opusccenc.OpusT_opus_int32(sampleRate), int32(channels), int32(application), errPtr)
-	errCode := *(*int32)(unsafe.Pointer(errPtr))
-	if errCode != opusccenc.OPUS_OK || st == 0 {
-		opusccenc.Opus_opus_encoder_destroy(tls, st)
+	st, err := opusccenc.Opus_opus_encoder_create(tls, opusccenc.OpusT_opus_int32(sampleRate), int32(channels), int32(application))
+	if err != nil || st == 0 {
+		if oe := (*opusccenc.OpusError)(nil); errors.As(err, &oe) {
+			msg := opusccencErrorString(tls, oe.Code)
+			opusccenc.FreePseudostackTLS(tls)
+			tls.Close()
+			return nil, fmt.Errorf("opus: encoder_create failed: %s (%d)", msg, oe.Code)
+		}
 		opusccenc.FreePseudostackTLS(tls)
 		tls.Close()
-		return nil, fmt.Errorf("opus: encoder_create failed: %s (%d)", opusccencErrorString(tls, errCode), errCode)
+		return nil, fmt.Errorf("opus: encoder_create failed: %w", err)
 	}
 
 	return &Encoder{tls: tls, st: st, sampleRate: sampleRate, channels: channels, application: application}, nil
@@ -185,12 +186,10 @@ func (e *Encoder) Encode(pcm []int16, frameSize int, packet []byte) (int, error)
 }
 
 func opusccencErrorString(tls *libc.TLS, code int32) string {
-	if tls == nil {
-		return "(no tls)"
-	}
-	p := opusccenc.Opus_opus_strerror(tls, code)
-	if p == 0 {
+	_ = tls
+	s := opusccenc.Opus_opus_strerror(code)
+	if s == "" {
 		return "(unknown)"
 	}
-	return libc.GoString(p)
+	return s
 }
