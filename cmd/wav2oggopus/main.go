@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"opusgo/ogg"
-	"opusgo/opus"
-	"opusgo/wav"
+	"github.com/kazzmir/opus-go/ogg"
+	"github.com/kazzmir/opus-go/opus"
+	"github.com/kazzmir/opus-go/wav"
 )
 
 func main() {

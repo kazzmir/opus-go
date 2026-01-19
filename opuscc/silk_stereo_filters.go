@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	libc "opusgo/libcshim"
+	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
 var _ reflect.Type

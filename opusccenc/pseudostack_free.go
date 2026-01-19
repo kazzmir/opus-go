@@ -3,7 +3,7 @@ package opusccenc
 import (
 	"unsafe"
 
-	libc "opusgo/libcshim"
+	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
 // Matches the ccgo-only pseudostack storage in celt/stack_alloc.h.

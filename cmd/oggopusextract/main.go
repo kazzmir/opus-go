@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"opusgo/ogg"
+	"github.com/kazzmir/opus-go/ogg"
 )
 
 // Writes length-prefixed Opus packets (u32le length + bytes) for audio packets only.
