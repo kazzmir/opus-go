@@ -12,7 +12,7 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frame_size int32, error1 uintptr) (r uintptr) {
+func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frame_size int32) (uintptr, error) {
 	var i, j int32
 	_, _ = i, j
 	i = 0
@@ -26,10 +26,7 @@ func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frame_size
 				break
 			}
 			if Fs == (*OpusT_OpusCustomMode)(unsafe.Pointer(static_mode_list[i])).FFs && frame_size<<j == (*OpusT_OpusCustomMode)(unsafe.Pointer(static_mode_list[i])).FshortMdctSize*(*OpusT_OpusCustomMode)(unsafe.Pointer(static_mode_list[i])).FnbShortMdcts {
-				if error1 != 0 {
-					*(*int32)(unsafe.Pointer(error1)) = OPUS_OK
-				}
-				return static_mode_list[i]
+				return static_mode_list[i], nil
 			}
 			goto _2
 		_2:
@@ -41,10 +38,7 @@ func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frame_size
 		;
 		i = i + 1
 	}
-	if error1 != 0 {
-		*(*int32)(unsafe.Pointer(error1)) = -int32(1)
-	}
-	return uintptr(uint32(0))
+	return uintptr(uint32(0)), opusErrorFromCode(-int32(1))
 }
 
 const EPSILON1 = 1e-15

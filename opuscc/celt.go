@@ -277,7 +277,7 @@ func Opus_init_caps(tls *libc.TLS, m uintptr, cap1 uintptr, LM int32, C int32) {
 	}
 }
 
-func Opus_opus_strerror(tls *libc.TLS, error1 int32) (r uintptr) {
+func Opus_opus_strerror(error1 int32) (r uintptr) {
 	if error1 > 0 || error1 < -int32(7) {
 		return __ccgo_ts + 3277
 	} else {

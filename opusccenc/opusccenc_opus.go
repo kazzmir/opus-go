@@ -22376,42 +22376,31 @@ _56:
 	return r
 }
 
-func Opus_opus_encoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, application int32, error1 uintptr) (r uintptr) {
+func Opus_opus_encoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, application int32) (uintptr, error) {
 	var ret, size1 int32
 	var st, v1 uintptr
 	_, _, _, _ = ret, size1, st, v1
 	if Fs != int32(48000) && Fs != int32(24000) && Fs != int32(16000) && Fs != int32(12000) && Fs != int32(8000) || channels != int32(1) && channels != int32(2) || application != int32(OPUS_APPLICATION_VOIP) && application != int32(OPUS_APPLICATION_AUDIO) && application != int32(OPUS_APPLICATION_RESTRICTED_LOWDELAY) && application != int32(OPUS_APPLICATION_RESTRICTED_SILK) && application != int32(OPUS_APPLICATION_RESTRICTED_CELT) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(1)
-		}
-		return libc.UintptrFromInt32(0)
+		return libc.UintptrFromInt32(0), opusErrorFromCode(-int32(1))
 	}
 	size1 = Opus_opus_encoder_init(tls, libc.UintptrFromInt32(0), Fs, channels, application)
 	if size1 <= 0 {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(3)
-		}
-		return libc.UintptrFromInt32(0)
+		return libc.UintptrFromInt32(0), opusErrorFromCode(-int32(3))
 	}
 	v1 = libc.Xmalloc(tls, libc.Uint64FromInt32(size1))
 	goto _2
 _2:
 	st = v1
 	if st == libc.UintptrFromInt32(0) {
-		if error1 != 0 {
-			*(*int32)(unsafe.Pointer(error1)) = -int32(7)
-		}
-		return libc.UintptrFromInt32(0)
+		return libc.UintptrFromInt32(0), opusErrorFromCode(-int32(7))
 	}
 	ret = Opus_opus_encoder_init(tls, st, Fs, channels, application)
-	if error1 != 0 {
-		*(*int32)(unsafe.Pointer(error1)) = ret
-	}
 	if ret != OPUS_OK {
 		libc.Xfree(tls, st)
 		st = libc.UintptrFromInt32(0)
+		return libc.UintptrFromInt32(0), opusErrorFromCode(ret)
 	}
-	return st
+	return st, nil
 }
 
 func Opus_opus_encoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
@@ -29182,7 +29171,7 @@ _90:
 	return tot_size
 }
 
-func Opus_opus_strerror(tls *libc.TLS, error1 int32) (r uintptr) {
+func Opus_opus_strerror(error1 int32) (r uintptr) {
 	if error1 > 0 || error1 < -int32(7) {
 		return __ccgo_ts + 4056
 	} else {
