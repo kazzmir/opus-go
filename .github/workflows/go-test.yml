@@ -13,6 +13,7 @@ jobs:
         os:
           - ubuntu-latest
           - ubuntu-24.04-arm
+          - macos-latest
 
     steps:
       - name: Checkout
