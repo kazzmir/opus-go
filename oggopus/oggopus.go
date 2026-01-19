@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"opusgo/ogg"
 )
@@ -62,6 +63,8 @@ type Reader struct {
 	headRead bool
 	tagsRead bool
 }
+
+const OpusSampleRateHz = 48000
 
 func NewReader(r io.Reader) (*Reader, error) {
 	or := &Reader{pr: ogg.NewPacketReader(r)}
@@ -126,6 +129,62 @@ func (r *Reader) ReadAudioPacket() (*Packet, error) {
 		GranuleValid: pkt.GranuleValid,
 		EOS:          pkt.EOS,
 	}, nil
+}
+
+// TotalSamples returns the total number of decoded samples per channel.
+//
+// This is derived from the final granule position and OpusHead.PreSkip (RFC 7845)
+// and does not require decoding to PCM.
+//
+// Note: This method consumes packets until EOF.
+func (r *Reader) TotalSamples() (int64, error) {
+	if r == nil {
+		return 0, errors.New("oggopus: nil reader")
+	}
+	if !r.headRead || !r.tagsRead {
+		return 0, ErrHeaderSequence
+	}
+
+	var lastGranule uint64
+	var have bool
+
+	for {
+		pkt, err := r.ReadAudioPacket()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
+		if pkt.GranuleValid {
+			lastGranule = pkt.GranulePos
+			have = true
+		}
+		if pkt.EOS {
+			break
+		}
+	}
+
+	if !have {
+		return 0, errors.New("oggopus: no granule positions found")
+	}
+
+	total := int64(lastGranule) - int64(r.Head.PreSkip)
+	if total < 0 {
+		total = 0
+	}
+	return total, nil
+}
+
+// TotalDuration returns the decoded playback duration, derived from TotalSamples.
+//
+// Note: This method consumes packets until EOF.
+func (r *Reader) TotalDuration() (time.Duration, error) {
+	samples, err := r.TotalSamples()
+	if err != nil {
+		return 0, err
+	}
+	return time.Duration(samples) * time.Second / OpusSampleRateHz, nil
 }
 
 func parseOpusHead(b []byte) (OpusHead, error) {
