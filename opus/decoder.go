@@ -4,9 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"unsafe"
 
-	"modernc.org/libc"
+	libc "opusgo/libcshim"
 
 	"opusgo/oggopus"
 	"opusgo/opuscc"
@@ -64,7 +63,7 @@ func NewDecoder(sampleRate, channels int) (*Decoder, error) {
 	defer tls.Free(4)
 
 	st := opuscc.Opus_opus_decoder_create(tls, opuscc.OpusT_opus_int32(sampleRate), int32(channels), errPtr)
-	errCode := *(*int32)(unsafe.Pointer(errPtr))
+	errCode := libc.LoadInt32(errPtr)
 	if errCode != opuscc.OPUS_OK || st == 0 {
 		opuscc.Opus_opus_decoder_destroy(tls, st)
 		tls.Close()
@@ -83,10 +82,7 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 	errPtr := tls.Alloc(4)
 	defer tls.Free(4)
 
-	var mappingPtr uintptr
-	if len(mapping) > 0 {
-		mappingPtr = uintptr(unsafe.Pointer(&mapping[0]))
-	}
+	mappingPtr := libc.PtrUint8(mapping)
 
 	st := opuscc.Opus_opus_multistream_decoder_create(
 		tls,
@@ -97,7 +93,7 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 		mappingPtr,
 		errPtr,
 	)
-	errCode := *(*int32)(unsafe.Pointer(errPtr))
+	errCode := libc.LoadInt32(errPtr)
 	if errCode != opuscc.OPUS_OK || st == 0 {
 		opuscc.Opus_opus_multistream_decoder_destroy(tls, st)
 		tls.Close()
@@ -157,14 +153,9 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
 	}
 
-	var dataPtr uintptr
-	var dataLen int32
-	if len(packet) > 0 {
-		dataPtr = uintptr(unsafe.Pointer(&packet[0]))
-		dataLen = int32(len(packet))
-	}
-
-	pcmPtr := uintptr(unsafe.Pointer(&pcm[0]))
+	dataPtr := libc.PtrByte(packet)
+	dataLen := int32(len(packet))
+	pcmPtr := libc.PtrInt16(pcm)
 	fec := int32(0)
 	if decodeFEC {
 		fec = 1

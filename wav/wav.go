@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/binary"
 	"io"
-	"unsafe"
 )
 
 // Writer writes 16-bit PCM WAV files.
@@ -16,14 +15,11 @@ type Writer struct {
 	sampleRate uint32
 	channels   uint16
 
+	buf []byte
+
 	dataBytes uint32
 	closed    bool
 }
-
-var nativeLittleEndian = func() bool {
-	var x uint16 = 1
-	return *(*byte)(unsafe.Pointer(&x)) == 1
-}()
 
 func NewWriter(w io.WriteSeeker, sampleRate int, channels int) (*Writer, error) {
 	wr := &Writer{
@@ -50,25 +46,18 @@ func (wr *Writer) WriteInt16PCM(pcm []int16) error {
 		return nil
 	}
 
-	// Fast path: on little-endian machines, int16 slice is already little-endian.
-	if nativeLittleEndian {
-		b := unsafe.Slice((*byte)(unsafe.Pointer(&pcm[0])), len(pcm)*2)
-		if _, err := wr.bw.Write(b); err != nil {
-			return err
-		}
-		wr.dataBytes += uint32(len(b))
-		return nil
+	n := len(pcm) * 2
+	if cap(wr.buf) < n {
+		wr.buf = make([]byte, n)
 	}
-
-	// Portable fallback.
-	buf := make([]byte, len(pcm)*2)
+	buf := wr.buf[:n]
 	for i, s := range pcm {
 		binary.LittleEndian.PutUint16(buf[i*2:], uint16(s))
 	}
 	if _, err := wr.bw.Write(buf); err != nil {
 		return err
 	}
-	wr.dataBytes += uint32(len(buf))
+	wr.dataBytes += uint32(n)
 	return nil
 }
 
