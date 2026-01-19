@@ -33,7 +33,7 @@ type Decoder struct {
 
 func NewDecoderFromHead(head ogg.OpusHead) (*Decoder, error) {
 	// RFC 7845: Opus is decoded at 48 kHz.
-	const fs = 48000
+	const fs = ogg.OpusSampleRateHz
 
 	if head.ChannelMappingFamily == 0 {
 		if head.Channels != 1 && head.Channels != 2 {
@@ -172,6 +172,22 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(d.tls, ret), ret)
 	}
 	return int(ret), nil
+}
+
+// convenience function to decode an Ogg OpusAudioPacket
+func (decoder *Decoder) DecodePacket(packet *ogg.OpusAudioPacket, pcm []int16) ([]int16, int, error) {
+    const maxMsPerFrame = 120
+    maxSize := ogg.OpusSampleRateHz * maxMsPerFrame / 1000
+    if len(pcm) < maxSize * decoder.channels {
+        pcm = make([]int16, maxSize * decoder.channels)
+    }
+
+    n, err := decoder.Decode(packet.Data, pcm, maxSize, false)
+    if err != nil {
+        return nil, 0, err
+    }
+
+    return pcm[:n*decoder.channels], n, nil
 }
 
 func opusccErrorString(tls *libc.TLS, code int32) string {
