@@ -163,3 +163,7 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
 
     return 0, fmt.Errorf("unsupported number of channels: %d", player.reader.Head.Channels)
 }
+
+func (player *OpusPlayer) SampleRate() int {
+    return ogg.OpusSampleRateHz
+}
