@@ -5,6 +5,7 @@ import (
     "fmt"
     "time"
     "runtime"
+    "log"
 
     "github.com/kazzmir/opus-go/player"
     "github.com/ebitengine/oto/v3"
@@ -27,12 +28,13 @@ func play(filename string) error {
         return err
     }
 
-    fmt.Printf("Waiting for audio context to be ready\n")
+    log.Printf("Waiting for audio context to be ready")
     <-ready
 
-    fmt.Printf("Playing\n")
+    log.Printf("Playing")
 
     otoPlayer := context.NewPlayer(opusPlayer)
+    otoPlayer.SetBufferSize(options.SampleRate * 2 * 2 / 4) // 250ms buffer
     otoPlayer.Play()
 
     if otoPlayer.Err() != nil {
@@ -52,6 +54,7 @@ func play(filename string) error {
 }
 
 func main() {
+    log.SetFlags(log.Ldate | log.Lshortfile | log.Lmicroseconds)
     if len(os.Args) < 2 {
         fmt.Println("Provide a .ogg or .opus file to play")
         return
@@ -64,5 +67,5 @@ func main() {
         fmt.Printf("Error playing file: %v\n", err)
     }
 
-    fmt.Println("Exiting")
+    log.Println("Exiting")
 }

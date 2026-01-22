@@ -6,6 +6,7 @@ import (
     "os"
     "bytes"
     "bufio"
+    // "log"
 
     "github.com/kazzmir/opus-go/ogg"
     "github.com/kazzmir/opus-go/opus"
@@ -51,6 +52,7 @@ func NewPlayerFromFile(path string, stream bool) (*OpusPlayer, error) {
 
     if stream {
         // dont need bufio here because OggOpusReader already uses bufio internally
+        // note that we rely on the garbage collector to close the file when the player is done with it
         return NewPlayerFromReader(file)
     } else {
         defer file.Close()
@@ -64,13 +66,32 @@ func NewPlayerFromFile(path string, stream bool) (*OpusPlayer, error) {
     }
 }
 
+// returns true when the stream has finished and all bytes decoded
+// have been read, meaning when the internal buffer is empty
 func (player *OpusPlayer) IsFinished() bool {
     return player.finished && player.position >= len(player.buffer)
 }
 
+// read as much data as possible into p
 func (player *OpusPlayer) Read(p []byte) (int, error) {
+    total := 0
+    for total < len(p) {
+        n, err := player.ReadPacket(p[total:])
+        if err != nil {
+            return total + n, err
+        }
+        total += n
+    }
+
+    return total, nil
+}
+
+// read at most one opus packet's worth of audio into p
+func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
     // we have len(p) bytes to fill up, which is len(p)/2 int16 samples
     // we are going to produce stereo audio, so the number of samples read per channel will be len(p)/4
+
+    // log.Printf("OpusPlayer read: p=%d position=%d buffer=%d finished=%v", len(p), player.position, len(player.buffer), player.finished)
 
     if player.position >= len(player.buffer) {
         packet, err := player.reader.ReadAudioPacket()
