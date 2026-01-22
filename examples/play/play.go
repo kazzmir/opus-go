@@ -7,13 +7,13 @@ import (
     "runtime"
     "log"
 
-    "github.com/kazzmir/opus-go/player"
+    "github.com/kazzmir/opus-go"
     "github.com/ebitengine/oto/v3"
 )
 
 func play(filename string) error {
 
-    opusPlayer, err := player.NewPlayerFromFile(filename, true)
+    opusPlayer, err := opusgo.NewPlayerFromFile(filename, true)
     if err != nil {
         return err
     }
