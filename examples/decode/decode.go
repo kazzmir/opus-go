@@ -6,7 +6,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/kazzmir/opus-go/player"
+    "github.com/kazzmir/opus-go"
 )
 
 func decode(filename string) error {
@@ -15,7 +15,7 @@ func decode(filename string) error {
         return err
     }
 
-    opusPlayer, err := player.NewPlayerFromFile(filename, true)
+    opusPlayer, err := opusgo.NewPlayerFromFile(filename, true)
     if err != nil {
         return err
     }
