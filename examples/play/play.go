@@ -37,13 +37,16 @@ func play(filename string) error {
     log.Printf("Length: %v", opusPlayer.Length())
 
     // opusPlayer.Seek(80000)
-    // opusPlayer.SeekTime(40 * time.Second)
-    n, err := opusPlayer.Seek(-65000, io.SeekEnd)
+    // err = opusPlayer.SeekTime(42382 * time.Millisecond)
+    n, err := opusPlayer.Seek(-5, io.SeekEnd)
     if err != nil {
         log.Printf("Error seeking: %v", err)
     } else {
         log.Printf("Seeked to byte position: %d", n)
     }
+
+    log.Printf("Current position: %v", opusPlayer.CurrentPosition())
+    log.Printf("Current time: %v", opusPlayer.CurrentTime())
 
     otoPlayer := context.NewPlayer(opusPlayer)
     otoPlayer.SetBufferSize(options.SampleRate * 2 * 2 / 4) // 250ms buffer

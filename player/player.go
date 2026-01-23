@@ -268,3 +268,13 @@ func (player *OpusPlayer) SeekTime(when time.Duration) error {
     samples := uint64(when * time.Duration(ogg.OpusSampleRateHz) / time.Second)
     return player.SeekSample(samples)
 }
+
+// in terms of samples (not bytes)
+func (player *OpusPlayer) CurrentPosition() int64 {
+    return player.totalSamples
+}
+
+// in terms of time.Duration
+func (player *OpusPlayer) CurrentTime() time.Duration {
+    return time.Duration(player.totalSamples) * time.Second / time.Duration(ogg.OpusSampleRateHz)
+}
