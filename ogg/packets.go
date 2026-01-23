@@ -54,8 +54,8 @@ func (r *PacketReader) reset() {
 
 // seek to the first page that contains the granule position
 // note that the granule position on the page is the position of the last complete packet on that page
-// For example, if granulePos == 40000 then we find the page that has the closets granule position below
-// 4000, which may be GranulePosition=38000. Then we keep reading packets until we see the last valid packet
+// For example, if granulePos == 40000 then we find the page that has the closest granule position below
+// 40000, which may be GranulePosition=38000. Then we keep reading packets until we see the last valid packet
 // with GranulePosition=38000. The packet we care about must be the next one
 func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
     seeker, ok := r.reader.(io.ReadSeeker)
@@ -209,7 +209,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
     r.reset()
     r.pr = NewPageReader(seeker)
 
-    fmt.Printf("start sequential scan at position %d\n", position)
+    fmt.Printf("start sequential scan at position %d pages %d\n", position, pages)
     last := uint64(0)
     for {
         page, err := r.ReadPacket()
