@@ -47,9 +47,9 @@ func main() {
 		}
 		count++
 		if pkt.GranuleValid {
-			fmt.Printf("pkt=%d bytes=%d granule=%d eos=%v\n", count, len(pkt.Data), pkt.GranulePos, pkt.EOS)
+			fmt.Printf("pkt=%d bytes=%d granule=%d page=%d eos=%v\n", count, len(pkt.Data), pkt.GranulePos, pkt.PageSequence, pkt.EOS)
 		} else {
-			fmt.Printf("pkt=%d bytes=%d granule=? eos=%v\n", count, len(pkt.Data), pkt.EOS)
+			fmt.Printf("pkt=%d bytes=%d granule=? (%d) page=%d eos=%v\n", count, len(pkt.Data), pkt.GranulePos, pkt.PageSequence, pkt.EOS)
 		}
 		if *max > 0 && count >= *max {
 			break

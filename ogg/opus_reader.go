@@ -52,6 +52,7 @@ type OpusAudioPacket struct {
 	GranulePos   uint64
 	GranuleValid bool
 	EOS          bool
+    PageSequence uint32
 }
 
 // OpusReader reads an Ogg Opus file/stream and yields Opus audio packets.
@@ -134,7 +135,13 @@ func (r *OpusReader) ReadAudioPacket() (*OpusAudioPacket, error) {
 		GranulePos:   pkt.GranulePosition,
 		GranuleValid: pkt.GranuleValid,
 		EOS:          pkt.EOS,
+        PageSequence: pkt.PageSequenceEnd,
 	}, nil
+}
+
+// returns the granule position of the sequence just before the requested granule position
+func (r *OpusReader) SeekToPage(granulePos uint64) (uint64, error) {
+    return r.pr.SeekToPage(granulePos)
 }
 
 // TotalSamples returns the total number of decoded samples per channel.

@@ -121,7 +121,7 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
         if player.preskipRemaining > 0 {
             skip := min(n, player.preskipRemaining)
             player.preskipRemaining -= skip
-            player.position += skip * int(player.reader.Head.Channels)
+            player.position += skip
         }
     }
 
@@ -166,4 +166,54 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
 
 func (player *OpusPlayer) SampleRate() int {
     return ogg.OpusSampleRateHz
+}
+
+// position is a number of samples (not bytes) from the start of the stream
+// e.g., 0 is the start of the stream (after preskip), and the last available position is
+// the total samples - 1 (which is the same as the last granule position - preskip)
+func (player *OpusPlayer) Seek(position uint64) error {
+    // adjust for stereo -> mono
+    /*
+    if player.reader.Head.Channels == 1 {
+        position /= 2
+    }
+    */
+
+    // force reader to go back to the page that contains the desired position
+    granule, err := player.reader.SeekToPage(position + uint64(player.reader.Head.PreSkip))
+    if err != nil {
+        return err
+    }
+
+    // how many samples to skip in this packet sequence
+    skipSamples := position - granule
+    if granule == 0 {
+        skipSamples += uint64(player.reader.Head.PreSkip)
+    }
+
+    for skipSamples > 0 {
+        packet, err := player.reader.ReadAudioPacket()
+        if err != nil {
+            return err
+        }
+
+        player.finished = packet.EOS
+        player.position = 0
+        player.buffer = player.buffer[:cap(player.buffer)]
+
+        decoded, n, err := player.decoder.DecodePacket(packet, player.buffer)
+        if err != nil {
+            return err
+        }
+
+        move := min(uint64(n), skipSamples)
+        skipSamples -= move
+
+        // the granule position of the packet is the last position in the buffer
+        // we want to skip to granule - position
+        player.buffer = decoded
+        player.position += int(move)
+    }
+
+    return nil
 }

@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"math"
+    "bufio"
+    "bytes"
+    "slices"
 )
 
 var (
@@ -29,6 +32,7 @@ type Packet struct {
 // are present it will return ErrSerialMismatch.
 type PacketReader struct {
 	pr          *PageReader
+    reader      io.Reader // the original reader for seeking
 	serial      *uint32
 	pending     []byte
 	havePending bool
@@ -36,7 +40,179 @@ type PacketReader struct {
 }
 
 func NewPacketReader(r io.Reader) *PacketReader {
-	return &PacketReader{pr: NewPageReader(r)}
+	return &PacketReader{
+        pr: NewPageReader(r),
+        reader: r,
+    }
+}
+
+func (r *PacketReader) reset() {
+    r.pending = nil
+    r.queue = nil
+    r.havePending = false
+}
+
+// seek to the first page that contains the granule position
+// note that the granule position on the page is the position of the last complete packet on that page
+// For example, if granulePos == 40000 then we find the page that has the closets granule position below
+// 4000, which may be GranulePosition=38000. Then we keep reading packets until we see the last valid packet
+// with GranulePosition=38000. The packet we care about must be the next one
+func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
+    seeker, ok := r.reader.(io.ReadSeeker)
+    if !ok {
+        return 0, fmt.Errorf("ogg: underlying reader is not seekable")
+    }
+
+    // seek to beginning
+    if granulePos == 0 {
+        r.reset()
+        _, err := seeker.Seek(0, io.SeekStart)
+        if err != nil {
+            return 0, err
+        }
+        r.pr = NewPageReader(seeker)
+        // skip headers
+        for range 2 {
+            _, err := r.ReadPacket()
+            if err != nil {
+                return 0, err
+            }
+        }
+
+        return 0, nil
+    }
+
+    total, err := seeker.Seek(0, io.SeekEnd)
+    if err != nil {
+        return 0, err
+    }
+
+    _, err = seeker.Seek(0, io.SeekStart)
+    if err != nil {
+        return 0, err
+    }
+
+    start := int64(0)
+
+    // should be large enough to read an entire ogg page, even with continued segments
+    // FIXME: use a bytes.buffer and read 1k until we find a page
+    data := make([]byte, 10000)
+
+    // these bytes are the start of an ogg page
+    scanBytes := []byte{'O', 'g', 'g', 'S', 0}
+
+    // map of granule positions to file positions that starts the page where the granule is
+    granulePositions := make(map[uint64]int64)
+
+    highestGranule := uint64(0)
+    highestPage := uint32(0)
+    lowestGranule := uint64(0)
+
+    for start < total {
+        position := (total + start) / 2
+        _, err = seeker.Seek(position, io.SeekStart)
+        if err != nil {
+            return 0, err
+        }
+
+        n, err := io.ReadFull(bufio.NewReader(seeker), data)
+        if err != nil {
+            if errors.Is(err, io.EOF) {
+                total = position
+                continue
+            }
+            if !errors.Is(err, io.ErrUnexpectedEOF) {
+                // some other error while reading?
+                return 0, err
+            }
+        }
+        // read n bytes, scan for an ogg header "OggS\0"
+
+        index := bytes.Index(data[:n], scanBytes)
+        if index == -1 {
+            // if we don't find a page then back up
+            total = position
+        } else {
+            // found a page at index, seek there and read the page
+            // if the granule position is less than the target, move start up
+            // if the granule position is greater than the target then this might be the page we want
+            // but we still have to check the previous page
+
+            seeker.Seek(position + int64(index), io.SeekStart)
+            r.reset()
+            r.pr = NewPageReader(seeker)
+            page, err := r.ReadPacket()
+            if err != nil {
+                // this wasn't a page after all?
+                total = position
+                continue
+            }
+
+            last, ok := granulePositions[page.GranulePosition]
+            if ok && last == position+int64(index) {
+                // we already scanned this page. total must be too close to start
+                // force scanning at start
+                total = start + 1
+                continue
+            }
+
+            granulePositions[page.GranulePosition] = position + int64(index)
+
+            // the highest granule position that is above the target but closest to the target
+            if page.GranulePosition > granulePos && (highestGranule == 0 || page.GranulePosition <= highestGranule) {
+                highestGranule = page.GranulePosition
+                highestPage = page.PageSequenceEnd
+                // search down for the next highest page
+                total = position
+
+                // this is the earliest page that can have data on it
+                if highestPage == 2 {
+                    break
+                }
+            }
+
+            // this page is too low
+            if page.GranulePosition < granulePos {
+                if page.GranulePosition > lowestGranule {
+                    lowestGranule = page.GranulePosition
+                }
+
+                // this is one byte after the start of the page we just found, but we
+                // have no way to know how many bytes this page takes up, so just jump ahead a bit
+                // there must be another page that comes after this one
+                start = position + int64(index) + 1
+            }
+        }
+    }
+
+    if highestGranule == 0 {
+        // never found the page, or the target granule position is beyond the end of the stream
+        return 0, fmt.Errorf("ogg: could not find page with granule position %d", granulePos)
+    }
+
+    position, ok := granulePositions[lowestGranule]
+    if !ok {
+        return 0, fmt.Errorf("ogg: could not find page with granule position %d", lowestGranule)
+    }
+
+    seeker.Seek(position, io.SeekStart)
+    r.reset()
+    r.pr = NewPageReader(seeker)
+
+    last := uint64(0)
+    for {
+        page, err := r.ReadPacket()
+        if err != nil {
+            return 0, err
+        }
+        if page.GranulePosition >= granulePos {
+            // put back in the queue
+            r.queue = slices.Insert(r.queue, 0, page)
+            return last, nil
+        } else {
+            last = page.GranulePosition
+        }
+    }
 }
 
 func (r *PacketReader) SetVerifyCRC(v bool) { r.pr.VerifyCRC = v }
