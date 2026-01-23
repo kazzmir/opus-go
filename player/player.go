@@ -20,6 +20,8 @@ type OpusPlayer struct {
     preskipRemaining int
     position int
     finished bool
+    // how many samples have been read so far
+    totalSamples int64
 }
 
 func NewPlayerFromReader(reader io.Reader) (*OpusPlayer, error) {
@@ -143,6 +145,7 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
                 count += 1
             }
             player.position += count
+            player.totalSamples += int64(count)
 
             return count * 4, nil
 
@@ -158,6 +161,7 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
                 count += 1
             }
             player.position += count
+            player.totalSamples += int64(count)
 
             return count * 2, nil
     }
@@ -177,25 +181,38 @@ func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
             offset /= 4
     }
 
-    // for whence==set
-    err := player.SeekSample(uint64(offset))
+    var err error
 
-    return offset, err
+    switch whence {
+        case io.SeekStart:
+            // for whence==set
+            err = player.SeekSample(uint64(offset))
+        case io.SeekCurrent:
+            n := max(0, offset + player.totalSamples)
+            err = player.SeekSample(uint64(n))
+        case io.SeekEnd:
+            length := player.Length()
+            n := max(0, offset + length)
+            err = player.SeekSample(uint64(n))
+    }
+
+
+    return player.totalSamples * 2 * int64(player.reader.Head.Channels), err
+}
+
+// total length in bytes (not samples)
+func (player *OpusPlayer) Length() int64 {
+    return 0
 }
 
 // position is a number of samples (not bytes) from the start of the stream
 // e.g., 0 is the start of the stream (after preskip), and the last available position is
 // the total samples - 1 (which is the same as the last granule position - preskip)
 func (player *OpusPlayer) SeekSample(position uint64) error {
-    // adjust for stereo -> mono
-    /*
-    if player.reader.Head.Channels == 1 {
-        position /= 2
-    }
-    */
+    position += uint64(player.reader.Head.PreSkip)
 
     // force reader to go back to the page that contains the desired position
-    granule, err := player.reader.SeekToPage(position + uint64(player.reader.Head.PreSkip))
+    granule, err := player.reader.SeekToPage(position)
     if err != nil {
         return err
     }
@@ -204,7 +221,8 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
     // if preskip is larger than granule, we need to skip less
     // e.g., preskip = 2500, granule = 2000, that means that sample 2500 is the first 'real' sample
     // so position=0 should skip 500 samples
-    skipSamples := position + max(0, uint64(player.reader.Head.PreSkip) - granule)
+    skipSamples := position - granule
+    player.totalSamples = int64(granule) - int64(player.reader.Head.PreSkip)
 
     for skipSamples > 0 {
         packet, err := player.reader.ReadAudioPacket()
@@ -228,12 +246,14 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
         // we want to skip to granule - position
         player.buffer = decoded
         player.position += int(move)
+        player.totalSamples += int64(move)
     }
 
     return nil
 }
 
-func (player *OpusPlayer) SeekToTime(when time.Duration) error {
+// seek to the position specified by the argument in terms of time
+func (player *OpusPlayer) SeekTime(when time.Duration) error {
     samples := uint64(when * time.Duration(ogg.OpusSampleRateHz) / time.Second)
     return player.SeekSample(samples)
 }
