@@ -96,7 +96,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
 
     // should be large enough to read an entire ogg page, even with continued segments
     // FIXME: use a bytes.buffer and read 1k until we find a page
-    data := make([]byte, 10000)
+    data := make([]byte, 8000)
 
     // these bytes are the start of an ogg page
     scanBytes := []byte{'O', 'g', 'g', 'S', 0}
@@ -107,6 +107,8 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
     highestGranule := uint64(0)
     highestPage := uint32(0)
     lowestGranule := uint64(0)
+
+    pages := 0
 
     for start < total {
         position := (total + start) / 2
@@ -147,6 +149,8 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
                 total = position
                 continue
             }
+
+            pages += 1
 
             last, ok := granulePositions[page.GranulePosition]
             if ok && last == position+int64(index) {
@@ -205,15 +209,18 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
     r.reset()
     r.pr = NewPageReader(seeker)
 
+    fmt.Printf("start sequential scan at position %d\n", position)
     last := uint64(0)
     for {
         page, err := r.ReadPacket()
         if err != nil {
             return 0, err
         }
+        pages += 1
         if page.GranulePosition >= granulePos {
             // put back in the queue
             r.queue = slices.Insert(r.queue, 0, page)
+            fmt.Printf("ogg: SeekToPage scanned %d pages to find granule position %d\n", pages, granulePos)
             return last, nil
         } else {
             last = page.GranulePosition
