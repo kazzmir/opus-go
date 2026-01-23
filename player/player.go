@@ -173,6 +173,9 @@ func (player *OpusPlayer) SampleRate() int {
     return ogg.OpusSampleRateHz
 }
 
+// offset is a byte position within the decoded PCM stream
+// whence is one of io.SeekStart, io.SeekCurrent, io.SeekEnd
+// returns the new offset in bytes from the start of the stream
 func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
     switch player.reader.Head.Channels {
         case 1:
