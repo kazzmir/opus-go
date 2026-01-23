@@ -153,6 +153,12 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
                 // we already scanned this page. total must be too close to start
                 // force scanning at start
                 total = start + 1
+
+                // tie break
+                if position == start {
+                    break
+                }
+
                 continue
             }
 

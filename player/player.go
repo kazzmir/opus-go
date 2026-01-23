@@ -6,6 +6,7 @@ import (
     "os"
     "bytes"
     "bufio"
+    "time"
     // "log"
 
     "github.com/kazzmir/opus-go/ogg"
@@ -216,4 +217,9 @@ func (player *OpusPlayer) Seek(position uint64) error {
     }
 
     return nil
+}
+
+func (player *OpusPlayer) SeekToTime(when time.Duration) error {
+    samples := uint64(when * time.Duration(ogg.OpusSampleRateHz) / time.Second)
+    return player.Seek(samples)
 }

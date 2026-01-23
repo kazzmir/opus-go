@@ -33,7 +33,8 @@ func play(filename string) error {
 
     log.Printf("Playing")
 
-    opusPlayer.Seek(80000)
+    // opusPlayer.Seek(80000)
+    opusPlayer.SeekToTime(70 * time.Second)
 
     otoPlayer := context.NewPlayer(opusPlayer)
     otoPlayer.SetBufferSize(options.SampleRate * 2 * 2 / 4) // 250ms buffer
