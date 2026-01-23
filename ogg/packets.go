@@ -228,6 +228,47 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
     }
 }
 
+// return the last granule position in the stream
+// this is a destructive operation that will position the stream at the end
+// so no more packets can be read after this, unless the stream is seek'd somewhere
+func (r *PacketReader) LastPageGranule() (int64, error) {
+    seeker, ok := r.reader.(io.ReadSeeker)
+    if ok {
+        total, err := seeker.Seek(0, io.SeekEnd)
+        if err != nil {
+            return 0, err
+        }
+        backup := max(0, total-65536)
+        position, err := seeker.Seek(backup, io.SeekStart)
+        if err != nil {
+            return 0, err
+        }
+        data := make([]byte, total-position)
+        _, err = io.ReadFull(bufio.NewReader(seeker), data)
+        if err != nil {
+            return 0, err
+        }
+
+        r.reset()
+        scanBytes := []byte{'O', 'g', 'g', 'S', 0}
+
+        // find a page
+        index := bytes.Index(data, scanBytes)
+        seeker.Seek(position+int64(index), io.SeekStart)
+        r.pr = NewPageReader(seeker)
+    }
+
+    for {
+        page, err := r.ReadPacket()
+        if err == nil && page.EOS && page.GranuleValid {
+            return int64(page.GranulePosition), nil
+        }
+        if err != nil {
+            return 0, fmt.Errorf("ogg: could not find last page granule: %v", err)
+        }
+    }
+}
+
 func (r *PacketReader) SetVerifyCRC(v bool) { r.pr.VerifyCRC = v }
 
 func (r *PacketReader) ReadPacket() (*Packet, error) {

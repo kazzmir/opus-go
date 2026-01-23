@@ -177,12 +177,16 @@ func (player *OpusPlayer) SampleRate() int {
 // whence is one of io.SeekStart, io.SeekCurrent, io.SeekEnd
 // returns the new offset in bytes from the start of the stream
 func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
-    switch player.reader.Head.Channels {
-        case 1:
-            offset /= 2
-        case 2:
-            offset /= 4
+    byteToSample := func(b int64) int64 {
+        switch player.reader.Head.Channels {
+            case 1: return b/2
+            case 2: return b/4
+        }
+
+        return b
     }
+
+    offset = byteToSample(offset)
 
     var err error
 
@@ -194,7 +198,7 @@ func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
             n := max(0, offset + player.totalSamples)
             err = player.SeekSample(uint64(n))
         case io.SeekEnd:
-            length := player.Length()
+            length := byteToSample(player.Length())
             n := max(0, offset + length)
             err = player.SeekSample(uint64(n))
     }
@@ -205,7 +209,11 @@ func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
 
 // total length in bytes (not samples)
 func (player *OpusPlayer) Length() int64 {
-    return 0
+    total, err := player.reader.TotalSamples()
+    if err != nil {
+        return 0
+    }
+    return total * int64(player.reader.Head.Channels)
 }
 
 // position is a number of samples (not bytes) from the start of the stream

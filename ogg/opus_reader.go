@@ -144,13 +144,22 @@ func (r *OpusReader) SeekToPage(granulePos uint64) (uint64, error) {
     return r.pr.SeekToPage(granulePos)
 }
 
+func (r *OpusReader) TotalSamples() (int64, error) {
+    granule, err := r.pr.LastPageGranule()
+    if err != nil {
+        return 0, err
+    }
+
+    return granule - int64(r.Head.PreSkip), nil
+}
+
 // TotalSamples returns the total number of decoded samples per channel.
 //
 // This is derived from the final granule position and OpusHead.PreSkip (RFC 7845)
 // and does not require decoding to PCM.
 //
 // Note: This method consumes packets until EOF.
-func (r *OpusReader) TotalSamples() (int64, error) {
+func (r *OpusReader) TotalSamplesScan() (int64, error) {
 	if r == nil {
 		return 0, errors.New("ogg: nil OpusReader")
 	}
