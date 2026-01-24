@@ -45,7 +45,7 @@ func play(filename string) error {
         log.Printf("Seeked to byte position: %d", n)
     }
 
-    log.Printf("Current position: %v", opusPlayer.CurrentPosition())
+    log.Printf("Current position: %v", opusPlayer.CurrentSample())
     log.Printf("Current time: %v", opusPlayer.CurrentTime())
 
     otoPlayer := context.NewPlayer(opusPlayer)

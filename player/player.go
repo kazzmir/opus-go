@@ -269,12 +269,12 @@ func (player *OpusPlayer) SeekTime(when time.Duration) error {
     return player.SeekSample(samples)
 }
 
-// in terms of samples (not bytes)
-func (player *OpusPlayer) CurrentPosition() int64 {
+// current position in samples
+func (player *OpusPlayer) CurrentSample() int64 {
     return player.totalSamples
 }
 
-// in terms of time.Duration
+// current position in terms of time
 func (player *OpusPlayer) CurrentTime() time.Duration {
     return time.Duration(player.totalSamples) * time.Second / time.Duration(ogg.OpusSampleRateHz)
 }
