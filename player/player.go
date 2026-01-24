@@ -177,13 +177,9 @@ func (player *OpusPlayer) SampleRate() int {
 // whence is one of io.SeekStart, io.SeekCurrent, io.SeekEnd
 // returns the new offset in bytes from the start of the stream
 func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
+    // 1 sample = 2 bytes per channel, where the decoded stream is always stereo
     byteToSample := func(b int64) int64 {
-        switch player.reader.Head.Channels {
-            case 1: return b/2
-            case 2: return b/4
-        }
-
-        return b
+        return b / 4
     }
 
     offset = byteToSample(offset)
@@ -204,7 +200,7 @@ func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
     }
 
 
-    return player.totalSamples * 2 * int64(player.reader.Head.Channels), err
+    return player.totalSamples * 4, err
 }
 
 // total length in bytes (not samples)
@@ -213,7 +209,7 @@ func (player *OpusPlayer) Length() int64 {
     if err != nil {
         return 0
     }
-    return total * 2 * int64(player.reader.Head.Channels)
+    return total * 4
 }
 
 // position is a number of samples (not bytes) from the start of the stream
