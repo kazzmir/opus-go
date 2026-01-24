@@ -13,6 +13,7 @@ import (
 )
 
 func play(filename string) error {
+    io.WriteString(os.Stdout, fmt.Sprintf("Playing file: %s\n", filename))
 
     opusPlayer, err := opusgo.NewPlayerFromFile(filename, true)
     if err != nil {
@@ -34,12 +35,12 @@ func play(filename string) error {
 
     log.Printf("Playing")
 
-    log.Printf("Length: %v", opusPlayer.Length())
+    // log.Printf("Length: %v", opusPlayer.Length())
 
     // opusPlayer.Seek(80000)
     // err = opusPlayer.SeekTime(80379 * time.Millisecond)
 
-    n, err := opusPlayer.Seek(-1000000, io.SeekEnd)
+    n, err := opusPlayer.Seek(-2000000, io.SeekEnd)
     if err != nil {
         log.Printf("Error seeking: %v", err)
     } else {
@@ -58,7 +59,7 @@ func play(filename string) error {
     }
 
     for !opusPlayer.IsFinished() {
-        time.Sleep(1 * time.Second)
+        time.Sleep(100 * time.Millisecond)
         runtime.KeepAlive(otoPlayer)
     }
 

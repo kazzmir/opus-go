@@ -103,6 +103,7 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
     if player.position >= len(player.buffer) {
         packet, err := player.reader.ReadAudioPacket()
         if err != nil {
+            player.finished = true
             return 0, err
 
             // fill with silence
@@ -141,13 +142,13 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
 
         // discard excess samples based on granule position
         if packet.GranuleValid {
-            actual := uint64(player.totalSamples + int64(n + int(player.reader.Head.PreSkip)) * int64(player.reader.Head.Channels))
-            maxSamples := packet.GranulePos * uint64(player.reader.Head.Channels)
+            actual := uint64(player.totalSamples + int64(n + int(player.reader.Head.PreSkip)))
+            maxSamples := packet.GranulePos
 
             // this page's granule position indicates that we should drop some of the decoded samples
             if actual > maxSamples {
                 excessSamples := actual - maxSamples
-                upper := excessSamples
+                upper := excessSamples * uint64(player.reader.Head.Channels)
                 if upper < uint64(len(player.buffer)) {
                     player.buffer = player.buffer[:len(player.buffer) - int(upper)]
                 }
@@ -188,7 +189,7 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
                 count += 1
             }
             player.position += count
-            player.totalSamples += int64(count)
+            player.totalSamples += int64(count / 2)
 
             return count * 2, nil
     }
@@ -215,7 +216,6 @@ func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
 
     switch whence {
         case io.SeekStart:
-            // for whence==set
             err = player.SeekSample(uint64(offset))
         case io.SeekCurrent:
             n := max(0, offset + player.totalSamples)
@@ -283,7 +283,7 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
 
         // if move is less than n then we need to keep the remaining samples in the buffer
         player.buffer = decoded
-        player.position += int(move)
+        player.position += int(move * uint64(player.reader.Head.Channels))
         player.totalSamples += int64(move)
     }
 

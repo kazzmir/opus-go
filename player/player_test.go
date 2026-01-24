@@ -5,6 +5,7 @@ import (
     "time"
     "bytes"
     "io"
+    "fmt"
 )
 
 const testFilePath = "../test/music_64kbps.opus"
@@ -80,6 +81,45 @@ func TestSeek2(test *testing.T) {
 
     if n != player.Length() {
         test.Fatalf("Expected full stream length %d, got %d", player.Length(), n)
+    }
+
+    position := int64(180 * 4)
+    where, err := player.Seek(position, io.SeekStart)
+    if err != nil {
+        test.Fatalf("Failed to seek to position %d: %v", position, err)
+    }
+
+    if where != position {
+        test.Fatalf("Expected seek position %d, got %d", position, where)
+    }
+
+    decoded := make([]byte, 10000)
+    decodedLength, err := player.Read(decoded)
+    if err != nil {
+        test.Fatalf("Failed to read after seeking: %v", err)
+    }
+
+    if decodedLength != len(decoded) {
+        test.Fatalf("Expected to read %d bytes, got %d", len(decoded), decodedLength)
+    }
+
+    check := 20
+    fmt.Printf("First %v bytes\n", check)
+    fmt.Printf("Decoded:    ")
+    for i := range check {
+        fmt.Printf("%02x ", decoded[i])
+    }
+    fmt.Println()
+
+    fmt.Printf("Fullstream: ")
+    for i := range check {
+        fmt.Printf("%02x ", fullStream.Bytes()[position+int64(i)])
+    }
+    fmt.Println()
+
+    index := bytes.Index(fullStream.Bytes(), decoded)
+    if index != int(position) {
+        test.Fatalf("Decoded data does not match expected data after seeking, expected index %d, got %d", position, index)
     }
 
 }
