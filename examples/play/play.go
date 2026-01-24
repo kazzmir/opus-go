@@ -38,7 +38,7 @@ func play(filename string) error {
 
     // opusPlayer.Seek(80000)
     // err = opusPlayer.SeekTime(42382 * time.Millisecond)
-    n, err := opusPlayer.Seek(-5, io.SeekEnd)
+    n, err := opusPlayer.Seek(-500, io.SeekEnd)
     if err != nil {
         log.Printf("Error seeking: %v", err)
     } else {

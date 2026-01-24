@@ -213,7 +213,7 @@ func (player *OpusPlayer) Length() int64 {
     if err != nil {
         return 0
     }
-    return total * int64(player.reader.Head.Channels)
+    return total * 2 * int64(player.reader.Head.Channels)
 }
 
 // position is a number of samples (not bytes) from the start of the stream
