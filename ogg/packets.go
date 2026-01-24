@@ -227,6 +227,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
         return 0, fmt.Errorf("ogg: could not find page with granule position %d", granulePos)
     }
 
+    // FIXME: if we don't find a lowest granule we could just start at the beginning
     position, ok := granulePositions[lowestGranule]
     if !ok {
         return 0, fmt.Errorf("ogg: could not find page with granule position %d", lowestGranule)
