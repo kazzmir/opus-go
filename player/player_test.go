@@ -3,6 +3,8 @@ package player
 import (
     "testing"
     "time"
+    "bytes"
+    "io"
 )
 
 const testFilePath = "../test/music_64kbps.opus"
@@ -57,4 +59,27 @@ func TestSeek1(test *testing.T) {
     if err == nil {
         test.Fatalf("Expected error when seeking beyond file length, but got none")
     }
+}
+
+func TestSeek2(test *testing.T) {
+    player, err := NewPlayerFromFile(testFilePath, true)
+    if err != nil {
+        test.Fatalf("Failed to create player: %v", err)
+    }
+
+    player2, err := NewPlayerFromFile(testFilePath, true)
+    if err != nil {
+        test.Fatalf("Failed to create second player: %v", err)
+    }
+    // decode the entire stream into memory
+    var fullStream bytes.Buffer
+    n, err := io.Copy(&fullStream, player2)
+    if err != nil {
+        test.Fatalf("Failed to decode full stream: %v", err)
+    }
+
+    if n != player.Length() {
+        test.Fatalf("Expected full stream length %d, got %d", player.Length(), n)
+    }
+
 }

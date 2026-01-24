@@ -35,6 +35,7 @@ func main() {
 	fmt.Printf("OpusHead: version=%d channels=%d preSkip=%d inputRate=%d mapping=%d\n",
 		r.Head.Version, r.Head.Channels, r.Head.PreSkip, r.Head.InputSampleRate, r.Head.ChannelMappingFamily)
 	fmt.Printf("OpusTags: vendor=%q comments=%d\n", r.Tags.Vendor, len(r.Tags.Comments))
+	fmt.Printf("Preskip samples: %d\n", r.Head.PreSkip)
 
 	count := 0
 	for {

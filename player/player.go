@@ -80,32 +80,42 @@ func (player *OpusPlayer) Read(p []byte) (int, error) {
     total := 0
     for total < len(p) {
         n, err := player.ReadPacket(p[total:])
-        if err != nil {
-            return total + n, err
-        }
         total += n
+        if err != nil {
+            return total, err
+        }
     }
 
     return total, nil
 }
 
 // read at most one opus packet's worth of audio into p
+// the length of p should not be less than 4 if the opus stream is mono
+// and should not be less than 2 if the opus stream is stereo
 func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
     // we have len(p) bytes to fill up, which is len(p)/2 int16 samples
     // we are going to produce stereo audio, so the number of samples read per channel will be len(p)/4
 
     // log.Printf("OpusPlayer read: p=%d position=%d buffer=%d finished=%v", len(p), player.position, len(player.buffer), player.finished)
 
+    // fmt.Printf("Current sample: %v\n", player.totalSamples)
+
     if player.position >= len(player.buffer) {
         packet, err := player.reader.ReadAudioPacket()
         if err != nil {
+            return 0, err
+
             // fill with silence
+            /*
             for i := range p {
                 p[i] = 0
             }
 
             return len(p), err
+            */
         }
+
+        // fmt.Printf("Packet granule: %v valid: %v sequence: %v eos: %v\n", packet.GranulePos, packet.GranuleValid, packet.PageSequence, packet.EOS)
 
         if packet.EOS {
             player.finished = true
@@ -125,6 +135,23 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
             skip := min(n, player.preskipRemaining)
             player.preskipRemaining -= skip
             player.position += skip
+        }
+
+        // fmt.Printf("Decoded samples: %d buffer length: %d\n", n, len(player.buffer))
+
+        // discard excess samples based on granule position
+        if packet.GranuleValid {
+            actual := uint64(player.totalSamples + int64(n + int(player.reader.Head.PreSkip)) * int64(player.reader.Head.Channels))
+            maxSamples := packet.GranulePos * uint64(player.reader.Head.Channels)
+
+            // this page's granule position indicates that we should drop some of the decoded samples
+            if actual > maxSamples {
+                excessSamples := actual - maxSamples
+                upper := excessSamples
+                if upper < uint64(len(player.buffer)) {
+                    player.buffer = player.buffer[:len(player.buffer) - int(upper)]
+                }
+            }
         }
     }
 
