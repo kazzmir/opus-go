@@ -6,12 +6,14 @@ import (
     "time"
     "runtime"
     "log"
+    "io"
 
     "github.com/kazzmir/opus-go"
     "github.com/ebitengine/oto/v3"
 )
 
 func play(filename string) error {
+    io.WriteString(os.Stdout, fmt.Sprintf("Playing file: %s\n", filename))
 
     opusPlayer, err := opusgo.NewPlayerFromFile(filename, true)
     if err != nil {
@@ -33,6 +35,23 @@ func play(filename string) error {
 
     log.Printf("Playing")
 
+    // log.Printf("Length: %v", opusPlayer.Length())
+
+    opusPlayer.Seek(10, io.SeekStart)
+    // err = opusPlayer.SeekTime(80379 * time.Millisecond)
+
+    /*
+    n, err := opusPlayer.Seek(-2000000, io.SeekEnd)
+    if err != nil {
+        log.Printf("Error seeking: %v", err)
+    } else {
+        log.Printf("Seeked to byte position: %d", n)
+    }
+    */
+
+    log.Printf("Current position: %v", opusPlayer.CurrentSample())
+    log.Printf("Current time: %v", opusPlayer.CurrentTime())
+
     otoPlayer := context.NewPlayer(opusPlayer)
     otoPlayer.SetBufferSize(options.SampleRate * 2 * 2 / 4) // 250ms buffer
     otoPlayer.Play()
@@ -42,7 +61,7 @@ func play(filename string) error {
     }
 
     for !opusPlayer.IsFinished() {
-        time.Sleep(1 * time.Second)
+        time.Sleep(100 * time.Millisecond)
         runtime.KeepAlive(otoPlayer)
     }
 
