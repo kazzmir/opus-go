@@ -5,6 +5,7 @@ import (
     "time"
     "bytes"
     "io"
+    "math"
     _ "fmt"
 )
 
@@ -136,6 +137,32 @@ func TestSeek2(test *testing.T) {
         }
 
         test.Fatalf("Decoded data does not match expected data after seeking, expected index %d, got %d", position, index)
+    }
+
+    for i := range 6 {
+        position := int(math.Pow(7, float64(i + 1))) * 4
+        player.Seek(int64(position), io.SeekStart)
+
+        decodedLength, err := player.Read(decoded)
+        if err != nil {
+            test.Fatalf("Failed to read after seeking to position %d: %v", position, err)
+        }
+        if decodedLength != len(decoded) {
+            test.Fatalf("Expected to read %d bytes after seeking to position %d, got %d", len(decoded), position, decodedLength)
+        }
+
+        index := bytes.Index(fullStream.Bytes(), decoded)
+        if index != int(position) {
+
+            b := fullStream.Bytes()[position:]
+            for i := range decoded {
+                if decoded[i] != b[i] {
+                    test.Fatalf("Data mismatch at byte %d after seeking, expected %02x, got %02x", i, b[i], decoded[i])
+                }
+            }
+
+            test.Fatalf("Decoded data does not match expected data after seeking to position %d, expected index %d, got %d", position, position, index)
+        }
     }
 
 }

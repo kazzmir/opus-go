@@ -253,6 +253,15 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
         return err
     }
 
+    // reset decoder state
+    // in theory, the decoder state should start fresh from a new audio page
+    // after the end of a previous valid granule page
+    decoder, err := opus.NewDecoderFromHead(player.reader.Head)
+    if err != nil {
+        return err
+    }
+    player.decoder = decoder
+
     // how many samples to skip in this packet sequence
     // if preskip is larger than granule, we need to skip less
     // e.g., preskip = 2500, granule = 2000, that means that sample 2500 is the first 'real' sample
