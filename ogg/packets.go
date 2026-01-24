@@ -134,6 +134,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
     }
 
     // map of granule positions to file positions that starts the page where the granule is
+    // TODO: possibly consider persisting this so that the granule positions can be reused
     granulePositions := make(map[uint64]int64)
 
     highestGranule := uint64(0)
@@ -237,7 +238,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
     r.reset()
     r.pr = NewPageReader(seeker)
 
-    fmt.Printf("start sequential scan at position %d pages %d\n", position, pages)
+    // fmt.Printf("start sequential scan at position %d pages %d\n", position, pages)
     last := uint64(0)
     for {
         page, err := r.ReadPacket()
@@ -248,7 +249,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
         if page.GranulePosition >= granulePos {
             // put back in the queue
             r.queue = slices.Insert(r.queue, 0, page)
-            fmt.Printf("ogg: SeekToPage scanned %d pages to find granule position %d\n", pages, granulePos)
+            // fmt.Printf("ogg: SeekToPage scanned %d pages to find granule position %d\n", pages, granulePos)
             return last, nil
         } else {
             last = page.GranulePosition

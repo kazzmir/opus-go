@@ -184,3 +184,18 @@ func TestSeekEnd(test *testing.T) {
         test.Fatalf("Expected seek position to be %d, got %d", totalSamples - 1, position)
     }
 }
+
+func BenchmarkSeek(bench *testing.B) {
+    player, err := NewPlayerFromFile(testFilePath, true)
+    if err != nil {
+        bench.Fatalf("Failed to create player: %v", err)
+    }
+
+    bench.ResetTimer()
+    for bench.Loop() {
+        _, err := player.Seek(500000, io.SeekStart)
+        if err != nil {
+            bench.Fatalf("Failed to seek during benchmark: %v", err)
+        }
+    }
+}
