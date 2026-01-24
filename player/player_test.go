@@ -66,6 +66,8 @@ func TestSeek1(test *testing.T) {
     }
 }
 
+// this test decodes the entire stream into memory, then seeks to a position and reads data.
+// the read data should exactly equal the corresponding data in the full stream at the same position
 func TestSeek2(test *testing.T) {
     player, err := NewPlayerFromFile(testFilePath, true)
     if err != nil {
@@ -87,8 +89,6 @@ func TestSeek2(test *testing.T) {
         test.Fatalf("Expected full stream length %d, got %d", player.Length(), n)
     }
 
-    // 336 in fullStream and 180 after seek are about the same
-
     position := int64(5000 * 4)
     where, err := player.Seek(position, io.SeekStart)
     if err != nil {
@@ -99,7 +99,7 @@ func TestSeek2(test *testing.T) {
         test.Fatalf("Expected seek position %d, got %d", position, where)
     }
 
-    decoded := make([]byte, 468 * 4)
+    decoded := make([]byte, 800 * 4)
     decodedLength, err := player.Read(decoded)
     if err != nil {
         test.Fatalf("Failed to read after seeking: %v", err)
