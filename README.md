@@ -11,7 +11,16 @@ Directory structure:
 - `opusccenc` - Transpiled libopus C source of the encoder logic
 - `libcshim` - Small libc shim for the transpiled C code, replaces some modernc.org/libc functionality
 
-## Minimal API example
+## Minimal high level API example
+Decoding an opus file to get PCM samples. Note the sample rate of the PCM data is always 48000 Hz.
+```go
+player, _ := opusgo.NewPlayerFromFile("file.opus", true) // true means stream from disk
+data := make([]byte, 48000*2*2) // 1 second buffer for stereo s16le
+io.ReadFull(player, data)
+// data now contains PCM samples
+```
+
+## Minimal low level API example
 
 Decoding an opus file to get PCM samples. Note the sample rate of the PCM data is always 48000 Hz.
 ```go
