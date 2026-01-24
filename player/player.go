@@ -197,8 +197,9 @@ func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
             length := byteToSample(player.Length())
             n := max(0, offset + length)
             err = player.SeekSample(uint64(n))
+        default:
+            err = fmt.Errorf("invalid whence: %d", whence)
     }
-
 
     return player.totalSamples * 4, err
 }
@@ -216,6 +217,7 @@ func (player *OpusPlayer) Length() int64 {
 // e.g., 0 is the start of the stream (after preskip), and the last available position is
 // the total samples - 1 (which is the same as the last granule position - preskip)
 func (player *OpusPlayer) SeekSample(position uint64) error {
+    // granule positions must take preskip into account
     position += uint64(player.reader.Head.PreSkip)
 
     // force reader to go back to the page that contains the desired position
@@ -231,6 +233,9 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
     skipSamples := position - granule
     player.totalSamples = int64(granule) - int64(player.reader.Head.PreSkip)
 
+    // the first page we read will contain samples starting from granule
+    // the position variable is the sample we are moving towards
+    // keep reading packets and decoding samples until we reach the desired position
     for skipSamples > 0 {
         packet, err := player.reader.ReadAudioPacket()
         if err != nil {
@@ -249,8 +254,7 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
         move := min(uint64(n), skipSamples)
         skipSamples -= move
 
-        // the granule position of the packet is the last position in the buffer
-        // we want to skip to granule - position
+        // if move is less than n then we need to keep the remaining samples in the buffer
         player.buffer = decoded
         player.position += int(move)
         player.totalSamples += int64(move)
