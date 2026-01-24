@@ -17,7 +17,7 @@ type OpusPlayer struct {
     reader *ogg.OpusReader
     decoder *opus.Decoder
     buffer []int16
-    preskipRemaining int
+    preskipRemaining int64
     position int
     finished bool
     // how many samples have been read so far
@@ -38,7 +38,7 @@ func NewPlayerFromReader(reader io.Reader) (*OpusPlayer, error) {
     return &OpusPlayer{
         reader: opusReader,
         decoder: decoder,
-        preskipRemaining: int(opusReader.Head.PreSkip),
+        preskipRemaining: int64(opusReader.Head.PreSkip),
         position: 0,
         // buffer does not need to be initialized here because it will be allocated on first read
     }, nil
@@ -133,9 +133,9 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
 
         player.buffer = decoded
         if player.preskipRemaining > 0 {
-            skip := min(n, player.preskipRemaining)
+            skip := min(int64(n), player.preskipRemaining)
             player.preskipRemaining -= skip
-            player.position += skip
+            player.position += int(skip) * int(player.reader.Head.Channels)
         }
 
         // fmt.Printf("Decoded samples: %d buffer length: %d\n", n, len(player.buffer))
@@ -258,7 +258,11 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
     // e.g., preskip = 2500, granule = 2000, that means that sample 2500 is the first 'real' sample
     // so position=0 should skip 500 samples
     skipSamples := position - granule
-    player.totalSamples = int64(granule) - int64(player.reader.Head.PreSkip)
+    player.totalSamples = int64(granule)
+
+    // preskip := max(0, int64(player.reader.Head.PreSkip) - int64(granule))
+    preskip := int64(player.reader.Head.PreSkip)
+    player.preskipRemaining = preskip
 
     // the first page we read will contain samples starting from granule
     // the position variable is the sample we are moving towards
@@ -284,24 +288,31 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
         // if move is less than n then we need to keep the remaining samples in the buffer
         player.buffer = decoded
         player.position += int(move * uint64(player.reader.Head.Channels))
-        player.totalSamples += int64(move)
+
+        drop := min(int64(move), preskip)
+        preskip -= drop
+        player.preskipRemaining -= drop
+
+        player.totalSamples += int64(move) - drop
     }
 
     return nil
 }
 
-// seek to the position specified by the argument in terms of time
+// Seek to the position specified by the argument in terms of time
 func (player *OpusPlayer) SeekTime(when time.Duration) error {
     samples := uint64(when * time.Duration(ogg.OpusSampleRateHz) / time.Second)
     return player.SeekSample(samples)
 }
 
-// current position in samples
+// Current position in samples. This is independent of the number of channels the
+// underlying opus stream has. Basically this is the number of stereo samples in the
+// decoded PCM stream
 func (player *OpusPlayer) CurrentSample() int64 {
     return player.totalSamples
 }
 
-// current position in terms of time
+// Current position in terms of time
 func (player *OpusPlayer) CurrentTime() time.Duration {
     return time.Duration(player.totalSamples) * time.Second / time.Duration(ogg.OpusSampleRateHz)
 }

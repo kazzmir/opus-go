@@ -5,7 +5,7 @@ import (
     "time"
     "bytes"
     "io"
-    "fmt"
+    _ "fmt"
 )
 
 const testFilePath = "../test/music_64kbps.opus"
@@ -52,6 +52,10 @@ func TestSeek1(test *testing.T) {
         test.Fatalf("Failed to seek to 1 second: %v", err)
     }
 
+    if player.CurrentSample() != int64(player.SampleRate()) {
+        test.Fatalf("Expected current sample to be %d after seeking to 1 second, got %d", player.SampleRate(), player.CurrentSample())
+    }
+
     if absTime(player.CurrentTime() - 1*time.Second) > 1*time.Millisecond {
         test.Fatalf("Expected current time to be approximately 1 second after seeking, got %v", player.CurrentTime())
     }
@@ -83,7 +87,9 @@ func TestSeek2(test *testing.T) {
         test.Fatalf("Expected full stream length %d, got %d", player.Length(), n)
     }
 
-    position := int64(180 * 4)
+    // 336 in fullStream and 180 after seek are about the same
+
+    position := int64(5000 * 4)
     where, err := player.Seek(position, io.SeekStart)
     if err != nil {
         test.Fatalf("Failed to seek to position %d: %v", position, err)
@@ -93,7 +99,7 @@ func TestSeek2(test *testing.T) {
         test.Fatalf("Expected seek position %d, got %d", position, where)
     }
 
-    decoded := make([]byte, 10000)
+    decoded := make([]byte, 468 * 4)
     decodedLength, err := player.Read(decoded)
     if err != nil {
         test.Fatalf("Failed to read after seeking: %v", err)
@@ -103,7 +109,8 @@ func TestSeek2(test *testing.T) {
         test.Fatalf("Expected to read %d bytes, got %d", len(decoded), decodedLength)
     }
 
-    check := 20
+    /*
+    check := 80
     fmt.Printf("First %v bytes\n", check)
     fmt.Printf("Decoded:    ")
     for i := range check {
@@ -116,9 +123,18 @@ func TestSeek2(test *testing.T) {
         fmt.Printf("%02x ", fullStream.Bytes()[position+int64(i)])
     }
     fmt.Println()
+    */
 
     index := bytes.Index(fullStream.Bytes(), decoded)
     if index != int(position) {
+
+        b := fullStream.Bytes()[position:]
+        for i := range decoded {
+            if decoded[i] != b[i] {
+                test.Fatalf("Data mismatch at byte %d after seeking, expected %02x, got %02x", i, b[i], decoded[i])
+            }
+        }
+
         test.Fatalf("Decoded data does not match expected data after seeking, expected index %d, got %d", position, index)
     }
 
