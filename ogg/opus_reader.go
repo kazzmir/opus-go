@@ -149,6 +149,9 @@ func (r *OpusReader) SeekToPage(granulePos uint64) (uint64, error) {
     return r.pr.SeekToPage(granulePos)
 }
 
+// return the total number of samples in the stream, derived from the last page granule position.
+// Note: this method is destructive in that it reads packets. Subsequent calls to ReadAudioPacket may return EOF.
+// if the underlying reader is seekable, you may want to seek back to the start after calling this method.
 func (r *OpusReader) TotalSamples() (int64, error) {
     // only compute one time
     r.cachedTotalOnce.Do(func() {
@@ -166,7 +169,7 @@ func (r *OpusReader) TotalSamples() (int64, error) {
 
 // TotalDuration returns the decoded playback duration, derived from TotalSamples.
 //
-// Note: This method consumes packets until EOF.
+// Note: This method consumes packets until EOF, see the note about TotalSamples.
 func (r *OpusReader) TotalDuration() (time.Duration, error) {
 	samples, err := r.TotalSamples()
 	if err != nil {

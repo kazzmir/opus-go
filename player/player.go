@@ -235,7 +235,10 @@ func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
     return player.totalSamples * 4, err
 }
 
-// total length in bytes (not samples)
+// total length in bytes of the decoded stream(not samples)
+// note that this method reads packets to determine the end of the stream
+// if the underlying reader is seekable, you may want to seek back to the start after calling this method.
+// the length is cached, however, so it is safe and efficient to call multiple times on the same stream
 func (player *OpusPlayer) Length() int64 {
     total, err := player.reader.TotalSamples()
     if err != nil {
