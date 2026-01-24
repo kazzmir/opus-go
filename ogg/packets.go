@@ -266,24 +266,25 @@ func (r *PacketReader) LastPageGranule() (int64, error) {
         if err != nil {
             return 0, err
         }
+
+        // FIXME: we could probably read less than 64k, but its ok for now
         backup := max(0, total-65536)
         position, err := seeker.Seek(backup, io.SeekStart)
         if err != nil {
             return 0, err
         }
-        data := make([]byte, total-position)
-        _, err = io.ReadFull(bufio.NewReader(seeker), data)
+
+        index, err := r.findNextPage(seeker, position, &bytes.Buffer{})
         if err != nil {
             return 0, err
         }
+        if index == -1 {
+            return 0, fmt.Errorf("ogg: could not find last page granule")
+        }
+        seeker.Seek(index, io.SeekStart)
 
-        r.reset()
-        scanBytes := []byte{'O', 'g', 'g', 'S', 0}
-
-        // find a page
-        index := bytes.Index(data, scanBytes)
-        seeker.Seek(position+int64(index), io.SeekStart)
         r.pr = NewPageReader(seeker)
+        r.reset()
     }
 
     for {
