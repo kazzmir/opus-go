@@ -52,6 +52,47 @@ func (r *PacketReader) reset() {
     r.havePending = false
 }
 
+// keep reading bytes until we find the start of an ogg page
+// return the byte position of the start of the page
+func (r *PacketReader) findNextPage(seeker io.ReadSeeker, position int64, seekBuffer *bytes.Buffer) (int64, error) {
+
+    seekBuffer.Reset()
+
+    // these bytes are the start of an ogg page
+    scanBytes := []byte{'O', 'g', 'g', 'S', 0}
+
+    _, err := seeker.Seek(position, io.SeekStart)
+    if err != nil {
+        return 0, err
+    }
+
+    buffered := bufio.NewReader(seeker)
+
+    // rounds := 0
+    for seekBuffer.Len() < 65536 {
+        // rounds += 1
+
+        reader := io.LimitReader(buffered, 4096)
+
+        n, err := seekBuffer.ReadFrom(reader)
+        if err != nil {
+            return 0, err
+        }
+        if n == 0 {
+            return -1, io.EOF
+        }
+
+        index := bytes.Index(seekBuffer.Bytes(), scanBytes)
+
+        if index != -1 {
+            // fmt.Printf("found page at position %d after %d rounds\n", position+int64(index), rounds)
+            return position + int64(index), nil
+        }
+    }
+
+    return -1, io.EOF
+}
+
 // seek to the first page that contains the granule position
 // note that the granule position on the page is the position of the last complete packet on that page
 // For example, if granulePos == 40000 then we find the page that has the closest granule position below
@@ -87,19 +128,10 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
         return 0, err
     }
 
-    _, err = seeker.Seek(0, io.SeekStart)
+    start, err := seeker.Seek(0, io.SeekStart)
     if err != nil {
         return 0, err
     }
-
-    start := int64(0)
-
-    // should be large enough to read an entire ogg page, even with continued segments
-    // FIXME: use a bytes.buffer and read 1k until we find a page
-    data := make([]byte, 10000)
-
-    // these bytes are the start of an ogg page
-    scanBytes := []byte{'O', 'g', 'g', 'S', 0}
 
     // map of granule positions to file positions that starts the page where the granule is
     granulePositions := make(map[uint64]int64)
@@ -108,30 +140,25 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
     highestPage := uint32(0)
     lowestGranule := uint64(0)
 
+    var seekBuffer bytes.Buffer
+
     pages := 0
 
     for start < total {
         position := (total + start) / 2
-        _, err = seeker.Seek(position, io.SeekStart)
-        if err != nil {
-            return 0, err
-        }
 
-        n, err := io.ReadFull(bufio.NewReader(seeker), data)
+        pagePosition, err := r.findNextPage(seeker, position, &seekBuffer)
+
         if err != nil {
             if errors.Is(err, io.EOF) {
                 total = position
                 continue
             }
-            if !errors.Is(err, io.ErrUnexpectedEOF) {
-                // some other error while reading?
-                return 0, err
-            }
-        }
-        // read n bytes, scan for an ogg header "OggS\0"
 
-        index := bytes.Index(data[:n], scanBytes)
-        if index == -1 {
+            return 0, err
+        }
+
+        if pagePosition == -1 {
             // if we don't find a page then back up
             total = position
         } else {
@@ -140,7 +167,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
             // if the granule position is greater than the target then this might be the page we want
             // but we still have to check the previous page
 
-            seeker.Seek(position + int64(index), io.SeekStart)
+            seeker.Seek(pagePosition, io.SeekStart)
             r.reset()
             r.pr = NewPageReader(seeker)
             page, err := r.ReadPacket()
@@ -153,7 +180,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
             pages += 1
 
             last, ok := granulePositions[page.GranulePosition]
-            if ok && last == position+int64(index) {
+            if ok && last == pagePosition {
                 // we already scanned this page. total must be too close to start
                 // force scanning at start
                 total = start + 1
@@ -166,7 +193,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
                 continue
             }
 
-            granulePositions[page.GranulePosition] = position + int64(index)
+            granulePositions[page.GranulePosition] = pagePosition
 
             // the highest granule position that is above the target but closest to the target
             if page.GranulePosition > granulePos && (highestGranule == 0 || page.GranulePosition <= highestGranule) {
@@ -190,7 +217,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
                 // this is one byte after the start of the page we just found, but we
                 // have no way to know how many bytes this page takes up, so just jump ahead a bit
                 // there must be another page that comes after this one
-                start = position + int64(index) + 1
+                start = pagePosition + 1
             }
         }
     }
