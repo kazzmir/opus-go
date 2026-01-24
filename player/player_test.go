@@ -166,3 +166,21 @@ func TestSeek2(test *testing.T) {
     }
 
 }
+
+func TestSeekEnd(test *testing.T) {
+    player, err := NewPlayerFromFile(testFilePath, true)
+    if err != nil {
+        test.Fatalf("Failed to create player: %v", err)
+    }
+
+    totalSamples := player.Length() / 2 / int64(player.Channels())
+
+    position, err := player.Seek(-4, io.SeekEnd)
+    if err != nil {
+        test.Fatalf("Failed to seek to end - 4 bytes: %v", err)
+    }
+
+    if position != (totalSamples - 1) * 4 {
+        test.Fatalf("Expected seek position to be %d, got %d", totalSamples - 1, position)
+    }
+}

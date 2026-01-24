@@ -96,7 +96,7 @@ func (r *PacketReader) SeekToPage(granulePos uint64) (uint64, error) {
 
     // should be large enough to read an entire ogg page, even with continued segments
     // FIXME: use a bytes.buffer and read 1k until we find a page
-    data := make([]byte, 8000)
+    data := make([]byte, 10000)
 
     // these bytes are the start of an ogg page
     scanBytes := []byte{'O', 'g', 'g', 'S', 0}
