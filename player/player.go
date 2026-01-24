@@ -291,6 +291,8 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
             return err
         }
 
+        // FIXME: handle excess samples based on granule position when packet.GranuleValid is true
+
         move := min(uint64(n), skipSamples)
         skipSamples -= move
 
