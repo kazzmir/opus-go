@@ -24,6 +24,7 @@ type OpusPlayer struct {
     finished bool
     // how many samples have been read so far
     totalSamples int64
+    lastTimestamp time.Duration
 }
 
 // Create a new OpusPlayer from an io.Reader. If the reader is seekable,
@@ -125,6 +126,8 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
         }
 
         // fmt.Printf("Packet granule: %v valid: %v sequence: %v eos: %v\n", packet.GranulePos, packet.GranuleValid, packet.PageSequence, packet.EOS)
+
+        player.updateTimestamp(packet.GranulePos)
 
         if packet.EOS {
             player.finished = true
@@ -274,6 +277,8 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
         return err
     }
 
+    player.updateTimestamp(granule)
+
     // reset decoder state
     // in theory, the decoder state should start fresh from a new audio page
     // after the end of a previous valid granule page
@@ -302,6 +307,8 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
         if err != nil {
             return err
         }
+
+        player.updateTimestamp(packet.GranulePos)
 
         player.finished = packet.EOS
         player.position = 0
@@ -337,14 +344,14 @@ func (player *OpusPlayer) SeekTime(when time.Duration) error {
     return player.SeekSample(samples)
 }
 
-// Current position in samples. This is independent of the number of channels the
+// Current position in terms of how many samples have been rendered. This is independent of the number of channels the
 // underlying opus stream has. Basically this is the number of stereo samples in the
-// decoded PCM stream.
+// decoded PCM stream. Seeking to the beginning of the stream will reset this to zero.
 func (player *OpusPlayer) CurrentSample() int64 {
     return player.totalSamples
 }
 
-// Current position in terms of time.
+// Current position in terms of time from when the player started.
 func (player *OpusPlayer) CurrentTime() time.Duration {
     return time.Duration(player.totalSamples) * time.Second / time.Duration(ogg.OpusSampleRateHz)
 }
@@ -358,4 +365,15 @@ func (player *OpusPlayer) TotalSamples() (int64, error) {
 // Return the total duration of the stream. This is a destructive operation, similar to TotalSamples.
 func (player *OpusPlayer) TotalDuration() (time.Duration, error) {
     return player.reader.TotalDuration()
+}
+
+// Returns the time stamp of the most recently decoded audio in the stream.
+// This is the granule position of the last packet in opus terms. This can be differnt from CurrentTime()
+// when the stream being played is a network stream that started in the past.
+func (player *OpusPlayer) CurrentStreamTimestamp() time.Duration {
+    return player.lastTimestamp
+}
+
+func (player *OpusPlayer) updateTimestamp(granule uint64) {
+    player.lastTimestamp = time.Duration(granule) / time.Duration(ogg.OpusSampleRateHz) * time.Second
 }
