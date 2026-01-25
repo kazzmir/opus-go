@@ -462,7 +462,7 @@ func main() {
 
 	tags := ogg.OpusTags{
 		Vendor:   "opusgo",
-		Comments: []string{"ENCODER=examples/convert", "ENCODED=" + time.Now().UTC().Format(time.RFC3339)},
+		Comments: []string{"ENCODER=github.com/kazzmir/opus-go", "ENCODED=" + time.Now().UTC().Format(time.RFC3339)},
 	}
 	tagsPkt, err := ogg.BuildOpusTagsPacket(tags)
 	if err != nil {
