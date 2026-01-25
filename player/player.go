@@ -158,6 +158,8 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
 
             // this page's granule position indicates that we should drop some of the decoded samples
             if actual > maxSamples {
+                // fmt.Printf("Dropping %d samples to match granule position at %d\n", actual - maxSamples, packet.GranulePos)
+
                 excessSamples := actual - maxSamples
                 upper := excessSamples * uint64(player.reader.Head.Channels)
                 if upper < uint64(len(player.buffer)) {
@@ -293,46 +295,24 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
     // e.g., preskip = 2500, granule = 2000, that means that sample 2500 is the first 'real' sample
     // so position=0 should skip 500 samples
     skipSamples := position - granule
-    player.totalSamples = int64(granule)
 
-    // preskip := max(0, int64(player.reader.Head.PreSkip) - int64(granule))
     preskip := int64(player.reader.Head.PreSkip)
-    player.preskipRemaining = preskip
+    // position already takes preskip into account
+    player.preskipRemaining = 0
+    player.totalSamples = int64(granule) - preskip
 
-    // the first page we read will contain samples starting from granule
-    // the position variable is the sample we are moving towards
-    // keep reading packets and decoding samples until we reach the desired position
+    // start a fresh buffer
+    player.position = 0
+    player.buffer = player.buffer[:0]
+
+    buffer := make([]byte, 1024 * 4)
     for skipSamples > 0 {
-        packet, err := player.reader.ReadAudioPacket()
-        if err != nil {
+        use := min(len(buffer), int(skipSamples * 4))
+        n, err := player.Read(buffer[:use])
+        if err != nil && err != io.EOF {
             return err
         }
-
-        player.updateTimestamp(packet.GranulePos)
-
-        player.finished = packet.EOS
-        player.position = 0
-        player.buffer = player.buffer[:cap(player.buffer)]
-
-        decoded, n, err := player.decoder.DecodePacket(packet, player.buffer)
-        if err != nil {
-            return err
-        }
-
-        // FIXME: handle excess samples based on granule position when packet.GranuleValid is true
-
-        move := min(uint64(n), skipSamples)
-        skipSamples -= move
-
-        // if move is less than n then we need to keep the remaining samples in the buffer
-        player.buffer = decoded
-        player.position += int(move * uint64(player.reader.Head.Channels))
-
-        drop := min(int64(move), preskip)
-        preskip -= drop
-        player.preskipRemaining -= drop
-
-        player.totalSamples += int64(move) - drop
+        skipSamples -= uint64(n / 4)
     }
 
     return nil
