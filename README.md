@@ -1,3 +1,7 @@
+# opusgo
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/kazzmir/opus-go.svg)](https://pkg.go.dev/github.com/kazzmir/opus-go)
+
 This is a pure go implementation of an Ogg/Opus parser, decoder, and encoder. It was produced by transpiling the libopus C sources to Go using [ccgo](https://pkg.go.dev/modernc.org/ccgo/v4), as well as using GPT 5.2 help. No cgo is used.
 
 Directory structure:
