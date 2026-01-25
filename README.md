@@ -10,6 +10,7 @@ Directory structure:
 - `opuscc` - Transpiled libopus C source of the decoder logic
 - `opusccenc` - Transpiled libopus C source of the encoder logic
 - `libcshim` - Small libc shim for the transpiled C code, replaces some modernc.org/libc functionality
+- `examples` - Example programs using the library
 
 ## Minimal high level API example
 Decoding an opus file to get PCM samples. Note the sample rate of the PCM data is always 48000 Hz.
