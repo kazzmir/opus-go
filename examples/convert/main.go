@@ -11,12 +11,53 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/hajimehoshi/go-mp3"
 	"github.com/kazzmir/opus-go/ogg"
 	"github.com/kazzmir/opus-go/opus"
 )
+
+type decodeChunk struct {
+	b   []byte
+	err error
+}
+
+// chunkChanReader adapts a channel of decoded PCM byte chunks into an io.Reader.
+// It returns the terminal error (often io.EOF) only after all buffered bytes are read.
+type chunkChanReader struct {
+	ch       <-chan decodeChunk
+	buf      []byte
+	finalErr error
+}
+
+func (r *chunkChanReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if len(r.buf) == 0 {
+		if r.finalErr != nil {
+			return 0, r.finalErr
+		}
+		chunk, ok := <-r.ch
+		if !ok {
+			return 0, io.EOF
+		}
+		r.buf = chunk.b
+		r.finalErr = chunk.err
+		if len(r.buf) == 0 {
+			if r.finalErr != nil {
+				return 0, r.finalErr
+			}
+			return 0, nil
+		}
+	}
+
+	n := copy(p, r.buf)
+	r.buf = r.buf[n:]
+	return n, nil
+}
 
 func formatDur(d time.Duration) string {
 	if d < 0 {
@@ -346,6 +387,29 @@ func main() {
 	inF.Seek(0, io.SeekStart)
 	dec, _ = mp3.NewDecoder(bufio.NewReader(inF))
 
+	// Decode MP3 PCM in a separate goroutine and feed bytes through a buffered channel.
+	// This lets CPU-heavy decode and encode overlap.
+	chunks := make(chan decodeChunk, 16)
+	var producedBytes atomic.Int64
+	go func() {
+		defer close(chunks)
+		buf := make([]byte, 32*1024)
+		for {
+			n, err := dec.Read(buf)
+			if n > 0 {
+				b := make([]byte, n)
+				copy(b, buf[:n])
+				producedBytes.Add(int64(n))
+				chunks <- decodeChunk{b: b}
+			}
+			if err != nil {
+				chunks <- decodeChunk{err: err}
+				return
+			}
+		}
+	}()
+	decodedReader := &chunkChanReader{ch: chunks}
+
 	enc, err := opus.NewEncoder(opusSampleRate, channels, opus.ApplicationAudio)
 	if err != nil {
 		fatal(fmt.Errorf("unable to create opus encoder: %v", err))
@@ -412,7 +476,7 @@ func main() {
 		fatal(err)
 	}
 
-	resampler := newLinearResampler(dec, inSampleRate, opusSampleRate, channels)
+	resampler := newLinearResampler(decodedReader, inSampleRate, opusSampleRate, channels)
 
 	pcm := make([]int16, frameSize48k*channels)
 	packet := make([]byte, 4000)
