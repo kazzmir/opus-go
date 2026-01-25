@@ -1,3 +1,5 @@
+// OpusPlayer is a high level API for decoding Ogg Opus audio streams.
+// The main method is Read, which reads decoded PCM data into a byte slice.
 package player
 
 import (
@@ -24,6 +26,11 @@ type OpusPlayer struct {
     totalSamples int64
 }
 
+// Create a new OpusPlayer from an io.Reader. If the reader is seekable,
+// then seeking within the stream will be supported.
+//
+// Internally the reader is wrapped in a bufio.Reader, so you do not have to
+// wrap it yourself.
 func NewPlayerFromReader(reader io.Reader) (*OpusPlayer, error) {
     opusReader, err := ogg.NewOpusReader(reader)
     if err != nil {
@@ -44,9 +51,9 @@ func NewPlayerFromReader(reader io.Reader) (*OpusPlayer, error) {
     }, nil
 }
 
-// Create a new OpusPlayer from a file path
+// Create a new OpusPlayer from a file path.
 // If stream is true, the file will be kept open and 
-// otherwise if stream is false then the entirety of the file will be read into memory
+// otherwise if stream is false then the entirety of the file will be read into memory.
 func NewPlayerFromFile(path string, stream bool) (*OpusPlayer, error) {
     file, err := os.Open(path)
     if err != nil {
@@ -69,13 +76,14 @@ func NewPlayerFromFile(path string, stream bool) (*OpusPlayer, error) {
     }
 }
 
-// returns true when the stream has finished and all bytes decoded
-// have been read, meaning when the internal buffer is empty
+// Returns true when the stream has finished and all bytes decoded
+// have been read, meaning when the internal buffer is empty.
 func (player *OpusPlayer) IsFinished() bool {
     return player.finished && player.position >= len(player.buffer)
 }
 
-// read as much data as possible into p
+// Read as much data as possible into p. Returns the number of bytes read, and io.EOF
+// if there is no more output available.
 func (player *OpusPlayer) Read(p []byte) (int, error) {
     total := 0
     for total < len(p) {
@@ -89,9 +97,9 @@ func (player *OpusPlayer) Read(p []byte) (int, error) {
     return total, nil
 }
 
-// read at most one opus packet's worth of audio into p
-// the length of p should not be less than 4 if the opus stream is mono
-// and should not be less than 2 if the opus stream is stereo
+// Read at most one opus packet's worth of audio into p.
+// The length of p should not be less than 4 if the opus stream is mono,
+// and should not be less than 2 if the opus stream is stereo.
 func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
     // we have len(p) bytes to fill up, which is len(p)/2 int16 samples
     // we are going to produce stereo audio, so the number of samples read per channel will be len(p)/4
@@ -197,17 +205,21 @@ func (player *OpusPlayer) ReadPacket(p []byte) (int, error) {
     return 0, fmt.Errorf("unsupported number of channels: %d", player.reader.Head.Channels)
 }
 
+// always 2 channels (stereo)
 func (player *OpusPlayer) Channels() int {
     return 2 // always stereo output
 }
 
+// The sample rate of the decoded PCM stream, which is always 48000 Hz for Opus
 func (player *OpusPlayer) SampleRate() int {
     return ogg.OpusSampleRateHz
 }
 
 // offset is a byte position within the decoded PCM stream
+//
 // whence is one of io.SeekStart, io.SeekCurrent, io.SeekEnd
-// returns the new offset in bytes from the start of the stream
+//
+// Returns the new offset in bytes from the start of the stream.
 func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
     // 1 sample = 2 bytes per channel, where the decoded stream is always stereo
     byteToSample := func(b int64) int64 {
@@ -235,10 +247,11 @@ func (player *OpusPlayer) Seek(offset int64, whence int) (int64, error) {
     return player.totalSamples * 4, err
 }
 
-// total length in bytes of the decoded stream(not samples)
+// Total length in bytes of the decoded stream (not samples).
+//
 // note that this method reads packets to determine the end of the stream
 // if the underlying reader is seekable, you may want to seek back to the start after calling this method.
-// the length is cached, however, so it is safe and efficient to call multiple times on the same stream
+// the length is cached, however, so it is safe and efficient to call multiple times on the same stream.
 func (player *OpusPlayer) Length() int64 {
     total, err := player.reader.TotalSamples()
     if err != nil {
@@ -247,7 +260,8 @@ func (player *OpusPlayer) Length() int64 {
     return total * 4
 }
 
-// position is a number of samples (not bytes) from the start of the stream
+// position is a number of samples (not bytes) from the start of the stream.
+//
 // e.g., 0 is the start of the stream (after preskip), and the last available position is
 // the total samples - 1 (which is the same as the last granule position - preskip)
 func (player *OpusPlayer) SeekSample(position uint64) error {
@@ -317,7 +331,7 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
     return nil
 }
 
-// Seek to the position specified by the argument in terms of time
+// Seek to the position specified by the argument in terms of time.
 func (player *OpusPlayer) SeekTime(when time.Duration) error {
     samples := uint64(when * time.Duration(ogg.OpusSampleRateHz) / time.Second)
     return player.SeekSample(samples)
@@ -325,12 +339,12 @@ func (player *OpusPlayer) SeekTime(when time.Duration) error {
 
 // Current position in samples. This is independent of the number of channels the
 // underlying opus stream has. Basically this is the number of stereo samples in the
-// decoded PCM stream
+// decoded PCM stream.
 func (player *OpusPlayer) CurrentSample() int64 {
     return player.totalSamples
 }
 
-// Current position in terms of time
+// Current position in terms of time.
 func (player *OpusPlayer) CurrentTime() time.Duration {
     return time.Duration(player.totalSamples) * time.Second / time.Duration(ogg.OpusSampleRateHz)
 }
