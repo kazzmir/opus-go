@@ -348,3 +348,14 @@ func (player *OpusPlayer) CurrentSample() int64 {
 func (player *OpusPlayer) CurrentTime() time.Duration {
     return time.Duration(player.totalSamples) * time.Second / time.Duration(ogg.OpusSampleRateHz)
 }
+
+// Return the total number of samples in the stream per channel. This is a destructive operation,
+// so you should seek back to the start if you need to read the stream again.
+func (player *OpusPlayer) TotalSamples() (int64, error) {
+    return player.reader.TotalSamples()
+}
+
+// Return the total duration of the stream. This is a destructive operation, similar to TotalSamples.
+func (player *OpusPlayer) TotalDuration() (time.Duration, error) {
+    return player.reader.TotalDuration()
+}
