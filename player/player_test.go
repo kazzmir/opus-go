@@ -6,6 +6,7 @@ import (
     "bytes"
     "io"
     "math"
+    "errors"
     _ "fmt"
 )
 
@@ -110,34 +111,27 @@ func TestSeek2(test *testing.T) {
         test.Fatalf("Expected to read %d bytes, got %d", len(decoded), decodedLength)
     }
 
-    /*
-    check := 80
-    fmt.Printf("First %v bytes\n", check)
-    fmt.Printf("Decoded:    ")
-    for i := range check {
-        fmt.Printf("%02x ", decoded[i])
-    }
-    fmt.Println()
+    checkBytes := func(decoded []byte, position int64) {
+        index := bytes.Index(fullStream.Bytes(), decoded)
+        if index != int(position) {
 
-    fmt.Printf("Fullstream: ")
-    for i := range check {
-        fmt.Printf("%02x ", fullStream.Bytes()[position+int64(i)])
-    }
-    fmt.Println()
-    */
+            b := fullStream.Bytes()[position:]
 
-    index := bytes.Index(fullStream.Bytes(), decoded)
-    if index != int(position) {
-
-        b := fullStream.Bytes()[position:]
-        for i := range decoded {
-            if decoded[i] != b[i] {
-                test.Fatalf("Data mismatch at byte %d after seeking, expected %02x, got %02x", i, b[i], decoded[i])
+            if len(b) < len(decoded) {
+                test.Fatalf("Decoded data length mismatch after seeking, expected %d, got %d", len(b), len(decoded))
             }
-        }
 
-        test.Fatalf("Decoded data does not match expected data after seeking, expected index %d, got %d", position, index)
+            for i := range decoded {
+                if decoded[i] != b[i] {
+                    test.Fatalf("%d: Data mismatch at byte %d after seeking, expected %02x, got %02x", position, i, b[i], decoded[i])
+                }
+            }
+
+            test.Fatalf("Decoded data does not match expected data after seeking, expected index %d, got %d", position, index)
+        }
     }
+
+    checkBytes(decoded, position)
 
     for i := range 6 {
         position := int(math.Pow(7, float64(i + 1))) * 4
@@ -151,20 +145,27 @@ func TestSeek2(test *testing.T) {
             test.Fatalf("Expected to read %d bytes after seeking to position %d, got %d", len(decoded), position, decodedLength)
         }
 
-        index := bytes.Index(fullStream.Bytes(), decoded)
-        if index != int(position) {
-
-            b := fullStream.Bytes()[position:]
-            for i := range decoded {
-                if decoded[i] != b[i] {
-                    test.Fatalf("Data mismatch at byte %d after seeking, expected %02x, got %02x", i, b[i], decoded[i])
-                }
-            }
-
-            test.Fatalf("Decoded data does not match expected data after seeking to position %d, expected index %d, got %d", position, position, index)
-        }
+        checkBytes(decoded, int64(position))
     }
 
+    position = int64(4358531 - 350) * 4
+    where, err = player.Seek(position, io.SeekStart)
+    if err != nil {
+        test.Fatalf("Failed to seek to position %d: %v", position, err)
+    }
+
+    if where != position {
+        test.Fatalf("Expected seek position %d, got %d", position, where)
+    }
+
+    decoded = make([]byte, 10000)
+
+    decodedLength, err = player.Read(decoded)
+    if err != nil && !errors.Is(err, io.EOF) {
+        test.Fatalf("Failed to read after seeking: %v", err)
+    }
+    // fmt.Printf("Read %d bytes after seeking to position %d\n", decodedLength, position)
+    checkBytes(decoded[:decodedLength], position)
 }
 
 func TestSeekEnd(test *testing.T) {
