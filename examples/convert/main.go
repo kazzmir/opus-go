@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -111,6 +112,187 @@ func (p *progressReporter) Print(framesDone, bytesRead int64, force bool) {
 	fmt.Fprintf(os.Stderr, "\r%c %d frames elapsed %s", ch, framesDone, formatDur(elapsed))
 }
 
+type linearResampler struct {
+	r        io.Reader
+	inRate   int
+	outRate  int
+	channels int
+	step     float64
+
+	pos  float64 // absolute input frame position for the next output frame
+	base int64   // absolute frame index of buf[0]
+	buf  []int16 // interleaved PCM frames
+
+	eof       bool
+	bytesRead int64
+}
+
+func newLinearResampler(r io.Reader, inRate, outRate, channels int) *linearResampler {
+	return &linearResampler{
+		r:        r,
+		inRate:   inRate,
+		outRate:  outRate,
+		channels: channels,
+		step:     float64(inRate) / float64(outRate),
+		pos:      0,
+		base:     0,
+		buf:      nil,
+	}
+}
+
+func (rs *linearResampler) BytesRead() int64 {
+	if rs == nil {
+		return 0
+	}
+	return rs.bytesRead
+}
+
+func (rs *linearResampler) totalFramesAvailable() int64 {
+	if rs == nil {
+		return 0
+	}
+	return rs.base + int64(len(rs.buf))/int64(rs.channels)
+}
+
+func (rs *linearResampler) readMore() error {
+	if rs == nil || rs.eof {
+		return nil
+	}
+
+	// Read a chunk of decoded PCM bytes (s16le, interleaved).
+	const chunkBytes = 32 * 1024
+	tmp := make([]byte, chunkBytes)
+	n, err := rs.r.Read(tmp)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	if n == 0 {
+		if errors.Is(err, io.EOF) {
+			rs.eof = true
+		}
+		return nil
+	}
+	rs.bytesRead += int64(n)
+	if n%2 != 0 {
+		// Truncate to whole int16.
+		n--
+	}
+	if n <= 0 {
+		if errors.Is(err, io.EOF) {
+			rs.eof = true
+		}
+		return nil
+	}
+
+	// Convert bytes to int16 samples.
+	oldLen := len(rs.buf)
+	rs.buf = append(rs.buf, make([]int16, n/2)...)
+	for i := 0; i < n; i += 2 {
+		rs.buf[oldLen+i/2] = int16(binary.LittleEndian.Uint16(tmp[i : i+2]))
+	}
+
+	if errors.Is(err, io.EOF) {
+		rs.eof = true
+	}
+	return nil
+}
+
+// Fill fills outPCM with exactly outFrames frames at outRate.
+// It returns how many of those frames contain actual (non-padded) audio,
+// and whether this call produced the final output (done=true).
+func (rs *linearResampler) Fill(outPCM []int16, outFrames int) (actualFrames int, done bool, err error) {
+	if rs == nil {
+		return 0, true, errors.New("resampler: nil")
+	}
+	if outFrames <= 0 || len(outPCM) < outFrames*rs.channels {
+		return 0, false, errors.New("resampler: invalid output buffer")
+	}
+	if rs.inRate <= 0 || rs.outRate <= 0 || rs.channels <= 0 {
+		return 0, false, errors.New("resampler: invalid rates/channels")
+	}
+
+	// Ensure we have some input buffered.
+	for len(rs.buf) == 0 && !rs.eof {
+		if err := rs.readMore(); err != nil {
+			return 0, false, err
+		}
+	}
+
+	totalAvail := rs.totalFramesAvailable()
+	for i := 0; i < outFrames; i++ {
+		idx := int64(math.Floor(rs.pos))
+		frac := rs.pos - float64(idx)
+
+		// Try to buffer enough for interpolation when not EOF.
+		for !rs.eof {
+			need := idx + 1
+			if need < rs.totalFramesAvailable() {
+				break
+			}
+			if err := rs.readMore(); err != nil {
+				return actualFrames, false, err
+			}
+		}
+		totalAvail = rs.totalFramesAvailable()
+
+		if idx >= totalAvail {
+			// Out of input; pad with silence.
+			for c := 0; c < rs.channels; c++ {
+				outPCM[i*rs.channels+c] = 0
+			}
+			rs.pos += rs.step
+			continue
+		}
+
+		// s0 at idx always exists here.
+		o0 := int((idx - rs.base) * int64(rs.channels))
+		// s1 at idx+1 if available; otherwise hold s0 (EOF tail).
+		o1 := o0
+		if idx+1 < totalAvail {
+			o1 = int((idx + 1 - rs.base) * int64(rs.channels))
+		}
+
+		for c := 0; c < rs.channels; c++ {
+			s0 := float64(rs.buf[o0+c])
+			s1 := float64(rs.buf[o1+c])
+			s := s0 + (s1-s0)*frac
+			if s > 32767 {
+				s = 32767
+			} else if s < -32768 {
+				s = -32768
+			}
+			outPCM[i*rs.channels+c] = int16(s)
+		}
+
+		actualFrames++
+		rs.pos += rs.step
+	}
+
+	// Drop old input we can no longer reference (keep 1 frame of history).
+	minNeeded := int64(math.Floor(rs.pos)) - 1
+	if minNeeded > rs.base {
+		dropFrames := minNeeded - rs.base
+		dropSamples := int(dropFrames) * rs.channels
+		if dropSamples > 0 && dropSamples < len(rs.buf) {
+			rs.buf = rs.buf[dropSamples:]
+			rs.base = minNeeded
+		} else if dropSamples >= len(rs.buf) {
+			rs.buf = nil
+			rs.base = minNeeded
+		}
+	}
+
+	if rs.eof {
+		// Done when the next output would start beyond available input.
+		nextIdx := int64(math.Floor(rs.pos))
+		if nextIdx >= rs.totalFramesAvailable() {
+			done = true
+		}
+	}
+
+	return actualFrames, done, nil
+}
+
 func main() {
 	if len(os.Args) < 2 || len(os.Args) > 3 {
 		fmt.Fprintf(os.Stderr, "usage: %s input.mp3 [output.opus]\n", filepath.Base(os.Args[0]))
@@ -137,26 +319,22 @@ func main() {
 	}
 
 	const (
-		channels   = 2
-		frameMS    = 20
-		bitrate    = 64000
-		vbr        = true
-		complexity = 10
+		channels       = 2
+		frameSize48k   = 960 // 20ms @ 48kHz
+		bitrate        = 64000
+		vbr            = true
+		complexity     = 10
+		opusSampleRate = ogg.OpusSampleRateHz
 	)
 
-	sampleRate := dec.SampleRate()
-	if sampleRate <= 0 {
-		fatal(fmt.Errorf("mp3: invalid sample rate: %d", sampleRate))
+	inSampleRate := dec.SampleRate()
+	if inSampleRate <= 0 {
+		fatal(fmt.Errorf("mp3: invalid sample rate: %d", inSampleRate))
 	}
 
-	frameSize := (sampleRate * frameMS) / 1000
-	if frameSize <= 0 {
-		fatal(fmt.Errorf("mp3: computed invalid frame size: %d", frameSize))
-	}
-
-	enc, err := opus.NewEncoder(sampleRate, channels, opus.ApplicationAudio)
+	enc, err := opus.NewEncoder(opusSampleRate, channels, opus.ApplicationAudio)
 	if err != nil {
-		fatal(err)
+		fatal(fmt.Errorf("unable to create opus encoder: %v", err))
 	}
 	defer enc.Close()
 
@@ -195,7 +373,7 @@ func main() {
 		Version:              1,
 		Channels:             uint8(channels),
 		PreSkip:              uint16(lookahead),
-		InputSampleRate:      uint32(sampleRate),
+		InputSampleRate:      uint32(inSampleRate),
 		OutputGainQ8:         0,
 		ChannelMappingFamily: 0,
 	}
@@ -223,71 +401,52 @@ func main() {
 	decodedLenBytes := dec.Length()
 	var totalFramesEstimate int64
 	if decodedLenBytes > 0 {
-		totalPCMFrames := decodedLenBytes / int64(channels*2)
-		if totalPCMFrames > 0 {
-			totalFramesEstimate = (totalPCMFrames + int64(frameSize) - 1) / int64(frameSize)
+		inFrames := decodedLenBytes / int64(channels*2)
+		if inFrames > 0 {
+			outFrames := (inFrames*int64(opusSampleRate) + int64(inSampleRate) - 1) / int64(inSampleRate)
+			totalFramesEstimate = (outFrames + int64(frameSize48k) - 1) / int64(frameSize48k)
 		}
 	}
 	progress := newProgressReporter(decodedLenBytes, totalFramesEstimate)
 
-	pcm := make([]int16, frameSize*channels)
-	raw := make([]byte, len(pcm)*2)
+	resampler := newLinearResampler(dec, inSampleRate, opusSampleRate, channels)
+
+	pcm := make([]int16, frameSize48k*channels)
 	packet := make([]byte, 4000)
 	var totalSamplesPerCh48k uint64
-	var rem48k uint64
-	var bytesRead int64
 	var framesDone int64
 
 	for {
-		n, rerr := io.ReadFull(dec, raw)
-		if rerr != nil && !errors.Is(rerr, io.EOF) && !errors.Is(rerr, io.ErrUnexpectedEOF) {
-			fatal(rerr)
+		framesActual, done, err := resampler.Fill(pcm, frameSize48k)
+		if err != nil {
+			fatal(err)
 		}
-		if n == 0 {
+		if framesActual == 0 && done {
 			break
 		}
 
-		bytesPerFrame := channels * 2
-		if n%bytesPerFrame != 0 {
-			n -= n % bytesPerFrame
-		}
-		framesRead := n / bytesPerFrame
-		bytesRead += int64(n)
-
-		isLast := errors.Is(rerr, io.EOF) || errors.Is(rerr, io.ErrUnexpectedEOF) || framesRead < frameSize
-
-		for i := n; i < len(raw); i++ {
-			raw[i] = 0
-		}
-		for i := 0; i < len(raw); i += 2 {
-			pcm[i/2] = int16(binary.LittleEndian.Uint16(raw[i : i+2]))
-		}
-
-		nBytes, err := enc.Encode(pcm, frameSize, packet)
+		nBytes, err := enc.Encode(pcm, frameSize48k, packet)
 		if err != nil {
 			fatal(err)
 		}
 
 		framesDone++
-		progress.Print(framesDone, bytesRead, false)
+		progress.Print(framesDone, resampler.BytesRead(), false)
 
-		num := uint64(framesRead)*uint64(ogg.OpusSampleRateHz) + rem48k
-		inc48k := num / uint64(sampleRate)
-		rem48k = num % uint64(sampleRate)
-		totalSamplesPerCh48k += inc48k
+		totalSamplesPerCh48k += uint64(framesActual)
 		granule := uint64(head.PreSkip) + totalSamplesPerCh48k
 
-		if err := pw.WritePacket(packet[:nBytes], granule, false, isLast); err != nil {
+		if err := pw.WritePacket(packet[:nBytes], granule, false, done); err != nil {
 			fatal(err)
 		}
-		if isLast {
+		if done {
 			break
 		}
 	}
 
-	progress.Print(framesDone, bytesRead, true)
+	progress.Print(framesDone, resampler.BytesRead(), true)
 	fmt.Fprintln(os.Stderr)
-    fmt.Printf("Wrote %s\n", outPath)
+	fmt.Printf("Wrote %s\n", outPath)
 
 	if err := pw.Flush(); err != nil {
 		fatal(err)

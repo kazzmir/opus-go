@@ -118,12 +118,6 @@ func oggLacing(packet []byte) (segTable []byte, segDataLens []int) {
 	}
 	segTable = append(segTable, byte(remaining))
 	segDataLens = append(segDataLens, remaining)
-	// If packet length is an exact multiple of 255, we must append a 0-length
-	// segment to terminate the packet.
-	if remaining == 0 {
-		segTable = append(segTable, 0)
-		segDataLens = append(segDataLens, 0)
-	}
 	return segTable, segDataLens
 }
 
