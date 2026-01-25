@@ -138,6 +138,46 @@ func main() {
 	var totalSamplesPerCh48k uint64
 	var rem48k uint64
 
+	// Progress reporting.
+	decodedLenBytes := dec.Length()
+	var totalFramesEstimate int64
+	if decodedLenBytes > 0 {
+		totalPCMFrames := decodedLenBytes / int64(channels*2)
+		if totalPCMFrames > 0 {
+			totalFramesEstimate = (totalPCMFrames + int64(frameSize) - 1) / int64(frameSize)
+		}
+	}
+	var bytesRead int64
+	var framesDone int64
+	spinner := []byte{'|', '/', '-', '\\'}
+	spin := 0
+	lastPrint := time.Now()
+	printProgress := func(force bool) {
+		if !force {
+			if time.Since(lastPrint) < 100*time.Millisecond {
+				return
+			}
+		}
+		lastPrint = time.Now()
+		ch := spinner[spin%len(spinner)]
+		spin++
+		if totalFramesEstimate > 0 {
+			pct := float64(framesDone) / float64(totalFramesEstimate) * 100
+			if pct > 100 {
+				pct = 100
+			}
+			fmt.Fprintf(os.Stderr, "\r%c %6.2f%% (%d/%d frames)", ch, pct, framesDone, totalFramesEstimate)
+		} else if decodedLenBytes > 0 {
+			pct := float64(bytesRead) / float64(decodedLenBytes) * 100
+			if pct > 100 {
+				pct = 100
+			}
+			fmt.Fprintf(os.Stderr, "\r%c %6.2f%% (%d bytes)", ch, pct, bytesRead)
+		} else {
+			fmt.Fprintf(os.Stderr, "\r%c %d frames", ch, framesDone)
+		}
+	}
+
 	for {
 		n, rerr := io.ReadFull(dec, raw)
 		if rerr != nil && !errors.Is(rerr, io.EOF) && !errors.Is(rerr, io.ErrUnexpectedEOF) {
@@ -153,6 +193,7 @@ func main() {
 			n -= n % bytesPerFrame
 		}
 		framesRead := n / bytesPerFrame
+		bytesRead += int64(n)
 
 		isLast := errors.Is(rerr, io.EOF) || errors.Is(rerr, io.ErrUnexpectedEOF) || framesRead < frameSize
 
@@ -169,6 +210,8 @@ func main() {
 		if err != nil {
 			fatal(err)
 		}
+		framesDone++
+		printProgress(false)
 
 		// Convert input samples (at sampleRate) to 48kHz granule samples, carrying remainder.
 		num := uint64(framesRead)*uint64(ogg.OpusSampleRateHz) + rem48k
@@ -184,6 +227,10 @@ func main() {
 			break
 		}
 	}
+	printProgress(true)
+	fmt.Fprintln(os.Stderr)
+
+    fmt.Printf("Wrote %s\n", outPath)
 
 	if err := pw.Flush(); err != nil {
 		fatal(err)
