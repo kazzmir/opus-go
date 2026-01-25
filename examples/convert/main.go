@@ -363,6 +363,7 @@ func main() {
 	}
 	defer inF.Close()
 
+	// need a seekable version first to get the length
 	dec, err := mp3.NewDecoder(inF)
 	if err != nil {
 		fatal(err)
@@ -385,6 +386,7 @@ func main() {
 	progress := newProgressReporter(decodedLenBytes, totalFramesEstimate)
 
 	inF.Seek(0, io.SeekStart)
+	// then a buffered version for decoding
 	dec, _ = mp3.NewDecoder(bufio.NewReader(inF))
 
 	// Decode MP3 PCM in a separate goroutine and feed bytes through a buffered channel.
