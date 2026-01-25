@@ -1,4 +1,4 @@
-module github.com/kazzmir/opus-go/examples/play
+module github.com/kazzmir/opus-go/examples/convert
 
 go 1.25.0
 

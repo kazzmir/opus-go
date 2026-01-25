@@ -294,6 +294,15 @@ func (rs *linearResampler) Fill(outPCM []int16, outFrames int) (actualFrames int
 }
 
 func main() {
+	const (
+		channels       = 2
+		frameSize48k   = 960 // 20ms @ 48kHz
+		bitrate        = 64000
+		vbr            = true
+		complexity     = 10
+		opusSampleRate = ogg.OpusSampleRateHz
+	)
+
 	if len(os.Args) < 2 || len(os.Args) > 3 {
 		fmt.Fprintf(os.Stderr, "usage: %s input.mp3 [output.opus]\n", filepath.Base(os.Args[0]))
 		os.Exit(2)
@@ -318,19 +327,24 @@ func main() {
 		fatal(err)
 	}
 
-	const (
-		channels       = 2
-		frameSize48k   = 960 // 20ms @ 48kHz
-		bitrate        = 64000
-		vbr            = true
-		complexity     = 10
-		opusSampleRate = ogg.OpusSampleRateHz
-	)
-
 	inSampleRate := dec.SampleRate()
 	if inSampleRate <= 0 {
 		fatal(fmt.Errorf("mp3: invalid sample rate: %d", inSampleRate))
 	}
+
+	decodedLenBytes := dec.Length()
+	var totalFramesEstimate int64
+	if decodedLenBytes > 0 {
+		inFrames := decodedLenBytes / int64(channels*2)
+		if inFrames > 0 {
+			outFrames := (inFrames*int64(opusSampleRate) + int64(inSampleRate) - 1) / int64(inSampleRate)
+			totalFramesEstimate = (outFrames + int64(frameSize48k) - 1) / int64(frameSize48k)
+		}
+	}
+	progress := newProgressReporter(decodedLenBytes, totalFramesEstimate)
+
+	inF.Seek(0, io.SeekStart)
+	dec, _ = mp3.NewDecoder(bufio.NewReader(inF))
 
 	enc, err := opus.NewEncoder(opusSampleRate, channels, opus.ApplicationAudio)
 	if err != nil {
@@ -397,17 +411,6 @@ func main() {
 	if err := pw.WritePacket(tagsPkt, 0, false, false); err != nil {
 		fatal(err)
 	}
-
-	decodedLenBytes := dec.Length()
-	var totalFramesEstimate int64
-	if decodedLenBytes > 0 {
-		inFrames := decodedLenBytes / int64(channels*2)
-		if inFrames > 0 {
-			outFrames := (inFrames*int64(opusSampleRate) + int64(inSampleRate) - 1) / int64(inSampleRate)
-			totalFramesEstimate = (outFrames + int64(frameSize48k) - 1) / int64(frameSize48k)
-		}
-	}
-	progress := newProgressReporter(decodedLenBytes, totalFramesEstimate)
 
 	resampler := newLinearResampler(dec, inSampleRate, opusSampleRate, channels)
 
