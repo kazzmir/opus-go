@@ -35,6 +35,7 @@ func main() {
 	fmt.Printf("OpusHead: version=%d channels=%d preSkip=%d inputRate=%d mapping=%d\n",
 		r.Head.Version, r.Head.Channels, r.Head.PreSkip, r.Head.InputSampleRate, r.Head.ChannelMappingFamily)
 	fmt.Printf("OpusTags: vendor=%q comments=%d\n", r.Tags.Vendor, len(r.Tags.Comments))
+	fmt.Printf("Preskip samples: %d\n", r.Head.PreSkip)
 
 	count := 0
 	for {
@@ -47,9 +48,9 @@ func main() {
 		}
 		count++
 		if pkt.GranuleValid {
-			fmt.Printf("pkt=%d bytes=%d granule=%d eos=%v\n", count, len(pkt.Data), pkt.GranulePos, pkt.EOS)
+			fmt.Printf("pkt=%d bytes=%d granule=%d page=%d eos=%v\n", count, len(pkt.Data), pkt.GranulePos, pkt.PageSequence, pkt.EOS)
 		} else {
-			fmt.Printf("pkt=%d bytes=%d granule=? eos=%v\n", count, len(pkt.Data), pkt.EOS)
+			fmt.Printf("pkt=%d bytes=%d granule=? (%d) page=%d eos=%v\n", count, len(pkt.Data), pkt.GranulePos, pkt.PageSequence, pkt.EOS)
 		}
 		if *max > 0 && count >= *max {
 			break

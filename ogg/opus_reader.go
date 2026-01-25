@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"time"
+	"sync"
 )
 
 var (
@@ -52,6 +53,7 @@ type OpusAudioPacket struct {
 	GranulePos   uint64
 	GranuleValid bool
 	EOS          bool
+    PageSequence uint32
 }
 
 // OpusReader reads an Ogg Opus file/stream and yields Opus audio packets.
@@ -63,6 +65,10 @@ type OpusReader struct {
 
 	headRead bool
 	tagsRead bool
+
+	cachedTotalSamples int64
+	cachedTotalErr     error
+	cachedTotalOnce    sync.Once
 }
 
 // OpusSampleRateHz is the Opus decoding sample rate (RFC 7845).
@@ -134,57 +140,36 @@ func (r *OpusReader) ReadAudioPacket() (*OpusAudioPacket, error) {
 		GranulePos:   pkt.GranulePosition,
 		GranuleValid: pkt.GranuleValid,
 		EOS:          pkt.EOS,
+        PageSequence: pkt.PageSequenceEnd,
 	}, nil
 }
 
-// TotalSamples returns the total number of decoded samples per channel.
-//
-// This is derived from the final granule position and OpusHead.PreSkip (RFC 7845)
-// and does not require decoding to PCM.
-//
-// Note: This method consumes packets until EOF.
+// returns the granule position of the sequence just before the requested granule position
+func (r *OpusReader) SeekToPage(granulePos uint64) (uint64, error) {
+    return r.pr.SeekToPage(granulePos)
+}
+
+// return the total number of samples in the stream, derived from the last page granule position.
+// Note: this method is destructive in that it reads packets. Subsequent calls to ReadAudioPacket may return EOF.
+// if the underlying reader is seekable, you may want to seek back to the start after calling this method.
 func (r *OpusReader) TotalSamples() (int64, error) {
-	if r == nil {
-		return 0, errors.New("ogg: nil OpusReader")
-	}
-	if !r.headRead || !r.tagsRead {
-		return 0, ErrHeaderSequence
-	}
+    // only compute one time
+    r.cachedTotalOnce.Do(func() {
+        granule, err := r.pr.LastPageGranule()
+        if err != nil {
+            r.cachedTotalErr = err
+        } else {
+            r.cachedTotalSamples = granule - int64(r.Head.PreSkip)
+            r.cachedTotalErr = nil
+        }
+    })
 
-	var lastGranule uint64
-	var have bool
-
-	for {
-		pkt, err := r.ReadAudioPacket()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return 0, err
-		}
-		if pkt.GranuleValid {
-			lastGranule = pkt.GranulePos
-			have = true
-		}
-		if pkt.EOS {
-			break
-		}
-	}
-
-	if !have {
-		return 0, errors.New("ogg: no granule positions found")
-	}
-
-	total := int64(lastGranule) - int64(r.Head.PreSkip)
-	if total < 0 {
-		total = 0
-	}
-	return total, nil
+    return r.cachedTotalSamples, r.cachedTotalErr
 }
 
 // TotalDuration returns the decoded playback duration, derived from TotalSamples.
 //
-// Note: This method consumes packets until EOF.
+// Note: This method consumes packets until EOF, see the note about TotalSamples.
 func (r *OpusReader) TotalDuration() (time.Duration, error) {
 	samples, err := r.TotalSamples()
 	if err != nil {
