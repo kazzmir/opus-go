@@ -151,7 +151,21 @@ func main() {
 	var framesDone int64
 	spinner := []byte{'|', '/', '-', '\\'}
 	spin := 0
+	start := time.Now()
 	lastPrint := time.Now()
+	formatDur := func(d time.Duration) string {
+		if d < 0 {
+			d = 0
+		}
+		total := int64(d.Round(time.Second) / time.Second)
+		h := total / 3600
+		m := (total % 3600) / 60
+		s := total % 60
+		if h > 0 {
+			return fmt.Sprintf("%d:%02d:%02d", h, m, s)
+		}
+		return fmt.Sprintf("%d:%02d", m, s)
+	}
 	printProgress := func(force bool) {
 		if !force {
 			if time.Since(lastPrint) < 100*time.Millisecond {
@@ -159,6 +173,7 @@ func main() {
 			}
 		}
 		lastPrint = time.Now()
+		elapsed := time.Since(start)
 		ch := spinner[spin%len(spinner)]
 		spin++
 		if totalFramesEstimate > 0 {
@@ -166,15 +181,39 @@ func main() {
 			if pct > 100 {
 				pct = 100
 			}
-			fmt.Fprintf(os.Stderr, "\r%c %6.2f%% (%d/%d frames)", ch, pct, framesDone, totalFramesEstimate)
+			etaStr := "--:--"
+			if framesDone > 0 && elapsed > 0 {
+				rate := float64(framesDone) / elapsed.Seconds()
+				if rate > 0 {
+					remaining := float64(totalFramesEstimate - framesDone)
+					if remaining < 0 {
+						remaining = 0
+					}
+					eta := time.Duration(remaining / rate * float64(time.Second))
+					etaStr = formatDur(eta)
+				}
+			}
+			fmt.Fprintf(os.Stderr, "\r%c %6.2f%% (%d/%d frames) elapsed %s eta %s", ch, pct, framesDone, totalFramesEstimate, formatDur(elapsed), etaStr)
 		} else if decodedLenBytes > 0 {
 			pct := float64(bytesRead) / float64(decodedLenBytes) * 100
 			if pct > 100 {
 				pct = 100
 			}
-			fmt.Fprintf(os.Stderr, "\r%c %6.2f%% (%d bytes)", ch, pct, bytesRead)
+			etaStr := "--:--"
+			if bytesRead > 0 && elapsed > 0 {
+				rate := float64(bytesRead) / elapsed.Seconds()
+				if rate > 0 {
+					remaining := float64(decodedLenBytes - bytesRead)
+					if remaining < 0 {
+						remaining = 0
+					}
+					eta := time.Duration(remaining / rate * float64(time.Second))
+					etaStr = formatDur(eta)
+				}
+			}
+			fmt.Fprintf(os.Stderr, "\r%c %6.2f%% (%d bytes) elapsed %s eta %s", ch, pct, bytesRead, formatDur(elapsed), etaStr)
 		} else {
-			fmt.Fprintf(os.Stderr, "\r%c %d frames", ch, framesDone)
+			fmt.Fprintf(os.Stderr, "\r%c %d frames elapsed %s", ch, framesDone, formatDur(elapsed))
 		}
 	}
 
@@ -230,7 +269,7 @@ func main() {
 	printProgress(true)
 	fmt.Fprintln(os.Stderr)
 
-    fmt.Printf("Wrote %s\n", outPath)
+	fmt.Printf("Wrote %s\n", outPath)
 
 	if err := pw.Flush(); err != nil {
 		fatal(err)
