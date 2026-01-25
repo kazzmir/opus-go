@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"testing"
+    "time"
 
 	"github.com/kazzmir/opus-go/ogg"
 	"github.com/kazzmir/opus-go/opus"
@@ -74,4 +75,56 @@ func TestDecodeMusic64kbpsSampleCount(t *testing.T) {
 	if totalInt16 < expected-tolerance || totalInt16 > expected+tolerance {
 		t.Fatalf("decoded int16 sample count out of range: got %d, want %d±%d", totalInt16, expected, tolerance)
 	}
+}
+
+func BenchmarkDecode(bench *testing.B) {
+    f, err := os.Open("music_64kbps.opus")
+	if err != nil {
+		bench.Fatalf("open fixture: %v", err)
+	}
+	defer f.Close()
+
+	r, err := ogg.NewOpusReader(f)
+	if err != nil {
+		bench.Fatalf("ogg opus reader: %v", err)
+	}
+
+    pcm := make([]int16, 10000)
+
+    var packets []*ogg.OpusAudioPacket
+    // skip some initial packets
+    N := 2000
+    for range N {
+        packet, err := r.ReadAudioPacket()
+        if err != nil {
+            bench.Fatalf("read audio packet: %v", err)
+        }
+        packets = append(packets, packet)
+    }
+
+    var decodeTime time.Duration
+
+    totalDecoded := 0
+
+    bench.ResetTimer()
+    for bench.Loop() {
+
+        decodeStart := time.Now()
+        decoder, err := opus.NewDecoderFromHead(r.Head)
+        if err != nil {
+            bench.Fatalf("new decoder: %v", err)
+        }
+        decodeTime += time.Since(decodeStart)
+
+        for _, packet := range packets {
+            pcm, _, err = decoder.DecodePacket(packet, pcm)
+            if err != nil {
+                bench.Fatalf("unable to decode: %v", err)
+            }
+            totalDecoded += 1
+        }
+    }
+
+    bench.ReportMetric(float64(totalDecoded) / float64((bench.Elapsed() - decodeTime).Milliseconds()), "packets/ms")
+
 }
