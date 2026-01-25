@@ -305,17 +305,8 @@ func (player *OpusPlayer) SeekSample(position uint64) error {
     player.position = 0
     player.buffer = player.buffer[:0]
 
-    buffer := make([]byte, 1024 * 4)
-    for skipSamples > 0 {
-        use := min(len(buffer), int(skipSamples * 4))
-        n, err := player.Read(buffer[:use])
-        if err != nil && err != io.EOF {
-            return err
-        }
-        skipSamples -= uint64(n / 4)
-    }
-
-    return nil
+    _, err = io.CopyN(io.Discard, player, int64(skipSamples * 4))
+    return err
 }
 
 // Seek to the position specified by the argument in terms of time.
