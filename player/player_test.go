@@ -148,6 +148,8 @@ func TestSeek2(test *testing.T) {
         checkBytes(decoded, int64(position))
     }
 
+    // this is very near the end of the stream where the last granule should drop
+    // some excess samples
     position = int64(4358531 - 350) * 4
     where, err = player.Seek(position, io.SeekStart)
     if err != nil {
