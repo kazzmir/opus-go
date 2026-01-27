@@ -37,7 +37,11 @@ func play(filename string) error {
 
     // log.Printf("Length: %v", opusPlayer.Length())
 
-    opusPlayer.Seek(10, io.SeekStart)
+    _, err = opusPlayer.Seek(100, io.SeekStart)
+    if err != nil {
+        log.Printf("Error seeking: %v", err)
+        return err
+    }
     // err = opusPlayer.SeekTime(80379 * time.Millisecond)
 
     /*
