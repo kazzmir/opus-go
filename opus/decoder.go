@@ -234,6 +234,22 @@ func (decoder *Decoder) DecodePacket(packet *ogg.OpusAudioPacket, pcm []int16) (
     return pcm[:n*decoder.channels], n, nil
 }
 
+// convenience function to decode an Ogg OpusAudioPacket
+func (decoder *Decoder) DecodePacketF32(packet *ogg.OpusAudioPacket, pcm []float32) ([]float32, int, error) {
+	const maxMsPerFrame = 120
+	maxSize := ogg.OpusSampleRateHz * maxMsPerFrame / 1000
+	if len(pcm) < maxSize*decoder.channels {
+		pcm = make([]float32, maxSize*decoder.channels)
+	}
+
+	n, err := decoder.DecodeF32(packet.Data, pcm, maxSize, false)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return pcm[:n*decoder.channels], n, nil
+}
+
 func opusccErrorString(code int32) string {
 	s := opuscc.Opus_opus_strerror(code)
 	if s == "" {
