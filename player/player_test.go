@@ -23,6 +23,17 @@ func TestBasic(test *testing.T) {
     }
 }
 
+func TestBasicF32(test *testing.T) {
+    player, err := NewPlayerF32FromFile(testFilePath, true)
+    if err != nil {
+        test.Fatalf("Failed to create player: %v", err)
+    }
+
+    if player.CurrentSample() != 0 {
+        test.Fatalf("Expected current sample to be 0, got %d", player.CurrentSample())
+    }
+}
+
 func absTime(d time.Duration) time.Duration {
     if d < 0 {
         return -d
@@ -214,7 +225,6 @@ func BenchmarkDecodeInt16(bench *testing.B) {
         io.Copy(io.Discard, player)
     }
 }
-
 
 func BenchmarkDecodeFloat32(bench *testing.B) {
     player, err := NewPlayerF32FromFile(testFilePath, true)
