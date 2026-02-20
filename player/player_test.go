@@ -202,3 +202,28 @@ func BenchmarkSeek(bench *testing.B) {
         }
     }
 }
+
+func BenchmarkDecodeInt16(bench *testing.B) {
+    player, err := NewPlayerFromFile(testFilePath, true)
+    if err != nil {
+        bench.Fatalf("Failed to create player: %v", err)
+    }
+
+    bench.ResetTimer()
+    for bench.Loop() {
+        io.Copy(io.Discard, player)
+    }
+}
+
+
+func BenchmarkDecodeFloat32(bench *testing.B) {
+    player, err := NewPlayerF32FromFile(testFilePath, true)
+    if err != nil {
+        bench.Fatalf("Failed to create player: %v", err)
+    }
+
+    bench.ResetTimer()
+    for bench.Loop() {
+        io.Copy(io.Discard, player)
+    }
+}
