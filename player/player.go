@@ -69,7 +69,8 @@ func newPlayerFromReader[T DataType](reader io.Reader) (*OpusPlayer[T], error) {
 }
 
 // Create a new OpusPlayer from an io.Reader. If the reader is seekable,
-// then seeking within the stream will be supported.
+// then seeking within the stream will be supported. The Read() and ReadPacket() methods
+// will produce int16 PCM data
 //
 // Internally the reader is wrapped in a bufio.Reader, so you do not have to
 // wrap it yourself.
@@ -77,6 +78,7 @@ func NewPlayerFromReader(reader io.Reader) (*OpusPlayer[int16], error) {
     return newPlayerFromReader[int16](reader)
 }
 
+// Same as NewPlayerFromReader but the Read() and ReadPacket() methods will produce float32 PCM data
 func NewPlayerF32FromReader(reader io.Reader) (*OpusPlayer[float32], error) {
     return newPlayerFromReader[float32](reader)
 }
@@ -103,13 +105,14 @@ func newPlayerFromFile[T DataType](path string, stream bool) (*OpusPlayer[T], er
     }
 }
 
-// Create a new OpusPlayer from a file path.
+// Create a new OpusPlayer from a file path that produces int16 PCM data.
 // If stream is true, the file will be kept open and 
 // otherwise if stream is false then the entirety of the file will be read into memory.
 func NewPlayerFromFile(path string, stream bool) (*OpusPlayer[int16], error) {
     return newPlayerFromFile[int16](path, stream)
 }
 
+// Same as NewPlayerFromFile but produces float32 PCM data
 func NewPlayerF32FromFile(path string, stream bool) (*OpusPlayer[float32], error) {
     return newPlayerFromFile[float32](path, stream)
 }
@@ -278,7 +281,7 @@ func (player *OpusPlayer[T]) handleSkip(n int, packet *ogg.OpusAudioPacket, maxL
 
             excessSamples := actual - maxSamples
             upper := excessSamples * uint64(player.reader.Head.Channels)
-            if upper < uint64(len(player.bufferInt16)) {
+            if upper < uint64(maxLength) {
                 return maxLength - int(upper)
             }
         }
@@ -421,7 +424,7 @@ func (player *OpusPlayer[T]) Length() int64 {
     if err != nil {
         return 0
     }
-    return total * 4
+    return total * 2 * int64(player.bytesPerSample)
 }
 
 // position is a number of samples (not bytes) from the start of the stream.
@@ -499,7 +502,7 @@ func (player *OpusPlayer[T]) TotalDuration() (time.Duration, error) {
 }
 
 // Returns the time stamp of the most recently decoded audio in the stream.
-// This is the granule position of the last packet in opus terms. This can be differnt from CurrentTime()
+// This is the granule position of the last packet in opus terms. This can be different from CurrentTime()
 // when the stream being played is a network stream that started in the past.
 func (player *OpusPlayer[T]) CurrentStreamTimestamp() time.Duration {
     return player.lastTimestamp
