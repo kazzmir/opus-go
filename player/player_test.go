@@ -21,6 +21,63 @@ func TestBasic(test *testing.T) {
     if player.CurrentSample() != 0 {
         test.Fatalf("Expected current sample to be 0, got %d", player.CurrentSample())
     }
+
+    var buffer bytes.Buffer
+    n, err := io.Copy(&buffer, player)
+    if err != nil {
+        test.Fatalf("Failed to read from player: %v", err)
+    }
+
+    if n != player.Length() {
+        test.Fatalf("Expected to read %d bytes, got %d", player.Length(), n)
+    }
+}
+
+func TestBasicF32(test *testing.T) {
+    player, err := NewPlayerF32FromFile(testFilePath, true)
+    if err != nil {
+        test.Fatalf("Failed to create player: %v", err)
+    }
+
+    if player.CurrentSample() != 0 {
+        test.Fatalf("Expected current sample to be 0, got %d", player.CurrentSample())
+    }
+
+    var buffer bytes.Buffer
+    n, err := io.Copy(&buffer, player)
+    if err != nil {
+        test.Fatalf("Failed to read from player: %v", err)
+    }
+
+    if n != player.Length() {
+        test.Fatalf("Expected to read %d bytes, got %d", player.Length(), n)
+    }
+}
+
+func TestSameSamples(test *testing.T) {
+    player1, err := NewPlayerFromFile(testFilePath, true)
+    if err != nil {
+        test.Fatalf("Failed to create first player: %v", err)
+    }
+
+    player2, err := NewPlayerF32FromFile(testFilePath, true)
+    if err != nil {
+        test.Fatalf("Failed to create second player: %v", err)
+    }
+
+    total1, err := player1.TotalSamples()
+    if err != nil {
+        test.Fatalf("Failed to get total samples from first player: %v", err)
+    }
+
+    total2, err := player2.TotalSamples()
+    if err != nil {
+        test.Fatalf("Failed to get total samples from second player: %v", err)
+    }
+
+    if total1 != total2 {
+        test.Fatalf("Expected total samples to be the same, got %d and %d", total1, total2)
+    }
 }
 
 func absTime(d time.Duration) time.Duration {
@@ -200,5 +257,29 @@ func BenchmarkSeek(bench *testing.B) {
         if err != nil {
             bench.Fatalf("Failed to seek during benchmark: %v", err)
         }
+    }
+}
+
+func BenchmarkDecodeInt16(bench *testing.B) {
+    player, err := NewPlayerFromFile(testFilePath, true)
+    if err != nil {
+        bench.Fatalf("Failed to create player: %v", err)
+    }
+
+    bench.ResetTimer()
+    for bench.Loop() {
+        io.Copy(io.Discard, player)
+    }
+}
+
+func BenchmarkDecodeFloat32(bench *testing.B) {
+    player, err := NewPlayerF32FromFile(testFilePath, true)
+    if err != nil {
+        bench.Fatalf("Failed to create player: %v", err)
+    }
+
+    bench.ResetTimer()
+    for bench.Loop() {
+        io.Copy(io.Discard, player)
     }
 }

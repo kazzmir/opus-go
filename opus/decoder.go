@@ -173,6 +173,51 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 	return int(ret), nil
 }
 
+// DecodeF32 decodes a single Opus packet into interleaved 32-bit float PCM.
+//
+// frameSize is the maximum number of samples per channel to decode.
+// Use 5760 for the Opus max frame size at 48kHz (120 ms).
+//
+// Returns the number of samples per channel written into pcm.
+func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeFEC bool) (int, error) {
+	if d == nil {
+		return 0, errors.New("opus: decoder closed")
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d == nil || d.tls == nil || d.st == 0 {
+		return 0, errors.New("opus: decoder closed")
+	}
+	if frameSize <= 0 {
+		return 0, errors.New("opus: invalid frameSize")
+	}
+	nNeeded := frameSize * d.channels
+	if len(pcm) < nNeeded {
+		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
+	}
+
+	dataPtr := libc.PtrByte(packet)
+	dataLen := int32(len(packet))
+	pcmPtr := libc.PtrFloat32(pcm)
+	fec := int32(0)
+	if decodeFEC {
+		fec = 1
+	}
+
+	var ret int32
+	if d.multistream {
+		ret = opuscc.Opus_opus_multistream_decode_float(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+	} else {
+		ret = opuscc.Opus_opus_decode_float(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+	}
+
+	if ret < 0 {
+		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(ret), ret)
+	}
+	return int(ret), nil
+}
+
 // convenience function to decode an Ogg OpusAudioPacket
 func (decoder *Decoder) DecodePacket(packet *ogg.OpusAudioPacket, pcm []int16) ([]int16, int, error) {
     const maxMsPerFrame = 120
@@ -187,6 +232,22 @@ func (decoder *Decoder) DecodePacket(packet *ogg.OpusAudioPacket, pcm []int16) (
     }
 
     return pcm[:n*decoder.channels], n, nil
+}
+
+// convenience function to decode an Ogg OpusAudioPacket
+func (decoder *Decoder) DecodePacketF32(packet *ogg.OpusAudioPacket, pcm []float32) ([]float32, int, error) {
+	const maxMsPerFrame = 120
+	maxSize := ogg.OpusSampleRateHz * maxMsPerFrame / 1000
+	if len(pcm) < maxSize*decoder.channels {
+		pcm = make([]float32, maxSize*decoder.channels)
+	}
+
+	n, err := decoder.DecodeF32(packet.Data, pcm, maxSize, false)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return pcm[:n*decoder.channels], n, nil
 }
 
 func opusccErrorString(code int32) string {

@@ -413,6 +413,13 @@ func PtrByte(s []byte) uintptr {
 	return uintptr(unsafe.Pointer(unsafe.SliceData(s)))
 }
 
+func PtrFloat32(s []float32) uintptr {
+	if len(s) == 0 {
+		return 0
+	}
+	return uintptr(unsafe.Pointer(unsafe.SliceData(s)))
+}
+
 func LoadInt32(p uintptr) int32 {
 	if p == 0 {
 		return 0
