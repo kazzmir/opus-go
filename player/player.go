@@ -9,6 +9,7 @@ import (
     "bytes"
     "bufio"
     "time"
+    "math"
     // "log"
 
     "github.com/kazzmir/opus-go/ogg"
@@ -19,13 +20,15 @@ type DataType interface {
     int16 | float32
 }
 
-func dataSize[T DataType](x T) int {
-    switch any(x).(type) {
-        case int16: return 2
-        case float32: return 4
+func dataSize[T DataType](zero T) int {
+    switch any(zero).(type) {
+        case int16:
+            return 2
+        case float32:
+            return 4
+        default:
+            panic("unsupported data type")
     }
-
-    return 2
 }
 
 type OpusPlayer[SampleT DataType] struct {
@@ -35,18 +38,14 @@ type OpusPlayer[SampleT DataType] struct {
     bufferFloat32 []float32
     preskipRemaining int64
     position int
+    bytesPerSample int
     finished bool
     // how many samples have been read so far
     totalSamples int64
     lastTimestamp time.Duration
 }
 
-// Create a new OpusPlayer from an io.Reader. If the reader is seekable,
-// then seeking within the stream will be supported.
-//
-// Internally the reader is wrapped in a bufio.Reader, so you do not have to
-// wrap it yourself.
-func NewPlayerFromReader(reader io.Reader) (*OpusPlayer[int16], error) {
+func newPlayerFromReader[T DataType](reader io.Reader) (*OpusPlayer[T], error) {
     opusReader, err := ogg.NewOpusReader(reader)
     if err != nil {
         return nil, err
@@ -57,19 +56,32 @@ func NewPlayerFromReader(reader io.Reader) (*OpusPlayer[int16], error) {
         return nil, err
     }
 
-    return &OpusPlayer[int16]{
+    var zero T
+
+    return &OpusPlayer[T]{
         reader: opusReader,
         decoder: decoder,
         preskipRemaining: int64(opusReader.Head.PreSkip),
         position: 0,
+        bytesPerSample: dataSize(zero),
         // buffer does not need to be initialized here because it will be allocated on first read
     }, nil
 }
 
-// Create a new OpusPlayer from a file path.
-// If stream is true, the file will be kept open and 
-// otherwise if stream is false then the entirety of the file will be read into memory.
-func NewPlayerFromFile(path string, stream bool) (*OpusPlayer[int16], error) {
+// Create a new OpusPlayer from an io.Reader. If the reader is seekable,
+// then seeking within the stream will be supported.
+//
+// Internally the reader is wrapped in a bufio.Reader, so you do not have to
+// wrap it yourself.
+func NewPlayerFromReader(reader io.Reader) (*OpusPlayer[int16], error) {
+    return newPlayerFromReader[int16](reader)
+}
+
+func NewPlayerF32FromReader(reader io.Reader) (*OpusPlayer[float32], error) {
+    return newPlayerFromReader[float32](reader)
+}
+
+func newPlayerFromFile[T DataType](path string, stream bool) (*OpusPlayer[T], error) {
     file, err := os.Open(path)
     if err != nil {
         return nil, err
@@ -78,7 +90,7 @@ func NewPlayerFromFile(path string, stream bool) (*OpusPlayer[int16], error) {
     if stream {
         // dont need bufio here because OggOpusReader already uses bufio internally
         // note that we rely on the garbage collector to close the file when the player is done with it
-        return NewPlayerFromReader(file)
+        return newPlayerFromReader[T](file)
     } else {
         defer file.Close()
         var data bytes.Buffer
@@ -87,8 +99,19 @@ func NewPlayerFromFile(path string, stream bool) (*OpusPlayer[int16], error) {
             return nil, err
         }
 
-        return NewPlayerFromReader(bytes.NewReader(data.Bytes()))
+        return newPlayerFromReader[T](bytes.NewReader(data.Bytes()))
     }
+}
+
+// Create a new OpusPlayer from a file path.
+// If stream is true, the file will be kept open and 
+// otherwise if stream is false then the entirety of the file will be read into memory.
+func NewPlayerFromFile(path string, stream bool) (*OpusPlayer[int16], error) {
+    return newPlayerFromFile[int16](path, stream)
+}
+
+func NewPlayerF32FromFile(path string, stream bool) (*OpusPlayer[float32], error) {
+    return newPlayerFromFile[float32](path, stream)
 }
 
 // Returns true when the stream has finished and all bytes decoded
@@ -143,7 +166,117 @@ func (player *OpusPlayer[SampleT]) ReadPacket(p []byte) (int, error) {
 }
 
 func (player *OpusPlayer[float32]) readPacketFloat32(p []byte) (int, error) {
-    return 0, fmt.Errorf("float32 output is not yet supported")
+    if player.position >= len(player.bufferFloat32) {
+        packet, err := player.reader.ReadAudioPacket()
+        if err != nil {
+            player.finished = true
+            return 0, err
+
+            // fill with silence
+            /*
+            for i := range p {
+                p[i] = 0
+            }
+
+            return len(p), err
+            */
+        }
+
+        // fmt.Printf("Packet granule: %v valid: %v sequence: %v eos: %v\n", packet.GranulePos, packet.GranuleValid, packet.PageSequence, packet.EOS)
+
+        player.updateTimestamp(packet.GranulePos)
+
+        if packet.EOS {
+            player.finished = true
+        }
+
+        player.bufferFloat32 = player.bufferFloat32[:cap(player.bufferFloat32)]
+        player.position = 0
+
+        // DecodePacket will re-allocate the buffer if necessary
+        decoded, n, err := player.decoder.DecodePacketF32(packet, player.bufferFloat32)
+        if err != nil {
+            return 0, err
+        }
+
+        player.bufferFloat32 = decoded
+        if player.preskipRemaining > 0 {
+            skip := min(int64(n), player.preskipRemaining)
+            player.preskipRemaining -= skip
+            player.position += int(skip) * int(player.reader.Head.Channels)
+        }
+
+        // fmt.Printf("Decoded samples: %d buffer length: %d\n", n, len(player.buffer))
+
+        // discard excess samples based on granule position
+        if packet.GranuleValid {
+            actual := uint64(player.totalSamples + int64(n + int(player.reader.Head.PreSkip)))
+            maxSamples := packet.GranulePos
+
+            // this page's granule position indicates that we should drop some of the decoded samples
+            if actual > maxSamples {
+                // fmt.Printf("Dropping %d samples to match granule position at %d\n", actual - maxSamples, packet.GranulePos)
+
+                excessSamples := actual - maxSamples
+                upper := excessSamples * uint64(player.reader.Head.Channels)
+                if upper < uint64(len(player.bufferFloat32)) {
+                    player.bufferFloat32 = player.bufferFloat32[:len(player.bufferFloat32) - int(upper)]
+                }
+            }
+        }
+    }
+
+    switch player.reader.Head.Channels {
+        case 1:
+            // we have to produce stereo audio, so each input sample becomes two output samples
+            atMost := min(len(p) / 8, len(player.bufferFloat32) - player.position)
+            // log.Printf("Rendering opus: p=%d buffer=%d atMost=%d position=%d", len(p), len(player.buffer), atMost, player.position)
+            count := 0
+            for count < atMost {
+                sample := player.bufferFloat32[player.position + count]
+
+                v := math.Float32bits(sample)
+                p[count*8+0] = byte(v)
+                p[count*8+1] = byte(v >> 8)
+                p[count*8+2] = byte(v >> 16)
+                p[count*8+3] = byte(v >> 24)
+
+                p[count*8+4] = byte(v)
+                p[count*8+5] = byte(v >> 8)
+                p[count*8+6] = byte(v >> 16)
+                p[count*8+7] = byte(v >> 24)
+
+                count += 1
+            }
+            player.position += count
+            player.totalSamples += int64(count)
+
+            return count * 8, nil
+
+        case 2:
+            atMost := min(len(p) / 4, len(player.bufferFloat32) - player.position)
+
+            // log.Printf("Rendering opus: p=%d buffer=%d atMost=%d position=%d", len(p), len(player.buffer), atMost, player.position)
+
+            count := 0
+            for count < atMost {
+                sample := player.bufferFloat32[player.position + count]
+
+                v := math.Float32bits(sample)
+                p[count*4+0] = byte(v)
+                p[count*4+1] = byte(v >> 8)
+                p[count*4+2] = byte(v >> 16)
+                p[count*4+3] = byte(v >> 24)
+
+                count += 1
+            }
+            player.position += count
+            player.totalSamples += int64(count / 2)
+
+            return count * 4, nil
+    }
+
+    return 0, fmt.Errorf("unsupported number of channels: %d", player.reader.Head.Channels)
 }
 
 func (player *OpusPlayer[int16]) readPacketInt16(p []byte) (int, error) {
@@ -264,9 +397,10 @@ func (player *OpusPlayer[T]) SampleRate() int {
 //
 // Returns the new offset in bytes from the start of the stream.
 func (player *OpusPlayer[T]) Seek(offset int64, whence int) (int64, error) {
+    bytesPerSample := int64(player.bytesPerSample * 2)
     // 1 sample = 2 bytes per channel, where the decoded stream is always stereo
     byteToSample := func(b int64) int64 {
-        return b / 4
+        return b / bytesPerSample
     }
 
     offset = byteToSample(offset)
@@ -287,7 +421,7 @@ func (player *OpusPlayer[T]) Seek(offset int64, whence int) (int64, error) {
             err = fmt.Errorf("invalid whence: %d", whence)
     }
 
-    return player.totalSamples * 4, err
+    return player.totalSamples * bytesPerSample, err
 }
 
 // Total length in bytes of the decoded stream (not samples).
@@ -342,8 +476,9 @@ func (player *OpusPlayer[T]) SeekSample(position uint64) error {
     // start a fresh buffer
     player.position = 0
     player.bufferInt16 = player.bufferInt16[:0]
+    player.bufferFloat32 = player.bufferFloat32[:0]
 
-    _, err = io.CopyN(io.Discard, player, int64(skipSamples * 4))
+    _, err = io.CopyN(io.Discard, player, int64(skipSamples * uint64(player.bytesPerSample) * 2))
     return err
 }
 

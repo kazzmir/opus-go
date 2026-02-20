@@ -19,8 +19,16 @@ func NewPlayerFromReader(reader io.Reader) (*OpusPlayer[int16], error) {
     return player.NewPlayerFromReader(reader)
 }
 
+func NewPlayerF32FromReader(reader io.Reader) (*OpusPlayer[float32], error) {
+    return player.NewPlayerF32FromReader(reader)
+}
+
 // Create a new player from a file path. If stream is true, the file will be streamed instead of fully loaded into memory.
 // Note that internally the file object is closed when the garbage collector collects the player.
 func NewPlayerFromFile(path string, stream bool) (*OpusPlayer[int16], error) {
     return player.NewPlayerFromFile(path, stream)
+}
+
+func NewPlayerF32FromFile(path string, stream bool) (*OpusPlayer[float32], error) {
+    return player.NewPlayerF32FromFile(path, stream)
 }
