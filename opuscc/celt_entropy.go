@@ -216,8 +216,7 @@ func Opus_ec_dec_bits(tls *libc.TLS, _this uintptr, _bits uint32) (r OpusT_opus_
 	var available int32
 	var ret OpusT_opus_uint32
 	var window OpusT_ec_window
-	var v1 uintptr
-	_, _, _, _ = available, ret, window, v1
+	_, _, _ = available, ret, window
 	window = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fend_window
 	available = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnend_bits
 	if uint32(available) < _bits {
@@ -231,8 +230,7 @@ func Opus_ec_dec_bits(tls *libc.TLS, _this uintptr, _bits uint32) (r OpusT_opus_
 	available = int32(uint32(available) - _bits)
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fend_window = window
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnend_bits = available
-	v1 = _this + 24
-	*(*int32)(unsafe.Pointer(v1)) = int32(uint32(*(*int32)(unsafe.Pointer(v1))) + _bits)
+	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnbits_total = int32(uint32((*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnbits_total) + _bits)
 	return ret
 }
 
