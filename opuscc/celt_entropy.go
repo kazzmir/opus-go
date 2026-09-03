@@ -106,7 +106,7 @@ func Opus_ec_dec_update(tls *libc.TLS, _this uintptr, _fl uint32, _fh uint32, _f
 	var v1 uint32
 	_, _ = s, v1
 	s = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext * (_ft - _fh)
-	*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 36)) -= s
+	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval -= s
 	if _fl > uint32(0) {
 		v1 = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext * (_fh - _fl)
 	} else {
