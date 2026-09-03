@@ -1255,22 +1255,20 @@ func ec_enc_carry_out(tls *libc.TLS, _this uintptr, _c int32) {
 	var carry int32
 	var sym uint32
 	var v1 OpusT_opus_uint32
-	var v2 uintptr
-	_, _, _, _ = carry, sym, v1, v2
+	_, _, _ = carry, sym, v1
 	if uint32(_c) != uint32(1)<<int32(EC_SYM_BITS)-uint32(1) {
 		carry = _c >> int32(EC_SYM_BITS)
 		/*Don't output a byte on the first write.
 		  This compare should be taken care of by branch-prediction thereafter.*/
 		if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem >= 0 {
-			*(*int32)(unsafe.Pointer(_this + 48)) |= ec_write_byte(tls, _this, uint32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem+carry))
+			(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte(tls, _this, uint32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem+carry))
 		}
 		if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext > uint32(0) {
 			sym = (uint32(1)<<int32(EC_SYM_BITS) - uint32(1) + uint32(carry)) & (uint32(1)<<int32(EC_SYM_BITS) - uint32(1))
 			for {
-				*(*int32)(unsafe.Pointer(_this + 48)) |= ec_write_byte(tls, _this, sym)
-				v2 = _this + 40
-				*(*OpusT_opus_uint32)(unsafe.Pointer(v2)) = *(*OpusT_opus_uint32)(unsafe.Pointer(v2)) - 1
-				v1 = *(*OpusT_opus_uint32)(unsafe.Pointer(v2))
+				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte(tls, _this, sym)
+				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext--
+				v1 = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext
 				if !(v1 > uint32(0)) {
 					break
 				}
@@ -1288,8 +1286,8 @@ func ec_enc_normalize(tls *libc.TLS, _this uintptr) {
 		ec_enc_carry_out(tls, _this, int32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval>>(int32(EC_CODE_BITS)-int32(EC_SYM_BITS)-int32(1))))
 		/*Move the next-to-high-order symbol into the high-order position.*/
 		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval << int32(EC_SYM_BITS) & (uint32(1)<<(int32(EC_CODE_BITS)-int32(1)) - uint32(1))
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 32)) <<= uint32(int32(EC_SYM_BITS))
-		*(*int32)(unsafe.Pointer(_this + 24)) += int32(EC_SYM_BITS)
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng <<= uint32(int32(EC_SYM_BITS))
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnbits_total += int32(EC_SYM_BITS)
 	}
 }
 
@@ -1317,10 +1315,10 @@ func Opus_ec_encode(tls *libc.TLS, _this uintptr, _fl uint32, _fh uint32, _ft ui
 	v2 = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng / v1
 	r = v2
 	if _fl > uint32(0) {
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 36)) += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*(_ft-_fl)
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*(_ft-_fl)
 		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = r * (_fh - _fl)
 	} else {
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 32)) -= r * (_ft - _fh)
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng -= r * (_ft - _fh)
 	}
 	ec_enc_normalize(tls, _this)
 }
@@ -1330,10 +1328,10 @@ func Opus_ec_encode_bin(tls *libc.TLS, _this uintptr, _fl uint32, _fh uint32, _b
 	_ = r
 	r = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng >> _bits
 	if _fl > uint32(0) {
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 36)) += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*(uint32(1)<<_bits-_fl)
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*(uint32(1)<<_bits-_fl)
 		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = r * (_fh - _fl)
 	} else {
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 32)) -= r * (uint32(1)<<_bits - _fh)
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng -= r * (uint32(1)<<_bits - _fh)
 	}
 	ec_enc_normalize(tls, _this)
 }
@@ -1366,10 +1364,10 @@ func Opus_ec_enc_icdf(tls *libc.TLS, _this uintptr, _s int32, _icdf uintptr, _ft
 	_ = r
 	r = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng >> _ftb
 	if _s > 0 {
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 36)) += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*uint32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s-int32(1)))))
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*uint32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s-int32(1)))))
 		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = r * uint32(int32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s-int32(1)))))-int32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s)))))
 	} else {
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 32)) -= r * uint32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s))))
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng -= r * uint32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s))))
 	}
 	ec_enc_normalize(tls, _this)
 }
@@ -1379,10 +1377,10 @@ func Opus_ec_enc_icdf16(tls *libc.TLS, _this uintptr, _s int32, _icdf uintptr, _
 	_ = r
 	r = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng >> _ftb
 	if _s > 0 {
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 36)) += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*uint32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s-int32(1))*2)))
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*uint32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s-int32(1))*2)))
 		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = r * uint32(int32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s-int32(1))*2)))-int32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s)*2))))
 	} else {
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 32)) -= r * uint32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s)*2)))
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng -= r * uint32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s)*2)))
 	}
 	ec_enc_normalize(tls, _this)
 }
@@ -1411,8 +1409,7 @@ func Opus_ec_enc_uint(tls *libc.TLS, _this uintptr, _fl OpusT_opus_uint32, _ft O
 func Opus_ec_enc_bits(tls *libc.TLS, _this uintptr, _fl OpusT_opus_uint32, _bits uint32) {
 	var used int32
 	var window OpusT_ec_window
-	var v1 uintptr
-	_, _, _ = used, window, v1
+	_, _ = used, window
 	window = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_window
 	used = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnend_bits
 	if !(_bits > uint32(0)) {
@@ -1420,7 +1417,7 @@ func Opus_ec_enc_bits(tls *libc.TLS, _this uintptr, _fl OpusT_opus_uint32, _bits
 	}
 	if uint32(used)+_bits > uint32(int32(4)*int32(CHAR_BIT)) {
 		for cond := true; cond; cond = used >= int32(EC_SYM_BITS) {
-			*(*int32)(unsafe.Pointer(_this + 48)) |= ec_write_byte_at_end(tls, _this, window&(uint32(1)<<int32(EC_SYM_BITS)-uint32(1)))
+			(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte_at_end(tls, _this, window&(uint32(1)<<int32(EC_SYM_BITS)-uint32(1)))
 			window = window >> uint32(int32(EC_SYM_BITS))
 			used = used - int32(EC_SYM_BITS)
 		}
@@ -1429,8 +1426,7 @@ func Opus_ec_enc_bits(tls *libc.TLS, _this uintptr, _fl OpusT_opus_uint32, _bits
 	used = int32(uint32(used) + _bits)
 	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_window = window
 	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnend_bits = used
-	v1 = _this + 24
-	*(*int32)(unsafe.Pointer(v1)) = int32(uint32(*(*int32)(unsafe.Pointer(v1))) + _bits)
+	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnbits_total = int32(uint32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnbits_total) + _bits)
 }
 
 func Opus_ec_enc_patch_initial_bits(tls *libc.TLS, _this uintptr, _val uint32, _nbits uint32) {
@@ -1497,7 +1493,7 @@ func Opus_ec_enc_done(tls *libc.TLS, _this uintptr) {
 	window = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_window
 	used = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnend_bits
 	for used >= int32(EC_SYM_BITS) {
-		*(*int32)(unsafe.Pointer(_this + 48)) |= ec_write_byte_at_end(tls, _this, window&(uint32(1)<<int32(EC_SYM_BITS)-uint32(1)))
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte_at_end(tls, _this, window&(uint32(1)<<int32(EC_SYM_BITS)-uint32(1)))
 		window = window >> uint32(int32(EC_SYM_BITS))
 		used = used - int32(EC_SYM_BITS)
 	}
