@@ -1215,29 +1215,27 @@ const Q15ONE2 = "1.0f"
 
 func ec_write_byte(tls *libc.TLS, _this uintptr, _value uint32) (r int32) {
 	var v1 OpusT_opus_uint32
-	var v2 uintptr
-	_, _ = v1, v2
-	if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Foffs+(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs >= (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage {
+	_ = v1
+	_this0 := (*OpusT_ec_enc)(unsafe.Pointer(_this))
+	if _this0.Foffs+_this0.Fend_offs >= _this0.Fstorage {
 		return -int32(1)
 	}
-	v2 = _this + 28
-	v1 = *(*OpusT_opus_uint32)(unsafe.Pointer(v2))
-	*(*OpusT_opus_uint32)(unsafe.Pointer(v2)) = *(*OpusT_opus_uint32)(unsafe.Pointer(v2)) + 1
-	*(*uint8)(unsafe.Pointer((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf + uintptr(v1))) = uint8(_value)
+	v1 = _this0.Foffs
+	_this0.Foffs++
+	*(*uint8)(unsafe.Pointer(_this0.Fbuf + uintptr(v1))) = uint8(_value)
 	return 0
 }
 
 func ec_write_byte_at_end(tls *libc.TLS, _this uintptr, _value uint32) (r int32) {
 	var v1 OpusT_opus_uint32
-	var v2 uintptr
-	_, _ = v1, v2
-	if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Foffs+(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs >= (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage {
+	_ = v1
+	_this0 := (*OpusT_ec_enc)(unsafe.Pointer(_this))
+	if _this0.Foffs+_this0.Fend_offs >= _this0.Fstorage {
 		return -int32(1)
 	}
-	v2 = _this + 12
-	*(*OpusT_opus_uint32)(unsafe.Pointer(v2)) = *(*OpusT_opus_uint32)(unsafe.Pointer(v2)) + 1
-	v1 = *(*OpusT_opus_uint32)(unsafe.Pointer(v2))
-	*(*uint8)(unsafe.Pointer((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf + uintptr((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage-v1))) = uint8(_value)
+	_this0.Fend_offs++
+	v1 = _this0.Fend_offs
+	*(*uint8)(unsafe.Pointer(_this0.Fbuf + uintptr(_this0.Fstorage-v1))) = uint8(_value)
 	return 0
 }
 
