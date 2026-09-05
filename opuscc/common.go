@@ -4421,15 +4421,17 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus
 	if channels > int32(255) || channels < int32(1) || coupled_streams > streams || streams < int32(1) || coupled_streams < 0 || streams > int32(255)-coupled_streams {
 		return -int32(1)
 	}
-	(*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_channels = channels
-	(*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_streams = streams
-	(*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_coupled_streams = coupled_streams
+	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st))
+	layout := &decoder.Flayout
+	layout.Fnb_channels = channels
+	layout.Fnb_streams = streams
+	layout.Fnb_coupled_streams = coupled_streams
 	i1 = 0
 	for {
-		if !(i1 < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_channels) {
+		if !(i1 < layout.Fnb_channels) {
 			break
 		}
-		*(*uint8)(unsafe.Pointer(st + 12 + uintptr(i1))) = *(*uint8)(unsafe.Pointer(mapping + uintptr(i1)))
+		layout.Fmapping[i1] = *(*uint8)(unsafe.Pointer(mapping + uintptr(i1)))
 		i1 = i1 + 1
 	}
 	if !(Opus_validate_layout(tls, st) != 0) {
@@ -4442,7 +4444,7 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus
 	mono_size = Opus_opus_decoder_get_size(tls, int32(1))
 	i1 = 0
 	for {
-		if !(i1 < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_coupled_streams) {
+		if !(i1 < layout.Fnb_coupled_streams) {
 			break
 		}
 		ret = Opus_opus_decoder_init(tls, ptr, Fs, int32(2))
@@ -4455,7 +4457,7 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus
 		i1 = i1 + 1
 	}
 	for {
-		if !(i1 < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_streams) {
+		if !(i1 < layout.Fnb_streams) {
 			break
 		}
 		ret = Opus_opus_decoder_init(tls, ptr, Fs, int32(1))
