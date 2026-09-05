@@ -3,7 +3,36 @@ package opuscc
 import (
 	"testing"
 	"unsafe"
+
+	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestMiniFFTAllocUsesFields(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+
+	config := Opus_mini_kiss_fft_alloc(tls, 8, 1, 0, 0)
+	if config == 0 {
+		t.Fatal("mini FFT allocation returned nil")
+	}
+	state := (*mini_kiss_fft_state)(unsafe.Pointer(config))
+	secondTwiddle := *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + 8))
+	if state.Fnfft != 8 || state.Finverse != 1 {
+		t.Fatalf("FFT state dimensions: nfft=%d inverse=%d, want 8 and 1", state.Fnfft, state.Finverse)
+	}
+	wantFactors := [4]int32{4, 2, 2, 1}
+	for i, want := range wantFactors {
+		if got := state.Ffactors[i]; got != want {
+			t.Fatalf("FFT factor[%d]: got %d, want %d", i, got, want)
+		}
+	}
+	if state.Ftwiddles[0] != (OpusT_mini_kiss_fft_cpx{Fr: 1}) {
+		t.Fatalf("first twiddle: got %+v, want {Fr:1 Fi:0}", state.Ftwiddles[0])
+	}
+	if secondTwiddle != (OpusT_mini_kiss_fft_cpx{Fr: 0.70710677, Fi: 0.70710677}) {
+		t.Fatalf("second twiddle: got %+v, want {Fr:0.70710677 Fi:0.70710677}", secondTwiddle)
+	}
+}
 
 func TestFFTImplUsesFactorsField(t *testing.T) {
 	state := OpusT_kiss_fft_state{

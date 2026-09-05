@@ -758,8 +758,9 @@ func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem 
 		*(*OpusT_size_t)(unsafe.Pointer(lenmem)) = memneeded
 	}
 	if st != 0 {
-		(*mini_kiss_fft_state)(unsafe.Pointer(st)).Fnfft = nfft
-		(*mini_kiss_fft_state)(unsafe.Pointer(st)).Finverse = inverse_fft
+		state := (*mini_kiss_fft_state)(unsafe.Pointer(st))
+		state.Fnfft = nfft
+		state.Finverse = inverse_fft
 		i = 0
 		for {
 			if !(i < nfft) {
@@ -767,14 +768,14 @@ func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem 
 			}
 			pi = float64(3.141592653589793)
 			phase = float64(float64(float64(-int32(2))*pi)*float64(i)) / float64(nfft)
-			if (*mini_kiss_fft_state)(unsafe.Pointer(st)).Finverse != 0 {
+			if state.Finverse != 0 {
 				phase = phase * float64(-int32(1))
 			}
-			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(st + 264 + uintptr(i)*8)).Fr = float32(libc.Xcos(tls, phase))
-			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(st + 264 + uintptr(i)*8)).Fi = float32(libc.Xsin(tls, phase))
+			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(i)*8)).Fr = float32(libc.Xcos(tls, phase))
+			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(i)*8)).Fi = float32(libc.Xsin(tls, phase))
 			i = i + 1
 		}
-		kf_factor(tls, nfft, st+8)
+		kf_factor(tls, nfft, uintptr(unsafe.Pointer(&state.Ffactors[0])))
 	}
 	return st
 }
