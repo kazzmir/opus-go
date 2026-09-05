@@ -3655,8 +3655,9 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 	mid = float32(0)
 	side = float32(0)
 	cm = uint32(0)
-	encode = (*band_ctx)(unsafe.Pointer(ctx)).Fencode
-	ec = (*band_ctx)(unsafe.Pointer(ctx)).Fec
+	bandContext := (*band_ctx)(unsafe.Pointer(ctx))
+	encode = bandContext.Fencode
+	ec = bandContext.Fec
 	/* Special case for one sample */
 	if N == int32(1) {
 		return quant_band_n1(tls, ctx, X, Y, lowband_out)
@@ -3693,7 +3694,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 		}
 		mbits = mbits - sbits
 		c = libc.BoolInt32(itheta > int32(8192))
-		*(*OpusT_opus_int32)(unsafe.Pointer(ctx + 40)) -= qalloc + sbits
+		bandContext.Fremaining_bits -= qalloc + sbits
 		if c != 0 {
 			v1 = Y
 		} else {
@@ -3724,7 +3725,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 		   and there's no need to worry about mixing with the other channel. */
 		*(*OpusT_celt_norm)(unsafe.Pointer(y2)) = OpusT_celt_norm(float32(-sign) * *(*OpusT_celt_norm)(unsafe.Pointer(x2 + 1*4)))
 		*(*OpusT_celt_norm)(unsafe.Pointer(y2 + 1*4)) = OpusT_celt_norm(float32(sign) * *(*OpusT_celt_norm)(unsafe.Pointer(x2)))
-		if (*band_ctx)(unsafe.Pointer(ctx)).Fresynth != 0 {
+		if bandContext.Fresynth != 0 {
 			*(*OpusT_celt_norm)(unsafe.Pointer(X)) = OpusT_opus_val32(mid * *(*OpusT_celt_norm)(unsafe.Pointer(X)))
 			*(*OpusT_celt_norm)(unsafe.Pointer(X + 1*4)) = OpusT_opus_val32(mid * *(*OpusT_celt_norm)(unsafe.Pointer(X + 1*4)))
 			*(*OpusT_celt_norm)(unsafe.Pointer(Y)) = OpusT_opus_val32(side * *(*OpusT_celt_norm)(unsafe.Pointer(Y)))
@@ -3754,13 +3755,13 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 		}
 		mbits = v3
 		sbits = *(*int32)(unsafe.Pointer(bp)) - mbits
-		*(*OpusT_opus_int32)(unsafe.Pointer(ctx + 40)) -= qalloc
-		rebalance = (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits
+		bandContext.Fremaining_bits -= qalloc
+		rebalance = bandContext.Fremaining_bits
 		if mbits >= sbits {
 			/* In stereo mode, we do not apply a scaling to the mid because we need the normalized
 			   mid for folding later. */
 			cm = quant_band(tls, ctx, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, *(*int32)(unsafe.Pointer(bp + 4)))
-			rebalance = mbits - (rebalance - (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits)
+			rebalance = mbits - (rebalance - bandContext.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != 0 {
 				sbits = sbits + (rebalance - int32(3)<<int32(BITRES))
 			}
@@ -3771,7 +3772,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 			/* For a stereo split, the high bits of fill are always zero, so no
 			   folding will be done to the side. */
 			cm = quant_band(tls, ctx, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), *(*int32)(unsafe.Pointer(bp + 4))>>B)
-			rebalance = sbits - (rebalance - (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits)
+			rebalance = sbits - (rebalance - bandContext.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != int32(16384) {
 				mbits = mbits + (rebalance - int32(3)<<int32(BITRES))
 			}
@@ -3781,9 +3782,9 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 		}
 	}
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
-	if (*band_ctx)(unsafe.Pointer(ctx)).Fresynth != 0 {
+	if bandContext.Fresynth != 0 {
 		if N != int32(2) {
-			stereo_merge(tls, X, Y, mid, N, (*band_ctx)(unsafe.Pointer(ctx)).Farch)
+			stereo_merge(tls, X, Y, mid, N, bandContext.Farch)
 		}
 		if inv != 0 {
 			j = 0
