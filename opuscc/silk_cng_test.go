@@ -90,3 +90,50 @@ func TestCNGResetFieldAccesses(t *testing.T) {
 		t.Fatalf("reset NLSF beyond LPC order: got %d, want %d", got, want)
 	}
 }
+
+func TestCNGLossPathFieldAccesses(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	pseudostack := libc.Xmalloc(tls, 16)
+	scratch := libc.Xmalloc(tls, GLOBAL_STACK_SIZE)
+	*(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)) = OpusT_opus_ccgo_pseudostack_state{
+		Fscratch_ptr:  scratch,
+		Fglobal_stack: scratch,
+	}
+	libc.Xpthread_setspecific(tls, 0x6f707573, pseudostack)
+
+	dec := OpusT_silk_decoder_state{
+		Ffs_kHz:    16,
+		FLPC_order: 10,
+		FlossCnt:   1,
+		FsPLC: OpusT_silk_PLC_struct{
+			FrandScale_Q14: 12000,
+			FprevGain_Q16:  [2]OpusT_opus_int32{650000, 900000},
+		},
+		FsCNG: OpusT_silk_CNG_struct{
+			Ffs_kHz:            16,
+			FCNG_smth_Gain_Q16: 1100000,
+			Frand_seed:         24681357,
+			FCNG_smth_NLSF_Q15: [16]OpusT_opus_int16{1800, 4300, 7200, 10500, 13900, 17100, 20100, 22900, 25500, 28000},
+			FCNG_exc_buf_Q14:   [320]OpusT_opus_int32{170, -290, 410, -530, 650, -770, 890, -1010},
+			FCNG_synth_state:   [16]OpusT_opus_int32{19, -31, 47, -59, 71, -83, 97, -109, 127, -149},
+		},
+	}
+	frame := []int16{150, -230, 310, -390, 470, -550, 630, -710}
+
+	Opus_silk_CNG(tls, uintptr(unsafe.Pointer(&dec)), 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
+
+	wantFrame := [8]int16{150, -229, 311, -390, 471, -549, 630, -709}
+	for i, want := range wantFrame {
+		if got := frame[i]; got != want {
+			t.Fatalf("frame[%d]: got %d, want %d", i, got, want)
+		}
+	}
+	if got, want := dec.FsCNG.Frand_seed, OpusT_opus_int32(1318865493); got != want {
+		t.Fatalf("random seed: got %d, want %d", got, want)
+	}
+	wantSynthState := [16]OpusT_opus_int32{127, -149, 0, 0, 0, 0, 0, 0, 890, 1674, 1578, 830, 1450, 1022, 730, 1818}
+	if got := dec.FsCNG.FCNG_synth_state; got != wantSynthState {
+		t.Fatalf("synthesis state: got %v, want %v", got, wantSynthState)
+	}
+}
