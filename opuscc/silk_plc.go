@@ -50,20 +50,21 @@ func Opus_silk_PLC(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 func silk_PLC_update(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr) {
 	var LTP_Gain_Q14, temp_LTP_Gain_Q14, tmp, tmp1 OpusT_opus_int32
 	var i, j, scale_Q10, scale_Q14, v3 int32
-	var psPLC uintptr
-	_, _, _, _, _, _, _, _, _, _ = LTP_Gain_Q14, i, j, psPLC, scale_Q10, scale_Q14, temp_LTP_Gain_Q14, tmp, tmp1, v3
-	psPLC = psDec + 4292
+	_, _, _, _, _, _, _, _, _ = LTP_Gain_Q14, i, j, scale_Q10, scale_Q14, temp_LTP_Gain_Q14, tmp, tmp1, v3
+	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
+	plc := &decoder.FsPLC
 	/* Update parameters used in case of packet loss */
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType = int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType)
+	decoder.FprevSignalType = int32(decoder.Findices.FsignalType)
 	LTP_Gain_Q14 = 0
-	if int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType) == int32(TYPE_VOICED) {
+	if int32(decoder.Findices.FsignalType) == int32(TYPE_VOICED) {
 		/* Find the parameters for the last subframe which contains a pitch pulse */
 		j = 0
 		for {
-			if !(j*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length < *(*int32)(unsafe.Pointer(psDecCtrl + uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr-int32(1))*4))) {
+			if !(j*decoder.Fsubfr_length < control.FpitchL[decoder.Fnb_subfr-int32(1)]) {
 				break
 			}
-			if j == (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr {
+			if j == decoder.Fnb_subfr {
 				break
 			}
 			temp_LTP_Gain_Q14 = 0
@@ -72,18 +73,18 @@ func silk_PLC_update(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr) {
 				if !(i < int32(LTP_ORDER)) {
 					break
 				}
-				temp_LTP_Gain_Q14 = temp_LTP_Gain_Q14 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(psDecCtrl + 96 + uintptr(((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr-int32(1)-j)*int32(LTP_ORDER)+i)*2)))
+				temp_LTP_Gain_Q14 = temp_LTP_Gain_Q14 + int32(control.FLTPCoef_Q14[(decoder.Fnb_subfr-int32(1)-j)*int32(LTP_ORDER)+i])
 				i = i + 1
 			}
 			if temp_LTP_Gain_Q14 > LTP_Gain_Q14 {
 				LTP_Gain_Q14 = temp_LTP_Gain_Q14
-				libc.Xmemcpy(tls, psPLC+4, psDecCtrl+96+uintptr(int32(int16((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr-int32(1)-j))*int32(int16(int32(LTP_ORDER))))*2, uint64(uint32(LTP_ORDER))*uint64(2))
-				(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8 = int32(uint32(*(*int32)(unsafe.Pointer(psDecCtrl + uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr-int32(1)-j)*4))) << int32(8))
+				libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&plc.FLTPCoef_Q14[0])), uintptr(unsafe.Pointer(&control.FLTPCoef_Q14[(decoder.Fnb_subfr-int32(1)-j)*int32(LTP_ORDER)])), uint64(uint32(LTP_ORDER))*uint64(2))
+				plc.FpitchL_Q8 = int32(uint32(control.FpitchL[decoder.Fnb_subfr-int32(1)-j]) << int32(8))
 			}
 			j = j + 1
 		}
-		libc.Xmemset(tls, psPLC+4, 0, uint64(uint32(LTP_ORDER))*uint64(2))
-		*(*OpusT_opus_int16)(unsafe.Pointer(psPLC + 4 + uintptr(int32(LTP_ORDER)/int32(2))*2)) = int16(LTP_Gain_Q14)
+		libc.Xmemset(tls, uintptr(unsafe.Pointer(&plc.FLTPCoef_Q14[0])), 0, uint64(uint32(LTP_ORDER))*uint64(2))
+		plc.FLTPCoef_Q14[int32(LTP_ORDER)/int32(2)] = int16(LTP_Gain_Q14)
 		/* Limit LT coefs */
 		if LTP_Gain_Q14 < int32(V_PITCH_GAIN_START_MIN_Q14) {
 			tmp = int32(uint32(int32(V_PITCH_GAIN_START_MIN_Q14)) << int32(10))
@@ -98,7 +99,7 @@ func silk_PLC_update(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr) {
 				if !(i < int32(LTP_ORDER)) {
 					break
 				}
-				*(*OpusT_opus_int16)(unsafe.Pointer(psPLC + 4 + uintptr(i)*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(psPLC + 4 + uintptr(i)*2))) * int32(int16(scale_Q10)) >> int32(10))
+				plc.FLTPCoef_Q14[i] = int16(int32(plc.FLTPCoef_Q14[i]) * int32(int16(scale_Q10)) >> int32(10))
 				i = i + 1
 			}
 		} else {
@@ -115,22 +116,22 @@ func silk_PLC_update(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr) {
 					if !(i < int32(LTP_ORDER)) {
 						break
 					}
-					*(*OpusT_opus_int16)(unsafe.Pointer(psPLC + 4 + uintptr(i)*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(psPLC + 4 + uintptr(i)*2))) * int32(int16(scale_Q14)) >> int32(14))
+					plc.FLTPCoef_Q14[i] = int16(int32(plc.FLTPCoef_Q14[i]) * int32(int16(scale_Q14)) >> int32(14))
 					i = i + 1
 				}
 			}
 		}
 	} else {
-		(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8 = int32(uint32(int32(int16((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz))*int32(int16(int32(18)))) << int32(8))
-		libc.Xmemset(tls, psPLC+4, 0, uint64(uint32(LTP_ORDER))*uint64(2))
+		plc.FpitchL_Q8 = int32(uint32(int32(int16(decoder.Ffs_kHz))*int32(int16(int32(18)))) << int32(8))
+		libc.Xmemset(tls, uintptr(unsafe.Pointer(&plc.FLTPCoef_Q14[0])), 0, uint64(uint32(LTP_ORDER))*uint64(2))
 	}
 	/* Save LPC coefficients */
-	libc.Xmemcpy(tls, psPLC+14, psDecCtrl+32+1*32, uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order))*uint64(2))
-	(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FprevLTP_scale_Q14 = int16((*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)).FLTP_scale_Q14)
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), uint64(uint32(decoder.FLPC_order))*uint64(2))
+	plc.FprevLTP_scale_Q14 = int16(control.FLTP_scale_Q14)
 	/* Save last two gains */
-	libc.Xmemcpy(tls, psPLC+72, psDecCtrl+16+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr-int32(2))*4, uint64(uint32(2))*uint64(4))
-	(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fsubfr_length = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length
-	(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fnb_subfr = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&plc.FprevGain_Q16[0])), uintptr(unsafe.Pointer(&control.FGains_Q16[decoder.Fnb_subfr-int32(2)])), uint64(uint32(2))*uint64(4))
+	plc.Fsubfr_length = decoder.Fsubfr_length
+	plc.Fnb_subfr = decoder.Fnb_subfr
 }
 
 func silk_PLC_energy(tls *libc.TLS, energy1 uintptr, shift1 uintptr, energy2 uintptr, shift2 uintptr, exc_Q14 uintptr, prevGain_Q10 uintptr, subfr_length int32, nb_subfr int32) {
