@@ -16,6 +16,7 @@ func Opus_silk_VAD_Init(tls *libc.TLS, psSilk_VAD uintptr) (r int32) {
 	var b1, ret, v6 int32
 	var v2, v3, v4 OpusT_opus_int32
 	_, _, _, _, _, _ = b1, ret, v2, v3, v4, v6
+	state := (*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD))
 	ret = 0
 	/* reset state memory */
 	libc.Xmemset(tls, psSilk_VAD, 0, uint64(112))
@@ -34,7 +35,7 @@ func Opus_silk_VAD_Init(tls *libc.TLS, psSilk_VAD uintptr) (r int32) {
 			v6 = v3
 		}
 		v4 = v6
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 92 + uintptr(b1)*4)) = v4
+		state.FNoiseLevelBias[b1] = v4
 		b1 = b1 + 1
 	}
 	/* Initialize state */
@@ -43,18 +44,18 @@ func Opus_silk_VAD_Init(tls *libc.TLS, psSilk_VAD uintptr) (r int32) {
 		if !(b1 < int32(VAD_N_BANDS)) {
 			break
 		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4)) = int32(100) * *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 92 + uintptr(b1)*4))
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(b1)*4)) = int32(silk_int32_MAX) / *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4))
+		state.FNL[b1] = int32(100) * state.FNoiseLevelBias[b1]
+		state.Finv_NL[b1] = int32(silk_int32_MAX) / state.FNL[b1]
 		b1 = b1 + 1
 	}
-	(*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD)).Fcounter = int32(15)
+	state.Fcounter = int32(15)
 	/* init smoothed energy-to-noise ratio*/
 	b1 = 0
 	for {
 		if !(b1 < int32(VAD_N_BANDS)) {
 			break
 		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 40 + uintptr(b1)*4)) = int32(100) * int32(256) /* 100 * 256 --> 20 dB SNR */
+		state.FNrgRatioSmth_Q8[b1] = int32(100) * int32(256) /* 100 * 256 --> 20 dB SNR */
 		b1 = b1 + 1
 	}
 	return ret
