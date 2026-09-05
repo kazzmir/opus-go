@@ -16,17 +16,18 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 	var delta0_Q13, delta1_Q13, denom_Q16, n, v2, v3 int32
 	var diff, pred0_Q13, pred1_Q13, sum OpusT_opus_int32
 	_, _, _, _, _, _, _, _, _, _ = delta0_Q13, delta1_Q13, denom_Q16, diff, n, pred0_Q13, pred1_Q13, sum, v2, v3
+	stereoState := (*OpusT_stereo_dec_state)(unsafe.Pointer(state))
 	/* Buffering */
-	libc.Xmemcpy(tls, x1, state+4, uint64(uint32(2))*uint64(2))
-	libc.Xmemcpy(tls, x2, state+8, uint64(uint32(2))*uint64(2))
-	libc.Xmemcpy(tls, state+4, x1+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
-	libc.Xmemcpy(tls, state+8, x2+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
+	libc.Xmemcpy(tls, x1, uintptr(unsafe.Pointer(&stereoState.FsMid[0])), uint64(uint32(2))*uint64(2))
+	libc.Xmemcpy(tls, x2, uintptr(unsafe.Pointer(&stereoState.FsSide[0])), uint64(uint32(2))*uint64(2))
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&stereoState.FsMid[0])), x1+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&stereoState.FsSide[0])), x2+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
 	/* Interpolate predictors and add prediction to side channel */
-	pred0_Q13 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(state)))
-	pred1_Q13 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(state + 1*2)))
+	pred0_Q13 = int32(stereoState.Fpred_prev_Q13[0])
+	pred1_Q13 = int32(stereoState.Fpred_prev_Q13[1])
 	denom_Q16 = int32(1) << int32(16) / (int32(STEREO_INTERP_LEN_MS) * fs_kHz)
-	delta0_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(state)))))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
-	delta1_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(state + 1*2)))))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
+	delta0_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13))-int32(stereoState.Fpred_prev_Q13[0])))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
+	delta1_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4))-int32(stereoState.Fpred_prev_Q13[1])))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
 	n = 0
 	for {
 		if !(n < int32(STEREO_INTERP_LEN_MS)*fs_kHz) {
@@ -73,8 +74,8 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 		*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)) = int16(v2)
 		n = n + 1
 	}
-	*(*OpusT_opus_int16)(unsafe.Pointer(state)) = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13)))
-	*(*OpusT_opus_int16)(unsafe.Pointer(state + 1*2)) = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4)))
+	stereoState.Fpred_prev_Q13[0] = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13)))
+	stereoState.Fpred_prev_Q13[1] = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4)))
 	/* Convert to left/right signals */
 	n = 0
 	for {
