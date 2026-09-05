@@ -2362,17 +2362,18 @@ func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, chan
 	*(*int32)(unsafe.Pointer(bp)) = v1
 	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
 	v1 = int32((uint32(int32(100)) + alignment - uint32(1)) / alignment * alignment)
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fsilk_dec_offset = v1
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fcelt_dec_offset = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fsilk_dec_offset + *(*int32)(unsafe.Pointer(bp))
-	silk_dec = st + uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fsilk_dec_offset)
-	celt_dec = st + uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fcelt_dec_offset)
+	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
+	decoder.Fsilk_dec_offset = v1
+	decoder.Fcelt_dec_offset = decoder.Fsilk_dec_offset + *(*int32)(unsafe.Pointer(bp))
+	silk_dec = st + uintptr(decoder.Fsilk_dec_offset)
+	celt_dec = st + uintptr(decoder.Fcelt_dec_offset)
 	v1 = channels
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels = v1
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fstream_channels = v1
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fcomplexity = 0
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs = Fs
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FAPI_sampleRate = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FnChannelsAPI = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels
+	decoder.Fchannels = v1
+	decoder.Fstream_channels = v1
+	decoder.Fcomplexity = 0
+	decoder.FFs = Fs
+	decoder.FDecControl.FAPI_sampleRate = decoder.FFs
+	decoder.FDecControl.FnChannelsAPI = decoder.Fchannels
 	/* Reset decoder */
 	ret = Opus_silk_InitDecoder(tls, silk_dec)
 	if ret != 0 {
@@ -2385,10 +2386,10 @@ func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, chan
 	}
 	_ = int32(0) == int32(0)
 	Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_SET_SIGNALLING_REQUEST), libc.VaList(bp+16, int32(0)))
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fprev_mode = 0
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fframe_size = Fs / int32(400)
+	decoder.Fprev_mode = 0
+	decoder.Fframe_size = Fs / int32(400)
 	v1 = 0
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Farch = v1
+	decoder.Farch = v1
 	return OPUS_OK
 }
 
