@@ -13,11 +13,13 @@ var _ reflect.Type
 var _ unsafe.Pointer
 
 func Opus_silk_PLC_Reset(tls *libc.TLS, psDec uintptr) {
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.FpitchL_Q8 = int32(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length) << (int32(8) - int32(1)))
-	*(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4292 + 72)) = int32(65536)
-	*(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4292 + 72 + 1*4)) = int32(65536)
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Fsubfr_length = int32(20)
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Fnb_subfr = int32(2)
+	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	plc := &decoder.FsPLC
+	plc.FpitchL_Q8 = int32(uint32(decoder.Fframe_length) << (int32(8) - int32(1)))
+	plc.FprevGain_Q16[0] = 65536
+	plc.FprevGain_Q16[1] = 65536
+	plc.Fsubfr_length = 20
+	plc.Fnb_subfr = 2
 }
 
 func Opus_silk_PLC(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintptr, lost int32, arch int32) {
