@@ -545,11 +545,12 @@ func silk_VAD_GetNoiseLevels(tls *libc.TLS, pX uintptr, psSilk_VAD uintptr) {
 	var coef, k, min_coef, v2, v3, v4, v5 int32
 	var inv_nrg, nl, nrg OpusT_opus_int32
 	_, _, _, _, _, _, _, _, _, _ = coef, inv_nrg, k, min_coef, nl, nrg, v2, v3, v4, v5
+	state := (*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD))
 	/* Initially faster smoothing */
-	if (*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD)).Fcounter < int32(1000) { /* 1000 = 20 sec */
-		min_coef = int32(silk_int16_MAX9) / ((*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD)).Fcounter>>int32(4) + int32(1))
+	if state.Fcounter < int32(1000) { /* 1000 = 20 sec */
+		min_coef = int32(silk_int16_MAX9) / (state.Fcounter>>int32(4) + int32(1))
 		/* Increment frame counter */
-		(*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD)).Fcounter = (*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD)).Fcounter + 1
+		state.Fcounter++
 	} else {
 		min_coef = 0
 	}
@@ -559,13 +560,13 @@ func silk_VAD_GetNoiseLevels(tls *libc.TLS, pX uintptr, psSilk_VAD uintptr) {
 			break
 		}
 		/* Get old noise level estimate for current band */
-		nl = *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(k)*4))
+		nl = state.FNL[k]
 		_ = nl >= int32(0)
 		/* Add bias */
-		if (uint32(*(*OpusT_opus_int32)(unsafe.Pointer(pX + uintptr(k)*4)))+uint32(*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 92 + uintptr(k)*4))))&uint32(0x80000000) != 0 {
+		if (uint32(*(*OpusT_opus_int32)(unsafe.Pointer(pX + uintptr(k)*4)))+uint32(state.FNoiseLevelBias[k]))&uint32(0x80000000) != 0 {
 			v2 = int32(silk_int32_MAX)
 		} else {
-			v2 = *(*OpusT_opus_int32)(unsafe.Pointer(pX + uintptr(k)*4)) + *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 92 + uintptr(k)*4))
+			v2 = *(*OpusT_opus_int32)(unsafe.Pointer(pX + uintptr(k)*4)) + state.FNoiseLevelBias[k]
 		}
 		nrg = v2
 		_ = nrg > int32(0)
@@ -593,10 +594,10 @@ func silk_VAD_GetNoiseLevels(tls *libc.TLS, pX uintptr, psSilk_VAD uintptr) {
 		v4 = v5
 		coef = v4
 		/* Smooth inverse energies */
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(k)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(k)*4))) + int64(inv_nrg-*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(k)*4)))*int64(int16(coef))>>int32(16))
-		_ = *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(k)*4)) >= int32(0)
+		state.Finv_NL[k] = int32(int64(state.Finv_NL[k]) + int64(inv_nrg-state.Finv_NL[k])*int64(int16(coef))>>int32(16))
+		_ = state.Finv_NL[k] >= int32(0)
 		/* Compute noise level by inverting again */
-		nl = int32(silk_int32_MAX) / *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(k)*4))
+		nl = int32(silk_int32_MAX) / state.Finv_NL[k]
 		_ = nl >= int32(0)
 		/* Limit noise levels (guarantee 7 bits of head room) */
 		if nl < int32(0x00FFFFFF) {
@@ -606,7 +607,7 @@ func silk_VAD_GetNoiseLevels(tls *libc.TLS, pX uintptr, psSilk_VAD uintptr) {
 		}
 		nl = v2
 		/* Store as part of state */
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(k)*4)) = nl
+		state.FNL[k] = nl
 		k = k + 1
 	}
 }
