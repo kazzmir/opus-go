@@ -806,11 +806,11 @@ func silk_resampler_private_IIR_FIR_INTERPOL(tls *libc.TLS, out uintptr, buf uin
 //
 //	/* Upsample using a combination of allpass-based 2x upsampling and FIR interpolation */
 func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, SS uintptr, out uintptr, in uintptr, inLen OpusT_opus_int32) {
-	var S, _saved_stack, buf, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var _saved_stack, buf, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var index_increment_Q16, max_index_Q16, nSamplesIn OpusT_opus_int32
 	var v29 int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = S, _saved_stack, buf, index_increment_Q16, max_index_Q16, nSamplesIn, st, v1, v11, v13, v15, v17, v19, v21, v23, v29, v3, v5, v7, v9
-	S = SS
+	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, buf, index_increment_Q16, max_index_Q16, nSamplesIn, st, v1, v11, v13, v15, v17, v19, v21, v23, v29, v3, v5, v7, v9
+	state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(SS))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -863,7 +863,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, SS uintptr, out uintptr,
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v15 = st
-	if !(int64(int32(uint64(uint32(int32(2)*(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FbatchSize+int32(RESAMPLER_ORDER_FIR_12)))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
+	if !(int64(int32(uint64(uint32(int32(2)*state.FbatchSize+int32(RESAMPLER_ORDER_FIR_12)))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
 		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+7675, int32(78))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -876,7 +876,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, SS uintptr, out uintptr,
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v19 = st
-	*(*uintptr)(unsafe.Pointer(v19 + 8)) += uintptr(uint64(uint32(int32(2)*(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FbatchSize+int32(RESAMPLER_ORDER_FIR_12))) * (uint64(2) / uint64(1)))
+	*(*uintptr)(unsafe.Pointer(v19 + 8)) += uintptr(uint64(uint32(int32(2)*state.FbatchSize+int32(RESAMPLER_ORDER_FIR_12))) * (uint64(2) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v21 = libc.Xmalloc(tls, uint64(16))
@@ -887,20 +887,20 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, SS uintptr, out uintptr,
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v23 = st
-	buf = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(int32(2)*(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FbatchSize+int32(RESAMPLER_ORDER_FIR_12)))*(uint64(2)/uint64(1)))
+	buf = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(int32(2)*state.FbatchSize+int32(RESAMPLER_ORDER_FIR_12)))*(uint64(2)/uint64(1)))
 	/* Copy buffered samples to start of buffer */
-	libc.Xmemcpy(tls, buf, S+24, uint64(uint32(RESAMPLER_ORDER_FIR_12))*uint64(2))
+	libc.Xmemcpy(tls, buf, uintptr(unsafe.Pointer(&state.FsFIR.Fi32[0])), uint64(uint32(RESAMPLER_ORDER_FIR_12))*uint64(2))
 	/* Iterate over blocks of frameSizeIn input samples */
-	index_increment_Q16 = (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinvRatio_Q16
+	index_increment_Q16 = state.FinvRatio_Q16
 	for int32(1) != 0 {
-		if inLen < (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FbatchSize {
+		if inLen < state.FbatchSize {
 			v29 = inLen
 		} else {
-			v29 = (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FbatchSize
+			v29 = state.FbatchSize
 		}
 		nSamplesIn = v29
 		/* Upsample 2x */
-		Opus_silk_resampler_private_up2_HQ(tls, S, buf+8*2, in, nSamplesIn)
+		Opus_silk_resampler_private_up2_HQ(tls, SS, buf+8*2, in, nSamplesIn)
 		max_index_Q16 = int32(uint32(nSamplesIn) << (int32(16) + int32(1))) /* + 1 because 2x upsampling */
 		out = silk_resampler_private_IIR_FIR_INTERPOL(tls, out, buf, max_index_Q16, index_increment_Q16)
 		in = in + uintptr(nSamplesIn)*2
@@ -913,7 +913,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, SS uintptr, out uintptr,
 		}
 	}
 	/* Copy last part of filtered signal to the state for the next call */
-	libc.Xmemcpy(tls, S+24, buf+uintptr(nSamplesIn<<int32(1))*2, uint64(uint32(RESAMPLER_ORDER_FIR_12))*uint64(2))
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&state.FsFIR.Fi32[0])), buf+uintptr(nSamplesIn<<int32(1))*2, uint64(uint32(RESAMPLER_ORDER_FIR_12))*uint64(2))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
