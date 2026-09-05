@@ -3201,23 +3201,24 @@ func quant_band_n1(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, lowband_out
 	var ec, x uintptr
 	var v3 float32
 	_, _, _, _, _, _, _, _ = c, ec, encode, sign, stereo, x, v1, v3
+	bandContext := (*band_ctx)(unsafe.Pointer(ctx))
 	x = X
-	encode = (*band_ctx)(unsafe.Pointer(ctx)).Fencode
-	ec = (*band_ctx)(unsafe.Pointer(ctx)).Fec
+	encode = bandContext.Fencode
+	ec = bandContext.Fec
 	stereo = libc.BoolInt32(Y != uintptr(uint32(0)))
 	c = 0
 	for {
 		sign = 0
-		if (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits >= int32(1)<<int32(BITRES) {
+		if bandContext.Fremaining_bits >= int32(1)<<int32(BITRES) {
 			if encode != 0 {
 				sign = libc.BoolInt32(*(*OpusT_celt_norm)(unsafe.Pointer(x)) < float32(0))
 				Opus_ec_enc_bits(tls, ec, uint32(sign), uint32(1))
 			} else {
 				sign = int32(Opus_ec_dec_bits(tls, ec, uint32(1)))
 			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(ctx + 40)) -= int32(1) << int32(BITRES)
+			bandContext.Fremaining_bits -= int32(1) << int32(BITRES)
 		}
-		if (*band_ctx)(unsafe.Pointer(ctx)).Fresynth != 0 {
+		if bandContext.Fresynth != 0 {
 			if sign != 0 {
 				v3 = -float32(1)
 			} else {
