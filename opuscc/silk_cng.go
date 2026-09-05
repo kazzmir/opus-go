@@ -73,7 +73,10 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 	var _ /* frac_Q7 at bp+4 */ OpusT_opus_int32
 	var _ /* lz at bp+0 */ OpusT_opus_int32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = CNG_sig_Q14, LPC_pred_Q10, _saved_stack, gain_Q10, gain_Q16, i, lzeros, m, max_Gain_Q16, psCNG, r, st, subfr, x, y, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v33, v34, v36, v37, v38, v40, v41, v42, v43, v52, v54, v58, v59, v6, v60, v61, v62, v63, v64, v65, v66, v9
-	psCNG = uintptr(unsafe.Pointer(&(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsCNG))
+	dec := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
+	cng := &dec.FsCNG
+	psCNG = uintptr(unsafe.Pointer(cng))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -85,21 +88,20 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != (*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).Ffs_kHz {
+	if dec.Ffs_kHz != cng.Ffs_kHz {
 		/* Reset state */
 		Opus_silk_CNG_Reset(tls, psDec)
-		(*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).Ffs_kHz = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz
+		cng.Ffs_kHz = dec.Ffs_kHz
 	}
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt == 0 && (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType == TYPE_NO_VOICE_ACTIVITY {
+	if dec.FlossCnt == 0 && dec.FprevSignalType == TYPE_NO_VOICE_ACTIVITY {
 		/* Update CNG parameters */
 		/* Smoothing of LSF's  */
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
+			if !(i < dec.FLPC_order) {
 				break
 			}
-			v1 = psCNG + 1280 + uintptr(i)*2
-			*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) + int32(int64(int32(*(*OpusT_opus_int16)(unsafe.Pointer(psDec + 2344 + uintptr(i)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(psCNG + 1280 + uintptr(i)*2))))*int64(int16(int32(CNG_NLSF_SMTH_Q16)))>>int32(16)))
+			cng.FCNG_smth_NLSF_Q15[i] = OpusT_opus_int16(int32(cng.FCNG_smth_NLSF_Q15[i]) + int32(int64(int32(dec.FprevNLSF_Q15[i])-int32(cng.FCNG_smth_NLSF_Q15[i]))*int64(int16(int32(CNG_NLSF_SMTH_Q16)))>>int32(16)))
 			i = i + 1
 		}
 		/* Find the subframe with the highest gain */
@@ -107,28 +109,28 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 		subfr = 0
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr) {
+			if !(i < dec.Fnb_subfr) {
 				break
 			}
-			if *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4)) > max_Gain_Q16 {
-				max_Gain_Q16 = *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4))
+			if control.FGains_Q16[i] > max_Gain_Q16 {
+				max_Gain_Q16 = control.FGains_Q16[i]
 				subfr = i
 			}
 			i = i + 1
 		}
 		/* Update CNG excitation buffer with excitation from this subframe */
-		libc.Xmemmove(tls, psCNG+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length)*4, psCNG, uint64(uint32(((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr-int32(1))*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length))*uint64(4))
-		libc.Xmemcpy(tls, psCNG, psDec+4+uintptr(subfr*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length)*4, uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length))*uint64(4))
+		libc.Xmemmove(tls, uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[dec.Fsubfr_length])), uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[0])), uint64(uint32((dec.Fnb_subfr-int32(1))*dec.Fsubfr_length))*uint64(4))
+		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[0])), uintptr(unsafe.Pointer(&dec.Fexc_Q14[subfr*dec.Fsubfr_length])), uint64(uint32(dec.Fsubfr_length))*uint64(4))
 		/* Smooth gains */
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr) {
+			if !(i < dec.Fnb_subfr) {
 				break
 			}
-			(*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16 += int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4))-(*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16) * int64(int16(int32(CNG_GAIN_SMTH_Q16))) >> int32(16))
+			cng.FCNG_smth_Gain_Q16 += int32(int64(control.FGains_Q16[i]-cng.FCNG_smth_Gain_Q16) * int64(int16(int32(CNG_GAIN_SMTH_Q16))) >> int32(16))
 			/* If the smoothed gain is 3 dB greater than this subframe's gain, use this subframe's gain to adapt faster. */
-			if int32(int64((*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16)*int64(int32(CNG_GAIN_SMTH_THRESHOLD_Q16))>>int32(16)) > *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4)) {
-				(*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16 = *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4))
+			if int32(int64(cng.FCNG_smth_Gain_Q16)*int64(int32(CNG_GAIN_SMTH_THRESHOLD_Q16))>>int32(16)) > control.FGains_Q16[i] {
+				cng.FCNG_smth_Gain_Q16 = control.FGains_Q16[i]
 			}
 			i = i + 1
 		}
