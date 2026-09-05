@@ -534,10 +534,11 @@ func kf_bfly31(tls *libc.TLS, Fout uintptr, fstride OpusT_size_t, st OpusT_mini_
 	var scratch [5]OpusT_mini_kiss_fft_cpx
 	var tw1, tw2, v1 uintptr
 	_, _, _, _, _, _, _, _ = epi3, k, m2, scratch, tw1, tw2, v1, v2
+	state := (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st))
 	k = m
 	m2 = uint64(2) * m
-	epi3 = *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(st + 264 + uintptr(fstride*m)*8))
-	v1 = st + 264
+	epi3 = *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(fstride*m)*8))
+	v1 = uintptr(unsafe.Pointer(&state.Ftwiddles[0]))
 	tw2 = v1
 	tw1 = v1
 	for {

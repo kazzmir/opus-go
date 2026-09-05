@@ -31,4 +31,37 @@ func TestFFTImplUsesFactorsField(t *testing.T) {
 			t.Fatalf("FFT output[%d]: got %+v, want %+v", i, got, expected)
 		}
 	}
+
+}
+
+func TestRadix3ButterflyUsesTwiddlesField(t *testing.T) {
+	state := struct {
+		OpusT_mini_kiss_fft_state
+		twiddles [2]OpusT_mini_kiss_fft_cpx
+	}{
+		OpusT_mini_kiss_fft_state: OpusT_mini_kiss_fft_state{
+			Ftwiddles: [1]OpusT_mini_kiss_fft_cpx{{Fr: 1}},
+		},
+		twiddles: [2]OpusT_mini_kiss_fft_cpx{
+			{Fr: -0.5, Fi: -0.8660254},
+		},
+	}
+	values := []OpusT_mini_kiss_fft_cpx{
+		{Fr: 3, Fi: -2},
+		{Fr: -5, Fi: 7},
+		{Fr: 11, Fi: 13},
+	}
+
+	kf_bfly31(nil, uintptr(unsafe.Pointer(&values[0])), 1, uintptr(unsafe.Pointer(&state.OpusT_mini_kiss_fft_state)), 1)
+
+	want := [3]OpusT_mini_kiss_fft_cpx{
+		{Fr: 9, Fi: 18},
+		{Fr: -5.196152, Fi: 1.8564062},
+		{Fr: 5.196152, Fi: -25.856407},
+	}
+	for i, expected := range want {
+		if got := values[i]; got != expected {
+			t.Fatalf("radix-3 output[%d]: got %+v, want %+v", i, got, expected)
+		}
+	}
 }
