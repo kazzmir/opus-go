@@ -4256,16 +4256,17 @@ var tapset_icdf2 = [3]uint8{
 func Opus_validate_layout(tls *libc.TLS, layout uintptr) (r int32) {
 	var i, max_channel int32
 	_, _ = i, max_channel
-	max_channel = (*OpusT_ChannelLayout)(unsafe.Pointer(layout)).Fnb_streams + (*OpusT_ChannelLayout)(unsafe.Pointer(layout)).Fnb_coupled_streams
+	channelLayout := (*OpusT_ChannelLayout)(unsafe.Pointer(layout))
+	max_channel = channelLayout.Fnb_streams + channelLayout.Fnb_coupled_streams
 	if max_channel > int32(255) {
 		return 0
 	}
 	i = 0
 	for {
-		if !(i < (*OpusT_ChannelLayout)(unsafe.Pointer(layout)).Fnb_channels) {
+		if !(i < channelLayout.Fnb_channels) {
 			break
 		}
-		if int32(*(*uint8)(unsafe.Pointer(layout + 12 + uintptr(i)))) >= max_channel && int32(*(*uint8)(unsafe.Pointer(layout + 12 + uintptr(i)))) != int32(255) {
+		if int32(channelLayout.Fmapping[i]) >= max_channel && int32(channelLayout.Fmapping[i]) != int32(255) {
 			return 0
 		}
 		i = i + 1
