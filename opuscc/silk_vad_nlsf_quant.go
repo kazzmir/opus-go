@@ -91,7 +91,7 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 	var _ /* lz at bp+0 */ OpusT_opus_int32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = HPstateTmp, NrgToNoiseRatio_Q8, SA_Q15, SNR_Q7, X, X_offset, _saved_stack, b1, dec_subframe_length, dec_subframe_offset, decimated_framelength, decimated_framelength1, decimated_framelength2, i, input_tilt, lzeros, m, pSNR_dB_Q7, psSilk_VAD, r, ret, s, smooth_coef_Q16, speech_nrg, st, sumSquared, x, x_tmp, y, v1, v11, v13, v15, v17, v19, v21, v23, v3, v33, v34, v35, v37, v43, v44, v46, v47, v48, v5, v51, v53, v7, v9
 	ret = 0
-	psSilk_VAD = psEncC + 36
+	psSilk_VAD = uintptr(unsafe.Pointer(&(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FsVAD))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
