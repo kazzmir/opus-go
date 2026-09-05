@@ -42,19 +42,21 @@ func silk_CNG_exc(tls *libc.TLS, exc_Q14 uintptr, exc_buf_Q14 uintptr, length in
 func Opus_silk_CNG_Reset(tls *libc.TLS, psDec uintptr) {
 	var NLSF_acc_Q15, NLSF_step_Q15, i int32
 	_, _, _ = NLSF_acc_Q15, NLSF_step_Q15, i
-	NLSF_step_Q15 = int32(silk_int16_MAX1) / ((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order + int32(1))
+	dec := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	cng := &dec.FsCNG
+	NLSF_step_Q15 = int32(silk_int16_MAX1) / (dec.FLPC_order + int32(1))
 	NLSF_acc_Q15 = 0
 	i = 0
 	for {
-		if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
+		if !(i < dec.FLPC_order) {
 			break
 		}
 		NLSF_acc_Q15 = NLSF_acc_Q15 + NLSF_step_Q15
-		*(*OpusT_opus_int16)(unsafe.Pointer(psDec + 2892 + 1280 + uintptr(i)*2)) = int16(NLSF_acc_Q15)
+		cng.FCNG_smth_NLSF_Q15[i] = int16(NLSF_acc_Q15)
 		i = i + 1
 	}
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsCNG.FCNG_smth_Gain_Q16 = 0
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsCNG.Frand_seed = int32(3176576)
+	cng.FCNG_smth_Gain_Q16 = 0
+	cng.Frand_seed = int32(3176576)
 }
 
 // C documentation
