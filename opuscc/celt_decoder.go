@@ -826,10 +826,11 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 	var seed OpusT_opus_uint32
 	var v36 float32
 	var ac [25]OpusT_opus_val32
-	var _ /* decode_mem at bp+0 */ [2]uintptr
+	var decode_mem [2]uintptr
 	var _ /* lpc_mem at bp+132 */ [24]OpusT_opus_val16
 	var _ /* out_syn at bp+16 */ [2]uintptr
 	_ = ac
+	_ = decode_mem
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = C, E1, E2, S1, S2, X, _exc, _saved_stack, attenuation, backgroundLogE, blen, boffs, buf, c, curr_frame_type, curr_neural, decay, decay1, decay_length, decode_buffer_size, e, eBands, effEnd, end, exc, exc_length, extrapolation_len, extrapolation_offset, fade, fir_tmp, i, j, j1, last_neural, loss_duration, lpc, max_period, mode, nbEBands, oldBandE, oldLogE, oldLogE2, overlap, pitch_index, ratio, seed, st, start, tmp, tmp1, tmp_g, window, v1, v10, v103, v12, v14, v16, v18, v20, v22, v24, v26, v28, v3, v36, v40, v5, v7, v8
 	C = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fchannels
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -851,8 +852,8 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeBands
 	c = 0
 	for {
-		(*(*[2]uintptr)(unsafe.Pointer(bp)))[c] = st1 + 112 + uintptr(c*(decode_buffer_size+overlap))*4
-		(*(*[2]uintptr)(unsafe.Pointer(bp + 16)))[c] = (*(*[2]uintptr)(unsafe.Pointer(bp)))[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4
+		decode_mem[c] = st1 + 112 + uintptr(c*(decode_buffer_size+overlap))*4
+		(*(*[2]uintptr)(unsafe.Pointer(bp + 16)))[c] = decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4
 		c = c + 1
 		v5 = c
 		if !(v5 < C) {
@@ -956,7 +957,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 		X = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v28)).Fglobal_stack - uintptr(uint64(uint32(C*N))*(uint64(4)/uint64(1))) /**< Interleaved normalised MDCTs */
 		c = 0
 		for {
-			libc.Xmemmove(tls, (*(*[2]uintptr)(unsafe.Pointer(bp)))[c], (*(*[2]uintptr)(unsafe.Pointer(bp)))[c]+uintptr(N)*4, uint64(uint32(decode_buffer_size-N+overlap))*uint64(4)+uint64(0*((int64((*(*[2]uintptr)(unsafe.Pointer(bp)))[c])-int64((*(*[2]uintptr)(unsafe.Pointer(bp)))[c]+uintptr(N)*4))/4)))
+			libc.Xmemmove(tls, decode_mem[c], decode_mem[c]+uintptr(N)*4, uint64(uint32(decode_buffer_size-N+overlap))*uint64(4)+uint64(0*((int64(decode_mem[c])-int64(decode_mem[c]+uintptr(N)*4))/4)))
 			c = c + 1
 			v5 = c
 			if !(v5 < C) {
@@ -1211,7 +1212,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 		c = 0
 		for {
 			S1 = float32(0)
-			buf = (*(*[2]uintptr)(unsafe.Pointer(bp)))[c]
+			buf = decode_mem[c]
 			i = 0
 			for {
 				if !(i < max_period+int32(CELT_LPC_ORDER)) {
