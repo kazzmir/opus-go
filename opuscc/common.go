@@ -4538,6 +4538,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 	var c, chan1, chan11, coupled_size, do_plc, mono_size, prev, prev1, ret, ret1, s, v31, v56, v75 int32
 	var _ /* Fs at bp+0 */ OpusT_opus_int32
 	var _ /* packet_offset at bp+4 */ OpusT_opus_int32
+	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, alignment, buf, c, chan1, chan11, coupled_size, dec, do_plc, mono_size, prev, prev1, ptr, ret, ret1, s, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v31, v5, v56, v6, v75, v8
 	do_plc = 0
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -4855,7 +4856,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 		if !(c < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)).Flayout.Fnb_channels) {
 			break
 		}
-		if int32(*(*uint8)(unsafe.Pointer(st1 + 12 + uintptr(c)))) == int32(255) {
+		if int32(decoder.Flayout.Fmapping[c]) == int32(255) {
 			(*(*func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr))(unsafe.Pointer(&struct{ uintptr }{__ccgo_fp_copy_channel_out})))(tls, pcm, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)).Flayout.Fnb_channels, c, uintptr(uint32(0)), 0, frame_size, user_data)
 		}
 		c = c + 1
