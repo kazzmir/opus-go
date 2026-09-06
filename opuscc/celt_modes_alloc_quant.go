@@ -1372,6 +1372,12 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 	return codedBands
 }
 
+// Callers pass addresses of Go locals (intensity, dual_stereo, balance) as
+// uintptr. Keep those locals alive at stable addresses across nested calls:
+// otherwise stack growth can leave these output pointers referring to the old
+// stack, making decoded PCM depend on the caller's stack depth.
+//
+//go:uintptrescapes
 func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int32, offsets uintptr, cap1 uintptr, alloc_trim int32, intensity uintptr, dual_stereo uintptr, total OpusT_opus_int32, balance uintptr, pulses uintptr, ebits uintptr, fine_priority uintptr, C int32, LM int32, ec uintptr, encode int32, prev int32, signalBandwidth int32) (r int32) {
 	var N, N1, bits1j, bits2j, bitsj, codedBands, done, dual_stereo_rsv, hi, intensity_rsv, j, len1, lo, mid, psum, skip_rsv, skip_start, v5 int32
 	var _saved_stack, bits1, bits2, st, thresh, trim_offset, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v3, v9 uintptr
@@ -2935,6 +2941,10 @@ type split_ctx = struct {
 	Fqalloc int32
 }
 
+// sctx, b, and fill can point to Go locals in the band quantizers. They must
+// remain at stable addresses while nested entropy calls can grow the stack.
+//
+//go:uintptrescapes
 func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintptr, N int32, b uintptr, B int32, B0 int32, LM int32, stereo int32, fill uintptr) {
 	var bandE, ec, m uintptr
 	var bias, delta, down, encode, fl, fl1, fm, fs, fs1, ft, ft1, i, imid, intensity, inv, iside, itheta, itheta_q30, j, offset, p0, pulse_cap, qalloc, qn, unquantized, x, x0, v1, v5, v6, v7 int32
