@@ -13,27 +13,22 @@ var _ reflect.Type
 var _ unsafe.Pointer
 
 func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch int32) {
-	bp := tls.Alloc(304)
-	defer tls.Free(304)
 	var Ptmp, Qtmp, cos_val, delta, f_frac, f_int OpusT_opus_int32
 	var dd, i, k int32
-	var ordering, v1 uintptr
-	var _ /* P at bp+96 */ [13]OpusT_opus_int32
-	var _ /* Q at bp+148 */ [13]OpusT_opus_int32
-	var _ /* a32_QA1 at bp+200 */ [24]OpusT_opus_int32
-	var _ /* cos_LSF_QA at bp+0 */ [24]OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _, _, _ = Ptmp, Qtmp, cos_val, dd, delta, f_frac, f_int, i, k, ordering, v1
-	_ = true
+	var ordering []uint8
+	var cos_LSF_QA [SILK_MAX_ORDER_LPC]OpusT_opus_int32
+	var P [SILK_MAX_ORDER_LPC/2 + 1]OpusT_opus_int32
+	var Q [SILK_MAX_ORDER_LPC/2 + 1]OpusT_opus_int32
+	var a32_QA1 [SILK_MAX_ORDER_LPC]OpusT_opus_int32
 	if !(d == int32(10) || d == int32(16)) {
 		Opus_celt_fatal(tls, __ccgo_ts+7246, __ccgo_ts+7279, int32(89))
 	}
 	/* convert LSFs to 2*cos(LSF), using piecewise linear curve from table */
 	if d == int32(16) {
-		v1 = uintptr(unsafe.Pointer(&ordering16))
+		ordering = ordering16[:]
 	} else {
-		v1 = uintptr(unsafe.Pointer(&ordering10))
+		ordering = ordering10[:]
 	}
-	ordering = v1
 	k = 0
 	for {
 		if !(k < d) {
@@ -50,43 +45,42 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 		cos_val = int32(Opus_silk_LSFCosTab_FIX_Q12[f_int])                  /* Q12 */
 		delta = int32(Opus_silk_LSFCosTab_FIX_Q12[f_int+int32(1)]) - cos_val /* Q12, with a range of 0..200 */
 		/* Linear interpolation */
-		(*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp)))[*(*uint8)(unsafe.Pointer(ordering + uintptr(k)))] = ((int32(uint32(cos_val)<<int32(8))+delta*f_frac)>>(int32(20)-int32(QA1)-int32(1)) + int32(1)) >> int32(1) /* QA */
+		cos_LSF_QA[ordering[k]] = ((int32(uint32(cos_val)<<int32(8))+delta*f_frac)>>(int32(20)-int32(QA1)-int32(1)) + int32(1)) >> int32(1) /* QA */
 		k = k + 1
 	}
 	dd = d >> int32(1)
 	/* generate even and odd polynomials using convolution */
-	silk_NLSF2A_find_poly(tls, bp+96, bp, dd)
-	silk_NLSF2A_find_poly(tls, bp+148, bp+1*4, dd)
+	silk_NLSF2A_find_poly(tls, uintptr(unsafe.Pointer(&P[0])), uintptr(unsafe.Pointer(&cos_LSF_QA[0])), dd)
+	silk_NLSF2A_find_poly(tls, uintptr(unsafe.Pointer(&Q[0])), uintptr(unsafe.Pointer(&cos_LSF_QA[1])), dd)
 	/* convert even and odd polynomials to opus_int32 Q12 filter coefs */
 	k = 0
 	for {
 		if !(k < dd) {
 			break
 		}
-		Ptmp = (*(*[13]OpusT_opus_int32)(unsafe.Pointer(bp + 96)))[k+int32(1)] + (*(*[13]OpusT_opus_int32)(unsafe.Pointer(bp + 96)))[k]
-		Qtmp = (*(*[13]OpusT_opus_int32)(unsafe.Pointer(bp + 148)))[k+int32(1)] - (*(*[13]OpusT_opus_int32)(unsafe.Pointer(bp + 148)))[k]
+		Ptmp = P[k+int32(1)] + P[k]
+		Qtmp = Q[k+int32(1)] - Q[k]
 		/* the Ptmp and Qtmp values at this stage need to fit in int32 */
-		(*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp + 200)))[k] = -Qtmp - Ptmp           /* QA+1 */
-		(*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp + 200)))[d-k-int32(1)] = Qtmp - Ptmp /* QA+1 */
+		a32_QA1[k] = -Qtmp - Ptmp           /* QA+1 */
+		a32_QA1[d-k-int32(1)] = Qtmp - Ptmp /* QA+1 */
 		k = k + 1
 	}
 	/* Convert int32 coefficients to Q12 int16 coefs */
-	Opus_silk_LPC_fit(tls, a_Q12, bp+200, int32(12), int32(QA1)+int32(1), d)
+	Opus_silk_LPC_fit(tls, a_Q12, uintptr(unsafe.Pointer(&a32_QA1[0])), int32(12), int32(QA1)+int32(1), d)
 	i = 0
 	for {
-		_ = arch
 		if !(Opus_silk_LPC_inverse_pred_gain_c(tls, a_Q12, d) == 0 && i < int32(MAX_LPC_STABILIZE_ITERATIONS)) {
 			break
 		}
 		/* Prediction coefficients are (too close to) unstable; apply bandwidth expansion   */
 		/* on the unscaled coefficients, convert to Q12 and measure again                   */
-		Opus_silk_bwexpander_32(tls, bp+200, d, int32(65536)-int32(uint32(int32(2))<<i))
+		Opus_silk_bwexpander_32(tls, uintptr(unsafe.Pointer(&a32_QA1[0])), d, int32(65536)-int32(uint32(int32(2))<<i))
 		k = 0
 		for {
 			if !(k < d) {
 				break
 			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(a_Q12 + uintptr(k)*2)) = int16(((*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp + 200)))[k]>>(int32(QA1)+int32(1)-int32(12)-int32(1)) + int32(1)) >> int32(1)) /* QA+1 -> Q12 */
+			*(*OpusT_opus_int16)(unsafe.Pointer(a_Q12 + uintptr(k)*2)) = int16((a32_QA1[k]>>(int32(QA1)+int32(1)-int32(12)-int32(1)) + int32(1)) >> int32(1)) /* QA+1 -> Q12 */
 			k = k + 1
 		}
 		i = i + 1
