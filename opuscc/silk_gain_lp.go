@@ -301,12 +301,10 @@ func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr
 //	/* Start by setting psEncC->mode <> 0;                      */
 //	/* Deactivate by setting psEncC->mode = 0;                  */
 func Opus_silk_LP_variable_cutoff(tls *libc.TLS, psLP uintptr, frame uintptr, frame_length int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
 	var fac_Q16 OpusT_opus_int32
 	var ind, v1, v2 int32
-	var _ /* A_Q28 at bp+16 */ [2]OpusT_opus_int32
-	var _ /* B_Q28 at bp+0 */ [3]OpusT_opus_int32
+	var A_Q28 [2]OpusT_opus_int32
+	var B_Q28 [3]OpusT_opus_int32
 	_, _, _, _ = fac_Q16, ind, v1, v2
 	fac_Q16 = 0
 	ind = 0
@@ -320,7 +318,7 @@ func Opus_silk_LP_variable_cutoff(tls *libc.TLS, psLP uintptr, frame uintptr, fr
 		_ = ind >= int32(0)
 		_ = ind < int32(TRANSITION_INT_NUM)
 		/* Interpolate filter coefficients */
-		silk_LP_interpolate_filter_taps(tls, bp, bp+16, ind, fac_Q16)
+		silk_LP_interpolate_filter_taps(tls, uintptr(unsafe.Pointer(&B_Q28[0])), uintptr(unsafe.Pointer(&A_Q28[0])), ind, fac_Q16)
 		/* Update transition frame number for next frame */
 		if (*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no+(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Fmode > int32(TRANSITION_TIME_MS)/(int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)) {
 			v1 = int32(TRANSITION_TIME_MS) / (int32(SUB_FRAME_LENGTH_MS) * int32(MAX_NB_SUBFR))
@@ -335,7 +333,7 @@ func Opus_silk_LP_variable_cutoff(tls *libc.TLS, psLP uintptr, frame uintptr, fr
 		(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no = v1
 		/* ARMA low-pass filtering */
 		_ = libc.Bool(true) && libc.Bool(true)
-		Opus_silk_biquad_alt_stride1(tls, frame, bp, bp+16, psLP, frame, frame_length)
+		Opus_silk_biquad_alt_stride1(tls, frame, uintptr(unsafe.Pointer(&B_Q28[0])), uintptr(unsafe.Pointer(&A_Q28[0])), psLP, frame, frame_length)
 	}
 }
 
