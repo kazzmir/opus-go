@@ -270,13 +270,11 @@ func celt_fir5(tls *libc.TLS, x uintptr, num uintptr, N int32) {
 }
 
 func Opus_pitch_downsample(tls *libc.TLS, x uintptr, x_lp uintptr, len1 int32, C int32, factor int32, arch int32) {
-	bp := tls.Alloc(64)
-	defer tls.Free(64)
 	var c1, tmp OpusT_opus_val16
 	var i, offset int32
-	var _ /* ac at bp+0 */ [5]OpusT_opus_val32
-	var _ /* lpc at bp+20 */ [4]OpusT_opus_val16
-	var _ /* lpc2 at bp+36 */ [5]OpusT_opus_val16
+	var ac [5]OpusT_opus_val32
+	var lpc [4]OpusT_opus_val16
+	var lpc2 [5]OpusT_opus_val16
 	_, _, _, _ = c1, i, offset, tmp
 	tmp = float32(1)
 	c1 = float32(0.8)
@@ -301,9 +299,9 @@ func Opus_pitch_downsample(tls *libc.TLS, x uintptr, x_lp uintptr, len1 int32, C
 		}
 		*(*OpusT_opus_val16)(unsafe.Pointer(x_lp)) += float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + 1*8)) + uintptr(offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + 1*8)))))
 	}
-	Opus__celt_autocorr(tls, x_lp, bp, uintptr(uint32(0)), 0, int32(4), len1, arch)
+	Opus__celt_autocorr(tls, x_lp, uintptr(unsafe.Pointer(&ac[0])), uintptr(uint32(0)), 0, int32(4), len1, arch)
 	/* Noise floor -40 dB */
-	*(*OpusT_opus_val32)(unsafe.Pointer(bp)) *= float32(1.0001)
+	ac[0] *= float32(1.0001)
 	/* Lag windowing */
 	i = int32(1)
 	for {
@@ -311,26 +309,26 @@ func Opus_pitch_downsample(tls *libc.TLS, x uintptr, x_lp uintptr, len1 int32, C
 			break
 		}
 		/*ac[i] *= exp(-.5*(2*M_PI*.002*i)*(2*M_PI*.002*i));*/
-		*(*OpusT_opus_val32)(unsafe.Pointer(bp + uintptr(i)*4)) -= OpusT_opus_val32(OpusT_opus_val32((*(*[5]OpusT_opus_val32)(unsafe.Pointer(bp)))[i]*float32(float32(0.008)*float32(i))) * float32(float32(0.008)*float32(i)))
+		ac[i] -= OpusT_opus_val32(OpusT_opus_val32(ac[i]*float32(float32(0.008)*float32(i))) * float32(float32(0.008)*float32(i)))
 		i = i + 1
 	}
-	Opus__celt_lpc(tls, bp+20, bp, int32(4))
+	Opus__celt_lpc(tls, uintptr(unsafe.Pointer(&lpc[0])), uintptr(unsafe.Pointer(&ac[0])), int32(4))
 	i = 0
 	for {
 		if !(i < int32(4)) {
 			break
 		}
 		tmp = float32(float32(0.9) * tmp)
-		(*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[i] = OpusT_opus_val16((*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[i] * tmp)
+		lpc[i] = OpusT_opus_val16(lpc[i] * tmp)
 		i = i + 1
 	}
 	/* Add a zero */
-	(*(*[5]OpusT_opus_val16)(unsafe.Pointer(bp + 36)))[0] = (*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[0] + float32(0.8)
-	(*(*[5]OpusT_opus_val16)(unsafe.Pointer(bp + 36)))[int32(1)] = (*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[int32(1)] + OpusT_opus_val16(c1*(*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[0])
-	(*(*[5]OpusT_opus_val16)(unsafe.Pointer(bp + 36)))[int32(2)] = (*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[int32(2)] + OpusT_opus_val16(c1*(*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[int32(1)])
-	(*(*[5]OpusT_opus_val16)(unsafe.Pointer(bp + 36)))[int32(3)] = (*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[int32(3)] + OpusT_opus_val16(c1*(*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[int32(2)])
-	(*(*[5]OpusT_opus_val16)(unsafe.Pointer(bp + 36)))[int32(4)] = OpusT_opus_val16(c1 * (*(*[4]OpusT_opus_val16)(unsafe.Pointer(bp + 20)))[int32(3)])
-	celt_fir5(tls, x_lp, bp+36, len1)
+	lpc2[0] = lpc[0] + float32(0.8)
+	lpc2[1] = lpc[1] + OpusT_opus_val16(c1*lpc[0])
+	lpc2[2] = lpc[2] + OpusT_opus_val16(c1*lpc[1])
+	lpc2[3] = lpc[3] + OpusT_opus_val16(c1*lpc[2])
+	lpc2[4] = OpusT_opus_val16(c1 * lpc[3])
+	celt_fir5(tls, x_lp, uintptr(unsafe.Pointer(&lpc2[0])), len1)
 }
 
 // C documentation
@@ -443,14 +441,11 @@ func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x uintptr, _y uintptr, xcorr uintpt
 }
 
 func Opus_pitch_search(tls *libc.TLS, x_lp uintptr, y1 uintptr, len1 int32, max_pitch int32, pitch uintptr, arch int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var _saved_stack, st, x_lp4, xcorr, y_lp4, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var a, b, c, sum, xy, v81 OpusT_opus_val32
 	var i, i1, j, lag, offset int32
-	var _ /* best_pitch at bp+0 */ [2]int32
+	var best_pitch [2]int32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, a, b, c, i, i1, j, lag, offset, st, sum, x_lp4, xcorr, xy, y_lp4, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v81, v9
-	*(*[2]int32)(unsafe.Pointer(bp)) = [2]int32{}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -686,7 +681,7 @@ func Opus_pitch_search(tls *libc.TLS, x_lp uintptr, y1 uintptr, len1 int32, max_
 	}
 	/* Coarse search with 4x decimation */
 	Opus_celt_pitch_xcorr_c(tls, x_lp4, y_lp4, xcorr, len1>>int32(2), max_pitch>>int32(2), arch)
-	find_best_pitch(tls, xcorr, y_lp4, len1>>int32(2), max_pitch>>int32(2), bp)
+	find_best_pitch(tls, xcorr, y_lp4, len1>>int32(2), max_pitch>>int32(2), uintptr(unsafe.Pointer(&best_pitch[0])))
 	/* Finer search with 2x decimation */
 	i1 = 0
 	for {
@@ -694,7 +689,7 @@ func Opus_pitch_search(tls *libc.TLS, x_lp uintptr, y1 uintptr, len1 int32, max_
 			break
 		}
 		*(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr(i1)*4)) = float32(0)
-		if libc.Xabs(tls, i1-int32(2)*(*(*[2]int32)(unsafe.Pointer(bp)))[0]) > int32(2) && libc.Xabs(tls, i1-int32(2)*(*(*[2]int32)(unsafe.Pointer(bp)))[int32(1)]) > int32(2) {
+		if libc.Xabs(tls, i1-2*best_pitch[0]) > int32(2) && libc.Xabs(tls, i1-2*best_pitch[1]) > int32(2) {
 			goto _79
 		}
 		_ = arch
@@ -718,12 +713,12 @@ func Opus_pitch_search(tls *libc.TLS, x_lp uintptr, y1 uintptr, len1 int32, max_
 	_79:
 		i1 = i1 + 1
 	}
-	find_best_pitch(tls, xcorr, y1, len1>>int32(1), max_pitch>>int32(1), bp)
+	find_best_pitch(tls, xcorr, y1, len1>>int32(1), max_pitch>>int32(1), uintptr(unsafe.Pointer(&best_pitch[0])))
 	/* Refine by pseudo-interpolation */
-	if (*(*[2]int32)(unsafe.Pointer(bp)))[0] > 0 && (*(*[2]int32)(unsafe.Pointer(bp)))[0] < max_pitch>>int32(1)-int32(1) {
-		a = *(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr((*(*[2]int32)(unsafe.Pointer(bp)))[0]-int32(1))*4))
-		b = *(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr((*(*[2]int32)(unsafe.Pointer(bp)))[0])*4))
-		c = *(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr((*(*[2]int32)(unsafe.Pointer(bp)))[0]+int32(1))*4))
+	if best_pitch[0] > 0 && best_pitch[0] < max_pitch>>int32(1)-int32(1) {
+		a = *(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr(best_pitch[0]-1)*4))
+		b = *(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr(best_pitch[0])*4))
+		c = *(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr(best_pitch[0]+1)*4))
 		if c-a > float32(float32(0.7)*(b-a)) {
 			offset = int32(1)
 		} else {
@@ -736,7 +731,7 @@ func Opus_pitch_search(tls *libc.TLS, x_lp uintptr, y1 uintptr, len1 int32, max_
 	} else {
 		offset = 0
 	}
-	*(*int32)(unsafe.Pointer(pitch)) = int32(2)*(*(*[2]int32)(unsafe.Pointer(bp)))[0] - offset
+	*(*int32)(unsafe.Pointer(pitch)) = 2*best_pitch[0] - offset
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
