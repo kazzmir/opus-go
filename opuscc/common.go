@@ -6260,15 +6260,12 @@ func Opus_opus_packet_extensions_parse(tls *libc.TLS, data uintptr, len1 OpusT_o
 //	   nb_frame_exts must be filled with the output of
 //	    opus_packet_extensions_count_ext(). */
 func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions uintptr, nb_frame_exts uintptr, nb_frames int32) (r OpusT_opus_int32) {
-	bp := tls.Alloc(304)
-	defer tls.Free(304)
 	var count, prev_total, ret, total int32
 	var idx, v3 OpusT_opus_int32
-	var v4 uintptr
-	var _ /* ext at bp+80 */ OpusT_opus_extension_data
-	var _ /* iter at bp+0 */ OpusT_OpusExtensionIterator
-	var _ /* nb_frames_cum at bp+104 */ [49]OpusT_opus_int32
-	_, _, _, _, _, _, _ = count, idx, prev_total, ret, total, v3, v4
+	var ext OpusT_opus_extension_data
+	var iter OpusT_OpusExtensionIterator
+	var nb_frames_cum [49]OpusT_opus_int32
+	_, _, _, _, _, _, _, _, _ = count, ext, idx, iter, prev_total, ret, total, v3, nb_frames_cum
 	if !(nb_extensions != uintptr(uint32(0))) {
 		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, int32(395))
 	}
@@ -6286,29 +6283,28 @@ func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data uintptr, len1 Opu
 			break
 		}
 		total = *(*OpusT_opus_int32)(unsafe.Pointer(nb_frame_exts + uintptr(count)*4)) + prev_total
-		(*(*[49]OpusT_opus_int32)(unsafe.Pointer(bp + 104)))[count] = prev_total
+		nb_frames_cum[count] = prev_total
 		prev_total = total
 		count = count + 1
 	}
-	(*(*[49]OpusT_opus_int32)(unsafe.Pointer(bp + 104)))[count] = prev_total
-	Opus_opus_extension_iterator_init(tls, bp, data, len1, nb_frames)
+	nb_frames_cum[count] = prev_total
+	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iter)), data, len1, nb_frames)
 	count = 0
 	for {
-		ret = Opus_opus_extension_iterator_next(tls, bp, bp+80)
+		ret = Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iter)), uintptr(unsafe.Pointer(&ext)))
 		if ret <= 0 {
 			break
 		}
-		v4 = bp + 104 + uintptr((*(*OpusT_opus_extension_data)(unsafe.Pointer(bp + 80))).Fframe)*4
-		v3 = *(*OpusT_opus_int32)(unsafe.Pointer(v4))
-		*(*OpusT_opus_int32)(unsafe.Pointer(v4)) = *(*OpusT_opus_int32)(unsafe.Pointer(v4)) + 1
+		v3 = nb_frames_cum[ext.Fframe]
+		nb_frames_cum[ext.Fframe]++
 		idx = v3
 		if idx >= *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) {
 			return -int32(2)
 		}
-		if !(idx < (*(*[49]OpusT_opus_int32)(unsafe.Pointer(bp + 104)))[(*(*OpusT_opus_extension_data)(unsafe.Pointer(bp + 80))).Fframe+int32(1)]) {
+		if !(idx < nb_frames_cum[ext.Fframe+int32(1)]) {
 			Opus_celt_fatal(tls, __ccgo_ts+2876, __ccgo_ts+2472, int32(416))
 		}
-		*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(idx)*24)) = *(*OpusT_opus_extension_data)(unsafe.Pointer(bp + 80))
+		*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(idx)*24)) = ext
 		count = count + 1
 	}
 	*(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) = count
