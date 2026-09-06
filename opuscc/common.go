@@ -4032,12 +4032,10 @@ func Opus_opus_packet_get_nb_samples(tls *libc.TLS, packet uintptr, len1 OpusT_o
 }
 
 func Opus_opus_packet_has_lbrr(tls *libc.TLS, packet uintptr, len1 OpusT_opus_int32) (r int32) {
-	bp := tls.Alloc(480)
-	defer tls.Free(480)
 	var lbrr, nb_frames, packet_frame_size, packet_mode, packet_stream_channels, ret int32
-	var _ /* frames at bp+0 */ [48]uintptr
-	var _ /* size at bp+384 */ [48]OpusT_opus_int16
-	_, _, _, _, _, _ = lbrr, nb_frames, packet_frame_size, packet_mode, packet_stream_channels, ret
+	var frames [48]uintptr
+	var size [48]OpusT_opus_int16
+	_, _, _, _, _, _, _, _ = frames, lbrr, nb_frames, packet_frame_size, packet_mode, packet_stream_channels, ret, size
 	nb_frames = int32(1)
 	packet_mode = opus_packet_get_mode(tls, packet)
 	if packet_mode == int32(MODE_CELT_ONLY) {
@@ -4048,16 +4046,16 @@ func Opus_opus_packet_has_lbrr(tls *libc.TLS, packet uintptr, len1 OpusT_opus_in
 		nb_frames = packet_frame_size / int32(960)
 	}
 	packet_stream_channels = Opus_opus_packet_get_nb_channels(tls, packet)
-	ret = Opus_opus_packet_parse(tls, packet, len1, uintptr(uint32(0)), bp, bp+384, uintptr(uint32(0)))
+	ret = Opus_opus_packet_parse(tls, packet, len1, uintptr(uint32(0)), uintptr(unsafe.Pointer(&frames[0])), uintptr(unsafe.Pointer(&size[0])), uintptr(uint32(0)))
 	if ret <= 0 {
 		return ret
 	}
-	if int32((*(*[48]OpusT_opus_int16)(unsafe.Pointer(bp + 384)))[0]) == 0 {
+	if int32(size[0]) == 0 {
 		return 0
 	}
-	lbrr = int32(*(*uint8)(unsafe.Pointer((*(*[48]uintptr)(unsafe.Pointer(bp)))[0]))) >> (int32(7) - nb_frames) & int32(0x1)
+	lbrr = int32(*(*uint8)(unsafe.Pointer(frames[0]))) >> (int32(7) - nb_frames) & int32(0x1)
 	if packet_stream_channels == int32(2) {
-		lbrr = libc.BoolInt32(lbrr != 0 || int32(*(*uint8)(unsafe.Pointer((*(*[48]uintptr)(unsafe.Pointer(bp)))[0])))>>(int32(6)-int32(2)*nb_frames)&int32(0x1) != 0)
+		lbrr = libc.BoolInt32(lbrr != 0 || int32(*(*uint8)(unsafe.Pointer(frames[0])))>>(int32(6)-int32(2)*nb_frames)&int32(0x1) != 0)
 	}
 	return lbrr
 }
