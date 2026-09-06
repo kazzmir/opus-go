@@ -77,28 +77,26 @@ func Opus_silk_shell_encoder(tls *libc.TLS, psRangeEnc uintptr, pulses0 uintptr)
 //
 //	/* Shell decoder, operates on one shell code frame of 16 pulses */
 func Opus_silk_shell_decoder(tls *libc.TLS, pulses0 uintptr, psRangeDec uintptr, pulses4 int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
-	var _ /* pulses1 at bp+16 */ [8]OpusT_opus_int16
-	var _ /* pulses2 at bp+8 */ [4]OpusT_opus_int16
-	var _ /* pulses3 at bp+0 */ [2]OpusT_opus_int16
+	var pulses1 [8]OpusT_opus_int16
+	var pulses2 [4]OpusT_opus_int16
+	var pulses3 [2]OpusT_opus_int16
 	/* this function operates on one shell code frame of 16 pulses */
 	_ = true
-	decode_split(tls, bp, bp+1*2, psRangeDec, pulses4, uintptr(unsafe.Pointer(&Opus_silk_shell_code_table3)))
-	decode_split(tls, bp+8, bp+8+1*2, psRangeDec, int32((*(*[2]OpusT_opus_int16)(unsafe.Pointer(bp)))[0]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table2)))
-	decode_split(tls, bp+16, bp+16+1*2, psRangeDec, int32((*(*[4]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[0]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
-	decode_split(tls, pulses0, pulses0+1*2, psRangeDec, int32((*(*[8]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[0]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	decode_split(tls, pulses0+2*2, pulses0+3*2, psRangeDec, int32((*(*[8]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(1)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	decode_split(tls, bp+16+2*2, bp+16+3*2, psRangeDec, int32((*(*[4]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(1)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
-	decode_split(tls, pulses0+4*2, pulses0+5*2, psRangeDec, int32((*(*[8]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(2)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	decode_split(tls, pulses0+6*2, pulses0+7*2, psRangeDec, int32((*(*[8]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(3)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	decode_split(tls, bp+8+2*2, bp+8+3*2, psRangeDec, int32((*(*[2]OpusT_opus_int16)(unsafe.Pointer(bp)))[int32(1)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table2)))
-	decode_split(tls, bp+16+4*2, bp+16+5*2, psRangeDec, int32((*(*[4]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(2)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
-	decode_split(tls, pulses0+8*2, pulses0+9*2, psRangeDec, int32((*(*[8]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(4)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	decode_split(tls, pulses0+10*2, pulses0+11*2, psRangeDec, int32((*(*[8]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(5)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	decode_split(tls, bp+16+6*2, bp+16+7*2, psRangeDec, int32((*(*[4]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(3)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
-	decode_split(tls, pulses0+12*2, pulses0+13*2, psRangeDec, int32((*(*[8]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(6)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	decode_split(tls, pulses0+14*2, pulses0+15*2, psRangeDec, int32((*(*[8]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(7)]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	decode_split(tls, uintptr(unsafe.Pointer(&pulses3[0])), uintptr(unsafe.Pointer(&pulses3[1])), psRangeDec, pulses4, uintptr(unsafe.Pointer(&Opus_silk_shell_code_table3)))
+	decode_split(tls, uintptr(unsafe.Pointer(&pulses2[0])), uintptr(unsafe.Pointer(&pulses2[1])), psRangeDec, int32(pulses3[0]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table2)))
+	decode_split(tls, uintptr(unsafe.Pointer(&pulses1[0])), uintptr(unsafe.Pointer(&pulses1[1])), psRangeDec, int32(pulses2[0]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
+	decode_split(tls, pulses0, pulses0+1*2, psRangeDec, int32(pulses1[0]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	decode_split(tls, pulses0+2*2, pulses0+3*2, psRangeDec, int32(pulses1[1]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	decode_split(tls, uintptr(unsafe.Pointer(&pulses1[2])), uintptr(unsafe.Pointer(&pulses1[3])), psRangeDec, int32(pulses2[1]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
+	decode_split(tls, pulses0+4*2, pulses0+5*2, psRangeDec, int32(pulses1[2]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	decode_split(tls, pulses0+6*2, pulses0+7*2, psRangeDec, int32(pulses1[3]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	decode_split(tls, uintptr(unsafe.Pointer(&pulses2[2])), uintptr(unsafe.Pointer(&pulses2[3])), psRangeDec, int32(pulses3[1]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table2)))
+	decode_split(tls, uintptr(unsafe.Pointer(&pulses1[4])), uintptr(unsafe.Pointer(&pulses1[5])), psRangeDec, int32(pulses2[2]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
+	decode_split(tls, pulses0+8*2, pulses0+9*2, psRangeDec, int32(pulses1[4]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	decode_split(tls, pulses0+10*2, pulses0+11*2, psRangeDec, int32(pulses1[5]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	decode_split(tls, uintptr(unsafe.Pointer(&pulses1[6])), uintptr(unsafe.Pointer(&pulses1[7])), psRangeDec, int32(pulses2[3]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
+	decode_split(tls, pulses0+12*2, pulses0+13*2, psRangeDec, int32(pulses1[6]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	decode_split(tls, pulses0+14*2, pulses0+15*2, psRangeDec, int32(pulses1[7]), uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
 }
 
 var silk_LTP_gain_iCDF_0 = [8]OpusT_opus_uint8{
