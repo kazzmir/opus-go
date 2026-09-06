@@ -62,13 +62,11 @@ func Opus__celt_lpc(tls *libc.TLS, _lpc uintptr, ac uintptr, p int32) {
 }
 
 func Opus_celt_fir_c(tls *libc.TLS, x1 uintptr, num uintptr, y1 uintptr, N int32, ord int32, arch int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var _saved_stack, rnum, st, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v3, v31, v32, v33, v35, v36, v37, v5, v7, v9 uintptr
 	var i, j, j1, v34, v47, v50 int32
 	var sum2 OpusT_opus_val32
 	var tmp, tmp1, tmp2, tmp3, y_0, y_1, y_2, y_3 OpusT_opus_val16
-	var _ /* sum at bp+0 */ [4]OpusT_opus_val32
+	var sum [4]OpusT_opus_val32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, i, j, j1, rnum, st, sum2, tmp, tmp1, tmp2, tmp3, y_0, y_1, y_2, y_3, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v3, v31, v32, v33, v34, v35, v36, v37, v47, v5, v50, v7, v9
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -163,14 +161,14 @@ func Opus_celt_fir_c(tls *libc.TLS, x1 uintptr, num uintptr, y1 uintptr, N int32
 		if !(i < N-int32(3)) {
 			break
 		}
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[0] = *(*OpusT_opus_val16)(unsafe.Pointer(x1 + uintptr(i)*4))
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(1)] = *(*OpusT_opus_val16)(unsafe.Pointer(x1 + uintptr(i+int32(1))*4))
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)] = *(*OpusT_opus_val16)(unsafe.Pointer(x1 + uintptr(i+int32(2))*4))
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] = *(*OpusT_opus_val16)(unsafe.Pointer(x1 + uintptr(i+int32(3))*4))
+		sum[0] = *(*OpusT_opus_val16)(unsafe.Pointer(x1 + uintptr(i)*4))
+		sum[1] = *(*OpusT_opus_val16)(unsafe.Pointer(x1 + uintptr(i+1)*4))
+		sum[2] = *(*OpusT_opus_val16)(unsafe.Pointer(x1 + uintptr(i+2)*4))
+		sum[3] = *(*OpusT_opus_val16)(unsafe.Pointer(x1 + uintptr(i+3)*4))
 		_ = arch
 		v1 = rnum
 		v3 = x1 + uintptr(i)*4 - uintptr(ord)*4
-		v5 = bp
+		v5 = uintptr(unsafe.Pointer(&sum[0]))
 		v34 = ord
 		if !(v34 >= int32(3)) {
 			Opus_celt_fatal(tls, __ccgo_ts+3349, __ccgo_ts+3374, int32(69))
@@ -272,10 +270,10 @@ func Opus_celt_fir_c(tls *libc.TLS, x1 uintptr, num uintptr, y1 uintptr, N int32
 			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp3*y_0)
 			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp3*y_1)
 		}
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i)*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[0]
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+int32(1))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(1)]
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+int32(2))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)]
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+int32(3))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)]
+		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i)*4)) = sum[0]
+		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+1)*4)) = sum[1]
+		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+2)*4)) = sum[2]
+		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+3)*4)) = sum[3]
 		i = i + int32(4)
 	}
 	for {

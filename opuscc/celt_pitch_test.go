@@ -61,3 +61,22 @@ func TestRemoveDoublingLocalCorrelations(t *testing.T) {
 		t.Fatalf("gain: got %.8f, want %.8f", got, want)
 	}
 }
+
+func TestCeltFIRLocalSums(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	setupResamplerPseudostack(tls)
+
+	input := []OpusT_opus_val16{0.16, -0.27, 0.38, -0.49, 0.61, -0.72, 0.83, -0.94, 0.25, -0.36, 0.47, -0.58}
+	coefficients := []OpusT_opus_val16{0.11, -0.23, 0.37, -0.41}
+	output := make([]OpusT_opus_val16, 8)
+
+	Opus_celt_fir_c(tls, uintptr(unsafe.Pointer(&input[4])), uintptr(unsafe.Pointer(&coefficients[0])), uintptr(unsafe.Pointer(&output[0])), int32(len(output)), 4, 0)
+
+	want := []OpusT_opus_val16{0.30320004, -0.28890002, 0.2734, -0.25649995, -0.5608, 0.48600003, -0.31520003, 0.032400023}
+	for i, value := range output {
+		if value != want[i] {
+			t.Fatalf("output[%d]: got %.8f, want %.8f", i, value, want[i])
+		}
+	}
+}
