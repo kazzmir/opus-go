@@ -261,22 +261,17 @@ func silk_PLC_energy(tls *libc.TLS, energy1 uintptr, shift1 uintptr, energy2 uin
 }
 
 func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintptr, arch int32) {
-	bp := tls.Alloc(64)
-	defer tls.Free(64)
 	var B_Q14, _saved_stack, pred_lag_ptr, psPLC, rand_ptr, sLPC_Q14_ptr, sLTP, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var LPC_pred_Q10, LTP_pred_Q12, b32_inv, b32_nrm, down_scale_Q30, err_Q32, harm_Gain_Q15, invGain_Q30, inv_gain_Q30, rand_Gain_Q15, rand_seed, result, v84, v85, v86, v89 OpusT_opus_int32
 	var b_headrm, i, idx, j, k, lag, lshift, sLTP_buf_idx, v53, v54, v55, v57, v58, v59, v60, v62, v63, v64, v65, v67, v68 int32
 	var rand_scale_Q14, v79, v80, v81 OpusT_opus_int16
-	var _ /* A_Q12 at bp+16 */ [16]OpusT_opus_int16
-	var _ /* energy1 at bp+8 */ OpusT_opus_int32
-	var _ /* energy2 at bp+12 */ OpusT_opus_int32
-	var _ /* prevGain_Q10 at bp+48 */ [2]OpusT_opus_int32
-	var _ /* shift1 at bp+0 */ int32
-	var _ /* shift2 at bp+4 */ int32
+	var energy1, energy2 OpusT_opus_int32
+	var shift1, shift2 int32
+	var A_Q12 [MAX_LPC_ORDER]OpusT_opus_int16
+	var prevGain_Q10 [2]OpusT_opus_int32
 	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
 	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
 	plc := &decoder.FsPLC
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B_Q14, LPC_pred_Q10, LTP_pred_Q12, _saved_stack, b32_inv, b32_nrm, b_headrm, down_scale_Q30, err_Q32, harm_Gain_Q15, i, idx, invGain_Q30, inv_gain_Q30, j, k, lag, lshift, pred_lag_ptr, psPLC, rand_Gain_Q15, rand_ptr, rand_scale_Q14, rand_seed, result, sLPC_Q14_ptr, sLTP, sLTP_Q14, sLTP_buf_idx, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v53, v54, v55, v57, v58, v59, v60, v62, v63, v64, v65, v67, v68, v7, v79, v80, v81, v84, v85, v86, v89, v9
 	psPLC = uintptr(unsafe.Pointer(plc))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -421,13 +416,13 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 	}
 	v23 = st
 	sLTP = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length))*(uint64(2)/uint64(1)))
-	(*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[0] = plc.FprevGain_Q16[0] >> int32(6)
-	(*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)] = plc.FprevGain_Q16[1] >> int32(6)
+	prevGain_Q10[0] = plc.FprevGain_Q16[0] >> int32(6)
+	prevGain_Q10[1] = plc.FprevGain_Q16[1] >> int32(6)
 	if decoder.Ffirst_frame_after_reset != 0 {
 		libc.Xmemset(tls, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), 0, uint64(32))
 	}
-	silk_PLC_energy(tls, bp+8, bp, bp+12, bp+4, uintptr(unsafe.Pointer(&decoder.Fexc_Q14[0])), bp+48, decoder.Fsubfr_length, decoder.Fnb_subfr)
-	if *(*OpusT_opus_int32)(unsafe.Pointer(bp + 8))>>*(*int32)(unsafe.Pointer(bp + 4)) < *(*OpusT_opus_int32)(unsafe.Pointer(bp + 12))>>*(*int32)(unsafe.Pointer(bp)) {
+	silk_PLC_energy(tls, uintptr(unsafe.Pointer(&energy1)), uintptr(unsafe.Pointer(&shift1)), uintptr(unsafe.Pointer(&energy2)), uintptr(unsafe.Pointer(&shift2)), uintptr(unsafe.Pointer(&decoder.Fexc_Q14[0])), uintptr(unsafe.Pointer(&prevGain_Q10[0])), decoder.Fsubfr_length, decoder.Fnb_subfr)
+	if energy1>>shift2 < energy2>>shift1 {
 		/* First sub-frame has lowest energy */
 		v53 = 0
 		v54 = ((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fnb_subfr-int32(1))*(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fsubfr_length - int32(RAND_BUF_SIZE)
@@ -487,7 +482,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 	/* LPC concealment. Apply BWE to previous LPC */
 	Opus_silk_bwexpander(tls, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), decoder.FLPC_order, int32(64881))
 	/* Preload LPC coefficients to array on stack. Gives small performance gain */
-	libc.Xmemcpy(tls, bp+16, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), uint64(uint32(decoder.FLPC_order))*uint64(2))
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&A_Q12[0])), uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), uint64(uint32(decoder.FLPC_order))*uint64(2))
 	/* First Lost frame */
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt == 0 {
 		rand_scale_Q14 = int16(int32(1) << int32(14))
@@ -544,7 +539,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 	if !(idx > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6729, __ccgo_ts+6715, int32(319))
 	}
-	Opus_silk_LPC_analysis_filter(tls, sLTP+uintptr(idx)*2, uintptr(unsafe.Pointer(&decoder.FoutBuf[idx])), bp+16, decoder.Fltp_mem_length-idx, decoder.FLPC_order, arch)
+	Opus_silk_LPC_analysis_filter(tls, sLTP+uintptr(idx)*2, uintptr(unsafe.Pointer(&decoder.FoutBuf[idx])), uintptr(unsafe.Pointer(&A_Q12[0])), decoder.Fltp_mem_length-idx, decoder.FLPC_order, arch)
 	/* Scale LTP state */
 	v84 = plc.FprevGain_Q16[1]
 	v53 = int32(46)
@@ -695,22 +690,22 @@ _102:
 		/* partly unrolled */
 		/* Avoids introducing a bias because silk_SMLAWB() always rounds to -inf */
 		LPC_pred_Q10 = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order >> int32(1)
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(1))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[0])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(2))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(1)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(3))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(2)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(4))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(3)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(5))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(4)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(6))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(5)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(7))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(6)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(8))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(7)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(9))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(8)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(10))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[int32(9)])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(1))*4)))*int64(A_Q12[0])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(2))*4)))*int64(A_Q12[int32(1)])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(3))*4)))*int64(A_Q12[int32(2)])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(4))*4)))*int64(A_Q12[int32(3)])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(5))*4)))*int64(A_Q12[int32(4)])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(6))*4)))*int64(A_Q12[int32(5)])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(7))*4)))*int64(A_Q12[int32(6)])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(8))*4)))*int64(A_Q12[int32(7)])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(9))*4)))*int64(A_Q12[int32(8)])>>int32(16))
+		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(10))*4)))*int64(A_Q12[int32(9)])>>int32(16))
 		j = int32(10)
 		for {
 			if !(j < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
 				break
 			}
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-j-int32(1))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 16)))[j])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-j-int32(1))*4)))*int64(A_Q12[j])>>int32(16))
 			j = j + 1
 		}
 		/* Add prediction to LPC excitation */
@@ -781,39 +776,39 @@ _102:
 		}
 		*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)) = v53
 		/* Scale with Gain */
-		if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64((*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX7) {
+		if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX7) {
 			v54 = int32(silk_int16_MAX7)
 		} else {
-			if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64((*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
+			if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
 				v55 = int32(int16(-32768))
 			} else {
-				v55 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64((*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)])>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
+				v55 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
 			}
 			v54 = v55
 		}
 		if v54 > int32(silk_int16_MAX7) {
 			v53 = int32(silk_int16_MAX7)
 		} else {
-			if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64((*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX7) {
+			if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX7) {
 				v58 = int32(silk_int16_MAX7)
 			} else {
-				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64((*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
+				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
 					v59 = int32(int16(-32768))
 				} else {
-					v59 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64((*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)])>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
+					v59 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
 				}
 				v58 = v59
 			}
 			if v58 < int32(int16(-32768)) {
 				v57 = int32(int16(-32768))
 			} else {
-				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64((*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX7) {
+				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX7) {
 					v60 = int32(silk_int16_MAX7)
 				} else {
-					if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64((*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
+					if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
 						v62 = int32(int16(-32768))
 					} else {
-						v62 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64((*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)])>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
+						v62 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
 					}
 					v60 = v62
 				}
