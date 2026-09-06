@@ -2156,8 +2156,6 @@ func Opus_denormalise_bands(tls *libc.TLS, m uintptr, X uintptr, freq uintptr, b
 //
 //	/* This prevents energy collapse for transients with multiple short MDCTs */
 func Opus_anti_collapse(tls *libc.TLS, m uintptr, X_ uintptr, collapse_masks uintptr, LM int32, C int32, size int32, start int32, end int32, logE uintptr, prev1logE uintptr, prev2logE uintptr, pulses uintptr, seed OpusT_opus_uint32, encode int32, arch int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var Ediff, v13 OpusT_opus_val32
 	var N0, c, depth, i, j, k, renormalize, v8 int32
 	var X uintptr
@@ -2166,11 +2164,7 @@ func Opus_anti_collapse(tls *libc.TLS, m uintptr, X_ uintptr, collapse_masks uin
 	var prev1, prev2, v10 OpusT_celt_glog
 	var r, v20 OpusT_celt_norm
 	var sqrt_1, thresh, v17 OpusT_opus_val16
-	var v2, v3 OpusT_opus_uint32
-	var _ /* res at bp+0 */ struct {
-		Fi [0]OpusT_opus_uint32
-		Ff float32
-	}
+	var res, v2, v3 OpusT_opus_uint32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = Ediff, N0, X, c, depth, frac, i, integer, j, k, prev1, prev2, r, renormalize, sqrt_1, thresh, v10, v13, v17, v2, v20, v3, v5, v6, v8
 	i = start
 	for {
@@ -2191,9 +2185,9 @@ func Opus_anti_collapse(tls *libc.TLS, m uintptr, X_ uintptr, collapse_masks uin
 			goto _7
 		}
 		frac = v5 - float32(integer)
-		*(*float32)(unsafe.Pointer(bp)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
-		*(*OpusT_opus_uint32)(unsafe.Pointer(bp)) = uint32(int32(*(*OpusT_opus_uint32)(unsafe.Pointer(bp)))+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
-		v6 = *(*float32)(unsafe.Pointer(bp))
+		*(*float32)(unsafe.Pointer(&res)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
+		res = uint32(int32(res)+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
+		v6 = *(*float32)(unsafe.Pointer(&res))
 	_7:
 		thresh = OpusT_opus_val16(float32(0.5) * v6)
 		sqrt_1 = float32(1) / float32(libc.Xsqrt(tls, float64(N0<<LM)))
@@ -2237,9 +2231,9 @@ func Opus_anti_collapse(tls *libc.TLS, m uintptr, X_ uintptr, collapse_masks uin
 				goto _16
 			}
 			frac = v5 - float32(integer)
-			*(*float32)(unsafe.Pointer(bp)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
-			*(*OpusT_opus_uint32)(unsafe.Pointer(bp)) = uint32(int32(*(*OpusT_opus_uint32)(unsafe.Pointer(bp)))+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
-			v6 = *(*float32)(unsafe.Pointer(bp))
+			*(*float32)(unsafe.Pointer(&res)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
+			res = uint32(int32(res)+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
+			v6 = *(*float32)(unsafe.Pointer(&res))
 		_16:
 			r = OpusT_celt_norm(float32(2) * v6)
 			if LM == int32(3) {
