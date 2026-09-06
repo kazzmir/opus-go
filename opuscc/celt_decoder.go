@@ -828,9 +828,10 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 	var ac [25]OpusT_opus_val32
 	var decode_mem [2]uintptr
 	var _ /* lpc_mem at bp+132 */ [24]OpusT_opus_val16
-	var _ /* out_syn at bp+16 */ [2]uintptr
+	var out_syn [2]uintptr
 	_ = ac
 	_ = decode_mem
+	_ = out_syn
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = C, E1, E2, S1, S2, X, _exc, _saved_stack, attenuation, backgroundLogE, blen, boffs, buf, c, curr_frame_type, curr_neural, decay, decay1, decay_length, decode_buffer_size, e, eBands, effEnd, end, exc, exc_length, extrapolation_len, extrapolation_offset, fade, fir_tmp, i, j, j1, last_neural, loss_duration, lpc, max_period, mode, nbEBands, oldBandE, oldLogE, oldLogE2, overlap, pitch_index, ratio, seed, st, start, tmp, tmp1, tmp_g, window, v1, v10, v103, v12, v14, v16, v18, v20, v22, v24, v26, v28, v3, v36, v40, v5, v7, v8
 	C = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fchannels
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -853,7 +854,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 	c = 0
 	for {
 		decode_mem[c] = st1 + 112 + uintptr(c*(decode_buffer_size+overlap))*4
-		(*(*[2]uintptr)(unsafe.Pointer(bp + 16)))[c] = decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4
+		out_syn[c] = decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4
 		c = c + 1
 		v5 = c
 		if !(v5 < C) {
