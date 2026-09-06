@@ -28,7 +28,7 @@ func Opus_silk_decoder_set_fs(tls *libc.TLS, psDec uintptr, fs_kHz int32, fs_API
 	/* Initialize resampler when switching internal or external sampling frequency */
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != fs_kHz || (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_API_hz != fs_API_Hz {
 		/* Initialize the resampler for dec_API.c preparing resampling from fs_kHz to API_fs_Hz */
-		ret = ret + Opus_silk_resampler_init(tls, psDec+2448, int32(int16(fs_kHz))*int32(int16(int32(1000))), fs_API_Hz, 0)
+		ret = ret + Opus_silk_resampler_init(tls, uintptr(unsafe.Pointer(&(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fresampler_state)), int32(int16(fs_kHz))*int32(int16(int32(1000))), fs_API_Hz, 0)
 		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_API_hz = fs_API_Hz
 	}
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != fs_kHz || frame_length != (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length {
@@ -146,7 +146,7 @@ func Opus_silk_Get_Decoder_Size(tls *libc.TLS, decSizeBytes uintptr) (r int32) {
 	var ret int32
 	_ = ret
 	ret = SILK_NO_ERROR
-	*(*int32)(unsafe.Pointer(decSizeBytes)) = int32(8808)
+	*(*int32)(unsafe.Pointer(decSizeBytes)) = int32(unsafe.Sizeof(OpusT_silk_decoder{}))
 	return ret
 }
 
@@ -164,10 +164,10 @@ func Opus_silk_ResetDecoder(tls *libc.TLS, decState uintptr) (r int32) {
 		if !(n < int32(DECODER_NUM_CHANNELS)) {
 			break
 		}
-		ret = Opus_silk_reset_decoder(tls, channel_state+uintptr(n)*4392)
+		ret = Opus_silk_reset_decoder(tls, channel_state+uintptr(n)*unsafe.Sizeof(OpusT_silk_decoder_state{}))
 		n = n + 1
 	}
-	libc.Xmemset(tls, decState+8784, 0, uint64(12))
+	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).FsStereo = OpusT_stereo_dec_state{}
 	/* Not strictly needed, but it's cleaner that way */
 	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).Fprev_decode_only_middle = 0
 	return ret
@@ -186,10 +186,10 @@ func Opus_silk_InitDecoder(tls *libc.TLS, decState uintptr) (r int32) {
 		if !(n < int32(DECODER_NUM_CHANNELS)) {
 			break
 		}
-		ret = Opus_silk_init_decoder(tls, channel_state+uintptr(n)*4392)
+		ret = Opus_silk_init_decoder(tls, channel_state+uintptr(n)*unsafe.Sizeof(OpusT_silk_decoder_state{}))
 		n = n + 1
 	}
-	libc.Xmemset(tls, decState+8784, 0, uint64(12))
+	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).FsStereo = OpusT_stereo_dec_state{}
 	/* Not strictly needed, but it's cleaner that way */
 	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).Fprev_decode_only_middle = 0
 	return ret

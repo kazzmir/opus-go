@@ -294,10 +294,10 @@ func Opus_pitch_downsample(tls *libc.TLS, x uintptr, x_lp uintptr, len1 int32, C
 			if !(i < len1) {
 				break
 			}
-			*(*OpusT_opus_val16)(unsafe.Pointer(x_lp + uintptr(i)*4)) += float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + 1*8)) + uintptr(factor*i-offset)*4))) + float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + 1*8)) + uintptr(factor*i+offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + 1*8)) + uintptr(factor*i)*4)))
+			*(*OpusT_opus_val16)(unsafe.Pointer(x_lp + uintptr(i)*4)) += float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))) + uintptr(factor*i-offset)*4))) + float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))) + uintptr(factor*i+offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))) + uintptr(factor*i)*4)))
 			i = i + 1
 		}
-		*(*OpusT_opus_val16)(unsafe.Pointer(x_lp)) += float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + 1*8)) + uintptr(offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + 1*8)))))
+		*(*OpusT_opus_val16)(unsafe.Pointer(x_lp)) += float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))) + uintptr(offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))))))
 	}
 	Opus__celt_autocorr(tls, x_lp, uintptr(unsafe.Pointer(&ac[0])), uintptr(uint32(0)), 0, int32(4), len1, arch)
 	/* Noise floor -40 dB */

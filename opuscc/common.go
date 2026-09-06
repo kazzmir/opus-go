@@ -1439,7 +1439,7 @@ func Opus_opus_packet_parse_impl(tls *libc.TLS, data uintptr, len1 OpusT_opus_in
 			break
 		}
 		if frames != 0 {
-			*(*uintptr)(unsafe.Pointer(frames + uintptr(i)*8)) = data
+			*(*uintptr)(unsafe.Pointer(frames + uintptr(i)*uintptr(libc.PtrSize))) = data
 		}
 		data = data + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer(size + uintptr(i)*2)))
 		i = i + 1

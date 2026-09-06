@@ -144,7 +144,7 @@ func deemphasis_stereo_simple(tls *libc.TLS, in uintptr, pcm uintptr, N int32, c
 	var x0, x1 uintptr
 	_, _, _, _, _, _, _ = j, m0, m1, tmp0, tmp1, x0, x1
 	x0 = *(*uintptr)(unsafe.Pointer(in))
-	x1 = *(*uintptr)(unsafe.Pointer(in + 1*8))
+	x1 = *(*uintptr)(unsafe.Pointer(in + uintptr(libc.PtrSize)))
 	m0 = *(*OpusT_celt_sig)(unsafe.Pointer(mem))
 	m1 = *(*OpusT_celt_sig)(unsafe.Pointer(mem + 1*4))
 	j = 0
@@ -259,7 +259,7 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 	c = 0
 	for {
 		m = *(*OpusT_celt_sig)(unsafe.Pointer(mem + uintptr(c)*4))
-		x = *(*uintptr)(unsafe.Pointer(in + uintptr(c)*8))
+		x = *(*uintptr)(unsafe.Pointer(in + uintptr(c)*uintptr(libc.PtrSize)))
 		y = pcm + uintptr(c)*4
 		if downsample > int32(1) {
 			/* Shortcut for the standard (non-custom modes) case */

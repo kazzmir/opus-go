@@ -16,7 +16,7 @@ func Opus_silk_reset_decoder(tls *libc.TLS, psDec uintptr) (r int32) {
 	var v1 int32
 	_ = v1
 	/* Clear the entire encoder state, except anything copied */
-	libc.Xmemset(tls, psDec, 0, uint64(4392)-uint64(int64(psDec)-int64(psDec)))
+	libc.Xmemset(tls, psDec, 0, uint64(unsafe.Sizeof(OpusT_silk_decoder_state{})))
 	/* Used to deactivate LSF interpolation */
 	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffirst_frame_after_reset = int32(1)
 	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fprev_gain_Q16 = int32(65536)
@@ -36,7 +36,7 @@ func Opus_silk_reset_decoder(tls *libc.TLS, psDec uintptr) (r int32) {
 //	/************************/
 func Opus_silk_init_decoder(tls *libc.TLS, psDec uintptr) (r int32) {
 	/* Clear the entire encoder state, except anything copied */
-	libc.Xmemset(tls, psDec, 0, uint64(4392))
+	libc.Xmemset(tls, psDec, 0, uint64(unsafe.Sizeof(OpusT_silk_decoder_state{})))
 	Opus_silk_reset_decoder(tls, psDec)
 	return 0
 }
