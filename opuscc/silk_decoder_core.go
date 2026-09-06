@@ -447,9 +447,9 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq u
 	_111:
 		inv_gain_Q31 = v110
 		/* Calculate gain adjustment factor */
-		if *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(k)*4)) != (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fprev_gain_Q16 {
-			v103 = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fprev_gain_Q16
-			v106 = *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(k)*4))
+		if control.FGains_Q16[k] != decoder.Fprev_gain_Q16 {
+			v103 = decoder.Fprev_gain_Q16
+			v106 = control.FGains_Q16[k]
 			v104 = int32(16)
 			_ = v106 != int32(0)
 			_ = v104 >= int32(0)
@@ -539,17 +539,17 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq u
 		}
 		/* Save inv_gain */
 		_ = inv_gain_Q31 != int32(0)
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fprev_gain_Q16 = *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(k)*4))
+		decoder.Fprev_gain_Q16 = control.FGains_Q16[k]
 		/* Avoid abrupt transition from voiced PLC to unvoiced normal decoding */
 		if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 && (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType == int32(TYPE_VOICED) && int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType) != int32(TYPE_VOICED) && k < int32(MAX_NB_SUBFR)/int32(2) {
 			libc.Xmemset(tls, B_Q14, 0, uint64(uint32(LTP_ORDER))*uint64(2))
 			*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + uintptr(int32(LTP_ORDER)/int32(2))*2)) = int16(4096)
 			signalType = int32(TYPE_VOICED)
-			*(*int32)(unsafe.Pointer(psDecCtrl + uintptr(k)*4)) = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlagPrev
+			control.FpitchL[k] = decoder.FlagPrev
 		}
 		if signalType == int32(TYPE_VOICED) {
 			/* Voiced */
-			lag = *(*int32)(unsafe.Pointer(psDecCtrl + uintptr(k)*4))
+			lag = control.FpitchL[k]
 			/* Re-whitening */
 			if k == 0 || k == int32(2) && NLSF_interpolation_flag != 0 {
 				/* Rewhiten with new A coefs */
