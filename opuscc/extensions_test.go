@@ -37,4 +37,13 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 	if got := Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iterator)), 0); got != 0 {
 		t.Fatalf("iterator exhaustion: got %d, want 0", got)
 	}
+
+	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iterator)), uintptr(unsafe.Pointer(&packet[0])), length, 3)
+	var found OpusT_opus_extension_data
+	if got := Opus_opus_extension_iterator_find(tls, uintptr(unsafe.Pointer(&iterator)), uintptr(unsafe.Pointer(&found)), 3); got != 1 {
+		t.Fatalf("find result: got %d, want 1", got)
+	}
+	if found.Fframe != 0 || found.Flen1 != 1 || *(*byte)(unsafe.Pointer(found.Fdata)) != 'x' {
+		t.Fatalf("found extension: %+v", found)
+	}
 }

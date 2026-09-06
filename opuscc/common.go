@@ -6160,18 +6160,16 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter uintptr, ext uintptr)
 }
 
 func Opus_opus_extension_iterator_find(tls *libc.TLS, iter uintptr, ext uintptr, id int32) (r int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
 	var ret int32
-	var _ /* curr_ext at bp+0 */ OpusT_opus_extension_data
-	_ = ret
+	var curr_ext OpusT_opus_extension_data
+	_, _ = curr_ext, ret
 	for {
-		ret = Opus_opus_extension_iterator_next(tls, iter, bp)
+		ret = Opus_opus_extension_iterator_next(tls, iter, uintptr(unsafe.Pointer(&curr_ext)))
 		if ret <= 0 {
 			return ret
 		}
-		if (*(*OpusT_opus_extension_data)(unsafe.Pointer(bp))).Fid == id {
-			*(*OpusT_opus_extension_data)(unsafe.Pointer(ext)) = *(*OpusT_opus_extension_data)(unsafe.Pointer(bp))
+		if curr_ext.Fid == id {
+			*(*OpusT_opus_extension_data)(unsafe.Pointer(ext)) = curr_ext
 			return ret
 		}
 	}
