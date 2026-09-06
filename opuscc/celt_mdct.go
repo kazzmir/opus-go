@@ -19,7 +19,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 	var scale OpusT_celt_coef
 	var yc OpusT_kiss_fft_cpx
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N2, N4, _saved_stack, f, f2, fp, i, im, re, scale, st, st1, t, t0, t01, t1, t11, t12, trig, wp1, wp2, xp1, xp2, yc, yi, yi1, yp, yp1, yp11, yp2, yr, yr1, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v6, v8
-	st1 = *(*uintptr)(unsafe.Pointer(l + 8 + uintptr(shift)*8))
+	st1 = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift]
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -66,7 +66,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v8 = st
-	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
+	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v10 = libc.Xmalloc(tls, uint64(16))
@@ -100,7 +100,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v20 = st
-	*(*uintptr)(unsafe.Pointer(v20 + 8)) += uintptr(uint64(uint32(N2)) * (uint64(4) / uint64(1)))
+	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v20)).Fglobal_stack += uintptr(uint64(uint32(N2)) * (uint64(4) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v22 = libc.Xmalloc(tls, uint64(16))
@@ -132,7 +132,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v8 = st
-	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
+	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v10 = libc.Xmalloc(tls, uint64(16))
@@ -166,7 +166,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v20 = st
-	*(*uintptr)(unsafe.Pointer(v20 + 8)) += uintptr(uint64(uint32(N4)) * (uint64(8) / uint64(1)))
+	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v20)).Fglobal_stack += uintptr(uint64(uint32(N4)) * (uint64(8) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v22 = libc.Xmalloc(tls, uint64(16))
@@ -327,7 +327,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr,
 	xp2 = in + uintptr(stride*(N2-int32(1)))*4
 	yp = out + uintptr(overlap>>int32(1))*4
 	t = trig
-	bitrev = (*OpusT_kiss_fft_state)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(l + 8 + uintptr(shift)*8)))).Fbitrev
+	bitrev = (*OpusT_kiss_fft_state)(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift])).Fbitrev
 	i = 0
 	for {
 		if !(i < N4) {
@@ -348,7 +348,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr,
 		xp2 = xp2 - uintptr(int32(2)*stride)*4
 		i = i + 1
 	}
-	Opus_opus_fft_impl(tls, *(*uintptr)(unsafe.Pointer(l + 8 + uintptr(shift)*8)), out+uintptr(overlap>>int32(1))*4)
+	Opus_opus_fft_impl(tls, (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift], out+uintptr(overlap>>int32(1))*4)
 	/* Post-rotate and de-shuffle from both ends of the buffer at once to make
 	   it in-place. */
 	yp0 = out + uintptr(overlap>>int32(1))*4
