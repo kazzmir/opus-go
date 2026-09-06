@@ -1979,15 +1979,14 @@ func loss_distortion(tls *libc.TLS, eBands uintptr, oldEBands uintptr, start int
 func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, eBands uintptr, oldEBands uintptr, budget OpusT_opus_int32, tell OpusT_opus_int32, prob_model uintptr, error1 uintptr, enc uintptr, C int32, LM int32, intra int32, max_decay OpusT_celt_glog, lfe int32) (r int32) {
 	bp := tls.Alloc(16)
 	defer tls.Free(16)
-	var badness, bits_left, c, i, pi, qi0, v2, v7, v9 int32
+	var badness, bits_left, c, i, pi, qi, qi0, v2, v7, v9 int32
 	var beta, coef OpusT_opus_val16
 	var decay_bound, oldE, x OpusT_celt_glog
 	var f, q, tmp OpusT_opus_val32
 	var prev [2]OpusT_opus_val32
 	var v4 float32
 	var v6 uintptr
-	var _ /* qi at bp+0 */ int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = badness, beta, bits_left, c, coef, decay_bound, f, i, oldE, pi, prev, q, qi0, tmp, x, v2, v4, v6, v7, v9
+	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = badness, beta, bits_left, c, coef, decay_bound, f, i, oldE, pi, prev, q, qi, qi0, tmp, x, v2, v4, v6, v7, v9
 	badness = 0
 	prev = [2]OpusT_opus_val32{}
 	if tell+int32(3) <= budget {
@@ -2017,7 +2016,7 @@ func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, 
 			oldE = v4
 			f = x - OpusT_celt_glog(coef*oldE) - prev[c]
 			/* Rounding to nearest integer here is really important! */
-			*(*int32)(unsafe.Pointer(bp)) = int32(libc.Xfloor(tls, float64(float32(0.5)+f)))
+			qi = int32(libc.Xfloor(tls, float64(float32(0.5)+f)))
 			if -float32(28) > *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) {
 				v4 = -float32(28)
 			} else {
@@ -2026,13 +2025,13 @@ func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, 
 			decay_bound = v4 - max_decay
 			/* Prevent the energy from going down too quickly (e.g. for bands
 			   that have just one bin) */
-			if *(*int32)(unsafe.Pointer(bp)) < 0 && x < decay_bound {
-				*(*int32)(unsafe.Pointer(bp)) = *(*int32)(unsafe.Pointer(bp)) + int32(decay_bound-x)
-				if *(*int32)(unsafe.Pointer(bp)) > 0 {
-					*(*int32)(unsafe.Pointer(bp)) = 0
+			if qi < 0 && x < decay_bound {
+				qi += int32(decay_bound - x)
+				if qi > 0 {
+					qi = 0
 				}
 			}
-			qi0 = *(*int32)(unsafe.Pointer(bp))
+			qi0 = qi
 			/* If we don't have enough bits to encode all the energy, just assume
 			   something safe. */
 			v6 = enc
