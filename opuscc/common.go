@@ -6071,12 +6071,10 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter uintptr, ext uintpt
 //	   Due to the extension repetition mechanism, extensions are not necessarily
 //	    returned in frame order. */
 func Opus_opus_extension_iterator_next(tls *libc.TLS, iter uintptr, ext uintptr) (r int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var L, id, ret, ret1 int32
 	var curr_data0 uintptr
-	var _ /* header_size at bp+0 */ OpusT_opus_int32
-	_, _, _, _, _ = L, curr_data0, id, ret, ret1
+	var header_size OpusT_opus_int32
+	_, _, _, _, _, _ = L, curr_data0, header_size, id, ret, ret1
 	if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len < 0 {
 		return -int32(4)
 	}
@@ -6096,7 +6094,7 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter uintptr, ext uintptr)
 		curr_data0 = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data
 		id = int32(*(*uint8)(unsafe.Pointer(curr_data0))) >> int32(1)
 		L = int32(*(*uint8)(unsafe.Pointer(curr_data0))) & int32(1)
-		(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension(tls, iter+8, (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, bp)
+		(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension(tls, iter+8, (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, uintptr(unsafe.Pointer(&header_size)))
 		if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len < 0 {
 			return -int32(4)
 		}
@@ -6150,8 +6148,8 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter uintptr, ext uintptr)
 					if ext != uintptr(uint32(0)) {
 						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid = id
 						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fframe = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame
-						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata = curr_data0 + uintptr(*(*OpusT_opus_int32)(unsafe.Pointer(bp)))
-						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 = int32(int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data) - int64(curr_data0) - int64(*(*OpusT_opus_int32)(unsafe.Pointer(bp))))
+						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata = curr_data0 + uintptr(header_size)
+						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 = int32(int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data) - int64(curr_data0) - int64(header_size))
 					}
 					return int32(1)
 				}
