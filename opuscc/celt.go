@@ -3,6 +3,8 @@
 package opuscc
 
 import (
+	"fmt"
+	"os"
 	"reflect"
 	"unsafe"
 
@@ -72,9 +74,9 @@ type OpusT_cookie_io_functions_t = struct {
 type _IO_cookie_io_functions_t = OpusT_cookie_io_functions_t
 
 func Opus_celt_fatal(tls *libc.TLS, str uintptr, file uintptr, line int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
-	libc.Xfprintf(tls, libc.Xstderr, __ccgo_ts+3082, libc.VaList(bp+8, file, line, str))
+	// Format directly: the fprintf shim ignores varargs. Go strings also avoid
+	// passing stack-backed va_list storage through uintptr-taking callees.
+	fmt.Fprintf(os.Stderr, "Fatal (internal) error in %s, line %d: %s\n", libc.GoString(file), line, libc.GoString(str))
 	libc.Xabort(tls)
 }
 
