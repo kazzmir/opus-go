@@ -2541,9 +2541,9 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	silk_dec = st1 + uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fsilk_dec_offset)
-	celt_dec = st1 + uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fcelt_dec_offset)
-	F20 = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs / int32(50)
+	silk_dec = st1 + uintptr(decoder.Fsilk_dec_offset)
+	celt_dec = st1 + uintptr(decoder.Fcelt_dec_offset)
+	F20 = decoder.FFs / int32(50)
 	F10 = F20 >> int32(1)
 	F5 = F10 >> int32(1)
 	F2_5 = F5 >> int32(1)
@@ -2562,27 +2562,27 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		return -int32(2)
 	}
 	/* Limit frame_size to avoid excessive stack allocations. */
-	if frame_size < (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs/int32(25)*int32(3) {
+	if frame_size < decoder.FFs/int32(25)*int32(3) {
 		v31 = frame_size
 	} else {
-		v31 = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs / int32(25) * int32(3)
+		v31 = decoder.FFs / int32(25) * int32(3)
 	}
 	frame_size = v31
 	/* Payloads of 1 (2 including ToC) or 0 trigger the PLC/DTX */
 	if len1 <= int32(1) {
 		data = uintptr(uint32(0))
 		/* In that case, don't conceal more than what the ToC says */
-		if frame_size < (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fframe_size {
+		if frame_size < decoder.Fframe_size {
 			v31 = frame_size
 		} else {
-			v31 = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fframe_size
+			v31 = decoder.Fframe_size
 		}
 		frame_size = v31
 	}
 	if data != uintptr(uint32(0)) {
-		audiosize = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fframe_size
-		mode = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fmode
-		bandwidth = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fbandwidth
+		audiosize = decoder.Fframe_size
+		mode = decoder.Fmode
+		bandwidth = decoder.Fbandwidth
 		Opus_ec_dec_init(tls, bp+8, data, uint32(len1))
 	} else {
 		audiosize = frame_size
