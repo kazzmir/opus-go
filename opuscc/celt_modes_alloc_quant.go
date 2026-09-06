@@ -3246,17 +3246,15 @@ func quant_band_n1(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, lowband_out
 //	   the two half-bands. It can be called recursively so bands can end up being
 //	   split in 8 parts. */
 func quant_partition(tls *libc.TLS, ctx uintptr, X uintptr, N int32, _b int32, B int32, lowband uintptr, LM2 int32, gain OpusT_opus_val32, _fill int32) (r uint32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
-	*(*int32)(unsafe.Pointer(bp)) = _b
-	*(*int32)(unsafe.Pointer(bp + 4)) = _fill
+	b := _b
+	fill := _fill
 	var B0, K, curr_bits, delta, encode, hi, i1, i2, imid, iside, itheta, j, lo, mbits, mid, q, qalloc, sbits, spread, v1, v2, v3, v4 int32
 	var Y, cache, cache1, cache2, ec, m2, next_lowband2, v5 uintptr
 	var cm, cm_mask uint32
 	var mid1, side OpusT_opus_val32
 	var rebalance OpusT_opus_int32
 	var tmp, v30 OpusT_opus_val16
-	var _ /* sctx at bp+8 */ split_ctx
+	var sctx split_ctx
 	context := (*band_ctx)(unsafe.Pointer(ctx))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B0, K, Y, cache, cache1, cache2, cm, cm_mask, curr_bits, delta, ec, encode, hi, i1, i2, imid, iside, itheta, j, lo, m2, mbits, mid, mid1, next_lowband2, q, qalloc, rebalance, sbits, side, spread, tmp, v1, v2, v3, v30, v4, v5
 	imid = 0
@@ -3273,21 +3271,21 @@ func quant_partition(tls *libc.TLS, ctx uintptr, X uintptr, N int32, _b int32, B
 	ec = (*band_ctx)(unsafe.Pointer(ctx)).Fec
 	/* If we need 1.5 more bit than we can produce, split the band in two. */
 	cache2 = (*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).Fcache.Findex + uintptr((LM2+int32(1))*(*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).FnbEBands+i2)*2)))
-	if LM2 != -int32(1) && *(*int32)(unsafe.Pointer(bp)) > int32(*(*uint8)(unsafe.Pointer(cache2 + uintptr(*(*uint8)(unsafe.Pointer(cache2))))))+int32(12) && N > int32(2) {
+	if LM2 != -int32(1) && b > int32(*(*uint8)(unsafe.Pointer(cache2 + uintptr(*(*uint8)(unsafe.Pointer(cache2))))))+int32(12) && N > int32(2) {
 		next_lowband2 = uintptr(uint32(0))
 		N = N >> int32(1)
 		Y = X + uintptr(N)*4
 		LM2 = LM2 - int32(1)
 		if B == int32(1) {
-			*(*int32)(unsafe.Pointer(bp + 4)) = *(*int32)(unsafe.Pointer(bp + 4))&int32(1) | *(*int32)(unsafe.Pointer(bp + 4))<<int32(1)
+			fill = fill&int32(1) | fill<<int32(1)
 		}
 		B = (B + int32(1)) >> int32(1)
-		compute_theta(tls, ctx, bp+8, X, Y, N, bp, B, B0, LM2, 0, bp+4)
-		imid = (*(*split_ctx)(unsafe.Pointer(bp + 8))).Fimid
-		iside = (*(*split_ctx)(unsafe.Pointer(bp + 8))).Fiside
-		delta = (*(*split_ctx)(unsafe.Pointer(bp + 8))).Fdelta
-		itheta = (*(*split_ctx)(unsafe.Pointer(bp + 8))).Fitheta
-		qalloc = (*(*split_ctx)(unsafe.Pointer(bp + 8))).Fqalloc
+		compute_theta(tls, ctx, uintptr(unsafe.Pointer(&sctx)), X, Y, N, uintptr(unsafe.Pointer(&b)), B, B0, LM2, 0, uintptr(unsafe.Pointer(&fill)))
+		imid = sctx.Fimid
+		iside = sctx.Fiside
+		delta = sctx.Fdelta
+		itheta = sctx.Fitheta
+		qalloc = sctx.Fqalloc
 		mid1 = OpusT_opus_val32(float32(1) / float32(32768) * float32(imid))
 		side = OpusT_opus_val32(float32(1) / float32(32768) * float32(iside))
 		/* Give more bits to low-energy MDCTs than they would otherwise deserve */
@@ -3305,48 +3303,48 @@ func quant_partition(tls *libc.TLS, ctx uintptr, X uintptr, N int32, _b int32, B
 				delta = v1
 			}
 		}
-		if *(*int32)(unsafe.Pointer(bp)) < (*(*int32)(unsafe.Pointer(bp))-delta)/int32(2) {
-			v2 = *(*int32)(unsafe.Pointer(bp))
+		if b < (b-delta)/int32(2) {
+			v2 = b
 		} else {
-			v2 = (*(*int32)(unsafe.Pointer(bp)) - delta) / int32(2)
+			v2 = (b - delta) / int32(2)
 		}
 		if 0 > v2 {
 			v1 = 0
 		} else {
-			if *(*int32)(unsafe.Pointer(bp)) < (*(*int32)(unsafe.Pointer(bp))-delta)/int32(2) {
-				v3 = *(*int32)(unsafe.Pointer(bp))
+			if b < (b-delta)/int32(2) {
+				v3 = b
 			} else {
-				v3 = (*(*int32)(unsafe.Pointer(bp)) - delta) / int32(2)
+				v3 = (b - delta) / int32(2)
 			}
 			v1 = v3
 		}
 		mbits = v1
-		sbits = *(*int32)(unsafe.Pointer(bp)) - mbits
+		sbits = b - mbits
 		context.Fremaining_bits -= qalloc
 		if lowband != 0 {
 			next_lowband2 = lowband + uintptr(N)*4
 		} /* >32-bit split case */
 		rebalance = (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits
 		if mbits >= sbits {
-			cm = quant_partition(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), *(*int32)(unsafe.Pointer(bp + 4)))
+			cm = quant_partition(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), fill)
 			rebalance = mbits - (rebalance - (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != 0 {
 				sbits = sbits + (rebalance - int32(3)<<int32(BITRES))
 			}
-			cm = cm | quant_partition(tls, ctx, Y, N, sbits, B, next_lowband2, LM2, OpusT_opus_val32(gain*side), *(*int32)(unsafe.Pointer(bp + 4))>>B)<<(B0>>int32(1))
+			cm = cm | quant_partition(tls, ctx, Y, N, sbits, B, next_lowband2, LM2, OpusT_opus_val32(gain*side), fill>>B)<<(B0>>int32(1))
 		} else {
-			cm = quant_partition(tls, ctx, Y, N, sbits, B, next_lowband2, LM2, OpusT_opus_val32(gain*side), *(*int32)(unsafe.Pointer(bp + 4))>>B) << (B0 >> int32(1))
+			cm = quant_partition(tls, ctx, Y, N, sbits, B, next_lowband2, LM2, OpusT_opus_val32(gain*side), fill>>B) << (B0 >> int32(1))
 			rebalance = sbits - (rebalance - (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != int32(16384) {
 				mbits = mbits + (rebalance - int32(3)<<int32(BITRES))
 			}
-			cm = cm | quant_partition(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), *(*int32)(unsafe.Pointer(bp + 4)))
+			cm = cm | quant_partition(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), fill)
 		}
 	} else {
 		/* This is the basic no-split case */
 		v5 = m2
 		v1 = LM2
-		v2 = *(*int32)(unsafe.Pointer(bp))
+		v2 = b
 		v1 = v1 + 1
 		cache = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Findex + uintptr(v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2)*2)))
 		lo = 0
@@ -3430,8 +3428,8 @@ func quant_partition(tls *libc.TLS, ctx uintptr, X uintptr, N int32, _b int32, B
 				/* B can be as large as 16, so this shift might overflow an int on a
 				   16-bit platform; use a long to get defined behavior.*/
 				cm_mask = uint32(uint64(1)<<B) - uint32(1)
-				*(*int32)(unsafe.Pointer(bp + 4)) = int32(uint32(*(*int32)(unsafe.Pointer(bp + 4))) & cm_mask)
-				if !(*(*int32)(unsafe.Pointer(bp + 4)) != 0) {
+				fill = int32(uint32(fill) & cm_mask)
+				if !(fill != 0) {
 					libc.Xmemset(tls, X, 0, uint64(uint32(N))*uint64(4))
 				} else {
 					if lowband == uintptr(uint32(0)) {
@@ -3465,7 +3463,7 @@ func quant_partition(tls *libc.TLS, ctx uintptr, X uintptr, N int32, _b int32, B
 							*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)) = *(*OpusT_celt_norm)(unsafe.Pointer(lowband + uintptr(j)*4)) + tmp
 							j = j + 1
 						}
-						cm = uint32(*(*int32)(unsafe.Pointer(bp + 4)))
+						cm = uint32(fill)
 					}
 					Opus_renormalise_vector(tls, X, N, gain, (*band_ctx)(unsafe.Pointer(ctx)).Farch)
 				}
