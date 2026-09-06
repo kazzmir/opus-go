@@ -856,17 +856,12 @@ _102:
 //
 //	/* Glues concealed frames with new good received frames */
 func Opus_silk_PLC_glue_frames(tls *libc.TLS, psDec uintptr, frame uintptr, length int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
-	var LZ, frac_Q24, gain_Q16, lzeros, slope_Q16, y, v1, v11, v12, v2, v5, v6, v7 OpusT_opus_int32
+	var LZ, energy, frac_Q24, frac_Q7, gain_Q16, lz, lzeros, slope_Q16, y, v1, v11, v12, v2, v5, v6, v7 OpusT_opus_int32
+	var energy_shift int32
 	var i, v4, v9 int32
 	var m, r, x OpusT_opus_uint32
 	var psPLC uintptr
-	var _ /* energy at bp+12 */ OpusT_opus_int32
-	var _ /* energy_shift at bp+8 */ int32
-	var _ /* frac_Q7 at bp+4 */ OpusT_opus_int32
-	var _ /* lz at bp+0 */ OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = LZ, frac_Q24, gain_Q16, i, lzeros, m, psPLC, r, slope_Q16, x, y, v1, v11, v12, v2, v4, v5, v6, v7, v9
+	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = LZ, energy, energy_shift, frac_Q24, frac_Q7, gain_Q16, i, lz, lzeros, m, psPLC, r, slope_Q16, x, y, v1, v11, v12, v2, v4, v5, v6, v7, v9
 	psPLC = psDec + 4292
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 {
 		/* Calculate energy in concealed residual */
@@ -875,17 +870,17 @@ func Opus_silk_PLC_glue_frames(tls *libc.TLS, psDec uintptr, frame uintptr, leng
 	} else {
 		if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Flast_frame_lost != 0 {
 			/* Calculate residual in decoded signal if last frame was lost */
-			Opus_silk_sum_sqr_shift(tls, bp+12, bp+8, frame, length)
+			Opus_silk_sum_sqr_shift(tls, uintptr(unsafe.Pointer(&energy)), uintptr(unsafe.Pointer(&energy_shift)), frame, length)
 			/* Normalize energies */
-			if *(*int32)(unsafe.Pointer(bp + 8)) > (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift {
-				(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy >> (*(*int32)(unsafe.Pointer(bp + 8)) - (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift)
+			if energy_shift > (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift {
+				(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy >> (energy_shift - (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift)
 			} else {
-				if *(*int32)(unsafe.Pointer(bp + 8)) < (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift {
-					*(*OpusT_opus_int32)(unsafe.Pointer(bp + 12)) = *(*OpusT_opus_int32)(unsafe.Pointer(bp + 12)) >> ((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift - *(*int32)(unsafe.Pointer(bp + 8)))
+				if energy_shift < (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift {
+					energy = energy >> ((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift - energy_shift)
 				}
 			}
 			/* Fade in the energy difference */
-			if *(*OpusT_opus_int32)(unsafe.Pointer(bp + 12)) > (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy {
+			if energy > (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy {
 				v1 = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy
 				if v1 != 0 {
 					v4 = int32(32) - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, uint32(v1)))
@@ -904,9 +899,9 @@ func Opus_silk_PLC_glue_frames(tls *libc.TLS, psDec uintptr, frame uintptr, leng
 					v4 = v2
 				}
 				v5 = v4
-				*(*OpusT_opus_int32)(unsafe.Pointer(bp + 12)) = *(*OpusT_opus_int32)(unsafe.Pointer(bp + 12)) >> v5
-				if *(*OpusT_opus_int32)(unsafe.Pointer(bp + 12)) > int32(1) {
-					v4 = *(*OpusT_opus_int32)(unsafe.Pointer(bp + 12))
+				energy = energy >> v5
+				if energy > int32(1) {
+					v4 = energy
 				} else {
 					v4 = int32(1)
 				}
@@ -925,7 +920,7 @@ func Opus_silk_PLC_glue_frames(tls *libc.TLS, psDec uintptr, frame uintptr, leng
 				}
 				v7 = v4
 				lzeros = v7
-				*(*OpusT_opus_int32)(unsafe.Pointer(bp)) = lzeros
+				lz = lzeros
 				v11 = v5
 				v9 = int32(24) - lzeros
 				x = uint32(v11)
@@ -944,14 +939,14 @@ func Opus_silk_PLC_glue_frames(tls *libc.TLS, psDec uintptr, frame uintptr, leng
 					}
 				}
 			_22:
-				*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)) = v12 & int32(0x7f)
-				if *(*OpusT_opus_int32)(unsafe.Pointer(bp))&int32(1) != 0 {
+				frac_Q7 = v12 & int32(0x7f)
+				if lz&int32(1) != 0 {
 					y = int32(32768)
 				} else {
 					y = int32(46214)
 				}
-				y = y >> (*(*OpusT_opus_int32)(unsafe.Pointer(bp)) >> int32(1))
-				y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))))))>>int32(16))
+				y = y >> (lz >> int32(1))
+				y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(frac_Q7))))>>int32(16))
 				v2 = y
 			_13:
 				gain_Q16 = int32(uint32(v2) << int32(4))
