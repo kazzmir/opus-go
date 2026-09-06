@@ -45,34 +45,32 @@ func decode_split(tls *libc.TLS, p_child1 uintptr, p_child2 uintptr, psRangeDec 
 //
 //	/* Shell encoder, operates on one shell code frame of 16 pulses */
 func Opus_silk_shell_encoder(tls *libc.TLS, psRangeEnc uintptr, pulses0 uintptr) {
-	bp := tls.Alloc(64)
-	defer tls.Free(64)
-	var _ /* pulses1 at bp+0 */ [8]int32
-	var _ /* pulses2 at bp+32 */ [4]int32
-	var _ /* pulses3 at bp+48 */ [2]int32
-	var _ /* pulses4 at bp+56 */ [1]int32
+	var pulses1 [8]int32
+	var pulses2 [4]int32
+	var pulses3 [2]int32
+	var pulses4 [1]int32
 	/* this function operates on one shell code frame of 16 pulses */
 	_ = true
 	/* tree representation per pulse-subframe */
-	combine_pulses(tls, bp, pulses0, int32(8))
-	combine_pulses(tls, bp+32, bp, int32(4))
-	combine_pulses(tls, bp+48, bp+32, int32(2))
-	combine_pulses(tls, bp+56, bp+48, int32(1))
-	encode_split(tls, psRangeEnc, (*(*[2]int32)(unsafe.Pointer(bp + 48)))[0], (*(*[1]int32)(unsafe.Pointer(bp + 56)))[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table3)))
-	encode_split(tls, psRangeEnc, (*(*[4]int32)(unsafe.Pointer(bp + 32)))[0], (*(*[2]int32)(unsafe.Pointer(bp + 48)))[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table2)))
-	encode_split(tls, psRangeEnc, (*(*[8]int32)(unsafe.Pointer(bp)))[0], (*(*[4]int32)(unsafe.Pointer(bp + 32)))[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
-	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0)), (*(*[8]int32)(unsafe.Pointer(bp)))[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 2*4)), (*(*[8]int32)(unsafe.Pointer(bp)))[int32(1)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	encode_split(tls, psRangeEnc, (*(*[8]int32)(unsafe.Pointer(bp)))[int32(2)], (*(*[4]int32)(unsafe.Pointer(bp + 32)))[int32(1)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
-	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 4*4)), (*(*[8]int32)(unsafe.Pointer(bp)))[int32(2)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 6*4)), (*(*[8]int32)(unsafe.Pointer(bp)))[int32(3)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	encode_split(tls, psRangeEnc, (*(*[4]int32)(unsafe.Pointer(bp + 32)))[int32(2)], (*(*[2]int32)(unsafe.Pointer(bp + 48)))[int32(1)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table2)))
-	encode_split(tls, psRangeEnc, (*(*[8]int32)(unsafe.Pointer(bp)))[int32(4)], (*(*[4]int32)(unsafe.Pointer(bp + 32)))[int32(2)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
-	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 8*4)), (*(*[8]int32)(unsafe.Pointer(bp)))[int32(4)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 10*4)), (*(*[8]int32)(unsafe.Pointer(bp)))[int32(5)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	encode_split(tls, psRangeEnc, (*(*[8]int32)(unsafe.Pointer(bp)))[int32(6)], (*(*[4]int32)(unsafe.Pointer(bp + 32)))[int32(3)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
-	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 12*4)), (*(*[8]int32)(unsafe.Pointer(bp)))[int32(6)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
-	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 14*4)), (*(*[8]int32)(unsafe.Pointer(bp)))[int32(7)], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	combine_pulses(tls, uintptr(unsafe.Pointer(&pulses1[0])), pulses0, int32(8))
+	combine_pulses(tls, uintptr(unsafe.Pointer(&pulses2[0])), uintptr(unsafe.Pointer(&pulses1[0])), int32(4))
+	combine_pulses(tls, uintptr(unsafe.Pointer(&pulses3[0])), uintptr(unsafe.Pointer(&pulses2[0])), int32(2))
+	combine_pulses(tls, uintptr(unsafe.Pointer(&pulses4[0])), uintptr(unsafe.Pointer(&pulses3[0])), int32(1))
+	encode_split(tls, psRangeEnc, pulses3[0], pulses4[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table3)))
+	encode_split(tls, psRangeEnc, pulses2[0], pulses3[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table2)))
+	encode_split(tls, psRangeEnc, pulses1[0], pulses2[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
+	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0)), pulses1[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 2*4)), pulses1[1], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	encode_split(tls, psRangeEnc, pulses1[2], pulses2[1], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
+	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 4*4)), pulses1[2], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 6*4)), pulses1[3], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	encode_split(tls, psRangeEnc, pulses2[2], pulses3[1], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table2)))
+	encode_split(tls, psRangeEnc, pulses1[4], pulses2[2], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
+	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 8*4)), pulses1[4], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 10*4)), pulses1[5], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	encode_split(tls, psRangeEnc, pulses1[6], pulses2[3], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
+	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 12*4)), pulses1[6], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
+	encode_split(tls, psRangeEnc, *(*int32)(unsafe.Pointer(pulses0 + 14*4)), pulses1[7], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table0)))
 }
 
 // C documentation
