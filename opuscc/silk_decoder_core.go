@@ -55,6 +55,7 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq u
 	var Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, a32_nrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, err_Q32, gain_adj_Q16, inv_gain_Q31, offset_Q10, rand_seed, result, result1, v103, v106, v107, v110, v117, v118, v121 OpusT_opus_int32
 	var NLSF_interpolation_flag, a_headrm, b_headrm, b_headrm1, i, k, lag, lshift, lshift1, sLTP_buf_idx, signalType, start_idx, v104, v105, v109, v112, v113, v114, v115, v116, v119, v120, v124, v125, v129 int32
 	var _ /* A_Q12_tmp at bp+0 */ [16]OpusT_opus_int16
+	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = A_Q12, B_Q14, Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, NLSF_interpolation_flag, _saved_stack, a32_nrm, a_headrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, b_headrm, b_headrm1, err_Q32, gain_adj_Q16, i, inv_gain_Q31, k, lag, lshift, lshift1, offset_Q10, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, rand_seed, res_Q14, result, result1, sLPC_Q14, sLTP, sLTP_Q15, sLTP_buf_idx, signalType, st, start_idx, v1, v103, v104, v105, v106, v107, v109, v11, v110, v112, v113, v114, v115, v116, v117, v118, v119, v120, v121, v124, v125, v129, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
 	lag = 0
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -349,24 +350,24 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq u
 			break
 		}
 		rand_seed = int32(uint32(int32(RAND_INCREMENT)) + uint32(rand_seed)*uint32(int32(RAND_MULTIPLIER)))
-		*(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4 + uintptr(i)*4)) = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(pulses + uintptr(i)*2)))) << int32(14))
-		if *(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4 + uintptr(i)*4)) > 0 {
-			*(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4 + uintptr(i)*4)) -= int32(QUANT_LEVEL_ADJUST_Q10) << int32(4)
+		decoder.Fexc_Q14[i] = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(pulses + uintptr(i)*2)))) << int32(14))
+		if decoder.Fexc_Q14[i] > 0 {
+			decoder.Fexc_Q14[i] -= int32(QUANT_LEVEL_ADJUST_Q10) << int32(4)
 		} else {
-			if *(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4 + uintptr(i)*4)) < 0 {
-				*(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4 + uintptr(i)*4)) += int32(QUANT_LEVEL_ADJUST_Q10) << int32(4)
+			if decoder.Fexc_Q14[i] < 0 {
+				decoder.Fexc_Q14[i] += int32(QUANT_LEVEL_ADJUST_Q10) << int32(4)
 			}
 		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4 + uintptr(i)*4)) += offset_Q10 << int32(4)
+		decoder.Fexc_Q14[i] += offset_Q10 << int32(4)
 		if rand_seed < 0 {
-			*(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4 + uintptr(i)*4)) = -*(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4 + uintptr(i)*4))
+			decoder.Fexc_Q14[i] = -decoder.Fexc_Q14[i]
 		}
 		rand_seed = int32(uint32(rand_seed) + uint32(uint16(*(*OpusT_opus_int16)(unsafe.Pointer(pulses + uintptr(i)*2)))))
 		i = i + 1
 	}
 	/* Copy LPC state */
-	libc.Xmemcpy(tls, sLPC_Q14, psDec+1284, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
-	pexc_Q14 = psDec + 4
+	libc.Xmemcpy(tls, sLPC_Q14, uintptr(unsafe.Pointer(&decoder.FsLPC_Q14_buf[0])), uint64(uint32(MAX_LPC_ORDER))*uint64(4))
+	pexc_Q14 = uintptr(unsafe.Pointer(&decoder.Fexc_Q14[0]))
 	pxq = xq
 	sLTP_buf_idx = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length
 	/* Loop over subframes */
