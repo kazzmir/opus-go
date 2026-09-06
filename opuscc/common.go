@@ -2587,10 +2587,10 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	} else {
 		audiosize = frame_size
 		/* Run PLC using last used mode (CELT if we ended with CELT redundancy) */
-		if (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_redundancy != 0 {
+		if decoder.Fprev_redundancy != 0 {
 			v31 = int32(MODE_CELT_ONLY)
 		} else {
-			v31 = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode
+			v31 = decoder.Fprev_mode
 		}
 		mode = v31
 		bandwidth = 0
@@ -2598,7 +2598,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			/* If we haven't got any packet yet, all we can do is return zeros */
 			i = 0
 			for {
-				if !(i < audiosize*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels) {
+				if !(i < audiosize*decoder.Fchannels) {
 					break
 				}
 				*(*OpusT_opus_res)(unsafe.Pointer(pcm + uintptr(i)*4)) = float32(0)
@@ -2641,7 +2641,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 					(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 					return ret
 				}
-				pcm = pcm + uintptr(ret*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)*4
+				pcm = pcm + uintptr(ret*decoder.Fchannels)*4
 				audiosize = audiosize - ret
 			}
 			st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -2673,13 +2673,13 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	celt_accum = libc.BoolInt32(mode != int32(MODE_CELT_ONLY))
 	pcm_transition_silk_size = ALLOC_NONE
 	pcm_transition_celt_size = ALLOC_NONE
-	if data != uintptr(uint32(0)) && (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode > 0 && (mode == int32(MODE_CELT_ONLY) && (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode != int32(MODE_CELT_ONLY) && !((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_redundancy != 0) || mode != int32(MODE_CELT_ONLY) && (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode == int32(MODE_CELT_ONLY)) {
+	if data != uintptr(uint32(0)) && decoder.Fprev_mode > 0 && (mode == int32(MODE_CELT_ONLY) && decoder.Fprev_mode != int32(MODE_CELT_ONLY) && !(decoder.Fprev_redundancy != 0) || mode != int32(MODE_CELT_ONLY) && decoder.Fprev_mode == int32(MODE_CELT_ONLY)) {
 		transition = int32(1)
 		/* Decide where to allocate the stack memory for pcm_transition */
 		if mode == int32(MODE_CELT_ONLY) {
-			pcm_transition_celt_size = F5 * (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels
+			pcm_transition_celt_size = F5 * decoder.Fchannels
 		} else {
-			pcm_transition_silk_size = F5 * (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels
+			pcm_transition_silk_size = F5 * decoder.Fchannels
 		}
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -2779,7 +2779,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		pcm_silk_size = ALLOC_NONE
 		pcm_too_small = libc.BoolInt32(frame_size < F10)
 		if pcm_too_small != 0 {
-			pcm_silk_size = F10 * (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels
+			pcm_silk_size = F10 * decoder.Fchannels
 		}
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
