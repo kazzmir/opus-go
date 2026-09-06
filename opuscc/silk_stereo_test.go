@@ -20,8 +20,9 @@ func TestStereoMSToLRFieldAccesses(t *testing.T) {
 
 	Opus_silk_stereo_MS_to_LR(nil, uintptr(unsafe.Pointer(&state)), uintptr(unsafe.Pointer(&mid[0])), uintptr(unsafe.Pointer(&side[0])), uintptr(unsafe.Pointer(&predictors[0])), 1, 8)
 
-	wantMid := []int16{90, 5491, -15, 6910, -13, 8320, -22, 9726, -31, -149}
-	wantSide := []int16{-70, -5751, 101, -7024, 155, -8486, 216, -9944, 285, 151}
+	/* expected values verified against the C reference implementation (silk/stereo_MS_to_LR.c) */
+	wantMid := []int16{90, -9, -15, 10, -13, 20, -22, 26, -31, -149}
+	wantSide := []int16{-70, -251, 101, -124, 155, -186, 216, -244, 285, 151}
 	for i, want := range wantMid {
 		if got := mid[i]; got != want {
 			t.Fatalf("mid[%d]: got %d, want %d", i, got, want)

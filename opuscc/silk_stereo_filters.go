@@ -35,9 +35,9 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 		}
 		pred0_Q13 = pred0_Q13 + delta0_Q13
 		pred1_Q13 = pred1_Q13 + delta1_Q13
-		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(uint32(uint16(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(1))) << int32(9)) /* Q11 */
-		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                                      /* Q8  */
-		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                                     /* Q8  */
+		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2)))<<int32(1)) << int32(9)) /* Q11 */
+		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                      /* Q8  */
+		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                     /* Q8  */
 		if (sum>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX11) {
 			v2 = int32(silk_int16_MAX11)
 		} else {
@@ -58,9 +58,9 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 		if !(n < frame_length) {
 			break
 		}
-		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(uint32(uint16(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(1))) << int32(9)) /* Q11 */
-		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                                      /* Q8  */
-		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                                     /* Q8  */
+		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2)))<<int32(1)) << int32(9)) /* Q11 */
+		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                      /* Q8  */
+		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                     /* Q8  */
 		if (sum>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX11) {
 			v2 = int32(silk_int16_MAX11)
 		} else {

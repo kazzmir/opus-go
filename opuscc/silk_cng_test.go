@@ -137,3 +137,54 @@ func TestCNGLossPathFieldAccesses(t *testing.T) {
 		t.Fatalf("synthesis state: got %v, want %v", got, wantSynthState)
 	}
 }
+
+func TestCNGLossPathHighGainLocalArrays(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	pseudostack := libc.Xmalloc(tls, 16)
+	scratch := libc.Xmalloc(tls, GLOBAL_STACK_SIZE)
+	*(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)) = OpusT_opus_ccgo_pseudostack_state{
+		Fscratch_ptr:  scratch,
+		Fglobal_stack: scratch,
+	}
+	libc.Xpthread_setspecific(tls, 0x6f707573, pseudostack)
+
+	/* loss path with a smoothed gain above 1<<23 (takes the high-gain SQRT_APPROX
+	   branch, exercising the lz and frac_Q7 locals) and LPC_order 16 (exercising
+	   all 16 A_Q12 taps in the synthesis filter) */
+	dec := OpusT_silk_decoder_state{
+		Ffs_kHz:    16,
+		FLPC_order: 16,
+		FlossCnt:   1,
+		FsPLC: OpusT_silk_PLC_struct{
+			FrandScale_Q14: 1000,
+			FprevGain_Q16:  [2]OpusT_opus_int32{0, 100000},
+		},
+		FsCNG: OpusT_silk_CNG_struct{
+			Ffs_kHz:            16,
+			FCNG_smth_Gain_Q16: 11950000,
+			Frand_seed:         24681357,
+			FCNG_smth_NLSF_Q15: [16]OpusT_opus_int16{1800, 4300, 7200, 10500, 13900, 17100, 20100, 22900, 25500, 28000, 30000, 31000, 31800, 32300, 32600, 32700},
+			FCNG_exc_buf_Q14:   [320]OpusT_opus_int32{170, -290, 410, -530, 650, -770, 890, -1010},
+			FCNG_synth_state:   [16]OpusT_opus_int32{19, -31, 47, -59, 71, -83, 97, -109, 127, -149, 151, -163, 167, -179, 181, -191},
+		},
+	}
+	frame := []int16{150, -230, 310, -390, 470, -550, 630, -710}
+
+	Opus_silk_CNG(tls, uintptr(unsafe.Pointer(&dec)), 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
+
+	/* expected values from the C reference implementation (silk/CNG.c) */
+	wantFrame := [8]int16{162, -257, 358, -464, 585, -725, 882, -1038}
+	for i, want := range wantFrame {
+		if got := frame[i]; got != want {
+			t.Fatalf("frame[%d]: got %d, want %d", i, got, want)
+		}
+	}
+	if got, want := dec.FsCNG.Frand_seed, OpusT_opus_int32(1318865493); got != want {
+		t.Fatalf("random seed: got %d, want %d", got, want)
+	}
+	wantSynthState := [16]OpusT_opus_int32{127, -149, 151, -163, 167, -179, 181, -191, 1114, -2502, 4330, -6738, 10474, -15906, 22938, -29878}
+	if got := dec.FsCNG.FCNG_synth_state; got != wantSynthState {
+		t.Fatalf("synthesis state: got %v, want %v", got, wantSynthState)
+	}
+}

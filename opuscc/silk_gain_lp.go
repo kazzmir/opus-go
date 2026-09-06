@@ -91,7 +91,7 @@ func Opus_silk_gains_quant(tls *libc.TLS, ind uintptr, gain_Q16 uintptr, prev_in
 			/* Accumulate deltas */
 			if int32(*(*OpusT_opus_int8)(unsafe.Pointer(ind + uintptr(k)))) > double_step_size_threshold {
 				v11 = prev_ind
-				*(*OpusT_opus_int8)(unsafe.Pointer(v11)) = OpusT_opus_int8(int32(*(*OpusT_opus_int8)(unsafe.Pointer(v11))) + (int32(uint32(uint8(*(*OpusT_opus_int8)(unsafe.Pointer(ind + uintptr(k)))))<<int32(1)) - double_step_size_threshold))
+				*(*OpusT_opus_int8)(unsafe.Pointer(v11)) = OpusT_opus_int8(int32(*(*OpusT_opus_int8)(unsafe.Pointer(v11))) + (int32(*(*OpusT_opus_int8)(unsafe.Pointer(ind + uintptr(k))))<<int32(1) - double_step_size_threshold))
 				v2 = int32(*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind)))
 				v3 = int32(N_LEVELS_QGAIN) - int32(1)
 				if v2 < v3 {
@@ -352,7 +352,7 @@ func silk_NLSF_residual_dequant(tls *libc.TLS, x_Q10 uintptr, indices uintptr, p
 			break
 		}
 		pred_Q10 = int32(int16(out_Q10)) * int32(int16(*(*OpusT_opus_uint8)(unsafe.Pointer(pred_coef_Q8 + uintptr(i))))) >> int32(8)
-		out_Q10 = int32(uint32(uint8(*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(i))))) << int32(10))
+		out_Q10 = int32(*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(i)))) << int32(10)
 		if out_Q10 > 0 {
 			out_Q10 = out_Q10 - int32(102)
 		} else {

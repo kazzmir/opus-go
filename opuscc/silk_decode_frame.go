@@ -248,62 +248,59 @@ func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pO
 //
 //	/* Decode parameters from payload */
 func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, condCoding int32) {
-	bp := tls.Alloc(64)
-	defer tls.Free(64)
 	var Ix, i, k int32
 	var cbk_ptr_Q7 uintptr
-	var _ /* pNLSF0_Q15 at bp+32 */ [16]OpusT_opus_int16
-	var _ /* pNLSF_Q15 at bp+0 */ [16]OpusT_opus_int16
+	var pNLSF0_Q15 [MAX_LPC_ORDER]OpusT_opus_int16
+	var pNLSF_Q15 [MAX_LPC_ORDER]OpusT_opus_int16
 	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
 	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
-	_, _, _, _ = Ix, cbk_ptr_Q7, i, k
 	/* Dequant Gains */
 	Opus_silk_gains_dequant(tls, uintptr(unsafe.Pointer(&control.FGains_Q16[0])), uintptr(unsafe.Pointer(&decoder.Findices.FGainsIndices[0])), uintptr(unsafe.Pointer(&decoder.FLastGainIndex)), libc.BoolInt32(condCoding == int32(CODE_CONDITIONALLY)), decoder.Fnb_subfr)
 	/****************/
 	/* Decode NLSFs */
 	/****************/
-	Opus_silk_NLSF_decode(tls, bp, uintptr(unsafe.Pointer(&decoder.Findices.FNLSFIndices[0])), decoder.FpsNLSF_CB)
+	Opus_silk_NLSF_decode(tls, uintptr(unsafe.Pointer(&pNLSF_Q15[0])), uintptr(unsafe.Pointer(&decoder.Findices.FNLSFIndices[0])), decoder.FpsNLSF_CB)
 	/* Convert NLSF parameters to AR prediction filter coefficients */
-	Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), bp, decoder.FLPC_order, decoder.Farch)
+	Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), uintptr(unsafe.Pointer(&pNLSF_Q15[0])), decoder.FLPC_order, decoder.Farch)
 	/* If just reset, e.g., because internal Fs changed, do not allow interpolation */
 	/* improves the case of packet loss in the first frame after a switch           */
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffirst_frame_after_reset == int32(1) {
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FNLSFInterpCoef_Q2 = int8(4)
+	if decoder.Ffirst_frame_after_reset == int32(1) {
+		decoder.Findices.FNLSFInterpCoef_Q2 = int8(4)
 	}
-	if int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FNLSFInterpCoef_Q2) < int32(4) {
+	if int32(decoder.Findices.FNLSFInterpCoef_Q2) < int32(4) {
 		/* Calculation of the interpolated NLSF0 vector from the interpolation factor, */
 		/* the previous NLSF1, and the current NLSF1                                   */
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
+			if !(i < decoder.FLPC_order) {
 				break
 			}
-			(*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 32)))[i] = int16(int32(decoder.FprevNLSF_Q15[i]) + int32(decoder.Findices.FNLSFInterpCoef_Q2)*(int32((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp)))[i])-int32(decoder.FprevNLSF_Q15[i]))>>int32(2))
+			pNLSF0_Q15[i] = int16(int32(decoder.FprevNLSF_Q15[i]) + int32(decoder.Findices.FNLSFInterpCoef_Q2)*(int32(pNLSF_Q15[i])-int32(decoder.FprevNLSF_Q15[i]))>>int32(2))
 			i = i + 1
 		}
 		/* Convert NLSF parameters to AR prediction filter coefficients */
-		Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[0][0])), bp+32, decoder.FLPC_order, decoder.Farch)
+		Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[0][0])), uintptr(unsafe.Pointer(&pNLSF0_Q15[0])), decoder.FLPC_order, decoder.Farch)
 	} else {
 		/* Copy LPC coefficients for first half from second half */
 		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[0][0])), uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), uint64(uint32(decoder.FLPC_order))*uint64(2))
 	}
-	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.FprevNLSF_Q15[0])), bp, uint64(uint32(decoder.FLPC_order))*uint64(2))
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.FprevNLSF_Q15[0])), uintptr(unsafe.Pointer(&pNLSF_Q15[0])), uint64(uint32(decoder.FLPC_order))*uint64(2))
 	/* After a packet loss do BWE of LPC coefs */
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 {
+	if decoder.FlossCnt != 0 {
 		Opus_silk_bwexpander(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[0][0])), decoder.FLPC_order, int32(BWE_AFTER_LOSS_Q16))
 		Opus_silk_bwexpander(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), decoder.FLPC_order, int32(BWE_AFTER_LOSS_Q16))
 	}
-	if int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType) == int32(TYPE_VOICED) {
+	if int32(decoder.Findices.FsignalType) == int32(TYPE_VOICED) {
 		/*********************/
 		/* Decode pitch lags */
 		/*********************/
 		/* Decode pitch values */
-		Opus_silk_decode_pitch(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FlagIndex, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FcontourIndex, psDecCtrl, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr)
+		Opus_silk_decode_pitch(tls, decoder.Findices.FlagIndex, decoder.Findices.FcontourIndex, psDecCtrl, decoder.Ffs_kHz, decoder.Fnb_subfr)
 		/* Decode Codebook Index */
-		cbk_ptr_Q7 = Opus_silk_LTP_vq_ptrs_Q7[(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FPERIndex] /* set pointer to start of codebook */
+		cbk_ptr_Q7 = Opus_silk_LTP_vq_ptrs_Q7[decoder.Findices.FPERIndex] /* set pointer to start of codebook */
 		k = 0
 		for {
-			if !(k < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr) {
+			if !(k < decoder.Fnb_subfr) {
 				break
 			}
 			Ix = int32(decoder.Findices.FLTPIndex[k])
@@ -312,7 +309,7 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 				if !(i < int32(LTP_ORDER)) {
 					break
 				}
-				control.FLTPCoef_Q14[k*int32(LTP_ORDER)+i] = int16(int32(uint32(uint8(*(*OpusT_opus_int8)(unsafe.Pointer(cbk_ptr_Q7 + uintptr(Ix*int32(LTP_ORDER)+i))))) << int32(7)))
+				control.FLTPCoef_Q14[k*int32(LTP_ORDER)+i] = int16(int32(*(*OpusT_opus_int8)(unsafe.Pointer(cbk_ptr_Q7 + uintptr(Ix*int32(LTP_ORDER)+i)))) << int32(7))
 				i = i + 1
 			}
 			k = k + 1
@@ -320,13 +317,13 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 		/**********************/
 		/* Decode LTP scaling */
 		/**********************/
-		Ix = int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FLTP_scaleIndex)
-		(*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)).FLTP_scale_Q14 = int32(Opus_silk_LTPScales_table_Q14[Ix])
+		Ix = int32(decoder.Findices.FLTP_scaleIndex)
+		control.FLTP_scale_Q14 = int32(Opus_silk_LTPScales_table_Q14[Ix])
 	} else {
 		libc.Xmemset(tls, uintptr(unsafe.Pointer(&control.FpitchL[0])), 0, uint64(uint32(decoder.Fnb_subfr))*uint64(4))
 		libc.Xmemset(tls, uintptr(unsafe.Pointer(&control.FLTPCoef_Q14[0])), 0, uint64(uint32(int32(LTP_ORDER)*decoder.Fnb_subfr))*uint64(2))
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FPERIndex = 0
-		(*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)).FLTP_scale_Q14 = 0
+		decoder.Findices.FPERIndex = 0
+		control.FLTP_scale_Q14 = 0
 	}
 }
 
