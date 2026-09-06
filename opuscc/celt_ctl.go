@@ -2126,16 +2126,14 @@ func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, 
 }
 
 func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, effEnd int32, eBands uintptr, oldEBands uintptr, budget OpusT_opus_uint32, error1 uintptr, enc uintptr, C int32, LM int32, nbAvailableBytes int32, force_intra int32, delayedIntra uintptr, two_pass int32, loss_rate int32, lfe int32) {
-	bp := tls.Alloc(112)
-	defer tls.Free(112)
 	var _saved_stack, error_intra, intra_bits, intra_buf, oldEBands_intra, st, v1, v10, v12, v14, v16, v18, v20, v22, v24, v26, v3, v5 uintptr
 	var badness1, badness2, intra, v6 int32
 	var intra_bias, tell_intra OpusT_opus_int32
 	var max_decay, v9 OpusT_celt_glog
 	var new_distortion OpusT_opus_val32
 	var nintra_bytes, nstart_bytes, save_bytes, tell, v58 OpusT_opus_uint32
-	var _ /* enc_intra_state at bp+56 */ OpusT_ec_enc
-	var _ /* enc_start_state at bp+0 */ OpusT_ec_enc
+	var enc_intra_state OpusT_ec_enc
+	var enc_start_state OpusT_ec_enc
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, badness1, badness2, error_intra, intra, intra_bias, intra_bits, intra_buf, max_decay, new_distortion, nintra_bytes, nstart_bytes, oldEBands_intra, save_bytes, st, tell, tell_intra, v1, v10, v12, v14, v16, v18, v20, v22, v24, v26, v3, v5, v58, v6, v9
 	badness1 = 0
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -2172,7 +2170,7 @@ func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, 
 	if lfe != 0 {
 		max_decay = float32(3)
 	}
-	*(*OpusT_ec_enc)(unsafe.Pointer(bp)) = *(*OpusT_ec_enc)(unsafe.Pointer(enc))
+	enc_start_state = *(*OpusT_ec_enc)(unsafe.Pointer(enc))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -2311,12 +2309,12 @@ func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, 
 	}
 	if !(intra != 0) {
 		tell_intra = int32(Opus_ec_tell_frac(tls, enc))
-		*(*OpusT_ec_enc)(unsafe.Pointer(bp + 56)) = *(*OpusT_ec_enc)(unsafe.Pointer(enc))
-		v58 = (*OpusT_ec_ctx)(unsafe.Pointer(bp)).Foffs
+		enc_intra_state = *(*OpusT_ec_enc)(unsafe.Pointer(enc))
+		v58 = enc_start_state.Foffs
 		nstart_bytes = v58
-		v58 = (*OpusT_ec_ctx)(unsafe.Pointer(bp + 56)).Foffs
+		v58 = enc_intra_state.Foffs
 		nintra_bytes = v58
-		v1 = (*OpusT_ec_ctx)(unsafe.Pointer(bp + 56)).Fbuf
+		v1 = enc_intra_state.Fbuf
 		intra_buf = v1 + uintptr(nstart_bytes)
 		save_bytes = nintra_bytes - nstart_bytes
 		if save_bytes == uint32(0) {
@@ -2390,10 +2388,10 @@ func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, 
 		intra_bits = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v26)).Fglobal_stack - uintptr(uint64(save_bytes)*(uint64(1)/uint64(1)))
 		/* Copy bits from intra bit-stream */
 		libc.Xmemcpy(tls, intra_bits, intra_buf, uint64(nintra_bytes-nstart_bytes)*uint64(1)+uint64(0*(int64(intra_bits)-int64(intra_buf))))
-		*(*OpusT_ec_enc)(unsafe.Pointer(enc)) = *(*OpusT_ec_enc)(unsafe.Pointer(bp))
+		*(*OpusT_ec_enc)(unsafe.Pointer(enc)) = enc_start_state
 		badness2 = quant_coarse_energy_impl(tls, m, start, end, eBands, oldEBands, int32(budget), int32(tell), uintptr(unsafe.Pointer(&e_prob_model))+uintptr(LM)*84+uintptr(intra)*42, error1, enc, C, LM, 0, max_decay, lfe)
 		if two_pass != 0 && (badness1 < badness2 || badness1 == badness2 && int32(Opus_ec_tell_frac(tls, enc))+intra_bias > tell_intra) {
-			*(*OpusT_ec_enc)(unsafe.Pointer(enc)) = *(*OpusT_ec_enc)(unsafe.Pointer(bp + 56))
+			*(*OpusT_ec_enc)(unsafe.Pointer(enc)) = enc_intra_state
 			/* Copy intra bits to bit-stream */
 			libc.Xmemcpy(tls, intra_buf, intra_bits, uint64(nintra_bytes-nstart_bytes)*uint64(1)+uint64(0*(int64(intra_buf)-int64(intra_bits))))
 			libc.Xmemcpy(tls, oldEBands, oldEBands_intra, uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*uint64(4)+uint64(0*((int64(oldEBands)-int64(oldEBands_intra))/4)))
