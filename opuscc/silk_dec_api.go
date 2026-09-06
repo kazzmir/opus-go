@@ -297,7 +297,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 					}
 				}
 			}
-			fs_kHz_dec = (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FinternalSampleRate>>int32(10) + int32(1)
+			fs_kHz_dec = control.FinternalSampleRate>>int32(10) + int32(1)
 			if fs_kHz_dec != int32(8) && fs_kHz_dec != int32(12) && fs_kHz_dec != int32(16) {
 				if !(int32(0) != 0) {
 					Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+6611, int32(210))
@@ -315,17 +315,17 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 				(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 				return -int32(200)
 			}
-			ret = ret + Opus_silk_decoder_set_fs(tls, channel_state+uintptr(n)*4392, fs_kHz_dec, (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FAPI_sampleRate)
+			ret = ret + Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[n])), fs_kHz_dec, control.FAPI_sampleRate)
 			n = n + 1
 		}
 	}
-	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsAPI == int32(2) && (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(2) && ((*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsAPI == int32(1) || (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsInternal == int32(1)) {
+	if control.FnChannelsAPI == int32(2) && control.FnChannelsInternal == int32(2) && (decoder.FnChannelsAPI == int32(1) || decoder.FnChannelsInternal == int32(1)) {
 		libc.Xmemset(tls, psDec+8784, 0, uint64(4))
 		libc.Xmemset(tls, psDec+8784+8, 0, uint64(4))
 		libc.Xmemcpy(tls, channel_state+1*4392+2448, channel_state+2448, uint64(400))
 	}
-	(*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsAPI = (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsAPI
-	(*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsInternal = (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal
+	decoder.FnChannelsAPI = control.FnChannelsAPI
+	decoder.FnChannelsInternal = control.FnChannelsInternal
 	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FAPI_sampleRate > int32(MAX_API_FS_KHZ)*int32(1000) || (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FAPI_sampleRate < int32(8000) {
 		ret = -int32(200)
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
