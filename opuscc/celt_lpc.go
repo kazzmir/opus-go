@@ -306,13 +306,11 @@ func Opus_celt_fir_c(tls *libc.TLS, x1 uintptr, num uintptr, y1 uintptr, N int32
 }
 
 func Opus_celt_iir(tls *libc.TLS, _x uintptr, den uintptr, _y uintptr, N int32, ord int32, mem uintptr, arch int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var _saved_stack, rden, st, y1, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v29, v3, v31, v33, v35, v37, v39, v5, v7, v9 uintptr
 	var i, j, j1, v60, v73, v76 int32
 	var sum2 OpusT_opus_val32
 	var tmp, tmp1, tmp2, tmp3, y_0, y_1, y_2, y_3 OpusT_opus_val16
-	var _ /* sum at bp+0 */ [4]OpusT_opus_val32
+	var sum [4]OpusT_opus_val32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, i, j, j1, rden, st, sum2, tmp, tmp1, tmp2, tmp3, y1, y_0, y_1, y_2, y_3, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v29, v3, v31, v33, v35, v37, v39, v5, v60, v7, v73, v76, v9
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -488,14 +486,14 @@ func Opus_celt_iir(tls *libc.TLS, _x uintptr, den uintptr, _y uintptr, N int32, 
 		if !(i < N-int32(3)) {
 			break
 		}
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[0] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i)*4))
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(1)] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i+int32(1))*4))
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i+int32(2))*4))
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i+int32(3))*4))
+		sum[0] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i)*4))
+		sum[1] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i+1)*4))
+		sum[2] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i+2)*4))
+		sum[3] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i+3)*4))
 		_ = arch
 		v1 = rden
 		v3 = y1 + uintptr(i)*4
-		v5 = bp
+		v5 = uintptr(unsafe.Pointer(&sum[0]))
 		v60 = ord
 		if !(v60 >= int32(3)) {
 			Opus_celt_fatal(tls, __ccgo_ts+3349, __ccgo_ts+3374, int32(69))
@@ -598,20 +596,20 @@ func Opus_celt_iir(tls *libc.TLS, _x uintptr, den uintptr, _y uintptr, N int32, 
 			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp3*y_1)
 		}
 		/* Patch up the result to compensate for the fact that this is an IIR */
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) = -(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[0]
-		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i)*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[0]
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(1)] = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(1)] + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4))**(*OpusT_opus_val16)(unsafe.Pointer(den)))
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+int32(1))*4)) = -(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(1)]
-		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+int32(1))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(1)]
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)] = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)] + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+int32(1))*4))**(*OpusT_opus_val16)(unsafe.Pointer(den)))
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)] = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)] + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4))**(*OpusT_opus_val16)(unsafe.Pointer(den + 1*4)))
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+int32(2))*4)) = -(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)]
-		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+int32(2))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(2)]
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+int32(2))*4))**(*OpusT_opus_val16)(unsafe.Pointer(den)))
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+int32(1))*4))**(*OpusT_opus_val16)(unsafe.Pointer(den + 1*4)))
-		(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)] + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4))**(*OpusT_opus_val16)(unsafe.Pointer(den + 2*4)))
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+int32(3))*4)) = -(*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)]
-		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+int32(3))*4)) = (*(*[4]OpusT_opus_val32)(unsafe.Pointer(bp)))[int32(3)]
+		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) = -sum[0]
+		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i)*4)) = sum[0]
+		sum[1] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den)))
+		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+1)*4)) = -sum[1]
+		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+1)*4)) = sum[1]
+		sum[2] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+1)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den)))
+		sum[2] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den + 4)))
+		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+2)*4)) = -sum[2]
+		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+2)*4)) = sum[2]
+		sum[3] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+2)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den)))
+		sum[3] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+1)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den + 4)))
+		sum[3] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den + 8)))
+		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+3)*4)) = -sum[3]
+		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+3)*4)) = sum[3]
 		i = i + int32(4)
 	}
 	for {

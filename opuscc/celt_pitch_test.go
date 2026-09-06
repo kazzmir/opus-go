@@ -80,3 +80,29 @@ func TestCeltFIRLocalSums(t *testing.T) {
 		}
 	}
 }
+
+func TestCeltIIRLocalSums(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	setupResamplerPseudostack(tls)
+
+	input := []OpusT_opus_val32{0.37, -0.58, 0.21, 0.69, -0.44, 0.15, -0.73, 0.32}
+	denominator := []OpusT_opus_val16{0.12, -0.19, 0.27, -0.34}
+	memory := []OpusT_opus_val16{0.06, -0.11, 0.17, -0.22}
+	output := make([]OpusT_opus_val32, len(input))
+
+	Opus_celt_iir(tls, uintptr(unsafe.Pointer(&input[0])), uintptr(unsafe.Pointer(&denominator[0])), uintptr(unsafe.Pointer(&output[0])), int32(len(input)), 4, uintptr(unsafe.Pointer(&memory[0])), 0)
+
+	wantOutput := []OpusT_opus_val32{0.22119999, -0.50764394, 0.25934526, 0.5231022, -0.2412248, 0.03571423, -0.83317864, 0.6697526}
+	for i, value := range output {
+		if value != wantOutput[i] {
+			t.Fatalf("output[%d]: got %.8f, want %.8f", i, value, wantOutput[i])
+		}
+	}
+	wantMemory := []OpusT_opus_val16{0.6697526, -0.83317864, 0.03571423, -0.2412248}
+	for i, value := range memory {
+		if value != wantMemory[i] {
+			t.Fatalf("memory[%d]: got %.8f, want %.8f", i, value, wantMemory[i])
+		}
+	}
+}
