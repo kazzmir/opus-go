@@ -4992,13 +4992,19 @@ func Opus_opus_multistream_decode_float(tls *libc.TLS, st uintptr, data uintptr,
 }
 
 func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, request int32, ap OpusT_va_list) (r int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
+	// Both the forwarded vararg and range output cross uintptr-taking CTLs.
+	// Pin their named storage so stack growth cannot invalidate the pointers.
+	type ctlScratch struct {
+		tmp OpusT_opus_uint32
+		va  uintptr
+	}
+	storage := libc.Xmalloc(tls, uint64(unsafe.Sizeof(ctlScratch{})))
+	defer libc.Xfree(tls, storage)
+	scratch := (*ctlScratch)(unsafe.Pointer(storage))
 	var alignment uint32
 	var coupled_size, mono_size, ret, s, s1, s2, s3, v1 int32
 	var dec, dec1, dec2, dec3, ptr, value, value1, value2 uintptr
 	var stream_id, value3 OpusT_opus_int32
-	var _ /* tmp at bp+0 */ OpusT_opus_uint32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = alignment, coupled_size, dec, dec1, dec2, dec3, mono_size, ptr, ret, s, s1, s2, s3, stream_id, value, value1, value2, value3, v1
 	ret = OPUS_OK
 	coupled_size = Opus_opus_decoder_get_size(tls, int32(2))
@@ -5021,7 +5027,7 @@ func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, reques
 		/* For int32* GET params, just query the first stream */
 		value = libc.VaUintptr(&ap)
 		dec = ptr
-		ret = Opus_opus_decoder_ctl(tls, dec, request, libc.VaList(bp+16, value))
+		ret = Opus_opus_decoder_ctl(tls, dec, request, libc.VaList(uintptr(unsafe.Pointer(&scratch.va)), value))
 	case int32(OPUS_GET_FINAL_RANGE_REQUEST):
 		value1 = libc.VaUintptr(&ap)
 		if !(value1 != 0) {
@@ -5043,11 +5049,11 @@ func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, reques
 				v1 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
 				ptr = ptr + uintptr(v1)
 			}
-			ret = Opus_opus_decoder_ctl(tls, dec1, request, libc.VaList(bp+16, bp))
+			ret = Opus_opus_decoder_ctl(tls, dec1, request, libc.VaList(uintptr(unsafe.Pointer(&scratch.va)), uintptr(unsafe.Pointer(&scratch.tmp))))
 			if ret != OPUS_OK {
 				break
 			}
-			*(*OpusT_opus_uint32)(unsafe.Pointer(value1)) ^= *(*OpusT_opus_uint32)(unsafe.Pointer(bp))
+			*(*OpusT_opus_uint32)(unsafe.Pointer(value1)) ^= scratch.tmp
 			s = s + 1
 		}
 	case int32(OPUS_RESET_STATE):
@@ -5120,7 +5126,7 @@ func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, reques
 				v1 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
 				ptr = ptr + uintptr(v1)
 			}
-			ret = Opus_opus_decoder_ctl(tls, dec3, request, libc.VaList(bp+16, value3))
+			ret = Opus_opus_decoder_ctl(tls, dec3, request, libc.VaList(uintptr(unsafe.Pointer(&scratch.va)), value3))
 			if ret != OPUS_OK {
 				break
 			}
@@ -5560,12 +5566,14 @@ func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels int32, stream
 }
 
 func Opus_opus_projection_decoder_init(tls *libc.TLS, st1 uintptr, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, demixing_matrix uintptr, demixing_matrix_size OpusT_opus_int32) (r int32) {
-	bp := tls.Alloc(256)
-	defer tls.Free(256)
+	// Initialization descends through uintptr APIs; pin the identity mapping
+	// so its address remains valid across goroutine stack growth.
+	mappingStorage := libc.Xmalloc(tls, uint64(unsafe.Sizeof([255]uint8{})))
+	defer libc.Xfree(tls, mappingStorage)
+	mapping := (*[255]uint8)(unsafe.Pointer(mappingStorage))
 	var _saved_stack, buf, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var expected_matrix_size OpusT_opus_int32
 	var i, nb_input_streams, ret, s int32
-	var _ /* mapping at bp+0 */ [255]uint8
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, buf, expected_matrix_size, i, nb_input_streams, ret, s, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -5745,10 +5753,10 @@ func Opus_opus_projection_decoder_init(tls *libc.TLS, st1 uintptr, Fs OpusT_opus
 		if !(i < channels) {
 			break
 		}
-		(*(*[255]uint8)(unsafe.Pointer(bp)))[i] = uint8(i)
+		mapping[i] = uint8(i)
 		i = i + 1
 	}
-	ret = Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st1), Fs, channels, streams, coupled_streams, bp)
+	ret = Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st1), Fs, channels, streams, coupled_streams, uintptr(unsafe.Pointer(&mapping[0])))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
