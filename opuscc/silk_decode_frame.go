@@ -462,13 +462,11 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 //	/* Decode quantization indices of excitation */
 //	/*********************************************/
 func Opus_silk_decode_pulses(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, signalType int32, quantOffsetType int32, frame_length int32) {
-	bp := tls.Alloc(80)
-	defer tls.Free(80)
 	var RateLevelIndex, abs_q, i, iter, j, k, nLS int32
 	var cdf_ptr, pulses_ptr uintptr
 	var nLshifts [20]int32
-	var _ /* sum_pulses at bp+0 */ [20]int32
-	_, _, _, _, _, _, _, _, _, _ = RateLevelIndex, abs_q, cdf_ptr, i, iter, j, k, nLS, nLshifts, pulses_ptr
+	var sum_pulses [20]int32
+	_, _, _, _, _, _, _, _, _, _, _ = RateLevelIndex, abs_q, cdf_ptr, i, iter, j, k, nLS, nLshifts, pulses_ptr, sum_pulses
 	/*********************/
 	/* Decode rate level */
 	/*********************/
@@ -492,12 +490,12 @@ func Opus_silk_decode_pulses(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, 
 			break
 		}
 		nLshifts[i] = 0
-		(*(*[20]int32)(unsafe.Pointer(bp)))[i] = Opus_ec_dec_icdf(tls, psRangeDec, cdf_ptr, uint32(8))
+		sum_pulses[i] = Opus_ec_dec_icdf(tls, psRangeDec, cdf_ptr, uint32(8))
 		/* LSB indication */
-		for (*(*[20]int32)(unsafe.Pointer(bp)))[i] == int32(SILK_MAX_PULSES)+int32(1) {
+		for sum_pulses[i] == int32(SILK_MAX_PULSES)+int32(1) {
 			nLshifts[i] = nLshifts[i] + 1
 			/* When we've already got 10 LSBs, we shift the table to not allow (SILK_MAX_PULSES + 1) */
-			(*(*[20]int32)(unsafe.Pointer(bp)))[i] = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_pulses_per_block_iCDF))+uintptr(int32(N_RATE_LEVELS)-int32(1))*18+libc.BoolUintptr(nLshifts[i] == int32(10)), uint32(8))
+			sum_pulses[i] = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_pulses_per_block_iCDF))+uintptr(int32(N_RATE_LEVELS)-int32(1))*18+libc.BoolUintptr(nLshifts[i] == int32(10)), uint32(8))
 		}
 		i = i + 1
 	}
@@ -509,8 +507,8 @@ func Opus_silk_decode_pulses(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, 
 		if !(i < iter) {
 			break
 		}
-		if (*(*[20]int32)(unsafe.Pointer(bp)))[i] > 0 {
-			Opus_silk_shell_decoder(tls, pulses+uintptr(int32(int16(i))*int32(int16(int32(SHELL_CODEC_FRAME_LENGTH))))*2, psRangeDec, (*(*[20]int32)(unsafe.Pointer(bp)))[i])
+		if sum_pulses[i] > 0 {
+			Opus_silk_shell_decoder(tls, pulses+uintptr(int32(int16(i))*int32(int16(int32(SHELL_CODEC_FRAME_LENGTH))))*2, psRangeDec, sum_pulses[i])
 		} else {
 			libc.Xmemset(tls, pulses+uintptr(int32(int16(i))*int32(int16(int32(SHELL_CODEC_FRAME_LENGTH))))*2, 0, uint64(uint32(SHELL_CODEC_FRAME_LENGTH))*uint64(2))
 		}
@@ -546,14 +544,14 @@ func Opus_silk_decode_pulses(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, 
 				k = k + 1
 			}
 			/* Mark the number of pulses non-zero for sign decoding. */
-			*(*int32)(unsafe.Pointer(bp + uintptr(i)*4)) |= nLS << int32(5)
+			sum_pulses[i] |= nLS << int32(5)
 		}
 		i = i + 1
 	}
 	/****************************************/
 	/* Decode and add signs to pulse signal */
 	/****************************************/
-	Opus_silk_decode_signs(tls, psRangeDec, pulses, frame_length, signalType, quantOffsetType, bp)
+	Opus_silk_decode_signs(tls, psRangeDec, pulses, frame_length, signalType, quantOffsetType, uintptr(unsafe.Pointer(&sum_pulses[0])))
 }
 
 // C documentation
