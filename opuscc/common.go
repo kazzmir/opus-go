@@ -2338,8 +2338,6 @@ func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) (r int32) {
 }
 
 func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels int32) (r int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
 	var alignment uint32
 	var celt_dec, silk_dec uintptr
 	var ret, v1 int32
@@ -2381,7 +2379,11 @@ func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, chan
 		return -int32(3)
 	}
 	_ = int32(0) == int32(0)
-	Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_SET_SIGNALLING_REQUEST), libc.VaList(bp+16, int32(0)))
+	// Pin the single vararg slot: the CTL API takes uintptr, which would
+	// not follow a Go stack local if the callee grows the goroutine stack.
+	va := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
+	defer libc.Xfree(tls, va)
+	Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_SET_SIGNALLING_REQUEST), libc.VaList(va, int32(0)))
 	decoder.Fprev_mode = 0
 	decoder.Fframe_size = Fs / int32(400)
 	v1 = 0
