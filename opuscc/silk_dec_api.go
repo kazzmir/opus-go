@@ -341,43 +341,43 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 		return ret
 	}
-	if lostFlag != int32(FLAG_PACKET_LOST) && (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).FnFramesDecoded == 0 {
+	if lostFlag != int32(FLAG_PACKET_LOST) && decoder.Fchannel_state[0].FnFramesDecoded == 0 {
 		/* First decoder call for this payload */
 		/* Decode VAD flags and LBRR flag */
 		n = 0
 		for {
-			if !(n < (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal) {
+			if !(n < control.FnChannelsInternal) {
 				break
 			}
 			i = 0
 			for {
-				if !(i < (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesPerPacket) {
+				if !(i < decoder.Fchannel_state[n].FnFramesPerPacket) {
 					break
 				}
-				*(*int32)(unsafe.Pointer(channel_state + uintptr(n)*4392 + 2416 + uintptr(i)*4)) = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
+				decoder.Fchannel_state[n].FVAD_flags[i] = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
 				i = i + 1
 			}
-			(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FLBRR_flag = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
+			decoder.Fchannel_state[n].FLBRR_flag = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
 			n = n + 1
 		}
 		/* Decode LBRR flags */
 		n = 0
 		for {
-			if !(n < (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal) {
+			if !(n < control.FnChannelsInternal) {
 				break
 			}
-			libc.Xmemset(tls, channel_state+uintptr(n)*4392+2432, 0, uint64(12))
-			if (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FLBRR_flag != 0 {
-				if (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesPerPacket == int32(1) {
-					*(*int32)(unsafe.Pointer(channel_state + uintptr(n)*4392 + 2432)) = int32(1)
+			libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[n].FLBRR_flags[0])), 0, uint64(12))
+			if decoder.Fchannel_state[n].FLBRR_flag != 0 {
+				if decoder.Fchannel_state[n].FnFramesPerPacket == int32(1) {
+					decoder.Fchannel_state[n].FLBRR_flags[0] = int32(1)
 				} else {
-					LBRR_symbol = Opus_ec_dec_icdf(tls, psRangeDec, Opus_silk_LBRR_flags_iCDF_ptr[(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesPerPacket-int32(2)], uint32(8)) + int32(1)
+					LBRR_symbol = Opus_ec_dec_icdf(tls, psRangeDec, Opus_silk_LBRR_flags_iCDF_ptr[decoder.Fchannel_state[n].FnFramesPerPacket-int32(2)], uint32(8)) + int32(1)
 					i = 0
 					for {
-						if !(i < (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesPerPacket) {
+						if !(i < decoder.Fchannel_state[n].FnFramesPerPacket) {
 							break
 						}
-						*(*int32)(unsafe.Pointer(channel_state + uintptr(n)*4392 + 2432 + uintptr(i)*4)) = LBRR_symbol >> i & int32(1)
+						decoder.Fchannel_state[n].FLBRR_flags[i] = LBRR_symbol >> i & int32(1)
 						i = i + 1
 					}
 				}
