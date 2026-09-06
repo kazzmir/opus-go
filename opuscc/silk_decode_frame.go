@@ -15,6 +15,7 @@ var _ unsafe.Pointer
 func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pOut uintptr, pN uintptr, lostFlag int32, condCoding int32, arch int32) (r int32) {
 	var L, mv_len, ret int32
 	var _saved_stack, psDecCtrl, pulses, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = L, _saved_stack, mv_len, psDecCtrl, pulses, ret, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
 	ret = 0
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -95,12 +96,13 @@ func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pO
 	}
 	v23 = st
 	psDecCtrl = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(int32(1)))*(uint64(140)/uint64(1)))
+	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
 	(*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)).FLTP_scale_Q14 = 0
 	/* Safety checks */
 	if !(L > 0 && L <= int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)*int32(MAX_FS_KHZ)) {
 		Opus_celt_fatal(tls, __ccgo_ts+5921, __ccgo_ts+5898, int32(68))
 	}
-	if lostFlag == FLAG_DECODE_NORMAL || lostFlag == int32(FLAG_DECODE_LBRR) && *(*int32)(unsafe.Pointer(psDec + 2432 + uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FnFramesDecoded)*4)) == int32(1) {
+	if lostFlag == FLAG_DECODE_NORMAL || lostFlag == int32(FLAG_DECODE_LBRR) && decoder.FLBRR_flags[decoder.FnFramesDecoded] == int32(1) {
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v1 = libc.Xmalloc(tls, uint64(16))
@@ -190,8 +192,8 @@ func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pO
 			Opus_celt_fatal(tls, __ccgo_ts+5970, __ccgo_ts+5898, int32(104))
 		}
 		mv_len = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length - (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length
-		libc.Xmemmove(tls, psDec+1348, psDec+1348+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length)*2, uint64(uint32(mv_len))*uint64(2))
-		libc.Xmemcpy(tls, psDec+1348+uintptr(mv_len)*2, pOut, uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length))*uint64(2))
+		libc.Xmemmove(tls, uintptr(unsafe.Pointer(&decoder.FoutBuf[0])), uintptr(unsafe.Pointer(&decoder.FoutBuf[decoder.Fframe_length])), uint64(uint32(mv_len))*uint64(2))
+		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.FoutBuf[mv_len])), pOut, uint64(uint32(decoder.Fframe_length))*uint64(2))
 		/********************************************************/
 		/* Update PLC state                                     */
 		/********************************************************/
@@ -213,8 +215,8 @@ func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pO
 			Opus_celt_fatal(tls, __ccgo_ts+5970, __ccgo_ts+5898, int32(145))
 		}
 		mv_len = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length - (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length
-		libc.Xmemmove(tls, psDec+1348, psDec+1348+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length)*2, uint64(uint32(mv_len))*uint64(2))
-		libc.Xmemcpy(tls, psDec+1348+uintptr(mv_len)*2, pOut, uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length))*uint64(2))
+		libc.Xmemmove(tls, uintptr(unsafe.Pointer(&decoder.FoutBuf[0])), uintptr(unsafe.Pointer(&decoder.FoutBuf[decoder.Fframe_length])), uint64(uint32(mv_len))*uint64(2))
+		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.FoutBuf[mv_len])), pOut, uint64(uint32(decoder.Fframe_length))*uint64(2))
 	}
 	/************************************************/
 	/* Comfort noise generation / estimation        */
@@ -225,7 +227,7 @@ func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pO
 	/****************************************************************/
 	Opus_silk_PLC_glue_frames(tls, psDec, pOut, L)
 	/* Update some decoder state variables */
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlagPrev = *(*int32)(unsafe.Pointer(psDecCtrl + uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr-int32(1))*4))
+	decoder.FlagPrev = control.FpitchL[decoder.Fnb_subfr-int32(1)]
 	/* Set output frame length */
 	*(*OpusT_opus_int32)(unsafe.Pointer(pN)) = L
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
