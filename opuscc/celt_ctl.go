@@ -767,19 +767,14 @@ var second_check = [16]int32{
 }
 
 func Opus_remove_doubling(tls *libc.TLS, x2 uintptr, maxperiod int32, minperiod int32, N2 int32, T0_ uintptr, prev_period int32, prev_gain OpusT_opus_val16, arch int32) (r OpusT_opus_val16) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var T, T0, T1, T1b, i, i1, i2, k, minperiod0, offset, v5 int32
 	var _saved_stack, st, yy_lookup, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v6, v8 uintptr
-	var best_xy, best_yy, xy, xy01, xy02, yy, v33 OpusT_opus_val32
+	var best_xy, best_yy, xx, xy, xy01, xy02, xy2, yy, v33 OpusT_opus_val32
 	var cont, g, g0, g1, pg, thresh, v34 OpusT_opus_val16
 	var xcorr [3]OpusT_opus_val32
 	var v36, v37 OpusT_opus_uint32
 	var v44 float32
-	var _ /* xx at bp+4 */ OpusT_opus_val32
-	var _ /* xy at bp+0 */ OpusT_opus_val32
-	var _ /* xy2 at bp+8 */ OpusT_opus_val32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = T, T0, T1, T1b, _saved_stack, best_xy, best_yy, cont, g, g0, g1, i, i1, i2, k, minperiod0, offset, pg, st, thresh, xcorr, xy, xy01, xy02, yy, yy_lookup, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v33, v34, v36, v37, v44, v5, v6, v8
+	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = T, T0, T1, T1b, _saved_stack, best_xy, best_yy, cont, g, g0, g1, i, i1, i2, k, minperiod0, offset, pg, st, thresh, xcorr, xx, xy, xy01, xy02, xy2, yy, yy_lookup, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v33, v34, v36, v37, v44, v5, v6, v8
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -883,10 +878,10 @@ func Opus_remove_doubling(tls *libc.TLS, x2 uintptr, maxperiod int32, minperiod 
 		xy02 = xy02 + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(v1 + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x2 - uintptr(T0)*4 + uintptr(i)*4)))
 		i = i + 1
 	}
-	*(*OpusT_opus_val32)(unsafe.Pointer(bp + 4)) = xy01
-	*(*OpusT_opus_val32)(unsafe.Pointer(bp)) = xy02
-	*(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup)) = *(*OpusT_opus_val32)(unsafe.Pointer(bp + 4))
-	yy = *(*OpusT_opus_val32)(unsafe.Pointer(bp + 4))
+	xx = xy01
+	xy = xy02
+	*(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup)) = xx
+	yy = xx
 	i2 = int32(1)
 	for {
 		if !(i2 <= maxperiod) {
@@ -902,9 +897,9 @@ func Opus_remove_doubling(tls *libc.TLS, x2 uintptr, maxperiod int32, minperiod 
 		i2 = i2 + 1
 	}
 	yy = *(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup + uintptr(T0)*4))
-	best_xy = *(*OpusT_opus_val32)(unsafe.Pointer(bp))
+	best_xy = xy
 	best_yy = yy
-	v34 = compute_pitch_gain(tls, *(*OpusT_opus_val32)(unsafe.Pointer(bp)), *(*OpusT_opus_val32)(unsafe.Pointer(bp + 4)), yy)
+	v34 = compute_pitch_gain(tls, xy, xx, yy)
 	g0 = v34
 	g = v34
 	/* Look for any pitch at T/k */
@@ -947,11 +942,11 @@ func Opus_remove_doubling(tls *libc.TLS, x2 uintptr, maxperiod int32, minperiod 
 			xy02 = xy02 + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(v1 + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x2 + uintptr(-T1b)*4 + uintptr(i)*4)))
 			i = i + 1
 		}
-		*(*OpusT_opus_val32)(unsafe.Pointer(bp)) = xy01
-		*(*OpusT_opus_val32)(unsafe.Pointer(bp + 8)) = xy02
-		*(*OpusT_opus_val32)(unsafe.Pointer(bp)) = float32(float32(0.5) * (*(*OpusT_opus_val32)(unsafe.Pointer(bp)) + *(*OpusT_opus_val32)(unsafe.Pointer(bp + 8))))
+		xy = xy01
+		xy2 = xy02
+		xy = float32(0.5 * (xy + xy2))
 		yy = float32(float32(0.5) * (*(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup + uintptr(T1)*4)) + *(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup + uintptr(T1b)*4))))
-		g1 = compute_pitch_gain(tls, *(*OpusT_opus_val32)(unsafe.Pointer(bp)), *(*OpusT_opus_val32)(unsafe.Pointer(bp + 4)), yy)
+		g1 = compute_pitch_gain(tls, xy, xx, yy)
 		if libc.Xabs(tls, T1-prev_period) <= int32(1) {
 			cont = prev_gain
 		} else {
@@ -987,7 +982,7 @@ func Opus_remove_doubling(tls *libc.TLS, x2 uintptr, maxperiod int32, minperiod 
 			}
 		}
 		if g1 > thresh {
-			best_xy = *(*OpusT_opus_val32)(unsafe.Pointer(bp))
+			best_xy = xy
 			best_yy = yy
 			T = T1
 			g = g1
