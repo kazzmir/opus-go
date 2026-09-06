@@ -1036,14 +1036,10 @@ POSSIBILITY OF SUCH DAMAGE.
 //	/* Approximation of 128 * log2() (very close inverse of silk_log2lin()) */
 //	/* Convert input to a log scale    */
 func Opus_silk_lin2log(tls *libc.TLS, inLin OpusT_opus_int32) (r1 OpusT_opus_int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
-	var lzeros, v1, v2, v3, v6, v8 OpusT_opus_int32
+	var frac_Q7, lz, lzeros, v1, v2, v3, v6, v8 OpusT_opus_int32
 	var m, r, x OpusT_opus_uint32
 	var v5, v7 int32
-	var _ /* frac_Q7 at bp+4 */ OpusT_opus_int32
-	var _ /* lz at bp+0 */ OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _, _, _ = lzeros, m, r, x, v1, v2, v3, v5, v6, v7, v8
+	_, _, _, _, _, _, _, _, _, _, _, _, _ = frac_Q7, lz, lzeros, m, r, x, v1, v2, v3, v5, v6, v7, v8
 	v1 = inLin
 	v2 = v1
 	if v2 != 0 {
@@ -1053,7 +1049,7 @@ func Opus_silk_lin2log(tls *libc.TLS, inLin OpusT_opus_int32) (r1 OpusT_opus_int
 	}
 	v3 = v5
 	lzeros = v3
-	*(*OpusT_opus_int32)(unsafe.Pointer(bp)) = lzeros
+	lz = lzeros
 	v6 = v1
 	v7 = int32(24) - lzeros
 	x = uint32(v6)
@@ -1072,9 +1068,9 @@ func Opus_silk_lin2log(tls *libc.TLS, inLin OpusT_opus_int32) (r1 OpusT_opus_int
 		}
 	}
 _9:
-	*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)) = v8 & int32(0x7f)
+	frac_Q7 = v8 & 0x7f
 	/* Piece-wise parabolic approximation */
-	return int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)))+int64(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))*(int32(128)-*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))))*int64(int16(int32(179)))>>int32(16)) + int32(uint32(int32(31)-*(*OpusT_opus_int32)(unsafe.Pointer(bp)))<<int32(7))
+	return int32(int64(frac_Q7)+int64(frac_Q7*(128-frac_Q7))*int64(int16(179))>>16) + int32(uint32(31-lz)<<7)
 }
 
 /***********************************************************************

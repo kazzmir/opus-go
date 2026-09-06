@@ -3,6 +3,8 @@ package opuscc
 import (
 	"testing"
 	"unsafe"
+
+	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
 func TestStereoMSToLRFieldAccesses(t *testing.T) {
@@ -11,6 +13,7 @@ func TestStereoMSToLRFieldAccesses(t *testing.T) {
 		FsMid:          [2]OpusT_opus_int16{90, -130},
 		FsSide:         [2]OpusT_opus_int16{-70, 110},
 	}
+
 	mid := []int16{17, -29, 43, -57, 71, -83, 97, -109, 127, -149}
 	side := []int16{-19, 31, -47, 59, -73, 89, -101, 113, -131, 151}
 	predictors := []int32{2600, -1700}
@@ -35,5 +38,20 @@ func TestStereoMSToLRFieldAccesses(t *testing.T) {
 	}
 	if got, want := state.FsSide, [2]OpusT_opus_int16{-131, 151}; got != want {
 		t.Fatalf("side history: got %v, want %v", got, want)
+	}
+}
+
+func TestLin2LogLocalScalars(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+
+	values := []OpusT_opus_int32{12345, 65536, 987654}
+	got := make([]OpusT_opus_int32, len(values))
+	want := []OpusT_opus_int32{1739, 2048, 2549}
+	for i, value := range values {
+		got[i] = Opus_silk_lin2log(tls, value)
+	}
+	if !equalInt32s(got, want) {
+		t.Fatalf("logs: got %v, want %v", got, want)
 	}
 }
