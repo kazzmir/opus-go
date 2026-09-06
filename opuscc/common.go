@@ -3346,13 +3346,14 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	var _ /* padding_len at bp+112 */ OpusT_opus_int32
 	var _ /* size at bp+6 */ [48]OpusT_opus_int16
 	var _ /* toc at bp+4 */ uint8
+	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _ = count, duration_copy, i, nb_samples, packet_bandwidth, packet_frame_size, packet_mode, packet_stream_channels, pcm_count, ret, ret1, ret2, v1, v8
 	validate_opus_decoder(tls, st)
 	if decode_fec < 0 || decode_fec > int32(1) {
 		return -int32(1)
 	}
 	/* For FEC/PLC, frame_size has to be to have a multiple of 2.5 ms */
-	if (decode_fec != 0 || len1 == 0 || data == uintptr(uint32(0))) && frame_size%((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs/int32(400)) != 0 {
+	if (decode_fec != 0 || len1 == 0 || data == uintptr(uint32(0))) && frame_size%(decoder.FFs/int32(400)) != 0 {
 		return -int32(1)
 	}
 	_ = dred
@@ -3360,7 +3361,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	if len1 == 0 || data == uintptr(uint32(0)) {
 		pcm_count = 0
 		for cond := true; cond; cond = pcm_count < frame_size {
-			ret = opus_decode_frame(tls, st, uintptr(uint32(0)), 0, pcm+uintptr(pcm_count*(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels)*4, frame_size-pcm_count, 0)
+			ret = opus_decode_frame(tls, st, uintptr(uint32(0)), 0, pcm+uintptr(pcm_count*decoder.Fchannels)*4, frame_size-pcm_count, 0)
 			if ret < 0 {
 				return ret
 			}
@@ -3372,7 +3373,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 		v1 = 0
 		if v1 != 0 {
 		}
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Flast_packet_duration = pcm_count
+		decoder.Flast_packet_duration = pcm_count
 		return pcm_count
 	} else {
 		if len1 < 0 {
@@ -3381,10 +3382,10 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	}
 	packet_mode = opus_packet_get_mode(tls, data)
 	packet_bandwidth = Opus_opus_packet_get_bandwidth(tls, data)
-	packet_frame_size = Opus_opus_packet_get_samples_per_frame(tls, data, (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs)
+	packet_frame_size = Opus_opus_packet_get_samples_per_frame(tls, data, decoder.FFs)
 	packet_stream_channels = Opus_opus_packet_get_nb_channels(tls, data)
 	count = Opus_opus_packet_parse_impl(tls, data, len1, self_delimited, bp+4, uintptr(uint32(0)), bp+6, bp, packet_offset, bp+104, bp+112)
-	if (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fignore_extensions != 0 {
+	if decoder.Fignore_extensions != 0 {
 		*(*uintptr)(unsafe.Pointer(bp + 104)) = uintptr(uint32(0))
 		*(*OpusT_opus_int32)(unsafe.Pointer(bp + 112)) = 0
 	}
