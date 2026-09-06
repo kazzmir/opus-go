@@ -28,6 +28,10 @@ func TestProjectionDecoderInitCReference(t *testing.T) {
 			tls := libc.NewTLS()
 			defer tls.Close()
 			size := Opus_opus_projection_decoder_get_size(tls, ch, streams, coupled)
+			// The fixture sizes include one amd64 decoder allocation per stream.
+			if wantSize > 0 {
+				wantSize += streams * decoderReferenceLayoutDelta()
+			}
 			if size != wantSize {
 				t.Fatalf("size %d, want %d", size, wantSize)
 			}

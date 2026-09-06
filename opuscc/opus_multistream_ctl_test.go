@@ -87,6 +87,10 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 			if p != 0 {
 				offset = int64(p - st)
 			}
+			// Each preceding stream occupies one decoder allocation.
+			if ret == 0 {
+				wantValue += int64(arg) * int64(decoderReferenceLayoutDelta())
+			}
 			if offset != wantValue {
 				t.Fatalf("line %d: offset %d, want %d", line, offset, wantValue)
 			}

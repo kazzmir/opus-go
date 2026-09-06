@@ -7,6 +7,15 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+// decoderReferenceLayoutDelta adjusts amd64 C fixture sizes for the two
+// pointer-containing subdecoders. Opus aligns their allocations to 8 bytes;
+// the sample buffers and the outer decoder header have fixed-width layouts.
+func decoderReferenceLayoutDelta() int32 {
+	align8 := func(n uintptr) int32 { return int32((n + 7) &^ 7) }
+	return align8(unsafe.Sizeof(OpusT_silk_decoder{})) - 8808 +
+		align8(unsafe.Sizeof(OpusT_OpusCustomDecoder{})) - 120
+}
+
 // These tests derive layouts from Go types rather than amd64 C reference sizes.
 func TestArchPacketFramePointers(t *testing.T) {
 	tls := libc.NewTLS()

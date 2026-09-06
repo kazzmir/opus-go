@@ -66,7 +66,7 @@ func Opus_opus_custom_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va u
 		*(*OpusT_opus_int32)(unsafe.Pointer(value6)) = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap / (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fdownsample
 	case int32(OPUS_RESET_STATE):
 		decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
-		oldBandE = st + 112 + uintptr((decode_buffer_size+(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap)*(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fchannels)*4
+		oldBandE = st + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr((decode_buffer_size+(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap)*(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fchannels)*4
 		oldLogE = oldBandE + uintptr(int32(2)*(*OpusT_OpusCustomMode)(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode)).FnbEBands)*4
 		oldLogE2 = oldLogE + uintptr(int32(2)*(*OpusT_OpusCustomMode)(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode)).FnbEBands)*4
 		libc.Xmemset(tls, st+48, 0, uint64(int64(opus_custom_decoder_get_size(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fchannels))-(int64(st+48)-int64(st)))*uint64(1))

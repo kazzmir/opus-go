@@ -857,7 +857,7 @@ func Opus_silk_PLC_glue_frames(tls *libc.TLS, psDec uintptr, frame uintptr, leng
 	var m, r, x OpusT_opus_uint32
 	var psPLC uintptr
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = LZ, energy, energy_shift, frac_Q24, frac_Q7, gain_Q16, i, lz, lzeros, m, psPLC, r, slope_Q16, x, y, v1, v11, v12, v2, v4, v5, v6, v7, v9
-	psPLC = psDec + 4292
+	psPLC = uintptr(unsafe.Pointer(&(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC))
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 {
 		/* Calculate energy in concealed residual */
 		Opus_silk_sum_sqr_shift(tls, psPLC+60, psPLC+64, frame, length)

@@ -47,7 +47,9 @@ func TestOpusDecoderInitCReference(t *testing.T) {
 					}
 					d := (*OpusT_OpusDecoder)(unsafe.Pointer(p))
 					got := []int32{d.Fsilk_dec_offset, d.Fcelt_dec_offset, d.Fchannels, d.Fstream_channels, d.FFs, d.FDecControl.FAPI_sampleRate, d.FDecControl.FnChannelsAPI, d.Fframe_size, d.Fdecode_gain, d.Fcomplexity, d.Fignore_extensions, d.Fbandwidth, d.Fmode, d.Fprev_mode, d.Fprev_redundancy, d.Flast_packet_duration, int32(d.FrangeFinal)}
-					want := []int32{104, 8912, ch, ch, tc.fs, tc.fs, ch, tc.frame, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+					// The C fixture uses an 8808-byte amd64 SILK decoder.
+					celtOffset := int32(104) + int32((unsafe.Sizeof(OpusT_silk_decoder{})+7)&^7)
+					want := []int32{104, celtOffset, ch, ch, tc.fs, tc.fs, ch, tc.frame, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 					for i, v := range got {
 						if v != want[i] {
 							t.Fatalf("pass %d field %d = %d, want %d", pass, i, v, want[i])
