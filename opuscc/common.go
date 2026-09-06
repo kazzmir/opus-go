@@ -3396,15 +3396,15 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	data = data + uintptr(*(*int32)(unsafe.Pointer(bp)))
 	if decode_fec != 0 {
 		/* If no FEC can be present, run the PLC (recursive call) */
-		if frame_size < packet_frame_size || packet_mode == int32(MODE_CELT_ONLY) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fmode == int32(MODE_CELT_ONLY) {
+		if frame_size < packet_frame_size || packet_mode == int32(MODE_CELT_ONLY) || decoder.Fmode == int32(MODE_CELT_ONLY) {
 			return Opus_opus_decode_native(tls, st, uintptr(uint32(0)), 0, pcm, frame_size, 0, 0, uintptr(uint32(0)), soft_clip, uintptr(uint32(0)), 0)
 		}
 		/* Otherwise, run the PLC on everything except the size for which we might have FEC */
-		duration_copy = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Flast_packet_duration
+		duration_copy = decoder.Flast_packet_duration
 		if frame_size-packet_frame_size != 0 {
 			ret1 = Opus_opus_decode_native(tls, st, uintptr(uint32(0)), 0, pcm, frame_size-packet_frame_size, 0, 0, uintptr(uint32(0)), soft_clip, uintptr(uint32(0)), 0)
 			if ret1 < 0 {
-				(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Flast_packet_duration = duration_copy
+				decoder.Flast_packet_duration = duration_copy
 				return ret1
 			}
 			if !(ret1 == frame_size-packet_frame_size) {
@@ -3412,18 +3412,18 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 			}
 		}
 		/* Complete with FEC */
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fmode = packet_mode
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fbandwidth = packet_bandwidth
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fframe_size = packet_frame_size
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fstream_channels = packet_stream_channels
-		ret1 = opus_decode_frame(tls, st, data, int32((*(*[48]OpusT_opus_int16)(unsafe.Pointer(bp + 6)))[0]), pcm+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels*(frame_size-packet_frame_size))*4, packet_frame_size, int32(1))
+		decoder.Fmode = packet_mode
+		decoder.Fbandwidth = packet_bandwidth
+		decoder.Fframe_size = packet_frame_size
+		decoder.Fstream_channels = packet_stream_channels
+		ret1 = opus_decode_frame(tls, st, data, int32((*(*[48]OpusT_opus_int16)(unsafe.Pointer(bp + 6)))[0]), pcm+uintptr(decoder.Fchannels*(frame_size-packet_frame_size))*4, packet_frame_size, int32(1))
 		if ret1 < 0 {
 			return ret1
 		} else {
 			v1 = 0
 			if v1 != 0 {
 			}
-			(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Flast_packet_duration = frame_size
+			decoder.Flast_packet_duration = frame_size
 			return frame_size
 		}
 	}
@@ -3431,17 +3431,17 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 		return -int32(2)
 	}
 	/* Update the state as the last step to avoid updating it on an invalid packet */
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fmode = packet_mode
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fbandwidth = packet_bandwidth
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fframe_size = packet_frame_size
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fstream_channels = packet_stream_channels
+	decoder.Fmode = packet_mode
+	decoder.Fbandwidth = packet_bandwidth
+	decoder.Fframe_size = packet_frame_size
+	decoder.Fstream_channels = packet_stream_channels
 	nb_samples = 0
 	i = 0
 	for {
 		if !(i < count) {
 			break
 		}
-		ret2 = opus_decode_frame(tls, st, data, int32((*(*[48]OpusT_opus_int16)(unsafe.Pointer(bp + 6)))[i]), pcm+uintptr(nb_samples*(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels)*4, frame_size-nb_samples, 0)
+		ret2 = opus_decode_frame(tls, st, data, int32((*(*[48]OpusT_opus_int16)(unsafe.Pointer(bp + 6)))[i]), pcm+uintptr(nb_samples*decoder.Fchannels)*4, frame_size-nb_samples, 0)
 		if ret2 < 0 {
 			return ret2
 		}
@@ -3452,16 +3452,16 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 		nb_samples = nb_samples + ret2
 		i = i + 1
 	}
-	(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Flast_packet_duration = nb_samples
+	decoder.Flast_packet_duration = nb_samples
 	v1 = 0
 	if v1 != 0 {
 	}
 	if soft_clip != 0 {
-		Opus_opus_pcm_soft_clip_impl(tls, pcm, nb_samples, (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels, st+88, (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Farch)
+		Opus_opus_pcm_soft_clip_impl(tls, pcm, nb_samples, decoder.Fchannels, uintptr(unsafe.Pointer(&decoder.Fsoftclip_mem[0])), decoder.Farch)
 	} else {
 		v8 = float32(0)
-		*(*OpusT_opus_val16)(unsafe.Pointer(st + 88 + 1*4)) = v8
-		*(*OpusT_opus_val16)(unsafe.Pointer(st + 88)) = v8
+		decoder.Fsoftclip_mem[1] = v8
+		decoder.Fsoftclip_mem[0] = v8
 	}
 	return nb_samples
 }
