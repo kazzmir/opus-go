@@ -1754,11 +1754,9 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 //
 //	/* For input in Q12 domain */
 func Opus_silk_LPC_inverse_pred_gain_c(tls *libc.TLS, A_Q12 uintptr, order int32) (r OpusT_opus_int32) {
-	bp := tls.Alloc(96)
-	defer tls.Free(96)
 	var DC_resp OpusT_opus_int32
 	var k int32
-	var _ /* Atmp_QA at bp+0 */ [24]OpusT_opus_int32
+	var Atmp_QA [24]OpusT_opus_int32
 	_, _ = DC_resp, k
 	DC_resp = 0
 	/* Increase Q domain of the AR coefficients */
@@ -1768,14 +1766,14 @@ func Opus_silk_LPC_inverse_pred_gain_c(tls *libc.TLS, A_Q12 uintptr, order int32
 			break
 		}
 		DC_resp = DC_resp + int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))
-		(*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp)))[k] = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))) << (int32(QA) - int32(12)))
+		Atmp_QA[k] = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))) << (int32(QA) - int32(12)))
 		k = k + 1
 	}
 	/* If the DC is unstable, we don't even need to do the full calculations */
 	if DC_resp >= int32(4096) {
 		return 0
 	}
-	return LPC_inverse_pred_gain_QA_c(tls, bp, order)
+	return LPC_inverse_pred_gain_QA_c(tls, uintptr(unsafe.Pointer(&Atmp_QA[0])), order)
 }
 
 const silk_int16_MAX15 = 32767

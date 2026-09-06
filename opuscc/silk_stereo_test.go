@@ -51,7 +51,18 @@ func TestLin2LogLocalScalars(t *testing.T) {
 	for i, value := range values {
 		got[i] = Opus_silk_lin2log(tls, value)
 	}
+
 	if !equalInt32s(got, want) {
 		t.Fatalf("logs: got %v, want %v", got, want)
+	}
+}
+
+func TestLPCInversePredictionGainLocalArray(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	coefficients := []OpusT_opus_int16{624, -514, 417, -277, 192, -123, 82, -40, 21, -2}
+
+	if got, want := Opus_silk_LPC_inverse_pred_gain_c(tls, uintptr(unsafe.Pointer(&coefficients[0])), int32(len(coefficients))), int32(1033197696); got != want {
+		t.Fatalf("inverse prediction gain: got %d, want %d", got, want)
 	}
 }
