@@ -16,17 +16,18 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 	var delta0_Q13, delta1_Q13, denom_Q16, n, v2, v3 int32
 	var diff, pred0_Q13, pred1_Q13, sum OpusT_opus_int32
 	_, _, _, _, _, _, _, _, _, _ = delta0_Q13, delta1_Q13, denom_Q16, diff, n, pred0_Q13, pred1_Q13, sum, v2, v3
+	stereoState := (*OpusT_stereo_dec_state)(unsafe.Pointer(state))
 	/* Buffering */
-	libc.Xmemcpy(tls, x1, state+4, uint64(uint32(2))*uint64(2))
-	libc.Xmemcpy(tls, x2, state+8, uint64(uint32(2))*uint64(2))
-	libc.Xmemcpy(tls, state+4, x1+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
-	libc.Xmemcpy(tls, state+8, x2+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
+	libc.Xmemcpy(tls, x1, uintptr(unsafe.Pointer(&stereoState.FsMid[0])), uint64(uint32(2))*uint64(2))
+	libc.Xmemcpy(tls, x2, uintptr(unsafe.Pointer(&stereoState.FsSide[0])), uint64(uint32(2))*uint64(2))
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&stereoState.FsMid[0])), x1+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&stereoState.FsSide[0])), x2+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
 	/* Interpolate predictors and add prediction to side channel */
-	pred0_Q13 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(state)))
-	pred1_Q13 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(state + 1*2)))
+	pred0_Q13 = int32(stereoState.Fpred_prev_Q13[0])
+	pred1_Q13 = int32(stereoState.Fpred_prev_Q13[1])
 	denom_Q16 = int32(1) << int32(16) / (int32(STEREO_INTERP_LEN_MS) * fs_kHz)
-	delta0_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(state)))))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
-	delta1_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(state + 1*2)))))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
+	delta0_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13))-int32(stereoState.Fpred_prev_Q13[0])))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
+	delta1_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4))-int32(stereoState.Fpred_prev_Q13[1])))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
 	n = 0
 	for {
 		if !(n < int32(STEREO_INTERP_LEN_MS)*fs_kHz) {
@@ -34,9 +35,9 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 		}
 		pred0_Q13 = pred0_Q13 + delta0_Q13
 		pred1_Q13 = pred1_Q13 + delta1_Q13
-		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(uint32(uint16(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(1))) << int32(9)) /* Q11 */
-		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                                      /* Q8  */
-		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                                     /* Q8  */
+		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2)))<<int32(1)) << int32(9)) /* Q11 */
+		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                      /* Q8  */
+		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                     /* Q8  */
 		if (sum>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX11) {
 			v2 = int32(silk_int16_MAX11)
 		} else {
@@ -57,9 +58,9 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 		if !(n < frame_length) {
 			break
 		}
-		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(uint32(uint16(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(1))) << int32(9)) /* Q11 */
-		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                                      /* Q8  */
-		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                                     /* Q8  */
+		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2)))<<int32(1)) << int32(9)) /* Q11 */
+		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                      /* Q8  */
+		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                     /* Q8  */
 		if (sum>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX11) {
 			v2 = int32(silk_int16_MAX11)
 		} else {
@@ -73,8 +74,8 @@ func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uint
 		*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)) = int16(v2)
 		n = n + 1
 	}
-	*(*OpusT_opus_int16)(unsafe.Pointer(state)) = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13)))
-	*(*OpusT_opus_int16)(unsafe.Pointer(state + 1*2)) = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4)))
+	stereoState.Fpred_prev_Q13[0] = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13)))
+	stereoState.Fpred_prev_Q13[1] = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4)))
 	/* Convert to left/right signals */
 	n = 0
 	for {
@@ -1035,14 +1036,10 @@ POSSIBILITY OF SUCH DAMAGE.
 //	/* Approximation of 128 * log2() (very close inverse of silk_log2lin()) */
 //	/* Convert input to a log scale    */
 func Opus_silk_lin2log(tls *libc.TLS, inLin OpusT_opus_int32) (r1 OpusT_opus_int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
-	var lzeros, v1, v2, v3, v6, v8 OpusT_opus_int32
+	var frac_Q7, lz, lzeros, v1, v2, v3, v6, v8 OpusT_opus_int32
 	var m, r, x OpusT_opus_uint32
 	var v5, v7 int32
-	var _ /* frac_Q7 at bp+4 */ OpusT_opus_int32
-	var _ /* lz at bp+0 */ OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _, _, _ = lzeros, m, r, x, v1, v2, v3, v5, v6, v7, v8
+	_, _, _, _, _, _, _, _, _, _, _, _, _ = frac_Q7, lz, lzeros, m, r, x, v1, v2, v3, v5, v6, v7, v8
 	v1 = inLin
 	v2 = v1
 	if v2 != 0 {
@@ -1052,7 +1049,7 @@ func Opus_silk_lin2log(tls *libc.TLS, inLin OpusT_opus_int32) (r1 OpusT_opus_int
 	}
 	v3 = v5
 	lzeros = v3
-	*(*OpusT_opus_int32)(unsafe.Pointer(bp)) = lzeros
+	lz = lzeros
 	v6 = v1
 	v7 = int32(24) - lzeros
 	x = uint32(v6)
@@ -1071,9 +1068,9 @@ func Opus_silk_lin2log(tls *libc.TLS, inLin OpusT_opus_int32) (r1 OpusT_opus_int
 		}
 	}
 _9:
-	*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)) = v8 & int32(0x7f)
+	frac_Q7 = v8 & 0x7f
 	/* Piece-wise parabolic approximation */
-	return int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)))+int64(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))*(int32(128)-*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))))*int64(int16(int32(179)))>>int32(16)) + int32(uint32(int32(31)-*(*OpusT_opus_int32)(unsafe.Pointer(bp)))<<int32(7))
+	return int32(int64(frac_Q7)+int64(frac_Q7*(128-frac_Q7))*int64(int16(179))>>16) + int32(uint32(31-lz)<<7)
 }
 
 /***********************************************************************
@@ -1757,11 +1754,9 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 //
 //	/* For input in Q12 domain */
 func Opus_silk_LPC_inverse_pred_gain_c(tls *libc.TLS, A_Q12 uintptr, order int32) (r OpusT_opus_int32) {
-	bp := tls.Alloc(96)
-	defer tls.Free(96)
 	var DC_resp OpusT_opus_int32
 	var k int32
-	var _ /* Atmp_QA at bp+0 */ [24]OpusT_opus_int32
+	var Atmp_QA [24]OpusT_opus_int32
 	_, _ = DC_resp, k
 	DC_resp = 0
 	/* Increase Q domain of the AR coefficients */
@@ -1771,14 +1766,14 @@ func Opus_silk_LPC_inverse_pred_gain_c(tls *libc.TLS, A_Q12 uintptr, order int32
 			break
 		}
 		DC_resp = DC_resp + int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))
-		(*(*[24]OpusT_opus_int32)(unsafe.Pointer(bp)))[k] = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))) << (int32(QA) - int32(12)))
+		Atmp_QA[k] = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))) << (int32(QA) - int32(12)))
 		k = k + 1
 	}
 	/* If the DC is unstable, we don't even need to do the full calculations */
 	if DC_resp >= int32(4096) {
 		return 0
 	}
-	return LPC_inverse_pred_gain_QA_c(tls, bp, order)
+	return LPC_inverse_pred_gain_QA_c(tls, uintptr(unsafe.Pointer(&Atmp_QA[0])), order)
 }
 
 const silk_int16_MAX15 = 32767

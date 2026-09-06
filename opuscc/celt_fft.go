@@ -274,9 +274,10 @@ func Opus_opus_fft_impl(tls *libc.TLS, st uintptr, fout uintptr) {
 	var L, i, m, m2, p, shift, v1 int32
 	var fstride [8]int32
 	_, _, _, _, _, _, _, _ = L, fstride, i, m, m2, p, shift, v1
+	state := (*OpusT_kiss_fft_state)(unsafe.Pointer(st))
 	/* st->shift can be -1 */
-	if (*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fshift > 0 {
-		v1 = (*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fshift
+	if state.Fshift > 0 {
+		v1 = state.Fshift
 	} else {
 		v1 = 0
 	}
@@ -284,23 +285,23 @@ func Opus_opus_fft_impl(tls *libc.TLS, st uintptr, fout uintptr) {
 	fstride[0] = int32(1)
 	L = 0
 	for cond := true; cond; cond = m != int32(1) {
-		p = int32(*(*OpusT_opus_int16)(unsafe.Pointer(st + 12 + uintptr(int32(2)*L)*2)))
-		m = int32(*(*OpusT_opus_int16)(unsafe.Pointer(st + 12 + uintptr(int32(2)*L+int32(1))*2)))
+		p = int32(state.Ffactors[2*L])
+		m = int32(state.Ffactors[2*L+1])
 		fstride[L+int32(1)] = fstride[L] * p
 		L = L + 1
 	}
-	m = int32(*(*OpusT_opus_int16)(unsafe.Pointer(st + 12 + uintptr(int32(2)*L-int32(1))*2)))
+	m = int32(state.Ffactors[2*L-1])
 	i = L - int32(1)
 	for {
 		if !(i >= 0) {
 			break
 		}
 		if i != 0 {
-			m2 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(st + 12 + uintptr(int32(2)*i-int32(1))*2)))
+			m2 = int32(state.Ffactors[2*i-1])
 		} else {
 			m2 = int32(1)
 		}
-		switch int32(*(*OpusT_opus_int16)(unsafe.Pointer(st + 12 + uintptr(int32(2)*i)*2))) {
+		switch int32(state.Ffactors[2*i]) {
 		case int32(2):
 			kf_bfly2(tls, fout, m, fstride[i])
 		case int32(4):

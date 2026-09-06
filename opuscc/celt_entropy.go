@@ -12,32 +12,28 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func ec_read_byte(tls *libc.TLS, _this uintptr) (r int32) {
+func ec_read_byte(_this *OpusT_ec_dec) (r int32) {
 	var v1 int32
 	var v2 OpusT_opus_uint32
-	var v3 uintptr
-	_, _, _ = v1, v2, v3
-	if (*OpusT_ec_dec)(unsafe.Pointer(_this)).Foffs < (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fstorage {
-		v3 = _this + 28
-		v2 = *(*OpusT_opus_uint32)(unsafe.Pointer(v3))
-		*(*OpusT_opus_uint32)(unsafe.Pointer(v3)) = *(*OpusT_opus_uint32)(unsafe.Pointer(v3)) + 1
-		v1 = int32(*(*uint8)(unsafe.Pointer((*OpusT_ec_dec)(unsafe.Pointer(_this)).Fbuf + uintptr(v2))))
+	_, _ = v1, v2
+	if _this.Foffs < _this.Fstorage {
+		v2 = _this.Foffs
+		_this.Foffs++
+		v1 = int32(*(*uint8)(unsafe.Pointer(_this.Fbuf + uintptr(v2))))
 	} else {
 		v1 = 0
 	}
 	return v1
 }
 
-func ec_read_byte_from_end(tls *libc.TLS, _this uintptr) (r int32) {
+func ec_read_byte_from_end(_this *OpusT_ec_dec) (r int32) {
 	var v1 int32
 	var v2 OpusT_opus_uint32
-	var v3 uintptr
-	_, _, _ = v1, v2, v3
-	if (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fend_offs < (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fstorage {
-		v3 = _this + 12
-		*(*OpusT_opus_uint32)(unsafe.Pointer(v3)) = *(*OpusT_opus_uint32)(unsafe.Pointer(v3)) + 1
-		v2 = *(*OpusT_opus_uint32)(unsafe.Pointer(v3))
-		v1 = int32(*(*uint8)(unsafe.Pointer((*OpusT_ec_dec)(unsafe.Pointer(_this)).Fbuf + uintptr((*OpusT_ec_dec)(unsafe.Pointer(_this)).Fstorage-v2))))
+	_, _ = v1, v2
+	if _this.Fend_offs < _this.Fstorage {
+		_this.Fend_offs++
+		v2 = _this.Fend_offs
+		v1 = int32(*(*uint8)(unsafe.Pointer(_this.Fbuf + uintptr(_this.Fstorage-v2))))
 	} else {
 		v1 = 0
 	}
@@ -48,21 +44,21 @@ func ec_read_byte_from_end(tls *libc.TLS, _this uintptr) (r int32) {
 //
 //	/*Normalizes the contents of val and rng so that rng lies entirely in the
 //	   high-order symbol.*/
-func ec_dec_normalize(tls *libc.TLS, _this uintptr) {
+func ec_dec_normalize(tls *libc.TLS, _this *OpusT_ec_dec) {
 	var sym int32
 	_ = sym
 	/*If the range is too small, rescale it and input some bits.*/
-	for (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng <= uint32(1)<<(int32(EC_CODE_BITS)-int32(1))>>int32(EC_SYM_BITS) {
-		*(*int32)(unsafe.Pointer(_this + 24)) += int32(EC_SYM_BITS)
-		*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 32)) <<= uint32(int32(EC_SYM_BITS))
+	for _this.Frng <= uint32(1)<<(int32(EC_CODE_BITS)-int32(1))>>int32(EC_SYM_BITS) {
+		_this.Fnbits_total += int32(EC_SYM_BITS)
+		_this.Frng <<= uint32(int32(EC_SYM_BITS))
 		/*Use up the remaining bits from our last symbol.*/
-		sym = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frem
+		sym = _this.Frem
 		/*Read the next value from the input.*/
-		(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frem = ec_read_byte(tls, _this)
+		_this.Frem = ec_read_byte(_this)
 		/*Take the rest of the bits we need from this new symbol.*/
-		sym = (sym<<int32(EC_SYM_BITS) | (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frem) >> (int32(EC_SYM_BITS) - ((int32(EC_CODE_BITS)-int32(2))%int32(EC_SYM_BITS) + int32(1)))
+		sym = (sym<<int32(EC_SYM_BITS) | _this.Frem) >> (int32(EC_SYM_BITS) - ((int32(EC_CODE_BITS)-int32(2))%int32(EC_SYM_BITS) + int32(1)))
 		/*And subtract them from val, capped to be less than EC_CODE_TOP.*/
-		(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval = ((*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval<<int32(EC_SYM_BITS) + (uint32(1)<<int32(EC_SYM_BITS)-uint32(1))&uint32(^sym)) & (uint32(1)<<(int32(EC_CODE_BITS)-int32(1)) - uint32(1))
+		_this.Fval = ((_this.Fval<<int32(EC_SYM_BITS) + (uint32(1)<<int32(EC_SYM_BITS)-uint32(1))&uint32(^sym)) & (uint32(1)<<(int32(EC_CODE_BITS)-int32(1)) - uint32(1)))
 	}
 }
 
@@ -78,11 +74,11 @@ func Opus_ec_dec_init(tls *libc.TLS, _this uintptr, _buf uintptr, _storage OpusT
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnbits_total = int32(EC_CODE_BITS) + int32(1) - (int32(EC_CODE_BITS)-((int32(EC_CODE_BITS)-int32(2))%int32(EC_SYM_BITS)+int32(1)))/int32(EC_SYM_BITS)*int32(EC_SYM_BITS)
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Foffs = uint32(0)
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng = uint32(1) << ((int32(EC_CODE_BITS)-int32(2))%int32(EC_SYM_BITS) + int32(1))
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frem = ec_read_byte(tls, _this)
+	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frem = ec_read_byte((*OpusT_ec_dec)(unsafe.Pointer(_this)))
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng - uint32(1) - uint32((*OpusT_ec_dec)(unsafe.Pointer(_this)).Frem>>(int32(EC_SYM_BITS)-((int32(EC_CODE_BITS)-int32(2))%int32(EC_SYM_BITS)+int32(1))))
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Ferror1 = 0
 	/*Normalize the interval.*/
-	ec_dec_normalize(tls, _this)
+	ec_dec_normalize(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)))
 }
 
 func Opus_ec_decode(tls *libc.TLS, _this uintptr, _ft uint32) (r uint32) {
@@ -110,14 +106,14 @@ func Opus_ec_dec_update(tls *libc.TLS, _this uintptr, _fl uint32, _fh uint32, _f
 	var v1 uint32
 	_, _ = s, v1
 	s = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext * (_ft - _fh)
-	*(*OpusT_opus_uint32)(unsafe.Pointer(_this + 36)) -= s
+	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval -= s
 	if _fl > uint32(0) {
 		v1 = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext * (_fh - _fl)
 	} else {
 		v1 = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng - s
 	}
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng = v1
-	ec_dec_normalize(tls, _this)
+	ec_dec_normalize(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)))
 }
 
 // C documentation
@@ -141,7 +137,7 @@ func Opus_ec_dec_bit_logp(tls *libc.TLS, _this uintptr, _logp uint32) (r1 int32)
 		v1 = r - s
 	}
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng = v1
-	ec_dec_normalize(tls, _this)
+	ec_dec_normalize(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)))
 	return ret
 }
 
@@ -161,7 +157,7 @@ func Opus_ec_dec_icdf(tls *libc.TLS, _this uintptr, _icdf uintptr, _ftb uint32) 
 	}
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval = d - s
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng = t - s
-	ec_dec_normalize(tls, _this)
+	ec_dec_normalize(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)))
 	return ret
 }
 
@@ -181,7 +177,7 @@ func Opus_ec_dec_icdf16(tls *libc.TLS, _this uintptr, _icdf uintptr, _ftb uint32
 	}
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval = d - s
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng = t - s
-	ec_dec_normalize(tls, _this)
+	ec_dec_normalize(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)))
 	return ret
 }
 
@@ -220,13 +216,12 @@ func Opus_ec_dec_bits(tls *libc.TLS, _this uintptr, _bits uint32) (r OpusT_opus_
 	var available int32
 	var ret OpusT_opus_uint32
 	var window OpusT_ec_window
-	var v1 uintptr
-	_, _, _, _ = available, ret, window, v1
+	_, _, _ = available, ret, window
 	window = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fend_window
 	available = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnend_bits
 	if uint32(available) < _bits {
 		for cond := true; cond; cond = available <= int32(4)*int32(CHAR_BIT)-int32(EC_SYM_BITS) {
-			window = window | uint32(ec_read_byte_from_end(tls, _this))<<available
+			window = window | uint32(ec_read_byte_from_end((*OpusT_ec_dec)(unsafe.Pointer(_this))))<<available
 			available = available + int32(EC_SYM_BITS)
 		}
 	}
@@ -235,8 +230,7 @@ func Opus_ec_dec_bits(tls *libc.TLS, _this uintptr, _bits uint32) (r OpusT_opus_
 	available = int32(uint32(available) - _bits)
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fend_window = window
 	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnend_bits = available
-	v1 = _this + 24
-	*(*int32)(unsafe.Pointer(v1)) = int32(uint32(*(*int32)(unsafe.Pointer(v1))) + _bits)
+	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnbits_total = int32(uint32((*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnbits_total) + _bits)
 	return ret
 }
 

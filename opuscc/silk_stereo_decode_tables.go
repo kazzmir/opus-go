@@ -13,23 +13,21 @@ var _ reflect.Type
 var _ unsafe.Pointer
 
 func Opus_silk_stereo_decode_pred(tls *libc.TLS, psRangeDec uintptr, pred_Q13 uintptr) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
 	var low_Q13, step_Q13 OpusT_opus_int32
 	var n int32
-	var _ /* ix at bp+0 */ [2][3]int32
+	var ix [2][3]int32
 	_, _, _ = low_Q13, n, step_Q13
 	/* Entropy decoding */
 	n = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_stereo_pred_joint_iCDF)), uint32(8))
-	*(*int32)(unsafe.Pointer(bp + 2*4)) = n / int32(5)
-	*(*int32)(unsafe.Pointer(bp + 1*12 + 2*4)) = n - int32(5)**(*int32)(unsafe.Pointer(bp + 2*4))
+	ix[0][2] = n / 5
+	ix[1][2] = n - 5*ix[0][2]
 	n = 0
 	for {
 		if !(n < int32(2)) {
 			break
 		}
-		*(*int32)(unsafe.Pointer(bp + uintptr(n)*12)) = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_uniform3_iCDF)), uint32(8))
-		*(*int32)(unsafe.Pointer(bp + uintptr(n)*12 + 1*4)) = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_uniform5_iCDF)), uint32(8))
+		ix[n][0] = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_uniform3_iCDF)), uint32(8))
+		ix[n][1] = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_uniform5_iCDF)), uint32(8))
 		n = n + 1
 	}
 	/* Dequantize */
@@ -38,10 +36,10 @@ func Opus_silk_stereo_decode_pred(tls *libc.TLS, psRangeDec uintptr, pred_Q13 ui
 		if !(n < int32(2)) {
 			break
 		}
-		*(*int32)(unsafe.Pointer(bp + uintptr(n)*12)) += int32(3) * *(*int32)(unsafe.Pointer(bp + uintptr(n)*12 + 2*4))
-		low_Q13 = int32(Opus_silk_stereo_pred_quant_Q13[*(*int32)(unsafe.Pointer(bp + uintptr(n)*12))])
-		step_Q13 = int32(int64(int32(Opus_silk_stereo_pred_quant_Q13[*(*int32)(unsafe.Pointer(bp + uintptr(n)*12))+int32(1)])-low_Q13) * int64(int16(6554)) >> int32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + uintptr(n)*4)) = low_Q13 + int32(int16(step_Q13))*int32(int16(int32(2)**(*int32)(unsafe.Pointer(bp + uintptr(n)*12 + 1*4))+int32(1)))
+		ix[n][0] += 3 * ix[n][2]
+		low_Q13 = int32(Opus_silk_stereo_pred_quant_Q13[ix[n][0]])
+		step_Q13 = int32(int64(int32(Opus_silk_stereo_pred_quant_Q13[ix[n][0]+1])-low_Q13) * int64(int16(6554)) >> int32(16))
+		*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + uintptr(n)*4)) = low_Q13 + int32(int16(step_Q13))*int32(int16(2*ix[n][1]+1))
 		n = n + 1
 	}
 	/* Subtract second from first predictor (helps when actually applying these) */

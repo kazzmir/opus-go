@@ -13,19 +13,17 @@ var _ reflect.Type
 var _ unsafe.Pointer
 
 func Opus_silk_NLSF_decode(tls *libc.TLS, pNLSF_Q15 uintptr, NLSFIndices uintptr, psNLSF_CB uintptr) {
-	bp := tls.Alloc(80)
-	defer tls.Free(80)
 	var NLSF_Q15_tmp OpusT_opus_int32
 	var i, v2, v3 int32
 	var pCB_Wght_Q9, pCB_element uintptr
-	var _ /* ec_ix at bp+16 */ [16]OpusT_opus_int16
-	var _ /* pred_Q8 at bp+0 */ [16]OpusT_opus_uint8
-	var _ /* res_Q10 at bp+48 */ [16]OpusT_opus_int16
+	var ec_ix [16]OpusT_opus_int16
+	var pred_Q8 [16]OpusT_opus_uint8
+	var res_Q10 [16]OpusT_opus_int16
 	_, _, _, _, _, _ = NLSF_Q15_tmp, i, pCB_Wght_Q9, pCB_element, v2, v3
 	/* Unpack entropy table indices and predictor for current CB1 index */
-	Opus_silk_NLSF_unpack(tls, bp+16, bp, psNLSF_CB, int32(*(*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices))))
+	Opus_silk_NLSF_unpack(tls, uintptr(unsafe.Pointer(&ec_ix[0])), uintptr(unsafe.Pointer(&pred_Q8[0])), psNLSF_CB, int32(*(*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices))))
 	/* Predictive residual dequantizer */
-	silk_NLSF_residual_dequant(tls, bp+48, NLSFIndices+1, bp, int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).FquantStepSize_Q16), (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)
+	silk_NLSF_residual_dequant(tls, uintptr(unsafe.Pointer(&res_Q10[0])), NLSFIndices+1, uintptr(unsafe.Pointer(&pred_Q8[0])), int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).FquantStepSize_Q16), (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)
 	/* Apply inverse square-rooted weights to first stage and add to output */
 	pCB_element = (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).FCB1_NLSF_Q8 + uintptr(int32(*(*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices)))*int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder))
 	pCB_Wght_Q9 = (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).FCB1_Wght_Q9 + uintptr(int32(*(*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices)))*int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder))*2
@@ -34,7 +32,7 @@ func Opus_silk_NLSF_decode(tls *libc.TLS, pNLSF_Q15 uintptr, NLSFIndices uintptr
 		if !(i < int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)) {
 			break
 		}
-		NLSF_Q15_tmp = int32(uint32(int32((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 48)))[i]))<<int32(14))/int32(*(*OpusT_opus_int16)(unsafe.Pointer(pCB_Wght_Q9 + uintptr(i)*2))) + int32(uint32(uint16(int16(*(*OpusT_opus_uint8)(unsafe.Pointer(pCB_element + uintptr(i))))))<<int32(7))
+		NLSF_Q15_tmp = int32(uint32(int32(res_Q10[i]))<<int32(14))/int32(*(*OpusT_opus_int16)(unsafe.Pointer(pCB_Wght_Q9 + uintptr(i)*2))) + int32(uint32(uint16(int16(*(*OpusT_opus_uint8)(unsafe.Pointer(pCB_element + uintptr(i))))))<<int32(7))
 		if NLSF_Q15_tmp > int32(32767) {
 			v2 = int32(32767)
 		} else {

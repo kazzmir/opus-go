@@ -19,7 +19,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 	var scale OpusT_celt_coef
 	var yc OpusT_kiss_fft_cpx
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N2, N4, _saved_stack, f, f2, fp, i, im, re, scale, st, st1, t, t0, t01, t1, t11, t12, trig, wp1, wp2, xp1, xp2, yc, yi, yi1, yp, yp1, yp11, yp2, yr, yr1, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v6, v8
-	st1 = *(*uintptr)(unsafe.Pointer(l + 8 + uintptr(shift)*8))
+	st1 = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift]
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -66,7 +66,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v8 = st
-	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
+	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v10 = libc.Xmalloc(tls, uint64(16))
@@ -100,7 +100,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v20 = st
-	*(*uintptr)(unsafe.Pointer(v20 + 8)) += uintptr(uint64(uint32(N2)) * (uint64(4) / uint64(1)))
+	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v20)).Fglobal_stack += uintptr(uint64(uint32(N2)) * (uint64(4) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v22 = libc.Xmalloc(tls, uint64(16))
@@ -132,7 +132,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v8 = st
-	*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
+	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v10 = libc.Xmalloc(tls, uint64(16))
@@ -166,7 +166,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v20 = st
-	*(*uintptr)(unsafe.Pointer(v20 + 8)) += uintptr(uint64(uint32(N4)) * (uint64(8) / uint64(1)))
+	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v20)).Fglobal_stack += uintptr(uint64(uint32(N4)) * (uint64(8) / uint64(1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v22 = libc.Xmalloc(tls, uint64(16))
@@ -327,7 +327,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr,
 	xp2 = in + uintptr(stride*(N2-int32(1)))*4
 	yp = out + uintptr(overlap>>int32(1))*4
 	t = trig
-	bitrev = (*OpusT_kiss_fft_state)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(l + 8 + uintptr(shift)*8)))).Fbitrev
+	bitrev = (*OpusT_kiss_fft_state)(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift])).Fbitrev
 	i = 0
 	for {
 		if !(i < N4) {
@@ -348,7 +348,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr,
 		xp2 = xp2 - uintptr(int32(2)*stride)*4
 		i = i + 1
 	}
-	Opus_opus_fft_impl(tls, *(*uintptr)(unsafe.Pointer(l + 8 + uintptr(shift)*8)), out+uintptr(overlap>>int32(1))*4)
+	Opus_opus_fft_impl(tls, (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift], out+uintptr(overlap>>int32(1))*4)
 	/* Post-rotate and de-shuffle from both ends of the buffer at once to make
 	   it in-place. */
 	yp0 = out + uintptr(overlap>>int32(1))*4
@@ -534,10 +534,11 @@ func kf_bfly31(tls *libc.TLS, Fout uintptr, fstride OpusT_size_t, st OpusT_mini_
 	var scratch [5]OpusT_mini_kiss_fft_cpx
 	var tw1, tw2, v1 uintptr
 	_, _, _, _, _, _, _, _ = epi3, k, m2, scratch, tw1, tw2, v1, v2
+	state := (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st))
 	k = m
 	m2 = uint64(2) * m
-	epi3 = *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(st + 264 + uintptr(fstride*m)*8))
-	v1 = st + 264
+	epi3 = *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(fstride*m)*8))
+	v1 = uintptr(unsafe.Pointer(&state.Ftwiddles[0]))
 	tw2 = v1
 	tw1 = v1
 	for {
@@ -757,8 +758,9 @@ func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem 
 		*(*OpusT_size_t)(unsafe.Pointer(lenmem)) = memneeded
 	}
 	if st != 0 {
-		(*mini_kiss_fft_state)(unsafe.Pointer(st)).Fnfft = nfft
-		(*mini_kiss_fft_state)(unsafe.Pointer(st)).Finverse = inverse_fft
+		state := (*mini_kiss_fft_state)(unsafe.Pointer(st))
+		state.Fnfft = nfft
+		state.Finverse = inverse_fft
 		i = 0
 		for {
 			if !(i < nfft) {
@@ -766,14 +768,14 @@ func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem 
 			}
 			pi = float64(3.141592653589793)
 			phase = float64(float64(float64(-int32(2))*pi)*float64(i)) / float64(nfft)
-			if (*mini_kiss_fft_state)(unsafe.Pointer(st)).Finverse != 0 {
+			if state.Finverse != 0 {
 				phase = phase * float64(-int32(1))
 			}
-			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(st + 264 + uintptr(i)*8)).Fr = float32(libc.Xcos(tls, phase))
-			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(st + 264 + uintptr(i)*8)).Fi = float32(libc.Xsin(tls, phase))
+			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(i)*8)).Fr = float32(libc.Xcos(tls, phase))
+			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(i)*8)).Fi = float32(libc.Xsin(tls, phase))
 			i = i + 1
 		}
-		kf_factor(tls, nfft, st+8)
+		kf_factor(tls, nfft, uintptr(unsafe.Pointer(&state.Ffactors[0])))
 	}
 	return st
 }
@@ -809,24 +811,22 @@ type OpusT_mini_kiss_fftr_state = struct {
 }
 
 func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem uintptr, lenmem uintptr) (r OpusT_mini_kiss_fftr_cfg) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var i int32
 	var memneeded OpusT_size_t
 	var phase float64
 	var st OpusT_mini_kiss_fftr_cfg
+	var subsize OpusT_size_t
 	var v1 bool
-	var _ /* subsize at bp+0 */ OpusT_size_t
-	_, _, _, _, _ = i, memneeded, phase, st, v1
+	_, _, _, _, _, _ = i, memneeded, phase, st, subsize, v1
 	st = uintptr(uint32(0))
-	*(*OpusT_size_t)(unsafe.Pointer(bp)) = uint64(0)
+	subsize = 0
 	if v1 = nfft&int32(1) == 0; !v1 {
 		libc.X__assert_fail(tls, __ccgo_ts+5561, __ccgo_ts+5529, int32(416), uintptr(unsafe.Pointer(&__func__2)))
 	}
 	_ = v1 || libc.Bool(int32(0) != 0)
 	nfft = nfft >> int32(1)
-	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, uintptr(uint32(0)), bp)
-	memneeded = uint64(24) + *(*OpusT_size_t)(unsafe.Pointer(bp)) + uint64(8)*uint64(uint32(nfft*int32(3)/int32(2)))
+	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, uintptr(uint32(0)), uintptr(unsafe.Pointer(&subsize)))
+	memneeded = uint64(24) + subsize + uint64(8)*uint64(uint32(nfft*int32(3)/int32(2)))
 	if lenmem == uintptr(uint32(0)) {
 		st = libc.Xmalloc(tls, memneeded)
 	} else {
@@ -839,9 +839,9 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem
 		return uintptr(uint32(0))
 	}
 	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate = st + uintptr(uint32(1))*24 /*just beyond kiss_fftr_state struct */
-	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate + uintptr(*(*OpusT_size_t)(unsafe.Pointer(bp)))
+	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate + uintptr(subsize)
 	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsuper_twiddles = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf + uintptr(nfft)*8
-	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate, bp)
+	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate, uintptr(unsafe.Pointer(&subsize)))
 	i = 0
 	for {
 		if !(i < nfft/int32(2)) {
@@ -1062,15 +1062,13 @@ func Opus_ec_laplace_decode(tls *libc.TLS, dec uintptr, fs uint32, decay int32) 
 }
 
 func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc uintptr, value int32, p0 OpusT_opus_uint16, decay OpusT_opus_uint16) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
 	var i, s, v1, v2 int32
-	var _ /* icdf at bp+6 */ [8]OpusT_opus_uint16
-	var _ /* sign_icdf at bp+0 */ [3]OpusT_opus_uint16
+	var icdf [8]OpusT_opus_uint16
+	var sign_icdf [3]OpusT_opus_uint16
 	_, _, _, _ = i, s, v1, v2
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[0] = uint16(int32(32768) - int32(p0))
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[int32(1)] = uint16(int32((*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[0]) / int32(2))
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[int32(2)] = uint16(0)
+	sign_icdf[0] = uint16(32768 - int32(p0))
+	sign_icdf[1] = uint16(int32(sign_icdf[0]) / 2)
+	sign_icdf[2] = 0
 	if value == 0 {
 		v1 = 0
 	} else {
@@ -1082,7 +1080,7 @@ func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc uintptr, value int32, p0 OpusT
 		v1 = v2
 	}
 	s = v1
-	Opus_ec_enc_icdf16(tls, enc, s, bp, uint32(15))
+	Opus_ec_enc_icdf16(tls, enc, s, uintptr(unsafe.Pointer(&sign_icdf[0])), uint32(15))
 	value = libc.Xabs(tls, value)
 	if value != 0 {
 		if int32(7) > int32(decay) {
@@ -1090,21 +1088,21 @@ func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc uintptr, value int32, p0 OpusT
 		} else {
 			v1 = int32(decay)
 		}
-		(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[0] = uint16(v1)
+		icdf[0] = uint16(v1)
 		i = int32(1)
 		for {
 			if !(i < int32(7)) {
 				break
 			}
-			if int32(7)-i > int32((*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i-int32(1)])*int32(decay)>>int32(15) {
+			if 7-i > int32(icdf[i-1])*int32(decay)>>int32(15) {
 				v1 = int32(7) - i
 			} else {
-				v1 = int32((*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i-int32(1)]) * int32(decay) >> int32(15)
+				v1 = int32(icdf[i-1]) * int32(decay) >> int32(15)
 			}
-			(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i] = uint16(v1)
+			icdf[i] = uint16(v1)
 			i = i + 1
 		}
-		(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[int32(7)] = uint16(0)
+		icdf[7] = 0
 		value = value - 1
 		for cond := true; cond; cond = value >= 0 {
 			if value < int32(7) {
@@ -1112,23 +1110,21 @@ func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc uintptr, value int32, p0 OpusT
 			} else {
 				v1 = int32(7)
 			}
-			Opus_ec_enc_icdf16(tls, enc, v1, bp+6, uint32(15))
+			Opus_ec_enc_icdf16(tls, enc, v1, uintptr(unsafe.Pointer(&icdf[0])), uint32(15))
 			value = value - int32(7)
 		}
 	}
 }
 
 func Opus_ec_laplace_decode_p0(tls *libc.TLS, dec uintptr, p0 OpusT_opus_uint16, decay OpusT_opus_uint16) (r int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
 	var i, s, v, value, v1 int32
-	var _ /* icdf at bp+6 */ [8]OpusT_opus_uint16
-	var _ /* sign_icdf at bp+0 */ [3]OpusT_opus_uint16
+	var icdf [8]OpusT_opus_uint16
+	var sign_icdf [3]OpusT_opus_uint16
 	_, _, _, _, _ = i, s, v, value, v1
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[0] = uint16(int32(32768) - int32(p0))
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[int32(1)] = uint16(int32((*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[0]) / int32(2))
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[int32(2)] = uint16(0)
-	s = Opus_ec_dec_icdf16(tls, dec, bp, uint32(15))
+	sign_icdf[0] = uint16(32768 - int32(p0))
+	sign_icdf[1] = uint16(int32(sign_icdf[0]) / 2)
+	sign_icdf[2] = 0
+	s = Opus_ec_dec_icdf16(tls, dec, uintptr(unsafe.Pointer(&sign_icdf[0])), uint32(15))
 	if s == int32(2) {
 		s = -int32(1)
 	}
@@ -1138,24 +1134,24 @@ func Opus_ec_laplace_decode_p0(tls *libc.TLS, dec uintptr, p0 OpusT_opus_uint16,
 		} else {
 			v1 = int32(decay)
 		}
-		(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[0] = uint16(v1)
+		icdf[0] = uint16(v1)
 		i = int32(1)
 		for {
 			if !(i < int32(7)) {
 				break
 			}
-			if int32(7)-i > int32((*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i-int32(1)])*int32(decay)>>int32(15) {
+			if 7-i > int32(icdf[i-1])*int32(decay)>>int32(15) {
 				v1 = int32(7) - i
 			} else {
-				v1 = int32((*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i-int32(1)]) * int32(decay) >> int32(15)
+				v1 = int32(icdf[i-1]) * int32(decay) >> int32(15)
 			}
-			(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i] = uint16(v1)
+			icdf[i] = uint16(v1)
 			i = i + 1
 		}
-		(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[int32(7)] = uint16(0)
+		icdf[7] = 0
 		value = int32(1)
 		for cond := true; cond; cond = v == int32(7) {
-			v = Opus_ec_dec_icdf16(tls, dec, bp+6, uint32(15))
+			v = Opus_ec_dec_icdf16(tls, dec, uintptr(unsafe.Pointer(&icdf[0])), uint32(15))
 			value = value + v
 		}
 		return s * value

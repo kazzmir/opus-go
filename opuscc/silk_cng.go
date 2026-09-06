@@ -42,36 +42,38 @@ func silk_CNG_exc(tls *libc.TLS, exc_Q14 uintptr, exc_buf_Q14 uintptr, length in
 func Opus_silk_CNG_Reset(tls *libc.TLS, psDec uintptr) {
 	var NLSF_acc_Q15, NLSF_step_Q15, i int32
 	_, _, _ = NLSF_acc_Q15, NLSF_step_Q15, i
-	NLSF_step_Q15 = int32(silk_int16_MAX1) / ((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order + int32(1))
+	dec := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	cng := &dec.FsCNG
+	NLSF_step_Q15 = int32(silk_int16_MAX1) / (dec.FLPC_order + int32(1))
 	NLSF_acc_Q15 = 0
 	i = 0
 	for {
-		if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
+		if !(i < dec.FLPC_order) {
 			break
 		}
 		NLSF_acc_Q15 = NLSF_acc_Q15 + NLSF_step_Q15
-		*(*OpusT_opus_int16)(unsafe.Pointer(psDec + 2892 + 1280 + uintptr(i)*2)) = int16(NLSF_acc_Q15)
+		cng.FCNG_smth_NLSF_Q15[i] = int16(NLSF_acc_Q15)
 		i = i + 1
 	}
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsCNG.FCNG_smth_Gain_Q16 = 0
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsCNG.Frand_seed = int32(3176576)
+	cng.FCNG_smth_Gain_Q16 = 0
+	cng.Frand_seed = int32(3176576)
 }
 
 // C documentation
 //
 //	/* Updates CNG estimate, and applies the CNG when packet was lost   */
 func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintptr, length int32) {
-	bp := tls.Alloc(48)
-	defer tls.Free(48)
-	var CNG_sig_Q14, _saved_stack, psCNG, st, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v6, v9 uintptr
+	var CNG_sig_Q14, _saved_stack, st, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v6, v9 uintptr
 	var LPC_pred_Q10, gain_Q10, gain_Q16, lzeros, max_Gain_Q16, y, v33, v34, v36, v37, v38, v41, v43 OpusT_opus_int32
 	var i, subfr, v40, v42, v52, v54, v58, v59, v60, v61, v62, v63, v64, v65, v66 int32
 	var m, r, x OpusT_opus_uint32
-	var _ /* A_Q12 at bp+8 */ [16]OpusT_opus_int16
-	var _ /* frac_Q7 at bp+4 */ OpusT_opus_int32
-	var _ /* lz at bp+0 */ OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = CNG_sig_Q14, LPC_pred_Q10, _saved_stack, gain_Q10, gain_Q16, i, lzeros, m, max_Gain_Q16, psCNG, r, st, subfr, x, y, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v33, v34, v36, v37, v38, v40, v41, v42, v43, v52, v54, v58, v59, v6, v60, v61, v62, v63, v64, v65, v66, v9
-	psCNG = psDec + 2892
+	var A_Q12 [MAX_LPC_ORDER]OpusT_opus_int16
+	var frac_Q7 OpusT_opus_int32
+	var lz OpusT_opus_int32
+	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = CNG_sig_Q14, LPC_pred_Q10, _saved_stack, gain_Q10, gain_Q16, i, lzeros, m, max_Gain_Q16, r, st, subfr, x, y, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v33, v34, v36, v37, v38, v40, v41, v42, v43, v52, v54, v58, v59, v6, v60, v61, v62, v63, v64, v65, v66, v9
+	dec := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
+	cng := &dec.FsCNG
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -83,21 +85,20 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != (*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).Ffs_kHz {
+	if dec.Ffs_kHz != cng.Ffs_kHz {
 		/* Reset state */
 		Opus_silk_CNG_Reset(tls, psDec)
-		(*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).Ffs_kHz = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz
+		cng.Ffs_kHz = dec.Ffs_kHz
 	}
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt == 0 && (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType == TYPE_NO_VOICE_ACTIVITY {
+	if dec.FlossCnt == 0 && dec.FprevSignalType == TYPE_NO_VOICE_ACTIVITY {
 		/* Update CNG parameters */
 		/* Smoothing of LSF's  */
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
+			if !(i < dec.FLPC_order) {
 				break
 			}
-			v1 = psCNG + 1280 + uintptr(i)*2
-			*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) + int32(int64(int32(*(*OpusT_opus_int16)(unsafe.Pointer(psDec + 2344 + uintptr(i)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(psCNG + 1280 + uintptr(i)*2))))*int64(int16(int32(CNG_NLSF_SMTH_Q16)))>>int32(16)))
+			cng.FCNG_smth_NLSF_Q15[i] = OpusT_opus_int16(int32(cng.FCNG_smth_NLSF_Q15[i]) + int32(int64(int32(dec.FprevNLSF_Q15[i])-int32(cng.FCNG_smth_NLSF_Q15[i]))*int64(int16(int32(CNG_NLSF_SMTH_Q16)))>>int32(16)))
 			i = i + 1
 		}
 		/* Find the subframe with the highest gain */
@@ -105,34 +106,34 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 		subfr = 0
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr) {
+			if !(i < dec.Fnb_subfr) {
 				break
 			}
-			if *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4)) > max_Gain_Q16 {
-				max_Gain_Q16 = *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4))
+			if control.FGains_Q16[i] > max_Gain_Q16 {
+				max_Gain_Q16 = control.FGains_Q16[i]
 				subfr = i
 			}
 			i = i + 1
 		}
 		/* Update CNG excitation buffer with excitation from this subframe */
-		libc.Xmemmove(tls, psCNG+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length)*4, psCNG, uint64(uint32(((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr-int32(1))*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length))*uint64(4))
-		libc.Xmemcpy(tls, psCNG, psDec+4+uintptr(subfr*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length)*4, uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length))*uint64(4))
+		libc.Xmemmove(tls, uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[dec.Fsubfr_length])), uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[0])), uint64(uint32((dec.Fnb_subfr-int32(1))*dec.Fsubfr_length))*uint64(4))
+		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[0])), uintptr(unsafe.Pointer(&dec.Fexc_Q14[subfr*dec.Fsubfr_length])), uint64(uint32(dec.Fsubfr_length))*uint64(4))
 		/* Smooth gains */
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr) {
+			if !(i < dec.Fnb_subfr) {
 				break
 			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(psCNG + 1376)) += int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4))-(*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16) * int64(int16(int32(CNG_GAIN_SMTH_Q16))) >> int32(16))
+			cng.FCNG_smth_Gain_Q16 += int32(int64(control.FGains_Q16[i]-cng.FCNG_smth_Gain_Q16) * int64(int16(int32(CNG_GAIN_SMTH_Q16))) >> int32(16))
 			/* If the smoothed gain is 3 dB greater than this subframe's gain, use this subframe's gain to adapt faster. */
-			if int32(int64((*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16)*int64(int32(CNG_GAIN_SMTH_THRESHOLD_Q16))>>int32(16)) > *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4)) {
-				(*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16 = *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(i)*4))
+			if int32(int64(cng.FCNG_smth_Gain_Q16)*int64(int32(CNG_GAIN_SMTH_THRESHOLD_Q16))>>int32(16)) > control.FGains_Q16[i] {
+				cng.FCNG_smth_Gain_Q16 = control.FGains_Q16[i]
 			}
 			i = i + 1
 		}
 	}
 	/* Add CNG when packet is lost or during DTX */
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 {
+	if dec.FlossCnt != 0 {
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v1 = libc.Xmalloc(tls, uint64(16))
@@ -153,7 +154,7 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 		}
 		v9 = st
-		*(*uintptr)(unsafe.Pointer(v3 + 8)) += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v9)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
+		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v9)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v11 = libc.Xmalloc(tls, uint64(16))
@@ -187,7 +188,7 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 		}
 		v21 = st
-		*(*uintptr)(unsafe.Pointer(v21 + 8)) += uintptr(uint64(uint32(length+int32(MAX_LPC_ORDER))) * (uint64(4) / uint64(1)))
+		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack += uintptr(uint64(uint32(length+int32(MAX_LPC_ORDER))) * (uint64(4) / uint64(1)))
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v23 = libc.Xmalloc(tls, uint64(16))
@@ -200,10 +201,10 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 		v25 = st
 		CNG_sig_Q14 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v25)).Fglobal_stack - uintptr(uint64(uint32(length+int32(MAX_LPC_ORDER)))*(uint64(4)/uint64(1)))
 		/* Generate CNG excitation */
-		gain_Q16 = int32(int64((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.FrandScale_Q14) * int64(*(*OpusT_opus_int32)(unsafe.Pointer(psDec + 4292 + 72 + 1*4))) >> int32(16))
-		if gain_Q16 >= int32(1)<<int32(21) || (*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16 > int32(1)<<int32(23) {
+		gain_Q16 = int32(int64(dec.FsPLC.FrandScale_Q14) * int64(dec.FsPLC.FprevGain_Q16[1]) >> int32(16))
+		if gain_Q16 >= int32(1)<<int32(21) || cng.FCNG_smth_Gain_Q16 > int32(1)<<int32(23) {
 			gain_Q16 = gain_Q16 >> int32(16) * (gain_Q16 >> int32(16))
-			gain_Q16 = (*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16>>int32(16)*((*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16>>int32(16)) - int32(uint32(gain_Q16)<<int32(5))
+			gain_Q16 = cng.FCNG_smth_Gain_Q16>>int32(16)*(cng.FCNG_smth_Gain_Q16>>int32(16)) - int32(uint32(gain_Q16)<<int32(5))
 			v33 = gain_Q16
 			if v33 <= int32(0) {
 				v34 = 0
@@ -218,7 +219,7 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 			}
 			v38 = v40
 			lzeros = v38
-			*(*OpusT_opus_int32)(unsafe.Pointer(bp)) = lzeros
+			lz = lzeros
 			v41 = v36
 			v42 = int32(24) - lzeros
 			x = uint32(v41)
@@ -237,20 +238,20 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 				}
 			}
 		_44:
-			*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)) = v43 & int32(0x7f)
-			if *(*OpusT_opus_int32)(unsafe.Pointer(bp))&int32(1) != 0 {
+			frac_Q7 = v43 & int32(0x7f)
+			if lz&int32(1) != 0 {
 				y = int32(32768)
 			} else {
 				y = int32(46214)
 			}
-			y = y >> (*(*OpusT_opus_int32)(unsafe.Pointer(bp)) >> int32(1))
-			y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))))))>>int32(16))
+			y = y >> (lz >> int32(1))
+			y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(frac_Q7))))>>int32(16))
 			v34 = y
 		_35:
 			gain_Q16 = int32(uint32(v34) << int32(16))
 		} else {
 			gain_Q16 = int32(int64(gain_Q16) * int64(gain_Q16) >> int32(16))
-			gain_Q16 = int32(int64((*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16)*int64((*OpusT_silk_CNG_struct)(unsafe.Pointer(psCNG)).FCNG_smth_Gain_Q16)>>int32(16)) - int32(uint32(gain_Q16)<<int32(5))
+			gain_Q16 = int32(int64(cng.FCNG_smth_Gain_Q16)*int64(cng.FCNG_smth_Gain_Q16)>>int32(16)) - int32(uint32(gain_Q16)<<int32(5))
 			v33 = gain_Q16
 			if v33 <= int32(0) {
 				v34 = 0
@@ -265,7 +266,7 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 			}
 			v38 = v40
 			lzeros = v38
-			*(*OpusT_opus_int32)(unsafe.Pointer(bp)) = lzeros
+			lz = lzeros
 			v41 = v36
 			v42 = int32(24) - lzeros
 			x = uint32(v41)
@@ -284,25 +285,25 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 				}
 			}
 		_56:
-			*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)) = v43 & int32(0x7f)
-			if *(*OpusT_opus_int32)(unsafe.Pointer(bp))&int32(1) != 0 {
+			frac_Q7 = v43 & int32(0x7f)
+			if lz&int32(1) != 0 {
 				y = int32(32768)
 			} else {
 				y = int32(46214)
 			}
-			y = y >> (*(*OpusT_opus_int32)(unsafe.Pointer(bp)) >> int32(1))
-			y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))))))>>int32(16))
+			y = y >> (lz >> int32(1))
+			y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(frac_Q7))))>>int32(16))
 			v34 = y
 		_47:
 			gain_Q16 = int32(uint32(v34) << int32(8))
 		}
 		gain_Q10 = gain_Q16 >> int32(6)
-		silk_CNG_exc(tls, CNG_sig_Q14+uintptr(MAX_LPC_ORDER)*4, psCNG, length, psCNG+1380)
+		silk_CNG_exc(tls, CNG_sig_Q14+uintptr(MAX_LPC_ORDER)*4, uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[0])), length, uintptr(unsafe.Pointer(&cng.Frand_seed)))
 		/* Convert CNG NLSF to filter representation */
-		Opus_silk_NLSF2A(tls, bp+8, psCNG+1280, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Farch)
+		Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&A_Q12[0])), uintptr(unsafe.Pointer(&cng.FCNG_smth_NLSF_Q15[0])), dec.FLPC_order, dec.Farch)
 		/* Generate CNG signal, by synthesis filtering */
-		libc.Xmemcpy(tls, CNG_sig_Q14, psCNG+1312, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
-		if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order == int32(10) || (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order == int32(16)) {
+		libc.Xmemcpy(tls, CNG_sig_Q14, uintptr(unsafe.Pointer(&cng.FCNG_synth_state[0])), uint64(uint32(MAX_LPC_ORDER))*uint64(4))
+		if !(dec.FLPC_order == int32(10) || dec.FLPC_order == int32(16)) {
 			Opus_celt_fatal(tls, __ccgo_ts+5777, __ccgo_ts+5763, int32(153))
 		}
 		i = 0
@@ -311,24 +312,24 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 				break
 			}
 			/* Avoids introducing a bias because silk_SMLAWB() always rounds to -inf */
-			LPC_pred_Q10 = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order >> int32(1)
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(1))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[0])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(2))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(1)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(3))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(2)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(4))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(3)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(5))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(4)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(6))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(5)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(7))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(6)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(8))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(7)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(9))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(8)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(10))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(9)])>>int32(16))
-			if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order == int32(16) {
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(11))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(10)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(12))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(11)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(13))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(12)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(14))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(13)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(15))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(14)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(16))*4)))*int64((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp + 8)))[int32(15)])>>int32(16))
+			LPC_pred_Q10 = dec.FLPC_order >> int32(1)
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(1))*4)))*int64(A_Q12[0])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(2))*4)))*int64(A_Q12[int32(1)])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(3))*4)))*int64(A_Q12[int32(2)])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(4))*4)))*int64(A_Q12[int32(3)])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(5))*4)))*int64(A_Q12[int32(4)])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(6))*4)))*int64(A_Q12[int32(5)])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(7))*4)))*int64(A_Q12[int32(6)])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(8))*4)))*int64(A_Q12[int32(7)])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(9))*4)))*int64(A_Q12[int32(8)])>>int32(16))
+			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(10))*4)))*int64(A_Q12[int32(9)])>>int32(16))
+			if dec.FLPC_order == int32(16) {
+				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(11))*4)))*int64(A_Q12[int32(10)])>>int32(16))
+				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(12))*4)))*int64(A_Q12[int32(11)])>>int32(16))
+				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(13))*4)))*int64(A_Q12[int32(12)])>>int32(16))
+				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(14))*4)))*int64(A_Q12[int32(13)])>>int32(16))
+				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(15))*4)))*int64(A_Q12[int32(14)])>>int32(16))
+				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(16))*4)))*int64(A_Q12[int32(15)])>>int32(16))
 			}
 			/* Update states */
 			if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
@@ -441,9 +442,9 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 			*(*OpusT_opus_int16)(unsafe.Pointer(frame + uintptr(i)*2)) = int16(v40)
 			i = i + 1
 		}
-		libc.Xmemcpy(tls, psCNG+1312, CNG_sig_Q14+uintptr(length)*4, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
+		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&cng.FCNG_synth_state[0])), CNG_sig_Q14+uintptr(length)*4, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
 	} else {
-		libc.Xmemset(tls, psCNG+1312, 0, uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order))*uint64(4))
+		libc.Xmemset(tls, uintptr(unsafe.Pointer(&cng.FCNG_synth_state[0])), 0, uint64(uint32(dec.FLPC_order))*uint64(4))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
