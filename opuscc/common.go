@@ -2852,29 +2852,29 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		} else {
 			pcm_ptr = pcm
 		}
-		if (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode == int32(MODE_CELT_ONLY) {
+		if decoder.Fprev_mode == int32(MODE_CELT_ONLY) {
 			Opus_silk_ResetDecoder(tls, silk_dec)
 		}
 		/* The SILK PLC cannot produce frames of less than 10 ms */
-		if int32(10) > int32(1000)*audiosize/(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs {
+		if int32(10) > int32(1000)*audiosize/decoder.FFs {
 			v31 = int32(10)
 		} else {
-			v31 = int32(1000) * audiosize / (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs
+			v31 = int32(1000) * audiosize / decoder.FFs
 		}
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FDecControl.FpayloadSize_ms = v31
+		decoder.FDecControl.FpayloadSize_ms = v31
 		if data != uintptr(uint32(0)) {
-			(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FDecControl.FnChannelsInternal = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fstream_channels
+			decoder.FDecControl.FnChannelsInternal = decoder.Fstream_channels
 			if mode == int32(MODE_SILK_ONLY) {
 				if bandwidth == int32(OPUS_BANDWIDTH_NARROWBAND) {
-					(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FDecControl.FinternalSampleRate = int32(8000)
+					decoder.FDecControl.FinternalSampleRate = int32(8000)
 				} else {
 					if bandwidth == int32(OPUS_BANDWIDTH_MEDIUMBAND) {
-						(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FDecControl.FinternalSampleRate = int32(12000)
+						decoder.FDecControl.FinternalSampleRate = int32(12000)
 					} else {
 						if bandwidth == int32(OPUS_BANDWIDTH_WIDEBAND) {
-							(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FDecControl.FinternalSampleRate = int32(16000)
+							decoder.FDecControl.FinternalSampleRate = int32(16000)
 						} else {
-							(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FDecControl.FinternalSampleRate = int32(16000)
+							decoder.FDecControl.FinternalSampleRate = int32(16000)
 							if !(int32(0) != 0) {
 								Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+57, int32(436))
 							}
@@ -2883,10 +2883,10 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 				}
 			} else {
 				/* Hybrid mode */
-				(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FDecControl.FinternalSampleRate = int32(16000)
+				decoder.FDecControl.FinternalSampleRate = int32(16000)
 			}
 		}
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FDecControl.Fenable_deep_plc = libc.BoolInt32((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fcomplexity >= int32(5))
+		decoder.FDecControl.Fenable_deep_plc = libc.BoolInt32(decoder.Fcomplexity >= int32(5))
 		if data == uintptr(uint32(0)) {
 			v31 = int32(1)
 		} else {
