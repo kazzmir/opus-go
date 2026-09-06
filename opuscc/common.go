@@ -2318,26 +2318,23 @@ func validate_opus_decoder(tls *libc.TLS, st uintptr) {
 }
 
 func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) (r int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var alignment uint32
 	var celtDecSizeBytes, ret, v1 int32
-	var _ /* silkDecSizeBytes at bp+0 */ int32
-	_, _, _, _ = alignment, celtDecSizeBytes, ret, v1
+	var silkDecSizeBytes int32
+	_, _, _, _, _ = alignment, celtDecSizeBytes, ret, silkDecSizeBytes, v1
 	if channels < int32(1) || channels > int32(2) {
 		return 0
 	}
-	ret = Opus_silk_Get_Decoder_Size(tls, bp)
+	ret = Opus_silk_Get_Decoder_Size(tls, uintptr(unsafe.Pointer(&silkDecSizeBytes)))
 	if ret != 0 {
 		return 0
 	}
 	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(*(*int32)(unsafe.Pointer(bp))) + alignment - uint32(1)) / alignment * alignment)
-	*(*int32)(unsafe.Pointer(bp)) = v1
+	silkDecSizeBytes = int32((uint32(silkDecSizeBytes) + alignment - uint32(1)) / alignment * alignment)
 	celtDecSizeBytes = Opus_celt_decoder_get_size(tls, channels)
 	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
 	v1 = int32((uint32(int32(100)) + alignment - uint32(1)) / alignment * alignment)
-	return v1 + *(*int32)(unsafe.Pointer(bp)) + celtDecSizeBytes
+	return v1 + silkDecSizeBytes + celtDecSizeBytes
 }
 
 func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels int32) (r int32) {
