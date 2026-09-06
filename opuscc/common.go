@@ -6181,15 +6181,13 @@ func Opus_opus_extension_iterator_find(tls *libc.TLS, iter uintptr, ext uintptr,
 //	/* Count the number of extensions, excluding real padding, separators, and
 //	    repeat indicators, but including the repeated extensions. */
 func Opus_opus_packet_extensions_count(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, nb_frames int32) (r OpusT_opus_int32) {
-	bp := tls.Alloc(80)
-	defer tls.Free(80)
 	var count int32
-	var _ /* iter at bp+0 */ OpusT_OpusExtensionIterator
-	_ = count
-	Opus_opus_extension_iterator_init(tls, bp, data, len1, nb_frames)
+	var iter OpusT_OpusExtensionIterator
+	_, _ = count, iter
+	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iter)), data, len1, nb_frames)
 	count = 0
 	for {
-		if !(Opus_opus_extension_iterator_next(tls, bp, uintptr(uint32(0))) > 0) {
+		if !(Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iter)), uintptr(uint32(0))) > 0) {
 			break
 		}
 		count = count + 1

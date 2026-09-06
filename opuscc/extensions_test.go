@@ -46,4 +46,7 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 	if found.Fframe != 0 || found.Flen1 != 1 || *(*byte)(unsafe.Pointer(found.Fdata)) != 'x' {
 		t.Fatalf("found extension: %+v", found)
 	}
+	if got := Opus_opus_packet_extensions_count(tls, uintptr(unsafe.Pointer(&packet[0])), length, 3); got != 3 {
+		t.Fatalf("extension count: got %d, want 3", got)
+	}
 }
