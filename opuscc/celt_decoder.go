@@ -587,6 +587,8 @@ func tf_decode(tls *libc.TLS, start int32, end int32, isTransient int32, tf_res 
 }
 
 func celt_plc_pitch_search(tls *libc.TLS, st1 uintptr, decode_mem uintptr, C int32, arch int32) (r int32) {
+	bp := tls.Alloc(16)
+	defer tls.Free(16)
 	var _saved_stack, lp_pitch_buf, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var pitch_index int32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, lp_pitch_buf, pitch_index, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
