@@ -1977,8 +1977,6 @@ func loss_distortion(tls *libc.TLS, eBands uintptr, oldEBands uintptr, start int
 }
 
 func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, eBands uintptr, oldEBands uintptr, budget OpusT_opus_int32, tell OpusT_opus_int32, prob_model uintptr, error1 uintptr, enc uintptr, C int32, LM int32, intra int32, max_decay OpusT_celt_glog, lfe int32) (r int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var badness, bits_left, c, i, pi, qi, qi0, v2, v7, v9 int32
 	var beta, coef OpusT_opus_val16
 	var decay_bound, oldE, x OpusT_celt_glog
@@ -2040,29 +2038,29 @@ func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, 
 			bits_left = budget - tell - int32(3)*C*(end-i)
 			if i != start && bits_left < int32(30) {
 				if bits_left < int32(24) {
-					if int32(1) < *(*int32)(unsafe.Pointer(bp)) {
+					if int32(1) < qi {
 						v2 = int32(1)
 					} else {
-						v2 = *(*int32)(unsafe.Pointer(bp))
+						v2 = qi
 					}
-					*(*int32)(unsafe.Pointer(bp)) = v2
+					qi = v2
 				}
 				if bits_left < int32(16) {
-					if -int32(1) > *(*int32)(unsafe.Pointer(bp)) {
+					if -int32(1) > qi {
 						v2 = -int32(1)
 					} else {
-						v2 = *(*int32)(unsafe.Pointer(bp))
+						v2 = qi
 					}
-					*(*int32)(unsafe.Pointer(bp)) = v2
+					qi = v2
 				}
 			}
 			if lfe != 0 && i >= int32(2) {
-				if *(*int32)(unsafe.Pointer(bp)) < 0 {
-					v2 = *(*int32)(unsafe.Pointer(bp))
+				if qi < 0 {
+					v2 = qi
 				} else {
 					v2 = 0
 				}
-				*(*int32)(unsafe.Pointer(bp)) = v2
+				qi = v2
 			}
 			if budget-tell >= int32(15) {
 				if i < int32(20) {
@@ -2071,43 +2069,43 @@ func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, 
 					v2 = int32(20)
 				}
 				pi = int32(2) * v2
-				Opus_ec_laplace_encode(tls, enc, bp, uint32(int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi))))<<int32(7)), int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi+int32(1)))))<<int32(6))
+				Opus_ec_laplace_encode(tls, enc, uintptr(unsafe.Pointer(&qi)), uint32(int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi))))<<int32(7)), int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi+int32(1)))))<<int32(6))
 			} else {
 				if budget-tell >= int32(2) {
-					if *(*int32)(unsafe.Pointer(bp)) < int32(1) {
-						v7 = *(*int32)(unsafe.Pointer(bp))
+					if qi < int32(1) {
+						v7 = qi
 					} else {
 						v7 = int32(1)
 					}
 					if -int32(1) > v7 {
 						v2 = -int32(1)
 					} else {
-						if *(*int32)(unsafe.Pointer(bp)) < int32(1) {
-							v9 = *(*int32)(unsafe.Pointer(bp))
+						if qi < int32(1) {
+							v9 = qi
 						} else {
 							v9 = int32(1)
 						}
 						v2 = v9
 					}
-					*(*int32)(unsafe.Pointer(bp)) = v2
-					Opus_ec_enc_icdf(tls, enc, int32(2)**(*int32)(unsafe.Pointer(bp))^-libc.BoolInt32(*(*int32)(unsafe.Pointer(bp)) < 0), uintptr(unsafe.Pointer(&small_energy_icdf)), uint32(2))
+					qi = v2
+					Opus_ec_enc_icdf(tls, enc, int32(2)*qi^-libc.BoolInt32(qi < 0), uintptr(unsafe.Pointer(&small_energy_icdf)), uint32(2))
 				} else {
 					if budget-tell >= int32(1) {
-						if 0 < *(*int32)(unsafe.Pointer(bp)) {
+						if 0 < qi {
 							v2 = 0
 						} else {
-							v2 = *(*int32)(unsafe.Pointer(bp))
+							v2 = qi
 						}
-						*(*int32)(unsafe.Pointer(bp)) = v2
-						Opus_ec_enc_bit_logp(tls, enc, -*(*int32)(unsafe.Pointer(bp)), uint32(1))
+						qi = v2
+						Opus_ec_enc_bit_logp(tls, enc, -qi, uint32(1))
 					} else {
-						*(*int32)(unsafe.Pointer(bp)) = -int32(1)
+						qi = -int32(1)
 					}
 				}
 			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(error1 + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = f - float32(*(*int32)(unsafe.Pointer(bp)))
-			badness = badness + libc.Xabs(tls, qi0-*(*int32)(unsafe.Pointer(bp)))
-			q = float32(*(*int32)(unsafe.Pointer(bp)))
+			*(*OpusT_celt_glog)(unsafe.Pointer(error1 + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = f - float32(qi)
+			badness = badness + libc.Xabs(tls, qi0-qi)
+			q = float32(qi)
 			tmp = OpusT_opus_val16(coef*oldE) + prev[c] + q
 			*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = tmp
 			prev[c] = prev[c] + q - OpusT_opus_val16(beta*q)
