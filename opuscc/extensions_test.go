@@ -57,4 +57,11 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 	if count != 3 || parsed[2].Fid != 3 || parsed[2].Fframe != 2 || *(*byte)(unsafe.Pointer(parsed[2].Fdata)) != 'x' {
 		t.Fatalf("parsed extensions: count=%d entries=%+v", count, parsed)
 	}
+	frameCounts := make([]OpusT_opus_int32, 3)
+	if got := Opus_opus_packet_extensions_count_ext(tls, uintptr(unsafe.Pointer(&packet[0])), length, uintptr(unsafe.Pointer(&frameCounts[0])), 3); got != 3 {
+		t.Fatalf("per-frame extension count: got %d, want 3", got)
+	}
+	if want := []OpusT_opus_int32{1, 1, 1}; frameCounts[0] != want[0] || frameCounts[1] != want[1] || frameCounts[2] != want[2] {
+		t.Fatalf("per-frame extension counts: got %v, want %v", frameCounts, want)
+	}
 }
