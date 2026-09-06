@@ -2343,25 +2343,24 @@ func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, chan
 	var alignment uint32
 	var celt_dec, silk_dec uintptr
 	var ret, v1 int32
-	var _ /* silkDecSizeBytes at bp+0 */ int32
-	_, _, _, _, _ = alignment, celt_dec, ret, silk_dec, v1
+	var silkDecSizeBytes int32
+	_, _, _, _, _, _ = alignment, celt_dec, ret, silk_dec, silkDecSizeBytes, v1
 	if Fs != int32(48000) && Fs != int32(24000) && Fs != int32(16000) && Fs != int32(12000) && Fs != int32(8000) || channels != int32(1) && channels != int32(2) {
 		return -int32(1)
 	}
 	libc.Xmemset(tls, st, 0, uint64(uint32(Opus_opus_decoder_get_size(tls, channels)))*uint64(1))
 	/* Initialize SILK decoder */
-	ret = Opus_silk_Get_Decoder_Size(tls, bp)
+	ret = Opus_silk_Get_Decoder_Size(tls, uintptr(unsafe.Pointer(&silkDecSizeBytes)))
 	if ret != 0 {
 		return -int32(3)
 	}
 	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(*(*int32)(unsafe.Pointer(bp))) + alignment - uint32(1)) / alignment * alignment)
-	*(*int32)(unsafe.Pointer(bp)) = v1
+	silkDecSizeBytes = int32((uint32(silkDecSizeBytes) + alignment - uint32(1)) / alignment * alignment)
 	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
 	v1 = int32((uint32(int32(100)) + alignment - uint32(1)) / alignment * alignment)
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
 	decoder.Fsilk_dec_offset = v1
-	decoder.Fcelt_dec_offset = decoder.Fsilk_dec_offset + *(*int32)(unsafe.Pointer(bp))
+	decoder.Fcelt_dec_offset = decoder.Fsilk_dec_offset + silkDecSizeBytes
 	silk_dec = st + uintptr(decoder.Fsilk_dec_offset)
 	celt_dec = st + uintptr(decoder.Fcelt_dec_offset)
 	v1 = channels
