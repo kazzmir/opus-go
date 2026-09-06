@@ -56,6 +56,7 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq u
 	var NLSF_interpolation_flag, a_headrm, b_headrm, b_headrm1, i, k, lag, lshift, lshift1, sLTP_buf_idx, signalType, start_idx, v104, v105, v109, v112, v113, v114, v115, v116, v119, v120, v124, v125, v129 int32
 	var _ /* A_Q12_tmp at bp+0 */ [16]OpusT_opus_int16
 	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = A_Q12, B_Q14, Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, NLSF_interpolation_flag, _saved_stack, a32_nrm, a_headrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, b_headrm, b_headrm1, err_Q32, gain_adj_Q16, i, inv_gain_Q31, k, lag, lshift, lshift1, offset_Q10, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, rand_seed, res_Q14, result, result1, sLPC_Q14, sLTP, sLTP_Q15, sLTP_buf_idx, signalType, st, start_idx, v1, v103, v104, v105, v106, v107, v109, v11, v110, v112, v113, v114, v115, v116, v117, v118, v119, v120, v121, v124, v125, v129, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
 	lag = 0
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -377,13 +378,13 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq u
 			break
 		}
 		pres_Q14 = res_Q14
-		A_Q12 = psDecCtrl + 32 + uintptr(k>>int32(1))*32
+		A_Q12 = uintptr(unsafe.Pointer(&control.FPredCoef_Q12[k>>int32(1)][0]))
 		/* Preload LPC coefficients to array on stack. Gives small performance gain */
 		libc.Xmemcpy(tls, bp, A_Q12, uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order))*uint64(2))
-		B_Q14 = psDecCtrl + 96 + uintptr(k*int32(LTP_ORDER))*2
+		B_Q14 = uintptr(unsafe.Pointer(&control.FLTPCoef_Q14[k*int32(LTP_ORDER)]))
 		signalType = int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType)
-		Gain_Q10 = *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(k)*4)) >> int32(6)
-		v103 = *(*OpusT_opus_int32)(unsafe.Pointer(psDecCtrl + 16 + uintptr(k)*4))
+		Gain_Q10 = control.FGains_Q16[k] >> int32(6)
+		v103 = control.FGains_Q16[k]
 		v104 = int32(47)
 		_ = v103 != int32(0)
 		_ = v104 > int32(0)
