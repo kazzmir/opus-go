@@ -210,12 +210,14 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 	var _ /* decode_only_middle at bp+0 */ int32
 	var _ /* nSamplesOutDec at bp+4 */ OpusT_opus_int32
 	var _ /* pulses at bp+16 */ [320]OpusT_opus_int16
+	decoder := (*OpusT_silk_decoder)(unsafe.Pointer(decState))
+	control := (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = FrameIndex, LBRR_symbol, _saved_stack, channel_state, condCoding, condCoding1, fs_kHz_dec, has_side, i, mult_tab, n, psDec, resample_out_ptr, ret, samplesOut1_tmp, samplesOut1_tmp_storage1, samplesOut2_tmp, st, stereo_to_mono, v1, v11, v13, v15, v17, v26, v28, v3, v30, v32, v51, v7, v9
 	*(*int32)(unsafe.Pointer(bp)) = 0
 	ret = SILK_NO_ERROR
 	*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 8)) = [2]OpusT_opus_int32{}
-	psDec = decState
-	channel_state = psDec
+	psDec = uintptr(unsafe.Pointer(decoder))
+	channel_state = uintptr(unsafe.Pointer(&decoder.Fchannel_state[0]))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -227,7 +229,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	if !((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(1) || (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(2)) {
+	if !(control.FnChannelsInternal == int32(1) || control.FnChannelsInternal == int32(2)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6520, __ccgo_ts+6611, int32(165))
 	}
 	/**********************************/
@@ -236,16 +238,16 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 	if newPacketFlag != 0 {
 		n = 0
 		for {
-			if !(n < (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal) {
+			if !(n < control.FnChannelsInternal) {
 				break
 			}
-			(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesDecoded = 0 /* Used to count frames in packet */
+			decoder.Fchannel_state[n].FnFramesDecoded = 0 /* Used to count frames in packet */
 			n = n + 1
 		}
 	}
 	/* If Mono -> Stereo transition in bitstream: init state of second channel */
-	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal > (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsInternal {
-		ret = ret + Opus_silk_init_decoder(tls, channel_state+1*4392)
+	if control.FnChannelsInternal > decoder.FnChannelsInternal {
+		ret = ret + Opus_silk_init_decoder(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[1])))
 	}
 	stereo_to_mono = libc.BoolInt32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(1) && (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsInternal == int32(2) && (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FinternalSampleRate == int32(1000)*(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Ffs_kHz)
 	if (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).FnFramesDecoded == 0 {
