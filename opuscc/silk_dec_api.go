@@ -441,8 +441,8 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 	}
 	/* Reset side channel decoder prediction memory for first frame with side coding */
 	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(2) && *(*int32)(unsafe.Pointer(bp)) == 0 && (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).Fprev_decode_only_middle == int32(1) {
-		libc.Xmemset(tls, psDec+1*4392+1348, 0, uint64(960))
-		libc.Xmemset(tls, psDec+1*4392+1284, 0, uint64(64))
+		libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[1].FoutBuf[0])), 0, uint64(960))
+		libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[1].FsLPC_Q14_buf[0])), 0, uint64(64))
 		decoder.Fchannel_state[1].FlagPrev = int32(100)
 		decoder.Fchannel_state[1].FLastGainIndex = int8(10)
 		decoder.Fchannel_state[1].FprevSignalType = TYPE_NO_VOICE_ACTIVITY
