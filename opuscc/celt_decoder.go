@@ -1397,8 +1397,6 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 }
 
 func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
-	bp := tls.Alloc(96)
-	defer tls.Free(96)
 	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, boost, c, codedBands, decode_buffer_size, dynalloc_logp, dynalloc_loop_logp, effEnd, end, flag, i, intra_ener, isTransient, missing, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, quanta, shortBlocks, silence, spread_decision, start, width, v28, v37, v40 int32
 	var E0, E1, E2, slope, v57 OpusT_opus_val32
 	var X, _saved_stack, backgroundLogE, cap1, collapse_masks, eBands, fine_priority, fine_quant, mode, offsets, oldBandE, oldLogE, oldLogE2, pulses, st, tf_res, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
@@ -1407,15 +1405,14 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	var max_background_increase, safety, v35, v56, v61 OpusT_celt_glog
 	var postfilter_gain OpusT_opus_val16
 	var v60 float32
-	var _ /* _dec at bp+0 */ OpusT_ec_dec
-	var _ /* balance at bp+80 */ OpusT_opus_int32
-	var _ /* dual_stereo at bp+76 */ int32
-	var _ /* intensity at bp+72 */ int32
-	var _ /* out_syn at bp+56 */ [2]uintptr
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = C, CC, E0, E1, E2, LM, M, N, X, _saved_stack, alloc_trim, anti_collapse_on, anti_collapse_rsv, backgroundLogE, bits, boost, c, cap1, codedBands, collapse_masks, decode_buffer_size, decode_mem, dynalloc_logp, dynalloc_loop_logp, eBands, effEnd, end, fine_priority, fine_quant, flag, i, intra_ener, isTransient, max_background_increase, missing, mode, nbEBands, octave, offsets, oldBandE, oldLogE, oldLogE2, overlap, postfilter_gain, postfilter_pitch, postfilter_tapset, pulses, qg, quanta, safety, shortBlocks, silence, slope, spread_decision, st, start, tell, tf_res, total_bits, width, v1, v10, v11, v13, v15, v17, v19, v21, v28, v3, v35, v37, v40, v5, v56, v57, v6, v60, v61, v8
+	var _dec OpusT_ec_dec
+	var balance OpusT_opus_int32
+	var dual_stereo int32
+	var intensity int32
+	var out_syn [2]uintptr
 	CC = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fchannels
-	*(*int32)(unsafe.Pointer(bp + 72)) = 0
-	*(*int32)(unsafe.Pointer(bp + 76)) = 0
+	intensity = 0
+	dual_stereo = 0
 	anti_collapse_on = 0
 	C = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fstream_channels
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -1513,7 +1510,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	c = 0
 	for {
 		decode_mem[c] = st1 + 112 + uintptr(c*(decode_buffer_size+overlap))*4
-		(*(*[2]uintptr)(unsafe.Pointer(bp + 56)))[c] = decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4
+		out_syn[c] = decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4
 		c = c + 1
 		v28 = c
 		if !(v28 < CC) {
@@ -1526,7 +1523,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	if data == uintptr(uint32(0)) || len1 <= int32(1) {
 		celt_decode_lost(tls, st1, N, LM)
-		deemphasis(tls, bp+56, pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+104, accum)
+		deemphasis(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+104, accum)
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v1 = libc.Xmalloc(tls, uint64(16))
@@ -1546,8 +1543,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fskip_plc = 0
 	}
 	if dec == uintptr(uint32(0)) {
-		Opus_ec_dec_init(tls, bp, data, uint32(len1))
-		dec = bp
+		Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&_dec)), data, uint32(len1))
+		dec = uintptr(unsafe.Pointer(&_dec))
 	}
 	if C == int32(1) {
 		i = 0
@@ -2182,7 +2179,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	v21 = st
 	fine_priority = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(nbEBands))*(uint64(4)/uint64(1)))
-	codedBands = Opus_clt_compute_allocation(tls, mode, start, end, offsets, cap1, alloc_trim, bp+72, bp+76, bits, bp+80, pulses, fine_quant, fine_priority, C, LM, dec, 0, 0, 0)
+	codedBands = Opus_clt_compute_allocation(tls, mode, start, end, offsets, cap1, alloc_trim, uintptr(unsafe.Pointer(&intensity)), uintptr(unsafe.Pointer(&dual_stereo)), bits, uintptr(unsafe.Pointer(&balance)), pulses, fine_quant, fine_priority, C, LM, dec, 0, 0, 0)
 	Opus_unquant_fine_energy(tls, mode, start, end, oldBandE, uintptr(uint32(0)), fine_quant, dec, C)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -2331,7 +2328,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	} else {
 		v1 = uintptr(uint32(0))
 	}
-	Opus_quant_all_bands(tls, 0, mode, start, end, X, v1, collapse_masks, uintptr(uint32(0)), pulses, shortBlocks, spread_decision, *(*int32)(unsafe.Pointer(bp + 76)), *(*int32)(unsafe.Pointer(bp + 72)), tf_res, len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, *(*OpusT_opus_int32)(unsafe.Pointer(bp + 80)), dec, LM, codedBands, st1+48, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdisable_inv)
+	Opus_quant_all_bands(tls, 0, mode, start, end, X, v1, collapse_masks, uintptr(uint32(0)), pulses, shortBlocks, spread_decision, dual_stereo, intensity, tf_res, len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, st1+48, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdisable_inv)
 	if anti_collapse_rsv > 0 {
 		anti_collapse_on = int32(Opus_ec_dec_bits(tls, dec, uint32(1)))
 	}
@@ -2354,7 +2351,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold != 0 {
 		prefilter_and_fold(tls, st1, N)
 	}
-	celt_synthesis(tls, mode, X, bp+56, oldBandE, start, effEnd, C, CC, isTransient, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, silence, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+	celt_synthesis(tls, mode, X, uintptr(unsafe.Pointer(&out_syn[0])), oldBandE, start, effEnd, C, CC, isTransient, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, silence, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 	c = 0
 	for {
 		if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period > int32(COMBFILTER_MINPERIOD) {
@@ -2369,9 +2366,9 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 			v28 = int32(COMBFILTER_MINPERIOD)
 		}
 		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period_old = v28
-		Opus_comb_filter(tls, (*(*[2]uintptr)(unsafe.Pointer(bp + 56)))[c], (*(*[2]uintptr)(unsafe.Pointer(bp + 56)))[c], (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period_old, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain_old, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset_old, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+		Opus_comb_filter(tls, out_syn[c], out_syn[c], (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period_old, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain_old, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset_old, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 		if LM != 0 {
-			Opus_comb_filter(tls, (*(*[2]uintptr)(unsafe.Pointer(bp + 56)))[c]+uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize)*4, (*(*[2]uintptr)(unsafe.Pointer(bp + 56)))[c]+uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize)*4, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period, postfilter_pitch, N-(*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain, postfilter_gain, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset, postfilter_tapset, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+			Opus_comb_filter(tls, out_syn[c]+uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize)*4, out_syn[c]+uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize)*4, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period, postfilter_pitch, N-(*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain, postfilter_gain, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset, postfilter_tapset, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 		}
 		c = c + 1
 		v28 = c
@@ -2465,7 +2462,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		}
 	}
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng = (*OpusT_ec_dec)(unsafe.Pointer(dec)).Frng
-	deemphasis(tls, bp+56, pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+104, accum)
+	deemphasis(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+104, accum)
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration = 0
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fplc_duration = 0
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type = int32(FRAME_NORMAL)

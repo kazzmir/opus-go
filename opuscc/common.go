@@ -3330,18 +3330,15 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 }
 
 func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32, self_delimited int32, packet_offset uintptr, soft_clip int32, dred uintptr, dred_offset OpusT_opus_int32) (r int32) {
-	bp := tls.Alloc(208)
-	defer tls.Free(208)
 	var count, duration_copy, i, nb_samples, packet_bandwidth, packet_frame_size, packet_mode, packet_stream_channels, pcm_count, ret, ret1, ret2, v1 int32
 	var v8 OpusT_opus_val16
-	var _ /* iter at bp+120 */ OpusT_OpusExtensionIterator
-	var _ /* offset at bp+0 */ int32
-	var _ /* padding at bp+104 */ uintptr
-	var _ /* padding_len at bp+112 */ OpusT_opus_int32
-	var _ /* size at bp+6 */ [48]OpusT_opus_int16
-	var _ /* toc at bp+4 */ uint8
+	var toc uint8
+	var size [48]OpusT_opus_int16 /* 48 x 2.5 ms = 120 ms */
+	var offset int32
+	var padding uintptr
+	var padding_len OpusT_opus_int32
+	var iter OpusT_OpusExtensionIterator
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _ = count, duration_copy, i, nb_samples, packet_bandwidth, packet_frame_size, packet_mode, packet_stream_channels, pcm_count, ret, ret1, ret2, v1, v8
 	validate_opus_decoder(tls, st)
 	if decode_fec < 0 || decode_fec > int32(1) {
 		return -int32(1)
@@ -3378,16 +3375,16 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	packet_bandwidth = Opus_opus_packet_get_bandwidth(tls, data)
 	packet_frame_size = Opus_opus_packet_get_samples_per_frame(tls, data, decoder.FFs)
 	packet_stream_channels = Opus_opus_packet_get_nb_channels(tls, data)
-	count = Opus_opus_packet_parse_impl(tls, data, len1, self_delimited, bp+4, uintptr(uint32(0)), bp+6, bp, packet_offset, bp+104, bp+112)
+	count = Opus_opus_packet_parse_impl(tls, data, len1, self_delimited, uintptr(unsafe.Pointer(&toc)), uintptr(uint32(0)), uintptr(unsafe.Pointer(&size[0])), uintptr(unsafe.Pointer(&offset)), packet_offset, uintptr(unsafe.Pointer(&padding)), uintptr(unsafe.Pointer(&padding_len)))
 	if decoder.Fignore_extensions != 0 {
-		*(*uintptr)(unsafe.Pointer(bp + 104)) = uintptr(uint32(0))
-		*(*OpusT_opus_int32)(unsafe.Pointer(bp + 112)) = 0
+		padding = uintptr(uint32(0))
+		padding_len = 0
 	}
 	if count < 0 {
 		return count
 	}
-	Opus_opus_extension_iterator_init(tls, bp+120, *(*uintptr)(unsafe.Pointer(bp + 104)), *(*OpusT_opus_int32)(unsafe.Pointer(bp + 112)), count)
-	data = data + uintptr(*(*int32)(unsafe.Pointer(bp)))
+	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iter)), padding, padding_len, count)
+	data = data + uintptr(offset)
 	if decode_fec != 0 {
 		/* If no FEC can be present, run the PLC (recursive call) */
 		if frame_size < packet_frame_size || packet_mode == int32(MODE_CELT_ONLY) || decoder.Fmode == int32(MODE_CELT_ONLY) {
@@ -3410,7 +3407,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 		decoder.Fbandwidth = packet_bandwidth
 		decoder.Fframe_size = packet_frame_size
 		decoder.Fstream_channels = packet_stream_channels
-		ret1 = opus_decode_frame(tls, st, data, int32((*(*[48]OpusT_opus_int16)(unsafe.Pointer(bp + 6)))[0]), pcm+uintptr(decoder.Fchannels*(frame_size-packet_frame_size))*4, packet_frame_size, int32(1))
+		ret1 = opus_decode_frame(tls, st, data, int32(size[0]), pcm+uintptr(decoder.Fchannels*(frame_size-packet_frame_size))*4, packet_frame_size, int32(1))
 		if ret1 < 0 {
 			return ret1
 		} else {
@@ -3435,14 +3432,14 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 		if !(i < count) {
 			break
 		}
-		ret2 = opus_decode_frame(tls, st, data, int32((*(*[48]OpusT_opus_int16)(unsafe.Pointer(bp + 6)))[i]), pcm+uintptr(nb_samples*decoder.Fchannels)*4, frame_size-nb_samples, 0)
+		ret2 = opus_decode_frame(tls, st, data, int32(size[i]), pcm+uintptr(nb_samples*decoder.Fchannels)*4, frame_size-nb_samples, 0)
 		if ret2 < 0 {
 			return ret2
 		}
 		if !(ret2 == packet_frame_size) {
 			Opus_celt_fatal(tls, __ccgo_ts+2049, __ccgo_ts+57, int32(865))
 		}
-		data = data + uintptr((*(*[48]OpusT_opus_int16)(unsafe.Pointer(bp + 6)))[i])
+		data = data + uintptr(size[i])
 		nb_samples = nb_samples + ret2
 		i = i + 1
 	}
