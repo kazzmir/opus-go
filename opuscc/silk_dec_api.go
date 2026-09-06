@@ -250,32 +250,32 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 		ret = ret + Opus_silk_init_decoder(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[1])))
 	}
 	stereo_to_mono = libc.BoolInt32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(1) && (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsInternal == int32(2) && (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FinternalSampleRate == int32(1000)*(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Ffs_kHz)
-	if (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).FnFramesDecoded == 0 {
+	if decoder.Fchannel_state[0].FnFramesDecoded == 0 {
 		n = 0
 		for {
-			if !(n < (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal) {
+			if !(n < control.FnChannelsInternal) {
 				break
 			}
-			if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FpayloadSize_ms == 0 {
+			if control.FpayloadSize_ms == 0 {
 				/* Assuming packet loss, use 10 ms */
-				(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesPerPacket = int32(1)
-				(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).Fnb_subfr = int32(2)
+				decoder.Fchannel_state[n].FnFramesPerPacket = int32(1)
+				decoder.Fchannel_state[n].Fnb_subfr = int32(2)
 			} else {
-				if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FpayloadSize_ms == int32(10) {
-					(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesPerPacket = int32(1)
-					(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).Fnb_subfr = int32(2)
+				if control.FpayloadSize_ms == int32(10) {
+					decoder.Fchannel_state[n].FnFramesPerPacket = int32(1)
+					decoder.Fchannel_state[n].Fnb_subfr = int32(2)
 				} else {
-					if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FpayloadSize_ms == int32(20) {
-						(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesPerPacket = int32(1)
-						(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).Fnb_subfr = int32(4)
+					if control.FpayloadSize_ms == int32(20) {
+						decoder.Fchannel_state[n].FnFramesPerPacket = int32(1)
+						decoder.Fchannel_state[n].Fnb_subfr = int32(4)
 					} else {
-						if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FpayloadSize_ms == int32(40) {
-							(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesPerPacket = int32(2)
-							(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).Fnb_subfr = int32(4)
+						if control.FpayloadSize_ms == int32(40) {
+							decoder.Fchannel_state[n].FnFramesPerPacket = int32(2)
+							decoder.Fchannel_state[n].Fnb_subfr = int32(4)
 						} else {
-							if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FpayloadSize_ms == int32(60) {
-								(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).FnFramesPerPacket = int32(3)
-								(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state + uintptr(n)*4392))).Fnb_subfr = int32(4)
+							if control.FpayloadSize_ms == int32(60) {
+								decoder.Fchannel_state[n].FnFramesPerPacket = int32(3)
+								decoder.Fchannel_state[n].Fnb_subfr = int32(4)
 							} else {
 								if !(int32(0) != 0) {
 									Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+6611, int32(204))
