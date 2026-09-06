@@ -3845,10 +3845,11 @@ func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr)
 	var celt_dec, silk_dec, value, value10, value12, value2, value3, value4, value5, value6, value8 uintptr
 	var ret int32
 	var value1, value11, value7, value9 OpusT_opus_int32
+	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = ap, celt_dec, ret, silk_dec, value, value1, value10, value11, value12, value2, value3, value4, value5, value6, value7, value8, value9
 	ret = OPUS_OK
-	silk_dec = st + uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fsilk_dec_offset)
-	celt_dec = st + uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fcelt_dec_offset)
+	silk_dec = st + uintptr(decoder.Fsilk_dec_offset)
+	celt_dec = st + uintptr(decoder.Fcelt_dec_offset)
 	ap = va
 	switch request {
 	case int32(OPUS_GET_BANDWIDTH_REQUEST):
@@ -3878,11 +3879,11 @@ func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr)
 		}
 		*(*OpusT_opus_uint32)(unsafe.Pointer(value3)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FrangeFinal
 	case int32(OPUS_RESET_STATE):
-		libc.Xmemset(tls, st+60, 0, (uint64(100)-uint64(int64(st+60)-int64(st)))*uint64(1))
+		libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.Fstream_channels)), 0, uint64(unsafe.Sizeof(OpusT_OpusDecoder{})-unsafe.Offsetof(decoder.Fstream_channels)))
 		Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_RESET_STATE), 0)
 		Opus_silk_ResetDecoder(tls, silk_dec)
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fstream_channels = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fframe_size = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs / int32(400)
+		decoder.Fstream_channels = decoder.Fchannels
+		decoder.Fframe_size = decoder.FFs / int32(400)
 	case int32(OPUS_GET_SAMPLE_RATE_REQUEST):
 		value4 = libc.VaUintptr(&ap)
 		if !(value4 != 0) {

@@ -10,33 +10,35 @@ import (
 func TestDecoderInitFieldAccesses(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-
-	size := Opus_opus_decoder_get_size(tls, 2)
-	decoderMemory := libc.Xmalloc(tls, uint64(size))
-	if got, want := Opus_opus_decoder_init(tls, decoderMemory, 24000, 2), int32(OPUS_OK); got != want {
-		t.Fatalf("initialization result: got %d, want %d", got, want)
+	memory := libc.Xmalloc(tls, uint64(Opus_opus_decoder_get_size(tls, 2)))
+	if got := Opus_opus_decoder_init(tls, memory, 24000, 2); got != OPUS_OK {
+		t.Fatalf("initialization result: got %d", got)
 	}
-
-	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(decoderMemory))
-	if got, want := decoder.Fchannels, int32(2); got != want {
-		t.Fatalf("channels: got %d, want %d", got, want)
-	}
-	if got, want := decoder.Fstream_channels, int32(2); got != want {
-		t.Fatalf("stream channels: got %d, want %d", got, want)
-	}
-	if got, want := decoder.FFs, OpusT_opus_int32(24000); got != want {
-		t.Fatalf("sample rate: got %d, want %d", got, want)
-	}
-	if got, want := decoder.Fframe_size, int32(60); got != want {
-		t.Fatalf("frame size: got %d, want %d", got, want)
+	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(memory))
+	if decoder.Fchannels != 2 || decoder.Fstream_channels != 2 || decoder.FFs != 24000 || decoder.Fframe_size != 60 {
+		t.Fatalf("decoder fields were not initialized: %+v", decoder)
 	}
 	if decoder.Fsilk_dec_offset <= 0 || decoder.Fcelt_dec_offset <= decoder.Fsilk_dec_offset {
-		t.Fatalf("invalid component offsets: silk=%d celt=%d", decoder.Fsilk_dec_offset, decoder.Fcelt_dec_offset)
+		t.Fatalf("invalid component offsets")
 	}
-	if got, want := decoder.FDecControl.FAPI_sampleRate, OpusT_opus_int32(24000); got != want {
-		t.Fatalf("SILK API sample rate: got %d, want %d", got, want)
+	if decoder.FDecControl.FAPI_sampleRate != 24000 || decoder.FDecControl.FnChannelsAPI != 2 {
+		t.Fatalf("invalid SILK control state")
 	}
-	if got, want := decoder.FDecControl.FnChannelsAPI, int32(2); got != want {
-		t.Fatalf("SILK API channels: got %d, want %d", got, want)
+}
+
+func TestDecoderCtlResetFieldAccesses(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	memory := libc.Xmalloc(tls, uint64(Opus_opus_decoder_get_size(tls, 2)))
+	if got := Opus_opus_decoder_init(tls, memory, 24000, 2); got != OPUS_OK {
+		t.Fatalf("decoder initialization: got %d", got)
+	}
+	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(memory))
+	decoder.Fstream_channels, decoder.Fbandwidth, decoder.Fprev_mode, decoder.Fframe_size = 1, OPUS_BANDWIDTH_FULLBAND, MODE_CELT_ONLY, 999
+	if got := Opus_opus_decoder_ctl(tls, memory, OPUS_RESET_STATE, 0); got != OPUS_OK {
+		t.Fatalf("reset result: got %d", got)
+	}
+	if decoder.Fstream_channels != 2 || decoder.Fframe_size != 60 || decoder.Fbandwidth != 0 {
+		t.Fatalf("reset fields: channels=%d frame=%d bandwidth=%d", decoder.Fstream_channels, decoder.Fframe_size, decoder.Fbandwidth)
 	}
 }
