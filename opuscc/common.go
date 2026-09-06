@@ -3834,8 +3834,10 @@ func Opus_opus_decode_float(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_
 }
 
 func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
+	// Forwarded CTLs take a single vararg. Keep its storage stable across
+	// uintptr-taking calls, even if the goroutine stack grows.
+	ctlArg := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
+	defer libc.Xfree(tls, ctlArg)
 	var ap OpusT_va_list
 	var celt_dec, silk_dec, value, value10, value12, value2, value3, value4, value5, value6, value8 uintptr
 	var ret int32
@@ -3860,7 +3862,7 @@ func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr)
 		}
 		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fcomplexity = value1
 		_ = value1 == int32(0)
-		Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_SET_COMPLEXITY_REQUEST), libc.VaList(bp+8, value1))
+		Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_SET_COMPLEXITY_REQUEST), libc.VaList(ctlArg, value1))
 	case int32(OPUS_GET_COMPLEXITY_REQUEST):
 		value2 = libc.VaUintptr(&ap)
 		if !(value2 != 0) {
@@ -3891,7 +3893,7 @@ func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr)
 			goto bad_arg
 		}
 		if (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fprev_mode == int32(MODE_CELT_ONLY) {
-			ret = Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_PITCH_REQUEST), libc.VaList(bp+8, value5+uintptr((int64(value5)-int64(value5))/4)*4))
+			ret = Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_PITCH_REQUEST), libc.VaList(ctlArg, value5))
 		} else {
 			*(*OpusT_opus_int32)(unsafe.Pointer(value5)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FprevPitchLag
 		}
@@ -3919,13 +3921,13 @@ func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr)
 			goto bad_arg
 		}
 		_ = value9 == int32(0)
-		ret = Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST), libc.VaList(bp+8, value9))
+		ret = Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST), libc.VaList(ctlArg, value9))
 	case int32(OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST):
 		value10 = libc.VaUintptr(&ap)
 		if !(value10 != 0) {
 			goto bad_arg
 		}
-		ret = Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST), libc.VaList(bp+8, value10+uintptr((int64(value10)-int64(value10))/4)*4))
+		ret = Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST), libc.VaList(ctlArg, value10))
 	case int32(OPUS_SET_IGNORE_EXTENSIONS_REQUEST):
 		value11 = libc.VaInt32(&ap)
 		if value11 < 0 || value11 > int32(1) {
@@ -4489,12 +4491,17 @@ func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, ch
 }
 
 func opus_multistream_packet_validate(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, nb_streams int32, Fs OpusT_opus_int32) (r int32) {
-	bp := tls.Alloc(112)
-	defer tls.Free(112)
+	// Parser outputs cross a uintptr API; use named fields in pinned storage
+	// rather than addresses into the movable goroutine stack.
+	type parseOutputs struct {
+		toc          uint8
+		size         [48]OpusT_opus_int16
+		packetOffset OpusT_opus_int32
+	}
+	storage := libc.Xmalloc(tls, uint64(unsafe.Sizeof(parseOutputs{})))
+	defer libc.Xfree(tls, storage)
+	parsed := (*parseOutputs)(unsafe.Pointer(storage))
 	var count, s, samples, tmp_samples int32
-	var _ /* packet_offset at bp+100 */ OpusT_opus_int32
-	var _ /* size at bp+2 */ [48]OpusT_opus_int16
-	var _ /* toc at bp+0 */ uint8
 	_, _, _, _ = count, s, samples, tmp_samples
 	samples = 0
 	s = 0
@@ -4505,17 +4512,17 @@ func opus_multistream_packet_validate(tls *libc.TLS, data uintptr, len1 OpusT_op
 		if len1 <= 0 {
 			return -int32(4)
 		}
-		count = Opus_opus_packet_parse_impl(tls, data, len1, libc.BoolInt32(s != nb_streams-int32(1)), bp, uintptr(uint32(0)), bp+2, uintptr(uint32(0)), bp+100, uintptr(uint32(0)), uintptr(uint32(0)))
+		count = Opus_opus_packet_parse_impl(tls, data, len1, libc.BoolInt32(s != nb_streams-int32(1)), uintptr(unsafe.Pointer(&parsed.toc)), uintptr(uint32(0)), uintptr(unsafe.Pointer(&parsed.size[0])), uintptr(uint32(0)), uintptr(unsafe.Pointer(&parsed.packetOffset)), uintptr(uint32(0)), uintptr(uint32(0)))
 		if count < 0 {
 			return count
 		}
-		tmp_samples = Opus_opus_packet_get_nb_samples(tls, data, *(*OpusT_opus_int32)(unsafe.Pointer(bp + 100)), Fs)
+		tmp_samples = Opus_opus_packet_get_nb_samples(tls, data, parsed.packetOffset, Fs)
 		if s != 0 && samples != tmp_samples {
 			return -int32(4)
 		}
 		samples = tmp_samples
-		data = data + uintptr(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 100)))
-		len1 = len1 - *(*OpusT_opus_int32)(unsafe.Pointer(bp + 100))
+		data = data + uintptr(parsed.packetOffset)
+		len1 = len1 - parsed.packetOffset
 		s = s + 1
 	}
 	return samples
