@@ -13,13 +13,11 @@ var _ reflect.Type
 var _ unsafe.Pointer
 
 func Opus_silk_encode_signs(tls *libc.TLS, psRangeEnc uintptr, pulses uintptr, length int32, signalType int32, quantOffsetType int32, sum_pulses uintptr) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var i, j, p, v2 int32
 	var icdf_ptr, q_ptr uintptr
-	var _ /* icdf at bp+0 */ [2]OpusT_opus_uint8
+	var icdf [2]OpusT_opus_uint8
 	_, _, _, _, _, _ = i, icdf_ptr, j, p, q_ptr, v2
-	(*(*[2]OpusT_opus_uint8)(unsafe.Pointer(bp)))[int32(1)] = uint8(0)
+	icdf[1] = 0
 	q_ptr = pulses
 	i = int32(int16(int32(7))) * int32(int16(quantOffsetType+int32(uint32(signalType)<<int32(1))))
 	icdf_ptr = uintptr(unsafe.Pointer(&Opus_silk_sign_iCDF)) + uintptr(i)
@@ -36,14 +34,14 @@ func Opus_silk_encode_signs(tls *libc.TLS, psRangeEnc uintptr, pulses uintptr, l
 			} else {
 				v2 = int32(6)
 			}
-			(*(*[2]OpusT_opus_uint8)(unsafe.Pointer(bp)))[0] = *(*OpusT_opus_uint8)(unsafe.Pointer(icdf_ptr + uintptr(v2)))
+			icdf[0] = *(*OpusT_opus_uint8)(unsafe.Pointer(icdf_ptr + uintptr(v2)))
 			j = 0
 			for {
 				if !(j < int32(SHELL_CODEC_FRAME_LENGTH)) {
 					break
 				}
 				if int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j)))) != 0 {
-					Opus_ec_enc_icdf(tls, psRangeEnc, int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j))))>>int32(15)+int32(1), bp, uint32(8))
+					Opus_ec_enc_icdf(tls, psRangeEnc, int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j))))>>int32(15)+int32(1), uintptr(unsafe.Pointer(&icdf[0])), uint32(8))
 				}
 				j = j + 1
 			}
@@ -57,13 +55,11 @@ func Opus_silk_encode_signs(tls *libc.TLS, psRangeEnc uintptr, pulses uintptr, l
 //
 //	/* Decodes signs of excitation */
 func Opus_silk_decode_signs(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, length int32, signalType int32, quantOffsetType int32, sum_pulses uintptr) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var i, j, p, v2 int32
 	var icdf_ptr, q_ptr, v4 uintptr
-	var _ /* icdf at bp+0 */ [2]OpusT_opus_uint8
+	var icdf [2]OpusT_opus_uint8
 	_, _, _, _, _, _, _ = i, icdf_ptr, j, p, q_ptr, v2, v4
-	(*(*[2]OpusT_opus_uint8)(unsafe.Pointer(bp)))[int32(1)] = uint8(0)
+	icdf[1] = 0
 	q_ptr = pulses
 	i = int32(int16(int32(7))) * int32(int16(quantOffsetType+int32(uint32(signalType)<<int32(1))))
 	icdf_ptr = uintptr(unsafe.Pointer(&Opus_silk_sign_iCDF)) + uintptr(i)
@@ -80,7 +76,7 @@ func Opus_silk_decode_signs(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, l
 			} else {
 				v2 = int32(6)
 			}
-			(*(*[2]OpusT_opus_uint8)(unsafe.Pointer(bp)))[0] = *(*OpusT_opus_uint8)(unsafe.Pointer(icdf_ptr + uintptr(v2)))
+			icdf[0] = *(*OpusT_opus_uint8)(unsafe.Pointer(icdf_ptr + uintptr(v2)))
 			j = 0
 			for {
 				if !(j < int32(SHELL_CODEC_FRAME_LENGTH)) {
@@ -90,7 +86,7 @@ func Opus_silk_decode_signs(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, l
 					/* attach sign */
 					/* implementation with shift, subtraction, multiplication */
 					v4 = q_ptr + uintptr(j)*2
-					*(*OpusT_opus_int16)(unsafe.Pointer(v4)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v4))) * (int32(uint32(Opus_ec_dec_icdf(tls, psRangeDec, bp, uint32(8)))<<int32(1)) - int32(1)))
+					*(*OpusT_opus_int16)(unsafe.Pointer(v4)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v4))) * (int32(uint32(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&icdf[0])), uint32(8)))<<int32(1)) - int32(1)))
 				}
 				j = j + 1
 			}
