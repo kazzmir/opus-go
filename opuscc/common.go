@@ -2540,8 +2540,8 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	silk_dec = st1 + uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fsilk_dec_offset)
-	celt_dec = st1 + uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fcelt_dec_offset)
+	silk_dec = st1 + uintptr(decoder.Fsilk_dec_offset)
+	celt_dec = st1 + uintptr(decoder.Fcelt_dec_offset)
 	F20 = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs / int32(50)
 	F10 = F20 >> int32(1)
 	F5 = F10 >> int32(1)
@@ -4539,6 +4539,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 	var _ /* Fs at bp+0 */ OpusT_opus_int32
 	var _ /* packet_offset at bp+4 */ OpusT_opus_int32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, alignment, buf, c, chan1, chan11, coupled_size, dec, do_plc, mono_size, prev, prev1, ptr, ret, ret1, s, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v31, v5, v56, v6, v75, v8
+	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st1))
 	do_plc = 0
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
