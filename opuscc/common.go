@@ -2470,6 +2470,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	}
 	var _ /* silence at bp+72 */ [2]uint8
 	var _ /* silk_frame_size at bp+64 */ OpusT_opus_int32
+	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st1))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = F10, F20, F2_5, F5, _saved_stack, audiosize, bandwidth, c, celt_accum, celt_dec, celt_frame_size, celt_ret, celt_to_silk, decoded_samples, endband, first_frame, frac, gain, i, integer, lost_flag, mode, pcm_ptr, pcm_silk, pcm_silk_size, pcm_too_small, pcm_transition, pcm_transition_celt, pcm_transition_celt_size, pcm_transition_silk, pcm_transition_silk_size, redundancy, redundancy_bytes, redundant_audio, redundant_audio_size, ret, silk_dec, silk_ret, st, start_band, transition, window, x1, v1, v10, v11, v111, v13, v15, v17, v175, v176, v19, v21, v3, v31, v32, v5, v6, v8
 	silk_ret = 0
 	celt_ret = 0
@@ -2896,7 +2897,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		for cond := true; cond; cond = decoded_samples < frame_size {
 			/* Call SILK decoder */
 			first_frame = libc.BoolInt32(decoded_samples == 0)
-			silk_ret = Opus_silk_Decode(tls, silk_dec, st1+16, lost_flag, first_frame, bp+8, pcm_ptr, bp+64, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Farch)
+			silk_ret = Opus_silk_Decode(tls, silk_dec, uintptr(unsafe.Pointer(&decoder.FDecControl)), lost_flag, first_frame, bp+8, pcm_ptr, bp+64, decoder.Farch)
 			if silk_ret != 0 {
 				if lost_flag != 0 {
 					/* PLC failure should not be fatal */
