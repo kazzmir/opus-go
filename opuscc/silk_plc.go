@@ -273,8 +273,11 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 	var _ /* prevGain_Q10 at bp+48 */ [2]OpusT_opus_int32
 	var _ /* shift1 at bp+0 */ int32
 	var _ /* shift2 at bp+4 */ int32
+	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
+	plc := &decoder.FsPLC
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B_Q14, LPC_pred_Q10, LTP_pred_Q12, _saved_stack, b32_inv, b32_nrm, b_headrm, down_scale_Q30, err_Q32, harm_Gain_Q15, i, idx, invGain_Q30, inv_gain_Q30, j, k, lag, lshift, pred_lag_ptr, psPLC, rand_Gain_Q15, rand_ptr, rand_scale_Q14, rand_seed, result, sLPC_Q14_ptr, sLTP, sLTP_Q14, sLTP_buf_idx, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v53, v54, v55, v57, v58, v59, v60, v62, v63, v64, v65, v67, v68, v7, v79, v80, v81, v84, v85, v86, v89, v9
-	psPLC = psDec + 4292
+	psPLC = uintptr(unsafe.Pointer(plc))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -418,12 +421,12 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 	}
 	v23 = st
 	sLTP = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length))*(uint64(2)/uint64(1)))
-	(*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[0] = *(*OpusT_opus_int32)(unsafe.Pointer(psPLC + 72)) >> int32(6)
-	(*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)] = *(*OpusT_opus_int32)(unsafe.Pointer(psPLC + 72 + 1*4)) >> int32(6)
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffirst_frame_after_reset != 0 {
-		libc.Xmemset(tls, psPLC+14, 0, uint64(32))
+	(*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[0] = plc.FprevGain_Q16[0] >> int32(6)
+	(*(*[2]OpusT_opus_int32)(unsafe.Pointer(bp + 48)))[int32(1)] = plc.FprevGain_Q16[1] >> int32(6)
+	if decoder.Ffirst_frame_after_reset != 0 {
+		libc.Xmemset(tls, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), 0, uint64(32))
 	}
-	silk_PLC_energy(tls, bp+8, bp, bp+12, bp+4, psDec+4, bp+48, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr)
+	silk_PLC_energy(tls, bp+8, bp, bp+12, bp+4, uintptr(unsafe.Pointer(&decoder.Fexc_Q14[0])), bp+48, decoder.Fsubfr_length, decoder.Fnb_subfr)
 	if *(*OpusT_opus_int32)(unsafe.Pointer(bp + 8))>>*(*int32)(unsafe.Pointer(bp + 4)) < *(*OpusT_opus_int32)(unsafe.Pointer(bp + 12))>>*(*int32)(unsafe.Pointer(bp)) {
 		/* First sub-frame has lowest energy */
 		v53 = 0
@@ -434,7 +437,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 			v57 = v54
 		}
 		v55 = v57
-		rand_ptr = psDec + 4 + uintptr(v55)*4
+		rand_ptr = uintptr(unsafe.Pointer(&decoder.Fexc_Q14[v55]))
 	} else {
 		/* Second sub-frame has lowest energy */
 		v53 = 0
@@ -445,11 +448,11 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 			v57 = v54
 		}
 		v55 = v57
-		rand_ptr = psDec + 4 + uintptr(v55)*4
+		rand_ptr = uintptr(unsafe.Pointer(&decoder.Fexc_Q14[v55]))
 	}
 	/* Set up Gain to random noise component */
-	B_Q14 = psPLC + 4
-	rand_scale_Q14 = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FrandScale_Q14
+	B_Q14 = uintptr(unsafe.Pointer(&plc.FLTPCoef_Q14[0]))
+	rand_scale_Q14 = plc.FrandScale_Q14
 	/* Set up attenuation gains */
 	v53 = int32(NB_ATT) - int32(1)
 	v54 = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt
@@ -482,9 +485,9 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 		rand_Gain_Q15 = int32(PLC_RAND_ATTENUATE_UV_Q15[v55])
 	}
 	/* LPC concealment. Apply BWE to previous LPC */
-	Opus_silk_bwexpander(tls, psPLC+14, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, int32(64881))
+	Opus_silk_bwexpander(tls, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), decoder.FLPC_order, int32(64881))
 	/* Preload LPC coefficients to array on stack. Gives small performance gain */
-	libc.Xmemcpy(tls, bp+16, psPLC+14, uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order))*uint64(2))
+	libc.Xmemcpy(tls, bp+16, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), uint64(uint32(decoder.FLPC_order))*uint64(2))
 	/* First Lost frame */
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt == 0 {
 		rand_scale_Q14 = int16(int32(1) << int32(14))
@@ -510,7 +513,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 			rand_scale_Q14 = int16(int32(rand_scale_Q14) * int32((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FprevLTP_scale_Q14) >> int32(14))
 		} else {
 			_ = arch
-			invGain_Q30 = Opus_silk_LPC_inverse_pred_gain_c(tls, psPLC+14, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order)
+			invGain_Q30 = Opus_silk_LPC_inverse_pred_gain_c(tls, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), decoder.FLPC_order)
 			v84 = int32(1) << int32(30) >> int32(LOG2_INV_LPC_GAIN_HIGH_THRES)
 			v85 = invGain_Q30
 			if v84 < v85 {
@@ -541,9 +544,9 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 	if !(idx > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6729, __ccgo_ts+6715, int32(319))
 	}
-	Opus_silk_LPC_analysis_filter(tls, sLTP+uintptr(idx)*2, psDec+1348+uintptr(idx)*2, bp+16, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length-idx, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, arch)
+	Opus_silk_LPC_analysis_filter(tls, sLTP+uintptr(idx)*2, uintptr(unsafe.Pointer(&decoder.FoutBuf[idx])), bp+16, decoder.Fltp_mem_length-idx, decoder.FLPC_order, arch)
 	/* Scale LTP state */
-	v84 = *(*OpusT_opus_int32)(unsafe.Pointer(psPLC + 72 + 1*4))
+	v84 = plc.FprevGain_Q16[1]
 	v53 = int32(46)
 	_ = v84 != int32(0)
 	_ = v53 > int32(0)
@@ -678,9 +681,9 @@ _102:
 	/***************************/
 	/* LPC synthesis filtering */
 	/***************************/
-	sLPC_Q14_ptr = sLTP_Q14 + uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length-int32(MAX_LPC_ORDER))*4
+	sLPC_Q14_ptr = sLTP_Q14 + uintptr(decoder.Fltp_mem_length-int32(MAX_LPC_ORDER))*4
 	/* Copy LPC state */
-	libc.Xmemcpy(tls, sLPC_Q14_ptr, psDec+1284, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
+	libc.Xmemcpy(tls, sLPC_Q14_ptr, uintptr(unsafe.Pointer(&decoder.FsLPC_Q14_buf[0])), uint64(uint32(MAX_LPC_ORDER))*uint64(4))
 	if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order >= int32(10)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6755, __ccgo_ts+6715, int32(373))
 	} /* check that unrolling works */
@@ -822,18 +825,18 @@ _102:
 		i = i + 1
 	}
 	/* Save LPC state */
-	libc.Xmemcpy(tls, psDec+1284, sLPC_Q14_ptr+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length)*4, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
+	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.FsLPC_Q14_buf[0])), sLPC_Q14_ptr+uintptr(decoder.Fframe_length)*4, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
 	/**************************************/
 	/* Update states                      */
 	/**************************************/
-	(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Frand_seed = rand_seed
-	(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FrandScale_Q14 = rand_scale_Q14
+	plc.Frand_seed = rand_seed
+	plc.FrandScale_Q14 = rand_scale_Q14
 	i = 0
 	for {
 		if !(i < int32(MAX_NB_SUBFR)) {
 			break
 		}
-		*(*int32)(unsafe.Pointer(psDecCtrl + uintptr(i)*4)) = lag
+		control.FpitchL[i] = lag
 		i = i + 1
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
