@@ -4531,13 +4531,19 @@ func opus_multistream_packet_validate(tls *libc.TLS, data uintptr, len1 OpusT_op
 type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr)
 
 func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, __ccgo_fp_copy_channel_out OpusT_opus_copy_channel_out_func, frame_size int32, decode_fec int32, soft_clip int32, user_data uintptr) (r int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
+	// CTL and decode output pointers cross deep uintptr-taking calls. Keep
+	// their named storage pinned rather than on the movable Go stack.
+	type decodeScratch struct {
+		Fs           OpusT_opus_int32
+		packetOffset OpusT_opus_int32
+		va           uintptr
+	}
+	storage := libc.Xmalloc(tls, uint64(unsafe.Sizeof(decodeScratch{})))
+	defer libc.Xfree(tls, storage)
+	scratch := (*decodeScratch)(unsafe.Pointer(storage))
 	var _saved_stack, buf, dec, ptr, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var alignment uint32
 	var c, chan1, chan11, coupled_size, do_plc, mono_size, prev, prev1, ret, ret1, s, v31, v56, v75 int32
-	var _ /* Fs at bp+0 */ OpusT_opus_int32
-	var _ /* packet_offset at bp+4 */ OpusT_opus_int32
 	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, alignment, buf, c, chan1, chan11, coupled_size, dec, do_plc, mono_size, prev, prev1, ptr, ret, ret1, s, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v31, v5, v56, v6, v75, v8
 	do_plc = 0
@@ -4618,13 +4624,13 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 		return -int32(1)
 	}
 	/* Limit frame_size to avoid excessive stack allocations. */
-	if !(Opus_opus_multistream_decoder_ctl(tls, st1, int32(OPUS_GET_SAMPLE_RATE_REQUEST), libc.VaList(bp+16, bp+uintptr((OpusT___predefined_ptrdiff_t(bp)-int64(bp))/4)*4)) == int32(OPUS_OK)) {
+	if !(Opus_opus_multistream_decoder_ctl(tls, st1, int32(OPUS_GET_SAMPLE_RATE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&scratch.va)), uintptr(unsafe.Pointer(&scratch.Fs)))) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+2090, __ccgo_ts+2200, int32(206))
 	}
-	if frame_size < *(*OpusT_opus_int32)(unsafe.Pointer(bp))/int32(25)*int32(3) {
+	if frame_size < scratch.Fs/int32(25)*int32(3) {
 		v31 = frame_size
 	} else {
-		v31 = *(*OpusT_opus_int32)(unsafe.Pointer(bp)) / int32(25) * int32(3)
+		v31 = scratch.Fs / int32(25) * int32(3)
 	}
 	frame_size = v31
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -4730,7 +4736,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 		return -int32(4)
 	}
 	if !(do_plc != 0) {
-		ret = opus_multistream_packet_validate(tls, data, len1, decoder.Flayout.Fnb_streams, *(*OpusT_opus_int32)(unsafe.Pointer(bp)))
+		ret = opus_multistream_packet_validate(tls, data, len1, decoder.Flayout.Fnb_streams, scratch.Fs)
 		if ret < 0 {
 			st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 			if !(st != 0) {
@@ -4791,11 +4797,11 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 			return -int32(3)
 		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)) = 0
-		ret1 = Opus_opus_decode_native(tls, dec, data, len1, buf, frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), bp+4, soft_clip, uintptr(uint32(0)), 0)
+		scratch.packetOffset = 0
+		ret1 = Opus_opus_decode_native(tls, dec, data, len1, buf, frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), uintptr(unsafe.Pointer(&scratch.packetOffset)), soft_clip, uintptr(uint32(0)), 0)
 		if !(do_plc != 0) {
-			data = data + uintptr(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)))
-			len1 = len1 - *(*OpusT_opus_int32)(unsafe.Pointer(bp + 4))
+			data = data + uintptr(scratch.packetOffset)
+			len1 = len1 - scratch.packetOffset
 		}
 		if ret1 <= 0 {
 			st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
