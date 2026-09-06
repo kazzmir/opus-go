@@ -3257,6 +3257,7 @@ func quant_partition(tls *libc.TLS, ctx uintptr, X uintptr, N int32, _b int32, B
 	var rebalance OpusT_opus_int32
 	var tmp, v30 OpusT_opus_val16
 	var _ /* sctx at bp+8 */ split_ctx
+	context := (*band_ctx)(unsafe.Pointer(ctx))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B0, K, Y, cache, cache1, cache2, cm, cm_mask, curr_bits, delta, ec, encode, hi, i1, i2, imid, iside, itheta, j, lo, m2, mbits, mid, mid1, next_lowband2, q, qalloc, rebalance, sbits, side, spread, tmp, v1, v2, v3, v30, v4, v5
 	imid = 0
 	iside = 0
@@ -3321,7 +3322,7 @@ func quant_partition(tls *libc.TLS, ctx uintptr, X uintptr, N int32, _b int32, B
 		}
 		mbits = v1
 		sbits = *(*int32)(unsafe.Pointer(bp)) - mbits
-		*(*OpusT_opus_int32)(unsafe.Pointer(ctx + 40)) -= qalloc
+		context.Fremaining_bits -= qalloc
 		if lowband != 0 {
 			next_lowband2 = lowband + uintptr(N)*4
 		} /* >32-bit split case */
@@ -3390,10 +3391,10 @@ func quant_partition(tls *libc.TLS, ctx uintptr, X uintptr, N int32, _b int32, B
 		}
 		v3 = v4
 		curr_bits = v3
-		*(*OpusT_opus_int32)(unsafe.Pointer(ctx + 40)) -= curr_bits
+		context.Fremaining_bits -= curr_bits
 		/* Ensures we can never bust the budget */
 		for (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits < 0 && q > 0 {
-			*(*OpusT_opus_int32)(unsafe.Pointer(ctx + 40)) += curr_bits
+			context.Fremaining_bits += curr_bits
 			q = q - 1
 			v5 = m2
 			v1 = LM2
@@ -3407,7 +3408,7 @@ func quant_partition(tls *libc.TLS, ctx uintptr, X uintptr, N int32, _b int32, B
 			}
 			v3 = v4
 			curr_bits = v3
-			*(*OpusT_opus_int32)(unsafe.Pointer(ctx + 40)) -= curr_bits
+			context.Fremaining_bits -= curr_bits
 		}
 		if q != 0 {
 			v1 = q
