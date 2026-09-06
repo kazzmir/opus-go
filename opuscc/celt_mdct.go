@@ -811,24 +811,22 @@ type OpusT_mini_kiss_fftr_state = struct {
 }
 
 func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem uintptr, lenmem uintptr) (r OpusT_mini_kiss_fftr_cfg) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var i int32
 	var memneeded OpusT_size_t
 	var phase float64
 	var st OpusT_mini_kiss_fftr_cfg
+	var subsize OpusT_size_t
 	var v1 bool
-	var _ /* subsize at bp+0 */ OpusT_size_t
-	_, _, _, _, _ = i, memneeded, phase, st, v1
+	_, _, _, _, _, _ = i, memneeded, phase, st, subsize, v1
 	st = uintptr(uint32(0))
-	*(*OpusT_size_t)(unsafe.Pointer(bp)) = uint64(0)
+	subsize = 0
 	if v1 = nfft&int32(1) == 0; !v1 {
 		libc.X__assert_fail(tls, __ccgo_ts+5561, __ccgo_ts+5529, int32(416), uintptr(unsafe.Pointer(&__func__2)))
 	}
 	_ = v1 || libc.Bool(int32(0) != 0)
 	nfft = nfft >> int32(1)
-	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, uintptr(uint32(0)), bp)
-	memneeded = uint64(24) + *(*OpusT_size_t)(unsafe.Pointer(bp)) + uint64(8)*uint64(uint32(nfft*int32(3)/int32(2)))
+	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, uintptr(uint32(0)), uintptr(unsafe.Pointer(&subsize)))
+	memneeded = uint64(24) + subsize + uint64(8)*uint64(uint32(nfft*int32(3)/int32(2)))
 	if lenmem == uintptr(uint32(0)) {
 		st = libc.Xmalloc(tls, memneeded)
 	} else {
@@ -841,9 +839,9 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem
 		return uintptr(uint32(0))
 	}
 	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate = st + uintptr(uint32(1))*24 /*just beyond kiss_fftr_state struct */
-	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate + uintptr(*(*OpusT_size_t)(unsafe.Pointer(bp)))
+	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate + uintptr(subsize)
 	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsuper_twiddles = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf + uintptr(nfft)*8
-	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate, bp)
+	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate, uintptr(unsafe.Pointer(&subsize)))
 	i = 0
 	for {
 		if !(i < nfft/int32(2)) {

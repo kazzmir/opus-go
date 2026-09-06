@@ -34,6 +34,30 @@ func TestMiniFFTAllocUsesFields(t *testing.T) {
 	}
 }
 
+func TestMiniFFTRAllocUsesLocalSubsize(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+
+	config := Opus_mini_kiss_fftr_alloc(tls, 8, 0, 0, 0)
+	if config == 0 {
+		t.Fatal("mini real FFT allocation returned nil")
+	}
+	state := (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(config))
+	substate := (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(state.Fsubstate))
+	if got, want := substate.Fnfft, int32(4); got != want {
+		t.Fatalf("substate size: got %d, want %d", got, want)
+	}
+	if got, want := state.Ftmpbuf-state.Fsubstate, uintptr(296); got != want {
+		t.Fatalf("temporary buffer offset: got %d, want %d", got, want)
+	}
+	if got, want := state.Fsuper_twiddles-state.Ftmpbuf, uintptr(32); got != want {
+		t.Fatalf("super twiddle offset: got %d, want %d", got, want)
+	}
+	if got, want := *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(state.Fsuper_twiddles)), (OpusT_mini_kiss_fft_cpx{Fr: -0.70710677, Fi: -0.70710677}); got != want {
+		t.Fatalf("first super twiddle: got %+v, want %+v", got, want)
+	}
+}
+
 func TestFFTImplUsesFactorsField(t *testing.T) {
 	state := OpusT_kiss_fft_state{
 		Fnfft:    4,
