@@ -27,3 +27,9 @@ jobs:
 
       - name: Run tests
         run: go test ./...
+
+      - name: Run 386 tests
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          GOARCH: '386'
+        run: go test ./...
