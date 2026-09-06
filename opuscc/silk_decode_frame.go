@@ -334,12 +334,10 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 //
 //	/* Decode side-information parameters from payload */
 func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, FrameIndex int32, decode_LBRR int32, condCoding int32) {
-	bp := tls.Alloc(48)
-	defer tls.Free(48)
 	var Ix, decode_absolute_lagIndex, delta_lagIndex, i, k int32
 	var v1 uintptr
-	var _ /* ec_ix at bp+0 */ [16]OpusT_opus_int16
-	var _ /* pred_Q8 at bp+32 */ [16]OpusT_opus_uint8
+	var ec_ix [16]OpusT_opus_int16
+	var pred_Q8 [16]OpusT_opus_uint8
 	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
 	indices := &decoder.Findices
 	_, _, _, _, _, _ = Ix, decode_absolute_lagIndex, delta_lagIndex, i, k, v1
@@ -379,7 +377,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 	/* Decode LSF Indices */
 	/**********************/
 	indices.FNLSFIndices[0] = int8(Opus_ec_dec_icdf(tls, psRangeDec, (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)).FCB1_iCDF+uintptr(int32(indices.FsignalType)>>int32(1)*int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)).FnVectors)), uint32(8)))
-	Opus_silk_NLSF_unpack(tls, bp, bp+32, decoder.FpsNLSF_CB, int32(indices.FNLSFIndices[0]))
+	Opus_silk_NLSF_unpack(tls, uintptr(unsafe.Pointer(&ec_ix[0])), uintptr(unsafe.Pointer(&pred_Q8[0])), decoder.FpsNLSF_CB, int32(indices.FNLSFIndices[0]))
 	if !(int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB)).Forder) == (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
 		Opus_celt_fatal(tls, __ccgo_ts+6108, __ccgo_ts+6170, int32(82))
 	}
@@ -388,7 +386,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 		if !(i < int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB)).Forder)) {
 			break
 		}
-		Ix = Opus_ec_dec_icdf(tls, psRangeDec, (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB)).Fec_iCDF+uintptr((*(*[16]OpusT_opus_int16)(unsafe.Pointer(bp)))[i]), uint32(8))
+		Ix = Opus_ec_dec_icdf(tls, psRangeDec, (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB)).Fec_iCDF+uintptr(ec_ix[i]), uint32(8))
 		if Ix == 0 {
 			Ix = Ix - Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_NLSF_EXT_iCDF)), uint32(8))
 		} else {
