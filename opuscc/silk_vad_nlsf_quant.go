@@ -699,8 +699,6 @@ func Opus_silk_NLSF_unpack(tls *libc.TLS, ec_ix uintptr, pred_Q8 uintptr, psNLSF
 //
 //	/* Delayed-decision quantizer for NLSF residuals */
 func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr, w_Q5 uintptr, pred_coef_Q8 uintptr, ec_ix uintptr, ec_rates_Q5 uintptr, quant_step_size_Q16 int32, inv_quant_step_size_Q6 OpusT_opus_int16, mu_Q20 OpusT_opus_int32, order OpusT_opus_int16) (r OpusT_opus_int32) {
-	bp := tls.Alloc(64)
-	defer tls.Free(64)
 	var RD_Q25 [8]OpusT_opus_int32
 	var RD_max_Q25, RD_min_Q25 [4]OpusT_opus_int32
 	var RD_tmp_Q25, max_min_Q25, min_Q25, min_max_Q25 OpusT_opus_int32
@@ -710,7 +708,7 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 	var out0_Q10_table, out1_Q10_table [20]int32
 	var prev_out_Q10 [8]OpusT_opus_int16
 	var rates_Q5, v11 uintptr
-	var _ /* ind at bp+0 */ [4][16]OpusT_opus_int8
+	var ind [4][16]OpusT_opus_int8
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = RD_Q25, RD_max_Q25, RD_min_Q25, RD_tmp_Q25, diff_Q10, i, in_Q10, ind_max_min, ind_min_max, ind_sort, ind_tmp, j, max_min_Q25, min_Q25, min_max_Q25, nStates, out0_Q10, out0_Q10_table, out1_Q10, out1_Q10_table, pred_Q10, prev_out_Q10, rate0_Q5, rate1_Q5, rates_Q5, res_Q10, v11, v4, v5
 	i = -int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)
 	for {
@@ -768,7 +766,7 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 				v4 = v5
 			}
 			ind_tmp = v4
-			*(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(j)*16 + uintptr(i))) = int8(ind_tmp)
+			ind[j][i] = int8(ind_tmp)
 			/* compute outputs for ind_tmp and ind_tmp + 1 */
 			out0_Q10 = int16(out0_Q10_table[ind_tmp+int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)])
 			out1_Q10 = int16(out1_Q10_table[ind_tmp+int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)])
@@ -813,7 +811,7 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 				if !(j < nStates) {
 					break
 				}
-				*(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(j+nStates)*16 + uintptr(i))) = int8(int32(*(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(j)*16 + uintptr(i)))) + int32(1))
+				ind[j+nStates][i] = OpusT_opus_int8(int32(ind[j][i]) + int32(1))
 				j = j + 1
 			}
 			nStates = int32(uint32(nStates) << int32(1))
@@ -822,7 +820,7 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 				if !(j < int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)) {
 					break
 				}
-				*(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(j)*16 + uintptr(i))) = *(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(j-nStates)*16 + uintptr(i)))
+				ind[j][i] = ind[j-nStates][i]
 				j = j + 1
 			}
 		} else {
@@ -880,7 +878,7 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 				prev_out_Q10[ind_max_min] = prev_out_Q10[ind_min_max+int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)]
 				RD_min_Q25[ind_max_min] = 0
 				RD_max_Q25[ind_min_max] = int32(silk_int32_MAX)
-				libc.Xmemcpy(tls, bp+uintptr(ind_max_min)*16, bp+uintptr(ind_min_max)*16, uint64(uint32(MAX_LPC_ORDER))*uint64(1))
+				ind[ind_max_min] = ind[ind_min_max]
 			}
 			/* increment index if it comes from the upper half */
 			j = 0
@@ -888,8 +886,7 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 				if !(j < int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)) {
 					break
 				}
-				v11 = bp + uintptr(j)*16 + uintptr(i)
-				*(*OpusT_opus_int8)(unsafe.Pointer(v11)) = OpusT_opus_int8(int32(*(*OpusT_opus_int8)(unsafe.Pointer(v11))) + ind_sort[j]>>int32(NLSF_QUANT_DEL_DEC_STATES_LOG2))
+				ind[j][i] = OpusT_opus_int8(int32(ind[j][i]) + ind_sort[j]>>int32(NLSF_QUANT_DEL_DEC_STATES_LOG2))
 				j = j + 1
 			}
 		}
@@ -914,7 +911,7 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 		if !(j < int32(order)) {
 			break
 		}
-		*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(j))) = *(*OpusT_opus_int8)(unsafe.Pointer(bp + uintptr(ind_tmp&(int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)-int32(1)))*16 + uintptr(j)))
+		*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(j))) = ind[ind_tmp&(int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)-int32(1))][j]
 		_ = int32(*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(j)))) >= -int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)
 		_ = int32(*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(j)))) <= int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)
 		j = j + 1
