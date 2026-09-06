@@ -44,4 +44,7 @@ func TestVADAnalysisVADStateBase(t *testing.T) {
 	if got, want := encoder.FsVAD.FNL, [4]OpusT_opus_int32{901, 1102, 1302, 1502}; got != want {
 		t.Fatalf("noise levels: got %v, want %v", got, want)
 	}
+	if got, want := encoder.Finput_quality_bands_Q15, [4]OpusT_opus_int32{23731, 22783, 21835, 21124}; got != want {
+		t.Fatalf("input quality: got %v, want %v", got, want)
+	}
 }

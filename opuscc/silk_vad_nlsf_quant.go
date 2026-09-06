@@ -89,9 +89,11 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 	var _ /* Xnrg at bp+8 */ [4]OpusT_opus_int32
 	var _ /* frac_Q7 at bp+4 */ OpusT_opus_int32
 	var _ /* lz at bp+0 */ OpusT_opus_int32
+	encoder := (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC))
+	vad := &encoder.FsVAD
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = HPstateTmp, NrgToNoiseRatio_Q8, SA_Q15, SNR_Q7, X, X_offset, _saved_stack, b1, dec_subframe_length, dec_subframe_offset, decimated_framelength, decimated_framelength1, decimated_framelength2, i, input_tilt, lzeros, m, pSNR_dB_Q7, psSilk_VAD, r, ret, s, smooth_coef_Q16, speech_nrg, st, sumSquared, x, x_tmp, y, v1, v11, v13, v15, v17, v19, v21, v23, v3, v33, v34, v35, v37, v43, v44, v46, v47, v48, v5, v51, v53, v7, v9
 	ret = 0
-	psSilk_VAD = uintptr(unsafe.Pointer(&(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FsVAD))
+	psSilk_VAD = uintptr(unsafe.Pointer(vad))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -198,11 +200,11 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 	v23 = st
 	X = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(X_offset[int32(3)]+decimated_framelength1))*(uint64(2)/uint64(1)))
 	/* 0-8 kHz to 0-4 kHz and 4-8 kHz */
-	Opus_silk_ana_filt_bank_1(tls, pIn, psSilk_VAD, X, X+uintptr(X_offset[int32(3)])*2, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length)
+	Opus_silk_ana_filt_bank_1(tls, pIn, uintptr(unsafe.Pointer(&vad.FAnaState[0])), X, X+uintptr(X_offset[int32(3)])*2, encoder.Fframe_length)
 	/* 0-4 kHz to 0-2 kHz and 2-4 kHz */
-	Opus_silk_ana_filt_bank_1(tls, X, psSilk_VAD+8, X, X+uintptr(X_offset[int32(2)])*2, decimated_framelength1)
+	Opus_silk_ana_filt_bank_1(tls, X, uintptr(unsafe.Pointer(&vad.FAnaState1[0])), X, X+uintptr(X_offset[int32(2)])*2, decimated_framelength1)
 	/* 0-2 kHz to 0-1 kHz and 1-2 kHz */
-	Opus_silk_ana_filt_bank_1(tls, X, psSilk_VAD+16, X, X+uintptr(X_offset[int32(1)])*2, decimated_framelength2)
+	Opus_silk_ana_filt_bank_1(tls, X, uintptr(unsafe.Pointer(&vad.FAnaState2[0])), X, X+uintptr(X_offset[int32(1)])*2, decimated_framelength2)
 	/*********************************************/
 	/* HP filter on lowest band (differentiator) */
 	/*********************************************/
@@ -219,8 +221,8 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 		i = i - 1
 	}
 	v1 = X
-	*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) - int32((*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD)).FHPstate))
-	(*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD)).FHPstate = HPstateTmp
+	*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) - int32(vad.FHPstate))
+	vad.FHPstate = HPstateTmp
 	/*************************************/
 	/* Calculate the energy in each band */
 	/*************************************/
@@ -244,7 +246,7 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 		dec_subframe_offset = 0
 		/* Compute energy per sub-frame */
 		/* initialize with summed energy of last subframe */
-		(*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1] = *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 24 + uintptr(b1)*4))
+		(*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1] = vad.FXnrgSubfr[b1]
 		s = 0
 		for {
 			if !(s < int32(1)<<int32(VAD_INTERNAL_SUBFRAMES_LOG2)) {
@@ -284,7 +286,7 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 			dec_subframe_offset = dec_subframe_offset + dec_subframe_length
 			s = s + 1
 		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 24 + uintptr(b1)*4)) = sumSquared
+		vad.FXnrgSubfr[b1] = sumSquared
 		b1 = b1 + 1
 	}
 	/********************/
@@ -301,13 +303,13 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 		if !(b1 < int32(VAD_N_BANDS)) {
 			break
 		}
-		speech_nrg = (*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1] - *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4))
+		speech_nrg = (*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1] - vad.FNL[b1]
 		if speech_nrg > 0 {
 			/* Divide, with sufficient resolution */
 			if uint32((*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1])&uint32(0xFF800000) == uint32(0) {
-				NrgToNoiseRatio_Q8[b1] = int32(uint32((*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1])<<int32(8)) / (*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4)) + int32(1))
+				NrgToNoiseRatio_Q8[b1] = int32(uint32((*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1])<<int32(8)) / (vad.FNL[b1] + int32(1))
 			} else {
-				NrgToNoiseRatio_Q8[b1] = (*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1] / (*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4))>>int32(8) + int32(1))
+				NrgToNoiseRatio_Q8[b1] = (*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1] / (vad.FNL[b1]>>int32(8) + int32(1))
 			}
 			/* Convert to log domain */
 			SNR_Q7 = Opus_silk_lin2log(tls, NrgToNoiseRatio_Q8[b1]) - int32(8)*int32(128)
@@ -432,7 +434,7 @@ _57:
 			break
 		}
 		/* Accumulate signal-without-noise energies, higher frequency bands have more weight */
-		speech_nrg = speech_nrg + (b1+int32(1))*(((*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1]-*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4)))>>int32(4))
+		speech_nrg = speech_nrg + (b1+int32(1))*(((*(*[4]OpusT_opus_int32)(unsafe.Pointer(bp + 8)))[b1]-vad.FNL[b1])>>int32(4))
 		b1 = b1 + 1
 	}
 	if (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length == int32(20)*(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Ffs_kHz {
@@ -516,11 +518,11 @@ _57:
 			break
 		}
 		/* compute smoothed energy-to-noise ratio per band */
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 40 + uintptr(b1)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 40 + uintptr(b1)*4))) + int64(NrgToNoiseRatio_Q8[b1]-*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 40 + uintptr(b1)*4)))*int64(int16(smooth_coef_Q16))>>int32(16))
+		vad.FNrgRatioSmth_Q8[b1] = int32(int64(vad.FNrgRatioSmth_Q8[b1]) + int64(NrgToNoiseRatio_Q8[b1]-vad.FNrgRatioSmth_Q8[b1])*int64(int16(smooth_coef_Q16))>>int32(16))
 		/* signal to noise ratio in dB per band */
-		SNR_Q7 = int32(3) * (Opus_silk_lin2log(tls, *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 40 + uintptr(b1)*4))) - int32(8)*int32(128))
+		SNR_Q7 = int32(3) * (Opus_silk_lin2log(tls, vad.FNrgRatioSmth_Q8[b1]) - int32(8)*int32(128))
 		/* quality = sigmoid( 0.25 * ( SNR_dB - 16 ) ); */
-		*(*int32)(unsafe.Pointer(psEncC + 4712 + uintptr(b1)*4)) = Opus_silk_sigm_Q15(tls, (SNR_Q7-int32(16)*int32(128))>>int32(4))
+		encoder.Finput_quality_bands_Q15[b1] = Opus_silk_sigm_Q15(tls, (SNR_Q7-int32(16)*int32(128))>>int32(4))
 		b1 = b1 + 1
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
