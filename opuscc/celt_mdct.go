@@ -1064,15 +1064,13 @@ func Opus_ec_laplace_decode(tls *libc.TLS, dec uintptr, fs uint32, decay int32) 
 }
 
 func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc uintptr, value int32, p0 OpusT_opus_uint16, decay OpusT_opus_uint16) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
 	var i, s, v1, v2 int32
-	var _ /* icdf at bp+6 */ [8]OpusT_opus_uint16
-	var _ /* sign_icdf at bp+0 */ [3]OpusT_opus_uint16
+	var icdf [8]OpusT_opus_uint16
+	var sign_icdf [3]OpusT_opus_uint16
 	_, _, _, _ = i, s, v1, v2
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[0] = uint16(int32(32768) - int32(p0))
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[int32(1)] = uint16(int32((*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[0]) / int32(2))
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[int32(2)] = uint16(0)
+	sign_icdf[0] = uint16(32768 - int32(p0))
+	sign_icdf[1] = uint16(int32(sign_icdf[0]) / 2)
+	sign_icdf[2] = 0
 	if value == 0 {
 		v1 = 0
 	} else {
@@ -1084,7 +1082,7 @@ func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc uintptr, value int32, p0 OpusT
 		v1 = v2
 	}
 	s = v1
-	Opus_ec_enc_icdf16(tls, enc, s, bp, uint32(15))
+	Opus_ec_enc_icdf16(tls, enc, s, uintptr(unsafe.Pointer(&sign_icdf[0])), uint32(15))
 	value = libc.Xabs(tls, value)
 	if value != 0 {
 		if int32(7) > int32(decay) {
@@ -1092,21 +1090,21 @@ func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc uintptr, value int32, p0 OpusT
 		} else {
 			v1 = int32(decay)
 		}
-		(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[0] = uint16(v1)
+		icdf[0] = uint16(v1)
 		i = int32(1)
 		for {
 			if !(i < int32(7)) {
 				break
 			}
-			if int32(7)-i > int32((*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i-int32(1)])*int32(decay)>>int32(15) {
+			if 7-i > int32(icdf[i-1])*int32(decay)>>int32(15) {
 				v1 = int32(7) - i
 			} else {
-				v1 = int32((*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i-int32(1)]) * int32(decay) >> int32(15)
+				v1 = int32(icdf[i-1]) * int32(decay) >> int32(15)
 			}
-			(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i] = uint16(v1)
+			icdf[i] = uint16(v1)
 			i = i + 1
 		}
-		(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[int32(7)] = uint16(0)
+		icdf[7] = 0
 		value = value - 1
 		for cond := true; cond; cond = value >= 0 {
 			if value < int32(7) {
@@ -1114,23 +1112,21 @@ func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc uintptr, value int32, p0 OpusT
 			} else {
 				v1 = int32(7)
 			}
-			Opus_ec_enc_icdf16(tls, enc, v1, bp+6, uint32(15))
+			Opus_ec_enc_icdf16(tls, enc, v1, uintptr(unsafe.Pointer(&icdf[0])), uint32(15))
 			value = value - int32(7)
 		}
 	}
 }
 
 func Opus_ec_laplace_decode_p0(tls *libc.TLS, dec uintptr, p0 OpusT_opus_uint16, decay OpusT_opus_uint16) (r int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
 	var i, s, v, value, v1 int32
-	var _ /* icdf at bp+6 */ [8]OpusT_opus_uint16
-	var _ /* sign_icdf at bp+0 */ [3]OpusT_opus_uint16
+	var icdf [8]OpusT_opus_uint16
+	var sign_icdf [3]OpusT_opus_uint16
 	_, _, _, _, _ = i, s, v, value, v1
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[0] = uint16(int32(32768) - int32(p0))
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[int32(1)] = uint16(int32((*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[0]) / int32(2))
-	(*(*[3]OpusT_opus_uint16)(unsafe.Pointer(bp)))[int32(2)] = uint16(0)
-	s = Opus_ec_dec_icdf16(tls, dec, bp, uint32(15))
+	sign_icdf[0] = uint16(32768 - int32(p0))
+	sign_icdf[1] = uint16(int32(sign_icdf[0]) / 2)
+	sign_icdf[2] = 0
+	s = Opus_ec_dec_icdf16(tls, dec, uintptr(unsafe.Pointer(&sign_icdf[0])), uint32(15))
 	if s == int32(2) {
 		s = -int32(1)
 	}
@@ -1140,24 +1136,24 @@ func Opus_ec_laplace_decode_p0(tls *libc.TLS, dec uintptr, p0 OpusT_opus_uint16,
 		} else {
 			v1 = int32(decay)
 		}
-		(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[0] = uint16(v1)
+		icdf[0] = uint16(v1)
 		i = int32(1)
 		for {
 			if !(i < int32(7)) {
 				break
 			}
-			if int32(7)-i > int32((*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i-int32(1)])*int32(decay)>>int32(15) {
+			if 7-i > int32(icdf[i-1])*int32(decay)>>int32(15) {
 				v1 = int32(7) - i
 			} else {
-				v1 = int32((*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i-int32(1)]) * int32(decay) >> int32(15)
+				v1 = int32(icdf[i-1]) * int32(decay) >> int32(15)
 			}
-			(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[i] = uint16(v1)
+			icdf[i] = uint16(v1)
 			i = i + 1
 		}
-		(*(*[8]OpusT_opus_uint16)(unsafe.Pointer(bp + 6)))[int32(7)] = uint16(0)
+		icdf[7] = 0
 		value = int32(1)
 		for cond := true; cond; cond = v == int32(7) {
-			v = Opus_ec_dec_icdf16(tls, dec, bp+6, uint32(15))
+			v = Opus_ec_dec_icdf16(tls, dec, uintptr(unsafe.Pointer(&icdf[0])), uint32(15))
 			value = value + v
 		}
 		return s * value
