@@ -338,11 +338,13 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 	var v1 uintptr
 	var _ /* ec_ix at bp+0 */ [16]OpusT_opus_int16
 	var _ /* pred_Q8 at bp+32 */ [16]OpusT_opus_uint8
+	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	indices := &decoder.Findices
 	_, _, _, _, _, _ = Ix, decode_absolute_lagIndex, delta_lagIndex, i, k, v1
 	/*******************************************/
 	/* Decode signal type and quantizer offset */
 	/*******************************************/
-	if decode_LBRR != 0 || *(*int32)(unsafe.Pointer(psDec + 2416 + uintptr(FrameIndex)*4)) != 0 {
+	if decode_LBRR != 0 || decoder.FVAD_flags[FrameIndex] != 0 {
 		Ix = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_type_offset_VAD_iCDF)), uint32(8)) + int32(2)
 	} else {
 		Ix = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_type_offset_no_VAD_iCDF)), uint32(8))
@@ -355,11 +357,11 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 	/* First subframe */
 	if condCoding == int32(CODE_CONDITIONALLY) {
 		/* Conditional coding */
-		*(*OpusT_opus_int8)(unsafe.Pointer(psDec + 2856)) = int8(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_delta_gain_iCDF)), uint32(8)))
+		indices.FGainsIndices[0] = int8(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_delta_gain_iCDF)), uint32(8)))
 	} else {
 		/* Independent coding, in two stages: MSB bits followed by 3 LSBs */
-		*(*OpusT_opus_int8)(unsafe.Pointer(psDec + 2856)) = int8(int32(uint32(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_gain_iCDF))+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType)*8, uint32(8))) << int32(3)))
-		v1 = psDec + 2856
+		indices.FGainsIndices[0] = int8(int32(uint32(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_gain_iCDF))+uintptr(indices.FsignalType)*8, uint32(8))) << int32(3)))
+		v1 = uintptr(unsafe.Pointer(&indices.FGainsIndices[0]))
 		*(*OpusT_opus_int8)(unsafe.Pointer(v1)) = OpusT_opus_int8(int32(*(*OpusT_opus_int8)(unsafe.Pointer(v1))) + int32(int8(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_uniform8_iCDF)), uint32(8)))))
 	}
 	/* Remaining subframes */
@@ -368,14 +370,14 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 		if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr) {
 			break
 		}
-		*(*OpusT_opus_int8)(unsafe.Pointer(psDec + 2856 + uintptr(i))) = int8(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_delta_gain_iCDF)), uint32(8)))
+		indices.FGainsIndices[i] = int8(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_delta_gain_iCDF)), uint32(8)))
 		i = i + 1
 	}
 	/**********************/
 	/* Decode LSF Indices */
 	/**********************/
-	*(*OpusT_opus_int8)(unsafe.Pointer(psDec + 2856 + 8)) = int8(Opus_ec_dec_icdf(tls, psRangeDec, (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB)).FCB1_iCDF+uintptr(int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType)>>int32(1)*int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB)).FnVectors)), uint32(8)))
-	Opus_silk_NLSF_unpack(tls, bp, bp+32, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB, int32(*(*OpusT_opus_int8)(unsafe.Pointer(psDec + 2856 + 8))))
+	indices.FNLSFIndices[0] = int8(Opus_ec_dec_icdf(tls, psRangeDec, (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)).FCB1_iCDF+uintptr(int32(indices.FsignalType)>>int32(1)*int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)).FnVectors)), uint32(8)))
+	Opus_silk_NLSF_unpack(tls, bp, bp+32, decoder.FpsNLSF_CB, int32(indices.FNLSFIndices[0]))
 	if !(int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB)).Forder) == (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
 		Opus_celt_fatal(tls, __ccgo_ts+6108, __ccgo_ts+6170, int32(82))
 	}
@@ -392,7 +394,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 				Ix = Ix + Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_NLSF_EXT_iCDF)), uint32(8))
 			}
 		}
-		*(*OpusT_opus_int8)(unsafe.Pointer(psDec + 2856 + 8 + uintptr(i+int32(1)))) = int8(Ix - int32(NLSF_QUANT_MAX_AMPLITUDE))
+		indices.FNLSFIndices[i+int32(1)] = int8(Ix - int32(NLSF_QUANT_MAX_AMPLITUDE))
 		i = i + 1
 	}
 	/* Decode LSF interpolation factor */
@@ -419,7 +421,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 		if decode_absolute_lagIndex != 0 {
 			/* Absolute decoding */
 			(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FlagIndex = int16(int32(int16(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_pitch_lag_iCDF)), uint32(8)))) * ((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz >> int32(1)))
-			v1 = psDec + 2856 + 26
+			v1 = uintptr(unsafe.Pointer(&indices.FlagIndex))
 			*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) + int32(int16(Opus_ec_dec_icdf(tls, psRangeDec, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fpitch_lag_low_bits_iCDF, uint32(8)))))
 		}
 		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fec_prevLagIndex = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FlagIndex
@@ -435,7 +437,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 			if !(k < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr) {
 				break
 			}
-			*(*OpusT_opus_int8)(unsafe.Pointer(psDec + 2856 + 4 + uintptr(k))) = int8(Opus_ec_dec_icdf(tls, psRangeDec, Opus_silk_LTP_gain_iCDF_ptrs[(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FPERIndex], uint32(8)))
+			indices.FLTPIndex[k] = int8(Opus_ec_dec_icdf(tls, psRangeDec, Opus_silk_LTP_gain_iCDF_ptrs[indices.FPERIndex], uint32(8)))
 			k = k + 1
 		}
 		/**********************/
