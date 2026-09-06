@@ -2062,18 +2062,13 @@ func Opus_normalise_bands(tls *libc.TLS, m uintptr, freq uintptr, X uintptr, ban
 //
 //	/* De-normalise the energy to produce the synthesis from the unit-energy bands */
 func Opus_denormalise_bands(tls *libc.TLS, m uintptr, X uintptr, freq uintptr, bandLogE uintptr, start int32, end int32, M int32, downsample int32, silence int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var N, band_end, bound, i, j, v1 int32
 	var eBands, f, x1, v4 uintptr
 	var frac, v6, v7, v8 float32
 	var g OpusT_opus_val32
 	var integer OpusT_opus_int32
 	var lg OpusT_celt_glog
-	var _ /* res at bp+0 */ struct {
-		Fi [0]OpusT_opus_uint32
-		Ff float32
-	}
+	var res OpusT_opus_uint32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, band_end, bound, eBands, f, frac, g, i, integer, j, lg, x1, v1, v4, v6, v7, v8
 	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands
 	N = M * (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FshortMdctSize
@@ -2128,9 +2123,9 @@ func Opus_denormalise_bands(tls *libc.TLS, m uintptr, X uintptr, freq uintptr, b
 			goto _9
 		}
 		frac = v7 - float32(integer)
-		*(*float32)(unsafe.Pointer(bp)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
-		*(*OpusT_opus_uint32)(unsafe.Pointer(bp)) = uint32(int32(*(*OpusT_opus_uint32)(unsafe.Pointer(bp)))+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
-		v8 = *(*float32)(unsafe.Pointer(bp))
+		*(*float32)(unsafe.Pointer(&res)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
+		res = uint32(int32(res)+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
+		v8 = *(*float32)(unsafe.Pointer(&res))
 	_9:
 		g = v8
 		for {
