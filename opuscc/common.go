@@ -5895,12 +5895,9 @@ func skip_extension_payload(tls *libc.TLS, pdata uintptr, len1 OpusT_opus_int32,
 //	   Higher-level logic is required to skip the extension payloads that come
 //	    after it.*/
 func skip_extension(tls *libc.TLS, pdata uintptr, len1 OpusT_opus_int32, pheader_size uintptr) (r OpusT_opus_int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var id_byte int32
-	var v1 uintptr
-	var _ /* data at bp+0 */ uintptr
-	_, _ = id_byte, v1
+	var data, v1 uintptr
+	_, _, _ = data, id_byte, v1
 	if len1 == 0 {
 		*(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) = 0
 		return 0
@@ -5908,14 +5905,14 @@ func skip_extension(tls *libc.TLS, pdata uintptr, len1 OpusT_opus_int32, pheader
 	if len1 < int32(1) {
 		return -int32(1)
 	}
-	*(*uintptr)(unsafe.Pointer(bp)) = *(*uintptr)(unsafe.Pointer(pdata))
-	v1 = *(*uintptr)(unsafe.Pointer(bp))
-	*(*uintptr)(unsafe.Pointer(bp)) = *(*uintptr)(unsafe.Pointer(bp)) + 1
+	data = *(*uintptr)(unsafe.Pointer(pdata))
+	v1 = data
+	data++
 	id_byte = int32(*(*uint8)(unsafe.Pointer(v1)))
 	len1 = len1 - 1
-	len1 = skip_extension_payload(tls, bp, len1, pheader_size, id_byte, 0)
+	len1 = skip_extension_payload(tls, uintptr(unsafe.Pointer(&data)), len1, pheader_size, id_byte, 0)
 	if len1 >= 0 {
-		*(*uintptr)(unsafe.Pointer(pdata)) = *(*uintptr)(unsafe.Pointer(bp))
+		*(*uintptr)(unsafe.Pointer(pdata)) = data
 		*(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) = *(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) + 1
 	}
 	return len1
