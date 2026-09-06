@@ -2682,15 +2682,10 @@ func Opus_unquant_energy_finalise(tls *libc.TLS, m uintptr, start int32, end int
 }
 
 func Opus_amp2Log2(tls *libc.TLS, m uintptr, effEnd int32, end int32, bandE uintptr, bandLogE uintptr, C int32) {
-	bp := tls.Alloc(16)
-	defer tls.Free(16)
 	var c, i, v1 int32
 	var integer, range_idx OpusT_opus_int32
 	var v4 float32
-	var _ /* in at bp+0 */ struct {
-		Fi [0]OpusT_opus_uint32
-		Ff float32
-	}
+	var in OpusT_opus_uint32
 	_, _, _, _, _, _ = c, i, integer, range_idx, v1, v4
 	c = 0
 	for {
@@ -2699,13 +2694,13 @@ func Opus_amp2Log2(tls *libc.TLS, m uintptr, effEnd int32, end int32, bandE uint
 			if !(i < effEnd) {
 				break
 			}
-			*(*float32)(unsafe.Pointer(bp)) = *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
-			integer = int32(*(*OpusT_opus_uint32)(unsafe.Pointer(bp))>>int32(23)) - int32(127)
-			*(*OpusT_opus_uint32)(unsafe.Pointer(bp)) = uint32(int32(*(*OpusT_opus_uint32)(unsafe.Pointer(bp))) - int32(uint32(integer)<<int32(23)))
-			range_idx = int32(*(*OpusT_opus_uint32)(unsafe.Pointer(bp)) >> int32(20) & uint32(0x7))
-			*(*float32)(unsafe.Pointer(bp)) = float32(*(*float32)(unsafe.Pointer(bp))*log2_x_norm_coeff10[range_idx]) - float32(1.0625)
-			*(*float32)(unsafe.Pointer(bp)) = float32(0.08746284246444702) + float32(*(*float32)(unsafe.Pointer(bp))*(float32(1.3578295707702637)+float32(*(*float32)(unsafe.Pointer(bp))*(-float32(0.63897705078125)+float32(*(*float32)(unsafe.Pointer(bp))*(float32(0.4019712507724762)+float32(*(*float32)(unsafe.Pointer(bp))*-float32(0.2841544449329376))))))))
-			v4 = float32(integer) + *(*float32)(unsafe.Pointer(bp)) + log2_y_norm_coeff10[range_idx]
+			*(*float32)(unsafe.Pointer(&in)) = *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
+			integer = int32(in>>int32(23)) - int32(127)
+			in = uint32(int32(in) - int32(uint32(integer)<<int32(23)))
+			range_idx = int32(in >> int32(20) & uint32(0x7))
+			*(*float32)(unsafe.Pointer(&in)) = float32(*(*float32)(unsafe.Pointer(&in))*log2_x_norm_coeff10[range_idx]) - float32(1.0625)
+			*(*float32)(unsafe.Pointer(&in)) = float32(0.08746284246444702) + float32(*(*float32)(unsafe.Pointer(&in))*(float32(1.3578295707702637)+float32(*(*float32)(unsafe.Pointer(&in))*(-float32(0.63897705078125)+float32(*(*float32)(unsafe.Pointer(&in))*(float32(0.4019712507724762)+float32(*(*float32)(unsafe.Pointer(&in))*-float32(0.2841544449329376))))))))
+			v4 = float32(integer) + *(*float32)(unsafe.Pointer(&in)) + log2_y_norm_coeff10[range_idx]
 			*(*OpusT_celt_glog)(unsafe.Pointer(bandLogE + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = v4 - Opus_eMeans[i]
 			i = i + 1
 		}
