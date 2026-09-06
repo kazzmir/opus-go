@@ -2904,7 +2904,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 					*(*OpusT_opus_int32)(unsafe.Pointer(bp + 64)) = frame_size
 					i = 0
 					for {
-						if !(i < frame_size*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels) {
+						if !(i < frame_size*decoder.Fchannels) {
 							break
 						}
 						*(*OpusT_opus_res)(unsafe.Pointer(pcm_ptr + uintptr(i)*4)) = float32(0)
@@ -2925,11 +2925,11 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 					return -int32(3)
 				}
 			}
-			pcm_ptr = pcm_ptr + uintptr(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 64))*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)*4
+			pcm_ptr = pcm_ptr + uintptr(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 64))*decoder.Fchannels)*4
 			decoded_samples = decoded_samples + *(*OpusT_opus_int32)(unsafe.Pointer(bp + 64))
 		}
 		if pcm_too_small != 0 {
-			libc.Xmemcpy(tls, pcm, pcm_silk, uint64(uint32(frame_size*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels))*uint64(4)+uint64(0*((int64(pcm)-int64(pcm_silk))/4)))
+			libc.Xmemcpy(tls, pcm, pcm_silk, uint64(uint32(frame_size*decoder.Fchannels))*uint64(4)+uint64(0*((int64(pcm)-int64(pcm_silk))/4)))
 		}
 	}
 	start_band = 0
@@ -3076,13 +3076,13 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			Opus_celt_fatal(tls, __ccgo_ts+1037, __ccgo_ts+57, int32(570))
 		}
 	}
-	_ = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fstream_channels == int32(0)
-	if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_SET_CHANNELS_REQUEST), libc.VaList(bp+96, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fstream_channels)) == int32(OPUS_OK)) {
+	_ = decoder.Fstream_channels == int32(0)
+	if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_SET_CHANNELS_REQUEST), libc.VaList(bp+96, decoder.Fstream_channels)) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+1172, __ccgo_ts+57, int32(572))
 	}
 	/* Only allocation memory for redundancy if/when needed */
 	if redundancy != 0 {
-		v31 = F5 * (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels
+		v31 = F5 * decoder.Fchannels
 	} else {
 		v31 = ALLOC_NONE
 	}
