@@ -6227,29 +6227,27 @@ func Opus_opus_packet_extensions_count_ext(tls *libc.TLS, data uintptr, len1 Opu
 //	   Due to the extension repetition mechanism, extensions are not necessarily
 //	    returned in frame order. */
 func Opus_opus_packet_extensions_parse(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions uintptr, nb_frames int32) (r OpusT_opus_int32) {
-	bp := tls.Alloc(112)
-	defer tls.Free(112)
 	var count, ret int32
-	var _ /* ext at bp+80 */ OpusT_opus_extension_data
-	var _ /* iter at bp+0 */ OpusT_OpusExtensionIterator
-	_, _ = count, ret
+	var ext OpusT_opus_extension_data
+	var iter OpusT_OpusExtensionIterator
+	_, _, _, _ = count, ext, iter, ret
 	if !(nb_extensions != uintptr(uint32(0))) {
 		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, int32(365))
 	}
 	if !(extensions != uintptr(uint32(0)) || *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) == 0) {
 		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, int32(366))
 	}
-	Opus_opus_extension_iterator_init(tls, bp, data, len1, nb_frames)
+	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iter)), data, len1, nb_frames)
 	count = 0
 	for {
-		ret = Opus_opus_extension_iterator_next(tls, bp, bp+80)
+		ret = Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iter)), uintptr(unsafe.Pointer(&ext)))
 		if ret <= 0 {
 			break
 		}
 		if count == *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) {
 			return -int32(2)
 		}
-		*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(count)*24)) = *(*OpusT_opus_extension_data)(unsafe.Pointer(bp + 80))
+		*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(count)*24)) = ext
 		count = count + 1
 	}
 	*(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) = count
