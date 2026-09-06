@@ -32,6 +32,7 @@ func TestSilkDecodeLostFrameState(t *testing.T) {
 	decoder.Fchannel_state[0].FsPLC.Frand_seed = 12345
 	var control OpusT_silk_DecControlStruct
 	control.FAPI_sampleRate = 8000
+	control.FinternalSampleRate = 8000
 	control.FnChannelsAPI = 1
 	control.FnChannelsInternal = 1
 	output := make([]int16, 320)
@@ -39,5 +40,13 @@ func TestSilkDecodeLostFrameState(t *testing.T) {
 	if got := Opus_silk_Decode(tls, memory, uintptr(unsafe.Pointer(&control)), 1, 1, 0, uintptr(unsafe.Pointer(&output[0])), uintptr(unsafe.Pointer(&samples)), 0); got != OPUS_OK {
 		t.Fatalf("decode result: got %d", got)
 	}
-	t.Logf("samples=%d output=%v losses=%d", samples, output[:8], decoder.Fchannel_state[0].FlossCnt)
+	if got, want := samples, int32(80); got != want {
+		t.Fatalf("sample count: got %d, want %d", got, want)
+	}
+	if got, want := decoder.Fchannel_state[0].FlossCnt, int32(1); got != want {
+		t.Fatalf("loss count: got %d, want %d", got, want)
+	}
+	if got, want := decoder.Fchannel_state[0].FsPLC.Frand_seed, int32(-1769093111); got != want {
+		t.Fatalf("PLC random seed: got %d, want %d", got, want)
+	}
 }
