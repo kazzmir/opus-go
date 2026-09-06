@@ -320,9 +320,9 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 		}
 	}
 	if control.FnChannelsAPI == int32(2) && control.FnChannelsInternal == int32(2) && (decoder.FnChannelsAPI == int32(1) || decoder.FnChannelsInternal == int32(1)) {
-		libc.Xmemset(tls, psDec+8784, 0, uint64(4))
-		libc.Xmemset(tls, psDec+8784+8, 0, uint64(4))
-		libc.Xmemcpy(tls, channel_state+1*4392+2448, channel_state+2448, uint64(400))
+		libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.FsStereo.Fpred_prev_Q13[0])), 0, uint64(4))
+		libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.FsStereo.FsSide[0])), 0, uint64(4))
+		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[1].Fresampler_state)), uintptr(unsafe.Pointer(&decoder.Fchannel_state[0].Fresampler_state)), uint64(400))
 	}
 	decoder.FnChannelsAPI = control.FnChannelsAPI
 	decoder.FnChannelsInternal = control.FnChannelsInternal
@@ -443,10 +443,10 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(2) && *(*int32)(unsafe.Pointer(bp)) == 0 && (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).Fprev_decode_only_middle == int32(1) {
 		libc.Xmemset(tls, psDec+1*4392+1348, 0, uint64(960))
 		libc.Xmemset(tls, psDec+1*4392+1284, 0, uint64(64))
-		(*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec + 1*4392))).FlagPrev = int32(100)
-		(*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec + 1*4392))).FLastGainIndex = int8(10)
-		(*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec + 1*4392))).FprevSignalType = TYPE_NO_VOICE_ACTIVITY
-		(*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec + 1*4392))).Ffirst_frame_after_reset = int32(1)
+		decoder.Fchannel_state[1].FlagPrev = int32(100)
+		decoder.Fchannel_state[1].FLastGainIndex = int8(10)
+		decoder.Fchannel_state[1].FprevSignalType = TYPE_NO_VOICE_ACTIVITY
+		decoder.Fchannel_state[1].Ffirst_frame_after_reset = int32(1)
 	}
 	/* Check if the temp buffer fits into the output PCM buffer. If it fits,
 	   we can delay allocating the temp buffer until after the SILK peak stack
@@ -566,8 +566,8 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 		Opus_silk_stereo_MS_to_LR(tls, uintptr(unsafe.Pointer(&decoder.FsStereo)), samplesOut1_tmp[0], samplesOut1_tmp[int32(1)], bp+8, decoder.Fchannel_state[0].Ffs_kHz, *(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)))
 	} else {
 		/* Buffering */
-		libc.Xmemcpy(tls, samplesOut1_tmp[0], psDec+8784+4, uint64(uint32(2))*uint64(2))
-		libc.Xmemcpy(tls, psDec+8784+4, samplesOut1_tmp[0]+uintptr(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)))*2, uint64(uint32(2))*uint64(2))
+		libc.Xmemcpy(tls, samplesOut1_tmp[0], uintptr(unsafe.Pointer(&decoder.FsStereo.FsMid[0])), uint64(uint32(2))*uint64(2))
+		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.FsStereo.FsMid[0])), samplesOut1_tmp[0]+uintptr(*(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)))*2, uint64(uint32(2))*uint64(2))
 	}
 	/* Number of output samples */
 	*(*OpusT_opus_int32)(unsafe.Pointer(nSamplesOut)) = *(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)) * (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FAPI_sampleRate / (int32(int16((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Ffs_kHz)) * int32(int16(int32(1000))))
@@ -678,7 +678,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 		if stereo_to_mono != 0 {
 			/* Resample right channel for newly collapsed stereo just in case
 			   we weren't doing collapsing when switching to mono */
-			ret = ret + Opus_silk_resampler(tls, channel_state+1*4392+2448, resample_out_ptr, samplesOut1_tmp[0]+1*2, *(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)))
+			ret = ret + Opus_silk_resampler(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[1].Fresampler_state)), resample_out_ptr, samplesOut1_tmp[0]+1*2, *(*OpusT_opus_int32)(unsafe.Pointer(bp + 4)))
 			i = 0
 			for {
 				if !(i < *(*OpusT_opus_int32)(unsafe.Pointer(nSamplesOut))) {
@@ -717,7 +717,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 			if !(i < (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsInternal) {
 				break
 			}
-			(*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec + uintptr(i)*4392))).FLastGainIndex = int8(10)
+			decoder.Fchannel_state[i].FLastGainIndex = int8(10)
 			i = i + 1
 		}
 	} else {
