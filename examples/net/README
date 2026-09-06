@@ -1,0 +1,9 @@
+Some sample streams to play:
+
+https://icecast.radiosega.net/rs-opus.ogg
+https://stream.nightride.fm/chillsynth.ogg
+
+Pass the stream URL as an argument
+```
+$ go run . https://...
+```
