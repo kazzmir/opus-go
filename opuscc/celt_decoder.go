@@ -825,10 +825,11 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 	var decay, v40 OpusT_celt_glog
 	var seed OpusT_opus_uint32
 	var v36 float32
-	var _ /* ac at bp+32 */ [25]OpusT_opus_val32
+	var ac [25]OpusT_opus_val32
 	var _ /* decode_mem at bp+0 */ [2]uintptr
 	var _ /* lpc_mem at bp+132 */ [24]OpusT_opus_val16
 	var _ /* out_syn at bp+16 */ [2]uintptr
+	_ = ac
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = C, E1, E2, S1, S2, X, _exc, _saved_stack, attenuation, backgroundLogE, blen, boffs, buf, c, curr_frame_type, curr_neural, decay, decay1, decay_length, decode_buffer_size, e, eBands, effEnd, end, exc, exc_length, extrapolation_len, extrapolation_offset, fade, fir_tmp, i, j, j1, last_neural, loss_duration, lpc, max_period, mode, nbEBands, oldBandE, oldLogE, oldLogE2, overlap, pitch_index, ratio, seed, st, start, tmp, tmp1, tmp_g, window, v1, v10, v103, v12, v14, v16, v18, v20, v22, v24, v26, v28, v3, v36, v40, v5, v7, v8
 	C = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fchannels
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -1222,9 +1223,9 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
 				/* Compute LPC coefficients for the last MAX_PERIOD samples before
 				   the first loss so we can work in the excitation-filter domain. */
-				Opus__celt_autocorr(tls, exc, bp+32, window, overlap, int32(CELT_LPC_ORDER), max_period, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+				Opus__celt_autocorr(tls, exc, uintptr(unsafe.Pointer(&ac[0])), window, overlap, int32(CELT_LPC_ORDER), max_period, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 				/* Add a noise floor of -40 dB. */
-				*(*OpusT_opus_val32)(unsafe.Pointer(bp + 32)) *= float32(1.0001)
+				ac[0] *= float32(1.0001)
 				/* Use lag windowing to stabilize the Levinson-Durbin recursion. */
 				i = int32(1)
 				for {
@@ -1232,10 +1233,10 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 						break
 					}
 					/*ac[i] *= exp(-.5*(2*M_PI*.002*i)*(2*M_PI*.002*i));*/
-					*(*OpusT_opus_val32)(unsafe.Pointer(bp + 32 + uintptr(i)*4)) -= OpusT_opus_val32(OpusT_opus_val32(OpusT_opus_val32((*(*[25]OpusT_opus_val32)(unsafe.Pointer(bp + 32)))[i]*float32(float32(0.008)*float32(0.008)))*float32(i)) * float32(i))
+					ac[i] -= OpusT_opus_val32(OpusT_opus_val32(OpusT_opus_val32(ac[i]*float32(float32(0.008)*float32(0.008)))*float32(i)) * float32(i))
 					i = i + 1
 				}
-				Opus__celt_lpc(tls, lpc+uintptr(c*int32(CELT_LPC_ORDER))*4, bp+32, int32(CELT_LPC_ORDER))
+				Opus__celt_lpc(tls, lpc+uintptr(c*int32(CELT_LPC_ORDER))*4, uintptr(unsafe.Pointer(&ac[0])), int32(CELT_LPC_ORDER))
 			}
 			/* Initialize the LPC history with the samples just before the start
 			   of the region for which we're computing the excitation. */
