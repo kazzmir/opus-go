@@ -134,6 +134,10 @@ func TestEncode(t *testing.T) {
 		if !p.eos {
 			t.Errorf("%+v: last page isn't marked EOS", tc)
 		}
+		seconds := float64(tc.frames) / float64(tc.rate)
+		if max := int(math.Ceil(seconds)) + 3; p.pages > max {
+			t.Errorf("%+v: %d pages, want at most %d (about one per second plus headers)", tc, p.pages, max)
+		}
 		// The audio's own last 5 ms must survive, not be lost to the
 		// encoder's lookahead.
 		var peak int16
