@@ -105,9 +105,11 @@ func (e *Encoder) SetComplexity(complexity int) error {
 	return e.ctlInt32(int32(opusccenc.OPUS_SET_COMPLEXITY_REQUEST), int32(complexity))
 }
 
-// Lookahead returns the encoder lookahead in samples at 48 kHz.
+// Lookahead returns the encoder lookahead in samples at the encoder's own
+// sample rate (SampleRate), matching libopus's OPUS_GET_LOOKAHEAD.
 //
-// This is typically used as the OpusHead PreSkip value.
+// It is typically used for the OpusHead PreSkip value, which is always
+// counted at 48 kHz: use PreSkip, or scale by 48000/SampleRate() yourself.
 func (e *Encoder) Lookahead() (int, error) {
 	if e == nil {
 		return 0, errors.New("opus: encoder closed")
@@ -135,6 +137,17 @@ func (e *Encoder) Lookahead() (int, error) {
 		return 0, fmt.Errorf("%w: %s (%d)", ErrCtlFailed, opusccencErrorString(e.tls, ret), ret)
 	}
 	return int(*(*int32)(unsafe.Pointer(outPtr))), nil
+}
+
+// PreSkip returns the encoder lookahead converted to 48 kHz samples - the
+// value to write as OpusHead.PreSkip (RFC 7845 section 5.1), whatever rate
+// the encoder runs at.
+func (e *Encoder) PreSkip() (int, error) {
+	lookahead, err := e.Lookahead()
+	if err != nil {
+		return 0, err
+	}
+	return lookahead * 48000 / e.sampleRate, nil
 }
 
 func (e *Encoder) ctlInt32(request int32, value int32) error {
