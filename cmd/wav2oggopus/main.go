@@ -138,6 +138,10 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 	if err != nil {
 		return err
 	}
+	preSkip, err := enc.PreSkip()
+	if err != nil {
+		return err
+	}
 
 	outBW := bufio.NewWriterSize(out, 1<<20)
 	pw := ogg.NewPacketWriter(outBW, opt.serial)
@@ -145,7 +149,7 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 	head := ogg.OpusHead{
 		Version:         1,
 		Channels:        uint8(wr.Channels()),
-		PreSkip:         uint16(lookahead),
+		PreSkip:         uint16(preSkip),
 		InputSampleRate: 48000,
 		OutputGainQ8:    0,
 		// ChannelMappingFamily=0 covers mono/stereo and lets decoders infer mapping.
@@ -172,50 +176,78 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 		return err
 	}
 
-	pcm := make([]int16, frameSize*wr.Channels())
+	// The encoder's output lags its input by lookahead samples, so after
+	// the input runs out it's fed silence until the real audio's last
+	// sample has been pushed through. Each packet is held back one step so
+	// the final one - which carries EOS and the end-trimming granule - is
+	// known when it's written.
+	channels := wr.Channels()
+	src := &pcmSource{wr: wr, channels: channels}
+	pcm := make([]int16, frameSize*channels)
 	packet := make([]byte, 4000)
-	var totalSamplesPerCh uint64
-
-	for {
-		n, rerr := wr.ReadInt16PCM(pcm)
-		if rerr != nil && !errors.Is(rerr, io.EOF) {
-			return rerr
+	var held []byte
+	var heldGranule uint64
+	fed, realFrames := 0, 0
+	for !src.exhausted || fed < realFrames+lookahead {
+		n, err := src.fill(pcm)
+		if err != nil {
+			return err
 		}
-		if n == 0 {
-			break
-		}
-		// n is in samples (interleaved). Ensure we have whole frames.
-		if n%wr.Channels() != 0 {
-			return fmt.Errorf("wav: sample count not multiple of channels")
-		}
-		framesRead := n / wr.Channels()
-		isLast := errors.Is(rerr, io.EOF)
-		if framesRead < frameSize {
-			// Pad to a full Opus frame.
-			for i := n; i < len(pcm); i++ {
-				pcm[i] = 0
-			}
-			isLast = true
-		}
-
+		realFrames += n / channels
 		nBytes, err := enc.Encode(pcm, frameSize, packet)
 		if err != nil {
 			return err
 		}
-
-		totalSamplesPerCh += uint64(framesRead)
-		granule := uint64(head.PreSkip) + totalSamplesPerCh
-
-		if err := pw.WritePacket(packet[:nBytes], granule, false, isLast); err != nil {
-			return err
+		fed += frameSize
+		if held != nil {
+			if err := pw.WritePacket(held, heldGranule, false, false); err != nil {
+				return err
+			}
 		}
+		held = append(held[:0], packet[:nBytes]...)
+		// A page's granule counts every sample decodable through it,
+		// pre-skip included (RFC 7845 section 4).
+		heldGranule = uint64(fed)
+	}
+	// End trimming: the last granule marks where the real audio stops.
+	if err := pw.WritePacket(held, uint64(preSkip+realFrames), false, true); err != nil {
+		return err
+	}
+	return pw.Flush()
+}
 
-		if isLast {
-			break
+// pcmSource yields the input's samples a frame at a time, zero-padded
+// once it runs out.
+type pcmSource struct {
+	wr       *wav.Reader
+	channels int
+
+	pending   []int16
+	eof       bool // the WAV reader is drained
+	exhausted bool // eof, and every pending sample handed out
+}
+
+// fill copies the next len(dst) samples into dst, zeroing whatever the
+// input can't cover, and returns how many real samples it copied.
+func (s *pcmSource) fill(dst []int16) (int, error) {
+	for len(s.pending) < len(dst) && !s.eof {
+		chunk := make([]int16, 4096*s.channels)
+		n, err := s.wr.ReadInt16PCM(chunk)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return 0, err
+		}
+		s.pending = append(s.pending, chunk[:n-n%s.channels]...)
+		if n == 0 || errors.Is(err, io.EOF) {
+			s.eof = true
 		}
 	}
-
-	return pw.Flush()
+	n := copy(dst, s.pending)
+	clear(dst[n:])
+	s.pending = s.pending[n:]
+	if s.eof && len(s.pending) == 0 {
+		s.exhausted = true
+	}
+	return n, nil
 }
 
 func parseApplication(s string) (int, error) {
