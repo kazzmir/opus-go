@@ -22,7 +22,7 @@ import (
 func main() {
 	var (
 		outPath     = flag.String("out", "out.opus", "output .opus file")
-		cpuProfile  = flag.String("cpuprofile", "cpu.pprof", "write CPU profile to file (set to empty to disable)")
+		cpuProfile  = flag.String("cpuprofile", "", "write CPU profile to file (empty disables)")
 		bitrate     = flag.Int("bitrate", 64000, "target bitrate in bits/sec")
 		vbr         = flag.Bool("vbr", true, "enable variable bitrate")
 		complexity  = flag.Int("complexity", 10, "encoder complexity (0-10)")

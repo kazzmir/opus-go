@@ -84,4 +84,4 @@ go run ./cmd/wav2oggopus --bitrate 64000 --out out.opus path/to/file.wav
 
   Input is 16-bit PCM WAV, mono or stereo, at any sample rate: 8/12/16/24/48 kHz
   are encoded directly and anything else (e.g. 44.1 kHz) is resampled to 48 kHz
-  first (package `resample`).
+  first (package `resample`). Pass `--cpuprofile cpu.pprof` to profile it.
