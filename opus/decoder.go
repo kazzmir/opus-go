@@ -29,6 +29,10 @@ type Decoder struct {
 	channels   int
 
 	multistream bool
+
+	// packetBuf/pcmBuf carry Decode's input and output across the call
+	// into transpiled code - see cBuf.
+	packetBuf, pcmBuf cBuf
 }
 
 func NewDecoderFromHead(head ogg.OpusHead) (*Decoder, error) {
@@ -79,7 +83,11 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	mappingPtr := libc.PtrUint8(mapping)
+	// Copied into shim memory for the same reason as cBuf; libopus copies
+	// the mapping into the decoder state, so it's freed right after.
+	var mappingBuf cBuf
+	mappingPtr := copyIn(tls, &mappingBuf, mapping)
+	defer mappingBuf.free(tls)
 
 	st, err := opuscc.Opus_opus_multistream_decoder_create(
 		tls,
@@ -118,6 +126,8 @@ func (d *Decoder) Close() error {
 			}
 			d.st = 0
 		}
+		d.packetBuf.free(d.tls)
+		d.pcmBuf.free(d.tls)
 		opuscc.FreePseudostackTLS(d.tls)
 		d.tls.Close()
 		d.tls = nil
@@ -152,9 +162,9 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
 	}
 
-	dataPtr := libc.PtrByte(packet)
+	dataPtr := copyIn(d.tls, &d.packetBuf, packet)
 	dataLen := int32(len(packet))
-	pcmPtr := libc.PtrInt16(pcm)
+	pcmPtr := d.pcmBuf.ensure(d.tls, nNeeded*2)
 	fec := int32(0)
 	if decodeFEC {
 		fec = 1
@@ -170,6 +180,7 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 	if ret < 0 {
 		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(ret), ret)
 	}
+	copy(pcm, cSlice[int16](pcmPtr, int(ret)*d.channels))
 	return int(ret), nil
 }
 
@@ -197,9 +208,9 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
 	}
 
-	dataPtr := libc.PtrByte(packet)
+	dataPtr := copyIn(d.tls, &d.packetBuf, packet)
 	dataLen := int32(len(packet))
-	pcmPtr := libc.PtrFloat32(pcm)
+	pcmPtr := d.pcmBuf.ensure(d.tls, nNeeded*4)
 	fec := int32(0)
 	if decodeFEC {
 		fec = 1
@@ -215,6 +226,7 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 	if ret < 0 {
 		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(ret), ret)
 	}
+	copy(pcm, cSlice[float32](pcmPtr, int(ret)*d.channels))
 	return int(ret), nil
 }
 
