@@ -57,8 +57,7 @@ func main() {
 		fatal(err)
 	}
 
-	frameSize, err := frameSizeFromMS(*frameMS)
-	if err != nil {
+	if _, err := frameSizeFromMS(*frameMS); err != nil {
 		fatal(err)
 	}
 
@@ -68,39 +67,6 @@ func main() {
 	}
 	defer inF.Close()
 
-	wr, err := wav.NewReader(inF)
-	if err != nil {
-		fatal(err)
-	}
-	if wr.SampleRate() != 48000 {
-		fatal(fmt.Errorf("only 48kHz WAV supported currently (got %d)", wr.SampleRate()))
-	}
-
-	enc, err := opus.NewEncoder(wr.SampleRate(), wr.Channels(), app)
-	if err != nil {
-		fatal(err)
-	}
-	defer enc.Close()
-
-	if *bitrate > 0 {
-		if err := enc.SetBitrate(*bitrate); err != nil {
-			fatal(err)
-		}
-	}
-	if err := enc.SetVBR(*vbr); err != nil {
-		fatal(err)
-	}
-	if *complexity >= 0 {
-		if err := enc.SetComplexity(*complexity); err != nil {
-			fatal(err)
-		}
-	}
-
-	lookahead, err := enc.Lookahead()
-	if err != nil {
-		fatal(err)
-	}
-
 	outF, err := os.Create(*outPath)
 	if err != nil {
 		fatal(err)
@@ -108,13 +74,73 @@ func main() {
 	defer func() {
 		_ = outF.Close()
 	}()
-	outBW := bufio.NewWriterSize(outF, 1<<20)
-	defer func() {
-		_ = outBW.Flush()
-	}()
 
-	serial := randomSerial()
-	pw := ogg.NewPacketWriter(outBW, serial)
+	err = encode(inF, outF, options{
+		bitrate:     *bitrate,
+		vbr:         *vbr,
+		complexity:  *complexity,
+		application: app,
+		frameMS:     *frameMS,
+		vendor:      *vendor,
+		serial:      randomSerial(),
+	})
+	if err != nil {
+		fatal(err)
+	}
+}
+
+type options struct {
+	bitrate     int // <= 0 keeps the encoder default
+	vbr         bool
+	complexity  int // < 0 keeps the encoder default
+	application int
+	frameMS     int
+	vendor      string
+	serial      uint32
+}
+
+// encode reads a 16-bit PCM WAV from in and writes it to out as Ogg Opus.
+func encode(in io.Reader, out io.Writer, opt options) error {
+	frameSize, err := frameSizeFromMS(opt.frameMS)
+	if err != nil {
+		return err
+	}
+
+	wr, err := wav.NewReader(in)
+	if err != nil {
+		return err
+	}
+	if wr.SampleRate() != 48000 {
+		return fmt.Errorf("only 48kHz WAV supported currently (got %d)", wr.SampleRate())
+	}
+
+	enc, err := opus.NewEncoder(wr.SampleRate(), wr.Channels(), opt.application)
+	if err != nil {
+		return err
+	}
+	defer enc.Close()
+
+	if opt.bitrate > 0 {
+		if err := enc.SetBitrate(opt.bitrate); err != nil {
+			return err
+		}
+	}
+	if err := enc.SetVBR(opt.vbr); err != nil {
+		return err
+	}
+	if opt.complexity >= 0 {
+		if err := enc.SetComplexity(opt.complexity); err != nil {
+			return err
+		}
+	}
+
+	lookahead, err := enc.Lookahead()
+	if err != nil {
+		return err
+	}
+
+	outBW := bufio.NewWriterSize(out, 1<<20)
+	pw := ogg.NewPacketWriter(outBW, opt.serial)
 
 	head := ogg.OpusHead{
 		Version:         1,
@@ -127,23 +153,23 @@ func main() {
 	}
 	headPkt, err := ogg.BuildOpusHeadPacket(head)
 	if err != nil {
-		fatal(err)
+		return err
 	}
 
 	tags := ogg.OpusTags{
-		Vendor:   *vendor,
+		Vendor:   opt.vendor,
 		Comments: []string{"ENCODER=opusgo", "ENCODED=" + time.Now().UTC().Format(time.RFC3339)},
 	}
 	tagsPkt, err := ogg.BuildOpusTagsPacket(tags)
 	if err != nil {
-		fatal(err)
+		return err
 	}
 
 	if err := pw.WritePacket(headPkt, 0, true, false); err != nil {
-		fatal(err)
+		return err
 	}
 	if err := pw.WritePacket(tagsPkt, 0, false, false); err != nil {
-		fatal(err)
+		return err
 	}
 
 	pcm := make([]int16, frameSize*wr.Channels())
@@ -153,14 +179,14 @@ func main() {
 	for {
 		n, rerr := wr.ReadInt16PCM(pcm)
 		if rerr != nil && !errors.Is(rerr, io.EOF) {
-			fatal(rerr)
+			return rerr
 		}
 		if n == 0 {
 			break
 		}
 		// n is in samples (interleaved). Ensure we have whole frames.
 		if n%wr.Channels() != 0 {
-			fatal(fmt.Errorf("wav: sample count not multiple of channels"))
+			return fmt.Errorf("wav: sample count not multiple of channels")
 		}
 		framesRead := n / wr.Channels()
 		isLast := errors.Is(rerr, io.EOF)
@@ -174,14 +200,14 @@ func main() {
 
 		nBytes, err := enc.Encode(pcm, frameSize, packet)
 		if err != nil {
-			fatal(err)
+			return err
 		}
 
 		totalSamplesPerCh += uint64(framesRead)
 		granule := uint64(head.PreSkip) + totalSamplesPerCh
 
 		if err := pw.WritePacket(packet[:nBytes], granule, false, isLast); err != nil {
-			fatal(err)
+			return err
 		}
 
 		if isLast {
@@ -189,9 +215,7 @@ func main() {
 		}
 	}
 
-	if err := pw.Flush(); err != nil {
-		fatal(err)
-	}
+	return pw.Flush()
 }
 
 func parseApplication(s string) (int, error) {
