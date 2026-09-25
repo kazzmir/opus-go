@@ -144,7 +144,7 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 	}
 
 	outBW := bufio.NewWriterSize(out, 1<<20)
-	pw := ogg.NewPacketWriter(outBW, opt.serial)
+	pw := ogg.NewPageWriter(outBW, opt.serial)
 
 	head := ogg.OpusHead{
 		Version:         1,
@@ -169,10 +169,10 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 		return err
 	}
 
-	if err := pw.WritePacket(headPkt, 0, true, false); err != nil {
+	if err := pw.WriteHeaderPacket(headPkt, true); err != nil {
 		return err
 	}
-	if err := pw.WritePacket(tagsPkt, 0, false, false); err != nil {
+	if err := pw.WriteHeaderPacket(tagsPkt, false); err != nil {
 		return err
 	}
 
@@ -200,7 +200,7 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 		}
 		fed += frameSize
 		if held != nil {
-			if err := pw.WritePacket(held, heldGranule, false, false); err != nil {
+			if err := pw.WritePacket(held, heldGranule, false); err != nil {
 				return err
 			}
 		}
@@ -210,7 +210,7 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 		heldGranule = uint64(fed)
 	}
 	// End trimming: the last granule marks where the real audio stops.
-	if err := pw.WritePacket(held, uint64(preSkip+realFrames), false, true); err != nil {
+	if err := pw.WritePacket(held, uint64(preSkip+realFrames), true); err != nil {
 		return err
 	}
 	return pw.Flush()
