@@ -15,6 +15,7 @@ import (
 
 	"github.com/kazzmir/opus-go/ogg"
 	"github.com/kazzmir/opus-go/opus"
+	"github.com/kazzmir/opus-go/resample"
 	"github.com/kazzmir/opus-go/wav"
 )
 
@@ -57,7 +58,7 @@ func main() {
 		fatal(err)
 	}
 
-	if _, err := frameSizeFromMS(*frameMS); err != nil {
+	if err := checkFrameMS(*frameMS); err != nil {
 		fatal(err)
 	}
 
@@ -99,22 +100,37 @@ type options struct {
 	serial      uint32
 }
 
+// opusRate reports whether libopus encodes rate directly; anything else
+// is resampled to 48 kHz first.
+func opusRate(rate int) bool {
+	switch rate {
+	case 8000, 12000, 16000, 24000, 48000:
+		return true
+	}
+	return false
+}
+
 // encode reads a 16-bit PCM WAV from in and writes it to out as Ogg Opus.
 func encode(in io.Reader, out io.Writer, opt options) error {
-	frameSize, err := frameSizeFromMS(opt.frameMS)
-	if err != nil {
-		return err
-	}
-
 	wr, err := wav.NewReader(in)
 	if err != nil {
 		return err
 	}
-	if wr.SampleRate() != 48000 {
-		return fmt.Errorf("only 48kHz WAV supported currently (got %d)", wr.SampleRate())
+	channels := wr.Channels()
+	if channels != 1 && channels != 2 {
+		return fmt.Errorf("only mono or stereo WAV supported (got %d channels)", channels)
 	}
+	src := &pcmSource{wr: wr, channels: channels}
+	encRate := wr.SampleRate()
+	if !opusRate(encRate) {
+		src.resampler = resample.New(channels, encRate, ogg.OpusSampleRateHz)
+		encRate = ogg.OpusSampleRateHz
+	}
+	// Granule positions and pre-skip are always counted at 48 kHz
+	// (RFC 7845 section 4), whatever rate the encoder runs at.
+	scale := ogg.OpusSampleRateHz / encRate
 
-	enc, err := opus.NewEncoder(wr.SampleRate(), wr.Channels(), opt.application)
+	enc, err := opus.NewEncoder(encRate, channels, opt.application)
 	if err != nil {
 		return err
 	}
@@ -134,11 +150,11 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 		}
 	}
 
-	lookahead, err := enc.Lookahead()
+	lookahead, err := enc.Lookahead() // at encRate
 	if err != nil {
 		return err
 	}
-	preSkip, err := enc.PreSkip()
+	preSkip, err := enc.PreSkip() // at 48 kHz
 	if err != nil {
 		return err
 	}
@@ -148,9 +164,9 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 
 	head := ogg.OpusHead{
 		Version:         1,
-		Channels:        uint8(wr.Channels()),
+		Channels:        uint8(channels),
 		PreSkip:         uint16(preSkip),
-		InputSampleRate: 48000,
+		InputSampleRate: uint32(wr.SampleRate()),
 		OutputGainQ8:    0,
 		// ChannelMappingFamily=0 covers mono/stereo and lets decoders infer mapping.
 		ChannelMappingFamily: 0,
@@ -181,8 +197,7 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 	// sample has been pushed through. Each packet is held back one step so
 	// the final one - which carries EOS and the end-trimming granule - is
 	// known when it's written.
-	channels := wr.Channels()
-	src := &pcmSource{wr: wr, channels: channels}
+	frameSize := encRate * opt.frameMS / 1000
 	pcm := make([]int16, frameSize*channels)
 	packet := make([]byte, 4000)
 	var held []byte
@@ -207,23 +222,24 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 		held = append(held[:0], packet[:nBytes]...)
 		// A page's granule counts every sample decodable through it,
 		// pre-skip included (RFC 7845 section 4).
-		heldGranule = uint64(fed)
+		heldGranule = uint64(fed * scale)
 	}
 	// End trimming: the last granule marks where the real audio stops.
-	if err := pw.WritePacket(held, uint64(preSkip+realFrames), true); err != nil {
+	if err := pw.WritePacket(held, uint64(preSkip+realFrames*scale), true); err != nil {
 		return err
 	}
 	return pw.Flush()
 }
 
-// pcmSource yields the input's samples a frame at a time, zero-padded
-// once it runs out.
+// pcmSource yields the input's samples (resampled when needed) a frame at
+// a time, zero-padded once it runs out.
 type pcmSource struct {
-	wr       *wav.Reader
-	channels int
+	wr        *wav.Reader
+	resampler *resample.Resampler
+	channels  int
 
 	pending   []int16
-	eof       bool // the WAV reader is drained
+	eof       bool // the WAV reader is drained (and the resampler flushed)
 	exhausted bool // eof, and every pending sample handed out
 }
 
@@ -236,9 +252,16 @@ func (s *pcmSource) fill(dst []int16) (int, error) {
 		if err != nil && !errors.Is(err, io.EOF) {
 			return 0, err
 		}
-		s.pending = append(s.pending, chunk[:n-n%s.channels]...)
+		chunk = chunk[:n-n%s.channels]
+		if s.resampler != nil {
+			chunk = s.resampler.ProcessInt16(chunk)
+		}
+		s.pending = append(s.pending, chunk...)
 		if n == 0 || errors.Is(err, io.EOF) {
 			s.eof = true
+			if s.resampler != nil {
+				s.pending = append(s.pending, s.resampler.FlushInt16()...)
+			}
 		}
 	}
 	n := copy(dst, s.pending)
@@ -271,20 +294,12 @@ func parseApplication(s string) (int, error) {
 	}
 }
 
-func frameSizeFromMS(ms int) (int, error) {
+func checkFrameMS(ms int) error {
 	switch ms {
-	case 5:
-		return 240, nil
-	case 10:
-		return 480, nil
-	case 20:
-		return 960, nil
-	case 40:
-		return 1920, nil
-	case 60:
-		return 2880, nil
+	case 5, 10, 20, 40, 60:
+		return nil
 	default:
-		return 0, fmt.Errorf("unsupported frame-ms %d (use 5|10|20|40|60)", ms)
+		return fmt.Errorf("unsupported frame-ms %d (use 5|10|20|40|60)", ms)
 	}
 }
 

@@ -106,11 +106,15 @@ func TestEncode(t *testing.T) {
 	for _, tc := range []struct {
 		rate, channels, frames, frameMS int
 	}{
-		{48000, 1, 48000, 20},     // exact multiple of the frame size (no EOS page before)
-		{48000, 1, 48800, 20},     // final frame padded less than the pre-skip
-		{48000, 1, 48100, 20},     // final frame padded more than the pre-skip
-		{48000, 2, 48000 * 2, 20}, // stereo
-		{48000, 1, 48000 + 7, 60}, // long frames
+		{48000, 1, 48000, 20},       // exact multiple of the frame size (no EOS page before)
+		{48000, 1, 48800, 20},       // final frame padded less than the pre-skip
+		{48000, 1, 48100, 20},       // final frame padded more than the pre-skip
+		{48000, 2, 48000 * 2, 20},   // stereo
+		{48000, 1, 48000 + 7, 60},   // long frames
+		{24000, 1, 24000, 20},       // native, below 48 kHz
+		{16000, 1, 16000 + 7, 10},   // native, other frame size
+		{44100, 2, 44100 * 2, 20},   // resampled
+		{22050, 1, 22050 + 100, 60}, // resampled, long frames
 	} {
 		var out bytes.Buffer
 		err := encode(bytes.NewReader(sineWAV(tc.rate, tc.channels, tc.frames)), &out, options{
