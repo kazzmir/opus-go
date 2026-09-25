@@ -31,11 +31,15 @@ func TestDecodeFrameFieldAccesses(t *testing.T) {
 		decoder.FoutBuf[i] = int16((i*37)%1000 - 500)
 	}
 	output := make([]int16, decoder.Fframe_length)
-	var samples int32
-	if got := Opus_silk_decode_frame(tls, uintptr(unsafe.Pointer(&decoder)), 0, uintptr(unsafe.Pointer(&output[0])), uintptr(unsafe.Pointer(&samples)), 1, CODE_INDEPENDENTLY, 0); got != OPUS_OK {
+	// samples must not live on the goroutine stack: its address is passed as a
+	// uintptr, so a stack move during the decode would leave the write behind
+	// in the old stack.
+	samples := libc.Xmalloc(tls, 4)
+	defer libc.Xfree(tls, samples)
+	if got := Opus_silk_decode_frame(tls, uintptr(unsafe.Pointer(&decoder)), 0, uintptr(unsafe.Pointer(&output[0])), samples, 1, CODE_INDEPENDENTLY, 0); got != OPUS_OK {
 		t.Fatalf("decode result: got %d", got)
 	}
-	if got, want := samples, int32(160); got != want {
+	if got, want := *(*int32)(unsafe.Pointer(samples)), int32(160); got != want {
 		t.Fatalf("sample count: got %d, want %d", got, want)
 	}
 	if got, want := output[:8], []int16{20, 32, -38, -29, -31, -28, -25, -22}; !equalInt16s(got, want) {
