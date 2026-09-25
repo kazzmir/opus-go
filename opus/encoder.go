@@ -36,6 +36,10 @@ type Encoder struct {
 	sampleRate  int
 	channels    int
 	application int
+
+	// pcmBuf/packetBuf carry Encode's input and output across the call
+	// into transpiled code - see cBuf.
+	pcmBuf, packetBuf cBuf
 }
 
 func NewEncoder(sampleRate, channels, application int) (*Encoder, error) {
@@ -72,6 +76,8 @@ func (e *Encoder) Close() error {
 			opusccenc.Opus_opus_encoder_destroy(e.tls, e.st)
 			e.st = 0
 		}
+		e.pcmBuf.free(e.tls)
+		e.packetBuf.free(e.tls)
 		opusccenc.FreePseudostackTLS(e.tls)
 		e.tls.Close()
 		e.tls = nil
@@ -175,13 +181,14 @@ func (e *Encoder) Encode(pcm []int16, frameSize int, packet []byte) (int, error)
 		return 0, errors.New("opus: packet buffer is empty")
 	}
 
-	pcmPtr := uintptr(unsafe.Pointer(&pcm[0]))
-	outPtr := uintptr(unsafe.Pointer(&packet[0]))
+	pcmPtr := copyIn(e.tls, &e.pcmBuf, pcm[:nNeeded])
+	outPtr := e.packetBuf.ensure(e.tls, len(packet))
 
 	ret := opusccenc.Opus_opus_encode(e.tls, e.st, pcmPtr, int32(frameSize), outPtr, opusccenc.OpusT_opus_int32(len(packet)))
 	if ret < 0 {
 		return 0, fmt.Errorf("%w: %s (%d)", ErrEncodeFailed, opusccencErrorString(e.tls, int32(ret)), ret)
 	}
+	copy(packet, cSlice[byte](outPtr, int(ret)))
 	return int(ret), nil
 }
 
