@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/kazzmir/opus-go/opuscc"
+	"github.com/kazzmir/opus-go/opusccenc"
 	"math/rand"
 	"slices"
 	"testing"
@@ -34,10 +35,16 @@ func TestLaroiaAgainstC(t *testing.T) {
 					c = slices.Clone(input)
 					gi, ci = g, c
 				}
+				enc, encInput := make([]int16, n), input
+				if alias {
+					enc = slices.Clone(input)
+					encInput = enc
+				}
+				opusccenc.Opus_silk_NLSF_VQ_weights_laroia(nil, &enc[0], &encInput[0], int32(n))
 				opuscc.Opus_silk_NLSF_VQ_weights_laroia(nil, &g[0], &gi[0], int32(n))
 				nativeLaroia(c, ci)
-				if !slices.Equal(g, c) {
-					t.Fatalf("n=%d trial=%d alias=%v input=%v Go=%v C=%v", n, trial, alias, input, g, c)
+				if !slices.Equal(g, c) || !slices.Equal(enc, c) {
+					t.Fatalf("n=%d trial=%d alias=%v input=%v decoder=%v encoder=%v C=%v", n, trial, alias, input, g, enc, c)
 				}
 			}
 		}

@@ -3306,7 +3306,7 @@ func Opus_silk_NLSF_VQ(tls *libc.TLS, err_Q24 uintptr, in_Q15 uintptr, pCB_Q8 ui
 //
 //	/* Unpack predictor values and indices for entropy coding tables */
 
-func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT uintptr, pNLSF_Q15 uintptr, D int32) {
+func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT *OpusT_opus_int16, pNLSF_Q15 *OpusT_opus_int16, D int32) {
 	var k, v1, v2, v3, v5 int32
 	var tmp1_int, tmp2_int OpusT_opus_int32
 	_, _, _, _, _, _, _ = k, tmp1_int, tmp2_int, v1, v2, v3, v5
@@ -3316,8 +3316,10 @@ func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT uintptr, pNLSF
 	if !(D&libc.Int32FromInt32(1) == libc.Int32FromInt32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+10206, __ccgo_ts+10173, int32(52))
 	}
+	output := unsafe.Slice(pNLSFW_Q_OUT, int(D))
+	input := unsafe.Slice(pNLSF_Q15, int(D))
 	/* First value */
-	v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15)))
+	v1 = int32(input[0])
 	v2 = int32(1)
 	if v1 > v2 {
 		v5 = v1
@@ -3327,7 +3329,7 @@ func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT uintptr, pNLSF
 	v3 = v5
 	tmp1_int = v3
 	tmp1_int = libc.Int32FromInt32(1) << (libc.Int32FromInt32(15) + libc.Int32FromInt32(NLSF_W_Q)) / tmp1_int
-	v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + 1*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15)))
+	v1 = int32(input[1]) - int32(input[0])
 	v2 = int32(1)
 	if v1 > v2 {
 		v5 = v1
@@ -3345,15 +3347,15 @@ func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT uintptr, pNLSF
 		v5 = v2
 	}
 	v3 = v5
-	*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT)) = int16(v3)
-	_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT))) > libc.Int32FromInt32(0)
+	output[0] = int16(v3)
+	_ = int32(output[0]) > libc.Int32FromInt32(0)
 	/* Main loop */
 	k = int32(1)
 	for {
 		if !(k < D-int32(1)) {
 			break
 		}
-		v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k)*2)))
+		v1 = int32(input[k+1]) - int32(input[k])
 		v2 = int32(1)
 		if v1 > v2 {
 			v5 = v1
@@ -3371,9 +3373,9 @@ func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT uintptr, pNLSF
 			v5 = v2
 		}
 		v3 = v5
-		*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k)*2)) = int16(v3)
-		_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k)*2))) > libc.Int32FromInt32(0)
-		v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k+int32(2))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k+int32(1))*2)))
+		output[k] = int16(v3)
+		_ = int32(output[k]) > libc.Int32FromInt32(0)
+		v1 = int32(input[k+2]) - int32(input[k+1])
 		v2 = int32(1)
 		if v1 > v2 {
 			v5 = v1
@@ -3391,12 +3393,12 @@ func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT uintptr, pNLSF
 			v5 = v2
 		}
 		v3 = v5
-		*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k+int32(1))*2)) = int16(v3)
-		_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k+int32(1))*2))) > libc.Int32FromInt32(0)
+		output[k+1] = int16(v3)
+		_ = int32(output[k+1]) > libc.Int32FromInt32(0)
 		k = k + int32(2)
 	}
 	/* Last value */
-	v1 = libc.Int32FromInt32(1)<<libc.Int32FromInt32(15) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(D-int32(1))*2)))
+	v1 = libc.Int32FromInt32(1)<<libc.Int32FromInt32(15) - int32(input[D-1])
 	v2 = int32(1)
 	if v1 > v2 {
 		v5 = v1
@@ -3414,8 +3416,8 @@ func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT uintptr, pNLSF
 		v5 = v2
 	}
 	v3 = v5
-	*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(D-int32(1))*2)) = int16(v3)
-	_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(D-int32(1))*2))) > libc.Int32FromInt32(0)
+	output[D-1] = int16(v3)
+	_ = int32(output[D-1]) > libc.Int32FromInt32(0)
 }
 
 const silk_int16_MAX22 = 0x7FFF
@@ -13112,14 +13114,14 @@ func Opus_silk_process_NLSFs(tls *libc.TLS, psEncC uintptr, PredCoef_Q12 uintptr
 	}
 	_ = NLSF_mu_Q20 <= int32(float64(libc.Float64FromFloat64(0.005)*float64(libc.Int64FromInt32(1)<<libc.Int32FromInt32(20)))+libc.Float64FromFloat64(0.5))
 	/* Calculate NLSF weights */
-	Opus_silk_NLSF_VQ_weights_laroia(tls, bp+32, pNLSF_Q15, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
+	Opus_silk_NLSF_VQ_weights_laroia(tls, (*OpusT_opus_int16)(unsafe.Pointer(bp+32)), (*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15)), (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
 	/* Update NLSF weights for interpolated NLSFs */
 	doInterpolate = libc.BoolInt32((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FuseInterpolatedNLSFs == int32(1) && int32((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Findices.FNLSFInterpCoef_Q2) < int32(4))
 	if doInterpolate != 0 {
 		/* Calculate the interpolated NLSF vector for the first half */
 		Opus_silk_interpolate(tls, (*OpusT_opus_int16)(unsafe.Pointer(bp)), (*OpusT_opus_int16)(unsafe.Pointer(prev_NLSFq_Q15)), (*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15)), int32((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Findices.FNLSFInterpCoef_Q2), (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
 		/* Calculate first half NLSF weights for the interpolated NLSFs */
-		Opus_silk_NLSF_VQ_weights_laroia(tls, bp+64, bp, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
+		Opus_silk_NLSF_VQ_weights_laroia(tls, (*OpusT_opus_int16)(unsafe.Pointer(bp+64)), (*OpusT_opus_int16)(unsafe.Pointer(bp)), (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
 		/* Update NLSF weights with contribution from first half */
 		i_sqr_Q15 = int16(libc.Int32FromUint32(libc.Uint32FromInt32(int32(int16((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Findices.FNLSFInterpCoef_Q2))*int32(int16((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Findices.FNLSFInterpCoef_Q2))) << libc.Int32FromInt32(11)))
 		i = 0
