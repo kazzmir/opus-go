@@ -252,7 +252,7 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 	/********************/
 	/* Noise estimation */
 	/********************/
-	silk_VAD_GetNoiseLevels(tls, uintptr(unsafe.Pointer(&Xnrg[0])), psSilk_VAD)
+	silk_VAD_GetNoiseLevels(tls, &Xnrg, vad)
 	/***********************************************/
 	/* Signal-plus-noise to noise ratio estimation */
 	/***********************************************/
@@ -504,11 +504,10 @@ _57:
 //	/**************************/
 //	/* Noise level estimation */
 //	/**************************/
-func silk_VAD_GetNoiseLevels(tls *libc.TLS, pX uintptr, psSilk_VAD uintptr) {
+func silk_VAD_GetNoiseLevels(tls *libc.TLS, pX *[4]OpusT_opus_int32, state *OpusT_silk_VAD_state) {
 	var coef, k, min_coef, v2, v3, v4, v5 int32
 	var inv_nrg, nl, nrg OpusT_opus_int32
 	_, _, _, _, _, _, _, _, _, _ = coef, inv_nrg, k, min_coef, nl, nrg, v2, v3, v4, v5
-	state := (*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD))
 	/* Initially faster smoothing */
 	if state.Fcounter < int32(1000) { /* 1000 = 20 sec */
 		min_coef = int32(silk_int16_MAX9) / (state.Fcounter>>int32(4) + int32(1))
@@ -526,10 +525,10 @@ func silk_VAD_GetNoiseLevels(tls *libc.TLS, pX uintptr, psSilk_VAD uintptr) {
 		nl = state.FNL[k]
 		_ = nl >= int32(0)
 		/* Add bias */
-		if (uint32(*(*OpusT_opus_int32)(unsafe.Pointer(pX + uintptr(k)*4)))+uint32(state.FNoiseLevelBias[k]))&uint32(0x80000000) != 0 {
+		if (uint32(pX[k])+uint32(state.FNoiseLevelBias[k]))&uint32(0x80000000) != 0 {
 			v2 = int32(silk_int32_MAX)
 		} else {
-			v2 = *(*OpusT_opus_int32)(unsafe.Pointer(pX + uintptr(k)*4)) + state.FNoiseLevelBias[k]
+			v2 = pX[k] + state.FNoiseLevelBias[k]
 		}
 		nrg = v2
 		_ = nrg > int32(0)

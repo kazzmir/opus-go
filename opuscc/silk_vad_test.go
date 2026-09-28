@@ -2,7 +2,6 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 )
 
 func TestVADGetNoiseLevelsFieldAccesses(t *testing.T) {
@@ -14,7 +13,7 @@ func TestVADGetNoiseLevelsFieldAccesses(t *testing.T) {
 		Fcounter:        33,
 	}
 
-	silk_VAD_GetNoiseLevels(nil, uintptr(unsafe.Pointer(&energies[0])), uintptr(unsafe.Pointer(&state)))
+	silk_VAD_GetNoiseLevels(nil, &energies, &state)
 
 	wantNoiseLevels := [4]OpusT_opus_int32{354194, 180369, 922855, 466337}
 	if state.FNL != wantNoiseLevels {
