@@ -5772,12 +5772,13 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 	}
 	v23 = st
 	X = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(libc.Uint64FromInt32(X_offset[int32(3)]+decimated_framelength1)*(libc.Uint64FromInt64(2)/libc.Uint64FromInt64(1)))
+	vad := (*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD))
 	/* 0-8 kHz to 0-4 kHz and 4-8 kHz */
-	Opus_silk_ana_filt_bank_1(tls, pIn, psSilk_VAD, X, X+uintptr(X_offset[int32(3)])*2, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length)
+	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(pIn)), &vad.FAnaState, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[3])*2)), (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length)
 	/* 0-4 kHz to 0-2 kHz and 2-4 kHz */
-	Opus_silk_ana_filt_bank_1(tls, X, psSilk_VAD+8, X, X+uintptr(X_offset[int32(2)])*2, decimated_framelength1)
+	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(X)), &vad.FAnaState1, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[2])*2)), decimated_framelength1)
 	/* 0-2 kHz to 0-1 kHz and 1-2 kHz */
-	Opus_silk_ana_filt_bank_1(tls, X, psSilk_VAD+16, X, X+uintptr(X_offset[int32(1)])*2, decimated_framelength2)
+	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(X)), &vad.FAnaState2, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[1])*2)), decimated_framelength2)
 	/*********************************************/
 	/* HP filter on lowest band (differentiator) */
 	/*********************************************/
@@ -6344,11 +6345,13 @@ POSSIBILITY OF SUCH DAMAGE.
 //
 //	/* High-pass filter with cutoff frequency adaptation based on pitch lag statistics */
 
-func Opus_silk_ana_filt_bank_1(tls *libc.TLS, in uintptr, S uintptr, outL uintptr, outH uintptr, N OpusT_opus_int32) {
+func Opus_silk_ana_filt_bank_1(tls *libc.TLS, in *OpusT_opus_int16, S *[2]OpusT_opus_int32, outL *OpusT_opus_int16, outH *OpusT_opus_int16, N OpusT_opus_int32) {
 	var N2, k, v2, v3 int32
 	var X, Y, in32, out_1, out_2 OpusT_opus_int32
 	_, _, _, _, _, _, _, _, _ = N2, X, Y, in32, k, out_1, out_2, v2, v3
 	N2 = N >> libc.Int32FromInt32(1)
+	input := unsafe.Slice(in, int(2*N2))
+	low, high := unsafe.Slice(outL, int(N2)), unsafe.Slice(outH, int(N2))
 	/* Internal variables and state are in Q10 format */
 	k = 0
 	for {
@@ -6356,19 +6359,19 @@ func Opus_silk_ana_filt_bank_1(tls *libc.TLS, in uintptr, S uintptr, outL uintpt
 			break
 		}
 		/* Convert to Q10 */
-		in32 = libc.Int32FromUint32(libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k)*2)))) << libc.Int32FromInt32(10))
+		in32 = int32(input[2*k]) << 10
 		/* All-pass section for even input sample */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S))
+		Y = in32 - S[0]
 		X = int32(int64(Y) + int64(Y)*int64(A_fb1_21)>>libc.Int32FromInt32(16))
-		out_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = in32 + X
+		out_1 = S[0] + X
+		S[0] = in32 + X
 		/* Convert to Q10 */
-		in32 = libc.Int32FromUint32(libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+int32(1))*2)))) << libc.Int32FromInt32(10))
+		in32 = int32(input[2*k+1]) << 10
 		/* All-pass section for odd input sample, and add to output of previous section */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))
+		Y = in32 - S[1]
 		X = int32(int64(Y) * int64(A_fb1_20) >> libc.Int32FromInt32(16))
-		out_2 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = in32 + X
+		out_2 = S[1] + X
+		S[1] = in32 + X
 		/* Add/subtract, convert back to int16 and store to output */
 		if ((out_2+out_1)>>(libc.Int32FromInt32(11)-libc.Int32FromInt32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX17) {
 			v2 = int32(silk_int16_MAX17)
@@ -6380,7 +6383,7 @@ func Opus_silk_ana_filt_bank_1(tls *libc.TLS, in uintptr, S uintptr, outL uintpt
 			}
 			v2 = v3
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(outL + uintptr(k)*2)) = int16(v2)
+		low[k] = int16(v2)
 		if ((out_2-out_1)>>(libc.Int32FromInt32(11)-libc.Int32FromInt32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX17) {
 			v2 = int32(silk_int16_MAX17)
 		} else {
@@ -6391,7 +6394,7 @@ func Opus_silk_ana_filt_bank_1(tls *libc.TLS, in uintptr, S uintptr, outL uintpt
 			}
 			v2 = v3
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(outH + uintptr(k)*2)) = int16(v2)
+		high[k] = int16(v2)
 		k = k + 1
 	}
 }
