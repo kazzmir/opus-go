@@ -4587,33 +4587,21 @@ func Opus_celt_fir_c(tls *libc.TLS, x1 uintptr, num uintptr, y1 uintptr, N int32
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
-func Opus_celt_float2int16_c(tls *libc.TLS, in uintptr, out uintptr, cnt int32) {
-	var i int32
-	var v2, v3, v4 float32
-	var v5 OpusT_opus_int16
-	_, _, _, _, _ = i, v2, v3, v4, v5
-	i = 0
-	for {
-		if !(i < cnt) {
-			break
+func Opus_celt_float2int16_c(tls *libc.TLS, in *float32, out *int16, cnt int32) {
+	if cnt <= 0 {
+		return
+	}
+	input, output := unsafe.Slice(in, int(cnt)), unsafe.Slice(out, int(cnt))
+	for i, sample := range input {
+		value := float32(sample * 32768)
+		// Match C's MAX32/MIN32 comparisons, including NaN -> -32768.
+		if !(value > -32768) {
+			value = -32768
 		}
-		v2 = *(*float32)(unsafe.Pointer(in + uintptr(i)*4))
-		v2 = float32(v2 * libc.Float32FromFloat32(32768))
-		if v2 > float32(-libc.Int32FromInt32(32768)) {
-			v3 = v2
-		} else {
-			v3 = float32(-libc.Int32FromInt32(32768))
+		if !(value < 32767) {
+			value = 32767
 		}
-		v2 = v3
-		if v2 < float32(libc.Int32FromInt32(32767)) {
-			v4 = v2
-		} else {
-			v4 = float32(libc.Int32FromInt32(32767))
-		}
-		v2 = v4
-		v5 = int16(Opus_lrintf(tls, v2))
-		*(*int16)(unsafe.Pointer(out + uintptr(i)*2)) = v5
-		i = i + 1
+		output[i] = int16(Opus_lrintf(tls, value))
 	}
 }
 

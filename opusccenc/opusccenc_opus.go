@@ -19053,7 +19053,7 @@ func Opus_opus_decode(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_
 	ret = Opus_opus_decode_native(tls, st1, data, len1, out, frame_size, decode_fec, 0, libc.UintptrFromInt32(0), int32(OPTIONAL_CLIP), libc.UintptrFromInt32(0), 0)
 	if ret > 0 {
 		_ = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Farch
-		Opus_celt_float2int16_c(tls, out, pcm, ret*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)
+		Opus_celt_float2int16_c(tls, (*float32)(unsafe.Pointer(out)), (*int16)(unsafe.Pointer(pcm)), ret*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)
 	}
 	st = libc.Xpthread_getspecific(tls, libc.Uint32FromUint32(0x6f707573))
 	if !(st != 0) {
