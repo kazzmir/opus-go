@@ -10833,7 +10833,7 @@ func Opus_silk_find_LPC_FLP(tls *libc.TLS, psEncC uintptr, NLSF_Q15 uintptr, x u
 				break
 			}
 			/* Interpolate NLSFs for first half */
-			Opus_silk_interpolate(tls, bp+64, psEncC+4500, NLSF_Q15, k, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
+			Opus_silk_interpolate(tls, (*OpusT_opus_int16)(unsafe.Pointer(bp+64)), (*OpusT_opus_int16)(unsafe.Pointer(psEncC+4500)), (*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15)), k, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
 			/* Convert to LPC for residual energy evaluation */
 			Opus_silk_NLSF2A_FLP(tls, bp+96, bp+64, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Farch)
 			/* Calculate residual energy with LSF interpolation */
@@ -11878,22 +11878,22 @@ POSSIBILITY OF SUCH DAMAGE.
 //	/* Compute number of bits to right shift the sum of squares of a vector */
 //	/* of int16s to make it fit in an int32                                 */
 
-func Opus_silk_interpolate(tls *libc.TLS, xi uintptr, x0 uintptr, x1 uintptr, ifact_Q2 int32, d int32) {
-	var i int32
-	_ = i
+func Opus_silk_interpolate(tls *libc.TLS, xi *OpusT_opus_int16, x0 *OpusT_opus_int16, x1 *OpusT_opus_int16, ifact_Q2 int32, d int32) {
 	if !(ifact_Q2 >= libc.Int32FromInt32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+8288, __ccgo_ts+8320, int32(45))
 	}
 	if !(ifact_Q2 <= libc.Int32FromInt32(4)) {
 		Opus_celt_fatal(tls, __ccgo_ts+8342, __ccgo_ts+8320, int32(46))
 	}
-	i = 0
-	for {
-		if !(i < d) {
-			break
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(xi + uintptr(i)*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x0 + uintptr(i)*2))) + int32(int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(i)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(x0 + uintptr(i)*2)))))*int32(int16(ifact_Q2))>>libc.Int32FromInt32(2))
-		i = i + 1
+	if d <= 0 {
+		return
+	}
+	out := unsafe.Slice(xi, int(d))
+	left, right := unsafe.Slice(x0, int(d)), unsafe.Slice(x1, int(d))
+	for i := range out {
+		// silk_SMULBB narrows the difference to signed 16 bits first.
+		delta := int32(int16(int32(right[i]) - int32(left[i])))
+		out[i] = int16(int32(left[i]) + ((delta * int32(int16(ifact_Q2))) >> 2))
 	}
 }
 
@@ -13153,7 +13153,7 @@ func Opus_silk_process_NLSFs(tls *libc.TLS, psEncC uintptr, PredCoef_Q12 uintptr
 	doInterpolate = libc.BoolInt32((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FuseInterpolatedNLSFs == int32(1) && int32((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Findices.FNLSFInterpCoef_Q2) < int32(4))
 	if doInterpolate != 0 {
 		/* Calculate the interpolated NLSF vector for the first half */
-		Opus_silk_interpolate(tls, bp, prev_NLSFq_Q15, pNLSF_Q15, int32((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Findices.FNLSFInterpCoef_Q2), (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
+		Opus_silk_interpolate(tls, (*OpusT_opus_int16)(unsafe.Pointer(bp)), (*OpusT_opus_int16)(unsafe.Pointer(prev_NLSFq_Q15)), (*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15)), int32((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Findices.FNLSFInterpCoef_Q2), (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
 		/* Calculate first half NLSF weights for the interpolated NLSFs */
 		Opus_silk_NLSF_VQ_weights_laroia(tls, bp+64, bp, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
 		/* Update NLSF weights with contribution from first half */
@@ -13173,7 +13173,7 @@ func Opus_silk_process_NLSFs(tls *libc.TLS, psEncC uintptr, PredCoef_Q12 uintptr
 	Opus_silk_NLSF2A(tls, PredCoef_Q12+1*32, pNLSF_Q15, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Farch)
 	if doInterpolate != 0 {
 		/* Calculate the interpolated, quantized LSF vector for the first half */
-		Opus_silk_interpolate(tls, bp, prev_NLSFq_Q15, pNLSF_Q15, int32((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Findices.FNLSFInterpCoef_Q2), (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
+		Opus_silk_interpolate(tls, (*OpusT_opus_int16)(unsafe.Pointer(bp)), (*OpusT_opus_int16)(unsafe.Pointer(prev_NLSFq_Q15)), (*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15)), int32((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Findices.FNLSFInterpCoef_Q2), (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder)
 		/* Convert back to LPC coefficients */
 		Opus_silk_NLSF2A(tls, PredCoef_Q12, bp, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).FpredictLPCOrder, (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Farch)
 	} else {

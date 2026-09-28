@@ -202,22 +202,22 @@ func Opus_silk_gains_ID(tls *libc.TLS, ind *OpusT_opus_int8, nb_subfr int32) (r 
 // C documentation
 //
 //	/* Interpolate two vectors */
-func Opus_silk_interpolate(tls *libc.TLS, xi uintptr, x0 uintptr, x1 uintptr, ifact_Q2 int32, d int32) {
-	var i int32
-	_ = i
+func Opus_silk_interpolate(tls *libc.TLS, xi *OpusT_opus_int16, x0 *OpusT_opus_int16, x1 *OpusT_opus_int16, ifact_Q2 int32, d int32) {
 	if !(ifact_Q2 >= int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6629, __ccgo_ts+6661, int32(45))
 	}
 	if !(ifact_Q2 <= int32(4)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6683, __ccgo_ts+6661, int32(46))
 	}
-	i = 0
-	for {
-		if !(i < d) {
-			break
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(xi + uintptr(i)*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x0 + uintptr(i)*2))) + int32(int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(i)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(x0 + uintptr(i)*2)))))*int32(int16(ifact_Q2))>>int32(2))
-		i = i + 1
+	if d <= 0 {
+		return
+	}
+	out := unsafe.Slice(xi, int(d))
+	left, right := unsafe.Slice(x0, int(d)), unsafe.Slice(x1, int(d))
+	for i := range out {
+		// silk_SMULBB narrows the difference to signed 16 bits first.
+		delta := int32(int16(int32(right[i]) - int32(left[i])))
+		out[i] = int16(int32(left[i]) + ((delta * int32(int16(ifact_Q2))) >> 2))
 	}
 }
 
