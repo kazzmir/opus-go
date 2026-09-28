@@ -507,7 +507,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 			rand_scale_Q14 = int16(int32(rand_scale_Q14) * int32((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FprevLTP_scale_Q14) >> int32(14))
 		} else {
 			_ = arch
-			invGain_Q30 = Opus_silk_LPC_inverse_pred_gain_c(tls, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), decoder.FLPC_order)
+			invGain_Q30 = Opus_silk_LPC_inverse_pred_gain_c(tls, &plc.FprevLPC_Q12[0], decoder.FLPC_order)
 			v84 = int32(1) << int32(30) >> int32(LOG2_INV_LPC_GAIN_HIGH_THRES)
 			v85 = invGain_Q30
 			if v84 < v85 {

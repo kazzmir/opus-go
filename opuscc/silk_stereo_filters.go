@@ -1331,7 +1331,8 @@ POSSIBILITY OF SUCH DAMAGE.
 //
 //	/* Compute inverse of LPC prediction gain, and                          */
 //	/* test if LPC coefficients are stable (all poles within unit circle)   */
-func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r OpusT_opus_int32) {
+func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, coefficients *OpusT_opus_int32, order int32) (r OpusT_opus_int32) {
+	A_QA := unsafe.Slice(coefficients, order)
 	var b32_inv, b32_nrm, err_Q32, invGain_Q30, rc_Q31, rc_mult1_Q30, rc_mult2, result, tmp1, tmp2, v10, v3, v4, v7 OpusT_opus_int32
 	var b_headrm, k, lshift, mult2Q, n, v13, v16, v17, v18, v19, v2, v6, v8, v9 int32
 	var tmp64 OpusT_opus_int64
@@ -1344,11 +1345,11 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 			break
 		}
 		/* Check for stability */
-		if *(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(k)*4)) > int32(16773022) || *(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(k)*4)) < -int32(16773022) {
+		if A_QA[k] > int32(16773022) || A_QA[k] < -int32(16773022) {
 			return 0
 		}
 		/* Set RC equal to negated AR coef */
-		rc_Q31 = -int32(uint32(*(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(k)*4))) << (int32(31) - int32(QA)))
+		rc_Q31 = -int32(uint32(A_QA[k]) << (int32(31) - int32(QA)))
 		/* rc_mult1_Q30 range: [ 1 : 2^30 ] */
 		rc_mult1_Q30 = int32(1073741824) - int32(int64(rc_Q31)*int64(rc_Q31)>>int32(32))
 		_ = rc_mult1_Q30 > int32(1)<<int32(15) /* reduce A_LIMIT if fails */
@@ -1443,8 +1444,8 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 			if !(n < (k+int32(1))>>int32(1)) {
 				break
 			}
-			tmp1 = *(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(n)*4))
-			tmp2 = *(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(k-n-int32(1))*4))
+			tmp1 = A_QA[n]
+			tmp2 = A_QA[k-n-1]
 			if mult2Q == int32(1) {
 				if (uint32(tmp1)-uint32(int32((int64(tmp2)*int64(rc_Q31)>>(int32(31)-int32(1))+int64(1))>>int32(1))))&uint32(0x80000000) == uint32(0) {
 					if uint32(tmp1)&(uint32(int32((int64(tmp2)*int64(rc_Q31)>>(int32(31)-int32(1))+int64(1))>>int32(1)))^uint32(0x80000000))&uint32(0x80000000) != 0 {
@@ -1499,7 +1500,7 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 			if tmp64 > int64(silk_int32_MAX) || tmp64 < int64(int32(-2147483648)) {
 				return 0
 			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(n)*4)) = int32(tmp64)
+			A_QA[n] = int32(tmp64)
 			if mult2Q == int32(1) {
 				if (uint32(tmp2)-uint32(int32((int64(tmp1)*int64(rc_Q31)>>(int32(31)-int32(1))+int64(1))>>int32(1))))&uint32(0x80000000) == uint32(0) {
 					if uint32(tmp2)&(uint32(int32((int64(tmp1)*int64(rc_Q31)>>(int32(31)-int32(1))+int64(1))>>int32(1)))^uint32(0x80000000))&uint32(0x80000000) != 0 {
@@ -1554,17 +1555,17 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 			if tmp64 > int64(silk_int32_MAX) || tmp64 < int64(int32(-2147483648)) {
 				return 0
 			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(k-n-int32(1))*4)) = int32(tmp64)
+			A_QA[k-n-1] = int32(tmp64)
 			n = n + 1
 		}
 		k = k - 1
 	}
 	/* Check for stability */
-	if *(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(k)*4)) > int32(16773022) || *(*OpusT_opus_int32)(unsafe.Pointer(A_QA + uintptr(k)*4)) < -int32(16773022) {
+	if A_QA[k] > int32(16773022) || A_QA[k] < -int32(16773022) {
 		return 0
 	}
 	/* Set RC equal to negated AR coef */
-	rc_Q31 = -int32(uint32(*(*OpusT_opus_int32)(unsafe.Pointer(A_QA))) << (int32(31) - int32(QA)))
+	rc_Q31 = -int32(uint32(A_QA[0]) << (int32(31) - int32(QA)))
 	/* Range: [ 1 : 2^30 ] */
 	rc_mult1_Q30 = int32(1073741824) - int32(int64(rc_Q31)*int64(rc_Q31)>>int32(32))
 	/* Update inverse gain */
@@ -1581,7 +1582,8 @@ func LPC_inverse_pred_gain_QA_c(tls *libc.TLS, A_QA uintptr, order int32) (r Opu
 // C documentation
 //
 //	/* For input in Q12 domain */
-func Opus_silk_LPC_inverse_pred_gain_c(tls *libc.TLS, A_Q12 uintptr, order int32) (r OpusT_opus_int32) {
+func Opus_silk_LPC_inverse_pred_gain_c(tls *libc.TLS, coefficients *OpusT_opus_int16, order int32) (r OpusT_opus_int32) {
+	A_Q12 := unsafe.Slice(coefficients, order)
 	var DC_resp OpusT_opus_int32
 	var k int32
 	var Atmp_QA [24]OpusT_opus_int32
@@ -1593,15 +1595,15 @@ func Opus_silk_LPC_inverse_pred_gain_c(tls *libc.TLS, A_Q12 uintptr, order int32
 		if !(k < order) {
 			break
 		}
-		DC_resp = DC_resp + int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))
-		Atmp_QA[k] = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q12 + uintptr(k)*2)))) << (int32(QA) - int32(12)))
+		DC_resp = DC_resp + int32(A_Q12[k])
+		Atmp_QA[k] = int32(uint32(int32(A_Q12[k])) << (int32(QA) - int32(12)))
 		k = k + 1
 	}
 	/* If the DC is unstable, we don't even need to do the full calculations */
 	if DC_resp >= int32(4096) {
 		return 0
 	}
-	return LPC_inverse_pred_gain_QA_c(tls, uintptr(unsafe.Pointer(&Atmp_QA[0])), order)
+	return LPC_inverse_pred_gain_QA_c(tls, &Atmp_QA[0], order)
 }
 
 const silk_int16_MAX15 = 32767
