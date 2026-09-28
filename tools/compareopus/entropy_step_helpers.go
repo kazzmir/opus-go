@@ -6,7 +6,7 @@ package main
 #include "entdec.h"
 // Copy fields explicitly; do not assume the translated Go/C layouts match.
 static unsigned entropy_step(unsigned *s, unsigned char *data, int op,
-                             unsigned a, unsigned b, unsigned c) {
+                             unsigned a, unsigned b, unsigned c, const opus_uint16 *table) {
  ec_dec dec = {0};
  dec.buf = data;
  dec.storage=s[0]; dec.end_offs=s[1]; dec.end_window=s[2];
@@ -18,6 +18,7 @@ static unsigned entropy_step(unsigned *s, unsigned char *data, int op,
  case 1: result=ec_dec_bit_logp(&dec,a); break;
  case 2: result=ec_dec_bits(&dec,a); break;
  case 3: result=ec_dec_uint(&dec,a); break;
+ case 4: result=ec_dec_icdf16(&dec,table,a); break;
  }
  s[0]=dec.storage; s[1]=dec.end_offs; s[2]=dec.end_window;
  s[3]=dec.nend_bits; s[4]=dec.nbits_total; s[5]=dec.offs;
@@ -32,9 +33,13 @@ import (
 	"unsafe"
 )
 
-func nativeEntropyStep(dec *opuscc.OpusT_ec_dec, data []byte, op int, a, b, c uint32) uint32 {
+func nativeEntropyStep(dec *opuscc.OpusT_ec_dec, data []byte, op int, a, b, c uint32, tables ...[]uint16) uint32 {
+	var table *C.opus_uint16
+	if len(tables) != 0 {
+		table = (*C.opus_uint16)(unsafe.Pointer(unsafe.SliceData(tables[0])))
+	}
 	s := [11]C.uint{C.uint(dec.Fstorage), C.uint(dec.Fend_offs), C.uint(dec.Fend_window), C.uint(dec.Fnend_bits), C.uint(dec.Fnbits_total), C.uint(dec.Foffs), C.uint(dec.Frng), C.uint(dec.Fval), C.uint(dec.Fext), C.uint(dec.Frem), C.uint(dec.Ferror1)}
-	result := C.entropy_step(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(op), C.uint(a), C.uint(b), C.uint(c))
+	result := C.entropy_step(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(op), C.uint(a), C.uint(b), C.uint(c), table)
 	dec.Fstorage = uint32(s[0])
 	dec.Fend_offs = uint32(s[1])
 	dec.Fend_window = uint32(s[2])

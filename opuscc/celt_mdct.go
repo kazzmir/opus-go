@@ -1124,7 +1124,7 @@ func Opus_ec_laplace_decode_p0(tls *libc.TLS, dec uintptr, p0 OpusT_opus_uint16,
 	sign_icdf[0] = uint16(32768 - int32(p0))
 	sign_icdf[1] = uint16(int32(sign_icdf[0]) / 2)
 	sign_icdf[2] = 0
-	s = Opus_ec_dec_icdf16(tls, dec, uintptr(unsafe.Pointer(&sign_icdf[0])), uint32(15))
+	s = Opus_ec_dec_icdf16(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &sign_icdf[0], uint32(15))
 	if s == int32(2) {
 		s = -int32(1)
 	}
@@ -1151,7 +1151,7 @@ func Opus_ec_laplace_decode_p0(tls *libc.TLS, dec uintptr, p0 OpusT_opus_uint16,
 		icdf[7] = 0
 		value = int32(1)
 		for cond := true; cond; cond = v == int32(7) {
-			v = Opus_ec_dec_icdf16(tls, dec, uintptr(unsafe.Pointer(&icdf[0])), uint32(15))
+			v = Opus_ec_dec_icdf16(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &icdf[0], uint32(15))
 			value = value + v
 		}
 		return s * value
