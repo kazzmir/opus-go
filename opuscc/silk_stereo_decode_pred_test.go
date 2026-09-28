@@ -16,7 +16,7 @@ func TestStereoDecodePredFieldAccesses(t *testing.T) {
 	Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&rangeDecoder)), uintptr(unsafe.Pointer(&data[0])), uint32(len(data)))
 	pred := [2]OpusT_opus_int32{}
 
-	Opus_silk_stereo_decode_pred(tls, uintptr(unsafe.Pointer(&rangeDecoder)), uintptr(unsafe.Pointer(&pred[0])))
+	Opus_silk_stereo_decode_pred(tls, &rangeDecoder, &pred)
 
 	want := [2]OpusT_opus_int32{377, 656}
 	if pred != want {

@@ -12,13 +12,13 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_silk_stereo_decode_pred(tls *libc.TLS, psRangeDec uintptr, pred_Q13 uintptr) {
+func Opus_silk_stereo_decode_pred(tls *libc.TLS, psRangeDec *OpusT_ec_dec, pred_Q13 *[2]OpusT_opus_int32) {
 	var low_Q13, step_Q13 OpusT_opus_int32
 	var n int32
 	var ix [2][3]int32
 	_, _, _ = low_Q13, n, step_Q13
 	/* Entropy decoding */
-	n = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_stereo_pred_joint_iCDF)), uint32(8))
+	n = ec_dec_icdf(tls, psRangeDec, &Opus_silk_stereo_pred_joint_iCDF[0], uint32(8))
 	ix[0][2] = n / 5
 	ix[1][2] = n - 5*ix[0][2]
 	n = 0
@@ -26,8 +26,8 @@ func Opus_silk_stereo_decode_pred(tls *libc.TLS, psRangeDec uintptr, pred_Q13 ui
 		if !(n < int32(2)) {
 			break
 		}
-		ix[n][0] = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_uniform3_iCDF)), uint32(8))
-		ix[n][1] = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_uniform5_iCDF)), uint32(8))
+		ix[n][0] = ec_dec_icdf(tls, psRangeDec, &Opus_silk_uniform3_iCDF[0], uint32(8))
+		ix[n][1] = ec_dec_icdf(tls, psRangeDec, &Opus_silk_uniform5_iCDF[0], uint32(8))
 		n = n + 1
 	}
 	/* Dequantize */
@@ -39,19 +39,18 @@ func Opus_silk_stereo_decode_pred(tls *libc.TLS, psRangeDec uintptr, pred_Q13 ui
 		ix[n][0] += 3 * ix[n][2]
 		low_Q13 = int32(Opus_silk_stereo_pred_quant_Q13[ix[n][0]])
 		step_Q13 = int32(int64(int32(Opus_silk_stereo_pred_quant_Q13[ix[n][0]+1])-low_Q13) * int64(int16(6554)) >> int32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + uintptr(n)*4)) = low_Q13 + int32(int16(step_Q13))*int32(int16(2*ix[n][1]+1))
+		pred_Q13[n] = low_Q13 + int32(int16(step_Q13))*int32(int16(2*ix[n][1]+1))
 		n = n + 1
 	}
 	/* Subtract second from first predictor (helps when actually applying these) */
-	*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13)) -= *(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4))
+	pred_Q13[0] -= pred_Q13[1]
 }
 
 // C documentation
 //
 //	/* Decode mid-only flag */
-func Opus_silk_stereo_decode_mid_only(tls *libc.TLS, psRangeDec uintptr, decode_only_mid uintptr) {
-	/* Decode flag that only mid channel is coded */
-	*(*int32)(unsafe.Pointer(decode_only_mid)) = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_stereo_only_code_mid_iCDF)), uint32(8))
+func Opus_silk_stereo_decode_mid_only(tls *libc.TLS, psRangeDec *OpusT_ec_dec, decode_only_mid *int32) {
+	*decode_only_mid = ec_dec_icdf(tls, psRangeDec, &Opus_silk_stereo_only_code_mid_iCDF[0], uint32(8))
 }
 
 func __ccgo_fp(f interface{}) uintptr {
