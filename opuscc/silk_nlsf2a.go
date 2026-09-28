@@ -435,116 +435,27 @@ Signal Processing, pp. 641-644, 1991.
 // C documentation
 //
 //	/* Laroia low complexity NLSF weights */
-func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT uintptr, pNLSF_Q15 uintptr, D int32) {
-	var k, v1, v2, v3, v5 int32
-	var tmp1_int, tmp2_int OpusT_opus_int32
-	_, _, _, _, _, _, _ = k, tmp1_int, tmp2_int, v1, v2, v3, v5
+func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT *OpusT_opus_int16, pNLSF_Q15 *OpusT_opus_int16, D int32) {
 	if !(D > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+7296, __ccgo_ts+7320, int32(51))
 	}
 	if !(D&int32(1) == int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+7353, __ccgo_ts+7320, int32(52))
 	}
-	/* First value */
-	v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15)))
-	v2 = int32(1)
-	if v1 > v2 {
-		v5 = v1
-	} else {
-		v5 = v2
-	}
-	v3 = v5
-	tmp1_int = v3
-	tmp1_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp1_int
-	v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + 1*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15)))
-	v2 = int32(1)
-	if v1 > v2 {
-		v5 = v1
-	} else {
-		v5 = v2
-	}
-	v3 = v5
-	tmp2_int = v3
-	tmp2_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp2_int
-	v1 = tmp1_int + tmp2_int
-	v2 = int32(silk_int16_MAX17)
-	if v1 < v2 {
-		v5 = v1
-	} else {
-		v5 = v2
-	}
-	v3 = v5
-	*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT)) = int16(v3)
-	_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT))) > int32(0)
-	/* Main loop */
-	k = int32(1)
-	for {
-		if !(k < D-int32(1)) {
-			break
+	input := unsafe.Slice(pNLSF_Q15, int(D))
+	output := unsafe.Slice(pNLSFW_Q_OUT, int(D))
+	const numerator = int32(1) << (15 + NLSF_W_Q)
+	previous := numerator / max(int32(input[0]), 1)
+	for i := range output {
+		gap := int32(1<<15) - int32(input[i])
+		if i+1 < len(input) {
+			gap = int32(input[i+1]) - int32(input[i])
 		}
-		v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k)*2)))
-		v2 = int32(1)
-		if v1 > v2 {
-			v5 = v1
-		} else {
-			v5 = v2
-		}
-		v3 = v5
-		tmp1_int = v3
-		tmp1_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp1_int
-		v1 = tmp1_int + tmp2_int
-		v2 = int32(silk_int16_MAX17)
-		if v1 < v2 {
-			v5 = v1
-		} else {
-			v5 = v2
-		}
-		v3 = v5
-		*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k)*2)) = int16(v3)
-		_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k)*2))) > int32(0)
-		v1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k+int32(2))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(k+int32(1))*2)))
-		v2 = int32(1)
-		if v1 > v2 {
-			v5 = v1
-		} else {
-			v5 = v2
-		}
-		v3 = v5
-		tmp2_int = v3
-		tmp2_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp2_int
-		v1 = tmp1_int + tmp2_int
-		v2 = int32(silk_int16_MAX17)
-		if v1 < v2 {
-			v5 = v1
-		} else {
-			v5 = v2
-		}
-		v3 = v5
-		*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k+int32(1))*2)) = int16(v3)
-		_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(k+int32(1))*2))) > int32(0)
-		k = k + int32(2)
+		next := numerator / max(gap, 1)
+		// Read the next gap before writing, preserving C's in-place behavior.
+		output[i] = int16(min(previous+next, 32767))
+		previous = next
 	}
-	/* Last value */
-	v1 = int32(1)<<int32(15) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSF_Q15 + uintptr(D-int32(1))*2)))
-	v2 = int32(1)
-	if v1 > v2 {
-		v5 = v1
-	} else {
-		v5 = v2
-	}
-	v3 = v5
-	tmp1_int = v3
-	tmp1_int = int32(1) << (int32(15) + int32(NLSF_W_Q)) / tmp1_int
-	v1 = tmp1_int + tmp2_int
-	v2 = int32(silk_int16_MAX17)
-	if v1 < v2 {
-		v5 = v1
-	} else {
-		v5 = v2
-	}
-	v3 = v5
-	*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(D-int32(1))*2)) = int16(v3)
-	_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pNLSFW_Q_OUT + uintptr(D-int32(1))*2))) > int32(0)
 }
 
 const silk_int16_MAX18 = 0x7FFF
