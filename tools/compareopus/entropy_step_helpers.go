@@ -1,0 +1,50 @@
+//go:build compareopus && cgo
+
+package main
+
+/*
+#include "entdec.h"
+// Copy fields explicitly; do not assume the translated Go/C layouts match.
+static unsigned entropy_step(unsigned *s, unsigned char *data, int op,
+                             unsigned a, unsigned b, unsigned c) {
+ ec_dec dec = {0};
+ dec.buf = data;
+ dec.storage=s[0]; dec.end_offs=s[1]; dec.end_window=s[2];
+ dec.nend_bits=(int)s[3]; dec.nbits_total=(int)s[4]; dec.offs=s[5];
+ dec.rng=s[6]; dec.val=s[7]; dec.ext=s[8]; dec.rem=(int)s[9]; dec.error=(int)s[10];
+ unsigned result=0;
+ switch(op) {
+ case 0: ec_dec_update(&dec,a,b,c); break;
+ case 1: result=ec_dec_bit_logp(&dec,a); break;
+ case 2: result=ec_dec_bits(&dec,a); break;
+ case 3: result=ec_dec_uint(&dec,a); break;
+ }
+ s[0]=dec.storage; s[1]=dec.end_offs; s[2]=dec.end_window;
+ s[3]=dec.nend_bits; s[4]=dec.nbits_total; s[5]=dec.offs;
+ s[6]=dec.rng; s[7]=dec.val; s[8]=dec.ext; s[9]=dec.rem; s[10]=dec.error;
+ return result;
+}
+*/
+import "C"
+
+import (
+	"github.com/kazzmir/opus-go/opuscc"
+	"unsafe"
+)
+
+func nativeEntropyStep(dec *opuscc.OpusT_ec_dec, data []byte, op int, a, b, c uint32) uint32 {
+	s := [11]C.uint{C.uint(dec.Fstorage), C.uint(dec.Fend_offs), C.uint(dec.Fend_window), C.uint(dec.Fnend_bits), C.uint(dec.Fnbits_total), C.uint(dec.Foffs), C.uint(dec.Frng), C.uint(dec.Fval), C.uint(dec.Fext), C.uint(dec.Frem), C.uint(dec.Ferror1)}
+	result := C.entropy_step(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(op), C.uint(a), C.uint(b), C.uint(c))
+	dec.Fstorage = uint32(s[0])
+	dec.Fend_offs = uint32(s[1])
+	dec.Fend_window = uint32(s[2])
+	dec.Fnend_bits = int32(s[3])
+	dec.Fnbits_total = int32(s[4])
+	dec.Foffs = uint32(s[5])
+	dec.Frng = uint32(s[6])
+	dec.Fval = uint32(s[7])
+	dec.Fext = uint32(s[8])
+	dec.Frem = int32(s[9])
+	dec.Ferror1 = int32(s[10])
+	return uint32(result)
+}

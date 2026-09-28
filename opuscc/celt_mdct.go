@@ -1057,7 +1057,7 @@ func Opus_ec_laplace_decode(tls *libc.TLS, dec uintptr, fs uint32, decay int32) 
 	} else {
 		v1 = uint32(int32(32768))
 	}
-	Opus_ec_dec_update(tls, dec, fl, v1, uint32(32768))
+	Opus_ec_dec_update(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), fl, v1, uint32(32768))
 	return val
 }
 

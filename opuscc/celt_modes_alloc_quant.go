@@ -2959,7 +2959,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 				} else {
 					v5 = x - x0 + (x0+int32(1))*p0
 				}
-				Opus_ec_dec_update(tls, ec, uint32(v1), uint32(v5), uint32(ft))
+				Opus_ec_dec_update(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(v1), uint32(v5), uint32(ft))
 				itheta = x
 			}
 		} else {
@@ -3000,7 +3000,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 						fs1 = qn + int32(1) - itheta
 						fl1 = ft1 - (qn+int32(1)-itheta)*(qn+int32(2)-itheta)>>int32(1)
 					}
-					Opus_ec_dec_update(tls, ec, uint32(fl1), uint32(fl1+fs1), uint32(ft1))
+					Opus_ec_dec_update(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(fl1), uint32(fl1+fs1), uint32(ft1))
 				}
 			}
 		}
