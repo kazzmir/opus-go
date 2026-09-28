@@ -50,8 +50,8 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 	}
 	dd = d >> int32(1)
 	/* generate even and odd polynomials using convolution */
-	silk_NLSF2A_find_poly(tls, uintptr(unsafe.Pointer(&P[0])), uintptr(unsafe.Pointer(&cos_LSF_QA[0])), dd)
-	silk_NLSF2A_find_poly(tls, uintptr(unsafe.Pointer(&Q[0])), uintptr(unsafe.Pointer(&cos_LSF_QA[1])), dd)
+	silk_NLSF2A_find_poly(tls, &P[0], &cos_LSF_QA[0], dd)
+	silk_NLSF2A_find_poly(tls, &Q[0], &cos_LSF_QA[1], dd)
 	/* convert even and odd polynomials to opus_int32 Q12 filter coefs */
 	k = 0
 	for {

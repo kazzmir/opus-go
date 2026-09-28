@@ -142,12 +142,9 @@ func Opus_silk_LoadOSCEModels(tls *libc.TLS, decState uintptr, data uintptr, len
 	return SILK_NO_ERROR
 }
 
-func Opus_silk_Get_Decoder_Size(tls *libc.TLS, decSizeBytes uintptr) (r int32) {
-	var ret int32
-	_ = ret
-	ret = SILK_NO_ERROR
-	*(*int32)(unsafe.Pointer(decSizeBytes)) = int32(unsafe.Sizeof(OpusT_silk_decoder{}))
-	return ret
+func Opus_silk_Get_Decoder_Size(tls *libc.TLS, decSizeBytes *int32) (r int32) {
+	*decSizeBytes = int32(unsafe.Sizeof(OpusT_silk_decoder{}))
+	return SILK_NO_ERROR
 }
 
 // C documentation

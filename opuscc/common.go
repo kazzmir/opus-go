@@ -2313,7 +2313,7 @@ func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) (r int32) {
 	if channels < int32(1) || channels > int32(2) {
 		return 0
 	}
-	ret = Opus_silk_Get_Decoder_Size(tls, uintptr(unsafe.Pointer(&silkDecSizeBytes)))
+	ret = Opus_silk_Get_Decoder_Size(tls, &silkDecSizeBytes)
 	if ret != 0 {
 		return 0
 	}
@@ -2336,7 +2336,7 @@ func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, chan
 	}
 	libc.Xmemset(tls, st, 0, uint64(uint32(Opus_opus_decoder_get_size(tls, channels)))*uint64(1))
 	/* Initialize SILK decoder */
-	ret = Opus_silk_Get_Decoder_Size(tls, uintptr(unsafe.Pointer(&silkDecSizeBytes)))
+	ret = Opus_silk_Get_Decoder_Size(tls, &silkDecSizeBytes)
 	if ret != 0 {
 		return -int32(3)
 	}

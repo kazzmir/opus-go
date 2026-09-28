@@ -61,7 +61,7 @@ func TestArchSilkDecoderLayout(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 	var size int32
-	Opus_silk_Get_Decoder_Size(tls, uintptr(unsafe.Pointer(&size)))
+	Opus_silk_Get_Decoder_Size(tls, &size)
 	if size != int32(unsafe.Sizeof(OpusT_silk_decoder{})) {
 		t.Fatalf("decoder size = %d", size)
 	}

@@ -15,28 +15,24 @@ var _ unsafe.Pointer
 // C documentation
 //
 //	/* Generates excitation for CNG LPC synthesis */
-func silk_CNG_exc(tls *libc.TLS, exc_Q14 uintptr, exc_buf_Q14 uintptr, length int32, rand_seed uintptr) {
-	var exc_mask, i, idx int32
-	var seed OpusT_opus_int32
-	_, _, _, _ = exc_mask, i, idx, seed
-	exc_mask = int32(CNG_BUF_MASK_MAX)
+func silk_CNG_exc(tls *libc.TLS, exc_Q14 *OpusT_opus_int32, exc_buf_Q14 *OpusT_opus_int32, length int32, rand_seed *OpusT_opus_int32) {
+	if length == 0 {
+		return
+	}
+	out := unsafe.Slice(exc_Q14, int(length))
+	exc_mask := int32(CNG_BUF_MASK_MAX)
 	for exc_mask > length {
-		exc_mask = exc_mask >> int32(1)
+		exc_mask >>= 1
 	}
-	seed = *(*OpusT_opus_int32)(unsafe.Pointer(rand_seed))
-	i = 0
-	for {
-		if !(i < length) {
-			break
-		}
-		seed = int32(uint32(int32(RAND_INCREMENT)) + uint32(seed)*uint32(int32(RAND_MULTIPLIER)))
-		idx = seed >> int32(24) & exc_mask
-		_ = idx >= int32(0)
-		_ = idx <= int32(CNG_BUF_MASK_MAX)
-		*(*OpusT_opus_int32)(unsafe.Pointer(exc_Q14 + uintptr(i)*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(exc_buf_Q14 + uintptr(idx)*4))
-		i = i + 1
+	// The mask is inclusive: even length == mask needs mask+1 input slots.
+	buffer := unsafe.Slice(exc_buf_Q14, int(exc_mask)+1)
+	seed := *rand_seed
+	for i := range out {
+		seed = int32(uint32(RAND_INCREMENT) + uint32(seed)*uint32(RAND_MULTIPLIER))
+		idx := (seed >> 24) & exc_mask
+		out[i] = buffer[idx]
 	}
-	*(*OpusT_opus_int32)(unsafe.Pointer(rand_seed)) = seed
+	*rand_seed = seed
 }
 
 func Opus_silk_CNG_Reset(tls *libc.TLS, dec *OpusT_silk_decoder_state) {
@@ -297,7 +293,7 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 			gain_Q16 = int32(uint32(v34) << int32(8))
 		}
 		gain_Q10 = gain_Q16 >> int32(6)
-		silk_CNG_exc(tls, CNG_sig_Q14+uintptr(MAX_LPC_ORDER)*4, uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[0])), length, uintptr(unsafe.Pointer(&cng.Frand_seed)))
+		silk_CNG_exc(tls, (*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14+uintptr(MAX_LPC_ORDER)*4)), &cng.FCNG_exc_buf_Q14[0], length, &cng.Frand_seed)
 		/* Convert CNG NLSF to filter representation */
 		Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&A_Q12[0])), uintptr(unsafe.Pointer(&cng.FCNG_smth_NLSF_Q15[0])), dec.FLPC_order, dec.Farch)
 		/* Generate CNG signal, by synthesis filtering */

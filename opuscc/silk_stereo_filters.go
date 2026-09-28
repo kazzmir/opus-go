@@ -1948,29 +1948,21 @@ const QA1 = 16
 // C documentation
 //
 //	/* helper function for NLSF2A(..) */
-func silk_NLSF2A_find_poly(tls *libc.TLS, out uintptr, cLSF uintptr, dd int32) {
-	var ftmp OpusT_opus_int32
-	var k, n int32
-	_, _, _ = ftmp, k, n
-	*(*OpusT_opus_int32)(unsafe.Pointer(out)) = int32(uint32(int32(1)) << int32(QA1))
-	*(*OpusT_opus_int32)(unsafe.Pointer(out + 1*4)) = -*(*OpusT_opus_int32)(unsafe.Pointer(cLSF))
-	k = int32(1)
-	for {
-		if !(k < dd) {
-			break
+func silk_NLSF2A_find_poly(tls *libc.TLS, out *OpusT_opus_int32, cLSF *OpusT_opus_int32, dd int32) {
+	// C requires a positive polynomial order. Only every second LSF is read;
+	// the odd-offset caller has just 2*dd-1 elements available.
+	poly := unsafe.Slice(out, int(dd)+1)
+	lsf := unsafe.Slice(cLSF, 2*int(dd)-1)
+	poly[0] = 1 << QA1
+	poly[1] = -lsf[0]
+	for k := 1; k < int(dd); k++ {
+		ftmp := lsf[2*k]
+		// Preserve silk_RSHIFT_ROUND64, including rounding negative products.
+		poly[k+1] = int32(uint32(poly[k-1])<<1) - int32(((int64(ftmp)*int64(poly[k])>>(QA1-1))+1)>>1)
+		for n := k; n > 1; n-- {
+			poly[n] += poly[n-2] - int32(((int64(ftmp)*int64(poly[n-1])>>(QA1-1))+1)>>1)
 		}
-		ftmp = *(*OpusT_opus_int32)(unsafe.Pointer(cLSF + uintptr(int32(2)*k)*4)) /* QA*/
-		*(*OpusT_opus_int32)(unsafe.Pointer(out + uintptr(k+int32(1))*4)) = int32(uint32(*(*OpusT_opus_int32)(unsafe.Pointer(out + uintptr(k-int32(1))*4)))<<int32(1)) - int32((int64(ftmp)*int64(*(*OpusT_opus_int32)(unsafe.Pointer(out + uintptr(k)*4)))>>(int32(QA1)-int32(1))+int64(1))>>int32(1))
-		n = k
-		for {
-			if !(n > int32(1)) {
-				break
-			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(out + uintptr(n)*4)) += *(*OpusT_opus_int32)(unsafe.Pointer(out + uintptr(n-int32(2))*4)) - int32((int64(ftmp)*int64(*(*OpusT_opus_int32)(unsafe.Pointer(out + uintptr(n-int32(1))*4)))>>(int32(QA1)-int32(1))+int64(1))>>int32(1))
-			n = n - 1
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(out + 1*4)) -= ftmp
-		k = k + 1
+		poly[1] -= ftmp
 	}
 }
 
