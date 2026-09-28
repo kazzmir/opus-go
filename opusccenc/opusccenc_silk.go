@@ -6115,52 +6115,16 @@ _57:
 //	/* Noise level estimation */
 //	/**************************/
 
-func Opus_silk_VAD_Init(tls *libc.TLS, psSilk_VAD uintptr) (r int32) {
-	var b1, ret, v6 int32
-	var v2, v3, v4 OpusT_opus_int32
-	_, _, _, _, _, _ = b1, ret, v2, v3, v4, v6
-	ret = 0
-	/* reset state memory */
-	libc.Xmemset(tls, psSilk_VAD, 0, libc.Uint64FromInt64(112))
-	/* init noise levels */
-	/* Initialize array with approx pink noise levels (psd proportional to inverse of frequency) */
-	b1 = 0
-	for {
-		if !(b1 < int32(VAD_N_BANDS)) {
-			break
-		}
-		v2 = libc.Int32FromInt32(VAD_NOISE_LEVELS_BIAS) / (b1 + libc.Int32FromInt32(1))
-		v3 = int32(1)
-		if v2 > v3 {
-			v6 = v2
-		} else {
-			v6 = v3
-		}
-		v4 = v6
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 92 + uintptr(b1)*4)) = v4
-		b1 = b1 + 1
+func Opus_silk_VAD_Init(tls *libc.TLS, state *OpusT_silk_VAD_state) int32 {
+	*state = OpusT_silk_VAD_state{}
+	for b := range state.FNoiseLevelBias {
+		state.FNoiseLevelBias[b] = max(int32(VAD_NOISE_LEVELS_BIAS)/int32(b+1), 1)
+		state.FNL[b] = 100 * state.FNoiseLevelBias[b]
+		state.Finv_NL[b] = int32(silk_int32_MAX) / state.FNL[b]
+		state.FNrgRatioSmth_Q8[b] = 100 * 256
 	}
-	/* Initialize state */
-	b1 = 0
-	for {
-		if !(b1 < int32(VAD_N_BANDS)) {
-			break
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4)) = libc.Int32FromInt32(100) * *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 92 + uintptr(b1)*4))
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 76 + uintptr(b1)*4)) = libc.Int32FromInt32(silk_int32_MAX) / *(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 60 + uintptr(b1)*4))
-		b1 = b1 + 1
-	}
-	(*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD)).Fcounter = int32(15)
-	/* init smoothed energy-to-noise ratio*/
-	b1 = 0
-	for {
-		if !(b1 < int32(VAD_N_BANDS)) {
-			break
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(psSilk_VAD + 40 + uintptr(b1)*4)) = libc.Int32FromInt32(100) * libc.Int32FromInt32(256) /* 100 * 256 --> 20 dB SNR */
-		b1 = b1 + 1
-	}
-	return ret
+	state.Fcounter = 15
+	return 0
 }
 
 // C documentation
@@ -11514,7 +11478,7 @@ func Opus_silk_init_encoder(tls *libc.TLS, psEnc uintptr, arch int32) (r int32) 
 	/* Used to deactivate LSF interpolation, pitch prediction */
 	(*OpusT_silk_encoder_state_FLP)(unsafe.Pointer(psEnc)).FsCmn.Ffirst_frame_after_reset = int32(1)
 	/* Initialize Silk VAD */
-	ret = ret + Opus_silk_VAD_Init(tls, psEnc+36)
+	ret = ret + Opus_silk_VAD_Init(tls, &(*OpusT_silk_encoder_state_FLP)(unsafe.Pointer(psEnc)).FsCmn.FsVAD)
 	return ret
 }
 
