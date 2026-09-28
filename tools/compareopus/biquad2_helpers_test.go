@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kazzmir/opus-go/opuscc"
+	"github.com/kazzmir/opus-go/opusccenc"
 )
 
 func TestBiquad2AgainstC(t *testing.T) {
@@ -32,8 +33,13 @@ func TestBiquad2AgainstC(t *testing.T) {
 					gs[i] = rng.Int31n(1<<21) - (1 << 20)
 				}
 				cs := gs
+				e, es := slices.Clone(g), gs
+				opusccenc.Opus_silk_biquad_alt_stride2_c(nil, &e[0], &coefs.b, &coefs.a, &es, &e[0], int32(n))
 				opuscc.Opus_silk_biquad_alt_stride2_c(nil, &g[0], &coefs.b, &coefs.a, &gs, &g[0], int32(n))
 				nativeBiquad2(c, c, &coefs.b, &coefs.a, &cs)
+				if !slices.Equal(e, c) || es != cs {
+					t.Fatalf("encoder differs: n=%d trial=%d state=%v C=%v", n, trial, es, cs)
+				}
 				if !slices.Equal(g, c) || gs != cs {
 					t.Fatalf("n=%d trial=%d: Go state=%v C state=%v Go PCM=%v C PCM=%v", n, trial, gs, cs, g, c)
 				}

@@ -6692,36 +6692,38 @@ func Opus_silk_biquad_alt_stride1(tls *libc.TLS, in *OpusT_opus_int16, B_Q28 *[3
 	}
 }
 
-func Opus_silk_biquad_alt_stride2_c(tls *libc.TLS, in uintptr, B_Q28 uintptr, A_Q28 uintptr, S uintptr, out uintptr, len1 OpusT_opus_int32) {
+func Opus_silk_biquad_alt_stride2_c(tls *libc.TLS, in *OpusT_opus_int16, B_Q28 *[3]OpusT_opus_int32, A_Q28 *[2]OpusT_opus_int32, S *[4]OpusT_opus_int32, out *OpusT_opus_int16, len1 OpusT_opus_int32) {
 	var A0_L_Q28, A0_U_Q28, A1_L_Q28, A1_U_Q28 OpusT_opus_int32
 	var k, v2, v3 int32
 	var out32_Q14 [2]OpusT_opus_int32
 	_, _, _, _, _, _, _, _ = A0_L_Q28, A0_U_Q28, A1_L_Q28, A1_U_Q28, k, out32_Q14, v2, v3
 	/* Negate A_Q28 values and split in two parts */
-	A0_L_Q28 = -*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28)) & int32(0x00003FFF)              /* lower part */
-	A0_U_Q28 = -*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28)) >> libc.Int32FromInt32(14)       /* upper part */
-	A1_L_Q28 = -*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28 + 1*4)) & int32(0x00003FFF)        /* lower part */
-	A1_U_Q28 = -*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28 + 1*4)) >> libc.Int32FromInt32(14) /* upper part */
+	A0_L_Q28, A0_U_Q28 = -A_Q28[0]&0x3fff, -A_Q28[0]>>14
+	A1_L_Q28, A1_U_Q28 = -A_Q28[1]&0x3fff, -A_Q28[1]>>14
+	if len1 <= 0 {
+		return
+	}
+	input, output := unsafe.Slice(in, 2*int(len1)), unsafe.Slice(out, 2*int(len1))
 	k = 0
 	for {
 		if !(k < len1) {
 			break
 		}
 		/* S[ 0 ], S[ 1 ], S[ 2 ], S[ 3 ]: Q12 */
-		out32_Q14[0] = libc.Int32FromUint32(libc.Uint32FromInt32(int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S)))+int64(*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+0)*2)))>>libc.Int32FromInt32(16))) << libc.Int32FromInt32(2))
-		out32_Q14[int32(1)] = libc.Int32FromUint32(libc.Uint32FromInt32(int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4)))+int64(*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+int32(1))*2)))>>libc.Int32FromInt32(16))) << libc.Int32FromInt32(2))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) + (int32(int64(out32_Q14[0])*int64(int16(A0_L_Q28))>>libc.Int32FromInt32(16))>>(libc.Int32FromInt32(14)-libc.Int32FromInt32(1))+int32(1))>>int32(1)
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4)) + (int32(int64(out32_Q14[int32(1)])*int64(int16(A0_L_Q28))>>libc.Int32FromInt32(16))>>(libc.Int32FromInt32(14)-libc.Int32FromInt32(1))+int32(1))>>int32(1)
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S))) + int64(out32_Q14[0])*int64(int16(A0_U_Q28))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4))) + int64(out32_Q14[int32(1)])*int64(int16(A0_U_Q28))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + 1*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+0)*2)))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + 1*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+int32(1))*2)))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = (int32(int64(out32_Q14[0])*int64(int16(A1_L_Q28))>>libc.Int32FromInt32(16))>>(libc.Int32FromInt32(14)-libc.Int32FromInt32(1)) + libc.Int32FromInt32(1)) >> libc.Int32FromInt32(1)
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4)) = (int32(int64(out32_Q14[int32(1)])*int64(int16(A1_L_Q28))>>libc.Int32FromInt32(16))>>(libc.Int32FromInt32(14)-libc.Int32FromInt32(1)) + libc.Int32FromInt32(1)) >> libc.Int32FromInt32(1)
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))) + int64(out32_Q14[0])*int64(int16(A1_U_Q28))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4))) + int64(out32_Q14[int32(1)])*int64(int16(A1_U_Q28))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + 2*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+0)*2)))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + 2*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+int32(1))*2)))>>libc.Int32FromInt32(16))
+		out32_Q14[0] = int32(int64(S[0])+((int64(B_Q28[0])*int64(input[2*k]))>>16)) << 2
+		out32_Q14[1] = int32(int64(S[2])+((int64(B_Q28[0])*int64(input[2*k+1]))>>16)) << 2
+		S[0] = S[1] + ((int32((int64(out32_Q14[0])*int64(int16(A0_L_Q28)))>>16)>>13)+1)>>1
+		S[2] = S[3] + ((int32((int64(out32_Q14[1])*int64(int16(A0_L_Q28)))>>16)>>13)+1)>>1
+		S[0] = int32(int64(S[0]) + ((int64(out32_Q14[0]) * int64(int16(A0_U_Q28))) >> 16))
+		S[2] = int32(int64(S[2]) + ((int64(out32_Q14[1]) * int64(int16(A0_U_Q28))) >> 16))
+		S[0] = int32(int64(S[0]) + ((int64(B_Q28[1]) * int64(input[2*k])) >> 16))
+		S[2] = int32(int64(S[2]) + ((int64(B_Q28[1]) * int64(input[2*k+1])) >> 16))
+		S[1] = ((int32((int64(out32_Q14[0])*int64(int16(A1_L_Q28)))>>16) >> 13) + 1) >> 1
+		S[3] = ((int32((int64(out32_Q14[1])*int64(int16(A1_L_Q28)))>>16) >> 13) + 1) >> 1
+		S[1] = int32(int64(S[1]) + ((int64(out32_Q14[0]) * int64(int16(A1_U_Q28))) >> 16))
+		S[3] = int32(int64(S[3]) + ((int64(out32_Q14[1]) * int64(int16(A1_U_Q28))) >> 16))
+		S[1] = int32(int64(S[1]) + ((int64(B_Q28[2]) * int64(input[2*k])) >> 16))
+		S[3] = int32(int64(S[3]) + ((int64(B_Q28[2]) * int64(input[2*k+1])) >> 16))
 		/* Scale back to Q0 and saturate */
 		if (out32_Q14[0]+libc.Int32FromInt32(1)<<libc.Int32FromInt32(14)-int32(1))>>int32(14) > int32(silk_int16_MAX17) {
 			v2 = int32(silk_int16_MAX17)
@@ -6733,7 +6735,7 @@ func Opus_silk_biquad_alt_stride2_c(tls *libc.TLS, in uintptr, B_Q28 uintptr, A_
 			}
 			v2 = v3
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(int32(2)*k+0)*2)) = int16(v2)
+		output[2*k] = int16(v2)
 		if (out32_Q14[int32(1)]+libc.Int32FromInt32(1)<<libc.Int32FromInt32(14)-int32(1))>>int32(14) > int32(silk_int16_MAX17) {
 			v2 = int32(silk_int16_MAX17)
 		} else {
@@ -6744,7 +6746,7 @@ func Opus_silk_biquad_alt_stride2_c(tls *libc.TLS, in uintptr, B_Q28 uintptr, A_
 			}
 			v2 = v3
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(int32(2)*k+int32(1))*2)) = int16(v2)
+		output[2*k+1] = int16(v2)
 		k = k + 1
 	}
 }
