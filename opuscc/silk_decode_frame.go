@@ -548,7 +548,7 @@ func Opus_silk_decode_pulses(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, 
 	/****************************************/
 	/* Decode and add signs to pulse signal */
 	/****************************************/
-	Opus_silk_decode_signs(tls, psRangeDec, pulses, frame_length, signalType, quantOffsetType, uintptr(unsafe.Pointer(&sum_pulses[0])))
+	Opus_silk_decode_signs(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*OpusT_opus_int16)(unsafe.Pointer(pulses)), frame_length, signalType, quantOffsetType, &sum_pulses[0])
 }
 
 // C documentation

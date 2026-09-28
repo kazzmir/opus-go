@@ -54,45 +54,24 @@ func Opus_silk_encode_signs(tls *libc.TLS, psRangeEnc uintptr, pulses uintptr, l
 // C documentation
 //
 //	/* Decodes signs of excitation */
-func Opus_silk_decode_signs(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, length int32, signalType int32, quantOffsetType int32, sum_pulses uintptr) {
-	var i, j, p, v2 int32
-	var icdf_ptr, q_ptr, v4 uintptr
+func Opus_silk_decode_signs(tls *libc.TLS, dec *OpusT_ec_dec, pulses *OpusT_opus_int16, length, signalType, quantOffsetType int32, sum_pulses *int32) {
+	// As in C, 120-sample frames include a padded final 16-sample shell block.
+	blocks := (length + SHELL_CODEC_FRAME_LENGTH/2) >> LOG2_SHELL_CODEC_FRAME_LENGTH
+	q := unsafe.Slice(pulses, blocks*SHELL_CODEC_FRAME_LENGTH)
+	sums := unsafe.Slice(sum_pulses, blocks)
+	offset := int32(7) * int32(int16(quantOffsetType+int32(uint32(signalType)<<1)))
+	table := Opus_silk_sign_iCDF[offset : offset+7]
 	var icdf [2]OpusT_opus_uint8
-	_, _, _, _, _, _, _ = i, icdf_ptr, j, p, q_ptr, v2, v4
-	icdf[1] = 0
-	q_ptr = pulses
-	i = int32(int16(int32(7))) * int32(int16(quantOffsetType+int32(uint32(signalType)<<int32(1))))
-	icdf_ptr = uintptr(unsafe.Pointer(&Opus_silk_sign_iCDF)) + uintptr(i)
-	length = (length + int32(SHELL_CODEC_FRAME_LENGTH)/int32(2)) >> int32(LOG2_SHELL_CODEC_FRAME_LENGTH)
-	i = 0
-	for {
-		if !(i < length) {
-			break
+	for i, p := range sums {
+		if p <= 0 {
+			continue
 		}
-		p = *(*int32)(unsafe.Pointer(sum_pulses + uintptr(i)*4))
-		if p > 0 {
-			if p&int32(0x1F) < int32(6) {
-				v2 = p & int32(0x1F)
-			} else {
-				v2 = int32(6)
-			}
-			icdf[0] = *(*OpusT_opus_uint8)(unsafe.Pointer(icdf_ptr + uintptr(v2)))
-			j = 0
-			for {
-				if !(j < int32(SHELL_CODEC_FRAME_LENGTH)) {
-					break
-				}
-				if int32(*(*OpusT_opus_int16)(unsafe.Pointer(q_ptr + uintptr(j)*2))) > 0 {
-					/* attach sign */
-					/* implementation with shift, subtraction, multiplication */
-					v4 = q_ptr + uintptr(j)*2
-					*(*OpusT_opus_int16)(unsafe.Pointer(v4)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v4))) * (int32(uint32(Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&icdf[0])), uint32(8)))<<int32(1)) - int32(1)))
-				}
-				j = j + 1
+		icdf[0] = table[min(p&31, 6)]
+		for j := i * SHELL_CODEC_FRAME_LENGTH; j < (i+1)*SHELL_CODEC_FRAME_LENGTH; j++ {
+			if q[j] > 0 {
+				q[j] = int16(int32(q[j]) * (2*ec_dec_icdf(tls, dec, &icdf[0], 8) - 1))
 			}
 		}
-		q_ptr = q_ptr + uintptr(SHELL_CODEC_FRAME_LENGTH)*2
-		i = i + 1
 	}
 }
 
