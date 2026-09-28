@@ -2829,7 +2829,7 @@ func Opus_silk_LP_variable_cutoff(tls *libc.TLS, psLP uintptr, frame uintptr, fr
 		(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no = v1
 		/* ARMA low-pass filtering */
 		_ = libc.Bool(true) && libc.Bool(true)
-		Opus_silk_biquad_alt_stride1(tls, frame, bp, bp+16, psLP, frame, frame_length)
+		Opus_silk_biquad_alt_stride1(tls, (*OpusT_opus_int16)(unsafe.Pointer(frame)), (*[3]OpusT_opus_int32)(unsafe.Pointer(bp)), (*[2]OpusT_opus_int32)(unsafe.Pointer(bp+16)), &(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).FIn_LP_State, (*OpusT_opus_int16)(unsafe.Pointer(frame)), frame_length)
 	}
 }
 
@@ -6668,42 +6668,27 @@ POSSIBILITY OF SUCH DAMAGE.
 //
 //	/* Compute reflection coefficients from input signal */
 
-func Opus_silk_biquad_alt_stride1(tls *libc.TLS, in uintptr, B_Q28 uintptr, A_Q28 uintptr, S uintptr, out uintptr, len1 OpusT_opus_int32) {
-	var A0_L_Q28, A0_U_Q28, A1_L_Q28, A1_U_Q28, inval, out32_Q14 OpusT_opus_int32
-	var k, v2, v3 int32
-	_, _, _, _, _, _, _, _, _ = A0_L_Q28, A0_U_Q28, A1_L_Q28, A1_U_Q28, inval, k, out32_Q14, v2, v3
-	/* Negate A_Q28 values and split in two parts */
-	A0_L_Q28 = -*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28)) & int32(0x00003FFF)              /* lower part */
-	A0_U_Q28 = -*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28)) >> libc.Int32FromInt32(14)       /* upper part */
-	A1_L_Q28 = -*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28 + 1*4)) & int32(0x00003FFF)        /* lower part */
-	A1_U_Q28 = -*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28 + 1*4)) >> libc.Int32FromInt32(14) /* upper part */
-	k = 0
-	for {
-		if !(k < len1) {
-			break
-		}
-		/* S[ 0 ], S[ 1 ]: Q12 */
-		inval = int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(k)*2)))
-		out32_Q14 = libc.Int32FromUint32(libc.Uint32FromInt32(int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S)))+int64(*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28)))*int64(int16(inval))>>libc.Int32FromInt32(16))) << libc.Int32FromInt32(2))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) + (int32(int64(out32_Q14)*int64(int16(A0_L_Q28))>>libc.Int32FromInt32(16))>>(libc.Int32FromInt32(14)-libc.Int32FromInt32(1))+int32(1))>>int32(1)
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S))) + int64(out32_Q14)*int64(int16(A0_U_Q28))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + 1*4)))*int64(int16(inval))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = (int32(int64(out32_Q14)*int64(int16(A1_L_Q28))>>libc.Int32FromInt32(16))>>(libc.Int32FromInt32(14)-libc.Int32FromInt32(1)) + libc.Int32FromInt32(1)) >> libc.Int32FromInt32(1)
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))) + int64(out32_Q14)*int64(int16(A1_U_Q28))>>libc.Int32FromInt32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + 2*4)))*int64(int16(inval))>>libc.Int32FromInt32(16))
-		/* Scale back to Q0 and saturate */
-		if (out32_Q14+libc.Int32FromInt32(1)<<libc.Int32FromInt32(14)-int32(1))>>int32(14) > int32(silk_int16_MAX17) {
-			v2 = int32(silk_int16_MAX17)
-		} else {
-			if (out32_Q14+libc.Int32FromInt32(1)<<libc.Int32FromInt32(14)-int32(1))>>int32(14) < int32(libc.Int16FromInt32(0x8000)) {
-				v3 = int32(libc.Int16FromInt32(0x8000))
-			} else {
-				v3 = (out32_Q14 + libc.Int32FromInt32(1)<<libc.Int32FromInt32(14) - int32(1)) >> int32(14)
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(k)*2)) = int16(v2)
-		k = k + 1
+func Opus_silk_biquad_alt_stride1(tls *libc.TLS, in *OpusT_opus_int16, B_Q28 *[3]OpusT_opus_int32, A_Q28 *[2]OpusT_opus_int32, S *[2]OpusT_opus_int32, out *OpusT_opus_int16, len1 OpusT_opus_int32) {
+	A0_L_Q28, A0_U_Q28 := -A_Q28[0]&0x3fff, -A_Q28[0]>>14
+	A1_L_Q28, A1_U_Q28 := -A_Q28[1]&0x3fff, -A_Q28[1]>>14
+	if len1 <= 0 {
+		return
+	}
+	input, output := unsafe.Slice(in, int(len1)), unsafe.Slice(out, int(len1))
+	for k, sample := range input {
+		inval := int64(sample)
+		out32_Q14 := int32(int64(S[0])+((int64(B_Q28[0])*inval)>>16)) << 2
+		// SMULWB narrows coefficients to signed 16 bits before multiplication.
+		low0 := int32((int64(out32_Q14) * int64(int16(A0_L_Q28))) >> 16)
+		S[0] = S[1] + (((low0 >> 13) + 1) >> 1)
+		S[0] = int32(int64(S[0]) + ((int64(out32_Q14) * int64(int16(A0_U_Q28))) >> 16))
+		S[0] = int32(int64(S[0]) + ((int64(B_Q28[1]) * inval) >> 16))
+		low1 := int32((int64(out32_Q14) * int64(int16(A1_L_Q28))) >> 16)
+		S[1] = ((low1 >> 13) + 1) >> 1
+		S[1] = int32(int64(S[1]) + ((int64(out32_Q14) * int64(int16(A1_U_Q28))) >> 16))
+		S[1] = int32(int64(S[1]) + ((int64(B_Q28[2]) * inval) >> 16))
+		value := (out32_Q14 + (1 << 14) - 1) >> 14
+		output[k] = int16(min(max(value, -32768), 32767))
 	}
 }
 
