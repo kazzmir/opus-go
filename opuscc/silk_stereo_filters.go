@@ -756,69 +756,40 @@ const SILK_PE_MAX_COMPLEX = 2
 const SILK_PE_MID_COMPLEX = 1
 const SILK_PE_MIN_COMPLEX = 0
 
-func Opus_silk_decode_pitch(tls *libc.TLS, lagIndex OpusT_opus_int16, contourIndex OpusT_opus_int8, pitch_lags uintptr, Fs_kHz int32, nb_subfr int32) {
-	var Lag_CB_ptr uintptr
-	var cbk_size, k, lag, max_lag, min_lag, v2, v3, v4, v5, v6 int32
-	_, _, _, _, _, _, _, _, _, _, _ = Lag_CB_ptr, cbk_size, k, lag, max_lag, min_lag, v2, v3, v4, v5, v6
+func Opus_silk_decode_pitch(tls *libc.TLS, lagIndex OpusT_opus_int16, contourIndex OpusT_opus_int8, pitch_lags *int32, Fs_kHz int32, nb_subfr int32) {
+	var lags []OpusT_opus_int8
+	var cbk_size int32
 	if Fs_kHz == int32(8) {
 		if nb_subfr == int32(PE_MAX_NB_SUBFR) {
-			Lag_CB_ptr = uintptr(unsafe.Pointer(&Opus_silk_CB_lags_stage2))
+			lags = unsafe.Slice(&Opus_silk_CB_lags_stage2[0][0], 4*11)
 			cbk_size = int32(PE_NB_CBKS_STAGE2_EXT)
 		} else {
 			if !(nb_subfr == int32(PE_MAX_NB_SUBFR)>>int32(1)) {
 				Opus_celt_fatal(tls, __ccgo_ts+7059, __ccgo_ts+7110, int32(54))
 			}
-			Lag_CB_ptr = uintptr(unsafe.Pointer(&Opus_silk_CB_lags_stage2_10_ms))
+			lags = unsafe.Slice(&Opus_silk_CB_lags_stage2_10_ms[0][0], 2*3)
 			cbk_size = int32(PE_NB_CBKS_STAGE2_10MS)
 		}
 	} else {
 		if nb_subfr == int32(PE_MAX_NB_SUBFR) {
-			Lag_CB_ptr = uintptr(unsafe.Pointer(&Opus_silk_CB_lags_stage3))
+			lags = unsafe.Slice(&Opus_silk_CB_lags_stage3[0][0], 4*34)
 			cbk_size = int32(PE_NB_CBKS_STAGE3_MAX)
 		} else {
 			if !(nb_subfr == int32(PE_MAX_NB_SUBFR)>>int32(1)) {
 				Opus_celt_fatal(tls, __ccgo_ts+7059, __ccgo_ts+7110, int32(63))
 			}
-			Lag_CB_ptr = uintptr(unsafe.Pointer(&Opus_silk_CB_lags_stage3_10_ms))
+			lags = unsafe.Slice(&Opus_silk_CB_lags_stage3_10_ms[0][0], 2*12)
 			cbk_size = int32(PE_NB_CBKS_STAGE3_10MS)
 		}
 	}
-	min_lag = int32(int16(int32(PE_MIN_LAG_MS))) * int32(int16(Fs_kHz))
-	max_lag = int32(int16(int32(PE_MAX_LAG_MS))) * int32(int16(Fs_kHz))
-	lag = min_lag + int32(lagIndex)
-	k = 0
-	for {
-		if !(k < nb_subfr) {
-			break
-		}
-		*(*int32)(unsafe.Pointer(pitch_lags + uintptr(k)*4)) = lag + int32(*(*OpusT_opus_int8)(unsafe.Pointer(Lag_CB_ptr + uintptr(k*cbk_size+int32(contourIndex)))))
-		if min_lag > max_lag {
-			if *(*int32)(unsafe.Pointer(pitch_lags + uintptr(k)*4)) > min_lag {
-				v3 = min_lag
-			} else {
-				if *(*int32)(unsafe.Pointer(pitch_lags + uintptr(k)*4)) < max_lag {
-					v4 = max_lag
-				} else {
-					v4 = *(*int32)(unsafe.Pointer(pitch_lags + uintptr(k)*4))
-				}
-				v3 = v4
-			}
-			v2 = v3
-		} else {
-			if *(*int32)(unsafe.Pointer(pitch_lags + uintptr(k)*4)) > max_lag {
-				v5 = max_lag
-			} else {
-				if *(*int32)(unsafe.Pointer(pitch_lags + uintptr(k)*4)) < min_lag {
-					v6 = min_lag
-				} else {
-					v6 = *(*int32)(unsafe.Pointer(pitch_lags + uintptr(k)*4))
-				}
-				v5 = v6
-			}
-			v2 = v5
-		}
-		*(*int32)(unsafe.Pointer(pitch_lags + uintptr(k)*4)) = v2
-		k = k + 1
+	minLag := int32(int16(PE_MIN_LAG_MS)) * int32(int16(Fs_kHz))
+	maxLag := int32(int16(PE_MAX_LAG_MS)) * int32(int16(Fs_kHz))
+	lag := minLag + int32(lagIndex)
+	output := unsafe.Slice(pitch_lags, int(nb_subfr))
+	for k := range output {
+		value := lag + int32(lags[k*int(cbk_size)+int(contourIndex)])
+		// silk_LIMIT accepts bounds in either order.
+		output[k] = min(max(value, min(minLag, maxLag)), max(minLag, maxLag))
 	}
 }
 

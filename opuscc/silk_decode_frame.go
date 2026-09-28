@@ -295,7 +295,7 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 		/* Decode pitch lags */
 		/*********************/
 		/* Decode pitch values */
-		Opus_silk_decode_pitch(tls, decoder.Findices.FlagIndex, decoder.Findices.FcontourIndex, psDecCtrl, decoder.Ffs_kHz, decoder.Fnb_subfr)
+		Opus_silk_decode_pitch(tls, decoder.Findices.FlagIndex, decoder.Findices.FcontourIndex, (*int32)(unsafe.Pointer(psDecCtrl)), decoder.Ffs_kHz, decoder.Fnb_subfr)
 		/* Decode Codebook Index */
 		cbk_ptr_Q7 = Opus_silk_LTP_vq_ptrs_Q7[decoder.Findices.FPERIndex] /* set pointer to start of codebook */
 		k = 0
