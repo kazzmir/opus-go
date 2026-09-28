@@ -328,7 +328,7 @@ func Opus_silk_LP_variable_cutoff(tls *libc.TLS, psLP uintptr, frame uintptr, fr
 		(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no = v1
 		/* ARMA low-pass filtering */
 		_ = libc.Bool(true) && libc.Bool(true)
-		Opus_silk_biquad_alt_stride1(tls, frame, uintptr(unsafe.Pointer(&B_Q28[0])), uintptr(unsafe.Pointer(&A_Q28[0])), psLP, frame, frame_length)
+		Opus_silk_biquad_alt_stride1(tls, (*OpusT_opus_int16)(unsafe.Pointer(frame)), &B_Q28, &A_Q28, &(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).FIn_LP_State, (*OpusT_opus_int16)(unsafe.Pointer(frame)), frame_length)
 	}
 }
 
