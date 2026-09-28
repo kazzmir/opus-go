@@ -295,7 +295,7 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 		gain_Q10 = gain_Q16 >> int32(6)
 		silk_CNG_exc(tls, (*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14+uintptr(MAX_LPC_ORDER)*4)), &cng.FCNG_exc_buf_Q14[0], length, &cng.Frand_seed)
 		/* Convert CNG NLSF to filter representation */
-		Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&A_Q12[0])), uintptr(unsafe.Pointer(&cng.FCNG_smth_NLSF_Q15[0])), dec.FLPC_order, dec.Farch)
+		Opus_silk_NLSF2A(tls, &A_Q12[0], &cng.FCNG_smth_NLSF_Q15[0], dec.FLPC_order, dec.Farch)
 		/* Generate CNG signal, by synthesis filtering */
 		libc.Xmemcpy(tls, CNG_sig_Q14, uintptr(unsafe.Pointer(&cng.FCNG_synth_state[0])), uint64(uint32(MAX_LPC_ORDER))*uint64(4))
 		if !(dec.FLPC_order == int32(10) || dec.FLPC_order == int32(16)) {

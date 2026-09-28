@@ -2,7 +2,6 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -10,7 +9,7 @@ import (
 func runNLSF2A(t *testing.T, tls *libc.TLS, nlsf []OpusT_opus_int16) []OpusT_opus_int16 {
 	t.Helper()
 	a_Q12 := make([]OpusT_opus_int16, len(nlsf))
-	Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&a_Q12[0])), uintptr(unsafe.Pointer(&nlsf[0])), int32(len(nlsf)), int32(0))
+	Opus_silk_NLSF2A(tls, &a_Q12[0], &nlsf[0], int32(len(nlsf)), int32(0))
 	return a_Q12
 }
 

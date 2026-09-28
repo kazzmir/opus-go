@@ -261,7 +261,7 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 	/****************/
 	Opus_silk_NLSF_decode(tls, &pNLSF_Q15[0], &decoder.Findices.FNLSFIndices[0], (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)))
 	/* Convert NLSF parameters to AR prediction filter coefficients */
-	Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), uintptr(unsafe.Pointer(&pNLSF_Q15[0])), decoder.FLPC_order, decoder.Farch)
+	Opus_silk_NLSF2A(tls, &control.FPredCoef_Q12[1][0], &pNLSF_Q15[0], decoder.FLPC_order, decoder.Farch)
 	/* If just reset, e.g., because internal Fs changed, do not allow interpolation */
 	/* improves the case of packet loss in the first frame after a switch           */
 	if decoder.Ffirst_frame_after_reset == int32(1) {
@@ -279,7 +279,7 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 			i = i + 1
 		}
 		/* Convert NLSF parameters to AR prediction filter coefficients */
-		Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[0][0])), uintptr(unsafe.Pointer(&pNLSF0_Q15[0])), decoder.FLPC_order, decoder.Farch)
+		Opus_silk_NLSF2A(tls, &control.FPredCoef_Q12[0][0], &pNLSF0_Q15[0], decoder.FLPC_order, decoder.Farch)
 	} else {
 		/* Copy LPC coefficients for first half from second half */
 		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[0][0])), uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), uint64(uint32(decoder.FLPC_order))*uint64(2))

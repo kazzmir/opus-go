@@ -12,7 +12,9 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch int32) {
+func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 *OpusT_opus_int16, NLSF *OpusT_opus_int16, d int32, arch int32) {
+	a := unsafe.Slice(a_Q12, d)
+	nlsf := unsafe.Slice(NLSF, d)
 	var Ptmp, Qtmp, cos_val, delta, f_frac, f_int OpusT_opus_int32
 	var dd, i, k int32
 	var ordering []uint8
@@ -34,11 +36,11 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 		if !(k < d) {
 			break
 		}
-		_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF + uintptr(k)*2))) >= int32(0)
+		_ = int32(nlsf[k]) >= int32(0)
 		/* f_int on a scale 0-127 (rounded down) */
-		f_int = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF + uintptr(k)*2))) >> (int32(15) - int32(7))
+		f_int = int32(nlsf[k]) >> (int32(15) - int32(7))
 		/* f_frac, range: 0..255 */
-		f_frac = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF + uintptr(k)*2))) - int32(uint32(f_int)<<(int32(15)-int32(7)))
+		f_frac = int32(nlsf[k]) - int32(uint32(f_int)<<(int32(15)-int32(7)))
 		_ = f_int >= int32(0)
 		_ = f_int < int32(LSF_COS_TAB_SZ_FIX)
 		/* Read start and end value from table */
@@ -66,10 +68,10 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 		k = k + 1
 	}
 	/* Convert int32 coefficients to Q12 int16 coefs */
-	Opus_silk_LPC_fit(tls, (*OpusT_opus_int16)(unsafe.Pointer(a_Q12)), &a32_QA1[0], int32(12), int32(QA1)+int32(1), d)
+	Opus_silk_LPC_fit(tls, a_Q12, &a32_QA1[0], int32(12), int32(QA1)+int32(1), d)
 	i = 0
 	for {
-		if !(Opus_silk_LPC_inverse_pred_gain_c(tls, (*OpusT_opus_int16)(unsafe.Pointer(a_Q12)), d) == 0 && i < int32(MAX_LPC_STABILIZE_ITERATIONS)) {
+		if !(Opus_silk_LPC_inverse_pred_gain_c(tls, a_Q12, d) == 0 && i < int32(MAX_LPC_STABILIZE_ITERATIONS)) {
 			break
 		}
 		/* Prediction coefficients are (too close to) unstable; apply bandwidth expansion   */
@@ -80,7 +82,7 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 			if !(k < d) {
 				break
 			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(a_Q12 + uintptr(k)*2)) = int16((a32_QA1[k]>>(int32(QA1)+int32(1)-int32(12)-int32(1)) + int32(1)) >> int32(1)) /* QA+1 -> Q12 */
+			a[k] = int16((a32_QA1[k]>>(int32(QA1)+int32(1)-int32(12)-int32(1)) + int32(1)) >> int32(1)) /* QA+1 -> Q12 */
 			k = k + 1
 		}
 		i = i + 1
