@@ -74,7 +74,7 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 		}
 		/* Prediction coefficients are (too close to) unstable; apply bandwidth expansion   */
 		/* on the unscaled coefficients, convert to Q12 and measure again                   */
-		Opus_silk_bwexpander_32(tls, uintptr(unsafe.Pointer(&a32_QA1[0])), d, int32(65536)-int32(uint32(int32(2))<<i))
+		Opus_silk_bwexpander_32(tls, &a32_QA1[0], d, int32(65536)-int32(uint32(int32(2))<<i))
 		k = 0
 		for {
 			if !(k < d) {

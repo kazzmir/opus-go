@@ -287,8 +287,8 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.FprevNLSF_Q15[0])), uintptr(unsafe.Pointer(&pNLSF_Q15[0])), uint64(uint32(decoder.FLPC_order))*uint64(2))
 	/* After a packet loss do BWE of LPC coefs */
 	if decoder.FlossCnt != 0 {
-		Opus_silk_bwexpander(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[0][0])), decoder.FLPC_order, int32(BWE_AFTER_LOSS_Q16))
-		Opus_silk_bwexpander(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), decoder.FLPC_order, int32(BWE_AFTER_LOSS_Q16))
+		Opus_silk_bwexpander(tls, &control.FPredCoef_Q12[0][0], decoder.FLPC_order, int32(BWE_AFTER_LOSS_Q16))
+		Opus_silk_bwexpander(tls, &control.FPredCoef_Q12[1][0], decoder.FLPC_order, int32(BWE_AFTER_LOSS_Q16))
 	}
 	if int32(decoder.Findices.FsignalType) == int32(TYPE_VOICED) {
 		/*********************/

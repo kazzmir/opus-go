@@ -479,7 +479,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 		rand_Gain_Q15 = int32(PLC_RAND_ATTENUATE_UV_Q15[v55])
 	}
 	/* LPC concealment. Apply BWE to previous LPC */
-	Opus_silk_bwexpander(tls, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), decoder.FLPC_order, int32(64881))
+	Opus_silk_bwexpander(tls, &plc.FprevLPC_Q12[0], decoder.FLPC_order, int32(64881))
 	/* Preload LPC coefficients to array on stack. Gives small performance gain */
 	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&A_Q12[0])), uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), uint64(uint32(decoder.FLPC_order))*uint64(2))
 	/* First Lost frame */

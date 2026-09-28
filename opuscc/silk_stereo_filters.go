@@ -450,21 +450,15 @@ POSSIBILITY OF SUCH DAMAGE.
 //
 //	/* Chirp (bandwidth expand) LP AR filter.
 //	   This logic is reused in _celt_lpc(). Any bug fixes should also be applied there. */
-func Opus_silk_bwexpander_32(tls *libc.TLS, ar uintptr, d int32, chirp_Q16 OpusT_opus_int32) {
-	var chirp_minus_one_Q16 OpusT_opus_int32
-	var i int32
-	_, _ = chirp_minus_one_Q16, i
-	chirp_minus_one_Q16 = chirp_Q16 - int32(65536)
-	i = 0
-	for {
-		if !(i < d-int32(1)) {
-			break
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(i)*4)) = int32(int64(chirp_Q16) * int64(*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(i)*4))) >> int32(16))
-		chirp_Q16 = chirp_Q16 + (chirp_Q16*chirp_minus_one_Q16>>(int32(16)-int32(1))+int32(1))>>int32(1)
-		i = i + 1
+func Opus_silk_bwexpander_32(tls *libc.TLS, ar *OpusT_opus_int32, d int32, chirp_Q16 OpusT_opus_int32) {
+	// As in C, d must be positive.
+	coefs := unsafe.Slice(ar, int(d))
+	chirp_minus_one_Q16 := chirp_Q16 - 65536
+	for i := 0; i < int(d)-1; i++ {
+		coefs[i] = int32((int64(chirp_Q16) * int64(coefs[i])) >> 16)
+		chirp_Q16 += ((chirp_Q16 * chirp_minus_one_Q16 >> 15) + 1) >> 1
 	}
-	*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(d-int32(1))*4)) = int32(int64(chirp_Q16) * int64(*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(d-int32(1))*4))) >> int32(16))
+	coefs[d-1] = int32((int64(chirp_Q16) * int64(coefs[d-1])) >> 16)
 }
 
 /***********************************************************************
@@ -528,23 +522,16 @@ POSSIBILITY OF SUCH DAMAGE.
 // C documentation
 //
 //	/* Chirp (bandwidth expand) LP AR filter */
-func Opus_silk_bwexpander(tls *libc.TLS, ar uintptr, d int32, chirp_Q16 OpusT_opus_int32) {
-	var chirp_minus_one_Q16 OpusT_opus_int32
-	var i int32
-	_, _ = chirp_minus_one_Q16, i
-	chirp_minus_one_Q16 = chirp_Q16 - int32(65536)
-	/* NB: Dont use silk_SMULWB, instead of silk_RSHIFT_ROUND( silk_MUL(), 16 ), below.  */
-	/* Bias in silk_SMULWB can lead to unstable filters                                */
-	i = 0
-	for {
-		if !(i < d-int32(1)) {
-			break
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(i)*2)) = int16((chirp_Q16*int32(*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(i)*2)))>>(int32(16)-int32(1)) + int32(1)) >> int32(1))
-		chirp_Q16 = chirp_Q16 + (chirp_Q16*chirp_minus_one_Q16>>(int32(16)-int32(1))+int32(1))>>int32(1)
-		i = i + 1
+func Opus_silk_bwexpander(tls *libc.TLS, ar *OpusT_opus_int16, d int32, chirp_Q16 OpusT_opus_int32) {
+	// As in C, d must be positive. Keep RSHIFT_ROUND rather than SMULWB:
+	// changing the rounding bias can produce unstable filters.
+	coefs := unsafe.Slice(ar, int(d))
+	chirp_minus_one_Q16 := chirp_Q16 - 65536
+	for i := 0; i < int(d)-1; i++ {
+		coefs[i] = int16(((chirp_Q16 * int32(coefs[i]) >> 15) + 1) >> 1)
+		chirp_Q16 += ((chirp_Q16 * chirp_minus_one_Q16 >> 15) + 1) >> 1
 	}
-	*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(d-int32(1))*2)) = int16((chirp_Q16*int32(*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(d-int32(1))*2)))>>(int32(16)-int32(1)) + int32(1)) >> int32(1))
+	coefs[d-1] = int16(((chirp_Q16 * int32(coefs[d-1]) >> 15) + 1) >> 1)
 }
 
 /* config_ccgo.h
@@ -1882,7 +1869,7 @@ func Opus_silk_LPC_fit(tls *libc.TLS, a_QOUT uintptr, a_QIN uintptr, QOUT int32,
 			}
 			maxabs = v3 /* ( silk_int32_MAX >> 14 ) + silk_int16_MAX = 163838 */
 			chirp_Q16 = int32(65470) - int32(uint32(maxabs-int32(silk_int16_MAX15))<<int32(14))/(maxabs*(idx+int32(1))>>int32(2))
-			Opus_silk_bwexpander_32(tls, a_QIN, d, chirp_Q16)
+			Opus_silk_bwexpander_32(tls, (*OpusT_opus_int32)(unsafe.Pointer(a_QIN)), d, chirp_Q16)
 		} else {
 			break
 		}
