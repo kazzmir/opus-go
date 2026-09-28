@@ -132,7 +132,12 @@ tests check that only IIR state changes. Full pulse decoding covers the ten-LSB
 escape limit and shell/sign reconstruction. PLC energy comparisons include the
 actual static helper from `PLC.c`; a `compareopus`-only Go bridge exposes its
 internal counterpart. These tests check subframe selection, signed narrowing,
-saturation, energies, and shifts.
+saturation, energies, and shifts. CELT coarse/fine/final energy decoder tests
+compare exact float32 outputs and all numeric entropy fields across budget
+thresholds, prediction modes, optional previous quantization, and nil final
+energy output. Band denormalization is compared bit-for-bit across frame scales,
+downsampling factors, silence, exp2 underflow, and capped gains; its band table
+is passed as a typed pointer rather than read from the legacy mode field.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

@@ -336,6 +336,8 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 }
 
 func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, oldBandE uintptr, start int32, effEnd int32, C int32, CC int32, isTransient int32, LM int32, downsample int32, silence int32, arch int32) {
+	modeView := (*OpusT_OpusCustomMode)(unsafe.Pointer(mode))
+	bandBoundaries := (*OpusT_opus_int16)(unsafe.Pointer(modeView.FeBands))
 	var B, M, N, NB, b, c, i, nbEBands, overlap, shift, v33 int32
 	var _saved_stack, freq, freq2, freq21, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B, M, N, NB, _saved_stack, b, c, freq, freq2, freq21, i, nbEBands, overlap, shift, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v33, v5, v7, v9
@@ -430,7 +432,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 		shift = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FmaxLM - LM
 	}
 	if CC == int32(2) && C == int32(1) {
-		Opus_denormalise_bands(tls, mode, X, freq, oldBandE, start, effEnd, M, downsample, silence)
+		Opus_denormalise_bands(tls, bandBoundaries, modeView.FshortMdctSize, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_sig)(unsafe.Pointer(freq)), (*OpusT_celt_glog)(unsafe.Pointer(oldBandE)), start, effEnd, M, downsample, silence)
 		/* Store a temporary copy in the output buffer because the IMDCT destroys its input. */
 		freq2 = *(*uintptr)(unsafe.Pointer(out_syn + uintptr(libc.PtrSize))) + uintptr(overlap/int32(2))*4
 		libc.Xmemcpy(tls, freq2, freq, uint64(uint32(N))*uint64(4)+uint64(0*((int64(freq2)-int64(freq))/4)))
@@ -453,9 +455,9 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 	} else {
 		if CC == int32(1) && C == int32(2) {
 			freq21 = *(*uintptr)(unsafe.Pointer(out_syn)) + uintptr(overlap/int32(2))*4
-			Opus_denormalise_bands(tls, mode, X, freq, oldBandE, start, effEnd, M, downsample, silence)
+			Opus_denormalise_bands(tls, bandBoundaries, modeView.FshortMdctSize, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_sig)(unsafe.Pointer(freq)), (*OpusT_celt_glog)(unsafe.Pointer(oldBandE)), start, effEnd, M, downsample, silence)
 			/* Use the output buffer as temp array before downmixing. */
-			Opus_denormalise_bands(tls, mode, X+uintptr(N)*4, freq21, oldBandE+uintptr(nbEBands)*4, start, effEnd, M, downsample, silence)
+			Opus_denormalise_bands(tls, bandBoundaries, modeView.FshortMdctSize, (*OpusT_celt_norm)(unsafe.Pointer(X+uintptr(N)*4)), (*OpusT_celt_sig)(unsafe.Pointer(freq21)), (*OpusT_celt_glog)(unsafe.Pointer(oldBandE+uintptr(nbEBands)*4)), start, effEnd, M, downsample, silence)
 			i = 0
 			for {
 				if !(i < N) {
@@ -476,7 +478,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 			/* Normal case (mono or stereo) */
 			c = 0
 			for {
-				Opus_denormalise_bands(tls, mode, X+uintptr(c*N)*4, freq, oldBandE+uintptr(c*nbEBands)*4, start, effEnd, M, downsample, silence)
+				Opus_denormalise_bands(tls, bandBoundaries, modeView.FshortMdctSize, (*OpusT_celt_norm)(unsafe.Pointer(X+uintptr(c*N)*4)), (*OpusT_celt_sig)(unsafe.Pointer(freq)), (*OpusT_celt_glog)(unsafe.Pointer(oldBandE+uintptr(c*nbEBands)*4)), start, effEnd, M, downsample, silence)
 				b = 0
 				for {
 					if !(b < B) {

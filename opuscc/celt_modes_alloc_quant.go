@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math"
 	"math/bits"
 	"reflect"
 	"unsafe"
@@ -2007,90 +2008,45 @@ func Opus_normalise_bands(tls *libc.TLS, m uintptr, freq uintptr, X uintptr, ban
 // C documentation
 //
 //	/* De-normalise the energy to produce the synthesis from the unit-energy bands */
-func Opus_denormalise_bands(tls *libc.TLS, m uintptr, X uintptr, freq uintptr, bandLogE uintptr, start int32, end int32, M int32, downsample int32, silence int32) {
-	var N, band_end, bound, i, j, v1 int32
-	var eBands, f, x1, v4 uintptr
-	var frac, v6, v7, v8 float32
-	var g OpusT_opus_val32
-	var integer OpusT_opus_int32
-	var lg OpusT_celt_glog
-	var res OpusT_opus_uint32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, band_end, bound, eBands, f, frac, g, i, integer, j, lg, x1, v1, v4, v6, v7, v8
-	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands
-	N = M * (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FshortMdctSize
-	bound = M * int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(end)*2)))
-	if downsample != int32(1) {
-		if bound < N/downsample {
-			v1 = bound
-		} else {
-			v1 = N / downsample
-		}
-		bound = v1
+func Opus_denormalise_bands(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, freq *OpusT_celt_sig, bandLogE *OpusT_celt_glog, start, end, M, downsample, silence int32) {
+	// Pass the two mode inputs explicitly so the table stays GC-visible here.
+	eBands := unsafe.Slice(bands, end+1)
+	N := M * shortMdctSize
+	bound := M * int32(eBands[end])
+	if downsample != 1 {
+		bound = min(bound, N/downsample)
 	}
+	output := unsafe.Slice(freq, N)
 	if silence != 0 {
-		bound = 0
-		v1 = int32(0)
-		end = v1
-		start = v1
+		clear(output)
+		return
 	}
-	f = freq
-	x1 = X + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(start)*2))))*4
+	input := unsafe.Slice(X, M*int32(eBands[end]))
+	logE := unsafe.Slice(bandLogE, end)
 	if start != 0 {
-		i = 0
-		for {
-			if !(i < M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(start)*2)))) {
-				break
-			}
-			v4 = f
-			f += 4
-			*(*OpusT_celt_sig)(unsafe.Pointer(v4)) = float32(0)
-			i = i + 1
-		}
-	} else {
-		f = f + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(start)*2))))*4
+		clear(output[:M*int32(eBands[start])])
 	}
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
-		j = M * int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i)*2)))
-		band_end = M * int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i+int32(1))*2)))
-		lg = *(*OpusT_celt_glog)(unsafe.Pointer(bandLogE + uintptr(i)*4)) + Opus_eMeans[i]
+	for i := start; i < end; i++ {
+		lg := logE[i] + Opus_eMeans[i]
 		if float32(32) < lg {
-			v6 = float32(32)
-		} else {
-			v6 = lg
+			lg = 32
 		}
-		v7 = v6
-		integer = int32(libc.Xfloor(tls, float64(v7)))
-		if integer < -int32(50) {
-			v8 = float32(0)
-			goto _9
+		integer := int32(math.Floor(float64(lg)))
+		var gain float32
+		if integer >= -50 {
+			frac := lg - float32(integer)
+			polynomial := float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
+			encoded := (math.Float32bits(polynomial) + (uint32(integer) << 23)) & 0x7fffffff
+			gain = math.Float32frombits(encoded)
 		}
-		frac = v7 - float32(integer)
-		*(*float32)(unsafe.Pointer(&res)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
-		res = uint32(int32(res)+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
-		v8 = *(*float32)(unsafe.Pointer(&res))
-	_9:
-		g = v8
-		for {
-			v4 = f
-			f += 4
-			*(*OpusT_celt_sig)(unsafe.Pointer(v4)) = OpusT_celt_norm(*(*OpusT_celt_norm)(unsafe.Pointer(x1)) * g)
-			x1 += 4
-			j = j + 1
-			v1 = j
-			if !(v1 < band_end) {
-				break
-			}
+		for j := M * int32(eBands[i]); j < M*int32(eBands[i+1]); j++ {
+			output[j] = input[j] * gain
 		}
-		i = i + 1
 	}
-	if !(start <= end) {
-		Opus_celt_fatal(tls, __ccgo_ts+5281, __ccgo_ts+5312, int32(254))
+	if start > end {
+		Opus_celt_fatal(tls, __ccgo_ts+5281, __ccgo_ts+5312, 254)
 	}
-	libc.Xmemset(tls, freq+uintptr(bound)*4, 0, uint64(uint32(N-bound))*uint64(4))
+	clear(output[bound:])
 }
 
 // C documentation
