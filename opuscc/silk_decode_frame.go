@@ -255,7 +255,7 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
 	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
 	/* Dequant Gains */
-	Opus_silk_gains_dequant(tls, uintptr(unsafe.Pointer(&control.FGains_Q16[0])), uintptr(unsafe.Pointer(&decoder.Findices.FGainsIndices[0])), uintptr(unsafe.Pointer(&decoder.FLastGainIndex)), libc.BoolInt32(condCoding == int32(CODE_CONDITIONALLY)), decoder.Fnb_subfr)
+	Opus_silk_gains_dequant(tls, &control.FGains_Q16[0], &decoder.Findices.FGainsIndices[0], &decoder.FLastGainIndex, libc.BoolInt32(condCoding == int32(CODE_CONDITIONALLY)), decoder.Fnb_subfr)
 	/****************/
 	/* Decode NLSFs */
 	/****************/

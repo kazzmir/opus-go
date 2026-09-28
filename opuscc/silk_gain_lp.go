@@ -126,62 +126,30 @@ func Opus_silk_gains_quant(tls *libc.TLS, ind uintptr, gain_Q16 uintptr, prev_in
 // C documentation
 //
 //	/* Gains scalar dequantization, uniform on log scale */
-func Opus_silk_gains_dequant(tls *libc.TLS, gain_Q16 uintptr, ind uintptr, prev_ind uintptr, conditional int32, nb_subfr int32) {
-	var double_step_size_threshold, ind_tmp, k, v2, v3, v4, v6 int32
-	var v11, v12, v13 OpusT_opus_int32
-	var v7 uintptr
-	_, _, _, _, _, _, _, _, _, _, _ = double_step_size_threshold, ind_tmp, k, v11, v12, v13, v2, v3, v4, v6, v7
-	k = 0
-	for {
-		if !(k < nb_subfr) {
-			break
-		}
+func Opus_silk_gains_dequant(tls *libc.TLS, gain_Q16 *OpusT_opus_int32, ind *OpusT_opus_int8, prev_ind *OpusT_opus_int8, conditional int32, nb_subfr int32) {
+	if nb_subfr <= 0 {
+		return
+	}
+	gains := unsafe.Slice(gain_Q16, int(nb_subfr))
+	indices := unsafe.Slice(ind, int(nb_subfr))
+	const inverseScale = int32(65536) * ((MAX_QGAIN_DB - MIN_QGAIN_DB) * 128 / 6) / (N_LEVELS_QGAIN - 1)
+	const offset = int32(MIN_QGAIN_DB)*128/6 + 16*128
+	for k := range gains {
 		if k == 0 && conditional == 0 {
-			/* Gain index is not allowed to go down more than 16 steps (~21.8 dB) */
-			v2 = int32(*(*OpusT_opus_int8)(unsafe.Pointer(ind + uintptr(k))))
-			v3 = int32(*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind))) - int32(16)
-			if v2 > v3 {
-				v6 = v2
-			} else {
-				v6 = v3
-			}
-			v4 = v6
-			*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind)) = int8(v4)
+			*prev_ind = int8(max(int32(indices[k]), int32(*prev_ind)-16))
 		} else {
-			/* Delta index */
-			ind_tmp = int32(*(*OpusT_opus_int8)(unsafe.Pointer(ind + uintptr(k)))) + -int32(4)
-			/* Accumulate deltas */
-			double_step_size_threshold = int32(2)*int32(MAX_DELTA_GAIN_QUANT) - int32(N_LEVELS_QGAIN) + int32(*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind)))
-			if ind_tmp > double_step_size_threshold {
-				v7 = prev_ind
-				*(*OpusT_opus_int8)(unsafe.Pointer(v7)) = OpusT_opus_int8(int32(*(*OpusT_opus_int8)(unsafe.Pointer(v7))) + (int32(uint32(ind_tmp)<<int32(1)) - double_step_size_threshold))
+			delta := int32(indices[k]) - 4
+			threshold := 2*int32(MAX_DELTA_GAIN_QUANT) - N_LEVELS_QGAIN + int32(*prev_ind)
+			if delta > threshold {
+				*prev_ind = int8(int32(*prev_ind) + ((delta << 1) - threshold))
 			} else {
-				v7 = prev_ind
-				*(*OpusT_opus_int8)(unsafe.Pointer(v7)) = OpusT_opus_int8(int32(*(*OpusT_opus_int8)(unsafe.Pointer(v7))) + ind_tmp)
+				*prev_ind = int8(int32(*prev_ind) + delta)
 			}
 		}
-		if int32(*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind))) > int32(N_LEVELS_QGAIN)-int32(1) {
-			v2 = int32(N_LEVELS_QGAIN) - int32(1)
-		} else {
-			if int32(*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind))) < 0 {
-				v3 = 0
-			} else {
-				v3 = int32(*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind)))
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind)) = int8(v2)
-		/* Scale and convert to linear scale */
-		v11 = int32(int64(int32(65536)*((int32(MAX_QGAIN_DB)-int32(MIN_QGAIN_DB))*int32(128)/int32(6))/(int32(N_LEVELS_QGAIN)-int32(1)))*int64(int16(*(*OpusT_opus_int8)(unsafe.Pointer(prev_ind))))>>int32(16)) + (int32(MIN_QGAIN_DB)*int32(128)/int32(6) + int32(16)*int32(128))
-		v12 = int32(3967)
-		if v11 < v12 {
-			v2 = v11
-		} else {
-			v2 = v12
-		}
-		v13 = v2
-		*(*OpusT_opus_int32)(unsafe.Pointer(gain_Q16 + uintptr(k)*4)) = Opus_silk_log2lin(tls, v13) /* 3967 = 31 in Q7 */
-		k = k + 1
+		// C narrows the state to int8 before limiting it to the gain range.
+		*prev_ind = int8(min(max(int32(*prev_ind), 0), N_LEVELS_QGAIN-1))
+		logGain := int32((int64(inverseScale)*int64(*prev_ind))>>16) + offset
+		gains[k] = Opus_silk_log2lin(tls, min(logGain, 3967))
 	}
 }
 
