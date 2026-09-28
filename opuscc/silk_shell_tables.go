@@ -13,15 +13,13 @@ var _ reflect.Type
 var _ unsafe.Pointer
 
 func combine_pulses(tls *libc.TLS, out *int32, in *int32, len1 int32) {
-	var k int32
-	_ = k
-	k = 0
-	for {
-		if !(k < len1) {
-			break
-		}
-		*(*int32)(unsafe.Add(unsafe.Pointer(out), uintptr(k)*4)) = *(*int32)(unsafe.Add(unsafe.Pointer(in), uintptr(int32(2)*k)*4)) + *(*int32)(unsafe.Add(unsafe.Pointer(in), uintptr(int32(2)*k+int32(1))*4))
-		k = k + 1
+	if len1 <= 0 {
+		return
+	}
+	dst := unsafe.Slice(out, int(len1))
+	src := unsafe.Slice(in, 2*int(len1))
+	for k := range dst {
+		dst[k] = src[2*k] + src[2*k+1]
 	}
 }
 

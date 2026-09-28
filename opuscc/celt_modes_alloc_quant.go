@@ -2335,19 +2335,17 @@ func intensity_stereo(tls *libc.TLS, m uintptr, X uintptr, Y uintptr, bandE uint
 }
 
 func stereo_split(tls *libc.TLS, X *OpusT_celt_norm, Y *OpusT_celt_norm, N int32) {
-	var j int32
-	var l, r OpusT_opus_val32
-	_, _, _ = j, l, r
-	j = 0
-	for {
-		if !(j < N) {
-			break
-		}
-		l = float32(float32(0.70710678) * *(*OpusT_celt_norm)(unsafe.Add(unsafe.Pointer(X), uintptr(j)*4)))
-		r = float32(float32(0.70710678) * *(*OpusT_celt_norm)(unsafe.Add(unsafe.Pointer(Y), uintptr(j)*4)))
-		*(*OpusT_celt_norm)(unsafe.Add(unsafe.Pointer(X), uintptr(j)*4)) = l + r
-		*(*OpusT_celt_norm)(unsafe.Add(unsafe.Pointer(Y), uintptr(j)*4)) = r - l
-		j = j + 1
+	if N <= 0 {
+		return
+	}
+	x := unsafe.Slice(X, int(N))
+	y := unsafe.Slice(Y, int(N))
+	for j := range x {
+		// Preserve float32 rounding before the sum/difference.
+		l := float32(float32(0.70710678) * x[j])
+		r := float32(float32(0.70710678) * y[j])
+		x[j] = l + r
+		y[j] = r - l
 	}
 }
 

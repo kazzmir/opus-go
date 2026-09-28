@@ -189,17 +189,12 @@ func Opus_silk_gains_dequant(tls *libc.TLS, gain_Q16 uintptr, ind uintptr, prev_
 //
 //	/* Compute unique identifier of gain indices vector */
 func Opus_silk_gains_ID(tls *libc.TLS, ind *OpusT_opus_int8, nb_subfr int32) (r OpusT_opus_int32) {
+	if nb_subfr <= 0 {
+		return 0
+	}
 	var gainsID OpusT_opus_int32
-	var k int32
-	_, _ = gainsID, k
-	gainsID = 0
-	k = 0
-	for {
-		if !(k < nb_subfr) {
-			break
-		}
-		gainsID = int32(*(*OpusT_opus_int8)(unsafe.Add(unsafe.Pointer(ind), uintptr(k)))) + int32(uint32(gainsID)<<int32(8))
-		k = k + 1
+	for _, index := range unsafe.Slice(ind, int(nb_subfr)) {
+		gainsID = int32(index) + int32(uint32(gainsID)<<8)
 	}
 	return gainsID
 }
