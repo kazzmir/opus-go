@@ -1203,10 +1203,9 @@ const Q15ONE2 = "1.0f"
    URL="http://www.stanford.edu/class/ee398/handouts/papers/Moffat98ArithmCoding.pdf"
   }*/
 
-func ec_write_byte(tls *libc.TLS, _this uintptr, _value uint32) (r int32) {
+func ec_write_byte(tls *libc.TLS, _this0 *OpusT_ec_enc, _value uint32) (r int32) {
 	var v1 OpusT_opus_uint32
 	_ = v1
-	_this0 := (*OpusT_ec_enc)(unsafe.Pointer(_this))
 	if _this0.Foffs+_this0.Fend_offs >= _this0.Fstorage {
 		return -int32(1)
 	}
@@ -1216,10 +1215,9 @@ func ec_write_byte(tls *libc.TLS, _this uintptr, _value uint32) (r int32) {
 	return 0
 }
 
-func ec_write_byte_at_end(tls *libc.TLS, _this uintptr, _value uint32) (r int32) {
+func ec_write_byte_at_end(tls *libc.TLS, _this0 *OpusT_ec_enc, _value uint32) (r int32) {
 	var v1 OpusT_opus_uint32
 	_ = v1
-	_this0 := (*OpusT_ec_enc)(unsafe.Pointer(_this))
 	if _this0.Foffs+_this0.Fend_offs >= _this0.Fstorage {
 		return -int32(1)
 	}
@@ -1251,12 +1249,12 @@ func ec_enc_carry_out(tls *libc.TLS, _this uintptr, _c int32) {
 		/*Don't output a byte on the first write.
 		  This compare should be taken care of by branch-prediction thereafter.*/
 		if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem >= 0 {
-			(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte(tls, _this, uint32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem+carry))
+			(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), uint32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem+carry))
 		}
 		if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext > uint32(0) {
 			sym = (uint32(1)<<int32(EC_SYM_BITS) - uint32(1) + uint32(carry)) & (uint32(1)<<int32(EC_SYM_BITS) - uint32(1))
 			for {
-				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte(tls, _this, sym)
+				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), sym)
 				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext--
 				v1 = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext
 				if !(v1 > uint32(0)) {
@@ -1407,7 +1405,7 @@ func Opus_ec_enc_bits(tls *libc.TLS, _this uintptr, _fl OpusT_opus_uint32, _bits
 	}
 	if uint32(used)+_bits > uint32(int32(4)*int32(CHAR_BIT)) {
 		for cond := true; cond; cond = used >= int32(EC_SYM_BITS) {
-			(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte_at_end(tls, _this, window&(uint32(1)<<int32(EC_SYM_BITS)-uint32(1)))
+			(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte_at_end(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), window&(uint32(1)<<int32(EC_SYM_BITS)-uint32(1)))
 			window = window >> uint32(int32(EC_SYM_BITS))
 			used = used - int32(EC_SYM_BITS)
 		}
@@ -1483,7 +1481,7 @@ func Opus_ec_enc_done(tls *libc.TLS, _this uintptr) {
 	window = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_window
 	used = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnend_bits
 	for used >= int32(EC_SYM_BITS) {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte_at_end(tls, _this, window&(uint32(1)<<int32(EC_SYM_BITS)-uint32(1)))
+		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte_at_end(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), window&(uint32(1)<<int32(EC_SYM_BITS)-uint32(1)))
 		window = window >> uint32(int32(EC_SYM_BITS))
 		used = used - int32(EC_SYM_BITS)
 	}

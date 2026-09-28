@@ -1,4 +1,4 @@
-# Native C / Go decoder comparison
+# Native C / Go codec comparison
 
 Run from the repository root (requires cgo and a C compiler):
 
@@ -8,7 +8,9 @@ go run -tags compareopus ./tools/compareopus -max-packets 100 test.opus test2.op
 go run -tags compareopus ./tools/compareopus -tolerance 1 -max-packets 100 big.opus
 ```
 
-With no file arguments, it tries every `*.opus` in the current directory.
+`-mode decode` (default) compares decoding; `-mode encode` compares encoding.
+With no file arguments, it tries every `*.opus` (decode) or `*.wav` (encode)
+in the current directory.
 The `compareopus` build tag excludes this program from normal `go test ./...`.
 
 The cgo directives in `main.go` use headers from `../opus/include` and statically
@@ -17,6 +19,8 @@ native checkout found next to this repository; `../opus-go` is the Go checkout
 itself. Build the native library first if necessary. Edit the two `#cgo`
 directives if your native checkout is elsewhere. The program prints the linked
 libopus version.
+
+## Decode comparison
 
 Each file gets independent, fresh C and Go decoders. The same Ogg audio packets
 are decoded through each library's int16 API at 48 kHz, without FEC. Family 0
@@ -41,10 +45,64 @@ packets are rejected rather than silently treated as packet-loss concealment.
 A read/decode error aborts that file, but subsequent files are still tried.
 `-max-packets N` intentionally compares only a prefix; 0 (default) reads to EOF.
 
-Initial checks against the local libopus 1.6.1:
+Initial decode checks against the local libopus 1.6.1:
 
 - First 100 packets of `test.opus`, `test2.opus`, and `test3.opus`: exact matches.
 - First 100 packets of `big.opus`: 26 differing samples, maximum difference 1.
 - Full reads of the three test files encounter empty audio packets (packet 5648
   for `test.opus`/`test2.opus`, packet 103 for `test3.opus`), reported as errors.
   `test.opus` and `test2.opus` also first differ by 1 at packet 102.
+
+## Encode comparison
+
+```sh
+go run -tags compareopus ./tools/compareopus -mode encode x-gogeta.wav
+go run -tags compareopus ./tools/compareopus -mode encode -max-nrmse 0.02 x-gogeta.wav
+go run -tags compareopus ./tools/compareopus -mode encode -exact -max-packets 100 x-gogeta.wav
+go run -tags compareopus ./tools/compareopus -mode encode -bitrate 96000 -vbr=false -complexity 5 -max-packets 100 big.wav
+```
+
+Inputs must be 48 kHz, mono/stereo, signed 16-bit PCM WAV. Unsupported formats
+are rejected, not resampled. Both encoders use the audio application, 20 ms
+frames, and identical explicit settings: 64000 bps, VBR enabled, complexity 10
+by default. `-bitrate`, `-vbr`, and `-complexity` change both encoders together.
+Lookahead must match. Final partial frames are zero-padded and encoder delay is
+flushed. `-max-packets N` limits source audio to N frames (N * 20 ms), **plus**
+the packets needed to flush delay; 0 processes the full WAV.
+
+The tool compares raw Opus payloads, not Ogg files, so serial numbers, tags,
+page layout, and checksums cannot cause spurious differences. No output files
+are written. It reports unequal packet counts, unequal length counts, total
+payload bytes, and relative total size difference (`abs(Go-C)/C`).
+
+Byte equality is useful but not required by Opus: small floating-point changes
+can change encoder decisions and entropy-coded bytes. To measure the resulting
+audio difference, both packet streams are decoded by **independent native C
+decoders**, isolating encoder differences from Go decoder differences. PCM
+statistics exclude lookahead and end padding and include every real input
+sample. They include maximum absolute error, RMS error in int16 units, and
+NRMSE = RMS(Go-encoded output minus C-encoded output) / RMS(C-encoded output).
+For a silent C reference, NRMSE is zero only for an identical output, otherwise
+infinity. This is a numerical regression metric, not a perceptual quality test
+or a comparison of either lossy output with the original WAV.
+
+Encode PASS requires NRMSE <= `-max-nrmse` (default 0.01 = 1%) and relative
+payload size difference <= `-max-size-diff` (default 0.05 = 5%). These are
+configurable engineering thresholds, not Opus conformance limits. `-exact`
+additionally requires every packet payload to be byte-identical. `-tolerance`
+is decode-only. Errors or exceeded thresholds exit with status 1.
+
+Full `x-gogeta.wav` with local libopus 1.6.1 and default settings:
+
+- 8,721 packets; 938 unequal payloads, but all lengths identical.
+- Both encoders produced 1,373,589 payload bytes.
+- 16,743,696 real PCM samples compared; 1,493,686 differed.
+- Maximum PCM error 4,714; RMS error 89.1299; NRMSE 0.0140996 (1.41%).
+- Fails the default 1% threshold; would pass an explicitly chosen 2% threshold.
+
+Opt-in native tests cover exact silence encodings, mono/stereo, partial frames,
+exact frame boundaries, and limited-input delay flushing:
+
+```sh
+go test -tags compareopus ./tools/compareopus
+```

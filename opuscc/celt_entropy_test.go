@@ -14,10 +14,10 @@ func TestEntropyEncoderFieldAccesses(t *testing.T) {
 	var enc OpusT_ec_enc
 	Opus_ec_enc_init(nil, uintptr(unsafe.Pointer(&enc)), entropyBufferPointer(buffer), uint32(len(buffer)))
 
-	if got := ec_write_byte(nil, uintptr(unsafe.Pointer(&enc)), 0x3b); got != 0 {
+	if got := ec_write_byte(nil, &enc, 0x3b); got != 0 {
 		t.Fatalf("write first byte: got %d, want 0", got)
 	}
-	if got := ec_write_byte_at_end(nil, uintptr(unsafe.Pointer(&enc)), 0xc4); got != 0 {
+	if got := ec_write_byte_at_end(nil, &enc, 0xc4); got != 0 {
 		t.Fatalf("write final byte: got %d, want 0", got)
 	}
 	if enc.Foffs != 1 || enc.Fend_offs != 1 || buffer[0] != 0x3b || buffer[len(buffer)-1] != 0xc4 {

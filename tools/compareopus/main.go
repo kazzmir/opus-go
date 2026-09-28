@@ -1,6 +1,6 @@
 //go:build compareopus && cgo
 
-// Command compareopus compares raw decoder output, before Ogg trimming or gain.
+// Command compareopus compares the native C and Go Opus codecs.
 package main
 
 /*
@@ -160,26 +160,47 @@ func compare(path string, tolerance, limit int) error {
 }
 
 func main() {
-	tolerance := flag.Int("tolerance", 0, "maximum allowed absolute int16 sample difference (0 = exact)")
+	mode := flag.String("mode", "decode", "comparison: decode (Opus inputs) or encode (WAV inputs)")
+	bitrate := flag.Int("bitrate", 64000, "encode bitrate in bits/sec")
+	complexity := flag.Int("complexity", 10, "encode complexity (0-10)")
+	vbr := flag.Bool("vbr", true, "encode with variable bitrate")
+	exact := flag.Bool("exact", false, "encode: require identical packet payloads")
+	nrmse := flag.Float64("max-nrmse", 0.01, "encode: maximum RMS PCM difference / C-output RMS (0.01 = 1%)")
+	sizeDiff := flag.Float64("max-size-diff", 0.05, "encode: maximum relative total payload size difference (0.05 = 5%)")
+	tolerance := flag.Int("tolerance", 0, "decode: maximum allowed absolute int16 sample difference (0 = exact)")
 	limit := flag.Int("max-packets", 0, "compare at most this many packets per file (0 = all)")
 	flag.Parse()
-	if *tolerance < 0 || *tolerance > 65535 || *limit < 0 {
-		fmt.Fprintln(os.Stderr, "invalid tolerance or packet limit")
+	if (*mode != "decode" && *mode != "encode") || *tolerance < 0 || *tolerance > 65535 || *limit < 0 || *bitrate < 500 || *bitrate > 512000 || *complexity < 0 || *complexity > 10 || !validThreshold(*nrmse) || !validThreshold(*sizeDiff) {
+		fmt.Fprintln(os.Stderr, "invalid mode, tolerance, packet limit, encoder settings, or thresholds")
 		os.Exit(2)
 	}
 	paths := flag.Args()
 	if len(paths) == 0 {
 		var err error
-		paths, err = filepath.Glob("*.opus")
+		pattern := "*.opus"
+		if *mode == "encode" {
+			pattern = "*.wav"
+		}
+		paths, err = filepath.Glob(pattern)
 		if err != nil || len(paths) == 0 {
-			fmt.Fprintln(os.Stderr, "provide Ogg Opus files, or run in a directory containing *.opus")
+			fmt.Fprintf(os.Stderr, "provide input files, or run in a directory containing %s\n", pattern)
 			os.Exit(2)
 		}
 	}
-	fmt.Printf("C library: %s; PCM=int16 rate=48000 tolerance=%d max-packets=%d\n", C.GoString(C.opus_get_version_string()), *tolerance, *limit)
+	fmt.Printf("C library: %s; mode=%s PCM=int16 rate=48000 tolerance=%d max-packets=%d\n", C.GoString(C.opus_get_version_string()), *mode, *tolerance, *limit)
+	opt := encodeOptions{*bitrate, *complexity, *vbr, *exact, *nrmse, *sizeDiff}
+	if *mode == "encode" {
+		fmt.Printf("encode: application=audio frame-ms=20 bitrate=%d complexity=%d vbr=%t exact=%t max-nrmse=%g max-size-diff=%g\n", *bitrate, *complexity, *vbr, *exact, *nrmse, *sizeDiff)
+	}
 	failed := false
 	for _, path := range paths {
-		if err := compare(path, *tolerance, *limit); err != nil {
+		var err error
+		if *mode == "encode" {
+			err = compareEncode(path, opt, *limit)
+		} else {
+			err = compare(path, *tolerance, *limit)
+		}
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", path, err)
 			failed = true
 		}
