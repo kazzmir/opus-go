@@ -1075,7 +1075,7 @@ func Opus_opus_pcm_soft_clip_impl(tls *libc.TLS, _x uintptr, N int32, C int32, d
 	      - Optimization hint to skip per-sample out-of-bound checks.
 	        If true, the check can be skipped. */
 	_ = arch
-	all_within_neg1pos1 = Opus_opus_limit2_checkwithin1_c(tls, _x, N*C)
+	all_within_neg1pos1 = Opus_opus_limit2_checkwithin1_c(tls, (*float32)(unsafe.Pointer(_x)), N*C)
 	c = 0
 	for {
 		if !(c < C) {
@@ -5919,19 +5919,14 @@ func Opus_opus_extension_iterator_init(tls *libc.TLS, iter uintptr, data uintptr
 //
 //	/* Reset the iterator so it can start iterating again from the first
 //	    extension. */
-func Opus_opus_extension_iterator_reset(tls *libc.TLS, iter uintptr) {
-	var v1 uintptr
-	var v2 int32
-	_, _ = v1, v2
-	v1 = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fdata
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data = v1
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_data = v1
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flast_long = uintptr(uint32(0))
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flen1
-	v2 = int32(0)
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame = v2
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame = v2
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len = 0
+func Opus_opus_extension_iterator_reset(tls *libc.TLS, iter *OpusT_OpusExtensionIterator) {
+	iter.Fcurr_data = iter.Fdata
+	iter.Frepeat_data = iter.Fdata
+	iter.Flast_long = 0
+	iter.Fcurr_len = iter.Flen1
+	iter.Fcurr_frame = 0
+	iter.Frepeat_frame = 0
+	iter.Ftrailing_short_len = 0
 }
 
 // C documentation
@@ -5940,8 +5935,8 @@ func Opus_opus_extension_iterator_reset(tls *libc.TLS, iter uintptr) {
 //	    frame_max or larger.
 //	   This can allow it to stop iterating early if these extensions are not
 //	    needed. */
-func Opus_opus_extension_iterator_set_frame_max(tls *libc.TLS, iter uintptr, frame_max int32) {
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fframe_max = frame_max
+func Opus_opus_extension_iterator_set_frame_max(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, frame_max int32) {
+	iter.Fframe_max = frame_max
 }
 
 // C documentation

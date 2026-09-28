@@ -443,33 +443,20 @@ func Opus_celt_float2int16_c(tls *libc.TLS, in uintptr, out uintptr, cnt int32) 
 	}
 }
 
-func Opus_opus_limit2_checkwithin1_c(tls *libc.TLS, samples uintptr, cnt int32) (r int32) {
-	var clippedVal, v2 float32
-	var i int32
-	_, _, _ = clippedVal, i, v2
+func Opus_opus_limit2_checkwithin1_c(tls *libc.TLS, samples *float32, cnt int32) (r int32) {
 	if cnt <= 0 {
-		return int32(1)
+		return 1
 	}
-	i = 0
-	for {
-		if !(i < cnt) {
-			break
+	pcm := unsafe.Slice(samples, int(cnt))
+	for i, value := range pcm {
+		// Match C's FMAX/FMIN comparisons, preserving NaNs and signed zero.
+		if value < -2 {
+			value = -2
 		}
-		clippedVal = *(*float32)(unsafe.Pointer(samples + uintptr(i)*4))
-		if -float32(2) > clippedVal {
-			v2 = -float32(2)
-		} else {
-			v2 = clippedVal
+		if value > 2 {
+			value = 2
 		}
-		clippedVal = v2
-		if float32(2) < clippedVal {
-			v2 = float32(2)
-		} else {
-			v2 = clippedVal
-		}
-		clippedVal = v2
-		*(*float32)(unsafe.Pointer(samples + uintptr(i)*4)) = clippedVal
-		i = i + 1
+		pcm[i] = value
 	}
 	/* C implementation can't provide quick hint. Assume it might exceed -1/+1. */
 	return 0
