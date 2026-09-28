@@ -161,7 +161,7 @@ func Opus_silk_ResetDecoder(tls *libc.TLS, decState uintptr) (r int32) {
 		if !(n < int32(DECODER_NUM_CHANNELS)) {
 			break
 		}
-		ret = Opus_silk_reset_decoder(tls, channel_state+uintptr(n)*unsafe.Sizeof(OpusT_silk_decoder_state{}))
+		ret = Opus_silk_reset_decoder(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state+uintptr(n)*unsafe.Sizeof(OpusT_silk_decoder_state{}))))
 		n = n + 1
 	}
 	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).FsStereo = OpusT_stereo_dec_state{}
@@ -183,7 +183,7 @@ func Opus_silk_InitDecoder(tls *libc.TLS, decState uintptr) (r int32) {
 		if !(n < int32(DECODER_NUM_CHANNELS)) {
 			break
 		}
-		ret = Opus_silk_init_decoder(tls, channel_state+uintptr(n)*unsafe.Sizeof(OpusT_silk_decoder_state{}))
+		ret = Opus_silk_init_decoder(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state+uintptr(n)*unsafe.Sizeof(OpusT_silk_decoder_state{}))))
 		n = n + 1
 	}
 	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).FsStereo = OpusT_stereo_dec_state{}
@@ -241,7 +241,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 	}
 	/* If Mono -> Stereo transition in bitstream: init state of second channel */
 	if control.FnChannelsInternal > decoder.FnChannelsInternal {
-		ret = ret + Opus_silk_init_decoder(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[1])))
+		ret = ret + Opus_silk_init_decoder(tls, &decoder.Fchannel_state[1])
 	}
 	stereo_to_mono = libc.BoolInt32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(1) && (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsInternal == int32(2) && (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FinternalSampleRate == int32(1000)*(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Ffs_kHz)
 	if decoder.Fchannel_state[0].FnFramesDecoded == 0 {
