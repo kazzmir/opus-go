@@ -2173,7 +2173,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	v21 = st
 	fine_priority = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(nbEBands))*(uint64(4)/uint64(1)))
 	codedBands = Opus_clt_compute_allocation(tls, mode, start, end, offsets, cap1, alloc_trim, uintptr(unsafe.Pointer(&intensity)), uintptr(unsafe.Pointer(&dual_stereo)), bits, uintptr(unsafe.Pointer(&balance)), pulses, fine_quant, fine_priority, C, LM, dec, 0, 0, 0)
-	Opus_unquant_fine_energy(tls, mode, start, end, oldBandE, uintptr(uint32(0)), fine_quant, dec, C)
+	Opus_unquant_fine_energy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*OpusT_celt_glog)(unsafe.Pointer(oldBandE)), nil, (*int32)(unsafe.Pointer(fine_quant)), (*OpusT_ec_dec)(unsafe.Pointer(dec)), C)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))

@@ -14,6 +14,7 @@ static void energy_decode(unsigned *s, unsigned char *data, float *energy, int b
  dec.rng=s[6]; dec.val=s[7]; dec.ext=s[8]; dec.rem=(int)s[9]; dec.error=(int)s[10];
  switch(op) {
  case 0: unquant_coarse_energy(&m,start,end,energy,a,&dec,channels,b); break;
+ case 1: unquant_fine_energy(&m,start,end,energy,quant,priority,&dec,channels); break;
  }
  s[0]=dec.storage; s[1]=dec.end_offs; s[2]=dec.end_window;
  s[3]=dec.nend_bits; s[4]=dec.nbits_total; s[5]=dec.offs;

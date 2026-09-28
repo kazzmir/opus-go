@@ -2508,47 +2508,32 @@ func Opus_unquant_coarse_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, e
 	}
 }
 
-func Opus_unquant_fine_energy(tls *libc.TLS, m uintptr, start int32, end int32, oldEBands uintptr, prev_quant uintptr, extra_quant uintptr, dec uintptr, C int32) {
-	var c, i, q2, v3 int32
-	var extra, prev OpusT_opus_int16
-	var offset OpusT_celt_glog
-	var v2 uintptr
-	_, _, _, _, _, _, _, _ = c, extra, i, offset, prev, q2, v2, v3
-	/* Decode finer resolution */
-	i = start
-	for {
-		if !(i < end) {
-			break
+func Opus_unquant_fine_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, oldEBands *OpusT_celt_glog, prev_quant, extra_quant *int32, dec *OpusT_ec_dec, C int32) {
+	energy := unsafe.Slice(oldEBands, C*m.FnbEBands)
+	extraQuant := unsafe.Slice(extra_quant, m.FnbEBands)
+	var prevQuant []int32
+	if prev_quant != nil {
+		prevQuant = unsafe.Slice(prev_quant, m.FnbEBands)
+	}
+	for i := start; i < end; i++ {
+		extra := int16(extraQuant[i])
+		if extraQuant[i] <= 0 {
+			continue
 		}
-		extra = int16(*(*int32)(unsafe.Pointer(extra_quant + uintptr(i)*4)))
-		if *(*int32)(unsafe.Pointer(extra_quant + uintptr(i)*4)) <= 0 {
-			goto _1
+		tell := dec.Fnbits_total - int32(bits.Len32(dec.Frng))
+		if tell+C*extraQuant[i] > int32(dec.Fstorage)*8 {
+			continue
 		}
-		v2 = dec
-		v3 = (*OpusT_ec_ctx)(unsafe.Pointer(v2)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v2)).Frng))
-		if v3+C**(*int32)(unsafe.Pointer(extra_quant + uintptr(i)*4)) > int32((*OpusT_ec_dec)(unsafe.Pointer(dec)).Fstorage)*int32(8) {
-			goto _1
+		var prev int16
+		if prevQuant != nil {
+			prev = int16(prevQuant[i])
 		}
-		if prev_quant != uintptr(uint32(0)) {
-			v3 = *(*int32)(unsafe.Pointer(prev_quant + uintptr(i)*4))
-		} else {
-			v3 = 0
+		for c := int32(0); c < C; c++ {
+			q2 := int32(Opus_ec_dec_bits(tls, dec, uint32(uint16(extra))))
+			offset := float32(float32((float32(q2)+0.5)*float32(int32(1)<<(14-int32(extra))))*(float32(1)/16384)) - 0.5
+			offset *= float32(float32(int32(1)<<(14-int32(prev))) * (float32(1) / 16384))
+			energy[i+c*m.FnbEBands] += offset
 		}
-		prev = int16(v3)
-		c = 0
-		for {
-			q2 = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(uint16(extra))))
-			offset = float32(float32((float32(q2)+float32(0.5))*float32(int32(1)<<(int32(14)-int32(extra))))*(float32(1)/float32(16384))) - float32(0.5)
-			offset = offset * OpusT_celt_glog(float32(int32(1)<<(int32(14)-int32(prev)))*(float32(1)/float32(16384)))
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) += offset
-			c = c + 1
-			v3 = c
-			if !(v3 < C) {
-				break
-			}
-		}
-	_1:
-		i = i + 1
 	}
 }
 
