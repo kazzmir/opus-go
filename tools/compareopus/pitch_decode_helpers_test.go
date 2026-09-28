@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/kazzmir/opus-go/opuscc"
+	"github.com/kazzmir/opus-go/opusccenc"
 	"slices"
 	"testing"
 )
@@ -24,8 +25,13 @@ func TestPitchDecodeAgainstC(t *testing.T) {
 			for contour := 0; contour < count; contour++ {
 				for lag := int16(0); lag <= int16(16*fs); lag++ {
 					g, c := make([]int32, n), make([]int32, n)
+					e := make([]int32, n)
+					opusccenc.Opus_silk_decode_pitch(nil, lag, int8(contour), &e[0], fs, int32(n))
 					opuscc.Opus_silk_decode_pitch(nil, lag, int8(contour), &g[0], fs, int32(n))
 					nativePitchDecode(lag, int8(contour), c, fs)
+					if !slices.Equal(e, c) {
+						t.Fatalf("encoder differs: fs=%d n=%d contour=%d lag=%d output=%v C=%v", fs, n, contour, lag, e, c)
+					}
 					if !slices.Equal(g, c) {
 						t.Fatalf("fs=%d n=%d contour=%d lag=%d Go=%v C=%v", fs, n, contour, lag, g, c)
 					}
