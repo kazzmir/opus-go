@@ -12,53 +12,17 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_silk_VAD_Init(tls *libc.TLS, psSilk_VAD uintptr) (r int32) {
-	var b1, ret, v6 int32
-	var v2, v3, v4 OpusT_opus_int32
-	_, _, _, _, _, _ = b1, ret, v2, v3, v4, v6
-	state := (*OpusT_silk_VAD_state)(unsafe.Pointer(psSilk_VAD))
-	ret = 0
-	/* reset state memory */
-	libc.Xmemset(tls, psSilk_VAD, 0, uint64(112))
-	/* init noise levels */
-	/* Initialize array with approx pink noise levels (psd proportional to inverse of frequency) */
-	b1 = 0
-	for {
-		if !(b1 < int32(VAD_N_BANDS)) {
-			break
-		}
-		v2 = int32(VAD_NOISE_LEVELS_BIAS) / (b1 + int32(1))
-		v3 = int32(1)
-		if v2 > v3 {
-			v6 = v2
-		} else {
-			v6 = v3
-		}
-		v4 = v6
-		state.FNoiseLevelBias[b1] = v4
-		b1 = b1 + 1
+func Opus_silk_VAD_Init(tls *libc.TLS, state *OpusT_silk_VAD_state) int32 {
+	*state = OpusT_silk_VAD_state{}
+	for b := range state.FNoiseLevelBias {
+		// Approximate pink-noise levels, as in silk/VAD.c.
+		state.FNoiseLevelBias[b] = max(int32(VAD_NOISE_LEVELS_BIAS)/int32(b+1), 1)
+		state.FNL[b] = 100 * state.FNoiseLevelBias[b]
+		state.Finv_NL[b] = int32(silk_int32_MAX) / state.FNL[b]
+		state.FNrgRatioSmth_Q8[b] = 100 * 256
 	}
-	/* Initialize state */
-	b1 = 0
-	for {
-		if !(b1 < int32(VAD_N_BANDS)) {
-			break
-		}
-		state.FNL[b1] = int32(100) * state.FNoiseLevelBias[b1]
-		state.Finv_NL[b1] = int32(silk_int32_MAX) / state.FNL[b1]
-		b1 = b1 + 1
-	}
-	state.Fcounter = int32(15)
-	/* init smoothed energy-to-noise ratio*/
-	b1 = 0
-	for {
-		if !(b1 < int32(VAD_N_BANDS)) {
-			break
-		}
-		state.FNrgRatioSmth_Q8[b1] = int32(100) * int32(256) /* 100 * 256 --> 20 dB SNR */
-		b1 = b1 + 1
-	}
-	return ret
+	state.Fcounter = 15
+	return 0
 }
 
 // C documentation

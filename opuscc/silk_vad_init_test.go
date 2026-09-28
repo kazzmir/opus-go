@@ -2,12 +2,15 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 )
 
 func TestVADInitFieldAccesses(t *testing.T) {
 	state := OpusT_silk_VAD_state{
 		FAnaState:        [2]OpusT_opus_int32{111, -222},
+		FAnaState1:       [2]OpusT_opus_int32{123, -456},
+		FAnaState2:       [2]OpusT_opus_int32{789, -123},
+		FXnrgSubfr:       [4]OpusT_opus_int32{1, 2, 3, 4},
+		FHPstate:         42,
 		FNrgRatioSmth_Q8: [4]OpusT_opus_int32{333, 444, 555, 666},
 		FNL:              [4]OpusT_opus_int32{777, 888, 999, 1111},
 		Finv_NL:          [4]OpusT_opus_int32{2222, 3333, 4444, 5555},
@@ -15,7 +18,7 @@ func TestVADInitFieldAccesses(t *testing.T) {
 		Fcounter:         42,
 	}
 
-	if got := Opus_silk_VAD_Init(nil, uintptr(unsafe.Pointer(&state))); got != 0 {
+	if got := Opus_silk_VAD_Init(nil, &state); got != 0 {
 		t.Fatalf("VAD init: got %d, want 0", got)
 	}
 
@@ -33,6 +36,9 @@ func TestVADInitFieldAccesses(t *testing.T) {
 	}
 	if state.Fcounter != 15 {
 		t.Fatalf("counter: got %d, want 15", state.Fcounter)
+	}
+	if state.FAnaState1 != [2]int32{} || state.FAnaState2 != [2]int32{} || state.FXnrgSubfr != [4]int32{} || state.FHPstate != 0 {
+		t.Fatal("history fields were not reset")
 	}
 	if state.FAnaState != [2]OpusT_opus_int32{} {
 		t.Fatalf("analysis state was not reset: got %v", state.FAnaState)
