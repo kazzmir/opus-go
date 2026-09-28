@@ -1017,7 +1017,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 					*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(boffs+j)*4)) = float32(int32(seed) >> int32(20))
 					j = j + 1
 				}
-				Opus_renormalise_vector(tls, X+uintptr(boffs)*4, blen, float32(1), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+				Opus_renormalise_vector(tls, (*OpusT_celt_norm)(unsafe.Pointer(X+uintptr(boffs)*4)), blen, float32(1), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 				i = i + 1
 			}
 			c = c + 1

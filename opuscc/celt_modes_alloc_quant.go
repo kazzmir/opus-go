@@ -213,21 +213,14 @@ var SPREAD_FACTOR = [3]int32{
 // C documentation
 //
 //	/** Normalizes the decoded integer pvq codeword to unit norm. */
-func normalise_residual(tls *libc.TLS, iy uintptr, X uintptr, N int32, Ryy OpusT_opus_val32, gain OpusT_opus_val32, shift int32) {
-	var g, t OpusT_opus_val32
-	var i, v1 int32
-	_, _, _, _ = g, i, t, v1
-	t = Ryy
-	g = float32(float32(1) / float32(libc.Xsqrt(tls, float64(t))) * gain)
-	i = 0
-	_ = shift
-	for {
-		*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(i)*4)) = OpusT_opus_val32(float32(*(*int32)(unsafe.Pointer(iy + uintptr(i)*4))) * g)
-		i = i + 1
-		v1 = i
-		if !(v1 < N) {
-			break
-		}
+func normalise_residual(tls *libc.TLS, iy *int32, X *OpusT_celt_norm, N int32, Ryy OpusT_opus_val32, gain OpusT_opus_val32, shift int32) {
+	// The C caller supplies N > 0 and positive residual energy.
+	input := unsafe.Slice(iy, int(N))
+	output := unsafe.Slice(X, int(N))
+	g := float32(float32(1) / float32(libc.Xsqrt(tls, float64(Ryy))) * gain)
+	_ = shift // Used only by fixed-point builds, as in C.
+	for i, value := range input {
+		output[i] = OpusT_opus_val32(float32(value) * g)
 	}
 }
 
@@ -652,7 +645,7 @@ func Opus_alg_quant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, B 
 	collapse_mask = extract_collapse_mask(tls, (*int32)(unsafe.Pointer(iy)), N, B)
 	Opus_encode_pulses(tls, iy, N, K, enc)
 	if resynth != 0 {
-		normalise_residual(tls, iy, X, N, yy, gain, 0)
+		normalise_residual(tls, (*int32)(unsafe.Pointer(iy)), (*OpusT_celt_norm)(unsafe.Pointer(X)), N, yy, gain, 0)
 	}
 	if resynth != 0 {
 		Opus_exp_rotation(tls, X, N, -int32(1), B, K, spread)
@@ -766,7 +759,7 @@ func Opus_alg_unquant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, 
 	v23 = st
 	iy = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N))*(uint64(4)/uint64(1)))
 	Ryy = Opus_decode_pulses(tls, iy, N, K, dec)
-	normalise_residual(tls, iy, X, N, Ryy, gain, yy_shift)
+	normalise_residual(tls, (*int32)(unsafe.Pointer(iy)), (*OpusT_celt_norm)(unsafe.Pointer(X)), N, Ryy, gain, yy_shift)
 	Opus_exp_rotation(tls, X, N, -int32(1), B, K, spread)
 	collapse_mask = extract_collapse_mask(tls, (*int32)(unsafe.Pointer(iy)), N, B)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -783,37 +776,22 @@ func Opus_alg_unquant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, 
 	return collapse_mask
 }
 
-func Opus_renormalise_vector(tls *libc.TLS, X uintptr, N1 int32, gain OpusT_opus_val32, arch int32) {
-	var E, t, xy, v2 OpusT_opus_val32
-	var g OpusT_opus_val16
-	var i, i1 int32
-	var xptr uintptr
-	_, _, _, _, _, _, _, _ = E, g, i, i1, t, xptr, xy, v2
+func Opus_renormalise_vector(tls *libc.TLS, X *OpusT_celt_norm, N1 int32, gain OpusT_opus_val32, arch int32) {
+	if N1 <= 0 {
+		return
+	}
 	_ = arch
-	xy = float32(0)
-	i = int32(0)
-	for {
-		if !(i < N1) {
-			break
-		}
-		xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(X + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(X + uintptr(i)*4)))
-		i = i + 1
+	x := unsafe.Slice(X, int(N1))
+	var xy OpusT_opus_val32
+	for _, value := range x {
+		// Keep scalar float32 products and accumulation in C's order.
+		xy = xy + OpusT_opus_val32(value*value)
 	}
-	v2 = xy
-	E = float32(1e-15) + v2
-	t = E
-	g = float32(float32(1) / float32(libc.Xsqrt(tls, float64(t))) * gain)
-	xptr = X
-	i1 = 0
-	for {
-		if !(i1 < N1) {
-			break
-		}
-		*(*OpusT_celt_norm)(unsafe.Pointer(xptr)) = OpusT_opus_val32(g * *(*OpusT_celt_norm)(unsafe.Pointer(xptr)))
-		xptr += 4
-		i1 = i1 + 1
+	E := float32(1e-15) + xy
+	g := float32(float32(1) / float32(libc.Xsqrt(tls, float64(E))) * gain)
+	for i := range x {
+		x[i] = OpusT_opus_val32(g * x[i])
 	}
-	/*return celt_sqrt(E);*/
 }
 
 func Opus_stereo_itheta(tls *libc.TLS, X uintptr, Y uintptr, stereo int32, N1 int32, arch int32) (r OpusT_opus_int32) {
@@ -2238,7 +2216,7 @@ func Opus_anti_collapse(tls *libc.TLS, m uintptr, X_ uintptr, collapse_masks uin
 			}
 			/* We just added some energy, so we need to renormalise */
 			if renormalize != 0 {
-				Opus_renormalise_vector(tls, X, N0<<LM, float32(1), arch)
+				Opus_renormalise_vector(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N0<<LM, float32(1), arch)
 			}
 			c = c + 1
 			v8 = c
@@ -3411,7 +3389,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 						}
 						cm = uint32(fill)
 					}
-					Opus_renormalise_vector(tls, X, N, gain, ctx.Farch)
+					Opus_renormalise_vector(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, gain, ctx.Farch)
 				}
 			}
 		}
