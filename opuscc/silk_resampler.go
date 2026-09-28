@@ -1221,10 +1221,7 @@ POSSIBILITY OF SUCH DAMAGE.
 /* Redefine macro functions with extensive assertion in DEBUG mode.
    As functions can't be undefined, this file can't work with SigProcFIX_MacroCount.h */
 
-func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a uintptr, idx uintptr, L int32, K int32) {
-	var i, j int32
-	var value OpusT_opus_int32
-	_, _, _ = i, j, value
+func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a *OpusT_opus_int32, idx *int32, L int32, K int32) {
 	/* Safety checks */
 	if !(K > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+7711, __ccgo_ts+7735, int32(51))
@@ -1235,84 +1232,44 @@ func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a uintptr, idx uintptr, 
 	if !(L >= K) {
 		Opus_celt_fatal(tls, __ccgo_ts+7774, __ccgo_ts+7735, int32(53))
 	}
-	/* Write start indices in index vector */
-	i = 0
-	for {
-		if !(i < K) {
-			break
-		}
-		*(*int32)(unsafe.Pointer(idx + uintptr(i)*4)) = i
-		i = i + 1
+	values := unsafe.Slice(a, int(L))
+	indices := unsafe.Slice(idx, int(K))
+	for i := range indices {
+		indices[i] = int32(i)
 	}
-	/* Sort vector elements by value, increasing order */
-	i = int32(1)
-	for {
-		if !(i < K) {
-			break
+	for i := 1; i < int(K); i++ {
+		value := values[i]
+		j := i - 1
+		for ; j >= 0 && value < values[j]; j-- {
+			values[j+1], indices[j+1] = values[j], indices[j]
 		}
-		value = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(i)*4))
-		j = i - int32(1)
-		for {
-			if !(j >= 0 && value < *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4))) {
-				break
-			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4)) /* Shift value */
-			*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = *(*int32)(unsafe.Pointer(idx + uintptr(j)*4))                   /* Shift index */
-			j = j - 1
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = value /* Write value */
-		*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = i              /* Write index */
-		i = i + 1
+		values[j+1], indices[j+1] = value, int32(i)
 	}
-	/* If less than L values are asked for, check the remaining values, */
-	/* but only spend CPU to ensure that the K first values are correct */
-	i = K
-	for {
-		if !(i < L) {
-			break
-		}
-		value = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(i)*4))
-		if value < *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(K-int32(1))*4)) {
-			j = K - int32(2)
-			for {
-				if !(j >= 0 && value < *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4))) {
-					break
-				}
-				*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4)) /* Shift value */
-				*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = *(*int32)(unsafe.Pointer(idx + uintptr(j)*4))                   /* Shift index */
-				j = j - 1
+	// Only the first K entries are sorted; the tail is read but not changed.
+	for i := int(K); i < int(L); i++ {
+		value := values[i]
+		if value < values[K-1] {
+			j := int(K) - 2
+			for ; j >= 0 && value < values[j]; j-- {
+				values[j+1], indices[j+1] = values[j], indices[j]
 			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = value /* Write value */
-			*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = i              /* Write index */
+			values[j+1], indices[j+1] = value, int32(i)
 		}
-		i = i + 1
 	}
 }
 
-func Opus_silk_insertion_sort_increasing_all_values_int16(tls *libc.TLS, a uintptr, L int32) {
-	var i, j, value int32
-	_, _, _ = i, j, value
-	/* Safety checks */
+func Opus_silk_insertion_sort_increasing_all_values_int16(tls *libc.TLS, a *OpusT_opus_int16, L int32) {
 	if !(L > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+7750, __ccgo_ts+7735, int32(144))
 	}
-	/* Sort vector elements by value, increasing order */
-	i = int32(1)
-	for {
-		if !(i < L) {
-			break
+	values := unsafe.Slice(a, int(L))
+	for i := 1; i < len(values); i++ {
+		value := values[i]
+		j := i - 1
+		for ; j >= 0 && value < values[j]; j-- {
+			values[j+1] = values[j]
 		}
-		value = int32(*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(i)*2)))
-		j = i - int32(1)
-		for {
-			if !(j >= 0 && value < int32(*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j)*2)))) {
-				break
-			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j+int32(1))*2)) = *(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j)*2)) /* Shift value */
-			j = j - 1
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j+int32(1))*2)) = int16(value) /* Write value */
-		i = i + 1
+		values[j+1] = value
 	}
 }
 

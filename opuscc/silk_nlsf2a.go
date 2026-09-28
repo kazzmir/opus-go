@@ -300,7 +300,7 @@ func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uin
 		/* Insertion sort (fast for already almost sorted arrays):   */
 		/* Best case:  O(n)   for an already sorted array            */
 		/* Worst case: O(n^2) for an inversely sorted array          */
-		Opus_silk_insertion_sort_increasing_all_values_int16(tls, NLSF_Q15, L)
+		Opus_silk_insertion_sort_increasing_all_values_int16(tls, (*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15)), L)
 		/* First NLSF should be no less than NDeltaMin[0] */
 		v5 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15)))
 		v6 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15)))
