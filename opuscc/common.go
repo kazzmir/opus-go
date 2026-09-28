@@ -2928,7 +2928,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			/* redundancy_bytes will be at least two, in the non-hybrid
 			   case due to the ec_tell() check above */
 			if mode == int32(MODE_HYBRID) {
-				v31 = int32(Opus_ec_dec_uint(tls, uintptr(unsafe.Pointer(&dec)), uint32(256))) + int32(2)
+				v31 = int32(Opus_ec_dec_uint(tls, &dec, uint32(256))) + int32(2)
 			} else {
 				v1 = uintptr(unsafe.Pointer(&dec))
 				v32 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))

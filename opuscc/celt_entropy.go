@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math/bits"
 	"reflect"
 	"unsafe"
 
@@ -163,35 +164,27 @@ func Opus_ec_dec_icdf16(tls *libc.TLS, _this uintptr, _icdf uintptr, _ftb uint32
 	return ret
 }
 
-func Opus_ec_dec_uint(tls *libc.TLS, _this uintptr, _ft OpusT_opus_uint32) (r OpusT_opus_uint32) {
-	var ft, s uint32
-	var ftb int32
-	var t OpusT_opus_uint32
-	_, _, _, _ = ft, ftb, s, t
-	/*In order to optimize EC_ILOG(), it is undefined for the value 0.*/
-	if !(_ft > uint32(1)) {
+func Opus_ec_dec_uint(tls *libc.TLS, dec *OpusT_ec_dec, ft OpusT_opus_uint32) OpusT_opus_uint32 {
+	if ft <= 1 {
 		Opus_celt_fatal(tls, __ccgo_ts+3569, __ccgo_ts+3593, int32(224))
 	}
-	_ft = _ft - 1
-	ftb = int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, _ft)
-	if ftb > int32(EC_UINT_BITS) {
-		ftb = ftb - int32(EC_UINT_BITS)
-		ft = _ft>>ftb + uint32(1)
-		s = Opus_ec_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), ft)
-		Opus_ec_dec_update(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), s, s+uint32(1), ft)
-		t = s<<ftb | Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), uint32(ftb))
-		if t <= _ft {
-			return t
+	maximum := ft - 1
+	ftb := bits.Len32(maximum)
+	if ftb > EC_UINT_BITS {
+		ftb -= EC_UINT_BITS
+		highTotal := (maximum >> ftb) + 1
+		symbol := Opus_ec_decode(tls, dec, highTotal)
+		Opus_ec_dec_update(tls, dec, symbol, symbol+1, highTotal)
+		value := (symbol << ftb) | Opus_ec_dec_bits(tls, dec, uint32(ftb))
+		if value <= maximum {
+			return value
 		}
-		(*OpusT_ec_dec)(unsafe.Pointer(_this)).Ferror1 = int32(1)
-		return _ft
-	} else {
-		_ft = _ft + 1
-		s = Opus_ec_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), _ft)
-		Opus_ec_dec_update(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), s, s+uint32(1), _ft)
-		return s
+		dec.Ferror1 = 1
+		return maximum
 	}
-	return r
+	symbol := Opus_ec_decode(tls, dec, ft)
+	Opus_ec_dec_update(tls, dec, symbol, symbol+1, ft)
+	return symbol
 }
 
 func Opus_ec_dec_bits(tls *libc.TLS, dec *OpusT_ec_dec, bits uint32) OpusT_opus_uint32 {
@@ -1710,7 +1703,7 @@ func Opus_decode_pulses(tls *libc.TLS, _y uintptr, _n int32, _k int32, _dec uint
 	} else {
 		v4 = _k + int32(1)
 	}
-	return cwrsi(tls, _n, _k, Opus_ec_dec_uint(tls, _dec, *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v1] + uintptr(v2)*4))+*(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v3] + uintptr(v4)*4))), _y)
+	return cwrsi(tls, _n, _k, Opus_ec_dec_uint(tls, (*OpusT_ec_dec)(unsafe.Pointer(_dec)), *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v1] + uintptr(v2)*4))+*(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v3] + uintptr(v4)*4))), _y)
 }
 
 const CELT_SIG_SCALE7 = 32768

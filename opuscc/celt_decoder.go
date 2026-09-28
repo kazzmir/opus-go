@@ -1579,7 +1579,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	postfilter_tapset = 0
 	if start == 0 && tell+int32(16) <= total_bits {
 		if Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)) != 0 {
-			octave = int32(Opus_ec_dec_uint(tls, dec, uint32(6)))
+			octave = int32(Opus_ec_dec_uint(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(6)))
 			postfilter_pitch = int32(uint32(int32(16)<<octave) + Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(int32(4)+octave)) - uint32(1))
 			qg = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3)))
 			v1 = dec
