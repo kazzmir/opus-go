@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/kazzmir/opus-go/opuscc"
+	"github.com/kazzmir/opus-go/opusccenc"
 	"math/rand"
 	"slices"
 	"testing"
@@ -28,9 +29,14 @@ func TestUp2AgainstC(t *testing.T) {
 				gs[i] = rng.Int31n(1<<27) - (1 << 26)
 			}
 			cs := gs
+			e, es := make([]int16, 2*n), gs
+			opusccenc.Opus_silk_resampler_private_up2_HQ(nil, &es, &e[0], &input[0], int32(n))
 			g, c := make([]int16, 2*n), make([]int16, 2*n)
 			opuscc.Opus_silk_resampler_private_up2_HQ(nil, &gs, &g[0], &input[0], int32(n))
 			nativeUp2(&cs, c, input)
+			if !slices.Equal(e, c) || es != cs {
+				t.Fatalf("n=%d trial=%d: encoder output matches=%v encoder state=%v C state=%v", n, trial, slices.Equal(e, c), es, cs)
+			}
 			if !slices.Equal(g, c) || gs != cs {
 				t.Fatalf("n=%d trial=%d: output matches=%v Go state=%v C state=%v", n, trial, slices.Equal(g, c), gs, cs)
 			}

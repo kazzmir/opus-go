@@ -13978,7 +13978,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, SS uintptr, out uintptr,
 		}
 		nSamplesIn = v29
 		/* Upsample 2x */
-		Opus_silk_resampler_private_up2_HQ(tls, S, buf+8*2, in, nSamplesIn)
+		Opus_silk_resampler_private_up2_HQ(tls, &(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FsIIR, (*OpusT_opus_int16)(unsafe.Pointer(buf+8*2)), (*OpusT_opus_int16)(unsafe.Pointer(in)), nSamplesIn)
 		max_index_Q16 = libc.Int32FromUint32(libc.Uint32FromInt32(nSamplesIn) << (libc.Int32FromInt32(16) + libc.Int32FromInt32(1))) /* + 1 because 2x upsampling */
 		out = silk_resampler_private_IIR_FIR_INTERPOL(tls, out, buf, max_index_Q16, index_increment_Q16)
 		in = in + uintptr(nSamplesIn)*2
@@ -14161,7 +14161,8 @@ var silk_resampler_up2_hq_15 = [3]OpusT_opus_int16{
 	2: int16(libc.Int32FromInt32(55542) - libc.Int32FromInt32(65536)),
 }
 
-func Opus_silk_resampler_private_up2_HQ(tls *libc.TLS, S uintptr, out uintptr, in uintptr, len1 OpusT_opus_int32) {
+func Opus_silk_resampler_private_up2_HQ(tls *libc.TLS, S *[6]OpusT_opus_int32, out *OpusT_opus_int16, in *OpusT_opus_int16, len1 OpusT_opus_int32) {
+	input, output := unsafe.Slice(in, int(len1)), unsafe.Slice(out, 2*int(len1))
 	var X, Y, in32, k, out32_1, out32_2 OpusT_opus_int32
 	var v2, v3 int32
 	_, _, _, _, _, _, _, _ = X, Y, in32, k, out32_1, out32_2, v2, v3
@@ -14178,22 +14179,22 @@ func Opus_silk_resampler_private_up2_HQ(tls *libc.TLS, S uintptr, out uintptr, i
 			break
 		}
 		/* Convert to Q10 */
-		in32 = libc.Int32FromUint32(libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(k)*2)))) << libc.Int32FromInt32(10))
+		in32 = int32(input[k]) << 10
 		/* First all-pass section for even output sample */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S))
-		X = int32(int64(Y) * int64(silk_resampler_up2_hq_06[0]) >> libc.Int32FromInt32(16))
-		out32_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = in32 + X
+		Y = in32 - S[0]
+		X = int32(int64(Y) * int64(silk_resampler_up2_hq_06[0]) >> 16)
+		out32_1 = S[0] + X
+		S[0] = in32 + X
 		/* Second all-pass section for even output sample */
-		Y = out32_1 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))
-		X = int32(int64(Y) * int64(silk_resampler_up2_hq_06[int32(1)]) >> libc.Int32FromInt32(16))
-		out32_2 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = out32_1 + X
+		Y = out32_1 - S[1]
+		X = int32(int64(Y) * int64(silk_resampler_up2_hq_06[1]) >> 16)
+		out32_2 = S[1] + X
+		S[1] = out32_1 + X
 		/* Third all-pass section for even output sample */
-		Y = out32_2 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4))
-		X = int32(int64(Y) + int64(Y)*int64(silk_resampler_up2_hq_06[int32(2)])>>libc.Int32FromInt32(16))
-		out32_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4)) = out32_2 + X
+		Y = out32_2 - S[2]
+		X = int32(int64(Y) + (int64(Y) * int64(silk_resampler_up2_hq_06[2]) >> 16))
+		out32_1 = S[2] + X
+		S[2] = out32_2 + X
 		/* Apply gain in Q15, convert back to int16 and store to output */
 		if (out32_1>>(libc.Int32FromInt32(10)-libc.Int32FromInt32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX25) {
 			v2 = int32(silk_int16_MAX25)
@@ -14205,22 +14206,22 @@ func Opus_silk_resampler_private_up2_HQ(tls *libc.TLS, S uintptr, out uintptr, i
 			}
 			v2 = v3
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(int32(2)*k)*2)) = int16(v2)
+		output[2*k] = int16(v2)
 		/* First all-pass section for odd output sample */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4))
-		X = int32(int64(Y) * int64(silk_resampler_up2_hq_16[0]) >> libc.Int32FromInt32(16))
-		out32_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4)) = in32 + X
+		Y = in32 - S[3]
+		X = int32(int64(Y) * int64(silk_resampler_up2_hq_16[0]) >> 16)
+		out32_1 = S[3] + X
+		S[3] = in32 + X
 		/* Second all-pass section for odd output sample */
-		Y = out32_1 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 4*4))
-		X = int32(int64(Y) * int64(silk_resampler_up2_hq_16[int32(1)]) >> libc.Int32FromInt32(16))
-		out32_2 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 4*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 4*4)) = out32_1 + X
+		Y = out32_1 - S[4]
+		X = int32(int64(Y) * int64(silk_resampler_up2_hq_16[1]) >> 16)
+		out32_2 = S[4] + X
+		S[4] = out32_1 + X
 		/* Third all-pass section for odd output sample */
-		Y = out32_2 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 5*4))
-		X = int32(int64(Y) + int64(Y)*int64(silk_resampler_up2_hq_16[int32(2)])>>libc.Int32FromInt32(16))
-		out32_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 5*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 5*4)) = out32_2 + X
+		Y = out32_2 - S[5]
+		X = int32(int64(Y) + (int64(Y) * int64(silk_resampler_up2_hq_16[2]) >> 16))
+		out32_1 = S[5] + X
+		S[5] = out32_2 + X
 		/* Apply gain in Q15, convert back to int16 and store to output */
 		if (out32_1>>(libc.Int32FromInt32(10)-libc.Int32FromInt32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX25) {
 			v2 = int32(silk_int16_MAX25)
@@ -14232,16 +14233,14 @@ func Opus_silk_resampler_private_up2_HQ(tls *libc.TLS, S uintptr, out uintptr, i
 			}
 			v2 = v3
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(int32(2)*k+int32(1))*2)) = int16(v2)
+		output[2*k+1] = int16(v2)
 		k = k + 1
 	}
 }
 
 func Opus_silk_resampler_private_up2_HQ_wrapper(tls *libc.TLS, SS uintptr, out uintptr, in uintptr, len1 OpusT_opus_int32) {
-	var S uintptr
-	_ = S
-	S = SS
-	Opus_silk_resampler_private_up2_HQ(tls, S, out, in, len1)
+	state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(SS))
+	Opus_silk_resampler_private_up2_HQ(tls, &state.FsIIR, (*OpusT_opus_int16)(unsafe.Pointer(out)), (*OpusT_opus_int16)(unsafe.Pointer(in)), len1)
 }
 
 const silk_int16_MAX26 = 0x7FFF
