@@ -139,7 +139,7 @@ func Opus_silk_A2NLSF(tls *libc.TLS, NLSF uintptr, a_Q16 uintptr, d int32) {
 					return
 				}
 				/* Error: Apply progressively more bandwidth expansion and run again */
-				Opus_silk_bwexpander_32(tls, a_Q16, d, int32(65536)-libc.Int32FromUint32(libc.Uint32FromInt32(libc.Int32FromInt32(1))<<i))
+				Opus_silk_bwexpander_32(tls, (*OpusT_opus_int32)(unsafe.Pointer(a_Q16)), d, int32(65536)-libc.Int32FromUint32(libc.Uint32FromInt32(libc.Int32FromInt32(1))<<i))
 				silk_A2NLSF_init(tls, a_Q16, bp, bp+52, dd)
 				p = bp                                      /* Pointer to polynomial */
 				xlo = int32(Opus_silk_LSFCosTab_FIX_Q12[0]) /* Q12*/
@@ -2616,7 +2616,7 @@ func Opus_silk_LPC_fit(tls *libc.TLS, a_QOUT uintptr, a_QIN uintptr, QOUT int32,
 			}
 			maxabs = v3 /* ( silk_int32_MAX >> 14 ) + silk_int16_MAX = 163838 */
 			chirp_Q16 = int32(float64(libc.Float64FromFloat64(0.999)*float64(libc.Int64FromInt32(1)<<libc.Int32FromInt32(16)))+libc.Float64FromFloat64(0.5)) - libc.Int32FromUint32(libc.Uint32FromInt32(maxabs-libc.Int32FromInt32(silk_int16_MAX27))<<libc.Int32FromInt32(14))/(maxabs*(idx+libc.Int32FromInt32(1))>>libc.Int32FromInt32(2))
-			Opus_silk_bwexpander_32(tls, a_QIN, d, chirp_Q16)
+			Opus_silk_bwexpander_32(tls, (*OpusT_opus_int32)(unsafe.Pointer(a_QIN)), d, chirp_Q16)
 		} else {
 			break
 		}
@@ -3112,7 +3112,7 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 		}
 		/* Prediction coefficients are (too close to) unstable; apply bandwidth expansion   */
 		/* on the unscaled coefficients, convert to Q12 and measure again                   */
-		Opus_silk_bwexpander_32(tls, bp+200, d, int32(65536)-libc.Int32FromUint32(libc.Uint32FromInt32(libc.Int32FromInt32(2))<<i))
+		Opus_silk_bwexpander_32(tls, (*OpusT_opus_int32)(unsafe.Pointer(bp+200)), d, int32(65536)-libc.Int32FromUint32(libc.Uint32FromInt32(libc.Int32FromInt32(2))<<i))
 		k = 0
 		for {
 			if !(k < d) {
@@ -7040,23 +7040,15 @@ func Opus_silk_burg_modified_FLP(tls *libc.TLS, A uintptr, x uintptr, minInvGain
 //
 //	/* Chirp (bw expand) LP AR filter */
 
-func Opus_silk_bwexpander(tls *libc.TLS, ar uintptr, d int32, chirp_Q16 OpusT_opus_int32) {
-	var chirp_minus_one_Q16 OpusT_opus_int32
-	var i int32
-	_, _ = chirp_minus_one_Q16, i
-	chirp_minus_one_Q16 = chirp_Q16 - int32(65536)
-	/* NB: Dont use silk_SMULWB, instead of silk_RSHIFT_ROUND( silk_MUL(), 16 ), below.  */
-	/* Bias in silk_SMULWB can lead to unstable filters                                */
-	i = 0
-	for {
-		if !(i < d-int32(1)) {
-			break
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(i)*2)) = int16((chirp_Q16*int32(*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(i)*2)))>>(libc.Int32FromInt32(16)-libc.Int32FromInt32(1)) + libc.Int32FromInt32(1)) >> libc.Int32FromInt32(1))
-		chirp_Q16 = chirp_Q16 + (chirp_Q16*chirp_minus_one_Q16>>(libc.Int32FromInt32(16)-libc.Int32FromInt32(1))+int32(1))>>int32(1)
-		i = i + 1
+func Opus_silk_bwexpander(tls *libc.TLS, ar *OpusT_opus_int16, d int32, chirp_Q16 OpusT_opus_int32) {
+	coefficients := unsafe.Slice(ar, int(d))
+	chirpMinusOne := chirp_Q16 - 65536
+	// C requires d > 0. Use rounded MUL, not biased SMULWB.
+	for i := int32(0); i < d-1; i++ {
+		coefficients[i] = int16(((chirp_Q16 * int32(coefficients[i]) >> 15) + 1) >> 1)
+		chirp_Q16 += ((chirp_Q16 * chirpMinusOne >> 15) + 1) >> 1
 	}
-	*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(d-int32(1))*2)) = int16((chirp_Q16*int32(*(*OpusT_opus_int16)(unsafe.Pointer(ar + uintptr(d-int32(1))*2)))>>(libc.Int32FromInt32(16)-libc.Int32FromInt32(1)) + libc.Int32FromInt32(1)) >> libc.Int32FromInt32(1))
+	coefficients[d-1] = int16(((chirp_Q16 * int32(coefficients[d-1]) >> 15) + 1) >> 1)
 }
 
 const __restrict_arr = "restrict"
@@ -7326,21 +7318,14 @@ POSSIBILITY OF SUCH DAMAGE.
 
 type OpusT_prevent_empty_translation_unit_warning = int32
 
-func Opus_silk_bwexpander_32(tls *libc.TLS, ar uintptr, d int32, chirp_Q16 OpusT_opus_int32) {
-	var chirp_minus_one_Q16 OpusT_opus_int32
-	var i int32
-	_, _ = chirp_minus_one_Q16, i
-	chirp_minus_one_Q16 = chirp_Q16 - int32(65536)
-	i = 0
-	for {
-		if !(i < d-int32(1)) {
-			break
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(i)*4)) = int32(int64(chirp_Q16) * int64(*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(i)*4))) >> libc.Int32FromInt32(16))
-		chirp_Q16 = chirp_Q16 + (chirp_Q16*chirp_minus_one_Q16>>(libc.Int32FromInt32(16)-libc.Int32FromInt32(1))+int32(1))>>int32(1)
-		i = i + 1
+func Opus_silk_bwexpander_32(tls *libc.TLS, ar *OpusT_opus_int32, d int32, chirp_Q16 OpusT_opus_int32) {
+	coefficients := unsafe.Slice(ar, int(d))
+	chirpMinusOne := chirp_Q16 - 65536
+	for i := int32(0); i < d-1; i++ {
+		coefficients[i] = int32(int64(chirp_Q16) * int64(coefficients[i]) >> 16)
+		chirp_Q16 += ((chirp_Q16 * chirpMinusOne >> 15) + 1) >> 1
 	}
-	*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(d-int32(1))*4)) = int32(int64(chirp_Q16) * int64(*(*OpusT_opus_int32)(unsafe.Pointer(ar + uintptr(d-int32(1))*4))) >> libc.Int32FromInt32(16))
+	coefficients[d-1] = int32(int64(chirp_Q16) * int64(coefficients[d-1]) >> 16)
 }
 
 /***********************************************************************
@@ -9083,8 +9068,8 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 	libc.Xmemcpy(tls, psDec+2344, bp, libc.Uint64FromInt32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order)*libc.Uint64FromInt64(2))
 	/* After a packet loss do BWE of LPC coefs */
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 {
-		Opus_silk_bwexpander(tls, psDecCtrl+32, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, int32(BWE_AFTER_LOSS_Q16))
-		Opus_silk_bwexpander(tls, psDecCtrl+32+1*32, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, int32(BWE_AFTER_LOSS_Q16))
+		Opus_silk_bwexpander(tls, &(*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)).FPredCoef_Q12[0][0], (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, int32(BWE_AFTER_LOSS_Q16))
+		Opus_silk_bwexpander(tls, &(*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)).FPredCoef_Q12[1][0], (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, int32(BWE_AFTER_LOSS_Q16))
 	}
 	if int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType) == int32(TYPE_VOICED) {
 		/*********************/
@@ -20416,7 +20401,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 		rand_Gain_Q15 = int32(PLC_RAND_ATTENUATE_UV_Q15[v55])
 	}
 	/* LPC concealment. Apply BWE to previous LPC */
-	Opus_silk_bwexpander(tls, psPLC+14, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, int32(float64(libc.Float64FromFloat64(BWE_COEF)*float64(libc.Int64FromInt32(1)<<libc.Int32FromInt32(16)))+libc.Float64FromFloat64(0.5)))
+	Opus_silk_bwexpander(tls, &(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FprevLPC_Q12[0], (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, int32(float64(libc.Float64FromFloat64(BWE_COEF)*float64(libc.Int64FromInt32(1)<<libc.Int32FromInt32(16)))+libc.Float64FromFloat64(0.5)))
 	/* Preload LPC coefficients to array on stack. Gives small performance gain */
 	libc.Xmemcpy(tls, bp+16, psPLC+14, libc.Uint64FromInt32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order)*libc.Uint64FromInt64(2))
 	/* First Lost frame */

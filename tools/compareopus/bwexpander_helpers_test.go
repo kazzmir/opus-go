@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kazzmir/opus-go/opuscc"
+	"github.com/kazzmir/opus-go/opusccenc"
 )
 
 func TestBWExpandersAgainstC(t *testing.T) {
@@ -21,10 +22,16 @@ func TestBWExpandersAgainstC(t *testing.T) {
 					g32[i] = int32(rng.Uint32())
 				}
 				c16, c32 := slices.Clone(g16), slices.Clone(g32)
+				e16, e32 := slices.Clone(g16), slices.Clone(g32)
+				opusccenc.Opus_silk_bwexpander(nil, &e16[0], int32(n), chirp)
+				opusccenc.Opus_silk_bwexpander_32(nil, &e32[0], int32(n), chirp)
 				opuscc.Opus_silk_bwexpander(nil, &g16[0], int32(n), chirp)
 				opuscc.Opus_silk_bwexpander_32(nil, &g32[0], int32(n), chirp)
 				nativeBWExpander(c16, chirp)
 				nativeBWExpander32(c32, chirp)
+				if !slices.Equal(e16, c16) || !slices.Equal(e32, c32) {
+					t.Fatalf("n=%d chirp=%d trial=%d: encoder16=%v C16=%v encoder32=%v C32=%v", n, chirp, trial, e16, c16, e32, c32)
+				}
 				if !slices.Equal(g16, c16) || !slices.Equal(g32, c32) {
 					t.Fatalf("n=%d chirp=%d trial=%d: Go16=%v C16=%v Go32=%v C32=%v", n, chirp, trial, g16, c16, g32, c32)
 				}
