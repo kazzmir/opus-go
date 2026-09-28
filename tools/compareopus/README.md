@@ -126,6 +126,13 @@ orders, tightly clustered frequencies, and in-place conversion. LPC analysis
 filter comparisons include overflow-heavy inputs and overlapping buffers. Pulse
 sign tests cover all signal/offset models, sum masking, padded shell blocks,
 skipped pulses, exhausted packets, and every numeric entropy-state field.
+Decoder reset/init comparisons verify the nonzero defaults and cleared state,
+excluding native CPU dispatch (Go uses scalar arch 0). HQ upsampling wrapper
+tests check that only IIR state changes. Full pulse decoding covers the ten-LSB
+escape limit and shell/sign reconstruction. PLC energy comparisons include the
+actual static helper from `PLC.c`; a `compareopus`-only Go bridge exposes its
+internal counterpart. These tests check subframe selection, signed narrowing,
+saturation, energies, and shifts.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
