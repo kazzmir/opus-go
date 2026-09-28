@@ -179,7 +179,7 @@ func Opus_ec_dec_uint(tls *libc.TLS, _this uintptr, _ft OpusT_opus_uint32) (r Op
 		ft = _ft>>ftb + uint32(1)
 		s = Opus_ec_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), ft)
 		Opus_ec_dec_update(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), s, s+uint32(1), ft)
-		t = s<<ftb | Opus_ec_dec_bits(tls, _this, uint32(ftb))
+		t = s<<ftb | Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), uint32(ftb))
 		if t <= _ft {
 			return t
 		}
@@ -194,26 +194,22 @@ func Opus_ec_dec_uint(tls *libc.TLS, _this uintptr, _ft OpusT_opus_uint32) (r Op
 	return r
 }
 
-func Opus_ec_dec_bits(tls *libc.TLS, _this uintptr, _bits uint32) (r OpusT_opus_uint32) {
-	var available int32
-	var ret OpusT_opus_uint32
-	var window OpusT_ec_window
-	_, _, _ = available, ret, window
-	window = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fend_window
-	available = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnend_bits
-	if uint32(available) < _bits {
-		for cond := true; cond; cond = available <= int32(4)*int32(CHAR_BIT)-int32(EC_SYM_BITS) {
-			window = window | uint32(ec_read_byte_from_end((*OpusT_ec_dec)(unsafe.Pointer(_this))))<<available
-			available = available + int32(EC_SYM_BITS)
+func Opus_ec_dec_bits(tls *libc.TLS, dec *OpusT_ec_dec, bits uint32) OpusT_opus_uint32 {
+	window, available := dec.Fend_window, dec.Fnend_bits
+	if uint32(available) < bits {
+		for {
+			window |= uint32(ec_read_byte_from_end(dec)) << available
+			available += EC_SYM_BITS
+			if available > 32-EC_SYM_BITS {
+				break
+			}
 		}
 	}
-	ret = window & (uint32(1)<<_bits - uint32(1))
-	window = window >> _bits
-	available = int32(uint32(available) - _bits)
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fend_window = window
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnend_bits = available
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnbits_total = int32(uint32((*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnbits_total) + _bits)
-	return ret
+	result := window & ((uint32(1) << bits) - 1)
+	dec.Fend_window = window >> bits
+	dec.Fnend_bits = int32(uint32(available) - bits)
+	dec.Fnbits_total = int32(uint32(dec.Fnbits_total) + bits)
+	return result
 }
 
 var log2_x_norm_coeff7 = [8]float32{

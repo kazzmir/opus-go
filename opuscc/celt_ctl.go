@@ -2571,7 +2571,7 @@ func Opus_unquant_fine_energy(tls *libc.TLS, m uintptr, start int32, end int32, 
 		prev = int16(v3)
 		c = 0
 		for {
-			q2 = int32(Opus_ec_dec_bits(tls, dec, uint32(uint16(extra))))
+			q2 = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(uint16(extra))))
 			offset = float32(float32((float32(q2)+float32(0.5))*float32(int32(1)<<(int32(14)-int32(extra))))*(float32(1)/float32(16384))) - float32(0.5)
 			offset = offset * OpusT_celt_glog(float32(int32(1)<<(int32(14)-int32(prev)))*(float32(1)/float32(16384)))
 			*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) += offset
@@ -2606,7 +2606,7 @@ func Opus_unquant_energy_finalise(tls *libc.TLS, m uintptr, start int32, end int
 			}
 			c = 0
 			for {
-				q2 = int32(Opus_ec_dec_bits(tls, dec, uint32(1)))
+				q2 = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)))
 				offset = OpusT_celt_glog(float32((float32(q2)-float32(0.5))*float32(int32(1)<<(int32(14)-*(*int32)(unsafe.Pointer(fine_quant + uintptr(i)*4))-int32(1)))) * (float32(1) / float32(16384)))
 				if oldEBands != uintptr(uint32(0)) {
 					*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) += offset

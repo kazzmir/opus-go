@@ -1580,8 +1580,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	if start == 0 && tell+int32(16) <= total_bits {
 		if Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)) != 0 {
 			octave = int32(Opus_ec_dec_uint(tls, dec, uint32(6)))
-			postfilter_pitch = int32(uint32(int32(16)<<octave) + Opus_ec_dec_bits(tls, dec, uint32(int32(4)+octave)) - uint32(1))
-			qg = int32(Opus_ec_dec_bits(tls, dec, uint32(3)))
+			postfilter_pitch = int32(uint32(int32(16)<<octave) + Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(int32(4)+octave)) - uint32(1))
+			qg = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3)))
 			v1 = dec
 			v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
 			if v28+int32(2) <= total_bits {
@@ -2323,7 +2323,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	Opus_quant_all_bands(tls, 0, mode, start, end, X, v1, collapse_masks, uintptr(uint32(0)), pulses, shortBlocks, spread_decision, dual_stereo, intensity, tf_res, len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Frng), 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdisable_inv)
 	if anti_collapse_rsv > 0 {
-		anti_collapse_on = int32(Opus_ec_dec_bits(tls, dec, uint32(1)))
+		anti_collapse_on = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)))
 	}
 	v1 = dec
 	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
