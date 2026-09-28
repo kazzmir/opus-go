@@ -2247,24 +2247,15 @@ func compute_channel_weights(tls *libc.TLS, Ex OpusT_celt_ener, Ey OpusT_celt_en
 	w[1] = Ey + minE/float32(3)
 }
 
-func intensity_stereo(tls *libc.TLS, m uintptr, X uintptr, Y uintptr, bandE uintptr, bandID int32, N int32) {
-	var a1, a2, left, norm, right OpusT_opus_val16
-	var i, j int32
-	_, _, _, _, _, _, _ = a1, a2, i, j, left, norm, right
-	i = bandID
-	left = *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i)*4))
-	right = *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i+(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
-	norm = float32(1e-15) + float32(libc.Xsqrt(tls, float64(float32(1e-15)+OpusT_opus_val32(left*left)+OpusT_opus_val32(right*right))))
-	a1 = left / norm
-	a2 = right / norm
-	j = 0
-	for {
-		if !(j < N) {
-			break
-		}
-		*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)) = OpusT_opus_val16(a1**(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4))) + OpusT_opus_val16(a2**(*OpusT_celt_norm)(unsafe.Pointer(Y + uintptr(j)*4)))
-		/* Side is not encoded, no need to calculate */
-		j = j + 1
+func intensity_stereo(tls *libc.TLS, m *OpusT_OpusCustomMode, X *OpusT_celt_norm, Y *OpusT_celt_norm, bandE *OpusT_celt_ener, bandID int32, N int32) {
+	energies := unsafe.Slice(bandE, int(m.FnbEBands)+int(bandID)+1)
+	left, right := energies[bandID], energies[int(bandID)+int(m.FnbEBands)]
+	norm := float32(1e-15) + float32(libc.Xsqrt(tls, float64(float32(1e-15)+OpusT_opus_val32(left*left)+OpusT_opus_val32(right*right))))
+	a1, a2 := left/norm, right/norm
+	x, y := unsafe.Slice(X, int(N)), unsafe.Slice(Y, int(N))
+	for j := range x {
+		x[j] = OpusT_opus_val16(a1*x[j]) + OpusT_opus_val16(a2*y[j])
+		// Side is not encoded, no need to calculate.
 	}
 }
 
@@ -3022,7 +3013,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 		itheta = int32(v3)
 		if encode != 0 && stereo != 0 {
 			if itheta == 0 {
-				intensity_stereo(tls, m, X, Y, bandE, i, N)
+				intensity_stereo(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), (*OpusT_celt_ener)(unsafe.Pointer(bandE)), i, N)
 			} else {
 				stereo_split(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), N)
 			}
@@ -3043,7 +3034,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 						j = j + 1
 					}
 				}
-				intensity_stereo(tls, m, X, Y, bandE, i, N)
+				intensity_stereo(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), (*OpusT_celt_ener)(unsafe.Pointer(bandE)), i, N)
 			}
 			if *(*int32)(unsafe.Pointer(b)) > int32(2)<<int32(BITRES) && (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits > int32(2)<<int32(BITRES) {
 				if encode != 0 {
