@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math/bits"
 	"reflect"
 	"unsafe"
 
@@ -2468,77 +2469,42 @@ func Opus_quant_energy_finalise(tls *libc.TLS, m uintptr, start int32, end int32
 	}
 }
 
-func Opus_unquant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, oldEBands uintptr, intra int32, dec uintptr, C int32, LM int32) {
-	var beta, coef OpusT_opus_val16
-	var budget, tell OpusT_opus_int32
-	var c, i, pi, qi, v2 int32
-	var prev [2]OpusT_opus_val64
-	var prob_model, v4 uintptr
-	var q, tmp OpusT_opus_val32
-	var v8 float32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = beta, budget, c, coef, i, pi, prev, prob_model, q, qi, tell, tmp, v2, v4, v8
-	prob_model = uintptr(unsafe.Pointer(&e_prob_model)) + uintptr(LM)*84 + uintptr(intra)*42
-	prev = [2]OpusT_opus_val64{}
+func Opus_unquant_coarse_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, oldEBands *OpusT_celt_glog, intra int32, dec *OpusT_ec_dec, C, LM int32) {
+	energy := unsafe.Slice(oldEBands, C*m.FnbEBands)
+	model := &e_prob_model[LM][intra]
+	var prev [2]float32
+	var coef, beta float32
 	if intra != 0 {
-		coef = float32(0)
 		beta = beta_intra
 	} else {
-		beta = beta_coef[LM]
-		coef = pred_coef[LM]
+		coef, beta = pred_coef[LM], beta_coef[LM]
 	}
-	budget = int32((*OpusT_ec_dec)(unsafe.Pointer(dec)).Fstorage * uint32(8))
-	/* Decode at a fixed coarse resolution */
-	i = start
-	for {
-		if !(i < end) {
-			break
+	budget := int32(dec.Fstorage * 8)
+	for i := start; i < end; i++ {
+		for c := int32(0); c < C; c++ {
+			tell := dec.Fnbits_total - int32(bits.Len32(dec.Frng))
+			var qi int32
+			switch {
+			case budget-tell >= 15:
+				pi := 2 * min(i, 20)
+				qi = Opus_ec_laplace_decode(tls, dec, uint32(model[pi])<<7, int32(model[pi+1])<<6)
+			case budget-tell >= 2:
+				qi = ec_dec_icdf(tls, dec, &small_energy_icdf[0], 2)
+				qi = qi>>1 ^ -(qi & 1)
+			case budget-tell >= 1:
+				qi = -Opus_ec_dec_bit_logp(tls, dec, 1)
+			default:
+				qi = -1
+			}
+			q := float32(qi)
+			index := i + c*m.FnbEBands
+			if -float32(9) > energy[index] {
+				energy[index] = -9
+			}
+			// Explicit rounding preserves C's separate float32 products and sums.
+			energy[index] = float32(float32(coef*energy[index])+prev[c]) + q
+			prev[c] = float32(prev[c]+q) - float32(beta*q)
 		}
-		c = 0
-		for {
-			/* It would be better to express this invariant as a
-			   test on C at function entry, but that isn't enough
-			   to make the static analyzer happy. */
-			_ = c < int32(2)
-			v4 = dec
-			v2 = (*OpusT_ec_ctx)(unsafe.Pointer(v4)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v4)).Frng))
-			tell = v2
-			if budget-tell >= int32(15) {
-				if i < int32(20) {
-					v2 = i
-				} else {
-					v2 = int32(20)
-				}
-				pi = int32(2) * v2
-				qi = Opus_ec_laplace_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi))))<<int32(7)), int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi+int32(1)))))<<int32(6))
-			} else {
-				if budget-tell >= int32(2) {
-					qi = Opus_ec_dec_icdf(tls, dec, uintptr(unsafe.Pointer(&small_energy_icdf)), uint32(2))
-					qi = qi>>int32(1) ^ -(qi & int32(1))
-				} else {
-					if budget-tell >= int32(1) {
-						qi = -Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1))
-					} else {
-						qi = -int32(1)
-					}
-				}
-			}
-			q = float32(qi)
-			if -float32(9) > *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) {
-				v8 = -float32(9)
-			} else {
-				v8 = *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
-			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = v8
-			tmp = OpusT_opus_val16(coef**(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))) + prev[c] + q
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = tmp
-			prev[c] = prev[c] + q - OpusT_opus_val16(beta*q)
-			c = c + 1
-			v2 = c
-			if !(v2 < C) {
-				break
-			}
-		}
-		i = i + 1
 	}
 }
 

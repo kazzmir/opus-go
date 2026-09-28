@@ -1701,7 +1701,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		}
 	}
 	/* Get band energies */
-	Opus_unquant_coarse_energy(tls, mode, start, end, oldBandE, intra_ener, dec, C, LM)
+	Opus_unquant_coarse_energy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*OpusT_celt_glog)(unsafe.Pointer(oldBandE)), intra_ener, (*OpusT_ec_dec)(unsafe.Pointer(dec)), C, LM)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
