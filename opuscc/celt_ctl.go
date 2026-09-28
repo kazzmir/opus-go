@@ -2537,42 +2537,28 @@ func Opus_unquant_fine_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end
 	}
 }
 
-func Opus_unquant_energy_finalise(tls *libc.TLS, m uintptr, start int32, end int32, oldEBands uintptr, fine_quant uintptr, fine_priority uintptr, bits_left int32, dec uintptr, C int32) {
-	var c, i, prio, q2, v3 int32
-	var offset OpusT_celt_glog
-	_, _, _, _, _, _ = c, i, offset, prio, q2, v3
-	/* Use up the remaining bits */
-	prio = 0
-	for {
-		if !(prio < int32(2)) {
-			break
-		}
-		i = start
-		for {
-			if !(i < end && bits_left >= C) {
-				break
+func Opus_unquant_energy_finalise(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, oldEBands *OpusT_celt_glog, fine_quant, fine_priority *int32, bits_left int32, dec *OpusT_ec_dec, C int32) {
+	quant := unsafe.Slice(fine_quant, m.FnbEBands)
+	priority := unsafe.Slice(fine_priority, m.FnbEBands)
+	var energy []OpusT_celt_glog
+	if oldEBands != nil {
+		energy = unsafe.Slice(oldEBands, C*m.FnbEBands)
+	}
+	for prio := int32(0); prio < 2; prio++ {
+		for i := start; i < end && bits_left >= C; i++ {
+			if quant[i] >= MAX_FINE_BITS || priority[i] != prio {
+				continue
 			}
-			if *(*int32)(unsafe.Pointer(fine_quant + uintptr(i)*4)) >= int32(MAX_FINE_BITS) || *(*int32)(unsafe.Pointer(fine_priority + uintptr(i)*4)) != prio {
-				goto _2
-			}
-			c = 0
-			for {
-				q2 = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)))
-				offset = OpusT_celt_glog(float32((float32(q2)-float32(0.5))*float32(int32(1)<<(int32(14)-*(*int32)(unsafe.Pointer(fine_quant + uintptr(i)*4))-int32(1)))) * (float32(1) / float32(16384)))
-				if oldEBands != uintptr(uint32(0)) {
-					*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) += offset
+			for c := int32(0); c < C; c++ {
+				q2 := int32(Opus_ec_dec_bits(tls, dec, 1))
+				offset := float32((float32(q2)-0.5)*float32(int32(1)<<(14-quant[i]-1))) * (float32(1) / 16384)
+				// A nil output still consumes the same refinement bits.
+				if energy != nil {
+					energy[i+c*m.FnbEBands] += offset
 				}
-				bits_left = bits_left - 1
-				c = c + 1
-				v3 = c
-				if !(v3 < C) {
-					break
-				}
+				bits_left--
 			}
-		_2:
-			i = i + 1
 		}
-		prio = prio + 1
 	}
 }
 
