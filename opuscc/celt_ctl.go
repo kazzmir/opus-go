@@ -174,62 +174,34 @@ var log2_y_norm_coeff9 = [8]float32{
 	7: float32(0.9068905711174011),
 }
 
-func find_best_pitch(tls *libc.TLS, xcorr uintptr, y uintptr, len1 int32, max_pitch int32, best_pitch uintptr) {
-	var Syy, xcorr16, v3 OpusT_opus_val32
+func find_best_pitch(tls *libc.TLS, xcorr *OpusT_opus_val32, y *OpusT_opus_val16, len1 int32, max_pitch int32, best_pitch *[2]int32) {
+	correlations := unsafe.Slice(xcorr, int(max_pitch))
+	// C updates the energy even after the final candidate, reading one extra sample.
+	samples := unsafe.Slice(y, int(len1)+int(max_pitch))
+	Syy := float32(1)
+	best_num := [2]OpusT_opus_val16{-1, -1}
 	var best_den [2]OpusT_opus_val32
-	var best_num [2]OpusT_opus_val16
-	var i, j int32
-	var num OpusT_opus_val16
-	_, _, _, _, _, _, _, _ = Syy, best_den, best_num, i, j, num, xcorr16, v3
-	Syy = float32(1)
-	best_num[0] = float32(-int32(1))
-	best_num[int32(1)] = float32(-int32(1))
-	best_den[0] = float32(0)
-	best_den[int32(1)] = float32(0)
-	*(*int32)(unsafe.Pointer(best_pitch)) = 0
-	*(*int32)(unsafe.Pointer(best_pitch + 1*4)) = int32(1)
-	j = 0
-	for {
-		if !(j < len1) {
-			break
-		}
-		Syy = Syy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y + uintptr(j)*4))**(*OpusT_opus_val16)(unsafe.Pointer(y + uintptr(j)*4)))
-		j = j + 1
+	*best_pitch = [2]int32{0, 1}
+	for j := int32(0); j < len1; j++ {
+		Syy = Syy + OpusT_opus_val32(samples[j]*samples[j])
 	}
-	i = 0
-	for {
-		if !(i < max_pitch) {
-			break
-		}
-		if *(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr(i)*4)) > float32(0) {
-			xcorr16 = *(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr(i)*4))
-			/* Considering the range of xcorr16, this should avoid both underflows
-			   and overflows (inf) when squaring xcorr16 */
-			xcorr16 = xcorr16 * float32(1e-12)
-			num = OpusT_opus_val32(xcorr16 * xcorr16)
-			if OpusT_opus_val16(num*best_den[int32(1)]) > OpusT_opus_val16(best_num[int32(1)]*Syy) {
+	for i, correlation := range correlations {
+		if correlation > 0 {
+			xcorr16 := correlation * float32(1e-12)
+			num := OpusT_opus_val32(xcorr16 * xcorr16)
+			if OpusT_opus_val16(num*best_den[1]) > OpusT_opus_val16(best_num[1]*Syy) {
 				if OpusT_opus_val16(num*best_den[0]) > OpusT_opus_val16(best_num[0]*Syy) {
-					best_num[int32(1)] = best_num[0]
-					best_den[int32(1)] = best_den[0]
-					*(*int32)(unsafe.Pointer(best_pitch + 1*4)) = *(*int32)(unsafe.Pointer(best_pitch))
-					best_num[0] = num
-					best_den[0] = Syy
-					*(*int32)(unsafe.Pointer(best_pitch)) = i
+					best_num[1], best_den[1], best_pitch[1] = best_num[0], best_den[0], best_pitch[0]
+					best_num[0], best_den[0], best_pitch[0] = num, Syy, int32(i)
 				} else {
-					best_num[int32(1)] = num
-					best_den[int32(1)] = Syy
-					*(*int32)(unsafe.Pointer(best_pitch + 1*4)) = i
+					best_num[1], best_den[1], best_pitch[1] = num, Syy, int32(i)
 				}
 			}
 		}
-		Syy = Syy + (OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y + uintptr(i+len1)*4))**(*OpusT_opus_val16)(unsafe.Pointer(y + uintptr(i+len1)*4))) - OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(y + uintptr(i)*4))))
-		if float32(int32(1)) > Syy {
-			v3 = float32(int32(1))
-		} else {
-			v3 = Syy
+		Syy = Syy + (OpusT_opus_val32(samples[i+int(len1)]*samples[i+int(len1)]) - OpusT_opus_val32(samples[i]*samples[i]))
+		if 1 > Syy {
+			Syy = 1
 		}
-		Syy = v3
-		i = i + 1
 	}
 }
 
@@ -670,7 +642,7 @@ func Opus_pitch_search(tls *libc.TLS, x_lp uintptr, y1 uintptr, len1 int32, max_
 	}
 	/* Coarse search with 4x decimation */
 	Opus_celt_pitch_xcorr_c(tls, x_lp4, y_lp4, xcorr, len1>>int32(2), max_pitch>>int32(2), arch)
-	find_best_pitch(tls, xcorr, y_lp4, len1>>int32(2), max_pitch>>int32(2), uintptr(unsafe.Pointer(&best_pitch[0])))
+	find_best_pitch(tls, (*OpusT_opus_val32)(unsafe.Pointer(xcorr)), (*OpusT_opus_val16)(unsafe.Pointer(y_lp4)), len1>>int32(2), max_pitch>>int32(2), &best_pitch)
 	/* Finer search with 2x decimation */
 	i1 = 0
 	for {
@@ -702,7 +674,7 @@ func Opus_pitch_search(tls *libc.TLS, x_lp uintptr, y1 uintptr, len1 int32, max_
 	_79:
 		i1 = i1 + 1
 	}
-	find_best_pitch(tls, xcorr, y1, len1>>int32(1), max_pitch>>int32(1), uintptr(unsafe.Pointer(&best_pitch[0])))
+	find_best_pitch(tls, (*OpusT_opus_val32)(unsafe.Pointer(xcorr)), (*OpusT_opus_val16)(unsafe.Pointer(y1)), len1>>int32(1), max_pitch>>int32(1), &best_pitch)
 	/* Refine by pseudo-interpolation */
 	if best_pitch[0] > 0 && best_pitch[0] < max_pitch>>int32(1)-int32(1) {
 		a = *(*OpusT_opus_val32)(unsafe.Pointer(xcorr + uintptr(best_pitch[0]-1)*4))
