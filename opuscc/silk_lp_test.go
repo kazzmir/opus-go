@@ -2,7 +2,6 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -18,7 +17,7 @@ func TestLPVariableCutoffLocalTaps(t *testing.T) {
 	}
 	frame := []OpusT_opus_int16{1200, -2300, 3400, -4500, 5600, -6700, 7800, -8900}
 
-	Opus_silk_LP_variable_cutoff(tls, uintptr(unsafe.Pointer(&state)), uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
+	Opus_silk_LP_variable_cutoff(tls, &state, &frame[0], int32(len(frame)))
 
 	wantFrame := []OpusT_opus_int16{454, -96, -78, 45, 7, -12, 3, 2}
 	for i, value := range frame {

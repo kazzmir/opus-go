@@ -104,7 +104,11 @@ Opt-in native tests cover exact silence encodings, mono/stereo, partial frames,
 exact frame boundaries, and limited-input delay flushing. They also compare
 converted helpers directly against the local C library: packet headers, entropy
 lookups, interpolation (both Go codecs), sorting, bandwidth expansion, biquad
-filters, downsampling, limiting, and vector renormalization.
+filters, downsampling, limiting, vector renormalization, float-to-PCM conversion,
+two-band analysis filtering, sum-of-squares energy, and variable low-pass cutoff.
+The cutoff test compares PCM and state at every transition position in both
+directions; its static tap helper also has exhaustive Q16 interpolation tests
+in `opuscc`.
 
 Integer helper comparisons are exact. Renormalization must exactly match a C
 implementation of the scalar formula from `vq.c`/`pitch.h`. The linked native
