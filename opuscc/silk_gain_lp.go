@@ -337,27 +337,26 @@ const silk_int16_MAX6 = 0x7FFF
 // C documentation
 //
 //	/* Predictive dequantizer for NLSF residuals */
-func silk_NLSF_residual_dequant(tls *libc.TLS, x_Q10 uintptr, indices uintptr, pred_coef_Q8 uintptr, quant_step_size_Q16 int32, order OpusT_opus_int16) {
-	var i, out_Q10, pred_Q10 int32
-	_, _, _ = i, out_Q10, pred_Q10
-	out_Q10 = 0
-	i = int32(order) - int32(1)
-	for {
-		if !(i >= 0) {
-			break
-		}
-		pred_Q10 = int32(int16(out_Q10)) * int32(int16(*(*OpusT_opus_uint8)(unsafe.Pointer(pred_coef_Q8 + uintptr(i))))) >> int32(8)
-		out_Q10 = int32(*(*OpusT_opus_int8)(unsafe.Pointer(indices + uintptr(i)))) << int32(10)
+func silk_NLSF_residual_dequant(tls *libc.TLS, x_Q10 *OpusT_opus_int16, indices *OpusT_opus_int8, pred_coef_Q8 *OpusT_opus_uint8, quant_step_size_Q16 int32, order OpusT_opus_int16) {
+	if order <= 0 {
+		return
+	}
+	x := unsafe.Slice(x_Q10, int(order))
+	idx := unsafe.Slice(indices, int(order))
+	pred := unsafe.Slice(pred_coef_Q8, int(order))
+	var out_Q10 int32
+	for i := int(order) - 1; i >= 0; i-- {
+		// Match silk_SMULBB's signed 16-bit narrowing before prediction.
+		pred_Q10 := (int32(int16(out_Q10)) * int32(pred[i])) >> 8
+		out_Q10 = int32(idx[i]) << 10
 		if out_Q10 > 0 {
-			out_Q10 = out_Q10 - int32(102)
-		} else {
-			if out_Q10 < 0 {
-				out_Q10 = out_Q10 + int32(102)
-			}
+			out_Q10 -= 102
+		} else if out_Q10 < 0 {
+			out_Q10 += 102
 		}
-		out_Q10 = int32(int64(pred_Q10) + int64(out_Q10)*int64(int16(quant_step_size_Q16))>>int32(16))
-		*(*OpusT_opus_int16)(unsafe.Pointer(x_Q10 + uintptr(i)*2)) = int16(out_Q10)
-		i = i - 1
+		// silk_SMLAWB uses the signed low 16 bits of the quantization step.
+		out_Q10 = int32(int64(pred_Q10) + ((int64(out_Q10) * int64(int16(quant_step_size_Q16))) >> 16))
+		x[i] = int16(out_Q10)
 	}
 }
 

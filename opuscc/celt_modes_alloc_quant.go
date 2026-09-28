@@ -2276,20 +2276,14 @@ func Opus_anti_collapse(tls *libc.TLS, m uintptr, X_ uintptr, collapse_masks uin
 //	   corresponds to some quick-and-dirty perceptual experiments I ran to
 //	   measure inter-aural masking (there doesn't seem to be any published data
 //	   on the topic). */
-func compute_channel_weights(tls *libc.TLS, Ex OpusT_celt_ener, Ey OpusT_celt_ener, w uintptr) {
-	var minE, v1 OpusT_celt_ener
-	_, _ = minE, v1
+func compute_channel_weights(tls *libc.TLS, Ex OpusT_celt_ener, Ey OpusT_celt_ener, w *[2]OpusT_opus_val16) {
+	minE := Ey
 	if Ex < Ey {
-		v1 = Ex
-	} else {
-		v1 = Ey
+		minE = Ex
 	}
-	minE = v1
 	/* Adjustment to make the weights a bit more conservative. */
-	Ex = Ex + minE/float32(3)
-	Ey = Ey + minE/float32(3)
-	*(*OpusT_opus_val16)(unsafe.Pointer(w)) = Ex
-	*(*OpusT_opus_val16)(unsafe.Pointer(w + 1*4)) = Ey
+	w[0] = Ex + minE/float32(3)
+	w[1] = Ey + minE/float32(3)
 }
 
 func intensity_stereo(tls *libc.TLS, m uintptr, X uintptr, Y uintptr, bandE uintptr, bandID int32, N int32) {
@@ -2816,28 +2810,22 @@ func interleave_hadamard(tls *libc.TLS, X uintptr, N0 int32, stride int32, hadam
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
-func Opus_haar1(tls *libc.TLS, X uintptr, N0 int32, stride int32) {
-	var i, j int32
-	var tmp1, tmp2 OpusT_opus_val32
-	_, _, _, _ = i, j, tmp1, tmp2
-	N0 = N0 >> int32(1)
-	i = 0
-	for {
-		if !(i < stride) {
-			break
+func Opus_haar1(tls *libc.TLS, X *OpusT_celt_norm, N0 int32, stride int32) {
+	pairs := int(N0 >> 1)
+	if pairs <= 0 || stride <= 0 {
+		return
+	}
+	step := int(stride)
+	// C processes complete pairs only; an odd trailing row is untouched.
+	x := unsafe.Slice(X, 2*pairs*step)
+	for i := 0; i < step; i++ {
+		for j := 0; j < pairs; j++ {
+			a, b := step*2*j+i, step*(2*j+1)+i
+			tmp1 := float32(float32(0.70710678) * x[a])
+			tmp2 := float32(float32(0.70710678) * x[b])
+			x[a] = tmp1 + tmp2
+			x[b] = tmp1 - tmp2
 		}
-		j = 0
-		for {
-			if !(j < N0) {
-				break
-			}
-			tmp1 = float32(float32(0.70710678) * *(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(stride*int32(2)*j+i)*4)))
-			tmp2 = float32(float32(0.70710678) * *(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(stride*(int32(2)*j+int32(1))+i)*4)))
-			*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(stride*int32(2)*j+i)*4)) = tmp1 + tmp2
-			*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(stride*(int32(2)*j+int32(1))+i)*4)) = tmp1 - tmp2
-			j = j + 1
-		}
-		i = i + 1
 	}
 }
 
@@ -3488,10 +3476,10 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 			break
 		}
 		if encode != 0 {
-			Opus_haar1(tls, X, N>>k, int32(1)<<k)
+			Opus_haar1(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N>>k, int32(1)<<k)
 		}
 		if lowband != 0 {
-			Opus_haar1(tls, lowband, N>>k, int32(1)<<k)
+			Opus_haar1(tls, (*OpusT_celt_norm)(unsafe.Pointer(lowband)), N>>k, int32(1)<<k)
 		}
 		fill = int32(bit_interleave_table[fill&int32(0xF)]) | int32(bit_interleave_table[fill>>int32(4)])<<int32(2)
 		k = k + 1
@@ -3501,10 +3489,10 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 	/* Increasing the time resolution */
 	for N_B&int32(1) == 0 && tf_change < 0 {
 		if encode != 0 {
-			Opus_haar1(tls, X, N_B, B)
+			Opus_haar1(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N_B, B)
 		}
 		if lowband != 0 {
-			Opus_haar1(tls, lowband, N_B, B)
+			Opus_haar1(tls, (*OpusT_celt_norm)(unsafe.Pointer(lowband)), N_B, B)
 		}
 		fill = fill | fill<<B
 		B = B << int32(1)
@@ -3541,7 +3529,7 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 			B = B >> int32(1)
 			N_B = N_B << int32(1)
 			cm = cm | cm>>B
-			Opus_haar1(tls, X, N_B, B)
+			Opus_haar1(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N_B, B)
 			k = k + 1
 		}
 		k = 0
@@ -3550,7 +3538,7 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 				break
 			}
 			cm = uint32(bit_deinterleave_table[cm])
-			Opus_haar1(tls, X, N0>>k, int32(1)<<k)
+			Opus_haar1(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N0>>k, int32(1)<<k)
 			k = k + 1
 		}
 		B = B << recombine
@@ -3788,15 +3776,15 @@ func special_hybrid_folding(tls *libc.TLS, m uintptr, norm uintptr, norm2 uintpt
 }
 
 func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, end int32, X_ uintptr, Y_ uintptr, collapse_masks uintptr, bandE uintptr, pulses uintptr, shortBlocks int32, spread int32, dual_stereo int32, intensity int32, tf_res uintptr, total_bits OpusT_opus_int32, balance OpusT_opus_int32, ec uintptr, LM int32, codedBands int32, seed uintptr, complexity int32, arch int32, disable_inv int32) {
-	/* ctx and w keep the transpiled uintptr calling convention into
-	   quant_band/quant_band_stereo/compute_channel_weights, so they are
-	   allocated on the C heap: a Go stack local whose address is laundered
+	/* ctx keeps the transpiled uintptr calling convention into
+	   quant_band/quant_band_stereo, so it is allocated on the C heap:
+	   a Go stack local whose address is laundered
 	   through uintptr would be left behind by a goroutine stack growth in
 	   the PVQ recursion. */
 	ctx := (*band_ctx)(unsafe.Pointer(libc.Xmalloc(tls, 80)))
 	defer libc.Xfree(tls, uintptr(unsafe.Pointer(ctx)))
-	w := (*[2]OpusT_opus_val16)(unsafe.Pointer(libc.Xmalloc(tls, 8)))
-	defer libc.Xfree(tls, uintptr(unsafe.Pointer(w)))
+	// Channel weights now stay Go-visible across calls and stack growth.
+	w := new([2]OpusT_opus_val16)
 	var B, C, M, N1, b, effective_lowband, fold_end, fold_i, fold_start, i, i1, j, last, lowband_offset, nend_bytes, norm_offset, nstart_bytes, resynth, resynth_alloc, save_bytes, tf_change, theta_rdo, update_lowband, v1, v183, v196, v201, v203, v207, v6 int32
 	var X, X_save, X_save2, Y, Y_save, Y_save2, _lowband_scratch, _norm, _saved_stack, bytes_buf, bytes_save, eBands, lowband_scratch, norm, norm2, norm_save2, st, v11, v13, v15, v17, v19, v2, v21, v23, v25, v4, v7, v9 uintptr
 	var cm, cm2, x_cm, y_cm, v217 uint32
@@ -4585,7 +4573,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 		} else {
 			if Y != uintptr(uint32(0)) {
 				if theta_rdo != 0 && i1 < intensity {
-					compute_channel_weights(tls, *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i1)*4)), *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i1+(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)), uintptr(unsafe.Pointer(w)))
+					compute_channel_weights(tls, *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i1)*4)), *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i1+(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)), w)
 					/* Make a copy. */
 					cm = x_cm | y_cm
 					ec_save = *(*OpusT_ec_ctx)(unsafe.Pointer(ec))

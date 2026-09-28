@@ -23,7 +23,7 @@ func Opus_silk_NLSF_decode(tls *libc.TLS, pNLSF_Q15 uintptr, NLSFIndices uintptr
 	/* Unpack entropy table indices and predictor for current CB1 index */
 	Opus_silk_NLSF_unpack(tls, uintptr(unsafe.Pointer(&ec_ix[0])), uintptr(unsafe.Pointer(&pred_Q8[0])), psNLSF_CB, int32(*(*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices))))
 	/* Predictive residual dequantizer */
-	silk_NLSF_residual_dequant(tls, uintptr(unsafe.Pointer(&res_Q10[0])), NLSFIndices+1, uintptr(unsafe.Pointer(&pred_Q8[0])), int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).FquantStepSize_Q16), (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)
+	silk_NLSF_residual_dequant(tls, &res_Q10[0], (*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices+1)), &pred_Q8[0], int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).FquantStepSize_Q16), (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)
 	/* Apply inverse square-rooted weights to first stage and add to output */
 	pCB_element = (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).FCB1_NLSF_Q8 + uintptr(int32(*(*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices)))*int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder))
 	pCB_Wght_Q9 = (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).FCB1_Wght_Q9 + uintptr(int32(*(*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices)))*int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder))*2
