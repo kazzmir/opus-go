@@ -1932,35 +1932,25 @@ var small_energy_icdf = [3]uint8{
 	1: uint8(1),
 }
 
-func loss_distortion(tls *libc.TLS, eBands uintptr, oldEBands uintptr, start int32, end int32, len1 int32, C int32) (r OpusT_opus_val32) {
-	var c, i, v1 int32
-	var d OpusT_celt_glog
-	var dist, v4 OpusT_opus_val32
-	_, _, _, _, _, _ = c, d, dist, i, v1, v4
-	dist = float32(0)
-	c = 0
-	for {
-		i = start
-		for {
-			if !(i < end) {
-				break
-			}
-			d = *(*OpusT_celt_glog)(unsafe.Pointer(eBands + uintptr(i+c*len1)*4)) - *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*len1)*4))
+func loss_distortion(tls *libc.TLS, eBands *OpusT_celt_glog, oldEBands *OpusT_celt_glog, start int32, end int32, len1 int32, C int32) OpusT_opus_val32 {
+	if start >= end {
+		return 0
+	}
+	channels := max(C, 1) // C uses a do/while loop.
+	n := int(channels-1)*int(len1) + int(end)
+	current, previous := unsafe.Slice(eBands, n), unsafe.Slice(oldEBands, n)
+	var dist OpusT_opus_val32
+	for c := int32(0); c < channels; c++ {
+		for i := start; i < end; i++ {
+			d := current[i+c*len1] - previous[i+c*len1]
 			dist = dist + OpusT_opus_val32(d*d)
-			i = i + 1
-		}
-		c = c + 1
-		v1 = c
-		if !(v1 < C) {
-			break
 		}
 	}
-	if float32(int32(200)) < dist {
-		v4 = float32(int32(200))
-	} else {
-		v4 = dist
+	// Preserve MIN32's NaN behavior and the floating-point build's no-op shifts.
+	if 200 < dist {
+		return 200
 	}
-	return v4
+	return dist
 }
 
 func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, eBands uintptr, oldEBands uintptr, budget OpusT_opus_int32, tell OpusT_opus_int32, prob_model uintptr, error1 uintptr, enc uintptr, C int32, LM int32, intra int32, max_decay OpusT_celt_glog, lfe int32) (r int32) {
@@ -2136,7 +2126,7 @@ func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, 
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	intra = libc.BoolInt32(force_intra != 0 || !(two_pass != 0) && *(*OpusT_opus_val32)(unsafe.Pointer(delayedIntra)) > OpusT_opus_val32(int32(2)*C*(end-start)) && nbAvailableBytes > (end-start)*C)
 	intra_bias = int32(OpusT_opus_val32(OpusT_opus_val32(float32(budget)**(*OpusT_opus_val32)(unsafe.Pointer(delayedIntra)))*float32(loss_rate)) / float32(C*int32(512)))
-	new_distortion = loss_distortion(tls, eBands, oldEBands, start, effEnd, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands, C)
+	new_distortion = loss_distortion(tls, (*OpusT_celt_glog)(unsafe.Pointer(eBands)), (*OpusT_celt_glog)(unsafe.Pointer(oldEBands)), start, effEnd, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands, C)
 	v1 = enc
 	v6 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
 	tell = uint32(v6)
