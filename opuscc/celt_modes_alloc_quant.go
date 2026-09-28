@@ -156,7 +156,7 @@ func exp_rotation1(tls *libc.TLS, X *OpusT_celt_norm, len1 int32, stride int32, 
 	}
 }
 
-func Opus_exp_rotation(tls *libc.TLS, X uintptr, len1 int32, dir int32, stride int32, K int32, spread int32) {
+func Opus_exp_rotation(tls *libc.TLS, X *OpusT_celt_norm, len1 int32, dir int32, stride int32, K int32, spread int32) {
 	var c, gain, s, theta OpusT_opus_val16
 	var factor, i, stride2 int32
 	var v1, v2 OpusT_opus_uint32
@@ -165,6 +165,7 @@ func Opus_exp_rotation(tls *libc.TLS, X uintptr, len1 int32, dir int32, stride i
 	if int32(2)*K >= len1 || spread == SPREAD_NONE {
 		return
 	}
+	samples := unsafe.Slice(X, int(len1))
 	factor = SPREAD_FACTOR[spread-int32(1)]
 	gain = OpusT_opus_val32(float32(1)*float32(len1)) / float32(len1+factor*K)
 	theta = float32(float32(0.5) * OpusT_opus_val16(gain*gain))
@@ -191,13 +192,13 @@ func Opus_exp_rotation(tls *libc.TLS, X uintptr, len1 int32, dir int32, stride i
 		}
 		if dir < 0 {
 			if stride2 != 0 {
-				exp_rotation1(tls, (*OpusT_celt_norm)(unsafe.Pointer(X+uintptr(i*len1)*4)), len1, stride2, s, c)
+				exp_rotation1(tls, &samples[i*len1], len1, stride2, s, c)
 			}
-			exp_rotation1(tls, (*OpusT_celt_norm)(unsafe.Pointer(X+uintptr(i*len1)*4)), len1, int32(1), c, s)
+			exp_rotation1(tls, &samples[i*len1], len1, int32(1), c, s)
 		} else {
-			exp_rotation1(tls, (*OpusT_celt_norm)(unsafe.Pointer(X+uintptr(i*len1)*4)), len1, int32(1), c, -s)
+			exp_rotation1(tls, &samples[i*len1], len1, int32(1), c, -s)
 			if stride2 != 0 {
-				exp_rotation1(tls, (*OpusT_celt_norm)(unsafe.Pointer(X+uintptr(i*len1)*4)), len1, stride2, s, -c)
+				exp_rotation1(tls, &samples[i*len1], len1, stride2, s, -c)
 			}
 		}
 		i = i + 1
@@ -640,7 +641,7 @@ func Opus_alg_quant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, B 
 	}
 	v23 = st
 	iy = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N+int32(3)))*(uint64(4)/uint64(1)))
-	Opus_exp_rotation(tls, X, N, int32(1), B, K, spread)
+	Opus_exp_rotation(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, int32(1), B, K, spread)
 	yy = Opus_op_pvq_search_c(tls, X, iy, K, N, arch)
 	collapse_mask = extract_collapse_mask(tls, (*int32)(unsafe.Pointer(iy)), N, B)
 	Opus_encode_pulses(tls, iy, N, K, enc)
@@ -648,7 +649,7 @@ func Opus_alg_quant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, B 
 		normalise_residual(tls, (*int32)(unsafe.Pointer(iy)), (*OpusT_celt_norm)(unsafe.Pointer(X)), N, yy, gain, 0)
 	}
 	if resynth != 0 {
-		Opus_exp_rotation(tls, X, N, -int32(1), B, K, spread)
+		Opus_exp_rotation(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, -int32(1), B, K, spread)
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -760,7 +761,7 @@ func Opus_alg_unquant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, 
 	iy = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N))*(uint64(4)/uint64(1)))
 	Ryy = Opus_decode_pulses(tls, iy, N, K, dec)
 	normalise_residual(tls, (*int32)(unsafe.Pointer(iy)), (*OpusT_celt_norm)(unsafe.Pointer(X)), N, Ryy, gain, yy_shift)
-	Opus_exp_rotation(tls, X, N, -int32(1), B, K, spread)
+	Opus_exp_rotation(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, -int32(1), B, K, spread)
 	collapse_mask = extract_collapse_mask(tls, (*int32)(unsafe.Pointer(iy)), N, B)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
