@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/kazzmir/opus-go/opuscc"
+	"github.com/kazzmir/opus-go/opusccenc"
 	"math/rand"
 	"testing"
 	"unsafe"
@@ -28,9 +29,11 @@ func TestSumSqrAgainstC(t *testing.T) {
 			}
 			var energy, shift int32
 			opuscc.Opus_silk_sum_sqr_shift(nil, &energy, &shift, unsafe.SliceData(input), int32(n))
+			var ee, es int32
+			opusccenc.Opus_silk_sum_sqr_shift(nil, &ee, &es, unsafe.SliceData(input), int32(n))
 			ce, cs := nativeSumSqr(input)
-			if energy != ce || shift != cs {
-				t.Fatalf("n=%d trial=%d Go=(%d,%d) C=(%d,%d)", n, trial, energy, shift, ce, cs)
+			if energy != ce || shift != cs || ee != ce || es != cs {
+				t.Fatalf("n=%d trial=%d decoder=(%d,%d) encoder=(%d,%d) C=(%d,%d)", n, trial, energy, shift, ee, es, ce, cs)
 			}
 			if energy < 0 || energy >= (1<<29) {
 				t.Fatalf("missing two headroom bits: %d", energy)

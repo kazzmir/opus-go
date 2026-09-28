@@ -110,7 +110,9 @@ VAD initialization, pitch decoding, Laroia NLSF weights, NLSF vector-quantizatio
 errors, high-quality 2× upsampling (including all six state words), CELT LPC
 coefficients, SILK gain dequantization, SILK mid/side-to-left/right conversion,
 CELT exponential rotation, and fractional entropy-bit accounting (all normalized
-16-bit mantissas at four range scales).
+16-bit mantissas at four range scales). Float-to-PCM conversion, VAD initialization,
+Laroia weights, and sum-of-squares tests cover both `opuscc` and `opusccenc`.
+The encoder float-to-PCM test also checks C's NaN-to-−32768 behavior.
 The cutoff test compares PCM and state at every transition position in both
 directions; its static tap helper also has exhaustive Q16 interpolation tests
 in `opuscc`.

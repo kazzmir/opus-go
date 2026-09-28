@@ -3,6 +3,7 @@
 package opusccenc
 
 import (
+	"math/bits"
 	"reflect"
 	"unsafe"
 
@@ -5520,12 +5521,12 @@ func Opus_silk_PLC_glue_frames(tls *libc.TLS, psDec uintptr, frame uintptr, leng
 	psPLC = psDec + 4292
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 {
 		/* Calculate energy in concealed residual */
-		Opus_silk_sum_sqr_shift(tls, psPLC+60, psPLC+64, frame, length)
+		Opus_silk_sum_sqr_shift(tls, &(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy, &(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift, (*OpusT_opus_int16)(unsafe.Pointer(frame)), length)
 		(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Flast_frame_lost = int32(1)
 	} else {
 		if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Flast_frame_lost != 0 {
 			/* Calculate residual in decoded signal if last frame was lost */
-			Opus_silk_sum_sqr_shift(tls, bp+12, bp+8, frame, length)
+			Opus_silk_sum_sqr_shift(tls, (*OpusT_opus_int32)(unsafe.Pointer(bp+12)), (*int32)(unsafe.Pointer(bp+8)), (*OpusT_opus_int16)(unsafe.Pointer(frame)), length)
 			/* Normalize energies */
 			if *(*int32)(unsafe.Pointer(bp + 8)) > (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift {
 				(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy >> (*(*int32)(unsafe.Pointer(bp + 8)) - (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift)
@@ -18940,8 +18941,8 @@ func Opus_silk_stereo_find_predictor(tls *libc.TLS, ratio_Q14 uintptr, x2 uintpt
 	var _ /* scale2 at bp+12 */ int32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = a32_nrm, a_headrm, b32_inv, b32_nrm, b_headrm, corr, lshift, lzeros, m, pred2_Q10, pred_Q13, r, result, scale, x, y, v1, v10, v11, v12, v13, v14, v15, v16, v18, v2, v20, v21, v24, v3, v5, v6, v7, v8
 	/* Find  predictor */
-	Opus_silk_sum_sqr_shift(tls, bp+16, bp+8, x2, length)
-	Opus_silk_sum_sqr_shift(tls, bp+20, bp+12, y1, length)
+	Opus_silk_sum_sqr_shift(tls, (*OpusT_opus_int32)(unsafe.Pointer(bp+16)), (*int32)(unsafe.Pointer(bp+8)), (*OpusT_opus_int16)(unsafe.Pointer(x2)), length)
+	Opus_silk_sum_sqr_shift(tls, (*OpusT_opus_int32)(unsafe.Pointer(bp+20)), (*int32)(unsafe.Pointer(bp+12)), (*OpusT_opus_int16)(unsafe.Pointer(y1)), length)
 	v1 = *(*int32)(unsafe.Pointer(bp + 8))
 	v2 = *(*int32)(unsafe.Pointer(bp + 12))
 	if v1 > v2 {
@@ -19385,76 +19386,30 @@ POSSIBILITY OF SUCH DAMAGE.
 //	/* Convert int32 coefficients to int16 coefs and make sure there's no wrap-around.
 //	   This logic is reused in _celt_lpc(). Any bug fixes should also be applied there. */
 
-func Opus_silk_sum_sqr_shift(tls *libc.TLS, energy uintptr, shift uintptr, x uintptr, len1 int32) {
-	var i, shft, v4, v9 int32
-	var nrg, v1, v10, v2, v6, v7 OpusT_opus_int32
-	var nrg_tmp OpusT_opus_uint32
-	_, _, _, _, _, _, _, _, _, _, _ = i, nrg, nrg_tmp, shft, v1, v10, v2, v4, v6, v7, v9
-	/* Do a first run with the maximum shift we could have. */
-	v1 = len1
-	if v1 != 0 {
-		v4 = int32(32) - (libc.Int32FromInt64(4)*libc.Int32FromInt32(__CHAR_BIT__) - libc.X__builtin_clz(tls, libc.Uint32FromInt32(v1)))
-	} else {
-		v4 = int32(32)
-	}
-	v2 = v4
-	shft = int32(31) - v2
-	/* Let's be conservative with rounding and start with nrg=len. */
-	nrg = len1
-	i = 0
-	for {
-		if !(i < len1-int32(1)) {
-			break
+func Opus_silk_sum_sqr_shift(tls *libc.TLS, energy *OpusT_opus_int32, shift *int32, x *OpusT_opus_int16, len1 int32) {
+	input := unsafe.Slice(x, int(len1))
+	shft := int32(31 - bits.LeadingZeros32(uint32(len1)))
+	// Start conservatively, then recompute with two headroom bits.
+	nrg := len1
+	for pass := 0; pass < 2; pass++ {
+		if pass == 1 {
+			shft = max(0, shft+3-int32(bits.LeadingZeros32(uint32(nrg))))
+			nrg = 0
 		}
-		nrg_tmp = libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))))
-		nrg_tmp = libc.Uint32FromInt32(libc.Int32FromUint32(nrg_tmp + libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i+int32(1))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i+int32(1))*2))))))
-		nrg = libc.Int32FromUint32(libc.Uint32FromInt32(nrg) + nrg_tmp>>shft)
-		i = i + int32(2)
-	}
-	if i < len1 {
-		/* One sample left to process */
-		nrg_tmp = libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))))
-		nrg = libc.Int32FromUint32(libc.Uint32FromInt32(nrg) + nrg_tmp>>shft)
-	}
-	_ = nrg >= libc.Int32FromInt32(0)
-	/* Make sure the result will fit in a 32-bit signed integer with two bits
-	   of headroom. */
-	v1 = nrg
-	if v1 != 0 {
-		v4 = int32(32) - (libc.Int32FromInt64(4)*libc.Int32FromInt32(__CHAR_BIT__) - libc.X__builtin_clz(tls, libc.Uint32FromInt32(v1)))
-	} else {
-		v4 = int32(32)
-	}
-	v2 = v4
-	v6 = 0
-	v7 = shft + int32(3) - v2
-	if v6 > v7 {
-		v9 = v6
-	} else {
-		v9 = v7
-	}
-	v10 = v9
-	shft = v10
-	nrg = 0
-	i = 0
-	for {
-		if !(i < len1-int32(1)) {
-			break
+		i := 0
+		for ; i+1 < len(input); i += 2 {
+			a, b := int32(input[i]), int32(input[i+1])
+			// Two squares can set bit 31: preserve unsigned shifting.
+			pair := uint32(a*a) + uint32(b*b)
+			nrg = int32(uint32(nrg) + (pair >> shft))
 		}
-		nrg_tmp = libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))))
-		nrg_tmp = libc.Uint32FromInt32(libc.Int32FromUint32(nrg_tmp + libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i+int32(1))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i+int32(1))*2))))))
-		nrg = libc.Int32FromUint32(libc.Uint32FromInt32(nrg) + nrg_tmp>>shft)
-		i = i + int32(2)
+		if i < len(input) {
+			a := int32(input[i])
+			nrg = int32(uint32(nrg) + (uint32(a*a) >> shft))
+		}
 	}
-	if i < len1 {
-		/* One sample left to process */
-		nrg_tmp = libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))))
-		nrg = libc.Int32FromUint32(libc.Uint32FromInt32(nrg) + nrg_tmp>>shft)
-	}
-	_ = nrg >= libc.Int32FromInt32(0)
-	/* Output arguments */
-	*(*int32)(unsafe.Pointer(shift)) = shft
-	*(*OpusT_opus_int32)(unsafe.Pointer(energy)) = nrg
+	*shift = shft
+	*energy = nrg
 }
 
 // C documentation
@@ -20943,8 +20898,8 @@ func silk_PLC_energy(tls *libc.TLS, energy1 uintptr, shift1 uintptr, energy2 uin
 		k = k + 1
 	}
 	/* Find the subframe with lowest energy of the last two and use that as random noise generator */
-	Opus_silk_sum_sqr_shift(tls, energy1, shift1, exc_buf, subfr_length)
-	Opus_silk_sum_sqr_shift(tls, energy2, shift2, exc_buf+uintptr(subfr_length)*2, subfr_length)
+	Opus_silk_sum_sqr_shift(tls, (*OpusT_opus_int32)(unsafe.Pointer(energy1)), (*int32)(unsafe.Pointer(shift1)), (*OpusT_opus_int16)(unsafe.Pointer(exc_buf)), subfr_length)
+	Opus_silk_sum_sqr_shift(tls, (*OpusT_opus_int32)(unsafe.Pointer(energy2)), (*int32)(unsafe.Pointer(shift2)), (*OpusT_opus_int16)(unsafe.Pointer(exc_buf+uintptr(subfr_length)*2)), subfr_length)
 	st = libc.Xpthread_getspecific(tls, libc.Uint32FromUint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
