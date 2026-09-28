@@ -124,24 +124,30 @@ func Opus_ec_dec_bit_logp(tls *libc.TLS, dec *OpusT_ec_dec, logp uint32) int32 {
 	return result
 }
 
-func Opus_ec_dec_icdf(tls *libc.TLS, _this uintptr, _icdf uintptr, _ftb uint32) (r1 int32) {
-	var d, r, s, t OpusT_opus_uint32
-	var ret, v1 int32
-	_, _, _, _, _, _ = d, r, ret, s, t, v1
-	s = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng
-	d = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval
-	r = s >> _ftb
-	ret = -int32(1)
-	for cond := true; cond; cond = d < s {
-		t = s
-		ret = ret + 1
-		v1 = ret
-		s = r * uint32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(v1))))
+func Opus_ec_dec_icdf(tls *libc.TLS, _this uintptr, _icdf uintptr, _ftb uint32) int32 {
+	return ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), (*uint8)(unsafe.Pointer(_icdf)), _ftb)
+}
+
+// The legacy API has no table length. Walk its zero-terminated ICDF with a
+// GC-visible pointer rather than constructing a slice beyond the allocation.
+func ec_dec_icdf(tls *libc.TLS, dec *OpusT_ec_dec, icdf *uint8, ftb uint32) int32 {
+	s, d := dec.Frng, dec.Fval
+	r := s >> ftb
+	var previous uint32
+	var symbol int32
+	for {
+		previous = s
+		s = r * uint32(*icdf)
+		if d >= s {
+			break
+		}
+		symbol++
+		icdf = (*uint8)(unsafe.Add(unsafe.Pointer(icdf), 1))
 	}
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval = d - s
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng = t - s
-	ec_dec_normalize(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)))
-	return ret
+	dec.Fval = d - s
+	dec.Frng = previous - s
+	ec_dec_normalize(tls, dec)
+	return symbol
 }
 
 func Opus_ec_dec_icdf16(tls *libc.TLS, _this uintptr, _icdf uintptr, _ftb uint32) (r1 int32) {

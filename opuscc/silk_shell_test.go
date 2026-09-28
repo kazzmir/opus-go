@@ -21,7 +21,7 @@ func TestShellEncoderLocalPulseTrees(t *testing.T) {
 	var decoder OpusT_ec_dec
 	Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&buffer[0])), uint32(len(buffer)))
 	var decoded [16]OpusT_opus_int16
-	Opus_silk_shell_decoder(tls, uintptr(unsafe.Pointer(&decoded[0])), uintptr(unsafe.Pointer(&decoder)), 15)
+	Opus_silk_shell_decoder(tls, &decoded, &decoder, 15)
 
 	for i, want := range pulses {
 		if got := int32(decoded[i]); got != want {

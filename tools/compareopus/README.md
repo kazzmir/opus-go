@@ -115,6 +115,9 @@ updates, probability-coded bits, raw tail bits, and unsigned integers, including
 normalization, exhausted packets, overlapping front/tail reads, and invalid-value
 clamping. These tests copy context fields explicitly across the C boundary;
 `Fbuf` remains a legacy `uintptr`, with its test buffer owner explicitly retained.
+SILK decoder comparisons also cover NLSF unpacking/reconstruction/stabilization,
+LPC coefficient fitting (including input updates), and shell pulse decoding with
+all numeric entropy-state fields checked.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

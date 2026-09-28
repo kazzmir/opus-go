@@ -505,7 +505,7 @@ func Opus_silk_decode_pulses(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, 
 			break
 		}
 		if sum_pulses[i] > 0 {
-			Opus_silk_shell_decoder(tls, pulses+uintptr(int32(int16(i))*int32(int16(int32(SHELL_CODEC_FRAME_LENGTH))))*2, psRangeDec, sum_pulses[i])
+			Opus_silk_shell_decoder(tls, (*[16]OpusT_opus_int16)(unsafe.Pointer(pulses+uintptr(int32(int16(i))*int32(int16(int32(SHELL_CODEC_FRAME_LENGTH))))*2)), (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), sum_pulses[i])
 		} else {
 			libc.Xmemset(tls, pulses+uintptr(int32(int16(i))*int32(int16(int32(SHELL_CODEC_FRAME_LENGTH))))*2, 0, uint64(uint32(SHELL_CODEC_FRAME_LENGTH))*uint64(2))
 		}
