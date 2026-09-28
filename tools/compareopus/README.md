@@ -107,7 +107,8 @@ lookups, interpolation (both Go codecs), sorting, bandwidth expansion, biquad
 filters, downsampling, limiting, vector renormalization, float-to-PCM conversion,
 two-band analysis filtering, sum-of-squares energy, variable low-pass cutoff,
 VAD initialization, pitch decoding, Laroia NLSF weights, NLSF vector-quantization
-errors, and high-quality 2× upsampling (including all six state words).
+errors, high-quality 2× upsampling (including all six state words), CELT LPC
+coefficients, SILK gain dequantization, and SILK mid/side-to-left/right conversion.
 The cutoff test compares PCM and state at every transition position in both
 directions; its static tap helper also has exhaustive Q16 interpolation tests
 in `opuscc`.

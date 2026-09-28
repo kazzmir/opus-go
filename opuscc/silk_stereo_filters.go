@@ -12,101 +12,38 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state uintptr, x1 uintptr, x2 uintptr, pred_Q13 uintptr, fs_kHz int32, frame_length int32) {
-	var delta0_Q13, delta1_Q13, denom_Q16, n, v2, v3 int32
-	var diff, pred0_Q13, pred1_Q13, sum OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _, _ = delta0_Q13, delta1_Q13, denom_Q16, diff, n, pred0_Q13, pred1_Q13, sum, v2, v3
-	stereoState := (*OpusT_stereo_dec_state)(unsafe.Pointer(state))
-	/* Buffering */
-	libc.Xmemcpy(tls, x1, uintptr(unsafe.Pointer(&stereoState.FsMid[0])), uint64(uint32(2))*uint64(2))
-	libc.Xmemcpy(tls, x2, uintptr(unsafe.Pointer(&stereoState.FsSide[0])), uint64(uint32(2))*uint64(2))
-	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&stereoState.FsMid[0])), x1+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
-	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&stereoState.FsSide[0])), x2+uintptr(frame_length)*2, uint64(uint32(2))*uint64(2))
-	/* Interpolate predictors and add prediction to side channel */
-	pred0_Q13 = int32(stereoState.Fpred_prev_Q13[0])
-	pred1_Q13 = int32(stereoState.Fpred_prev_Q13[1])
-	denom_Q16 = int32(1) << int32(16) / (int32(STEREO_INTERP_LEN_MS) * fs_kHz)
-	delta0_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13))-int32(stereoState.Fpred_prev_Q13[0])))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
-	delta1_Q13 = (int32(int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4))-int32(stereoState.Fpred_prev_Q13[1])))*int32(int16(denom_Q16))>>(int32(16)-int32(1)) + int32(1)) >> int32(1)
-	n = 0
-	for {
-		if !(n < int32(STEREO_INTERP_LEN_MS)*fs_kHz) {
-			break
+func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state *OpusT_stereo_dec_state, x1 *OpusT_opus_int16, x2 *OpusT_opus_int16, pred_Q13 *[2]OpusT_opus_int32, fs_kHz int32, frame_length int32) {
+	// Codec frames contain at least the 8 ms interpolation interval, plus two history slots.
+	mid := unsafe.Slice(x1, int(frame_length)+2)
+	side := unsafe.Slice(x2, int(frame_length)+2)
+	copy(mid[:2], state.FsMid[:])
+	copy(side[:2], state.FsSide[:])
+	copy(state.FsMid[:], mid[frame_length:])
+	copy(state.FsSide[:], side[frame_length:])
+	pred0, pred1 := int32(state.Fpred_prev_Q13[0]), int32(state.Fpred_prev_Q13[1])
+	interp := int32(STEREO_INTERP_LEN_MS) * fs_kHz
+	denom := int32(1<<16) / interp
+	delta0 := (((int32(int16(pred_Q13[0]-pred0)) * int32(int16(denom))) >> 15) + 1) >> 1
+	delta1 := (((int32(int16(pred_Q13[1]-pred1)) * int32(int16(denom))) >> 15) + 1) >> 1
+	for n := int32(0); n < frame_length; n++ {
+		if n < interp {
+			pred0 += delta0
+			pred1 += delta1
+		} else if n == interp {
+			pred0, pred1 = pred_Q13[0], pred_Q13[1]
 		}
-		pred0_Q13 = pred0_Q13 + delta0_Q13
-		pred1_Q13 = pred1_Q13 + delta1_Q13
-		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2)))<<int32(1)) << int32(9)) /* Q11 */
-		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                      /* Q8  */
-		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                     /* Q8  */
-		if (sum>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX11) {
-			v2 = int32(silk_int16_MAX11)
-		} else {
-			if (sum>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v3 = int32(int16(-32768))
-			} else {
-				v3 = (sum>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)) = int16(v2)
-		n = n + 1
+		// SILK's Q11/Q8 arithmetic narrows multipliers to signed 16 bits.
+		sum := (int32(mid[n]) + int32(mid[n+2]) + (int32(mid[n+1]) << 1)) << 9
+		sum = int32(int64(int32(side[n+1])<<8) + ((int64(sum) * int64(int16(pred0))) >> 16))
+		sum = int32(int64(sum) + ((int64(int32(mid[n+1])<<11) * int64(int16(pred1))) >> 16))
+		value := ((sum >> 7) + 1) >> 1
+		side[n+1] = int16(min(max(value, -32768), 32767))
 	}
-	pred0_Q13 = *(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13))
-	pred1_Q13 = *(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4))
-	n = int32(STEREO_INTERP_LEN_MS) * fs_kHz
-	for {
-		if !(n < frame_length) {
-			break
-		}
-		sum = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n)*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(2))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2)))<<int32(1)) << int32(9)) /* Q11 */
-		sum = int32(int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2))))<<int32(8))) + int64(sum)*int64(int16(pred0_Q13))>>int32(16))                                                                                      /* Q8  */
-		sum = int32(int64(sum) + int64(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))))<<int32(11)))*int64(int16(pred1_Q13))>>int32(16))                                                                                     /* Q8  */
-		if (sum>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX11) {
-			v2 = int32(silk_int16_MAX11)
-		} else {
-			if (sum>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v3 = int32(int16(-32768))
-			} else {
-				v3 = (sum>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)) = int16(v2)
-		n = n + 1
-	}
-	stereoState.Fpred_prev_Q13[0] = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13)))
-	stereoState.Fpred_prev_Q13[1] = int16(*(*OpusT_opus_int32)(unsafe.Pointer(pred_Q13 + 1*4)))
-	/* Convert to left/right signals */
-	n = 0
-	for {
-		if !(n < frame_length) {
-			break
-		}
-		sum = int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))) + int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)))
-		diff = int32(*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)))
-		if sum > int32(silk_int16_MAX11) {
-			v2 = int32(silk_int16_MAX11)
-		} else {
-			if sum < int32(int16(-32768)) {
-				v3 = int32(int16(-32768))
-			} else {
-				v3 = sum
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(x1 + uintptr(n+int32(1))*2)) = int16(v2)
-		if diff > int32(silk_int16_MAX11) {
-			v2 = int32(silk_int16_MAX11)
-		} else {
-			if diff < int32(int16(-32768)) {
-				v3 = int32(int16(-32768))
-			} else {
-				v3 = diff
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(x2 + uintptr(n+int32(1))*2)) = int16(v2)
-		n = n + 1
+	state.Fpred_prev_Q13[0], state.Fpred_prev_Q13[1] = int16(pred_Q13[0]), int16(pred_Q13[1])
+	for n := int32(1); n <= frame_length; n++ {
+		sum, diff := int32(mid[n])+int32(side[n]), int32(mid[n])-int32(side[n])
+		mid[n] = int16(min(max(sum, -32768), 32767))
+		side[n] = int16(min(max(diff, -32768), 32767))
 	}
 }
 

@@ -557,7 +557,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 	}
 	if control.FnChannelsAPI == int32(2) && control.FnChannelsInternal == int32(2) {
 		/* Convert Mid/Side to Left/Right */
-		Opus_silk_stereo_MS_to_LR(tls, uintptr(unsafe.Pointer(&decoder.FsStereo)), samplesOut1_tmp[0], samplesOut1_tmp[int32(1)], uintptr(unsafe.Pointer(&MS_pred_Q13[0])), decoder.Fchannel_state[0].Ffs_kHz, nSamplesOutDec)
+		Opus_silk_stereo_MS_to_LR(tls, &decoder.FsStereo, (*OpusT_opus_int16)(unsafe.Pointer(samplesOut1_tmp[0])), (*OpusT_opus_int16)(unsafe.Pointer(samplesOut1_tmp[int32(1)])), &MS_pred_Q13, decoder.Fchannel_state[0].Ffs_kHz, nSamplesOutDec)
 	} else {
 		/* Buffering */
 		libc.Xmemcpy(tls, samplesOut1_tmp[0], uintptr(unsafe.Pointer(&decoder.FsStereo.FsMid[0])), uint64(uint32(2))*uint64(2))
