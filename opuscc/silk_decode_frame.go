@@ -374,7 +374,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 	/* Decode LSF Indices */
 	/**********************/
 	indices.FNLSFIndices[0] = int8(Opus_ec_dec_icdf(tls, psRangeDec, (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)).FCB1_iCDF+uintptr(int32(indices.FsignalType)>>int32(1)*int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)).FnVectors)), uint32(8)))
-	Opus_silk_NLSF_unpack(tls, uintptr(unsafe.Pointer(&ec_ix[0])), uintptr(unsafe.Pointer(&pred_Q8[0])), decoder.FpsNLSF_CB, int32(indices.FNLSFIndices[0]))
+	Opus_silk_NLSF_unpack(tls, &ec_ix[0], &pred_Q8[0], (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)), int32(indices.FNLSFIndices[0]))
 	if !(int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB)).Forder) == (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
 		Opus_celt_fatal(tls, __ccgo_ts+6108, __ccgo_ts+6170, int32(82))
 	}

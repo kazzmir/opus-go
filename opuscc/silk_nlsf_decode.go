@@ -21,7 +21,7 @@ func Opus_silk_NLSF_decode(tls *libc.TLS, pNLSF_Q15 uintptr, NLSFIndices uintptr
 	var res_Q10 [16]OpusT_opus_int16
 	_, _, _, _, _, _ = NLSF_Q15_tmp, i, pCB_Wght_Q9, pCB_element, v2, v3
 	/* Unpack entropy table indices and predictor for current CB1 index */
-	Opus_silk_NLSF_unpack(tls, uintptr(unsafe.Pointer(&ec_ix[0])), uintptr(unsafe.Pointer(&pred_Q8[0])), psNLSF_CB, int32(*(*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices))))
+	Opus_silk_NLSF_unpack(tls, &ec_ix[0], &pred_Q8[0], (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)), int32(*(*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices))))
 	/* Predictive residual dequantizer */
 	silk_NLSF_residual_dequant(tls, &res_Q10[0], (*OpusT_opus_int8)(unsafe.Pointer(NLSFIndices+1)), &pred_Q8[0], int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).FquantStepSize_Q16), (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)
 	/* Apply inverse square-rooted weights to first stage and add to output */

@@ -612,25 +612,19 @@ func Opus_silk_NLSF_VQ(tls *libc.TLS, err_Q24 *OpusT_opus_int32, in_Q15 *OpusT_o
 // C documentation
 //
 //	/* Unpack predictor values and indices for entropy coding tables */
-func Opus_silk_NLSF_unpack(tls *libc.TLS, ec_ix uintptr, pred_Q8 uintptr, psNLSF_CB uintptr, CB1_index int32) {
-	var ec_sel_ptr, v2 uintptr
-	var entry OpusT_opus_uint8
-	var i int32
-	_, _, _, _ = ec_sel_ptr, entry, i, v2
-	ec_sel_ptr = (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Fec_sel + uintptr(CB1_index*int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)/int32(2))
-	i = 0
-	for {
-		if !(i < int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)) {
-			break
-		}
-		v2 = ec_sel_ptr
-		ec_sel_ptr = ec_sel_ptr + 1
-		entry = *(*OpusT_opus_uint8)(unsafe.Pointer(v2))
-		*(*OpusT_opus_int16)(unsafe.Pointer(ec_ix + uintptr(i)*2)) = int16(int32(int16(int32(entry)>>int32(1)&int32(7))) * int32(int16(int32(2)*int32(NLSF_QUANT_MAX_AMPLITUDE)+int32(1))))
-		*(*OpusT_opus_uint8)(unsafe.Pointer(pred_Q8 + uintptr(i))) = *(*OpusT_opus_uint8)(unsafe.Pointer((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Fpred_Q8 + uintptr(i+int32(entry)&int32(1)*(int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)-int32(1)))))
-		*(*OpusT_opus_int16)(unsafe.Pointer(ec_ix + uintptr(i+int32(1))*2)) = int16(int32(int16(int32(entry)>>int32(5)&int32(7))) * int32(int16(int32(2)*int32(NLSF_QUANT_MAX_AMPLITUDE)+int32(1))))
-		*(*OpusT_opus_uint8)(unsafe.Pointer(pred_Q8 + uintptr(i+int32(1)))) = *(*OpusT_opus_uint8)(unsafe.Pointer((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Fpred_Q8 + uintptr(i+int32(entry)>>int32(4)&int32(1)*(int32((*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(psNLSF_CB)).Forder)-int32(1))+int32(1))))
-		i = i + int32(2)
+func Opus_silk_NLSF_unpack(tls *libc.TLS, ec_ix *OpusT_opus_int16, pred_Q8 *OpusT_opus_uint8, cb *OpusT_silk_NLSF_CB_struct, CB1_index int32) {
+	order := int(cb.Forder)
+	indices, prediction := unsafe.Slice(ec_ix, order), unsafe.Slice(pred_Q8, order)
+	// Codebook pointer fields remain legacy boundaries; the views are typed.
+	selectors := unsafe.Slice((*uint8)(unsafe.Pointer(cb.Fec_sel)), int(cb.FnVectors)*order/2)
+	predictors := unsafe.Slice((*uint8)(unsafe.Pointer(cb.Fpred_Q8)), 2*(order-1))
+	base := int(CB1_index) * order / 2
+	for i := 0; i < order; i += 2 {
+		entry := selectors[base+i/2]
+		indices[i] = int16((entry>>1)&7) * (2*NLSF_QUANT_MAX_AMPLITUDE + 1)
+		prediction[i] = predictors[i+int(entry&1)*(order-1)]
+		indices[i+1] = int16((entry>>5)&7) * (2*NLSF_QUANT_MAX_AMPLITUDE + 1)
+		prediction[i+1] = predictors[i+int((entry>>4)&1)*(order-1)+1]
 	}
 }
 
