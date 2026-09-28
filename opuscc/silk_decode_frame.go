@@ -176,7 +176,7 @@ func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pO
 		/*********************************************/
 		/* Decode quantization indices of excitation */
 		/*********************************************/
-		Opus_silk_decode_pulses(tls, psRangeDec, pulses, int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType), int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FquantOffsetType), (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length)
+		Opus_silk_decode_pulses(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*OpusT_opus_int16)(unsafe.Pointer(pulses)), int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType), int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FquantOffsetType), (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length)
 		/********************************************/
 		/* Decode parameters and pulse signal       */
 		/********************************************/
@@ -458,97 +458,50 @@ func Opus_silk_decode_indices(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, 
 //	/*********************************************/
 //	/* Decode quantization indices of excitation */
 //	/*********************************************/
-func Opus_silk_decode_pulses(tls *libc.TLS, psRangeDec uintptr, pulses uintptr, signalType int32, quantOffsetType int32, frame_length int32) {
-	var RateLevelIndex, abs_q, i, iter, j, k, nLS int32
-	var cdf_ptr, pulses_ptr uintptr
-	var nLshifts [20]int32
-	var sum_pulses [20]int32
-	_, _, _, _, _, _, _, _, _, _, _ = RateLevelIndex, abs_q, cdf_ptr, i, iter, j, k, nLS, nLshifts, pulses_ptr, sum_pulses
-	/*********************/
-	/* Decode rate level */
-	/*********************/
-	RateLevelIndex = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_rate_levels_iCDF))+uintptr(signalType>>int32(1))*9, uint32(8))
-	/* Calculate number of shell blocks */
-	_ = int32(1)<<int32(LOG2_SHELL_CODEC_FRAME_LENGTH) == int32(SHELL_CODEC_FRAME_LENGTH)
-	iter = frame_length >> int32(LOG2_SHELL_CODEC_FRAME_LENGTH)
-	if iter*int32(SHELL_CODEC_FRAME_LENGTH) < frame_length {
-		if !(frame_length == int32(12)*int32(10)) {
-			Opus_celt_fatal(tls, __ccgo_ts+6195, __ccgo_ts+6237, int32(59))
-		} /* Make sure only happens for 10 ms @ 12 kHz */
-		iter = iter + 1
+func Opus_silk_decode_pulses(tls *libc.TLS, dec *OpusT_ec_dec, pulses *OpusT_opus_int16, signalType, quantOffsetType, frame_length int32) {
+	var shifts, sums [20]int32 // MAX_NB_SHELL_BLOCKS: 320 samples / 16.
+	rate := ec_dec_icdf(tls, dec, &Opus_silk_rate_levels_iCDF[signalType>>1][0], 8)
+	blocks := frame_length >> LOG2_SHELL_CODEC_FRAME_LENGTH
+	if blocks*SHELL_CODEC_FRAME_LENGTH < frame_length {
+		if frame_length != 120 {
+			Opus_celt_fatal(tls, __ccgo_ts+6195, __ccgo_ts+6237, 59)
+		}
+		blocks++ // 10 ms at 12 kHz has a padded final shell block.
 	}
-	/***************************************************/
-	/* Sum-Weighted-Pulses Decoding                    */
-	/***************************************************/
-	cdf_ptr = uintptr(unsafe.Pointer(&Opus_silk_pulses_per_block_iCDF)) + uintptr(RateLevelIndex)*18
-	i = 0
-	for {
-		if !(i < iter) {
-			break
+	q := unsafe.Slice(pulses, blocks*SHELL_CODEC_FRAME_LENGTH)
+	for i := int32(0); i < blocks; i++ {
+		sums[i] = ec_dec_icdf(tls, dec, &Opus_silk_pulses_per_block_iCDF[rate][0], 8)
+		for sums[i] == SILK_MAX_PULSES+1 {
+			shifts[i]++
+			start := 0
+			if shifts[i] == 10 {
+				start = 1
+			} // Disallow another escape after ten LSBs.
+			sums[i] = ec_dec_icdf(tls, dec, &Opus_silk_pulses_per_block_iCDF[N_RATE_LEVELS-1][start], 8)
 		}
-		nLshifts[i] = 0
-		sum_pulses[i] = Opus_ec_dec_icdf(tls, psRangeDec, cdf_ptr, uint32(8))
-		/* LSB indication */
-		for sum_pulses[i] == int32(SILK_MAX_PULSES)+int32(1) {
-			nLshifts[i] = nLshifts[i] + 1
-			/* When we've already got 10 LSBs, we shift the table to not allow (SILK_MAX_PULSES + 1) */
-			sum_pulses[i] = Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_pulses_per_block_iCDF))+uintptr(int32(N_RATE_LEVELS)-int32(1))*18+libc.BoolUintptr(nLshifts[i] == int32(10)), uint32(8))
-		}
-		i = i + 1
 	}
-	/***************************************************/
-	/* Shell decoding                                  */
-	/***************************************************/
-	i = 0
-	for {
-		if !(i < iter) {
-			break
-		}
-		if sum_pulses[i] > 0 {
-			Opus_silk_shell_decoder(tls, (*[16]OpusT_opus_int16)(unsafe.Pointer(pulses+uintptr(int32(int16(i))*int32(int16(int32(SHELL_CODEC_FRAME_LENGTH))))*2)), (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), sum_pulses[i])
+	for i := int32(0); i < blocks; i++ {
+		block := q[i*SHELL_CODEC_FRAME_LENGTH : (i+1)*SHELL_CODEC_FRAME_LENGTH]
+		if sums[i] > 0 {
+			Opus_silk_shell_decoder(tls, (*[16]OpusT_opus_int16)(block), dec, sums[i])
 		} else {
-			libc.Xmemset(tls, pulses+uintptr(int32(int16(i))*int32(int16(int32(SHELL_CODEC_FRAME_LENGTH))))*2, 0, uint64(uint32(SHELL_CODEC_FRAME_LENGTH))*uint64(2))
+			clear(block)
 		}
-		i = i + 1
 	}
-	/***************************************************/
-	/* LSB Decoding                                    */
-	/***************************************************/
-	i = 0
-	for {
-		if !(i < iter) {
-			break
-		}
-		if nLshifts[i] > 0 {
-			nLS = nLshifts[i]
-			pulses_ptr = pulses + uintptr(int32(int16(i))*int32(int16(int32(SHELL_CODEC_FRAME_LENGTH))))*2
-			k = 0
-			for {
-				if !(k < int32(SHELL_CODEC_FRAME_LENGTH)) {
-					break
+	for i := int32(0); i < blocks; i++ {
+		if shifts[i] > 0 {
+			block := q[i*SHELL_CODEC_FRAME_LENGTH : (i+1)*SHELL_CODEC_FRAME_LENGTH]
+			for k, pulse := range block {
+				value := int32(pulse)
+				for j := int32(0); j < shifts[i]; j++ {
+					value = int32(uint32(value)<<1) + ec_dec_icdf(tls, dec, &Opus_silk_lsb_iCDF[0], 8)
 				}
-				abs_q = int32(*(*OpusT_opus_int16)(unsafe.Pointer(pulses_ptr + uintptr(k)*2)))
-				j = 0
-				for {
-					if !(j < nLS) {
-						break
-					}
-					abs_q = int32(uint32(abs_q) << int32(1))
-					abs_q = abs_q + Opus_ec_dec_icdf(tls, psRangeDec, uintptr(unsafe.Pointer(&Opus_silk_lsb_iCDF)), uint32(8))
-					j = j + 1
-				}
-				*(*OpusT_opus_int16)(unsafe.Pointer(pulses_ptr + uintptr(k)*2)) = int16(abs_q)
-				k = k + 1
+				block[k] = int16(value)
 			}
-			/* Mark the number of pulses non-zero for sign decoding. */
-			sum_pulses[i] |= nLS << int32(5)
+			sums[i] |= shifts[i] << 5 // Keep sign decoding active after LSB reconstruction.
 		}
-		i = i + 1
 	}
-	/****************************************/
-	/* Decode and add signs to pulse signal */
-	/****************************************/
-	Opus_silk_decode_signs(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*OpusT_opus_int16)(unsafe.Pointer(pulses)), frame_length, signalType, quantOffsetType, &sum_pulses[0])
+	Opus_silk_decode_signs(tls, dec, pulses, frame_length, signalType, quantOffsetType, &sums[0])
 }
 
 // C documentation

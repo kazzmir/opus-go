@@ -404,7 +404,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 							condCoding = CODE_INDEPENDENTLY
 						}
 						Opus_silk_decode_indices(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[n])), psRangeDec, i, int32(1), condCoding)
-						Opus_silk_decode_pulses(tls, psRangeDec, uintptr(unsafe.Pointer(&pulses[0])), int32(decoder.Fchannel_state[n].Findices.FsignalType), int32(decoder.Fchannel_state[n].Findices.FquantOffsetType), decoder.Fchannel_state[n].Fframe_length)
+						Opus_silk_decode_pulses(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), &pulses[0], int32(decoder.Fchannel_state[n].Findices.FsignalType), int32(decoder.Fchannel_state[n].Findices.FquantOffsetType), decoder.Fchannel_state[n].Fframe_length)
 					}
 					n = n + 1
 				}
