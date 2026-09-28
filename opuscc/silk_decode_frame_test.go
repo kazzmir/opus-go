@@ -16,7 +16,7 @@ func TestDecodeFrameFieldAccesses(t *testing.T) {
 	if got := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder)), 8, 8000); got != OPUS_OK {
 		t.Fatalf("set fs: got %d", got)
 	}
-	Opus_silk_PLC_Reset(tls, uintptr(unsafe.Pointer(&decoder)))
+	Opus_silk_PLC_Reset(tls, &decoder)
 	decoder.FsPLC.FprevGain_Q16 = [2]OpusT_opus_int32{65536, 65536}
 	decoder.FsPLC.FpitchL_Q8 = 20 << 8
 	decoder.FsPLC.FLTPCoef_Q14 = [5]OpusT_opus_int16{300, -150, 1200, -100, 75}

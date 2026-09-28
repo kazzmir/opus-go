@@ -23,9 +23,9 @@ func Opus_silk_reset_decoder(tls *libc.TLS, psDec uintptr) (r int32) {
 	v1 = 0
 	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Farch = v1
 	/* Reset CNG state */
-	Opus_silk_CNG_Reset(tls, psDec)
+	Opus_silk_CNG_Reset(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)))
 	/* Reset PLC state */
-	Opus_silk_PLC_Reset(tls, psDec)
+	Opus_silk_PLC_Reset(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)))
 	return 0
 }
 

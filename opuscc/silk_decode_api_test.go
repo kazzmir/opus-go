@@ -368,7 +368,7 @@ func TestSilkDecodeLostFrameState(t *testing.T) {
 	if got := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[0])), 8, 8000); got != OPUS_OK {
 		t.Fatalf("sample rate setup: got %d", got)
 	}
-	Opus_silk_PLC_Reset(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[0])))
+	Opus_silk_PLC_Reset(tls, &decoder.Fchannel_state[0])
 	decoder.Fchannel_state[0].FsPLC.FprevGain_Q16 = [2]OpusT_opus_int32{65536, 65536}
 	decoder.Fchannel_state[0].FsPLC.FpitchL_Q8 = 20 << 8
 	decoder.Fchannel_state[0].FsPLC.Frand_seed = 12345

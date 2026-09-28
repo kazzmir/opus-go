@@ -12,8 +12,7 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_silk_PLC_Reset(tls *libc.TLS, psDec uintptr) {
-	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+func Opus_silk_PLC_Reset(tls *libc.TLS, decoder *OpusT_silk_decoder_state) {
 	plc := &decoder.FsPLC
 	plc.FpitchL_Q8 = int32(uint32(decoder.Fframe_length) << (int32(8) - int32(1)))
 	plc.FprevGain_Q16[0] = 65536
@@ -25,7 +24,7 @@ func Opus_silk_PLC_Reset(tls *libc.TLS, psDec uintptr) {
 func Opus_silk_PLC(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintptr, lost int32, arch int32) {
 	/* PLC control function */
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Ffs_kHz {
-		Opus_silk_PLC_Reset(tls, psDec)
+		Opus_silk_PLC_Reset(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)))
 		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Ffs_kHz = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz
 	}
 	if lost != 0 {

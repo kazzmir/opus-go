@@ -9,7 +9,7 @@ import (
 
 func TestPLCResetFieldAccesses(t *testing.T) {
 	dec := OpusT_silk_decoder_state{Fframe_length: 319, FsPLC: OpusT_silk_PLC_struct{FpitchL_Q8: -111, FprevGain_Q16: [2]OpusT_opus_int32{222222, -333333}, Fsubfr_length: 47, Fnb_subfr: 4, Ffs_kHz: 16}}
-	Opus_silk_PLC_Reset(nil, uintptr(unsafe.Pointer(&dec)))
+	Opus_silk_PLC_Reset(nil, &dec)
 	if got, want := dec.FsPLC.FpitchL_Q8, int32(40832); got != want {
 		t.Fatalf("pitchL_Q8: got %d, want %d", got, want)
 	}

@@ -39,10 +39,9 @@ func silk_CNG_exc(tls *libc.TLS, exc_Q14 uintptr, exc_buf_Q14 uintptr, length in
 	*(*OpusT_opus_int32)(unsafe.Pointer(rand_seed)) = seed
 }
 
-func Opus_silk_CNG_Reset(tls *libc.TLS, psDec uintptr) {
+func Opus_silk_CNG_Reset(tls *libc.TLS, dec *OpusT_silk_decoder_state) {
 	var NLSF_acc_Q15, NLSF_step_Q15, i int32
 	_, _, _ = NLSF_acc_Q15, NLSF_step_Q15, i
-	dec := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
 	cng := &dec.FsCNG
 	NLSF_step_Q15 = int32(silk_int16_MAX1) / (dec.FLPC_order + int32(1))
 	NLSF_acc_Q15 = 0
@@ -87,7 +86,7 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	if dec.Ffs_kHz != cng.Ffs_kHz {
 		/* Reset state */
-		Opus_silk_CNG_Reset(tls, psDec)
+		Opus_silk_CNG_Reset(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)))
 		cng.Ffs_kHz = dec.Ffs_kHz
 	}
 	if dec.FlossCnt == 0 && dec.FprevSignalType == TYPE_NO_VOICE_ACTIVITY {

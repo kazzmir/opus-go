@@ -75,7 +75,7 @@ func TestCNGResetFieldAccesses(t *testing.T) {
 		},
 	}
 
-	Opus_silk_CNG_Reset(nil, uintptr(unsafe.Pointer(&dec)))
+	Opus_silk_CNG_Reset(nil, &dec)
 
 	if dec.FsCNG.FCNG_smth_Gain_Q16 != 0 || dec.FsCNG.Frand_seed != 3176576 {
 		t.Fatalf("unexpected reset state: gain=%d seed=%d", dec.FsCNG.FCNG_smth_Gain_Q16, dec.FsCNG.Frand_seed)
