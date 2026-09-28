@@ -957,7 +957,7 @@ POSSIBILITY OF SUCH DAMAGE.
 /* Redefine macro functions with extensive assertion in DEBUG mode.
    As functions can't be undefined, this file can't work with SigProcFIX_MacroCount.h */
 
-func Opus_silk_inner_prod_aligned_scale(tls *libc.TLS, inVec1 uintptr, inVec2 uintptr, scale int32, len1 int32) (r OpusT_opus_int32) {
+func Opus_silk_inner_prod_aligned_scale(tls *libc.TLS, inVec1 *OpusT_opus_int16, inVec2 *OpusT_opus_int16, scale int32, len1 int32) (r OpusT_opus_int32) {
 	var i int32
 	var sum OpusT_opus_int32
 	_, _ = i, sum
@@ -967,7 +967,7 @@ func Opus_silk_inner_prod_aligned_scale(tls *libc.TLS, inVec1 uintptr, inVec2 ui
 		if !(i < len1) {
 			break
 		}
-		sum = sum + int32(*(*OpusT_opus_int16)(unsafe.Pointer(inVec1 + uintptr(i)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(inVec2 + uintptr(i)*2)))>>scale
+		sum = sum + int32(*(*OpusT_opus_int16)(unsafe.Add(unsafe.Pointer(inVec1), uintptr(i)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Add(unsafe.Pointer(inVec2), uintptr(i)*2)))>>scale
 		i = i + 1
 	}
 	return sum

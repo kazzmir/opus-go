@@ -12,7 +12,7 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func combine_pulses(tls *libc.TLS, out uintptr, in uintptr, len1 int32) {
+func combine_pulses(tls *libc.TLS, out *int32, in *int32, len1 int32) {
 	var k int32
 	_ = k
 	k = 0
@@ -20,7 +20,7 @@ func combine_pulses(tls *libc.TLS, out uintptr, in uintptr, len1 int32) {
 		if !(k < len1) {
 			break
 		}
-		*(*int32)(unsafe.Pointer(out + uintptr(k)*4)) = *(*int32)(unsafe.Pointer(in + uintptr(int32(2)*k)*4)) + *(*int32)(unsafe.Pointer(in + uintptr(int32(2)*k+int32(1))*4))
+		*(*int32)(unsafe.Add(unsafe.Pointer(out), uintptr(k)*4)) = *(*int32)(unsafe.Add(unsafe.Pointer(in), uintptr(int32(2)*k)*4)) + *(*int32)(unsafe.Add(unsafe.Pointer(in), uintptr(int32(2)*k+int32(1))*4))
 		k = k + 1
 	}
 }
@@ -52,10 +52,10 @@ func Opus_silk_shell_encoder(tls *libc.TLS, psRangeEnc uintptr, pulses0 uintptr)
 	/* this function operates on one shell code frame of 16 pulses */
 	_ = true
 	/* tree representation per pulse-subframe */
-	combine_pulses(tls, uintptr(unsafe.Pointer(&pulses1[0])), pulses0, int32(8))
-	combine_pulses(tls, uintptr(unsafe.Pointer(&pulses2[0])), uintptr(unsafe.Pointer(&pulses1[0])), int32(4))
-	combine_pulses(tls, uintptr(unsafe.Pointer(&pulses3[0])), uintptr(unsafe.Pointer(&pulses2[0])), int32(2))
-	combine_pulses(tls, uintptr(unsafe.Pointer(&pulses4[0])), uintptr(unsafe.Pointer(&pulses3[0])), int32(1))
+	combine_pulses(tls, &pulses1[0], (*int32)(unsafe.Pointer(pulses0)), int32(8))
+	combine_pulses(tls, &pulses2[0], &pulses1[0], int32(4))
+	combine_pulses(tls, &pulses3[0], &pulses2[0], int32(2))
+	combine_pulses(tls, &pulses4[0], &pulses3[0], int32(1))
 	encode_split(tls, psRangeEnc, pulses3[0], pulses4[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table3)))
 	encode_split(tls, psRangeEnc, pulses2[0], pulses3[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table2)))
 	encode_split(tls, psRangeEnc, pulses1[0], pulses2[0], uintptr(unsafe.Pointer(&Opus_silk_shell_code_table1)))
