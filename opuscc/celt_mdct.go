@@ -1009,7 +1009,7 @@ func Opus_ec_laplace_decode(tls *libc.TLS, dec uintptr, fs uint32, decay int32) 
 	var fl, fm, v1 uint32
 	_, _, _, _, _ = di, fl, fm, val, v1
 	val = 0
-	fm = Opus_ec_decode_bin(tls, dec, uint32(15))
+	fm = Opus_ec_decode_bin(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(15))
 	fl = uint32(0)
 	if fm >= fs {
 		val = val + 1

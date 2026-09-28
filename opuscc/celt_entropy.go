@@ -81,24 +81,17 @@ func Opus_ec_dec_init(tls *libc.TLS, _this uintptr, _buf uintptr, _storage OpusT
 	ec_dec_normalize(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)))
 }
 
-func Opus_ec_decode(tls *libc.TLS, _this uintptr, _ft uint32) (r uint32) {
-	var s uint32
-	var v1, v2 OpusT_opus_uint32
-	_, _, _ = s, v1, v2
-	v1 = _ft
-	_ = v1 > uint32(0)
-	v2 = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng / v1
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext = v2
-	s = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval / (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext
-	return _ft - (s + uint32(1) + (_ft-(s+uint32(1)))&uint32(-libc.BoolInt32(_ft < s+uint32(1))))
+func Opus_ec_decode(tls *libc.TLS, dec *OpusT_ec_dec, ft uint32) (r uint32) {
+	dec.Fext = dec.Frng / ft
+	s := dec.Fval / dec.Fext
+	return ft - min(s+1, ft)
 }
 
-func Opus_ec_decode_bin(tls *libc.TLS, _this uintptr, _bits uint32) (r uint32) {
-	var s uint32
-	_ = s
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng >> _bits
-	s = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval / (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fext
-	return uint32(1)<<_bits - (s + uint32(1) + (uint32(1)<<_bits-(s+uint32(1)))&uint32(-libc.BoolInt32(uint32(1)<<_bits < s+uint32(1))))
+func Opus_ec_decode_bin(tls *libc.TLS, dec *OpusT_ec_dec, bits uint32) (r uint32) {
+	dec.Fext = dec.Frng >> bits
+	s := dec.Fval / dec.Fext
+	ft := uint32(1) << bits
+	return ft - min(s+1, ft)
 }
 
 func Opus_ec_dec_update(tls *libc.TLS, _this uintptr, _fl uint32, _fh uint32, _ft uint32) {
@@ -195,7 +188,7 @@ func Opus_ec_dec_uint(tls *libc.TLS, _this uintptr, _ft OpusT_opus_uint32) (r Op
 	if ftb > int32(EC_UINT_BITS) {
 		ftb = ftb - int32(EC_UINT_BITS)
 		ft = _ft>>ftb + uint32(1)
-		s = Opus_ec_decode(tls, _this, ft)
+		s = Opus_ec_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), ft)
 		Opus_ec_dec_update(tls, _this, s, s+uint32(1), ft)
 		t = s<<ftb | Opus_ec_dec_bits(tls, _this, uint32(ftb))
 		if t <= _ft {
@@ -205,7 +198,7 @@ func Opus_ec_dec_uint(tls *libc.TLS, _this uintptr, _ft OpusT_opus_uint32) (r Op
 		return _ft
 	} else {
 		_ft = _ft + 1
-		s = Opus_ec_decode(tls, _this, _ft)
+		s = Opus_ec_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), _ft)
 		Opus_ec_dec_update(tls, _this, s, s+uint32(1), _ft)
 		return s
 	}
