@@ -196,11 +196,11 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 	v23 = st
 	X = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(X_offset[int32(3)]+decimated_framelength1))*(uint64(2)/uint64(1)))
 	/* 0-8 kHz to 0-4 kHz and 4-8 kHz */
-	Opus_silk_ana_filt_bank_1(tls, pIn, uintptr(unsafe.Pointer(&vad.FAnaState[0])), X, X+uintptr(X_offset[int32(3)])*2, encoder.Fframe_length)
+	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(pIn)), &vad.FAnaState, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[int32(3)])*2)), encoder.Fframe_length)
 	/* 0-4 kHz to 0-2 kHz and 2-4 kHz */
-	Opus_silk_ana_filt_bank_1(tls, X, uintptr(unsafe.Pointer(&vad.FAnaState1[0])), X, X+uintptr(X_offset[int32(2)])*2, decimated_framelength1)
+	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(X)), &vad.FAnaState1, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[int32(2)])*2)), decimated_framelength1)
 	/* 0-2 kHz to 0-1 kHz and 1-2 kHz */
-	Opus_silk_ana_filt_bank_1(tls, X, uintptr(unsafe.Pointer(&vad.FAnaState2[0])), X, X+uintptr(X_offset[int32(1)])*2, decimated_framelength2)
+	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(X)), &vad.FAnaState2, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[int32(1)])*2)), decimated_framelength2)
 	/*********************************************/
 	/* HP filter on lowest band (differentiator) */
 	/*********************************************/

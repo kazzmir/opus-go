@@ -177,55 +177,30 @@ var A_fb1_21 = int16(-int32(24290)) /* (opus_int16)(20623 << 1) */
 // C documentation
 //
 //	/* Split signal into two decimated bands using first-order allpass filters */
-func Opus_silk_ana_filt_bank_1(tls *libc.TLS, in uintptr, S uintptr, outL uintptr, outH uintptr, N OpusT_opus_int32) {
-	var N2, k, v2, v3 int32
-	var X, Y, in32, out_1, out_2 OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _ = N2, X, Y, in32, k, out_1, out_2, v2, v3
-	N2 = N >> int32(1)
-	/* Internal variables and state are in Q10 format */
-	k = 0
-	for {
-		if !(k < N2) {
-			break
-		}
-		/* Convert to Q10 */
-		in32 = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k)*2)))) << int32(10))
-		/* All-pass section for even input sample */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S))
-		X = int32(int64(Y) + int64(Y)*int64(A_fb1_21)>>int32(16))
-		out_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = in32 + X
-		/* Convert to Q10 */
-		in32 = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+int32(1))*2)))) << int32(10))
-		/* All-pass section for odd input sample, and add to output of previous section */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))
-		X = int32(int64(Y) * int64(A_fb1_20) >> int32(16))
-		out_2 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = in32 + X
-		/* Add/subtract, convert back to int16 and store to output */
-		if ((out_2+out_1)>>(int32(11)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX11) {
-			v2 = int32(silk_int16_MAX11)
-		} else {
-			if ((out_2+out_1)>>(int32(11)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v3 = int32(int16(-32768))
-			} else {
-				v3 = ((out_2+out_1)>>(int32(11)-int32(1)) + int32(1)) >> int32(1)
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(outL + uintptr(k)*2)) = int16(v2)
-		if ((out_2-out_1)>>(int32(11)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX11) {
-			v2 = int32(silk_int16_MAX11)
-		} else {
-			if ((out_2-out_1)>>(int32(11)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v3 = int32(int16(-32768))
-			} else {
-				v3 = ((out_2-out_1)>>(int32(11)-int32(1)) + int32(1)) >> int32(1)
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(outH + uintptr(k)*2)) = int16(v2)
-		k = k + 1
+func Opus_silk_ana_filt_bank_1(tls *libc.TLS, in *OpusT_opus_int16, S *[2]OpusT_opus_int32, outL *OpusT_opus_int16, outH *OpusT_opus_int16, N OpusT_opus_int32) {
+	n := int(N >> 1)
+	if n <= 0 {
+		return
+	}
+	input := unsafe.Slice(in, 2*n)
+	low, high := unsafe.Slice(outL, n), unsafe.Slice(outH, n)
+	for k := range low {
+		// Q10 all-pass sections; consume both inputs before in-place output.
+		in32 := int32(uint32(int32(input[2*k])) << 10)
+		Y := in32 - S[0]
+		X := int32(int64(Y) + ((int64(Y) * int64(A_fb1_21)) >> 16))
+		out1 := S[0] + X
+		S[0] = in32 + X
+		in32 = int32(uint32(int32(input[2*k+1])) << 10)
+		Y = in32 - S[1]
+		X = int32((int64(Y) * int64(A_fb1_20)) >> 16)
+		out2 := S[1] + X
+		S[1] = in32 + X
+		// Round and saturate after the 32-bit sum/difference, as in C.
+		lo := (((out2 + out1) >> 10) + 1) >> 1
+		hi := (((out2 - out1) >> 10) + 1) >> 1
+		low[k] = int16(min(max(lo, -32768), 32767))
+		high[k] = int16(min(max(hi, -32768), 32767))
 	}
 }
 
