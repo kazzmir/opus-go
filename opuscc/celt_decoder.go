@@ -138,31 +138,23 @@ func opus_custom_decoder_init(tls *libc.TLS, st uintptr, mode uintptr, channels 
 //	/* Special case for stereo with no downsampling and no accumulation. This is
 //	   quite common and we can make it faster by processing both channels in the
 //	   same loop, reducing overhead due to the dependency loop in the IIR filter. */
-func deemphasis_stereo_simple(tls *libc.TLS, in uintptr, pcm uintptr, N int32, coef0 OpusT_opus_val16, mem uintptr) {
-	var j int32
-	var m0, m1, tmp0, tmp1 OpusT_celt_sig
-	var x0, x1 uintptr
-	_, _, _, _, _, _, _ = j, m0, m1, tmp0, tmp1, x0, x1
-	x0 = *(*uintptr)(unsafe.Pointer(in))
-	x1 = *(*uintptr)(unsafe.Pointer(in + uintptr(libc.PtrSize)))
-	m0 = *(*OpusT_celt_sig)(unsafe.Pointer(mem))
-	m1 = *(*OpusT_celt_sig)(unsafe.Pointer(mem + 1*4))
-	j = 0
-	for {
-		if !(j < N) {
-			break
-		}
-		/* Add VERY_SMALL to x[] first to reduce dependency chain. */
-		tmp0 = *(*OpusT_celt_sig)(unsafe.Pointer(x0 + uintptr(j)*4)) + float32(1e-30) + m0
-		tmp1 = *(*OpusT_celt_sig)(unsafe.Pointer(x1 + uintptr(j)*4)) + float32(1e-30) + m1
+func deemphasis_stereo_simple(tls *libc.TLS, left *OpusT_celt_sig, right *OpusT_celt_sig, pcm *OpusT_opus_res, N int32, coef0 OpusT_opus_val16, mem *[2]OpusT_celt_sig) {
+	if N <= 0 {
+		return
+	}
+	x0, x1 := unsafe.Slice(left, int(N)), unsafe.Slice(right, int(N))
+	output := unsafe.Slice(pcm, 2*int(N))
+	m0, m1 := mem[0], mem[1]
+	for j := range x0 {
+		// Add VERY_SMALL first, preserving the floating-point C operation order.
+		tmp0 := x0[j] + float32(1e-30) + m0
+		tmp1 := x1[j] + float32(1e-30) + m1
 		m0 = OpusT_opus_val16(coef0 * tmp0)
 		m1 = OpusT_opus_val16(coef0 * tmp1)
-		*(*OpusT_opus_res)(unsafe.Pointer(pcm + uintptr(int32(2)*j)*4)) = float32(float32(1) / float32(32768) * tmp0)
-		*(*OpusT_opus_res)(unsafe.Pointer(pcm + uintptr(int32(2)*j+int32(1))*4)) = float32(float32(1) / float32(32768) * tmp1)
-		j = j + 1
+		output[2*j] = float32(float32(1) / float32(32768) * tmp0)
+		output[2*j+1] = float32(float32(1) / float32(32768) * tmp1)
 	}
-	*(*OpusT_celt_sig)(unsafe.Pointer(mem)) = m0
-	*(*OpusT_celt_sig)(unsafe.Pointer(mem + 1*4)) = m1
+	mem[0], mem[1] = m0, m1
 }
 
 func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsample int32, coef uintptr, mem uintptr, accum int32) {
@@ -185,7 +177,8 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	/* Short version for common case. */
 	if downsample == int32(1) && C == int32(2) && !(accum != 0) {
-		deemphasis_stereo_simple(tls, in, pcm, N, *(*OpusT_opus_val16)(unsafe.Pointer(coef)), mem)
+		channels := unsafe.Slice((*uintptr)(unsafe.Pointer(in)), 2)
+		deemphasis_stereo_simple(tls, (*OpusT_celt_sig)(unsafe.Pointer(channels[0])), (*OpusT_celt_sig)(unsafe.Pointer(channels[1])), (*OpusT_opus_res)(unsafe.Pointer(pcm)), N, *(*OpusT_opus_val16)(unsafe.Pointer(coef)), (*[2]OpusT_celt_sig)(unsafe.Pointer(mem)))
 		return
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))

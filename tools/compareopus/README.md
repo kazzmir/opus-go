@@ -105,7 +105,8 @@ exact frame boundaries, and limited-input delay flushing. They also compare
 converted helpers directly against the local C library: packet headers, entropy
 lookups, interpolation (both Go codecs), sorting, bandwidth expansion, biquad
 filters, downsampling, limiting, vector renormalization, float-to-PCM conversion,
-two-band analysis filtering, sum-of-squares energy, and variable low-pass cutoff.
+two-band analysis filtering, sum-of-squares energy, variable low-pass cutoff,
+VAD initialization, pitch decoding, and Laroia NLSF weights.
 The cutoff test compares PCM and state at every transition position in both
 directions; its static tap helper also has exhaustive Q16 interpolation tests
 in `opuscc`.
