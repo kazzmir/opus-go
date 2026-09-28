@@ -12,51 +12,30 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus__celt_lpc(tls *libc.TLS, _lpc uintptr, ac uintptr, p int32) {
-	var error1, r, rr, tmp1, tmp2 OpusT_opus_val32
-	var i, j int32
-	var lpc uintptr
-	_, _, _, _, _, _, _, _ = error1, i, j, lpc, r, rr, tmp1, tmp2
-	error1 = *(*OpusT_opus_val32)(unsafe.Pointer(ac))
-	lpc = _lpc
-	libc.Xmemset(tls, lpc, 0, uint64(uint32(p))*uint64(4))
-	if *(*OpusT_opus_val32)(unsafe.Pointer(ac)) > float32(1e-10) {
-		i = 0
-		for {
-			if !(i < p) {
-				break
+func Opus__celt_lpc(tls *libc.TLS, _lpc *OpusT_opus_val16, ac *OpusT_opus_val32, p int32) {
+	lpc := unsafe.Slice(_lpc, int(p))
+	correlation := unsafe.Slice(ac, int(p)+1)
+	error1 := correlation[0]
+	clear(lpc)
+	if correlation[0] > float32(1e-10) {
+		for i := range lpc {
+			var rr OpusT_opus_val32
+			for j := 0; j < i; j++ {
+				rr = rr + float32(lpc[j]*correlation[i-j])
 			}
-			/* Sum up this iteration's reflection coefficient */
-			rr = float32(0)
-			j = 0
-			for {
-				if !(j < i) {
-					break
-				}
-				rr = rr + float32(*(*float32)(unsafe.Pointer(lpc + uintptr(j)*4))**(*OpusT_opus_val32)(unsafe.Pointer(ac + uintptr(i-j)*4)))
-				j = j + 1
-			}
-			rr = rr + *(*OpusT_opus_val32)(unsafe.Pointer(ac + uintptr(i+int32(1))*4))
-			r = -(rr / error1)
-			/*  Update LPC coefficients and total error */
-			*(*float32)(unsafe.Pointer(lpc + uintptr(i)*4)) = r
-			j = 0
-			for {
-				if !(j < (i+int32(1))>>int32(1)) {
-					break
-				}
-				tmp1 = *(*float32)(unsafe.Pointer(lpc + uintptr(j)*4))
-				tmp2 = *(*float32)(unsafe.Pointer(lpc + uintptr(i-int32(1)-j)*4))
-				*(*float32)(unsafe.Pointer(lpc + uintptr(j)*4)) = tmp1 + OpusT_opus_val32(r*tmp2)
-				*(*float32)(unsafe.Pointer(lpc + uintptr(i-int32(1)-j)*4)) = tmp2 + OpusT_opus_val32(r*tmp1)
-				j = j + 1
+			rr = rr + correlation[i+1]
+			r := -(rr / error1)
+			lpc[i] = r
+			for j := 0; j < (i+1)>>1; j++ {
+				tmp1, tmp2 := lpc[j], lpc[i-1-j]
+				lpc[j] = tmp1 + OpusT_opus_val32(r*tmp2)
+				lpc[i-1-j] = tmp2 + OpusT_opus_val32(r*tmp1)
 			}
 			error1 = error1 - OpusT_opus_val32(OpusT_opus_val32(r*r)*error1)
-			/* Bail out once we get 30 dB gain */
-			if error1 <= OpusT_opus_val32(float32(0.001)**(*OpusT_opus_val32)(unsafe.Pointer(ac))) {
+			// Bail out once we get 30 dB gain, leaving the remaining taps zero.
+			if error1 <= OpusT_opus_val32(float32(0.001)*correlation[0]) {
 				break
 			}
-			i = i + 1
 		}
 	}
 }

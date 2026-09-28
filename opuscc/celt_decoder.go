@@ -1230,7 +1230,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 					ac[i] -= OpusT_opus_val32(OpusT_opus_val32(OpusT_opus_val32(ac[i]*float32(float32(0.008)*float32(0.008)))*float32(i)) * float32(i))
 					i = i + 1
 				}
-				Opus__celt_lpc(tls, lpc+uintptr(c*int32(CELT_LPC_ORDER))*4, uintptr(unsafe.Pointer(&ac[0])), int32(CELT_LPC_ORDER))
+				Opus__celt_lpc(tls, (*OpusT_opus_val16)(unsafe.Pointer(lpc+uintptr(c*int32(CELT_LPC_ORDER))*4)), &ac[0], int32(CELT_LPC_ORDER))
 			}
 			/* Initialize the LPC history with the samples just before the start
 			   of the region for which we're computing the excitation. */

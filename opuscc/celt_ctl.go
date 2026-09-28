@@ -273,7 +273,7 @@ func Opus_pitch_downsample(tls *libc.TLS, x uintptr, x_lp uintptr, len1 int32, C
 		ac[i] -= OpusT_opus_val32(OpusT_opus_val32(ac[i]*float32(float32(0.008)*float32(i))) * float32(float32(0.008)*float32(i)))
 		i = i + 1
 	}
-	Opus__celt_lpc(tls, uintptr(unsafe.Pointer(&lpc[0])), uintptr(unsafe.Pointer(&ac[0])), int32(4))
+	Opus__celt_lpc(tls, &lpc[0], &ac[0], int32(4))
 	i = 0
 	for {
 		if !(i < int32(4)) {
