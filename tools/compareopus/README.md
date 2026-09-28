@@ -108,7 +108,9 @@ filters, downsampling, limiting, vector renormalization, float-to-PCM conversion
 two-band analysis filtering, sum-of-squares energy, variable low-pass cutoff,
 VAD initialization, pitch decoding, Laroia NLSF weights, NLSF vector-quantization
 errors, high-quality 2× upsampling (including all six state words), CELT LPC
-coefficients, SILK gain dequantization, and SILK mid/side-to-left/right conversion.
+coefficients, SILK gain dequantization, SILK mid/side-to-left/right conversion,
+CELT exponential rotation, and fractional entropy-bit accounting (all normalized
+16-bit mantissas at four range scales).
 The cutoff test compares PCM and state at every transition position in both
 directions; its static tap helper also has exhaustive Q16 interpolation tests
 in `opuscc`.

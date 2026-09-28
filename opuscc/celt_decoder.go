@@ -1911,7 +1911,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	offsets = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(nbEBands))*(uint64(4)/uint64(1)))
 	dynalloc_logp = int32(6)
 	total_bits = total_bits << int32(BITRES)
-	tell = int32(Opus_ec_tell_frac(tls, dec))
+	tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec))))
 	i = start
 	for {
 		if !(i < end) {
@@ -1940,7 +1940,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		boost = 0
 		for tell+dynalloc_loop_logp<<int32(BITRES) < total_bits && boost < *(*int32)(unsafe.Pointer(cap1 + uintptr(i)*4)) {
 			flag = Opus_ec_dec_bit_logp(tls, dec, uint32(dynalloc_loop_logp))
-			tell = int32(Opus_ec_tell_frac(tls, dec))
+			tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec))))
 			if !(flag != 0) {
 				break
 			}
@@ -2032,7 +2032,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		v28 = int32(5)
 	}
 	alloc_trim = v28
-	bits = len1*int32(8)<<int32(BITRES) - int32(Opus_ec_tell_frac(tls, dec)) - int32(1)
+	bits = len1*int32(8)<<int32(BITRES) - int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))) - int32(1)
 	if isTransient != 0 && LM >= int32(2) && bits >= (LM+int32(2))<<int32(BITRES) {
 		v28 = int32(1) << int32(BITRES)
 	} else {

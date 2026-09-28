@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math/bits"
 	"reflect"
 	"unsafe"
 
@@ -1805,18 +1806,16 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 //	/* This is a faster version of ec_tell_frac() that takes advantage
 //	   of the low (1/8 bit) resolution to use just a linear function
 //	   followed by a lookup to determine the exact transition thresholds. */
-func Opus_ec_tell_frac(tls *libc.TLS, _this uintptr) (r1 OpusT_opus_uint32) {
-	var b uint32
-	var l int32
-	var nbits, r OpusT_opus_uint32
-	_, _, _, _ = b, l, nbits, r
-	nbits = uint32((*OpusT_ec_ctx)(unsafe.Pointer(_this)).Fnbits_total << int32(BITRES))
-	l = int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(_this)).Frng)
-	r = (*OpusT_ec_ctx)(unsafe.Pointer(_this)).Frng >> (l - int32(16))
-	b = r>>int32(12) - uint32(8)
-	b = b + libc.BoolUint32(r > correction[b])
-	l = int32(uint32(l<<int32(3)) + b)
-	return nbits - uint32(l)
+func Opus_ec_tell_frac(tls *libc.TLS, ctx *OpusT_ec_ctx) OpusT_opus_uint32 {
+	nbits := uint32(ctx.Fnbits_total) << BITRES
+	l := bits.Len32(ctx.Frng)
+	// Entropy contexts supply a normalized range with at least 16 bits.
+	r := ctx.Frng >> (l - 16)
+	b := (r >> 12) - 8
+	if r > correction[b] {
+		b++
+	}
+	return nbits - (uint32(l<<3) + b)
 }
 
 var correction = [8]uint32{
@@ -2868,7 +2867,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 		itheta_q30 = Opus_stereo_itheta(tls, X, Y, stereo, N, (*band_ctx)(unsafe.Pointer(ctx)).Farch)
 		itheta = itheta_q30 >> int32(16)
 	}
-	tell = int32(Opus_ec_tell_frac(tls, ec))
+	tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))))
 	if qn != int32(1) {
 		if encode != 0 {
 			if !(stereo != 0) || (*band_ctx)(unsafe.Pointer(ctx)).Ftheta_round == 0 {
@@ -3054,7 +3053,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 			itheta_q30 = 0
 		}
 	}
-	qalloc = int32(Opus_ec_tell_frac(tls, ec) - uint32(tell))
+	qalloc = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))) - uint32(tell))
 	*(*int32)(unsafe.Pointer(b)) -= qalloc
 	if itheta == 0 {
 		imid = int32(32767)
@@ -4338,7 +4337,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 		if !(N1 > int32(0)) {
 			Opus_celt_fatal(tls, __ccgo_ts+5488, __ccgo_ts+5312, int32(1705))
 		}
-		tell = int32(Opus_ec_tell_frac(tls, ec))
+		tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))))
 		/* Compute how many bits we want to allocate to this band */
 		if i1 != start {
 			balance = balance - tell
