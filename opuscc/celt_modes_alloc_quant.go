@@ -231,41 +231,24 @@ func normalise_residual(tls *libc.TLS, iy uintptr, X uintptr, N int32, Ryy OpusT
 	}
 }
 
-func extract_collapse_mask(tls *libc.TLS, iy uintptr, N int32, B int32) (r uint32) {
-	var N0, i, j, v4 int32
-	var collapse_mask, tmp uint32
-	var v1, v2 OpusT_opus_uint32
-	_, _, _, _, _, _, _, _ = N0, collapse_mask, i, j, tmp, v1, v2, v4
-	if B <= int32(1) {
-		return uint32(1)
+func extract_collapse_mask(tls *libc.TLS, iy *int32, N int32, B int32) (r uint32) {
+	if B <= 1 {
+		return 1
 	}
-	/*NOTE: As a minor optimization, we could be passing around log2(B), not B, for both this and for
-	  exp_rotation().*/
-	v1 = uint32(B)
-	_ = v1 > uint32(0)
-	v2 = uint32(N) / v1
-	N0 = int32(v2)
-	collapse_mask = uint32(0)
-	i = 0
-	for {
-		tmp = uint32(0)
-		j = 0
-		for {
-			tmp = tmp | uint32(*(*int32)(unsafe.Pointer(iy + uintptr(i*N0+j)*4)))
-			j = j + 1
-			v4 = j
-			if !(v4 < N0) {
-				break
-			}
+	// Valid bands contain at least one coefficient per block (N >= B).
+	blockSize := int(uint32(N) / uint32(B))
+	coefficients := unsafe.Slice(iy, int(N))
+	var mask uint32
+	for i := 0; i < int(B); i++ {
+		var combined uint32
+		for _, value := range coefficients[i*blockSize : (i+1)*blockSize] {
+			combined |= uint32(value)
 		}
-		collapse_mask = collapse_mask | uint32(libc.BoolInt32(tmp != uint32(0))<<i)
-		i = i + 1
-		v4 = i
-		if !(v4 < B) {
-			break
+		if combined != 0 {
+			mask |= uint32(1) << i
 		}
 	}
-	return collapse_mask
+	return mask
 }
 
 func Opus_op_pvq_search_c(tls *libc.TLS, X uintptr, iy uintptr, K int32, N int32, arch int32) (r OpusT_opus_val16) {
@@ -666,7 +649,7 @@ func Opus_alg_quant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, B 
 	iy = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N+int32(3)))*(uint64(4)/uint64(1)))
 	Opus_exp_rotation(tls, X, N, int32(1), B, K, spread)
 	yy = Opus_op_pvq_search_c(tls, X, iy, K, N, arch)
-	collapse_mask = extract_collapse_mask(tls, iy, N, B)
+	collapse_mask = extract_collapse_mask(tls, (*int32)(unsafe.Pointer(iy)), N, B)
 	Opus_encode_pulses(tls, iy, N, K, enc)
 	if resynth != 0 {
 		normalise_residual(tls, iy, X, N, yy, gain, 0)
@@ -785,7 +768,7 @@ func Opus_alg_unquant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, 
 	Ryy = Opus_decode_pulses(tls, iy, N, K, dec)
 	normalise_residual(tls, iy, X, N, Ryy, gain, yy_shift)
 	Opus_exp_rotation(tls, X, N, -int32(1), B, K, spread)
-	collapse_mask = extract_collapse_mask(tls, iy, N, B)
+	collapse_mask = extract_collapse_mask(tls, (*int32)(unsafe.Pointer(iy)), N, B)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))

@@ -149,27 +149,22 @@ func Opus_resampling_factor(tls *libc.TLS, rate OpusT_opus_int32) (r int32) {
 // C documentation
 //
 //	/* This version should be faster on ARM */
-func comb_filter_const_c(tls *libc.TLS, y uintptr, x uintptr, T int32, N int32, g10 OpusT_celt_coef, g11 OpusT_celt_coef, g12 OpusT_celt_coef) {
-	var i int32
-	var x0, x1, x2, x3, x4 OpusT_opus_val32
-	_, _, _, _, _, _ = i, x0, x1, x2, x3, x4
-	x4 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(-T-int32(2))*4))
-	x3 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(-T-int32(1))*4))
-	x2 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(-T)*4))
-	x1 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(-T+int32(1))*4))
-	i = 0
-	for {
-		if !(i < N) {
-			break
-		}
-		x0 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(i-T+int32(2))*4))
-		*(*OpusT_opus_val32)(unsafe.Pointer(y + uintptr(i)*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(i)*4)) + OpusT_celt_coef(g10*x2) + OpusT_celt_coef(g11*(x1+x3)) + OpusT_celt_coef(g12*(x0+x4))
-		*(*OpusT_opus_val32)(unsafe.Pointer(y + uintptr(i)*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(y + uintptr(i)*4))
-		x4 = x3
-		x3 = x2
-		x2 = x1
-		x1 = x0
-		i = i + 1
+//
+// xHistory points T+2 samples before the current input, unlike C's x.
+// The caller supplies that prefix explicitly so no negative pointer offsets
+// are needed here. The codec uses T >= COMBFILTER_MINPERIOD.
+func comb_filter_const_c(tls *libc.TLS, y *OpusT_opus_val32, xHistory *OpusT_opus_val32, T int32, N int32, g10 OpusT_celt_coef, g11 OpusT_celt_coef, g12 OpusT_celt_coef) {
+	if N <= 0 {
+		return
+	}
+	offset := int(T) + 2
+	x := unsafe.Slice(xHistory, offset+int(N))
+	out := unsafe.Slice(y, int(N))
+	x4, x3, x2, x1 := x[0], x[1], x[2], x[3]
+	for i := range out {
+		x0 := x[i+4]
+		out[i] = x[offset+i] + OpusT_celt_coef(g10*x2) + OpusT_celt_coef(g11*(x1+x3)) + OpusT_celt_coef(g12*(x0+x4))
+		x4, x3, x2, x1 = x3, x2, x1, x0
 	}
 }
 
@@ -237,7 +232,7 @@ func Opus_comb_filter(tls *libc.TLS, y uintptr, x uintptr, T0 int32, T1 int32, N
 	}
 	/* Compute the part with the constant filter. */
 	_ = arch
-	comb_filter_const_c(tls, y+uintptr(i)*4, x+uintptr(i)*4, T1, N-i, g10, g11, g12)
+	comb_filter_const_c(tls, (*OpusT_opus_val32)(unsafe.Pointer(y+uintptr(i)*4)), (*OpusT_opus_val32)(unsafe.Pointer(x+uintptr(i)*4-uintptr(T1+2)*4)), T1, N-i, g10, g11, g12)
 }
 
 var gains = [3][3]OpusT_opus_val16{
