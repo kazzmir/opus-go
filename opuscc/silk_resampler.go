@@ -364,51 +364,35 @@ var silk_resampler_up2_hq_12 = [3]OpusT_opus_int16{
 // C documentation
 //
 //	/* Downsample by a factor 2 */
-func Opus_silk_resampler_down2(tls *libc.TLS, S uintptr, out uintptr, in uintptr, inLen OpusT_opus_int32) {
-	var X, Y, in32, k, len2, out32 OpusT_opus_int32
-	var v2, v3 int32
-	_, _, _, _, _, _, _, _ = X, Y, in32, k, len2, out32, v2, v3
-	len2 = inLen >> int32(1)
+func Opus_silk_resampler_down2(tls *libc.TLS, S *[2]OpusT_opus_int32, out *OpusT_opus_int16, in *OpusT_opus_int16, inLen OpusT_opus_int32) {
+	len2 := int(inLen >> 1)
 	if !(int32(silk_resampler_down2_02) > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+7522, __ccgo_ts+7567, int32(46))
 	}
 	if !(int32(silk_resampler_down2_12) < int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+7593, __ccgo_ts+7567, int32(47))
 	}
-	/* Internal variables and state are in Q10 format */
-	k = 0
-	for {
-		if !(k < len2) {
-			break
-		}
-		/* Convert to Q10 */
-		in32 = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k)*2)))) << int32(10))
-		/* All-pass section for even input sample */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S))
-		X = int32(int64(Y) + int64(Y)*int64(silk_resampler_down2_12)>>int32(16))
-		out32 = *(*OpusT_opus_int32)(unsafe.Pointer(S)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = in32 + X
-		/* Convert to Q10 */
-		in32 = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+int32(1))*2)))) << int32(10))
-		/* All-pass section for odd input sample, and add to output of previous section */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))
-		X = int32(int64(Y) * int64(silk_resampler_down2_02) >> int32(16))
-		out32 = out32 + *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))
-		out32 = out32 + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = in32 + X
-		/* Add, convert back to int16 and store to output */
-		if (out32>>(int32(11)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX19) {
-			v2 = int32(silk_int16_MAX19)
-		} else {
-			if (out32>>(int32(11)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v3 = int32(int16(-32768))
-			} else {
-				v3 = (out32>>(int32(11)-int32(1)) + int32(1)) >> int32(1)
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(k)*2)) = int16(v2)
-		k = k + 1
+	if len2 <= 0 {
+		return
+	}
+	// Only complete input pairs are consumed, matching C's floor(inLen/2).
+	input := unsafe.Slice(in, 2*len2)
+	output := unsafe.Slice(out, len2)
+	for k := range output {
+		// Internal variables and state are Q10, with 32-bit wraparound.
+		in32 := int32(uint32(int32(input[2*k])) << 10)
+		Y := in32 - S[0]
+		X := int32(int64(Y) + ((int64(Y) * int64(silk_resampler_down2_12)) >> 16))
+		out32 := S[0] + X
+		S[0] = in32 + X
+		in32 = int32(uint32(int32(input[2*k+1])) << 10)
+		Y = in32 - S[1]
+		X = int32((int64(Y) * int64(silk_resampler_down2_02)) >> 16)
+		out32 += S[1]
+		out32 += X
+		S[1] = in32 + X
+		value := ((out32 >> 10) + 1) >> 1
+		output[k] = int16(min(max(value, -32768), 32767))
 	}
 }
 
