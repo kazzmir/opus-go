@@ -2283,62 +2283,32 @@ func stereo_split(tls *libc.TLS, X *OpusT_celt_norm, Y *OpusT_celt_norm, N int32
 	}
 }
 
-func stereo_merge(tls *libc.TLS, X uintptr, Y uintptr, mid OpusT_opus_val32, N1 int32, arch int32) {
-	var El, Er, lgain, rgain, side, t, xp, xy, v2 OpusT_opus_val32
-	var i, j int32
-	var l, r OpusT_celt_norm
-	_, _, _, _, _, _, _, _, _, _, _, _, _ = El, Er, i, j, l, lgain, r, rgain, side, t, xp, xy, v2
-	xp = float32(0)
-	side = float32(0)
-	/* Compute the norm of X+Y and X-Y as |X|^2 + |Y|^2 +/- sum(xy) */
-	_ = arch
-	xy = float32(0)
-	i = int32(0)
-	for {
-		if !(i < N1) {
-			break
-		}
-		xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(Y + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(X + uintptr(i)*4)))
-		i = i + 1
-	}
-	v2 = xy
-	xp = v2
-	_ = arch
-	xy = float32(0)
-	i = int32(0)
-	for {
-		if !(i < N1) {
-			break
-		}
-		xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(Y + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(Y + uintptr(i)*4)))
-		i = i + 1
-	}
-	v2 = xy
-	side = v2
-	/* Compensating for the mid normalization */
-	xp = OpusT_opus_val32(mid * xp)
-	/* mid and side are in Q15, not Q14 like X and Y */
-	El = OpusT_opus_val32(mid*mid) + side - OpusT_opus_val32(float32(2)*xp)
-	Er = OpusT_opus_val32(mid*mid) + side + OpusT_opus_val32(float32(2)*xp)
-	if Er < float32(0.0006) || El < float32(0.0006) {
-		libc.Xmemcpy(tls, Y, X, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(Y)-int64(X))/4)))
+func stereo_merge(tls *libc.TLS, X *OpusT_celt_norm, Y *OpusT_celt_norm, mid OpusT_opus_val32, N1 int32, arch int32) {
+	if N1 <= 0 {
 		return
 	}
-	t = El
-	lgain = float32(1) / float32(libc.Xsqrt(tls, float64(t)))
-	t = Er
-	rgain = float32(1) / float32(libc.Xsqrt(tls, float64(t)))
-	j = 0
-	for {
-		if !(j < N1) {
-			break
-		}
-		/* Apply mid scaling (side is already scaled) */
-		l = OpusT_opus_val32(mid * *(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)))
-		r = *(*OpusT_celt_norm)(unsafe.Pointer(Y + uintptr(j)*4))
-		*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)) = OpusT_opus_val32(lgain * (l - r))
-		*(*OpusT_celt_norm)(unsafe.Pointer(Y + uintptr(j)*4)) = OpusT_opus_val32(rgain * (l + r))
-		j = j + 1
+	x, y := unsafe.Slice(X, int(N1)), unsafe.Slice(Y, int(N1))
+	_ = arch
+	var xp, side OpusT_opus_val32
+	for i := range x {
+		xp = xp + OpusT_opus_val32(y[i]*x[i])
+	}
+	for _, value := range y {
+		side = side + OpusT_opus_val32(value*value)
+	}
+	xp = OpusT_opus_val32(mid * xp)
+	El := OpusT_opus_val32(mid*mid) + side - OpusT_opus_val32(float32(2)*xp)
+	Er := OpusT_opus_val32(mid*mid) + side + OpusT_opus_val32(float32(2)*xp)
+	if Er < float32(0.0006) || El < float32(0.0006) {
+		copy(y, x)
+		return
+	}
+	lgain := float32(1) / float32(libc.Xsqrt(tls, float64(El)))
+	rgain := float32(1) / float32(libc.Xsqrt(tls, float64(Er)))
+	for i := range x {
+		l, r := OpusT_opus_val32(mid*x[i]), y[i]
+		x[i] = OpusT_opus_val32(lgain * (l - r))
+		y[i] = OpusT_opus_val32(rgain * (l + r))
 	}
 }
 
@@ -3705,7 +3675,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
 	if bandContext.Fresynth != 0 {
 		if N != int32(2) {
-			stereo_merge(tls, X, Y, mid, N, bandContext.Farch)
+			stereo_merge(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), mid, N, bandContext.Farch)
 		}
 		if inv != 0 {
 			j = 0
