@@ -425,12 +425,12 @@ func Opus_isqrt32(tls *libc.TLS, _val OpusT_opus_uint32) (r uint32) {
 	return g
 }
 
-func Opus_celt_float2int16_c(tls *libc.TLS, in uintptr, out uintptr, cnt int32) {
+func Opus_celt_float2int16_c(tls *libc.TLS, in *float32, out *int16, cnt int32) {
 	if cnt <= 0 {
 		return
 	}
-	inS := unsafe.Slice((*float32)(unsafe.Pointer(in)), int(cnt))
-	outS := unsafe.Slice((*int16)(unsafe.Pointer(out)), int(cnt))
+	inS := unsafe.Slice(in, int(cnt))
+	outS := unsafe.Slice(out, int(cnt))
 	for i := 0; i < int(cnt); i++ {
 		v := float32(inS[i] * float32(32768))
 		if v < float32(-int32(32768)) {
