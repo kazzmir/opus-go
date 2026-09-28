@@ -244,8 +244,8 @@ func silk_PLC_energy(tls *libc.TLS, energy1 uintptr, shift1 uintptr, energy2 uin
 		k = k + 1
 	}
 	/* Find the subframe with lowest energy of the last two and use that as random noise generator */
-	Opus_silk_sum_sqr_shift(tls, energy1, shift1, exc_buf, subfr_length)
-	Opus_silk_sum_sqr_shift(tls, energy2, shift2, exc_buf+uintptr(subfr_length)*2, subfr_length)
+	Opus_silk_sum_sqr_shift(tls, (*OpusT_opus_int32)(unsafe.Pointer(energy1)), (*int32)(unsafe.Pointer(shift1)), (*OpusT_opus_int16)(unsafe.Pointer(exc_buf)), subfr_length)
+	Opus_silk_sum_sqr_shift(tls, (*OpusT_opus_int32)(unsafe.Pointer(energy2)), (*int32)(unsafe.Pointer(shift2)), (*OpusT_opus_int16)(unsafe.Pointer(exc_buf+uintptr(subfr_length)*2)), subfr_length)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -859,12 +859,12 @@ func Opus_silk_PLC_glue_frames(tls *libc.TLS, psDec uintptr, frame uintptr, leng
 	psPLC = uintptr(unsafe.Pointer(&(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC))
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 {
 		/* Calculate energy in concealed residual */
-		Opus_silk_sum_sqr_shift(tls, psPLC+60, psPLC+64, frame, length)
+		Opus_silk_sum_sqr_shift(tls, &(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy, &(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift, (*OpusT_opus_int16)(unsafe.Pointer(frame)), length)
 		(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Flast_frame_lost = int32(1)
 	} else {
 		if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Flast_frame_lost != 0 {
 			/* Calculate residual in decoded signal if last frame was lost */
-			Opus_silk_sum_sqr_shift(tls, uintptr(unsafe.Pointer(&energy)), uintptr(unsafe.Pointer(&energy_shift)), frame, length)
+			Opus_silk_sum_sqr_shift(tls, &energy, &energy_shift, (*OpusT_opus_int16)(unsafe.Pointer(frame)), length)
 			/* Normalize energies */
 			if energy_shift > (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift {
 				(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy >> (energy_shift - (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift)

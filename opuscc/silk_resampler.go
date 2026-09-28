@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math/bits"
 	"reflect"
 	"unsafe"
 
@@ -1319,76 +1320,30 @@ POSSIBILITY OF SUCH DAMAGE.
 //
 //	/* Compute number of bits to right shift the sum of squares of a vector */
 //	/* of int16s to make it fit in an int32                                 */
-func Opus_silk_sum_sqr_shift(tls *libc.TLS, energy uintptr, shift uintptr, x uintptr, len1 int32) {
-	var i, shft, v4, v9 int32
-	var nrg, v1, v10, v2, v6, v7 OpusT_opus_int32
-	var nrg_tmp OpusT_opus_uint32
-	_, _, _, _, _, _, _, _, _, _, _ = i, nrg, nrg_tmp, shft, v1, v10, v2, v4, v6, v7, v9
-	/* Do a first run with the maximum shift we could have. */
-	v1 = len1
-	if v1 != 0 {
-		v4 = int32(32) - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, uint32(v1)))
-	} else {
-		v4 = int32(32)
-	}
-	v2 = v4
-	shft = int32(31) - v2
-	/* Let's be conservative with rounding and start with nrg=len. */
-	nrg = len1
-	i = 0
-	for {
-		if !(i < len1-int32(1)) {
-			break
+func Opus_silk_sum_sqr_shift(tls *libc.TLS, energy *OpusT_opus_int32, shift *int32, x *OpusT_opus_int16, len1 int32) {
+	input := unsafe.Slice(x, int(len1))
+	shft := int32(31 - bits.LeadingZeros32(uint32(len1)))
+	// Start conservatively with nrg=len, then recompute with two headroom bits.
+	nrg := len1
+	for pass := 0; pass < 2; pass++ {
+		if pass == 1 {
+			shft = max(0, shft+3-int32(bits.LeadingZeros32(uint32(nrg))))
+			nrg = 0
 		}
-		nrg_tmp = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))))
-		nrg_tmp = uint32(int32(nrg_tmp + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i+int32(1))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i+int32(1))*2))))))
-		nrg = int32(uint32(nrg) + nrg_tmp>>shft)
-		i = i + int32(2)
-	}
-	if i < len1 {
-		/* One sample left to process */
-		nrg_tmp = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))))
-		nrg = int32(uint32(nrg) + nrg_tmp>>shft)
-	}
-	_ = nrg >= int32(0)
-	/* Make sure the result will fit in a 32-bit signed integer with two bits
-	   of headroom. */
-	v1 = nrg
-	if v1 != 0 {
-		v4 = int32(32) - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, uint32(v1)))
-	} else {
-		v4 = int32(32)
-	}
-	v2 = v4
-	v6 = 0
-	v7 = shft + int32(3) - v2
-	if v6 > v7 {
-		v9 = v6
-	} else {
-		v9 = v7
-	}
-	v10 = v9
-	shft = v10
-	nrg = 0
-	i = 0
-	for {
-		if !(i < len1-int32(1)) {
-			break
+		i := 0
+		for ; i+1 < len(input); i += 2 {
+			a, b := int32(input[i]), int32(input[i+1])
+			// The sum of two squares can set bit 31: shift it unsigned.
+			pair := uint32(a*a) + uint32(b*b)
+			nrg = int32(uint32(nrg) + (pair >> shft))
 		}
-		nrg_tmp = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))))
-		nrg_tmp = uint32(int32(nrg_tmp + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i+int32(1))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i+int32(1))*2))))))
-		nrg = int32(uint32(nrg) + nrg_tmp>>shft)
-		i = i + int32(2)
+		if i < len(input) {
+			a := int32(input[i])
+			nrg = int32(uint32(nrg) + (uint32(a*a) >> shft))
+		}
 	}
-	if i < len1 {
-		/* One sample left to process */
-		nrg_tmp = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(x + uintptr(i)*2))))
-		nrg = int32(uint32(nrg) + nrg_tmp>>shft)
-	}
-	_ = nrg >= int32(0)
-	/* Output arguments */
-	*(*int32)(unsafe.Pointer(shift)) = shft
-	*(*OpusT_opus_int32)(unsafe.Pointer(energy)) = nrg
+	*shift = shft
+	*energy = nrg
 }
 
 // C documentation
