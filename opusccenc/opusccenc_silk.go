@@ -2794,43 +2794,20 @@ const QA1 = 16
 //
 //	/* helper function for NLSF2A(..) */
 
-func Opus_silk_LP_variable_cutoff(tls *libc.TLS, psLP uintptr, frame uintptr, frame_length int32) {
-	bp := tls.Alloc(32)
-	defer tls.Free(32)
-	var fac_Q16 OpusT_opus_int32
-	var ind, v1, v2 int32
-	var _ /* A_Q28 at bp+16 */ [2]OpusT_opus_int32
-	var _ /* B_Q28 at bp+0 */ [3]OpusT_opus_int32
-	_, _, _, _ = fac_Q16, ind, v1, v2
-	fac_Q16 = 0
-	ind = 0
-	_ = (*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no >= 0 && (*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no <= libc.Int32FromInt32(TRANSITION_TIME_MS)/(libc.Int32FromInt32(SUB_FRAME_LENGTH_MS)*libc.Int32FromInt32(MAX_NB_SUBFR))
-	/* Run filter if needed */
-	if (*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Fmode != 0 {
-		/* Calculate index and interpolation factor for interpolation */
-		fac_Q16 = libc.Int32FromUint32(libc.Uint32FromInt32(libc.Int32FromInt32(TRANSITION_TIME_MS)/(libc.Int32FromInt32(SUB_FRAME_LENGTH_MS)*libc.Int32FromInt32(MAX_NB_SUBFR))-(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no) << (libc.Int32FromInt32(16) - libc.Int32FromInt32(6)))
-		ind = fac_Q16 >> libc.Int32FromInt32(16)
-		fac_Q16 = fac_Q16 - libc.Int32FromUint32(libc.Uint32FromInt32(ind)<<libc.Int32FromInt32(16))
-		_ = ind >= libc.Int32FromInt32(0)
-		_ = ind < libc.Int32FromInt32(TRANSITION_INT_NUM)
-		/* Interpolate filter coefficients */
-		silk_LP_interpolate_filter_taps(tls, bp, bp+16, ind, fac_Q16)
-		/* Update transition frame number for next frame */
-		if (*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no+(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Fmode > libc.Int32FromInt32(TRANSITION_TIME_MS)/(libc.Int32FromInt32(SUB_FRAME_LENGTH_MS)*libc.Int32FromInt32(MAX_NB_SUBFR)) {
-			v1 = libc.Int32FromInt32(TRANSITION_TIME_MS) / (libc.Int32FromInt32(SUB_FRAME_LENGTH_MS) * libc.Int32FromInt32(MAX_NB_SUBFR))
-		} else {
-			if (*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no+(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Fmode < 0 {
-				v2 = 0
-			} else {
-				v2 = (*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no + (*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Fmode
-			}
-			v1 = v2
-		}
-		(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).Ftransition_frame_no = v1
-		/* ARMA low-pass filtering */
-		_ = libc.Bool(true) && libc.Bool(true)
-		Opus_silk_biquad_alt_stride1(tls, (*OpusT_opus_int16)(unsafe.Pointer(frame)), (*[3]OpusT_opus_int32)(unsafe.Pointer(bp)), (*[2]OpusT_opus_int32)(unsafe.Pointer(bp+16)), &(*OpusT_silk_LP_state)(unsafe.Pointer(psLP)).FIn_LP_State, (*OpusT_opus_int16)(unsafe.Pointer(frame)), frame_length)
+func Opus_silk_LP_variable_cutoff(tls *libc.TLS, psLP *OpusT_silk_LP_state, frame *OpusT_opus_int16, frame_length int32) {
+	if psLP.Fmode == 0 {
+		return
 	}
+	const transitionFrames = int32(TRANSITION_TIME_MS) / (int32(SUB_FRAME_LENGTH_MS) * int32(MAX_NB_SUBFR))
+	// C requires transition_frame_no in [0, transitionFrames].
+	factor := (transitionFrames - psLP.Ftransition_frame_no) << 10
+	ind := factor >> 16
+	factor -= ind << 16
+	var b [3]OpusT_opus_int32
+	var a [2]OpusT_opus_int32
+	silk_LP_interpolate_filter_taps(tls, &b, &a, ind, factor)
+	psLP.Ftransition_frame_no = min(max(psLP.Ftransition_frame_no+psLP.Fmode, 0), transitionFrames)
+	Opus_silk_biquad_alt_stride1(tls, frame, &b, &a, &psLP.FIn_LP_State, frame, frame_length)
 }
 
 const silk_int16_MAX8 = 0x7FFF
@@ -9696,7 +9673,7 @@ func Opus_silk_encode_frame_FLP(tls *libc.TLS, psEnc uintptr, pnBytesOut uintptr
 	/***************************************/
 	/* Ensure smooth bandwidth transitions */
 	/***************************************/
-	Opus_silk_LP_variable_cutoff(tls, psEnc+16, psEnc+5112+uintptr(1)*2, (*OpusT_silk_encoder_state_FLP)(unsafe.Pointer(psEnc)).FsCmn.Fframe_length)
+	Opus_silk_LP_variable_cutoff(tls, &(*OpusT_silk_encoder_state_FLP)(unsafe.Pointer(psEnc)).FsCmn.FsLP, &(*OpusT_silk_encoder_state_FLP)(unsafe.Pointer(psEnc)).FsCmn.FinputBuf[1], (*OpusT_silk_encoder_state_FLP)(unsafe.Pointer(psEnc)).FsCmn.Fframe_length)
 	/*******************************************/
 	/* Copy new frame to front of input buffer */
 	/*******************************************/
@@ -20040,7 +20017,7 @@ func silk_LPC_analysis_filter8_FLP(tls *libc.TLS, r_LPC uintptr, PredCoef uintpt
 //
 //	/* 6th order LPC analysis filter, does not write first 6 samples */
 
-func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr, ind int32, fac_Q16 OpusT_opus_int32) {
+func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 *[3]OpusT_opus_int32, A_Q28 *[2]OpusT_opus_int32, ind int32, fac_Q16 OpusT_opus_int32) {
 	var na, nb, v3, v4 int32
 	_, _, _, _ = na, nb, v3, v4
 	if ind < libc.Int32FromInt32(TRANSITION_INT_NUM)-libc.Int32FromInt32(1) {
@@ -20052,7 +20029,7 @@ func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr
 					if !(nb < int32(TRANSITION_NB)) {
 						break
 					}
-					*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + uintptr(nb)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind)*12 + uintptr(nb)*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind+int32(1))*12 + uintptr(nb)*4))-*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind)*12 + uintptr(nb)*4)))*int64(int16(fac_Q16))>>libc.Int32FromInt32(16))
+					B_Q28[nb] = int32(int64(Opus_silk_Transition_LP_B_Q28[ind][nb]) + ((int64(Opus_silk_Transition_LP_B_Q28[ind+1][nb]-Opus_silk_Transition_LP_B_Q28[ind][nb]) * int64(int16(fac_Q16))) >> 16))
 					nb = nb + 1
 				}
 				na = 0
@@ -20060,7 +20037,7 @@ func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr
 					if !(na < int32(TRANSITION_NA)) {
 						break
 					}
-					*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28 + uintptr(na)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind)*8 + uintptr(na)*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind+int32(1))*8 + uintptr(na)*4))-*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind)*8 + uintptr(na)*4)))*int64(int16(fac_Q16))>>libc.Int32FromInt32(16))
+					A_Q28[na] = int32(int64(Opus_silk_Transition_LP_A_Q28[ind][na]) + ((int64(Opus_silk_Transition_LP_A_Q28[ind+1][na]-Opus_silk_Transition_LP_A_Q28[ind][na]) * int64(int16(fac_Q16))) >> 16))
 					na = na + 1
 				}
 			} else { /* ( fac_Q16 - ( 1 << 16 ) ) is in range of a 16-bit int */
@@ -20081,7 +20058,7 @@ func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr
 					if !(nb < int32(TRANSITION_NB)) {
 						break
 					}
-					*(*OpusT_opus_int32)(unsafe.Pointer(B_Q28 + uintptr(nb)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind+int32(1))*12 + uintptr(nb)*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind+int32(1))*12 + uintptr(nb)*4))-*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28)) + uintptr(ind)*12 + uintptr(nb)*4)))*int64(int16(fac_Q16-libc.Int32FromInt32(1)<<libc.Int32FromInt32(16)))>>libc.Int32FromInt32(16))
+					B_Q28[nb] = int32(int64(Opus_silk_Transition_LP_B_Q28[ind+1][nb]) + ((int64(Opus_silk_Transition_LP_B_Q28[ind+1][nb]-Opus_silk_Transition_LP_B_Q28[ind][nb]) * int64(int16(fac_Q16-(1<<16)))) >> 16))
 					nb = nb + 1
 				}
 				na = 0
@@ -20089,17 +20066,17 @@ func silk_LP_interpolate_filter_taps(tls *libc.TLS, B_Q28 uintptr, A_Q28 uintptr
 					if !(na < int32(TRANSITION_NA)) {
 						break
 					}
-					*(*OpusT_opus_int32)(unsafe.Pointer(A_Q28 + uintptr(na)*4)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind+int32(1))*8 + uintptr(na)*4))) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind+int32(1))*8 + uintptr(na)*4))-*(*OpusT_opus_int32)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28)) + uintptr(ind)*8 + uintptr(na)*4)))*int64(int16(fac_Q16-libc.Int32FromInt32(1)<<libc.Int32FromInt32(16)))>>libc.Int32FromInt32(16))
+					A_Q28[na] = int32(int64(Opus_silk_Transition_LP_A_Q28[ind+1][na]) + ((int64(Opus_silk_Transition_LP_A_Q28[ind+1][na]-Opus_silk_Transition_LP_A_Q28[ind][na]) * int64(int16(fac_Q16-(1<<16)))) >> 16))
 					na = na + 1
 				}
 			}
 		} else {
-			libc.Xmemcpy(tls, B_Q28, uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28))+uintptr(ind)*12, libc.Uint64FromInt32(TRANSITION_NB)*libc.Uint64FromInt64(4))
-			libc.Xmemcpy(tls, A_Q28, uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28))+uintptr(ind)*8, libc.Uint64FromInt32(TRANSITION_NA)*libc.Uint64FromInt64(4))
+			*B_Q28 = Opus_silk_Transition_LP_B_Q28[ind]
+			*A_Q28 = Opus_silk_Transition_LP_A_Q28[ind]
 		}
 	} else {
-		libc.Xmemcpy(tls, B_Q28, uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_B_Q28))+uintptr(libc.Int32FromInt32(TRANSITION_INT_NUM)-libc.Int32FromInt32(1))*12, libc.Uint64FromInt32(TRANSITION_NB)*libc.Uint64FromInt64(4))
-		libc.Xmemcpy(tls, A_Q28, uintptr(unsafe.Pointer(&Opus_silk_Transition_LP_A_Q28))+uintptr(libc.Int32FromInt32(TRANSITION_INT_NUM)-libc.Int32FromInt32(1))*8, libc.Uint64FromInt32(TRANSITION_NA)*libc.Uint64FromInt64(4))
+		*B_Q28 = Opus_silk_Transition_LP_B_Q28[TRANSITION_INT_NUM-1]
+		*A_Q28 = Opus_silk_Transition_LP_A_Q28[TRANSITION_INT_NUM-1]
 	}
 }
 
