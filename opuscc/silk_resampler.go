@@ -885,7 +885,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, SS uintptr, out uintptr,
 		}
 		nSamplesIn = v29
 		/* Upsample 2x */
-		Opus_silk_resampler_private_up2_HQ(tls, SS, buf+8*2, in, nSamplesIn)
+		Opus_silk_resampler_private_up2_HQ(tls, &(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(SS)).FsIIR, (*OpusT_opus_int16)(unsafe.Pointer(buf+8*2)), (*OpusT_opus_int16)(unsafe.Pointer(in)), nSamplesIn)
 		max_index_Q16 = int32(uint32(nSamplesIn) << (int32(16) + int32(1))) /* + 1 because 2x upsampling */
 		out = silk_resampler_private_IIR_FIR_INTERPOL(tls, out, buf, max_index_Q16, index_increment_Q16)
 		in = in + uintptr(nSamplesIn)*2
@@ -930,87 +930,50 @@ var silk_resampler_up2_hq_16 = [3]OpusT_opus_int16{
 //	/* Upsample by a factor 2, high quality */
 //	/* Uses 2nd order allpass filters for the 2x upsampling, followed by a      */
 //	/* notch filter just above Nyquist.                                         */
-func Opus_silk_resampler_private_up2_HQ(tls *libc.TLS, S uintptr, out uintptr, in uintptr, len1 OpusT_opus_int32) {
-	var X, Y, in32, k, out32_1, out32_2 OpusT_opus_int32
-	var v2, v3 int32
-	_, _, _, _, _, _, _, _ = X, Y, in32, k, out32_1, out32_2, v2, v3
-	_ = int32(silk_resampler_up2_hq_06[0]) > int32(0)
-	_ = int32(silk_resampler_up2_hq_06[int32(1)]) > int32(0)
-	_ = int32(silk_resampler_up2_hq_06[int32(2)]) < int32(0)
-	_ = int32(silk_resampler_up2_hq_16[0]) > int32(0)
-	_ = int32(silk_resampler_up2_hq_16[int32(1)]) > int32(0)
-	_ = int32(silk_resampler_up2_hq_16[int32(2)]) < int32(0)
-	/* Internal variables and state are in Q10 format */
-	k = 0
-	for {
-		if !(k < len1) {
-			break
-		}
-		/* Convert to Q10 */
-		in32 = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(k)*2)))) << int32(10))
-		/* First all-pass section for even output sample */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S))
-		X = int32(int64(Y) * int64(silk_resampler_up2_hq_06[0]) >> int32(16))
-		out32_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = in32 + X
-		/* Second all-pass section for even output sample */
-		Y = out32_1 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))
-		X = int32(int64(Y) * int64(silk_resampler_up2_hq_06[int32(1)]) >> int32(16))
-		out32_2 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = out32_1 + X
-		/* Third all-pass section for even output sample */
-		Y = out32_2 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4))
-		X = int32(int64(Y) + int64(Y)*int64(silk_resampler_up2_hq_06[int32(2)])>>int32(16))
-		out32_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 2*4)) = out32_2 + X
-		/* Apply gain in Q15, convert back to int16 and store to output */
-		if (out32_1>>(int32(10)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX21) {
-			v2 = int32(silk_int16_MAX21)
-		} else {
-			if (out32_1>>(int32(10)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v3 = int32(int16(-32768))
-			} else {
-				v3 = (out32_1>>(int32(10)-int32(1)) + int32(1)) >> int32(1)
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(int32(2)*k)*2)) = int16(v2)
-		/* First all-pass section for odd output sample */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4))
-		X = int32(int64(Y) * int64(silk_resampler_up2_hq_16[0]) >> int32(16))
-		out32_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 3*4)) = in32 + X
-		/* Second all-pass section for odd output sample */
-		Y = out32_1 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 4*4))
-		X = int32(int64(Y) * int64(silk_resampler_up2_hq_16[int32(1)]) >> int32(16))
-		out32_2 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 4*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 4*4)) = out32_1 + X
-		/* Third all-pass section for odd output sample */
-		Y = out32_2 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 5*4))
-		X = int32(int64(Y) + int64(Y)*int64(silk_resampler_up2_hq_16[int32(2)])>>int32(16))
-		out32_1 = *(*OpusT_opus_int32)(unsafe.Pointer(S + 5*4)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 5*4)) = out32_2 + X
-		/* Apply gain in Q15, convert back to int16 and store to output */
-		if (out32_1>>(int32(10)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX21) {
-			v2 = int32(silk_int16_MAX21)
-		} else {
-			if (out32_1>>(int32(10)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v3 = int32(int16(-32768))
-			} else {
-				v3 = (out32_1>>(int32(10)-int32(1)) + int32(1)) >> int32(1)
-			}
-			v2 = v3
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(int32(2)*k+int32(1))*2)) = int16(v2)
-		k = k + 1
+func Opus_silk_resampler_private_up2_HQ(tls *libc.TLS, S *[6]OpusT_opus_int32, out *OpusT_opus_int16, in *OpusT_opus_int16, len1 OpusT_opus_int32) {
+	if len1 <= 0 {
+		return
+	}
+	input := unsafe.Slice(in, int(len1))
+	output := unsafe.Slice(out, 2*int(len1))
+	for k, sample := range input {
+		// Internal variables and state are Q10, with 32-bit wraparound.
+		in32 := int32(uint32(int32(sample)) << 10)
+		Y := in32 - S[0]
+		X := int32((int64(Y) * int64(silk_resampler_up2_hq_06[0])) >> 16)
+		out1 := S[0] + X
+		S[0] = in32 + X
+		Y = out1 - S[1]
+		X = int32((int64(Y) * int64(silk_resampler_up2_hq_06[1])) >> 16)
+		out2 := S[1] + X
+		S[1] = out1 + X
+		Y = out2 - S[2]
+		X = int32(int64(Y) + ((int64(Y) * int64(silk_resampler_up2_hq_06[2])) >> 16))
+		out1 = S[2] + X
+		S[2] = out2 + X
+		value := ((out1 >> 9) + 1) >> 1
+		output[2*k] = int16(min(max(value, -32768), 32767))
+
+		Y = in32 - S[3]
+		X = int32((int64(Y) * int64(silk_resampler_up2_hq_16[0])) >> 16)
+		out1 = S[3] + X
+		S[3] = in32 + X
+		Y = out1 - S[4]
+		X = int32((int64(Y) * int64(silk_resampler_up2_hq_16[1])) >> 16)
+		out2 = S[4] + X
+		S[4] = out1 + X
+		Y = out2 - S[5]
+		X = int32(int64(Y) + ((int64(Y) * int64(silk_resampler_up2_hq_16[2])) >> 16))
+		out1 = S[5] + X
+		S[5] = out2 + X
+		value = ((out1 >> 9) + 1) >> 1
+		output[2*k+1] = int16(min(max(value, -32768), 32767))
 	}
 }
 
 func Opus_silk_resampler_private_up2_HQ_wrapper(tls *libc.TLS, SS uintptr, out uintptr, in uintptr, len1 OpusT_opus_int32) {
-	var S uintptr
-	_ = S
-	S = SS
-	Opus_silk_resampler_private_up2_HQ(tls, S, out, in, len1)
+	state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(SS))
+	Opus_silk_resampler_private_up2_HQ(tls, &state.FsIIR, (*OpusT_opus_int16)(unsafe.Pointer(out)), (*OpusT_opus_int16)(unsafe.Pointer(in)), len1)
 }
 
 const silk_int16_MAX22 = 0x7FFF
