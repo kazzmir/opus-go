@@ -1668,106 +1668,42 @@ POSSIBILITY OF SUCH DAMAGE.
 //
 //	/* Convert int32 coefficients to int16 coefs and make sure there's no wrap-around.
 //	   This logic is reused in _celt_lpc(). Any bug fixes should also be applied there. */
-func Opus_silk_LPC_fit(tls *libc.TLS, a_QOUT uintptr, a_QIN uintptr, QOUT int32, QIN int32, d int32) {
-	var absval, chirp_Q16, maxabs OpusT_opus_int32
-	var i, idx, k, v3, v4, v5, v7, v8 int32
-	_, _, _, _, _, _, _, _, _, _, _ = absval, chirp_Q16, i, idx, k, maxabs, v3, v4, v5, v7, v8
-	idx = 0
-	/* Limit the maximum absolute value of the prediction coefficients, so that they'll fit in int16 */
-	i = 0
-	for {
-		if !(i < int32(10)) {
-			break
+func Opus_silk_LPC_fit(tls *libc.TLS, a_QOUT *OpusT_opus_int16, a_QIN *OpusT_opus_int32, QOUT int32, QIN int32, d int32) {
+	output, input := unsafe.Slice(a_QOUT, int(d)), unsafe.Slice(a_QIN, int(d))
+	shift := QIN - QOUT
+	round := func(value int32) int32 {
+		if shift == 1 {
+			return (value >> 1) + (value & 1)
 		}
-		/* Find maximum absolute value and its index */
-		maxabs = 0
-		k = 0
-		for {
-			if !(k < d) {
-				break
-			}
-			if *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4)) > 0 {
-				v3 = *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))
-			} else {
-				v3 = -*(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))
-			}
-			absval = v3
-			if absval > maxabs {
-				maxabs = absval
-				idx = k
-			}
-			k = k + 1
-		}
-		if QIN-QOUT == int32(1) {
-			v3 = maxabs>>int32(1) + maxabs&int32(1)
-		} else {
-			v3 = (maxabs>>(QIN-QOUT-int32(1)) + int32(1)) >> int32(1)
-		}
-		maxabs = v3
-		if maxabs > int32(silk_int16_MAX15) {
-			/* Reduce magnitude of prediction coefficients */
-			if maxabs < int32(163838) {
-				v3 = maxabs
-			} else {
-				v3 = int32(163838)
-			}
-			maxabs = v3 /* ( silk_int32_MAX >> 14 ) + silk_int16_MAX = 163838 */
-			chirp_Q16 = int32(65470) - int32(uint32(maxabs-int32(silk_int16_MAX15))<<int32(14))/(maxabs*(idx+int32(1))>>int32(2))
-			Opus_silk_bwexpander_32(tls, (*OpusT_opus_int32)(unsafe.Pointer(a_QIN)), d, chirp_Q16)
-		} else {
-			break
-		}
-		i = i + 1
+		return ((value >> (shift - 1)) + 1) >> 1
 	}
-	if i == int32(10) {
-		/* Reached the last iteration, clip the coefficients */
-		k = 0
-		for {
-			if !(k < d) {
-				break
+	idx, iteration := 0, 0
+	for ; iteration < 10; iteration++ {
+		var maxabs int32
+		for k, value := range input {
+			absval := value
+			if absval <= 0 {
+				absval = -absval
 			}
-			if QIN-QOUT == int32(1) {
-				v4 = *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))>>int32(1) + *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))&int32(1)
-			} else {
-				v4 = (*(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))>>(QIN-QOUT-int32(1)) + int32(1)) >> int32(1)
+			if absval > maxabs {
+				maxabs, idx = absval, k
 			}
-			if v4 > int32(silk_int16_MAX15) {
-				v3 = int32(silk_int16_MAX15)
-			} else {
-				if QIN-QOUT == int32(1) {
-					v7 = *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))>>int32(1) + *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))&int32(1)
-				} else {
-					v7 = (*(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))>>(QIN-QOUT-int32(1)) + int32(1)) >> int32(1)
-				}
-				if v7 < int32(int16(-32768)) {
-					v5 = int32(int16(-32768))
-				} else {
-					if QIN-QOUT == int32(1) {
-						v8 = *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))>>int32(1) + *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))&int32(1)
-					} else {
-						v8 = (*(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))>>(QIN-QOUT-int32(1)) + int32(1)) >> int32(1)
-					}
-					v5 = v8
-				}
-				v3 = v5
-			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(a_QOUT + uintptr(k)*2)) = int16(v3)
-			*(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4)) = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(a_QOUT + uintptr(k)*2)))) << (QIN - QOUT))
-			k = k + 1
 		}
-	} else {
-		k = 0
-		for {
-			if !(k < d) {
-				break
-			}
-			if QIN-QOUT == int32(1) {
-				v3 = *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))>>int32(1) + *(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))&int32(1)
-			} else {
-				v3 = (*(*OpusT_opus_int32)(unsafe.Pointer(a_QIN + uintptr(k)*4))>>(QIN-QOUT-int32(1)) + int32(1)) >> int32(1)
-			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(a_QOUT + uintptr(k)*2)) = int16(v3)
-			k = k + 1
+		maxabs = round(maxabs)
+		if maxabs <= 32767 {
+			break
+		}
+		maxabs = min(maxabs, 163838)
+		chirp := int32(65470) - ((maxabs-32767)<<14)/((maxabs*int32(idx+1))>>2)
+		Opus_silk_bwexpander_32(tls, a_QIN, d, chirp)
+	}
+	for k := range output {
+		value := round(input[k])
+		if iteration == 10 {
+			output[k] = int16(min(max(value, -32768), 32767))
+			input[k] = int32(output[k]) << shift
+		} else {
+			output[k] = int16(value)
 		}
 	}
 }

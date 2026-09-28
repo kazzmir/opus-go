@@ -66,7 +66,7 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 uintptr, NLSF uintptr, d int32, arch 
 		k = k + 1
 	}
 	/* Convert int32 coefficients to Q12 int16 coefs */
-	Opus_silk_LPC_fit(tls, a_Q12, uintptr(unsafe.Pointer(&a32_QA1[0])), int32(12), int32(QA1)+int32(1), d)
+	Opus_silk_LPC_fit(tls, (*OpusT_opus_int16)(unsafe.Pointer(a_Q12)), &a32_QA1[0], int32(12), int32(QA1)+int32(1), d)
 	i = 0
 	for {
 		if !(Opus_silk_LPC_inverse_pred_gain_c(tls, a_Q12, d) == 0 && i < int32(MAX_LPC_STABILIZE_ITERATIONS)) {
