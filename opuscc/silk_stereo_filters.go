@@ -1001,64 +1001,34 @@ const silk_int16_MAX13 = 32767
    this should be safe in pretty much all cases, even though it is not technically
    C89-compliant. */
 
-func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uintptr, len1 OpusT_opus_int32, d OpusT_opus_int32, arch int32) {
-	var in_ptr uintptr
-	var ix, j, v3, v4 int32
-	var out32, out32_Q12 OpusT_opus_int32
-	_, _, _, _, _, _, _ = in_ptr, ix, j, out32, out32_Q12, v3, v4
-	if !(d >= int32(6)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7133, __ccgo_ts+7158, int32(67))
+func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out, in, B *OpusT_opus_int16, len1, d OpusT_opus_int32, arch int32) {
+	if d < 6 {
+		Opus_celt_fatal(tls, __ccgo_ts+7133, __ccgo_ts+7158, 67)
 	}
-	if !(d&int32(1) == int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7188, __ccgo_ts+7158, int32(68))
+	if d&1 != 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+7188, __ccgo_ts+7158, 68)
 	}
-	if !(d <= len1) {
-		Opus_celt_fatal(tls, __ccgo_ts+7219, __ccgo_ts+7158, int32(69))
+	if d > len1 {
+		Opus_celt_fatal(tls, __ccgo_ts+7219, __ccgo_ts+7158, 69)
 	}
-	_ = arch
-	ix = d
-	for {
-		if !(ix < len1) {
-			break
+	dst, src, coefficients := unsafe.Slice(out, len1), unsafe.Slice(in, len1), unsafe.Slice(B, d)
+	for i := d; i < len1; i++ {
+		// C deliberately permits intermediate wraparound on invalid streams.
+		var prediction uint32
+		for j := int32(0); j < d; j++ {
+			prediction += uint32(int32(src[i-j-1]) * int32(coefficients[j]))
 		}
-		in_ptr = in + uintptr(ix-int32(1))*2
-		out32_Q12 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(B)))
-		/* Allowing wrap around so that two wraps can cancel each other. The rare
-		   cases where the result wraps around can only be triggered by invalid streams*/
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(1)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 1*2)))))
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(2)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 2*2)))))
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(3)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 3*2)))))
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(4)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 4*2)))))
-		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr - uintptr(5)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 5*2)))))
-		j = int32(6)
-		for {
-			if !(j < d) {
-				break
-			}
-			out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-j)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + uintptr(j)*2)))))
-			out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-j-int32(1))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + uintptr(j+int32(1))*2)))))
-			j = j + int32(2)
+		residual := int32((uint32(int32(src[i])) << 12) - prediction)
+		value := ((residual >> 11) + 1) >> 1
+		if value > 32767 {
+			value = 32767
+		} else if value < -32768 {
+			value = -32768
 		}
-		/* Subtract prediction */
-		out32_Q12 = int32(uint32(int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + 1*2))))<<int32(12))) - uint32(out32_Q12))
-		/* Scale to Q0 */
-		out32 = (out32_Q12>>(int32(12)-int32(1)) + int32(1)) >> int32(1)
-		/* Saturate output */
-		if out32 > int32(silk_int16_MAX13) {
-			v3 = int32(silk_int16_MAX13)
-		} else {
-			if out32 < int32(int16(-32768)) {
-				v4 = int32(int16(-32768))
-			} else {
-				v4 = out32
-			}
-			v3 = v4
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(ix)*2)) = int16(v3)
-		ix = ix + 1
+		dst[i] = int16(value)
 	}
-	/* Set first d output samples to zero */
-	libc.Xmemset(tls, out, 0, uint64(uint32(d))*uint64(2))
+	// Clear history only after filtering, preserving C's overlapping-buffer behavior.
+	clear(dst[:d])
 }
 
 const MAX_PREDICTION_POWER_GAIN1 = 10000

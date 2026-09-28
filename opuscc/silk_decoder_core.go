@@ -558,7 +558,7 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq u
 				if k == int32(2) {
 					libc.Xmemcpy(tls, psDec+1348+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length)*2, xq, uint64(uint32(int32(2)*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length))*uint64(2))
 				}
-				Opus_silk_LPC_analysis_filter(tls, sLTP+uintptr(start_idx)*2, psDec+1348+uintptr(start_idx+k*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length)*2, A_Q12, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length-start_idx, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order, arch)
+				Opus_silk_LPC_analysis_filter(tls, (*OpusT_opus_int16)(unsafe.Pointer(sLTP+uintptr(start_idx)*2)), &decoder.FoutBuf[start_idx+k*decoder.Fsubfr_length], (*OpusT_opus_int16)(unsafe.Pointer(A_Q12)), decoder.Fltp_mem_length-start_idx, decoder.FLPC_order, arch)
 				/* After rewhitening the LTP state is unscaled */
 				if k == 0 {
 					/* Do LTP downscaling to reduce inter-packet dependency */

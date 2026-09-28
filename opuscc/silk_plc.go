@@ -538,7 +538,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 	if !(idx > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6729, __ccgo_ts+6715, int32(319))
 	}
-	Opus_silk_LPC_analysis_filter(tls, sLTP+uintptr(idx)*2, uintptr(unsafe.Pointer(&decoder.FoutBuf[idx])), uintptr(unsafe.Pointer(&A_Q12[0])), decoder.Fltp_mem_length-idx, decoder.FLPC_order, arch)
+	Opus_silk_LPC_analysis_filter(tls, (*OpusT_opus_int16)(unsafe.Pointer(sLTP+uintptr(idx)*2)), &decoder.FoutBuf[idx], &A_Q12[0], decoder.Fltp_mem_length-idx, decoder.FLPC_order, arch)
 	/* Scale LTP state */
 	v84 = plc.FprevGain_Q16[1]
 	v53 = int32(46)
