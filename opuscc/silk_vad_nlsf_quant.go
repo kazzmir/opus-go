@@ -581,56 +581,32 @@ const silk_uint8_MAX2 = 0xFF
 // C documentation
 //
 //	/* Compute quantization errors for an LPC_order element input vector for a VQ codebook */
-func Opus_silk_NLSF_VQ(tls *libc.TLS, err_Q24 uintptr, in_Q15 uintptr, pCB_Q8 uintptr, pWght_Q9 uintptr, K int32, LPC_order int32) {
-	var cb_Q8_ptr, w_Q9_ptr uintptr
-	var diff_Q15, diffw_Q24, pred_Q24, sum_error_Q24 OpusT_opus_int32
-	var i, m, v3 int32
-	_, _, _, _, _, _, _, _, _ = cb_Q8_ptr, diff_Q15, diffw_Q24, i, m, pred_Q24, sum_error_Q24, w_Q9_ptr, v3
+func Opus_silk_NLSF_VQ(tls *libc.TLS, err_Q24 *OpusT_opus_int32, in_Q15 *OpusT_opus_int16, pCB_Q8 *OpusT_opus_uint8, pWght_Q9 *OpusT_opus_int16, K int32, LPC_order int32) {
 	if !(LPC_order&int32(1) == int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+7000, __ccgo_ts+7041, int32(49))
 	}
-	/* Loop over codebook */
-	cb_Q8_ptr = pCB_Q8
-	w_Q9_ptr = pWght_Q9
-	i = 0
-	for {
-		if !(i < K) {
-			break
+	if K <= 0 {
+		return
+	}
+	output := unsafe.Slice(err_Q24, int(K))
+	input := unsafe.Slice(in_Q15, int(LPC_order))
+	codebook := unsafe.Slice(pCB_Q8, int(K)*int(LPC_order))
+	weights := unsafe.Slice(pWght_Q9, len(codebook))
+	for i := range output {
+		var sum, prediction OpusT_opus_int32
+		for m := int(LPC_order) - 1; m >= 0; m-- {
+			index := i*int(LPC_order) + m
+			diff := int32(input[m]) - (int32(codebook[index]) << 7)
+			// silk_SMULBB narrows both operands before multiplying.
+			weighted := int32(int16(diff)) * int32(weights[index])
+			error := weighted - (prediction >> 1)
+			if error <= 0 {
+				error = -error
+			}
+			sum += error
+			prediction = weighted
 		}
-		sum_error_Q24 = 0
-		pred_Q24 = 0
-		m = LPC_order - int32(2)
-		for {
-			if !(m >= 0) {
-				break
-			}
-			/* Compute weighted absolute predictive quantization error for index m + 1 */
-			diff_Q15 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_Q15 + uintptr(m+int32(1))*2))) - int32(uint32(int32(*(*OpusT_opus_uint8)(unsafe.Pointer(cb_Q8_ptr + uintptr(m+int32(1))))))<<int32(7)) /* range: [ -32767 : 32767 ]*/
-			diffw_Q24 = int32(int16(diff_Q15)) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(w_Q9_ptr + uintptr(m+int32(1))*2)))
-			if diffw_Q24-pred_Q24>>int32(1) > 0 {
-				v3 = diffw_Q24 - pred_Q24>>int32(1)
-			} else {
-				v3 = -(diffw_Q24 - pred_Q24>>int32(1))
-			}
-			sum_error_Q24 = sum_error_Q24 + v3
-			pred_Q24 = diffw_Q24
-			/* Compute weighted absolute predictive quantization error for index m */
-			diff_Q15 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_Q15 + uintptr(m)*2))) - int32(uint32(int32(*(*OpusT_opus_uint8)(unsafe.Pointer(cb_Q8_ptr + uintptr(m)))))<<int32(7)) /* range: [ -32767 : 32767 ]*/
-			diffw_Q24 = int32(int16(diff_Q15)) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(w_Q9_ptr + uintptr(m)*2)))
-			if diffw_Q24-pred_Q24>>int32(1) > 0 {
-				v3 = diffw_Q24 - pred_Q24>>int32(1)
-			} else {
-				v3 = -(diffw_Q24 - pred_Q24>>int32(1))
-			}
-			sum_error_Q24 = sum_error_Q24 + v3
-			pred_Q24 = diffw_Q24
-			_ = sum_error_Q24 >= int32(0)
-			m = m - int32(2)
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(err_Q24 + uintptr(i)*4)) = sum_error_Q24
-		cb_Q8_ptr = cb_Q8_ptr + uintptr(LPC_order)
-		w_Q9_ptr = w_Q9_ptr + uintptr(LPC_order)*2
-		i = i + 1
+		output[i] = sum
 	}
 }
 
