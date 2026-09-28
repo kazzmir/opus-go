@@ -188,183 +188,54 @@ POSSIBILITY OF SUCH DAMAGE.
 // C documentation
 //
 //	/* NLSF stabilizer, for a single input data vector */
-func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 uintptr, NDeltaMin_Q15 uintptr, L int32) {
-	var I, i, k, loops, v10, v5, v6, v7, v8, v9 int32
-	var center_freq_Q15 OpusT_opus_int16
-	var diff_Q15, max_center_Q15, min_center_Q15, min_diff_Q15 OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = I, center_freq_Q15, diff_Q15, i, k, loops, max_center_Q15, min_center_Q15, min_diff_Q15, v10, v5, v6, v7, v8, v9
-	I = 0
-	/* This is necessary to ensure an output within range of a opus_int16 */
-	_ = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(L)*2))) >= int32(1)
-	loops = 0
-	for {
-		if !(loops < int32(MAX_LOOPS)) {
-			break
-		}
-		/**************************/
-		/* Find smallest distance */
-		/**************************/
-		/* First element */
-		min_diff_Q15 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15)))
-		I = 0
-		/* Middle elements */
-		i = int32(1)
-		for {
-			if !(i <= L-int32(1)) {
-				break
+func Opus_silk_NLSF_stabilize(tls *libc.TLS, NLSF_Q15 *OpusT_opus_int16, NDeltaMin_Q15 *OpusT_opus_int16, L int32) {
+	x, delta := unsafe.Slice(NLSF_Q15, int(L)), unsafe.Slice(NDeltaMin_Q15, int(L)+1)
+	for loops := 0; loops < MAX_LOOPS; loops++ {
+		gap, at := int32(x[0])-int32(delta[0]), 0
+		for i := 1; i < len(x); i++ {
+			d := int32(x[i]) - (int32(x[i-1]) + int32(delta[i]))
+			if d < gap {
+				gap, at = d, i
 			}
-			diff_Q15 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i)*2))) - (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i-int32(1))*2))) + int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(i)*2))))
-			if diff_Q15 < min_diff_Q15 {
-				min_diff_Q15 = diff_Q15
-				I = i
-			}
-			i = i + 1
 		}
-		/* Last element */
-		diff_Q15 = int32(1)<<int32(15) - (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(L-int32(1))*2))) + int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(L)*2))))
-		if diff_Q15 < min_diff_Q15 {
-			min_diff_Q15 = diff_Q15
-			I = L
+		d := int32(1<<15) - (int32(x[L-1]) + int32(delta[L]))
+		if d < gap {
+			gap, at = d, int(L)
 		}
-		/***************************************************/
-		/* Now check if the smallest distance non-negative */
-		/***************************************************/
-		if min_diff_Q15 >= 0 {
+		if gap >= 0 {
 			return
 		}
-		if I == 0 {
-			/* Move away from lower limit */
-			*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15)) = *(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15))
+		if at == 0 {
+			x[0] = delta[0]
+		} else if at == int(L) {
+			x[L-1] = int16((1 << 15) - int32(delta[L]))
 		} else {
-			if I == L {
-				/* Move away from higher limit */
-				*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(L-int32(1))*2)) = int16(int32(1)<<int32(15) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(L)*2))))
-			} else {
-				/* Find the lower extreme for the location of the current center frequency */
-				min_center_Q15 = 0
-				k = 0
-				for {
-					if !(k < I) {
-						break
-					}
-					min_center_Q15 = min_center_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(k)*2)))
-					k = k + 1
-				}
-				min_center_Q15 = min_center_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(I)*2)))>>int32(1)
-				/* Find the upper extreme for the location of the current center frequency */
-				max_center_Q15 = int32(1) << int32(15)
-				k = L
-				for {
-					if !(k > I) {
-						break
-					}
-					max_center_Q15 = max_center_Q15 - int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(k)*2)))
-					k = k - 1
-				}
-				max_center_Q15 = max_center_Q15 - int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(I)*2)))>>int32(1)
-				/* Move apart, sorted by value, keeping the same center frequency */
-				if min_center_Q15 > max_center_Q15 {
-					if (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))>>int32(1)+(int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))&int32(1) > min_center_Q15 {
-						v6 = min_center_Q15
-					} else {
-						if (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))>>int32(1)+(int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))&int32(1) < max_center_Q15 {
-							v7 = max_center_Q15
-						} else {
-							v7 = (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))>>int32(1) + (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))&int32(1)
-						}
-						v6 = v7
-					}
-					v5 = v6
-				} else {
-					if (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))>>int32(1)+(int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))&int32(1) > max_center_Q15 {
-						v8 = max_center_Q15
-					} else {
-						if (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))>>int32(1)+(int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))&int32(1) < min_center_Q15 {
-							v9 = min_center_Q15
-						} else {
-							v9 = (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))>>int32(1) + (int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2))))&int32(1)
-						}
-						v8 = v9
-					}
-					v5 = v8
-				}
-				center_freq_Q15 = int16(v5)
-				*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2)) = int16(int32(center_freq_Q15) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(I)*2)))>>int32(1))
-				*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I)*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(I-int32(1))*2))) + int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(I)*2))))
+			var lower int32
+			for k := 0; k < at; k++ {
+				lower += int32(delta[k])
 			}
+			lower += int32(delta[at]) >> 1
+			upper := int32(1 << 15)
+			for k := int(L); k > at; k-- {
+				upper -= int32(delta[k])
+			}
+			upper -= int32(delta[at]) >> 1
+			sum := int32(x[at-1]) + int32(x[at])
+			center := int16(min(max((sum>>1)+(sum&1), min(lower, upper)), max(lower, upper)))
+			x[at-1] = int16(int32(center) - (int32(delta[at]) >> 1))
+			x[at] = int16(int32(x[at-1]) + int32(delta[at]))
 		}
-		loops = loops + 1
 	}
-	/* Safe and simple fall back method, which is less ideal than the above */
-	if loops == int32(MAX_LOOPS) {
-		/* Insertion sort (fast for already almost sorted arrays):   */
-		/* Best case:  O(n)   for an already sorted array            */
-		/* Worst case: O(n^2) for an inversely sorted array          */
-		Opus_silk_insertion_sort_increasing_all_values_int16(tls, (*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15)), L)
-		/* First NLSF should be no less than NDeltaMin[0] */
-		v5 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15)))
-		v6 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15)))
-		if v5 > v6 {
-			v8 = v5
-		} else {
-			v8 = v6
-		}
-		v7 = v8
-		*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15)) = int16(v7)
-		/* Keep delta_min distance between the NLSFs */
-		i = int32(1)
-		for {
-			if !(i < L) {
-				break
-			}
-			if int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(i)*2))) > int32(silk_int16_MAX17) {
-				v5 = int32(silk_int16_MAX17)
-			} else {
-				if int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i-int32(1))*2)))+int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(i)*2))) < int32(int16(-32768)) {
-					v6 = int32(int16(-32768))
-				} else {
-					v6 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i-int32(1))*2))) + int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(i)*2)))
-				}
-				v5 = v6
-			}
-			v7 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i)*2)))
-			v8 = int32(int16(v5))
-			if v7 > v8 {
-				v10 = v7
-			} else {
-				v10 = v8
-			}
-			v9 = v10
-			*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i)*2)) = int16(v9)
-			i = i + 1
-		}
-		/* Last NLSF should be no higher than 1 - NDeltaMin[L] */
-		v5 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(L-int32(1))*2)))
-		v6 = int32(1)<<int32(15) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(L)*2)))
-		if v5 < v6 {
-			v8 = v5
-		} else {
-			v8 = v6
-		}
-		v7 = v8
-		*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(L-int32(1))*2)) = int16(v7)
-		/* Keep NDeltaMin distance between the NLSFs */
-		i = L - int32(2)
-		for {
-			if !(i >= 0) {
-				break
-			}
-			v5 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i)*2)))
-			v6 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(NDeltaMin_Q15 + uintptr(i+int32(1))*2)))
-			if v5 < v6 {
-				v8 = v5
-			} else {
-				v8 = v6
-			}
-			v7 = v8
-			*(*OpusT_opus_int16)(unsafe.Pointer(NLSF_Q15 + uintptr(i)*2)) = int16(v7)
-			i = i - 1
-		}
+	// C's bounded-iteration fallback: sort, forward saturated spacing, then backward spacing.
+	Opus_silk_insertion_sort_increasing_all_values_int16(tls, NLSF_Q15, L)
+	x[0] = max(x[0], delta[0])
+	for i := 1; i < len(x); i++ {
+		bound := int16(min(max(int32(x[i-1])+int32(delta[i]), -32768), 32767))
+		x[i] = max(x[i], bound)
+	}
+	x[L-1] = int16(min(int32(x[L-1]), (1<<15)-int32(delta[L])))
+	for i := int(L) - 2; i >= 0; i-- {
+		x[i] = int16(min(int32(x[i]), int32(x[i+1])-int32(delta[i+1])))
 	}
 }
 

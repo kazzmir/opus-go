@@ -259,7 +259,7 @@ func Opus_silk_decode_parameters(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr
 	/****************/
 	/* Decode NLSFs */
 	/****************/
-	Opus_silk_NLSF_decode(tls, uintptr(unsafe.Pointer(&pNLSF_Q15[0])), uintptr(unsafe.Pointer(&decoder.Findices.FNLSFIndices[0])), decoder.FpsNLSF_CB)
+	Opus_silk_NLSF_decode(tls, &pNLSF_Q15[0], &decoder.Findices.FNLSFIndices[0], (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)))
 	/* Convert NLSF parameters to AR prediction filter coefficients */
 	Opus_silk_NLSF2A(tls, uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), uintptr(unsafe.Pointer(&pNLSF_Q15[0])), decoder.FLPC_order, decoder.Farch)
 	/* If just reset, e.g., because internal Fs changed, do not allow interpolation */

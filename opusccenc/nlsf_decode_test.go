@@ -40,9 +40,9 @@ func TestNLSFDecodeMatchesDecoder(t *testing.T) {
 				idx[i] = int8(rng.Intn(9) - 4)
 			}
 			encP, encOut := shimSlice[int16](tls, cb.order)
-			decP, decOut := shimSlice[int16](tls, cb.order)
+			_, decOut := shimSlice[int16](tls, cb.order)
 			Opus_silk_NLSF_decode(tls, encP, idxP, cb.e)
-			opuscc.Opus_silk_NLSF_decode(tls, decP, idxP, cb.d)
+			opuscc.Opus_silk_NLSF_decode(tls, &decOut[0], &idx[0], (*opuscc.OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(cb.d)))
 			for i := range cb.order {
 				if encOut[i] != decOut[i] {
 					t.Fatalf("%s trial %d, indices %v: encoder %v, decoder %v", cb.name, trial, idx, encOut, decOut)
