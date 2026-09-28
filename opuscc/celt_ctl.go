@@ -2509,7 +2509,7 @@ func Opus_unquant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32
 					v2 = int32(20)
 				}
 				pi = int32(2) * v2
-				qi = Opus_ec_laplace_decode(tls, dec, uint32(int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi))))<<int32(7)), int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi+int32(1)))))<<int32(6))
+				qi = Opus_ec_laplace_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi))))<<int32(7)), int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi+int32(1)))))<<int32(6))
 			} else {
 				if budget-tell >= int32(2) {
 					qi = Opus_ec_dec_icdf(tls, dec, uintptr(unsafe.Pointer(&small_energy_icdf)), uint32(2))

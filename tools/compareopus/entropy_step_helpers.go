@@ -4,6 +4,7 @@ package main
 
 /*
 #include "entdec.h"
+#include "laplace.h"
 // Copy fields explicitly; do not assume the translated Go/C layouts match.
 static unsigned entropy_step(unsigned *s, unsigned char *data, int op,
                              unsigned a, unsigned b, unsigned c, const opus_uint16 *table) {
@@ -19,6 +20,7 @@ static unsigned entropy_step(unsigned *s, unsigned char *data, int op,
  case 2: result=ec_dec_bits(&dec,a); break;
  case 3: result=ec_dec_uint(&dec,a); break;
  case 4: result=ec_dec_icdf16(&dec,table,a); break;
+ case 5: result=ec_laplace_decode(&dec,a,(int)b); break;
  }
  s[0]=dec.storage; s[1]=dec.end_offs; s[2]=dec.end_window;
  s[3]=dec.nend_bits; s[4]=dec.nbits_total; s[5]=dec.offs;
