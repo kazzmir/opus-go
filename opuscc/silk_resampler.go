@@ -279,7 +279,7 @@ func Opus_silk_resampler_down2_3(tls *libc.TLS, S uintptr, out uintptr, in uintp
 		}
 		nSamplesIn = v29
 		/* Second-order AR filter (output in Q8) */
-		Opus_silk_resampler_private_AR2(tls, S+4*4, buf+4*4, in, uintptr(unsafe.Pointer(&Opus_silk_Resampler_2_3_COEFS_LQ)), nSamplesIn)
+		Opus_silk_resampler_private_AR2(tls, (*OpusT_opus_int32)(unsafe.Pointer(S+4*4)), (*OpusT_opus_int32)(unsafe.Pointer(buf+4*4)), (*OpusT_opus_int16)(unsafe.Pointer(in)), &Opus_silk_Resampler_2_3_COEFS_LQ[0], nSamplesIn)
 		/* Interpolate filtered signal */
 		buf_ptr = buf
 		counter = nSamplesIn
@@ -430,20 +430,20 @@ var silk_resampler_up2_hq_13 = [3]OpusT_opus_int16{
 // C documentation
 //
 //	/* Second order AR filter with single delay elements */
-func Opus_silk_resampler_private_AR2(tls *libc.TLS, S uintptr, out_Q8 uintptr, in uintptr, A_Q14 uintptr, len1 OpusT_opus_int32) {
-	var k, out32 OpusT_opus_int32
-	_, _ = k, out32
-	k = 0
-	for {
-		if !(k < len1) {
-			break
-		}
-		out32 = *(*OpusT_opus_int32)(unsafe.Pointer(S)) + int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(k)*2))))<<int32(8))
-		*(*OpusT_opus_int32)(unsafe.Pointer(out_Q8 + uintptr(k)*4)) = out32
-		out32 = int32(uint32(out32) << int32(2))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))) + int64(out32)*int64(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q14)))>>int32(16))
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = int32(int64(out32) * int64(*(*OpusT_opus_int16)(unsafe.Pointer(A_Q14 + 1*2))) >> int32(16))
-		k = k + 1
+func Opus_silk_resampler_private_AR2(tls *libc.TLS, S *OpusT_opus_int32, out_Q8 *OpusT_opus_int32, in *OpusT_opus_int16, A_Q14 *OpusT_opus_int16, len1 OpusT_opus_int32) {
+	if len1 <= 0 {
+		return
+	}
+	state := unsafe.Slice(S, 2)
+	out := unsafe.Slice(out_Q8, int(len1))
+	input := unsafe.Slice(in, int(len1))
+	coefs := unsafe.Slice(A_Q14, 2)
+	for k, sample := range input {
+		out32 := state[0] + int32(uint32(int32(sample))<<8)
+		out[k] = out32
+		out32 = int32(uint32(out32) << 2)
+		state[0] = int32(int64(state[1]) + (int64(out32)*int64(coefs[0]))>>16)
+		state[1] = int32((int64(out32) * int64(coefs[1])) >> 16)
 	}
 }
 
@@ -722,7 +722,7 @@ func Opus_silk_resampler_private_down_FIR(tls *libc.TLS, SS uintptr, out uintptr
 		}
 		nSamplesIn = v29
 		/* Second-order AR filter (output in Q8) */
-		Opus_silk_resampler_private_AR2(tls, SS, buf+uintptr(state.FFIR_Order)*4, in, state.FCoefs, nSamplesIn)
+		Opus_silk_resampler_private_AR2(tls, (*OpusT_opus_int32)(unsafe.Pointer(SS)), (*OpusT_opus_int32)(unsafe.Pointer(buf+uintptr(state.FFIR_Order)*4)), (*OpusT_opus_int16)(unsafe.Pointer(in)), (*OpusT_opus_int16)(unsafe.Pointer(state.FCoefs)), nSamplesIn)
 		max_index_Q16 = int32(uint32(nSamplesIn) << int32(16))
 		/* Interpolate filtered signal */
 		out = silk_resampler_private_down_FIR_INTERPOL(tls, out, buf, FIR_Coefs, state.FFIR_Order, state.FFIR_Fracs, max_index_Q16, index_increment_Q16)
