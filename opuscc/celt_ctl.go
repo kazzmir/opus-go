@@ -2516,7 +2516,7 @@ func Opus_unquant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32
 					qi = qi>>int32(1) ^ -(qi & int32(1))
 				} else {
 					if budget-tell >= int32(1) {
-						qi = -Opus_ec_dec_bit_logp(tls, dec, uint32(1))
+						qi = -Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1))
 					} else {
 						qi = -int32(1)
 					}

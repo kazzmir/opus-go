@@ -1092,7 +1092,7 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 				}
 				Opus_ec_enc_bit_logp(tls, ec, 0, uint32(1))
 			} else {
-				if Opus_ec_dec_bit_logp(tls, ec, uint32(1)) != 0 {
+				if Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1)) != 0 {
 					break
 				}
 			}
@@ -1143,7 +1143,7 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 		if encode != 0 {
 			Opus_ec_enc_bit_logp(tls, ec, *(*int32)(unsafe.Pointer(dual_stereo)), uint32(1))
 		} else {
-			*(*int32)(unsafe.Pointer(dual_stereo)) = Opus_ec_dec_bit_logp(tls, ec, uint32(1))
+			*(*int32)(unsafe.Pointer(dual_stereo)) = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1))
 		}
 	} else {
 		*(*int32)(unsafe.Pointer(dual_stereo)) = 0
@@ -3040,7 +3040,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 				if encode != 0 {
 					Opus_ec_enc_bit_logp(tls, ec, inv, uint32(2))
 				} else {
-					inv = Opus_ec_dec_bit_logp(tls, ec, uint32(2))
+					inv = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(2))
 				}
 			} else {
 				inv = 0

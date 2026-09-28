@@ -550,7 +550,7 @@ func tf_decode(tls *libc.TLS, start int32, end int32, isTransient int32, tf_res 
 			break
 		}
 		if tell+uint32(logp) <= budget {
-			curr = curr ^ Opus_ec_dec_bit_logp(tls, dec, uint32(logp))
+			curr = curr ^ Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(logp))
 			v1 = dec
 			v2 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
 			tell = uint32(v2)
@@ -567,7 +567,7 @@ func tf_decode(tls *libc.TLS, start int32, end int32, isTransient int32, tf_res 
 	}
 	tf_select = 0
 	if tf_select_rsv != 0 && int32(*(*int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_tf_select_table)) + uintptr(LM)*8 + uintptr(int32(4)*isTransient+0+tf_changed)))) != int32(*(*int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_tf_select_table)) + uintptr(LM)*8 + uintptr(int32(4)*isTransient+int32(2)+tf_changed)))) {
-		tf_select = Opus_ec_dec_bit_logp(tls, dec, uint32(1))
+		tf_select = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1))
 	}
 	i = start
 	for {
@@ -1562,7 +1562,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		silence = int32(1)
 	} else {
 		if tell == int32(1) {
-			silence = Opus_ec_dec_bit_logp(tls, dec, uint32(15))
+			silence = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(15))
 		} else {
 			silence = 0
 		}
@@ -1578,7 +1578,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	postfilter_pitch = 0
 	postfilter_tapset = 0
 	if start == 0 && tell+int32(16) <= total_bits {
-		if Opus_ec_dec_bit_logp(tls, dec, uint32(1)) != 0 {
+		if Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)) != 0 {
 			octave = int32(Opus_ec_dec_uint(tls, dec, uint32(6)))
 			postfilter_pitch = int32(uint32(int32(16)<<octave) + Opus_ec_dec_bits(tls, dec, uint32(int32(4)+octave)) - uint32(1))
 			qg = int32(Opus_ec_dec_bits(tls, dec, uint32(3)))
@@ -1594,7 +1594,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		tell = v28
 	}
 	if LM > 0 && tell+int32(3) <= total_bits {
-		isTransient = Opus_ec_dec_bit_logp(tls, dec, uint32(3))
+		isTransient = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3))
 		v1 = dec
 		v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
 		tell = v28
@@ -1608,7 +1608,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	/* Decode the global flags (first symbols in the stream) */
 	if tell+int32(3) <= total_bits {
-		v28 = Opus_ec_dec_bit_logp(tls, dec, uint32(3))
+		v28 = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3))
 	} else {
 		v28 = 0
 	}
@@ -1939,7 +1939,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		dynalloc_loop_logp = dynalloc_logp
 		boost = 0
 		for tell+dynalloc_loop_logp<<int32(BITRES) < total_bits && boost < *(*int32)(unsafe.Pointer(cap1 + uintptr(i)*4)) {
-			flag = Opus_ec_dec_bit_logp(tls, dec, uint32(dynalloc_loop_logp))
+			flag = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(dynalloc_loop_logp))
 			tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec))))
 			if !(flag != 0) {
 				break

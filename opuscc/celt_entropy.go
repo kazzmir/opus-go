@@ -108,26 +108,19 @@ func Opus_ec_dec_update(tls *libc.TLS, dec *OpusT_ec_dec, fl uint32, fh uint32, 
 // C documentation
 //
 //	/*The probability of having a "one" is 1/(1<<_logp).*/
-func Opus_ec_dec_bit_logp(tls *libc.TLS, _this uintptr, _logp uint32) (r1 int32) {
-	var d, r, s OpusT_opus_uint32
-	var ret int32
-	var v1 uint32
-	_, _, _, _, _ = d, r, ret, s, v1
-	r = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng
-	d = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval
-	s = r >> _logp
-	ret = libc.BoolInt32(d < s)
-	if !(ret != 0) {
-		(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval = d - s
-	}
-	if ret != 0 {
-		v1 = s
+func Opus_ec_dec_bit_logp(tls *libc.TLS, dec *OpusT_ec_dec, logp uint32) int32 {
+	r, d := dec.Frng, dec.Fval
+	s := r >> logp
+	var result int32
+	if d < s {
+		result = 1
+		dec.Frng = s
 	} else {
-		v1 = r - s
+		dec.Fval = d - s
+		dec.Frng = r - s
 	}
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng = v1
-	ec_dec_normalize(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)))
-	return ret
+	ec_dec_normalize(tls, dec)
+	return result
 }
 
 func Opus_ec_dec_icdf(tls *libc.TLS, _this uintptr, _icdf uintptr, _ftb uint32) (r1 int32) {

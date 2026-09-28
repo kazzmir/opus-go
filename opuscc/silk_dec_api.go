@@ -348,10 +348,10 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 				if !(i < decoder.Fchannel_state[n].FnFramesPerPacket) {
 					break
 				}
-				decoder.Fchannel_state[n].FVAD_flags[i] = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
+				decoder.Fchannel_state[n].FVAD_flags[i] = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), uint32(1))
 				i = i + 1
 			}
-			decoder.Fchannel_state[n].FLBRR_flag = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
+			decoder.Fchannel_state[n].FLBRR_flag = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), uint32(1))
 			n = n + 1
 		}
 		/* Decode LBRR flags */

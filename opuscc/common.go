@@ -2919,12 +2919,12 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	if v111 && v31+int32(17)+int32(20)*libc.BoolInt32(mode == int32(MODE_HYBRID)) <= int32(8)*len1 {
 		/* Check if we have a redundant 0-8 kHz band */
 		if mode == int32(MODE_HYBRID) {
-			redundancy = Opus_ec_dec_bit_logp(tls, uintptr(unsafe.Pointer(&dec)), uint32(12))
+			redundancy = Opus_ec_dec_bit_logp(tls, &dec, uint32(12))
 		} else {
 			redundancy = int32(1)
 		}
 		if redundancy != 0 {
-			celt_to_silk = Opus_ec_dec_bit_logp(tls, uintptr(unsafe.Pointer(&dec)), uint32(1))
+			celt_to_silk = Opus_ec_dec_bit_logp(tls, &dec, uint32(1))
 			/* redundancy_bytes will be at least two, in the non-hybrid
 			   case due to the ec_tell() check above */
 			if mode == int32(MODE_HYBRID) {
