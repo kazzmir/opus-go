@@ -151,8 +151,9 @@ func Opus_silk_resampler(tls *libc.TLS, S uintptr, out uintptr, in uintptr, inLe
 	libc.Xmemcpy(tls, S+168+uintptr((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinputDelay)*2, in, uint64(uint32(nSamples))*uint64(2))
 	switch (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).Fresampler_function {
 	case int32(USE_silk_resampler_private_up2_HQ_wrapper):
-		Opus_silk_resampler_private_up2_HQ_wrapper(tls, S, out, S+168, (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz)
-		Opus_silk_resampler_private_up2_HQ_wrapper(tls, S, out+uintptr((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_out_kHz)*2, in+uintptr(nSamples)*2, inLen-(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz)
+		state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S))
+		Opus_silk_resampler_private_up2_HQ_wrapper(tls, state, (*OpusT_opus_int16)(unsafe.Pointer(out)), &state.FdelayBuf[0], state.FFs_in_kHz)
+		Opus_silk_resampler_private_up2_HQ_wrapper(tls, state, (*OpusT_opus_int16)(unsafe.Pointer(out+uintptr(state.FFs_out_kHz)*2)), (*OpusT_opus_int16)(unsafe.Pointer(in+uintptr(nSamples)*2)), inLen-state.FFs_in_kHz)
 	case int32(USE_silk_resampler_private_IIR_FIR):
 		Opus_silk_resampler_private_IIR_FIR(tls, S, out, S+168, (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz)
 		Opus_silk_resampler_private_IIR_FIR(tls, S, out+uintptr((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_out_kHz)*2, in+uintptr(nSamples)*2, inLen-(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz)
@@ -971,9 +972,8 @@ func Opus_silk_resampler_private_up2_HQ(tls *libc.TLS, S *[6]OpusT_opus_int32, o
 	}
 }
 
-func Opus_silk_resampler_private_up2_HQ_wrapper(tls *libc.TLS, SS uintptr, out uintptr, in uintptr, len1 OpusT_opus_int32) {
-	state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(SS))
-	Opus_silk_resampler_private_up2_HQ(tls, &state.FsIIR, (*OpusT_opus_int16)(unsafe.Pointer(out)), (*OpusT_opus_int16)(unsafe.Pointer(in)), len1)
+func Opus_silk_resampler_private_up2_HQ_wrapper(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, out, in *OpusT_opus_int16, len1 OpusT_opus_int32) {
+	Opus_silk_resampler_private_up2_HQ(tls, &state.FsIIR, out, in, len1)
 }
 
 const silk_int16_MAX22 = 0x7FFF
