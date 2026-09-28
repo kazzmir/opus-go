@@ -12457,7 +12457,7 @@ func Opus_silk_pitch_analysis_core_FLP(tls *libc.TLS, frame uintptr, pitch_out u
 			k = k - 1
 		}
 		libc.Xmemset(tls, bp+2880, 0, libc.Uint64FromInt32(2)*libc.Uint64FromInt64(4))
-		Opus_silk_resampler_down2(tls, bp+2880, bp+1920, bp+11428, frame_length)
+		Opus_silk_resampler_down2(tls, (*[2]OpusT_opus_int32)(unsafe.Pointer(bp+2880)), (*OpusT_opus_int16)(unsafe.Pointer(bp+1920)), (*OpusT_opus_int16)(unsafe.Pointer(bp+11428)), frame_length)
 		k1 = frame_length_8kHz - libc.Int32FromInt32(1)
 		for {
 			if !(k1 >= libc.Int32FromInt32(0)) {
@@ -12524,7 +12524,7 @@ func Opus_silk_pitch_analysis_core_FLP(tls *libc.TLS, frame uintptr, pitch_out u
 	}
 	/* Decimate again to 4 kHz */
 	libc.Xmemset(tls, bp+2880, 0, libc.Uint64FromInt32(2)*libc.Uint64FromInt64(4))
-	Opus_silk_resampler_down2(tls, bp+2880, bp+2560, bp+1920, frame_length_8kHz)
+	Opus_silk_resampler_down2(tls, (*[2]OpusT_opus_int32)(unsafe.Pointer(bp+2880)), (*OpusT_opus_int16)(unsafe.Pointer(bp+2560)), (*OpusT_opus_int16)(unsafe.Pointer(bp+1920)), frame_length_8kHz)
 	k1 = frame_length_4kHz - libc.Int32FromInt32(1)
 	for {
 		if !(k1 >= libc.Int32FromInt32(0)) {
@@ -13477,11 +13477,13 @@ var silk_resampler_up2_hq_11 = [3]OpusT_opus_int16{
 //
 //	/* Downsample by a factor 2/3, low quality */
 
-func Opus_silk_resampler_down2(tls *libc.TLS, S uintptr, out uintptr, in uintptr, inLen OpusT_opus_int32) {
+func Opus_silk_resampler_down2(tls *libc.TLS, S *[2]OpusT_opus_int32, out *OpusT_opus_int16, in *OpusT_opus_int16, inLen OpusT_opus_int32) {
 	var X, Y, in32, k, len2, out32 OpusT_opus_int32
 	var v2, v3 int32
 	_, _, _, _, _, _, _, _ = X, Y, in32, k, len2, out32, v2, v3
 	len2 = inLen >> int32(1)
+	input := unsafe.Slice(in, int(2*len2))
+	output := unsafe.Slice(out, int(len2))
 	if !(int32(silk_resampler_down2_02) > libc.Int32FromInt32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+10375, __ccgo_ts+10420, int32(46))
 	}
@@ -13495,20 +13497,20 @@ func Opus_silk_resampler_down2(tls *libc.TLS, S uintptr, out uintptr, in uintptr
 			break
 		}
 		/* Convert to Q10 */
-		in32 = libc.Int32FromUint32(libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k)*2)))) << libc.Int32FromInt32(10))
+		in32 = int32(input[2*k]) << 10
 		/* All-pass section for even input sample */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S))
+		Y = in32 - S[0]
 		X = int32(int64(Y) + int64(Y)*int64(silk_resampler_down2_12)>>libc.Int32FromInt32(16))
-		out32 = *(*OpusT_opus_int32)(unsafe.Pointer(S)) + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S)) = in32 + X
+		out32 = S[0] + X
+		S[0] = in32 + X
 		/* Convert to Q10 */
-		in32 = libc.Int32FromUint32(libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in + uintptr(int32(2)*k+int32(1))*2)))) << libc.Int32FromInt32(10))
+		in32 = int32(input[2*k+1]) << 10
 		/* All-pass section for odd input sample, and add to output of previous section */
-		Y = in32 - *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))
+		Y = in32 - S[1]
 		X = int32(int64(Y) * int64(silk_resampler_down2_02) >> libc.Int32FromInt32(16))
-		out32 = out32 + *(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4))
+		out32 = out32 + S[1]
 		out32 = out32 + X
-		*(*OpusT_opus_int32)(unsafe.Pointer(S + 1*4)) = in32 + X
+		S[1] = in32 + X
 		/* Add, convert back to int16 and store to output */
 		if (out32>>(libc.Int32FromInt32(11)-libc.Int32FromInt32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX23) {
 			v2 = int32(silk_int16_MAX23)
@@ -13520,7 +13522,7 @@ func Opus_silk_resampler_down2(tls *libc.TLS, S uintptr, out uintptr, in uintptr
 			}
 			v2 = v3
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(k)*2)) = int16(v2)
+		output[k] = int16(v2)
 		k = k + 1
 	}
 }
