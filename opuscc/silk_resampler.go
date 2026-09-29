@@ -159,8 +159,10 @@ func Opus_silk_resampler(tls *libc.TLS, S uintptr, out uintptr, in uintptr, inLe
 		Opus_silk_resampler_private_IIR_FIR(tls, state, (*int16)(unsafe.Pointer(out)), &state.FdelayBuf[0], state.FFs_in_kHz)
 		Opus_silk_resampler_private_IIR_FIR(tls, state, (*int16)(unsafe.Pointer(out+uintptr(state.FFs_out_kHz)*2)), (*int16)(unsafe.Pointer(in+uintptr(nSamples)*2)), inLen-state.FFs_in_kHz)
 	case int32(USE_silk_resampler_private_down_FIR):
-		Opus_silk_resampler_private_down_FIR(tls, S, out, S+168, (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz)
-		Opus_silk_resampler_private_down_FIR(tls, S, out+uintptr((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_out_kHz)*2, in+uintptr(nSamples)*2, inLen-(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz)
+		state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S))
+		coefs := (*int16)(unsafe.Pointer(state.FCoefs))
+		Opus_silk_resampler_private_down_FIR(tls, state, coefs, (*int16)(unsafe.Pointer(out)), &state.FdelayBuf[0], state.FFs_in_kHz)
+		Opus_silk_resampler_private_down_FIR(tls, state, coefs, (*int16)(unsafe.Pointer(out+uintptr(state.FFs_out_kHz)*2)), (*int16)(unsafe.Pointer(in+uintptr(nSamples)*2)), inLen-state.FFs_in_kHz)
 	default:
 		libc.Xmemcpy(tls, out, S+168, uint64(uint32((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz))*uint64(2))
 		libc.Xmemcpy(tls, out+uintptr((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_out_kHz)*2, in+uintptr(nSamples)*2, uint64(uint32(inLen-(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz))*uint64(2))
@@ -490,128 +492,29 @@ func silk_resampler_private_down_FIR_INTERPOL(tls *libc.TLS, out *int16, buf *in
 // C documentation
 //
 //	/* Resample with a 2nd order AR filter followed by FIR interpolation */
-func Opus_silk_resampler_private_down_FIR(tls *libc.TLS, SS uintptr, out uintptr, in uintptr, inLen OpusT_opus_int32) {
-	var FIR_Coefs, _saved_stack, buf, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
-	var index_increment_Q16, max_index_Q16, nSamplesIn OpusT_opus_int32
-	var v29 int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = FIR_Coefs, _saved_stack, buf, index_increment_Q16, max_index_Q16, nSamplesIn, st, v1, v11, v13, v15, v17, v19, v21, v23, v29, v3, v5, v7, v9
-	state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(SS))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(state.FbatchSize+state.FFIR_Order))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+7638, int32(159))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(state.FbatchSize+state.FFIR_Order)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	buf = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(state.FbatchSize+state.FFIR_Order))*(uint64(4)/uint64(1)))
-	/* Copy buffered samples to start of buffer */
-	libc.Xmemcpy(tls, buf, uintptr(unsafe.Pointer(&state.FsFIR.Fi32[0])), uint64(uint32(state.FFIR_Order))*uint64(4))
-	FIR_Coefs = state.FCoefs + 2*2
-	/* Iterate over blocks of frameSizeIn input samples */
-	index_increment_Q16 = state.FinvRatio_Q16
-	for int32(1) != 0 {
-		if inLen < state.FbatchSize {
-			v29 = inLen
-		} else {
-			v29 = state.FbatchSize
-		}
-		nSamplesIn = v29
-		/* Second-order AR filter (output in Q8) */
-		Opus_silk_resampler_private_AR2(tls, (*OpusT_opus_int32)(unsafe.Pointer(SS)), (*OpusT_opus_int32)(unsafe.Pointer(buf+uintptr(state.FFIR_Order)*4)), (*OpusT_opus_int16)(unsafe.Pointer(in)), (*OpusT_opus_int16)(unsafe.Pointer(state.FCoefs)), nSamplesIn)
-		max_index_Q16 = int32(uint32(nSamplesIn) << int32(16))
-		/* Interpolate filtered signal */
-		out += uintptr(silk_resampler_private_down_FIR_INTERPOL(tls, (*int16)(unsafe.Pointer(out)), (*int32)(unsafe.Pointer(buf)), (*int16)(unsafe.Pointer(FIR_Coefs)), state.FFIR_Order, state.FFIR_Fracs, max_index_Q16, index_increment_Q16)) * 2
-		in = in + uintptr(nSamplesIn)*2
-		inLen = inLen - nSamplesIn
-		if inLen > int32(1) {
-			/* More iterations to do; copy last part of filtered signal to beginning of buffer */
-			libc.Xmemcpy(tls, buf, buf+uintptr(nSamplesIn)*4, uint64(uint32(state.FFIR_Order))*uint64(4))
-		} else {
+//
+// Coefficients are explicit so the driver need not recover a Go allocation
+// from the legacy state's FCoefs uintptr field.
+func Opus_silk_resampler_private_down_FIR(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, coefs, out, in *int16, inLen int32) {
+	order := state.FFIR_Order
+	buf := make([]int32, state.FbatchSize+order)
+	copy(buf, state.FsFIR.Fi32[:order])
+	firCoefs := (*int16)(unsafe.Add(unsafe.Pointer(coefs), 4))
+	input := unsafe.Slice(in, inLen)
+	increment := state.FinvRatio_Q16
+	for {
+		n := min(int32(len(input)), state.FbatchSize)
+		Opus_silk_resampler_private_AR2(tls, &state.FsIIR[0], &buf[order], unsafe.SliceData(input), coefs, n)
+		written := silk_resampler_private_down_FIR_INTERPOL(tls, out, &buf[0], firCoefs, order, state.FFIR_Fracs, n<<16, increment)
+		input = input[n:]
+		// Match C: a lone remainder after a batch is not processed.
+		if len(input) <= 1 {
+			copy(state.FsFIR.Fi32[:order], buf[n:n+order])
 			break
 		}
+		out = (*int16)(unsafe.Add(unsafe.Pointer(out), int(written)*2))
+		copy(buf[:order], buf[n:n+order])
 	}
-	/* Copy last part of filtered signal to the state for the next call */
-	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&state.FsFIR.Fi32[0])), buf+uintptr(nSamplesIn)*4, uint64(uint32(state.FFIR_Order))*uint64(4))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
 var silk_resampler_down2_05 = int16(9872)

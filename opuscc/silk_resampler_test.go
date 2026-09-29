@@ -38,7 +38,7 @@ func TestDownFIRResamplerFieldAccesses(t *testing.T) {
 	input := []int16{1300, -2400, 3600, -4700}
 	output := make([]int16, len(input))
 
-	Opus_silk_resampler_private_down_FIR(tls, uintptr(unsafe.Pointer(&state)), uintptr(unsafe.Pointer(&output[0])), uintptr(unsafe.Pointer(&input[0])), int32(len(input)))
+	Opus_silk_resampler_private_down_FIR(tls, &state, &coefs[0], &output[0], &input[0], int32(len(input)))
 
 	wantOutput := []int16{0, 222, -581, 1062}
 	for i, want := range wantOutput {
