@@ -5166,40 +5166,29 @@ func Opus_mapping_matrix_get_size(tls *libc.TLS, rows int32, cols int32) (r Opus
 	return v1 + v3
 }
 
-func Opus_mapping_matrix_get_data(tls *libc.TLS, matrix uintptr) (r uintptr) {
-	var alignment uint32
-	var v1 int32
-	_, _ = alignment, v1
-	/* void* cast avoids clang -Wcast-align warning */
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(12)) + alignment - uint32(1)) / alignment * alignment)
-	return matrix + uintptr(v1)
+// MappingMatrix is followed by int16 coefficients after its 8-byte-aligned
+// header (16 bytes in this build). The pointer must belong to that full allocation.
+func mappingMatrixData(matrix *OpusT_MappingMatrix) *int16 {
+	return (*int16)(unsafe.Add(unsafe.Pointer(matrix), 16))
 }
 
-func Opus_mapping_matrix_init(tls *libc.TLS, matrix uintptr, rows int32, cols int32, gain int32, data uintptr, data_size OpusT_opus_int32) {
-	var alignment uint32
-	var i1, v1, v3 int32
-	var ptr uintptr
-	_, _, _, _, _ = alignment, i1, ptr, v1, v3
-	_ = data_size
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(data_size) + alignment - uint32(1)) / alignment * alignment)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v3 = int32((uint32(int32(uint64(uint32(rows*cols))*uint64(2))) + alignment - uint32(1)) / alignment * alignment)
-	if !(v1 == v3) {
-		Opus_celt_fatal(tls, __ccgo_ts+2234, __ccgo_ts+2312, int32(72))
+func Opus_mapping_matrix_get_data(tls *libc.TLS, matrix uintptr) uintptr {
+	return uintptr(unsafe.Pointer(mappingMatrixData((*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))))
+}
+
+func Opus_mapping_matrix_init(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, cols, gain int32, data *int16, data_size OpusT_opus_int32) {
+	if (uint32(data_size)+7)&^uint32(7) != (uint32(rows*cols)*2+7)&^uint32(7) {
+		Opus_celt_fatal(tls, __ccgo_ts+2234, __ccgo_ts+2312, 72)
 	}
-	(*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Frows = rows
-	(*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Fcols = cols
-	(*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Fgain = gain
-	ptr = Opus_mapping_matrix_get_data(tls, matrix)
-	i1 = 0
-	for {
-		if !(i1 < rows*cols) {
-			break
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(ptr + uintptr(i1)*2)) = *(*OpusT_opus_int16)(unsafe.Pointer(data + uintptr(i1)*2))
-		i1 = i1 + 1
+	matrix.Frows, matrix.Fcols, matrix.Fgain = rows, cols, gain
+	if rows*cols == 0 {
+		return
+	}
+	dst := unsafe.Slice(mappingMatrixData(matrix), rows*cols)
+	src := unsafe.Slice(data, rows*cols)
+	// Preserve the C forward-copy order, including overlapping coefficients.
+	for i := range dst {
+		dst[i] = src[i]
 	}
 }
 
@@ -5701,7 +5690,7 @@ func Opus_opus_projection_decoder_init(tls *libc.TLS, st1 uintptr, Fs OpusT_opus
 		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 		return -int32(1)
 	}
-	Opus_mapping_matrix_init(tls, get_dec_demixing_matrix(tls, st1), channels, nb_input_streams, 0, buf, demixing_matrix_size)
+	Opus_mapping_matrix_init(tls, (*OpusT_MappingMatrix)(unsafe.Pointer(get_dec_demixing_matrix(tls, st1))), channels, nb_input_streams, 0, (*int16)(unsafe.Pointer(buf)), demixing_matrix_size)
 	/* Set trivial mapping so each input channel pairs with a matrix column. */
 	i = 0
 	for {

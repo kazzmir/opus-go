@@ -170,6 +170,9 @@ Hadamard interleaving and deinterleaving use typed buffers and Go-owned scratch,
 with bitwise comparisons against the actual static `bands.c` helpers for every
 supported Hadamard stride and plain transpositions, including NaN payloads,
 signed zero, guards, and exact round trips.
+Projection matrix initialization uses a typed header/data path and is compared
+against libopus for metadata, aligned coefficient offsets, and matrix sizes up
+to the channel/count limits. Pointer tests also preserve forward-copy aliasing.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
