@@ -10,6 +10,7 @@ package main
 #define encode_pulses comparison_encode_pulses
 #define decode_pulses comparison_decode_pulses
 #include "cwrs.c"
+static unsigned pvq_index(int n,const int *y) { return icwrs(n,y); }
 static unsigned pvq_count(int n,int k) { return CELT_PVQ_V(n,k); }
 static int encode_pvq_index(unsigned char *data,unsigned size,int n,int k,unsigned index) {
  ec_enc enc; ec_enc_init(&enc,data,size);
@@ -31,6 +32,9 @@ import (
 	"unsafe"
 )
 
+func nativeCWRSIndex(n int32, y []int32) uint32 {
+	return uint32(C.pvq_index(C.int(n), (*C.int)(unsafe.Pointer(unsafe.SliceData(y)))))
+}
 func nativePVQCount(n, k int32) uint32 { return uint32(C.pvq_count(C.int(n), C.int(k))) }
 func nativePVQIndex(data []byte, n, k int32, index uint32) int {
 	return int(C.encode_pvq_index((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), C.int(n), C.int(k), C.uint(index)))

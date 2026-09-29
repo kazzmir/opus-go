@@ -258,6 +258,8 @@ exhausted buffers. Go tests decode the clipped symbols exactly.
 Laplace-p0 encoding compares signed symbols around each seven-symbol continuation
 boundary, minimum decay probabilities, p0 extremes and output exhaustion. Fixtures
 exclude zero-probability symbols; Go tests round-trip both signs and continuations.
+CWRS indexing compares actual static C icwrs on signed pulse distributions across
+all representative PVQ shapes; Go tests invert sampled indices and check guards.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
