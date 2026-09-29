@@ -704,7 +704,8 @@ func Opus_renormalise_vector(tls *libc.TLS, X *OpusT_celt_norm, N1 int32, gain O
 	}
 }
 
-func Opus_stereo_itheta(tls *libc.TLS, X uintptr, Y uintptr, stereo int32, N1 int32, arch int32) (r OpusT_opus_int32) {
+func Opus_stereo_itheta(tls *libc.TLS, X, Y *OpusT_celt_norm, stereo int32, N1 int32, arch int32) (r OpusT_opus_int32) {
+	x, y := unsafe.Slice(X, int(N1)), unsafe.Slice(Y, int(N1))
 	var Emid, Eside, mid, side, xy, v1 OpusT_opus_val32
 	var i, i1, itheta int32
 	var m, s OpusT_celt_norm
@@ -719,8 +720,8 @@ func Opus_stereo_itheta(tls *libc.TLS, X uintptr, Y uintptr, stereo int32, N1 in
 			if !(i1 < N1) {
 				break
 			}
-			m = *(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(i1)*4)) + *(*OpusT_celt_norm)(unsafe.Pointer(Y + uintptr(i1)*4))
-			s = *(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(i1)*4)) - *(*OpusT_celt_norm)(unsafe.Pointer(Y + uintptr(i1)*4))
+			m = x[i1] + y[i1]
+			s = x[i1] - y[i1]
 			Emid = Emid + OpusT_opus_val32(m*m)
 			Eside = Eside + OpusT_opus_val32(s*s)
 			i1 = i1 + 1
@@ -733,7 +734,7 @@ func Opus_stereo_itheta(tls *libc.TLS, X uintptr, Y uintptr, stereo int32, N1 in
 			if !(i < N1) {
 				break
 			}
-			xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(X + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(X + uintptr(i)*4)))
+			xy = xy + OpusT_opus_val32(x[i]*x[i])
 			i = i + 1
 		}
 		v1 = xy
@@ -745,7 +746,7 @@ func Opus_stereo_itheta(tls *libc.TLS, X uintptr, Y uintptr, stereo int32, N1 in
 			if !(i < N1) {
 				break
 			}
-			xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(Y + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(Y + uintptr(i)*4)))
+			xy = xy + OpusT_opus_val32(y[i]*y[i])
 			i = i + 1
 		}
 		v1 = xy
@@ -2727,7 +2728,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 		   side and mid. With just that parameter, we can re-scale both
 		   mid and side because we know that 1) they have unit norm and
 		   2) they are orthogonal. */
-		itheta_q30 = Opus_stereo_itheta(tls, X, Y, stereo, N, (*band_ctx)(unsafe.Pointer(ctx)).Farch)
+		itheta_q30 = Opus_stereo_itheta(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), stereo, N, (*band_ctx)(unsafe.Pointer(ctx)).Farch)
 		itheta = itheta_q30 >> int32(16)
 	}
 	tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))))
