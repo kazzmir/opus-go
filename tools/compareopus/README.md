@@ -182,6 +182,8 @@ including values beyond normalized unity, ties-to-even conversion, 64-bit
 products, asymmetric Q15 half rounding, and int32 accumulation narrowing.
 Smooth fades compare exactly with a scalar C reference of `opus_decoder.c`,
 covering supported sample rates, channel-major stores, and partial buffer overlap.
+Packet-duration queries exhaust all TOC/count-byte combinations at supported
+rates against libopus, including short headers and the 120 ms limit.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

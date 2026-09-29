@@ -3988,21 +3988,17 @@ func Opus_opus_packet_get_nb_frames(tls *libc.TLS, packet *byte, len1 OpusT_opus
 	return int32(unsafe.Slice(packet, 2)[1] & 0x3f)
 }
 
-func Opus_opus_packet_get_nb_samples(tls *libc.TLS, packet uintptr, len1 OpusT_opus_int32, Fs OpusT_opus_int32) (r int32) {
-	var count, samples int32
-	_, _ = count, samples
-	count = Opus_opus_packet_get_nb_frames(tls, (*byte)(unsafe.Pointer(packet)), len1)
+func Opus_opus_packet_get_nb_samples(tls *libc.TLS, packet *byte, len1 OpusT_opus_int32, Fs OpusT_opus_int32) int32 {
+	count := Opus_opus_packet_get_nb_frames(tls, packet, len1)
 	if count < 0 {
 		return count
 	}
-	samples = count * Opus_opus_packet_get_samples_per_frame(tls, (*byte)(unsafe.Pointer(packet)), Fs)
-	/* Can't have more than 120 ms */
-	if samples*int32(25) > Fs*int32(3) {
-		return -int32(4)
-	} else {
-		return samples
+	samples := count * Opus_opus_packet_get_samples_per_frame(tls, packet, Fs)
+	// Can't have more than 120 ms.
+	if samples*25 > Fs*3 {
+		return -4
 	}
-	return r
+	return samples
 }
 
 func Opus_opus_packet_has_lbrr(tls *libc.TLS, packet uintptr, len1 OpusT_opus_int32) (r int32) {
@@ -4035,7 +4031,7 @@ func Opus_opus_packet_has_lbrr(tls *libc.TLS, packet uintptr, len1 OpusT_opus_in
 }
 
 func Opus_opus_decoder_get_nb_samples(tls *libc.TLS, dec uintptr, packet uintptr, len1 OpusT_opus_int32) (r int32) {
-	return Opus_opus_packet_get_nb_samples(tls, packet, len1, (*OpusT_OpusDecoder)(unsafe.Pointer(dec)).FFs)
+	return Opus_opus_packet_get_nb_samples(tls, (*byte)(unsafe.Pointer(packet)), len1, (*OpusT_OpusDecoder)(unsafe.Pointer(dec)).FFs)
 }
 
 type OpusDREDDecoder = struct {
@@ -4466,7 +4462,7 @@ func opus_multistream_packet_validate(tls *libc.TLS, data uintptr, len1 OpusT_op
 		if count < 0 {
 			return count
 		}
-		tmp_samples = Opus_opus_packet_get_nb_samples(tls, data, parsed.packetOffset, Fs)
+		tmp_samples = Opus_opus_packet_get_nb_samples(tls, (*byte)(unsafe.Pointer(data)), parsed.packetOffset, Fs)
 		if s != 0 && samples != tmp_samples {
 			return -int32(4)
 		}
