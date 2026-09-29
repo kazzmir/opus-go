@@ -166,6 +166,9 @@ compiled from `pitch.c`, covering four-lag groups, scalar tails, minimal input
 extents, and zero-length scalar cases. Stereo-angle inputs are compared exactly
 with scalar `vq.c`, including equal/opposite channels, tiny-energy thresholds,
 large finite magnitudes, and both stereo and independent-energy modes.
+Hadamard deinterleaving uses typed buffers and Go-owned scratch, with bitwise
+comparisons against the actual static `bands.c` helper for every supported
+Hadamard stride and plain transpositions, including NaN payloads and signed zero.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
