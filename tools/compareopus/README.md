@@ -240,6 +240,9 @@ Probability-coded encoder bits compare 500 consecutive operations at logp
 16-bit ICDF encoder tests compare every symbol in representative 8/15/16-bit
 tables, singleton tables and consecutive coding with exhausted buffers, checking
 all numeric fields, output and unchanged tables.
+Raw encoder tail bits compare every 0–32-bit preloaded window occupancy and
+1–25-bit append width, byte flushing, guards and exhausted output. Go tests check
+bit-accounting wrap and consecutive appends.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

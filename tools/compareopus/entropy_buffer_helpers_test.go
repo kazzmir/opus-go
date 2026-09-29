@@ -26,9 +26,9 @@ func TestEntropyBufferAgainstC(t *testing.T) {
 		for i := uint32(0); i < 18; i++ {
 			opuscc.Opus_ec_enc_uint(nil, uintptr(unsafe.Pointer(&e)), i%17, 17)
 		}
-		opuscc.Opus_ec_enc_bits(nil, uintptr(unsafe.Pointer(&e)), 0xa5b, 12)
+		opuscc.Opus_ec_enc_bits(nil, &e, 0xa5b, 12)
 		for i := uint32(0); i < 3; i++ {
-			opuscc.Opus_ec_enc_bits(nil, uintptr(unsafe.Pointer(&e)), 0x1234567+i, 25)
+			opuscc.Opus_ec_enc_bits(nil, &e, 0x1234567+i, 25)
 		}
 		opuscc.Opus_ec_enc_shrink(nil, &e, size)
 		opuscc.Opus_ec_enc_done(nil, uintptr(unsafe.Pointer(&e)))

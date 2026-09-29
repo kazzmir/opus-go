@@ -2739,7 +2739,7 @@ func quant_band_n1(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, lowband_out
 		if bandContext.Fremaining_bits >= int32(1)<<int32(BITRES) {
 			if encode != 0 {
 				sign = libc.BoolInt32(*(*OpusT_celt_norm)(unsafe.Pointer(x)) < float32(0))
-				Opus_ec_enc_bits(tls, ec, uint32(sign), uint32(1))
+				Opus_ec_enc_bits(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(sign), uint32(1))
 			} else {
 				sign = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1)))
 			}
@@ -3235,7 +3235,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 				/* Here we only need to encode a sign for the side. */
 				/* FIXME: Need to increase fixed-point precision? */
 				sign = libc.BoolInt32(OpusT_celt_norm(*(*OpusT_celt_norm)(unsafe.Pointer(x2))**(*OpusT_celt_norm)(unsafe.Pointer(y2 + 1*4)))-OpusT_celt_norm(*(*OpusT_celt_norm)(unsafe.Pointer(x2 + 1*4))**(*OpusT_celt_norm)(unsafe.Pointer(y2))) < float32(0))
-				Opus_ec_enc_bits(tls, ec, uint32(sign), uint32(1))
+				Opus_ec_enc_bits(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(sign), uint32(1))
 			} else {
 				sign = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1)))
 			}
