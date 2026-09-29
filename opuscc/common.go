@@ -2401,26 +2401,21 @@ func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32
 	return st, nil
 }
 
-func smooth_fade(tls *libc.TLS, in1 uintptr, in2 uintptr, out uintptr, overlap int32, channels int32, window uintptr, Fs OpusT_opus_int32) {
-	var c, i, inc int32
-	var w OpusT_celt_coef
-	_, _, _, _ = c, i, inc, w
-	inc = int32(48000) / Fs
-	c = 0
-	for {
-		if !(c < channels) {
-			break
+func smooth_fade(tls *libc.TLS, in1, in2, out *OpusT_opus_res, overlap, channels int32, window *OpusT_celt_coef, Fs OpusT_opus_int32) {
+	inc := int32(48000) / Fs
+	if overlap <= 0 || channels <= 0 {
+		return
+	}
+	a, b := unsafe.Slice(in1, overlap*channels), unsafe.Slice(in2, overlap*channels)
+	dst := unsafe.Slice(out, overlap*channels)
+	win := unsafe.Slice(window, (overlap-1)*inc+1)
+	// Keep channel-major stores, including when the buffers overlap.
+	for c := int32(0); c < channels; c++ {
+		for i := int32(0); i < overlap; i++ {
+			w := float32(win[i*inc] * win[i*inc])
+			idx := i*channels + c
+			dst[idx] = float32(w*b[idx]) + float32((float32(1)-w)*a[idx])
 		}
-		i = 0
-		for {
-			if !(i < overlap) {
-				break
-			}
-			w = OpusT_celt_coef(*(*OpusT_celt_coef)(unsafe.Pointer(window + uintptr(i*inc)*4)) * *(*OpusT_celt_coef)(unsafe.Pointer(window + uintptr(i*inc)*4)))
-			*(*OpusT_opus_res)(unsafe.Pointer(out + uintptr(i*channels+c)*4)) = OpusT_celt_coef(w**(*OpusT_opus_res)(unsafe.Pointer(in2 + uintptr(i*channels+c)*4))) + float32((float32(1)-w)**(*OpusT_opus_res)(unsafe.Pointer(in1 + uintptr(i*channels+c)*4)))
-			i = i + 1
-		}
-		c = c + 1
 	}
 }
 
@@ -3229,7 +3224,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_FINAL_RANGE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), uintptr(unsafe.Pointer(&redundant_rng)))) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(643))
 		}
-		smooth_fade(tls, pcm+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels*(frame_size-F2_5))*4, redundant_audio+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels*F2_5)*4, pcm+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels*(frame_size-F2_5))*4, F2_5, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels, window, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs)
+		smooth_fade(tls, (*float32)(unsafe.Pointer(pcm+uintptr(decoder.Fchannels*(frame_size-F2_5))*4)), (*float32)(unsafe.Pointer(redundant_audio+uintptr(decoder.Fchannels*F2_5)*4)), (*float32)(unsafe.Pointer(pcm+uintptr(decoder.Fchannels*(frame_size-F2_5))*4)), F2_5, decoder.Fchannels, (*float32)(unsafe.Pointer(window)), decoder.FFs)
 	}
 	/* 5ms redundant frame for CELT->SILK; ignore if the previous frame did not
 	   use CELT (the first redundancy frame in a transition from SILK may have
@@ -3250,7 +3245,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			}
 			c = c + 1
 		}
-		smooth_fade(tls, redundant_audio+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels*F2_5)*4, pcm+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels*F2_5)*4, pcm+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels*F2_5)*4, F2_5, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels, window, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs)
+		smooth_fade(tls, (*float32)(unsafe.Pointer(redundant_audio+uintptr(decoder.Fchannels*F2_5)*4)), (*float32)(unsafe.Pointer(pcm+uintptr(decoder.Fchannels*F2_5)*4)), (*float32)(unsafe.Pointer(pcm+uintptr(decoder.Fchannels*F2_5)*4)), F2_5, decoder.Fchannels, (*float32)(unsafe.Pointer(window)), decoder.FFs)
 	}
 	if transition != 0 {
 		if audiosize >= F5 {
@@ -3262,14 +3257,14 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 				*(*OpusT_opus_res)(unsafe.Pointer(pcm + uintptr(i)*4)) = *(*OpusT_opus_res)(unsafe.Pointer(pcm_transition + uintptr(i)*4))
 				i = i + 1
 			}
-			smooth_fade(tls, pcm_transition+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels*F2_5)*4, pcm+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels*F2_5)*4, pcm+uintptr((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels*F2_5)*4, F2_5, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels, window, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs)
+			smooth_fade(tls, (*float32)(unsafe.Pointer(pcm_transition+uintptr(decoder.Fchannels*F2_5)*4)), (*float32)(unsafe.Pointer(pcm+uintptr(decoder.Fchannels*F2_5)*4)), (*float32)(unsafe.Pointer(pcm+uintptr(decoder.Fchannels*F2_5)*4)), F2_5, decoder.Fchannels, (*float32)(unsafe.Pointer(window)), decoder.FFs)
 		} else {
 			/* Not enough time to do a clean transition, but we do it anyway
 			   This will not preserve amplitude perfectly and may introduce
 			   a bit of temporal aliasing, but it shouldn't be too bad and
 			   that's pretty much the best we can do. In any case, generating this
 			   transition it pretty silly in the first place */
-			smooth_fade(tls, pcm_transition, pcm, pcm, F2_5, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels, window, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FFs)
+			smooth_fade(tls, (*float32)(unsafe.Pointer(pcm_transition)), (*float32)(unsafe.Pointer(pcm)), (*float32)(unsafe.Pointer(pcm)), F2_5, decoder.Fchannels, (*float32)(unsafe.Pointer(window)), decoder.FFs)
 		}
 	}
 	if (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fdecode_gain != 0 {
