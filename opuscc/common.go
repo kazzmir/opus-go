@@ -1051,140 +1051,77 @@ type OpusT_opus_copy_channel_out_func = uintptr
 
 type OpusT_downmix_func = uintptr
 
-func Opus_opus_pcm_soft_clip_impl(tls *libc.TLS, _x uintptr, N int32, C int32, declip_mem uintptr, arch int32) {
-	var a, delta, maxval, offset, x0, v7, v8, v9 float32
-	var all_within_neg1pos1, c, curr, end, i, peak_pos, special, start, v4 int32
-	var x uintptr
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = a, all_within_neg1pos1, c, curr, delta, end, i, maxval, offset, peak_pos, special, start, x, x0, v4, v7, v8, v9
-	if C < int32(1) || N < int32(1) || !(_x != 0) || !(declip_mem != 0) {
+func Opus_opus_pcm_soft_clip_impl(tls *libc.TLS, pcm *float32, N, C int32, declip_mem *float32, arch int32) {
+	if C < 1 || N < 1 || pcm == nil || declip_mem == nil {
 		return
 	}
-	/* Clamp everything within the range [-2, +2] which is the domain of the soft
-	      clipping non-linearity. Outside the defined range the derivative will be zero,
-	      therefore there is no discontinuity introduced here. The implementation
-	      might provide a hint if all input samples are within the [-1, +1] range.
-	   `opus_limit2_checkwithin1()`:
-	      - Clamps all samples within the valid range [-2, +2].
-	      - Generic C implementation:
-	         * Does not attempt early detection whether samples are within hinted range.
-	         * Always returns 0.
-	      - Architecture specific implementation:
-	         * Uses SIMD instructions to efficiently detect if all samples are
-	           within the hinted range [-1, +1].
-	         * Returns 1 if no samples exceed the hinted range, 0 otherwise.
-	   `all_within_neg1pos1`:
-	      - Optimization hint to skip per-sample out-of-bound checks.
-	        If true, the check can be skipped. */
 	_ = arch
-	all_within_neg1pos1 = Opus_opus_limit2_checkwithin1_c(tls, (*float32)(unsafe.Pointer(_x)), N*C)
-	c = 0
-	for {
-		if !(c < C) {
-			break
+	values, memory := unsafe.Slice(pcm, N*C), unsafe.Slice(declip_mem, C)
+	allWithin := Opus_opus_limit2_checkwithin1_c(tls, pcm, N*C)
+	for c := int32(0); c < C; c++ {
+		x := values[c:]
+		a := memory[c]
+		// Continue the previous frame's non-linearity through the first crossing.
+		for i := int32(0); i < N; i++ {
+			if float32(x[i*C]*a) >= 0 {
+				break
+			}
+			x[i*C] = x[i*C] + float32(float32(a*x[i*C])*x[i*C])
 		}
-		x = _x + uintptr(c)*4
-		a = *(*float32)(unsafe.Pointer(declip_mem + uintptr(c)*4))
-		/* Continue applying the non-linearity from the previous frame to avoid
-		   any discontinuity. */
-		i = 0
+		curr := int32(0)
+		x0 := x[0]
 		for {
-			if !(i < N) {
-				break
-			}
-			if float32(*(*float32)(unsafe.Pointer(x + uintptr(i*C)*4))*a) >= float32(0) {
-				break
-			}
-			*(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) = *(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) + float32(float32(a**(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)))**(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)))
-			i = i + 1
-		}
-		curr = 0
-		x0 = *(*float32)(unsafe.Pointer(x))
-		for int32(1) != 0 {
-			special = 0
-			/* Detection for early exit can be skipped if hinted by `all_within_neg1pos1` */
-			if all_within_neg1pos1 != 0 {
+			i := curr
+			if allWithin != 0 {
 				i = N
 			} else {
-				i = curr
-				for {
-					if !(i < N) {
+				for i < N {
+					if x[i*C] > 1 || x[i*C] < -1 {
 						break
 					}
-					if *(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) > float32(1) || *(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) < float32(-int32(1)) {
-						break
-					}
-					i = i + 1
+					i++
 				}
 			}
 			if i == N {
-				a = float32(0)
+				a = 0
 				break
 			}
-			peak_pos = i
-			v4 = i
-			end = v4
-			start = v4
-			maxval = float32(libc.Xfabs(tls, float64(*(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)))))
-			/* Look for first zero crossing before clipping */
-			for start > 0 && float32(*(*float32)(unsafe.Pointer(x + uintptr(i*C)*4))**(*float32)(unsafe.Pointer(x + uintptr((start-int32(1))*C)*4))) >= float32(0) {
-				start = start - 1
+			start, end, peak := i, i, i
+			maxval := float32(libc.Xfabs(tls, float64(x[i*C])))
+			for start > 0 && float32(x[i*C]*x[(start-1)*C]) >= 0 {
+				start--
 			}
-			/* Look for first zero crossing after clipping */
-			for end < N && float32(*(*float32)(unsafe.Pointer(x + uintptr(i*C)*4))**(*float32)(unsafe.Pointer(x + uintptr(end*C)*4))) >= float32(0) {
-				/* Look for other peaks until the next zero-crossing. */
-				if float32(libc.Xfabs(tls, float64(*(*float32)(unsafe.Pointer(x + uintptr(end*C)*4))))) > maxval {
-					maxval = float32(libc.Xfabs(tls, float64(*(*float32)(unsafe.Pointer(x + uintptr(end*C)*4)))))
-					peak_pos = end
+			for end < N && float32(x[i*C]*x[end*C]) >= 0 {
+				v := float32(libc.Xfabs(tls, float64(x[end*C])))
+				if v > maxval {
+					maxval = v
+					peak = end
 				}
-				end = end + 1
+				end++
 			}
-			/* Detect the special case where we clip before the first zero crossing */
-			special = libc.BoolInt32(start == 0 && float32(*(*float32)(unsafe.Pointer(x + uintptr(i*C)*4))**(*float32)(unsafe.Pointer(x))) >= float32(0))
-			/* Compute a such that maxval + a*maxval^2 = 1 */
+			special := start == 0 && float32(x[i*C]*x[0]) >= 0
 			a = (maxval - float32(1)) / float32(maxval*maxval)
-			/* Slightly boost "a" by 2^-22. This is just enough to ensure -ffast-math
-			   does not cause output values larger than +/-1, but small enough not
-			   to matter even for 24-bit output.  */
-			a = a + float32(a*float32(2.4e-07))
-			if *(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) > float32(0) {
+			// Preserve the float32 boost and every multiply's rounding.
+			a += float32(a * float32(2.4e-7))
+			if x[i*C] > 0 {
 				a = -a
 			}
-			/* Apply soft clipping */
-			i = start
-			for {
-				if !(i < end) {
-					break
-				}
-				*(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) = *(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) + float32(float32(a**(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)))**(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)))
-				i = i + 1
+			for j := start; j < end; j++ {
+				x[j*C] = x[j*C] + float32(float32(a*x[j*C])*x[j*C])
 			}
-			if special != 0 && peak_pos >= int32(2) {
-				offset = x0 - *(*float32)(unsafe.Pointer(x))
-				delta = offset / float32(peak_pos)
-				i = curr
-				for {
-					if !(i < peak_pos) {
-						break
+			if special && peak >= 2 {
+				offset := x0 - x[0]
+				delta := offset / float32(peak)
+				for j := curr; j < peak; j++ {
+					offset -= delta
+					x[j*C] += offset
+					// C MIN/MAX comparisons preserve NaNs here.
+					if x[j*C] > 1 {
+						x[j*C] = 1
 					}
-					offset = offset - delta
-					*(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) += offset
-					if float32(1) < *(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) {
-						v8 = float32(1)
-					} else {
-						v8 = *(*float32)(unsafe.Pointer(x + uintptr(i*C)*4))
+					if x[j*C] < -1 {
+						x[j*C] = -1
 					}
-					if -float32(1) > v8 {
-						v7 = -float32(1)
-					} else {
-						if float32(1) < *(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) {
-							v9 = float32(1)
-						} else {
-							v9 = *(*float32)(unsafe.Pointer(x + uintptr(i*C)*4))
-						}
-						v7 = v9
-					}
-					*(*float32)(unsafe.Pointer(x + uintptr(i*C)*4)) = v7
-					i = i + 1
 				}
 			}
 			curr = end
@@ -1192,12 +1129,11 @@ func Opus_opus_pcm_soft_clip_impl(tls *libc.TLS, _x uintptr, N int32, C int32, d
 				break
 			}
 		}
-		*(*float32)(unsafe.Pointer(declip_mem + uintptr(c)*4)) = a
-		c = c + 1
+		memory[c] = a
 	}
 }
 
-func Opus_opus_pcm_soft_clip(tls *libc.TLS, _x uintptr, N int32, C int32, declip_mem uintptr) {
+func Opus_opus_pcm_soft_clip(tls *libc.TLS, _x *float32, N int32, C int32, declip_mem *float32) {
 	Opus_opus_pcm_soft_clip_impl(tls, _x, N, C, declip_mem, 0)
 }
 
@@ -3440,7 +3376,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	if v1 != 0 {
 	}
 	if soft_clip != 0 {
-		Opus_opus_pcm_soft_clip_impl(tls, pcm, nb_samples, decoder.Fchannels, uintptr(unsafe.Pointer(&decoder.Fsoftclip_mem[0])), decoder.Farch)
+		Opus_opus_pcm_soft_clip_impl(tls, (*float32)(unsafe.Pointer(pcm)), nb_samples, decoder.Fchannels, &decoder.Fsoftclip_mem[0], decoder.Farch)
 	} else {
 		v8 = float32(0)
 		decoder.Fsoftclip_mem[1] = v8

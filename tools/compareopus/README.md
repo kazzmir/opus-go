@@ -187,6 +187,9 @@ rates against libopus, including short headers and the 120 ms limit.
 Aggregate SILK init/reset compares the actual `dec_API.c` path, both channel
 states and stereo history, while checking that channel-count metadata survives.
 Native CPU dispatch is excluded, as in the per-channel reset comparisons.
+Soft clipping compares PCM and persistent history bit-for-bit with libopus across
+consecutive frames, ramp correction, impulses, clipping runs, zero crossings,
+signed zero, NaNs/infinities, multiple channels, and guarded output/state buffers.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
