@@ -1047,57 +1047,33 @@ func Opus_ec_laplace_decode(tls *libc.TLS, dec *OpusT_ec_dec, fs uint32, decay i
 	return val
 }
 
-func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc uintptr, value int32, p0 OpusT_opus_uint16, decay OpusT_opus_uint16) {
-	var i, s, v1, v2 int32
-	var icdf [8]OpusT_opus_uint16
-	var sign_icdf [3]OpusT_opus_uint16
-	_, _, _, _ = i, s, v1, v2
-	sign_icdf[0] = uint16(32768 - int32(p0))
-	sign_icdf[1] = uint16(int32(sign_icdf[0]) / 2)
-	sign_icdf[2] = 0
-	if value == 0 {
-		v1 = 0
-	} else {
-		if value > 0 {
-			v2 = int32(1)
-		} else {
-			v2 = int32(2)
-		}
-		v1 = v2
+func Opus_ec_laplace_encode_p0(tls *libc.TLS, enc *OpusT_ec_enc, value int32, p0 OpusT_opus_uint16, decay OpusT_opus_uint16) {
+	var signICDF [3]uint16
+	signICDF[0] = uint16(32768 - int32(p0))
+	signICDF[1] = signICDF[0] / 2
+	s := int32(0)
+	if value > 0 {
+		s = 1
+	} else if value < 0 {
+		s = 2
 	}
-	s = v1
-	Opus_ec_enc_icdf16(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), s, &sign_icdf[0], uint32(15))
-	value = libc.Xabs(tls, value)
+	Opus_ec_enc_icdf16(tls, enc, s, &signICDF[0], 15)
+	if value < 0 {
+		value = -value
+	}
 	if value != 0 {
-		if int32(7) > int32(decay) {
-			v1 = int32(7)
-		} else {
-			v1 = int32(decay)
+		var icdf [8]uint16
+		icdf[0] = max(uint16(7), decay)
+		for i := int32(1); i < 7; i++ {
+			icdf[i] = uint16(max(7-i, int32(icdf[i-1])*int32(decay)>>15))
 		}
-		icdf[0] = uint16(v1)
-		i = int32(1)
+		value--
 		for {
-			if !(i < int32(7)) {
+			Opus_ec_enc_icdf16(tls, enc, min(value, int32(7)), &icdf[0], 15)
+			value -= 7
+			if value < 0 {
 				break
 			}
-			if 7-i > int32(icdf[i-1])*int32(decay)>>int32(15) {
-				v1 = int32(7) - i
-			} else {
-				v1 = int32(icdf[i-1]) * int32(decay) >> int32(15)
-			}
-			icdf[i] = uint16(v1)
-			i = i + 1
-		}
-		icdf[7] = 0
-		value = value - 1
-		for cond := true; cond; cond = value >= 0 {
-			if value < int32(7) {
-				v1 = value
-			} else {
-				v1 = int32(7)
-			}
-			Opus_ec_enc_icdf16(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), v1, &icdf[0], uint32(15))
-			value = value - int32(7)
 		}
 	}
 }

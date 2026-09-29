@@ -255,6 +255,9 @@ the exact table allocation.
 Laplace encoding compares actual C laplace.c state, emitted bytes and in-place
 symbol clipping at representative frequencies/decays, signed tail extremes and
 exhausted buffers. Go tests decode the clipped symbols exactly.
+Laplace-p0 encoding compares signed symbols around each seven-symbol continuation
+boundary, minimum decay probabilities, p0 extremes and output exhaustion. Fixtures
+exclude zero-probability symbols; Go tests round-trip both signs and continuations.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

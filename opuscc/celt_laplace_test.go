@@ -2,7 +2,6 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -16,7 +15,7 @@ func TestLaplaceP0LocalArrays(t *testing.T) {
 	Opus_ec_enc_init(tls, &encoder, &buffer[0], uint32(len(buffer)))
 	values := []int32{0, 3, -5, 11}
 	for _, value := range values {
-		Opus_ec_laplace_encode_p0(tls, uintptr(unsafe.Pointer(&encoder)), value, 16000, 12000)
+		Opus_ec_laplace_encode_p0(tls, &encoder, value, 16000, 12000)
 	}
 	Opus_ec_enc_done(tls, &encoder)
 

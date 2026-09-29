@@ -25,7 +25,7 @@ static int native_encoder_step(unsigned *s,unsigned char *buf,int op,unsigned a,
  ec_enc e={0};e.buf=buf;
  e.storage=s[0];e.end_offs=s[1];e.end_window=s[2];e.nend_bits=s[3];e.nbits_total=s[4];e.offs=s[5];
  e.rng=s[6];e.val=s[7];e.ext=s[8];e.rem=s[9];e.error=s[10];
- switch(op) {case 0:ec_enc_init(&e,buf,a);break;case 1:ec_enc_shrink(&e,a);break;case 2:ec_enc_patch_initial_bits(&e,a,b);break;case 3:ec_enc_carry_out(&e,(int)a);break;case 4:ec_enc_normalize(&e);break;case 5:ec_encode(&e,a,b,c);break;case 6:ec_encode_bin(&e,a,b,c);break;case 7:ec_enc_bit_logp(&e,(int)a,b);break;case 8:ec_enc_icdf16(&e,(int)a,table,b);break;case 9:ec_enc_bits(&e,a,b);break;case 10:ec_enc_done(&e);break;case 11:ec_enc_uint(&e,a,b);break;case 12:ec_enc_icdf(&e,(int)a,(const unsigned char *)table,b);break;case 13:ec_laplace_encode(&e,&symbol,b,(int)c);break;}
+ switch(op) {case 0:ec_enc_init(&e,buf,a);break;case 1:ec_enc_shrink(&e,a);break;case 2:ec_enc_patch_initial_bits(&e,a,b);break;case 3:ec_enc_carry_out(&e,(int)a);break;case 4:ec_enc_normalize(&e);break;case 5:ec_encode(&e,a,b,c);break;case 6:ec_encode_bin(&e,a,b,c);break;case 7:ec_enc_bit_logp(&e,(int)a,b);break;case 8:ec_enc_icdf16(&e,(int)a,table,b);break;case 9:ec_enc_bits(&e,a,b);break;case 10:ec_enc_done(&e);break;case 11:ec_enc_uint(&e,a,b);break;case 12:ec_enc_icdf(&e,(int)a,(const unsigned char *)table,b);break;case 13:ec_laplace_encode(&e,&symbol,b,(int)c);break;case 14:ec_laplace_encode_p0(&e,symbol,(opus_uint16)b,(opus_uint16)c);break;}
  s[0]=e.storage;s[1]=e.end_offs;s[2]=e.end_window;s[3]=e.nend_bits;s[4]=e.nbits_total;s[5]=e.offs;
  s[6]=e.rng;s[7]=e.val;s[8]=e.ext;s[9]=e.rem;s[10]=e.error;
  return symbol;
