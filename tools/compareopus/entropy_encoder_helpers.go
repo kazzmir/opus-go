@@ -3,12 +3,23 @@
 package main
 
 /*
-#include "entenc.h"
+#define ec_enc_init compare_enc_init
+#define ec_encode compare_encode
+#define ec_encode_bin compare_encode_bin
+#define ec_enc_bit_logp compare_enc_bit_logp
+#define ec_enc_icdf compare_enc_icdf
+#define ec_enc_icdf16 compare_enc_icdf16
+#define ec_enc_uint compare_enc_uint
+#define ec_enc_bits compare_enc_bits
+#define ec_enc_patch_initial_bits compare_enc_patch_initial_bits
+#define ec_enc_shrink compare_enc_shrink
+#define ec_enc_done compare_enc_done
+#include "../../../opus/celt/entenc.c"
 static void native_encoder_step(unsigned *s,unsigned char *buf,int op,unsigned a,unsigned b) {
  ec_enc e={0};e.buf=buf;
  e.storage=s[0];e.end_offs=s[1];e.end_window=s[2];e.nend_bits=s[3];e.nbits_total=s[4];e.offs=s[5];
  e.rng=s[6];e.val=s[7];e.ext=s[8];e.rem=s[9];e.error=s[10];
- switch(op) {case 0:ec_enc_init(&e,buf,a);break;case 1:ec_enc_shrink(&e,a);break;case 2:ec_enc_patch_initial_bits(&e,a,b);break;}
+ switch(op) {case 0:ec_enc_init(&e,buf,a);break;case 1:ec_enc_shrink(&e,a);break;case 2:ec_enc_patch_initial_bits(&e,a,b);break;case 3:ec_enc_carry_out(&e,(int)a);break;}
  s[0]=e.storage;s[1]=e.end_offs;s[2]=e.end_window;s[3]=e.nend_bits;s[4]=e.nbits_total;s[5]=e.offs;
  s[6]=e.rng;s[7]=e.val;s[8]=e.ext;s[9]=e.rem;s[10]=e.error;
 }

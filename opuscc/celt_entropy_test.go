@@ -30,7 +30,7 @@ func TestEntropyEncoderFieldAccesses(t *testing.T) {
 		Fext:     2,
 		Frem:     0x44,
 	}
-	ec_enc_carry_out(nil, uintptr(unsafe.Pointer(&enc)), 0x100)
+	ec_enc_carry_out(nil, &enc, 0x100)
 	if enc.Foffs != 3 || enc.Fext != 0 || enc.Frem != 0 || enc.Ferror1 != 0 {
 		t.Fatalf("unexpected carry state: %+v", enc)
 	}

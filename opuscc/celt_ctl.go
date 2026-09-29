@@ -1204,39 +1204,29 @@ func ec_write_byte_at_end(tls *libc.TLS, _this0 *OpusT_ec_enc, _value uint32) (r
 //	   32-bit systems.
 //	  The alternative is to truncate the range in order to force a carry, but
 //	   requires similar carry tracking in the decoder, needlessly slowing it down.*/
-func ec_enc_carry_out(tls *libc.TLS, _this uintptr, _c int32) {
-	var carry int32
-	var sym uint32
-	var v1 OpusT_opus_uint32
-	_, _, _ = carry, sym, v1
-	if uint32(_c) != uint32(1)<<int32(EC_SYM_BITS)-uint32(1) {
-		carry = _c >> int32(EC_SYM_BITS)
-		/*Don't output a byte on the first write.
-		  This compare should be taken care of by branch-prediction thereafter.*/
-		if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem >= 0 {
-			(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), uint32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem+carry))
-		}
-		if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext > uint32(0) {
-			sym = (uint32(1)<<int32(EC_SYM_BITS) - uint32(1) + uint32(carry)) & (uint32(1)<<int32(EC_SYM_BITS) - uint32(1))
-			for {
-				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), sym)
-				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext--
-				v1 = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext
-				if !(v1 > uint32(0)) {
-					break
-				}
-			}
-		}
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem = int32(uint32(_c) & (uint32(1)<<int32(EC_SYM_BITS) - uint32(1)))
-	} else {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext + 1
+func ec_enc_carry_out(tls *libc.TLS, enc *OpusT_ec_enc, c int32) {
+	const symMax = uint32(1)<<EC_SYM_BITS - 1
+	if uint32(c) == symMax {
+		enc.Fext++
+		return
 	}
+	carry := c >> EC_SYM_BITS
+	// The first write buffers a byte instead of emitting it.
+	if enc.Frem >= 0 {
+		enc.Ferror1 |= ec_write_byte(tls, enc, uint32(enc.Frem+carry))
+	}
+	sym := (symMax + uint32(carry)) & symMax
+	for enc.Fext > 0 {
+		enc.Ferror1 |= ec_write_byte(tls, enc, sym)
+		enc.Fext--
+	}
+	enc.Frem = int32(uint32(c) & symMax)
 }
 
 func ec_enc_normalize(tls *libc.TLS, _this uintptr) {
 	/*If the range is too small, output some bits and rescale it.*/
 	for (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng <= uint32(1)<<(int32(EC_CODE_BITS)-int32(1))>>int32(EC_SYM_BITS) {
-		ec_enc_carry_out(tls, _this, int32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval>>(int32(EC_CODE_BITS)-int32(EC_SYM_BITS)-int32(1))))
+		ec_enc_carry_out(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), int32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval>>(int32(EC_CODE_BITS)-int32(EC_SYM_BITS)-int32(1))))
 		/*Move the next-to-high-order symbol into the high-order position.*/
 		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval << int32(EC_SYM_BITS) & (uint32(1)<<(int32(EC_CODE_BITS)-int32(1)) - uint32(1))
 		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng <<= uint32(int32(EC_SYM_BITS))
@@ -1433,13 +1423,13 @@ func Opus_ec_enc_done(tls *libc.TLS, _this uintptr) {
 		end = ((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval + msk) & ^msk
 	}
 	for l > 0 {
-		ec_enc_carry_out(tls, _this, int32(end>>(int32(EC_CODE_BITS)-int32(EC_SYM_BITS)-int32(1))))
+		ec_enc_carry_out(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), int32(end>>(int32(EC_CODE_BITS)-int32(EC_SYM_BITS)-int32(1))))
 		end = end << int32(EC_SYM_BITS) & (uint32(1)<<(int32(EC_CODE_BITS)-int32(1)) - uint32(1))
 		l = l - int32(EC_SYM_BITS)
 	}
 	/*If we have a buffered byte flush it into the output buffer.*/
 	if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem >= 0 || (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext > uint32(0) {
-		ec_enc_carry_out(tls, _this, 0)
+		ec_enc_carry_out(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), 0)
 	}
 	/*If we have buffered extra bits, flush them as well.*/
 	window = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_window

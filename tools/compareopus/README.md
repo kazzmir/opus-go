@@ -225,6 +225,8 @@ fields with C while checking outside guards.
 Initial entropy-bit patching compares all 0–8 bit widths and byte values across
 finalized/pending-byte, interval, and error branches, including threshold-adjacent
 ranges and signed pending state, with exact state and buffer comparisons.
+Carry propagation compares the actual static `entenc.c` helper across buffered
+bytes, pending carry runs and exhausted buffers; Go tests also cover counter wrap.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
