@@ -196,6 +196,9 @@ also cover the smaller 386 state layout.
 The top-level resampler driver additionally compares PCM and the complete state
 across consecutive 1/2/10/11/21/30 ms calls for all supported rate pairs, including
 copy mode, delay compensation, and empty second batches.
+The low-quality 2/3 resampler compares PCM and all six state words, including
+full-range initial state, saturation, in-place operation, 480-sample batch edges,
+and the un-emitted one/two-sample remainders (C emits two samples per triple).
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
