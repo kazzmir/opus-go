@@ -149,6 +149,10 @@ pinned while legacy SILK/CELT uintptr interfaces still use their addresses.
 This fixes read-chunk and multistream regressions exposed by stack-layout changes;
 it does not establish global pointer safety. Pins can be removed as the complete
 call chains become typed.
+IIR/FIR interpolation is compared against the actual static libopus helper,
+including every Q16 fractional phase, saturated inputs, guard samples, and
+input/output overlap. The Go helper returns an output count instead of a
+one-past-end pointer.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

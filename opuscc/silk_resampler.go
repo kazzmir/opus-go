@@ -749,43 +749,27 @@ var silk_resampler_up2_hq_15 = [3]OpusT_opus_int16{
 	2: int16(int32(55542) - int32(65536)),
 }
 
-func silk_resampler_private_IIR_FIR_INTERPOL(tls *libc.TLS, out uintptr, buf uintptr, max_index_Q16 OpusT_opus_int32, index_increment_Q16 OpusT_opus_int32) (r uintptr) {
-	var buf_ptr, v2 uintptr
-	var index_Q16, res_Q15, table_index OpusT_opus_int32
-	var v3, v4 int32
-	_, _, _, _, _, _, _ = buf_ptr, index_Q16, res_Q15, table_index, v2, v3, v4
-	/* Interpolate upsampled signal and store in output array */
-	index_Q16 = 0
-	for {
-		if !(index_Q16 < max_index_Q16) {
-			break
-		}
-		table_index = int32(int64(index_Q16&int32(0xFFFF)) * int64(int16(int32(12))) >> int32(16))
-		buf_ptr = buf + uintptr(index_Q16>>int32(16))*2
-		res_Q15 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(buf_ptr))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_resampler_frac_FIR_12)) + uintptr(table_index)*8)))
-		res_Q15 = res_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(buf_ptr + 1*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_resampler_frac_FIR_12)) + uintptr(table_index)*8 + 1*2)))
-		res_Q15 = res_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(buf_ptr + 2*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_resampler_frac_FIR_12)) + uintptr(table_index)*8 + 2*2)))
-		res_Q15 = res_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(buf_ptr + 3*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_resampler_frac_FIR_12)) + uintptr(table_index)*8 + 3*2)))
-		res_Q15 = res_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(buf_ptr + 4*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_resampler_frac_FIR_12)) + uintptr(int32(11)-table_index)*8 + 3*2)))
-		res_Q15 = res_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(buf_ptr + 5*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_resampler_frac_FIR_12)) + uintptr(int32(11)-table_index)*8 + 2*2)))
-		res_Q15 = res_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(buf_ptr + 6*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_resampler_frac_FIR_12)) + uintptr(int32(11)-table_index)*8 + 1*2)))
-		res_Q15 = res_Q15 + int32(*(*OpusT_opus_int16)(unsafe.Pointer(buf_ptr + 7*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_resampler_frac_FIR_12)) + uintptr(int32(11)-table_index)*8)))
-		v2 = out
-		out += 2
-		if (res_Q15>>(int32(15)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX21) {
-			v3 = int32(silk_int16_MAX21)
-		} else {
-			if (res_Q15>>(int32(15)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v4 = int32(int16(-32768))
-			} else {
-				v4 = (res_Q15>>(int32(15)-int32(1)) + int32(1)) >> int32(1)
-			}
-			v3 = v4
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(v2)) = int16(v3)
-		index_Q16 = index_Q16 + index_increment_Q16
+// Return the number of output samples, rather than a one-past-end pointer.
+func silk_resampler_private_IIR_FIR_INTERPOL(tls *libc.TLS, out, buf *int16, maxIndex, increment int32) int32 {
+	if maxIndex <= 0 {
+		return 0
 	}
-	return out
+	count := 1 + (maxIndex-1)/increment
+	input := unsafe.Slice(buf, ((count-1)*increment>>16)+8)
+	output := unsafe.Slice(out, count)
+	for i, index := int32(0), int32(0); i < count; i, index = i+1, index+increment {
+		phase := (index & 65535) * 12 >> 16
+		x := input[index>>16:]
+		var sum int32
+		for j := 0; j < 4; j++ {
+			sum += int32(x[j]) * int32(Opus_silk_resampler_frac_FIR_12[phase][j])
+		}
+		for j := 0; j < 4; j++ {
+			sum += int32(x[j+4]) * int32(Opus_silk_resampler_frac_FIR_12[11-phase][3-j])
+		}
+		output[i] = int16(max(-32768, min(32767, ((sum>>14)+1)>>1)))
+	}
+	return count
 }
 
 // C documentation
@@ -888,7 +872,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, SS uintptr, out uintptr,
 		/* Upsample 2x */
 		Opus_silk_resampler_private_up2_HQ(tls, &(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(SS)).FsIIR, (*OpusT_opus_int16)(unsafe.Pointer(buf+8*2)), (*OpusT_opus_int16)(unsafe.Pointer(in)), nSamplesIn)
 		max_index_Q16 = int32(uint32(nSamplesIn) << (int32(16) + int32(1))) /* + 1 because 2x upsampling */
-		out = silk_resampler_private_IIR_FIR_INTERPOL(tls, out, buf, max_index_Q16, index_increment_Q16)
+		out += uintptr(silk_resampler_private_IIR_FIR_INTERPOL(tls, (*int16)(unsafe.Pointer(out)), (*int16)(unsafe.Pointer(buf)), max_index_Q16, index_increment_Q16)) * 2
 		in = in + uintptr(nSamplesIn)*2
 		inLen = inLen - nSamplesIn
 		if inLen > 0 {
