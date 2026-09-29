@@ -1259,17 +1259,15 @@ func Opus_ec_encode(tls *libc.TLS, enc *OpusT_ec_enc, fl, fh, ft uint32) {
 	ec_enc_normalize(tls, enc)
 }
 
-func Opus_ec_encode_bin(tls *libc.TLS, _this uintptr, _fl uint32, _fh uint32, _bits uint32) {
-	var r OpusT_opus_uint32
-	_ = r
-	r = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng >> _bits
-	if _fl > uint32(0) {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*(uint32(1)<<_bits-_fl)
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = r * (_fh - _fl)
+func Opus_ec_encode_bin(tls *libc.TLS, enc *OpusT_ec_enc, fl, fh, bits uint32) {
+	r := enc.Frng >> bits
+	if fl > 0 {
+		enc.Fval += enc.Frng - r*(uint32(1)<<bits-fl)
+		enc.Frng = r * (fh - fl)
 	} else {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng -= r * (uint32(1)<<_bits - _fh)
+		enc.Frng -= r * (uint32(1)<<bits - fh)
 	}
-	ec_enc_normalize(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)))
+	ec_enc_normalize(tls, enc)
 }
 
 // C documentation
