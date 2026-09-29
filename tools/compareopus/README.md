@@ -219,6 +219,9 @@ supported rates, TOC values and representative counts/errors without changing st
 Shared entropy encoder initialization compares all numeric fields with C from
 random preloaded states, verifies untouched buffers, and tests sole-context buffer
 ownership across GC and stack growth. The separate `opusccenc` copy is unchanged.
+Entropy shrinking exhausts valid new sizes, tail counts, and boundary front
+counts for buffers through 32 bytes, comparing overlapping moves and all state
+fields with C while checking outside guards.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

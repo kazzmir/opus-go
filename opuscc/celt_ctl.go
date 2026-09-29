@@ -1409,16 +1409,16 @@ func Opus_ec_enc_patch_initial_bits(tls *libc.TLS, _this uintptr, _val uint32, _
 	}
 }
 
-func Opus_ec_enc_shrink(tls *libc.TLS, _this uintptr, _size OpusT_opus_uint32) {
-	if !((*OpusT_ec_enc)(unsafe.Pointer(_this)).Foffs+(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs <= _size) {
-		Opus_celt_fatal(tls, __ccgo_ts+4780, __ccgo_ts+4699, int32(249))
+func Opus_ec_enc_shrink(tls *libc.TLS, enc *OpusT_ec_enc, size OpusT_opus_uint32) {
+	if !(enc.Foffs+enc.Fend_offs <= size) {
+		Opus_celt_fatal(tls, __ccgo_ts+4780, __ccgo_ts+4699, 249)
 	}
-	enc := (*OpusT_ec_enc)(unsafe.Pointer(_this))
 	if enc.Fend_offs > 0 {
 		buf := unsafe.Slice(enc.Fbuf, enc.Fstorage)
-		copy(buf[_size-enc.Fend_offs:_size], buf[enc.Fstorage-enc.Fend_offs:])
+		// OPUS_MOVE has memmove semantics, including overlapping tail bytes.
+		copy(buf[size-enc.Fend_offs:size], buf[enc.Fstorage-enc.Fend_offs:])
 	}
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage = _size
+	enc.Fstorage = size
 }
 
 func Opus_ec_enc_done(tls *libc.TLS, _this uintptr) {

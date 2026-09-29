@@ -30,7 +30,7 @@ func TestEntropyBufferAgainstC(t *testing.T) {
 		for i := uint32(0); i < 3; i++ {
 			opuscc.Opus_ec_enc_bits(nil, uintptr(unsafe.Pointer(&e)), 0x1234567+i, 25)
 		}
-		opuscc.Opus_ec_enc_shrink(nil, uintptr(unsafe.Pointer(&e)), size)
+		opuscc.Opus_ec_enc_shrink(nil, &e, size)
 		opuscc.Opus_ec_enc_done(nil, uintptr(unsafe.Pointer(&e)))
 		want := nativeEntropyBuffer(c, size)
 		got := [11]uint32{e.Fstorage, e.Fend_offs, e.Fend_window, uint32(e.Fnend_bits), uint32(e.Fnbits_total), e.Foffs, e.Frng, e.Fval, e.Fext, uint32(e.Frem), uint32(e.Ferror1)}
