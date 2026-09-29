@@ -209,6 +209,8 @@ and contents with C; a Go test retains only the returned pointer across GC.
 Float matrix input multiplication compares every selected row, input/output
 strides (including zero), empty dot products, guard values and overlapping buffers
 bit-for-bit with C.
+Int16 matrix input comparisons additionally cover extreme integer products and
+255-column accumulations, preserving conversion to float32 after each product.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
