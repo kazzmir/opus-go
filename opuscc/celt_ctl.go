@@ -1313,24 +1313,20 @@ func Opus_ec_enc_icdf16(tls *libc.TLS, enc *OpusT_ec_enc, symbol int32, icdf *ui
 	ec_enc_normalize(tls, enc)
 }
 
-func Opus_ec_enc_uint(tls *libc.TLS, _this uintptr, _fl OpusT_opus_uint32, _ft OpusT_opus_uint32) {
-	var fl, ft uint32
-	var ftb int32
-	_, _, _ = fl, ft, ftb
-	/*In order to optimize EC_ILOG(), it is undefined for the value 0.*/
-	if !(_ft > uint32(1)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3569, __ccgo_ts+4699, int32(191))
+func Opus_ec_enc_uint(tls *libc.TLS, enc *OpusT_ec_enc, value, total OpusT_opus_uint32) {
+	if total <= 1 {
+		Opus_celt_fatal(tls, __ccgo_ts+3569, __ccgo_ts+4699, 191)
 	}
-	_ft = _ft - 1
-	ftb = int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, _ft)
-	if ftb > int32(EC_UINT_BITS) {
-		ftb = ftb - int32(EC_UINT_BITS)
-		ft = _ft>>ftb + uint32(1)
-		fl = _fl >> ftb
-		Opus_ec_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), fl, fl+uint32(1), ft)
-		Opus_ec_enc_bits(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), _fl&(uint32(1)<<ftb-uint32(1)), uint32(ftb))
+	maximum := total - 1
+	width := bits.Len32(maximum)
+	if width > EC_UINT_BITS {
+		width -= EC_UINT_BITS
+		highTotal := maximum>>width + 1
+		high := value >> width
+		Opus_ec_encode(tls, enc, high, high+1, highTotal)
+		Opus_ec_enc_bits(tls, enc, value&(uint32(1)<<width-1), uint32(width))
 	} else {
-		Opus_ec_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), _fl, _fl+uint32(1), _ft+uint32(1))
+		Opus_ec_encode(tls, enc, value, value+1, total)
 	}
 }
 

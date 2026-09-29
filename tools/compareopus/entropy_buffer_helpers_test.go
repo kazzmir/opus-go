@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"slices"
 	"testing"
-	"unsafe"
 )
 
 func TestEntropyBufferAgainstC(t *testing.T) {
@@ -24,7 +23,7 @@ func TestEntropyBufferAgainstC(t *testing.T) {
 		pins.Pin(&g[0])
 		opuscc.Opus_ec_enc_init(nil, &e, &g[0], uint32(len(g)))
 		for i := uint32(0); i < 18; i++ {
-			opuscc.Opus_ec_enc_uint(nil, uintptr(unsafe.Pointer(&e)), i%17, 17)
+			opuscc.Opus_ec_enc_uint(nil, &e, i%17, 17)
 		}
 		opuscc.Opus_ec_enc_bits(nil, &e, 0xa5b, 12)
 		for i := uint32(0); i < 3; i++ {

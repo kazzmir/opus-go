@@ -1037,7 +1037,7 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 				v7 = codedBands
 			}
 			*(*int32)(unsafe.Pointer(intensity)) = v7
-			Opus_ec_enc_uint(tls, ec, uint32(*(*int32)(unsafe.Pointer(intensity))-start), uint32(codedBands+int32(1)-start))
+			Opus_ec_enc_uint(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(*(*int32)(unsafe.Pointer(intensity))-start), uint32(codedBands+int32(1)-start))
 		} else {
 			*(*int32)(unsafe.Pointer(intensity)) = int32(uint32(start) + Opus_ec_dec_uint(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(codedBands+int32(1)-start)))
 		}
@@ -2607,7 +2607,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 			if B0 > int32(1) || stereo != 0 {
 				/* Uniform pdf */
 				if encode != 0 {
-					Opus_ec_enc_uint(tls, ec, uint32(itheta), uint32(qn+int32(1)))
+					Opus_ec_enc_uint(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(itheta), uint32(qn+int32(1)))
 				} else {
 					itheta = int32(Opus_ec_dec_uint(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(qn+int32(1))))
 				}

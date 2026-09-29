@@ -1583,7 +1583,7 @@ func Opus_encode_pulses(tls *libc.TLS, _y uintptr, _n int32, _k int32, _enc uint
 	} else {
 		v4 = _k + int32(1)
 	}
-	Opus_ec_enc_uint(tls, _enc, icwrs(tls, _n, _y), *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v1] + uintptr(v2)*4))+*(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v3] + uintptr(v4)*4)))
+	Opus_ec_enc_uint(tls, (*OpusT_ec_enc)(unsafe.Pointer(_enc)), icwrs(tls, _n, _y), *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v1] + uintptr(v2)*4))+*(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v3] + uintptr(v4)*4)))
 }
 
 // Row offsets mirror the C table without storing pointers in uintptr values.
