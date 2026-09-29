@@ -114,7 +114,12 @@ CELT exponential rotation, and fractional entropy-bit accounting (all normalized
 updates, probability-coded bits, raw tail bits, and unsigned integers, including
 normalization, exhausted packets, overlapping front/tail reads, and invalid-value
 clamping. These tests copy context fields explicitly across the C boundary;
-`Fbuf` remains a legacy `uintptr`, with its test buffer owner explicitly retained.
+`opuscc` entropy contexts now carry a typed `Fbuf`; legacy context addresses and
+untyped scratch allocations elsewhere still require ownership care. Initialization
+compares every numeric field, including the deliberately preserved `ext`, across
+short/exhausted packets. Go ownership tests force GC and stack growth with the
+context as the sole packet owner. Shared encoder-buffer adaptations compare
+shrink/move, final padding/tail writes, and complete numeric state against C.
 SILK decoder comparisons also cover NLSF unpacking/reconstruction/stabilization,
 LPC coefficient fitting (including input updates), and shell pulse decoding with
 all numeric entropy-state fields checked. Additional decoder tests cover 16-bit

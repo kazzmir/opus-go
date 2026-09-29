@@ -1,17 +1,13 @@
 package opuscc
 
 import (
-	"runtime"
 	"testing"
-	"unsafe"
 )
 
 func TestEntropyWritePointers(t *testing.T) {
 	buffer := [3]byte{}
-	// Fbuf is still an integer field; keep its backing storage live explicitly.
-	defer func() { runtime.KeepAlive(&buffer) }()
 	enc := OpusT_ec_enc{
-		Fbuf:     uintptr(unsafe.Pointer(&buffer[0])),
+		Fbuf:     &buffer[0],
 		Fstorage: uint32(len(buffer)),
 	}
 	if got := ec_write_byte(nil, &enc, 0x123); got != 0 {

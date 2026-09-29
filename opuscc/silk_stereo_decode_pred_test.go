@@ -2,7 +2,6 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -13,7 +12,7 @@ func TestStereoDecodePredFieldAccesses(t *testing.T) {
 
 	data := []byte{0x93, 0x57, 0xc1, 0x2a, 0xee, 0x44, 0x18, 0xb7}
 	var rangeDecoder OpusT_ec_dec
-	Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&rangeDecoder)), uintptr(unsafe.Pointer(&data[0])), uint32(len(data)))
+	Opus_ec_dec_init(tls, &rangeDecoder, &data[0], uint32(len(data)))
 	pred := [2]OpusT_opus_int32{}
 
 	Opus_silk_stereo_decode_pred(tls, &rangeDecoder, &pred)

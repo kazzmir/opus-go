@@ -19,7 +19,7 @@ func TestFinalEnergyAgainstC(t *testing.T) {
 			data := make([]byte, []int{0, 1, 16}[trial%3])
 			rng.Read(data)
 			var g opuscc.OpusT_ec_dec
-			opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&g)), uintptr(unsafe.Pointer(unsafe.SliceData(data))), uint32(len(data)))
+			opuscc.Opus_ec_dec_init(nil, &g, unsafe.SliceData(data), uint32(len(data)))
 			c := g
 			energy := make([]float32, 21*channels)
 			for i := range energy {

@@ -6,7 +6,6 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"runtime"
 	"testing"
-	"unsafe"
 )
 
 func TestLaplaceP0AgainstC(t *testing.T) {
@@ -18,7 +17,7 @@ func TestLaplaceP0AgainstC(t *testing.T) {
 				t.Fatalf("C encoder error=%d", err)
 			}
 			var g opuscc.OpusT_ec_dec
-			opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&g)), uintptr(unsafe.Pointer(&data[0])), uint32(len(data)))
+			opuscc.Opus_ec_dec_init(nil, &g, &data[0], uint32(len(data)))
 			c := g
 			for i, want := range values {
 				gv := opuscc.Opus_ec_laplace_decode_p0(nil, &g, p0, decay)

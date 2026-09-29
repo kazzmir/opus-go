@@ -4192,7 +4192,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					}
 					nstart_bytes = int32(ec_save.Foffs)
 					nend_bytes = int32(ec_save.Fstorage)
-					bytes_buf = ec_save.Fbuf + uintptr(nstart_bytes)
+					bytes_buf = uintptr(unsafe.Add(unsafe.Pointer(ec_save.Fbuf), uintptr(nstart_bytes)))
 					save_bytes = nend_bytes - nstart_bytes
 					libc.Xmemcpy(tls, bytes_save, bytes_buf, uint64(uint32(save_bytes))*uint64(1)+uint64(0*(int64(bytes_save)-int64(bytes_buf))))
 					/* Restore */

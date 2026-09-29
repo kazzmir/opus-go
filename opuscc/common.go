@@ -829,7 +829,7 @@ type OpusT_double_t = float64
 type OpusT_ec_window = uint32
 
 type OpusT_ec_ctx = struct {
-	Fbuf         uintptr
+	Fbuf         *byte
 	Fstorage     OpusT_opus_uint32
 	Fend_offs    OpusT_opus_uint32
 	Fend_window  OpusT_ec_window
@@ -844,7 +844,7 @@ type OpusT_ec_ctx = struct {
 }
 
 type OpusT_ec_enc = struct {
-	Fbuf         uintptr
+	Fbuf         *byte
 	Fstorage     OpusT_opus_uint32
 	Fend_offs    OpusT_opus_uint32
 	Fend_window  OpusT_ec_window
@@ -861,7 +861,7 @@ type OpusT_ec_enc = struct {
 type ec_ctx = OpusT_ec_enc
 
 type OpusT_ec_dec = struct {
-	Fbuf         uintptr
+	Fbuf         *byte
 	Fstorage     OpusT_opus_uint32
 	Fend_offs    OpusT_opus_uint32
 	Fend_window  OpusT_ec_window
@@ -2505,7 +2505,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		audiosize = decoder.Fframe_size
 		mode = decoder.Fmode
 		bandwidth = decoder.Fbandwidth
-		Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&dec)), data, uint32(len1))
+		Opus_ec_dec_init(tls, &dec, (*byte)(unsafe.Pointer(data)), uint32(len1))
 	} else {
 		audiosize = frame_size
 		/* Run PLC using last used mode (CELT if we ended with CELT redundancy) */

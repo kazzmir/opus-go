@@ -6,7 +6,6 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"runtime"
 	"testing"
-	"unsafe"
 )
 
 func TestStereoPredAgainstC(t *testing.T) {
@@ -23,7 +22,7 @@ func TestStereoPredAgainstC(t *testing.T) {
 			t.Fatalf("C encoder error=%d", err)
 		}
 		var g opuscc.OpusT_ec_dec
-		opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&g)), uintptr(unsafe.Pointer(&data[0])), uint32(len(data)))
+		opuscc.Opus_ec_dec_init(nil, &g, &data[0], uint32(len(data)))
 		c := g
 		var pred [2]int32
 		opuscc.Opus_silk_stereo_decode_pred(nil, &g, &pred)

@@ -19,10 +19,10 @@ func TestShellDecodeAgainstC(t *testing.T) {
 				rng.Read(data)
 				var state opuscc.OpusT_ec_dec
 				var out [16]int16
-				opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&state)), uintptr(unsafe.Pointer(unsafe.SliceData(data))), uint32(n))
+				opuscc.Opus_ec_dec_init(nil, &state, unsafe.SliceData(data), uint32(n))
 				opuscc.Opus_silk_shell_decoder(nil, &out, &state, total)
 				c, cs := nativeShellDecode(data, total)
-				state.Fbuf = 0 // The bridge compares every numeric field, not buffer addresses.
+				state.Fbuf = nil // The bridge compares every numeric field, not buffer addresses.
 				if out != c || state != cs {
 					t.Fatalf("n=%d total=%d trial=%d Go=%v C=%v state=%+v C=%+v", n, total, trial, out, c, state, cs)
 				}

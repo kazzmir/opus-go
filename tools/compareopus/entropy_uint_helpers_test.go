@@ -18,7 +18,7 @@ func TestEntropyUintAgainstC(t *testing.T) {
 			data := make([]byte, n)
 			rng.Read(data)
 			var g opuscc.OpusT_ec_dec
-			opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&g)), uintptr(unsafe.Pointer(unsafe.SliceData(data))), uint32(n))
+			opuscc.Opus_ec_dec_init(nil, &g, unsafe.SliceData(data), uint32(n))
 			c := g
 			for step := 0; step < 200; step++ {
 				ft := totals[step%len(totals)]

@@ -1538,7 +1538,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fskip_plc = 0
 	}
 	if dec == uintptr(uint32(0)) {
-		Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&_dec)), data, uint32(len1))
+		Opus_ec_dec_init(tls, &_dec, (*byte)(unsafe.Pointer(data)), uint32(len1))
 		dec = uintptr(unsafe.Pointer(&_dec))
 	}
 	if C == int32(1) {

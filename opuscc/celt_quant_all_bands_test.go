@@ -165,7 +165,7 @@ func TestQuantAllBandsCReference(t *testing.T) {
 		libc.Xmemset(tls, scratch, 0, uint64(GLOBAL_STACK_SIZE))
 		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)).Fglobal_stack = scratch
 
-		Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&decoder[0])), uintptr(unsafe.Pointer(&buffer[0])), 64)
+		Opus_ec_dec_init(tls, &decoder[0], &buffer[0], 64)
 		Opus_quant_all_bands(tls, 0, uintptr(unsafe.Pointer(&mode[0])), 0, 3,
 			uintptr(unsafe.Pointer(&X[0])), uintptr(unsafe.Pointer(&Y[0])),
 			uintptr(unsafe.Pointer(&collapse[0])), uintptr(unsafe.Pointer(&bandE[0])),

@@ -25,11 +25,11 @@ func TestAlgUnquantAgainstC(t *testing.T) {
 					rng.Read(data)
 					gain := []float32{0, 0.25, 1, 1.75}[trial%4]
 					var gd opuscc.OpusT_ec_dec
-					opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&gd)), uintptr(unsafe.Pointer(unsafe.SliceData(data))), uint32(len(data)))
+					opuscc.Opus_ec_dec_init(nil, &gd, unsafe.SliceData(data), uint32(len(data)))
 					g, c := make([]float32, n), make([]float32, n)
 					gm := opuscc.Opus_alg_unquant(nil, &g[0], n, k, spread, B, &gd, gain)
 					cm, cd := nativeAlgUnquant(data, c, n, k, spread, B, gain)
-					gd.Fbuf = 0
+					gd.Fbuf = nil
 					if gm != cm || gd != cd {
 						t.Fatalf("n=%d k=%d B=%d spread=%d trial=%d mask=%x/%x state=%+v/%+v", n, k, B, spread, trial, gm, cm, gd, cd)
 					}

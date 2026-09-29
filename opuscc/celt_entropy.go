@@ -20,7 +20,7 @@ func ec_read_byte(_this *OpusT_ec_dec) (r int32) {
 	if _this.Foffs < _this.Fstorage {
 		v2 = _this.Foffs
 		_this.Foffs++
-		v1 = int32(*(*uint8)(unsafe.Pointer(_this.Fbuf + uintptr(v2))))
+		v1 = int32(*(*uint8)(unsafe.Add(unsafe.Pointer(_this.Fbuf), uintptr(v2))))
 	} else {
 		v1 = 0
 	}
@@ -34,7 +34,7 @@ func ec_read_byte_from_end(_this *OpusT_ec_dec) (r int32) {
 	if _this.Fend_offs < _this.Fstorage {
 		_this.Fend_offs++
 		v2 = _this.Fend_offs
-		v1 = int32(*(*uint8)(unsafe.Pointer(_this.Fbuf + uintptr(_this.Fstorage-v2))))
+		v1 = int32(*(*uint8)(unsafe.Add(unsafe.Pointer(_this.Fbuf), uintptr(_this.Fstorage-v2))))
 	} else {
 		v1 = 0
 	}
@@ -63,23 +63,23 @@ func ec_dec_normalize(tls *libc.TLS, _this *OpusT_ec_dec) {
 	}
 }
 
-func Opus_ec_dec_init(tls *libc.TLS, _this uintptr, _buf uintptr, _storage OpusT_opus_uint32) {
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fbuf = _buf
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fstorage = _storage
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fend_offs = uint32(0)
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fend_window = uint32(0)
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnend_bits = 0
-	/*This is the offset from which ec_tell() will subtract partial bits.
-	  The final value after the ec_dec_normalize() call will be the same as in
-	   the encoder, but we have to compensate for the bits that are added there.*/
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fnbits_total = int32(EC_CODE_BITS) + int32(1) - (int32(EC_CODE_BITS)-((int32(EC_CODE_BITS)-int32(2))%int32(EC_SYM_BITS)+int32(1)))/int32(EC_SYM_BITS)*int32(EC_SYM_BITS)
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Foffs = uint32(0)
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng = uint32(1) << ((int32(EC_CODE_BITS)-int32(2))%int32(EC_SYM_BITS) + int32(1))
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Frem = ec_read_byte((*OpusT_ec_dec)(unsafe.Pointer(_this)))
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Fval = (*OpusT_ec_dec)(unsafe.Pointer(_this)).Frng - uint32(1) - uint32((*OpusT_ec_dec)(unsafe.Pointer(_this)).Frem>>(int32(EC_SYM_BITS)-((int32(EC_CODE_BITS)-int32(2))%int32(EC_SYM_BITS)+int32(1))))
-	(*OpusT_ec_dec)(unsafe.Pointer(_this)).Ferror1 = 0
-	/*Normalize the interval.*/
-	ec_dec_normalize(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)))
+func Opus_ec_dec_init(tls *libc.TLS, dec *OpusT_ec_dec, buf *byte, storage OpusT_opus_uint32) {
+	// The shared entropy layouts now retain a GC-visible packet pointer.
+	dec.Fbuf = buf
+	dec.Fstorage = storage
+	dec.Fend_offs = 0
+	dec.Fend_window = 0
+	dec.Fnend_bits = 0
+	const extra = (EC_CODE_BITS-2)%EC_SYM_BITS + 1
+	// Compensate for the bits added by normalization, as in the C encoder.
+	dec.Fnbits_total = EC_CODE_BITS + 1 - ((EC_CODE_BITS-extra)/EC_SYM_BITS)*EC_SYM_BITS
+	dec.Foffs = 0
+	dec.Frng = uint32(1) << extra
+	dec.Frem = ec_read_byte(dec)
+	dec.Fval = dec.Frng - 1 - uint32(dec.Frem>>(EC_SYM_BITS-extra))
+	dec.Ferror1 = 0
+	// C deliberately leaves ext unchanged.
+	ec_dec_normalize(tls, dec)
 }
 
 func Opus_ec_decode(tls *libc.TLS, dec *OpusT_ec_dec, ft uint32) (r uint32) {

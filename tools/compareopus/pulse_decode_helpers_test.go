@@ -22,10 +22,10 @@ func TestPulseDecodeAgainstC(t *testing.T) {
 		}
 		c := slices.Clone(g)
 		var gd opuscc.OpusT_ec_dec
-		opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&gd)), uintptr(unsafe.Pointer(unsafe.SliceData(data))), uint32(len(data)))
+		opuscc.Opus_ec_dec_init(nil, &gd, unsafe.SliceData(data), uint32(len(data)))
 		opuscc.Opus_silk_decode_pulses(nil, &gd, &g[1], signal, offset, length)
 		cd := nativePulseDecode(data, c[1:n+1], length, signal, offset)
-		gd.Fbuf = 0
+		gd.Fbuf = nil
 		if !slices.Equal(g, c) || gd != cd {
 			t.Fatalf("length=%d signal=%d offset=%d bytes=%d Go=%v C=%v state=%+v C=%+v", length, signal, offset, len(data), g, c, gd, cd)
 		}

@@ -46,10 +46,10 @@ func TestSignsAgainstC(t *testing.T) {
 					data := make([]byte, []int{0, 1, 3, 64}[trial%4])
 					rng.Read(data)
 					var gd opuscc.OpusT_ec_dec
-					opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&gd)), uintptr(unsafe.Pointer(unsafe.SliceData(data))), uint32(len(data)))
+					opuscc.Opus_ec_dec_init(nil, &gd, unsafe.SliceData(data), uint32(len(data)))
 					opuscc.Opus_silk_decode_signs(nil, &gd, &g[1], length, signal, offset, unsafe.SliceData(sums))
 					cd := nativeSignsDecode(data, c[1:n+1], length, signal, offset, sums)
-					gd.Fbuf = 0
+					gd.Fbuf = nil
 					if !slices.Equal(g, c) || gd != cd || !slices.Equal(sums, sumBefore) {
 						t.Fatalf("signal=%d offset=%d length=%d trial=%d Go=%v C=%v state=%+v C=%+v", signal, offset, length, trial, g, c, gd, cd)
 					}

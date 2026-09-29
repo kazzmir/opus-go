@@ -17,7 +17,7 @@ func TestEntropyUpdateAgainstC(t *testing.T) {
 			data := make([]byte, n)
 			rng.Read(data)
 			var g opuscc.OpusT_ec_dec
-			opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&g)), uintptr(unsafe.Pointer(unsafe.SliceData(data))), uint32(n))
+			opuscc.Opus_ec_dec_init(nil, &g, unsafe.SliceData(data), uint32(n))
 			for step := 0; step < 100; step++ {
 				ft := []uint32{2, 13, 256, 32768}[step%4]
 				symbol := opuscc.Opus_ec_decode(nil, &g, ft)
@@ -35,7 +35,7 @@ func TestEntropyUpdateAgainstC(t *testing.T) {
 					t.Fatalf("n=%d trial=%d step=%d Go=%+v C=%+v", n, trial, step, g, c)
 				}
 			}
-			// Fbuf remains uintptr; explicitly retain its owner across Go reads.
+			// Also retain the fixture owner across the native comparison.
 			runtime.KeepAlive(data)
 		}
 	}

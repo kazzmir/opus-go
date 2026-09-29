@@ -20,7 +20,7 @@ func TestFineEnergyAgainstC(t *testing.T) {
 			data := make([]byte, 64)
 			rng.Read(data)
 			var g opuscc.OpusT_ec_dec
-			opuscc.Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&g)), uintptr(unsafe.Pointer(&data[0])), uint32(len(data)))
+			opuscc.Opus_ec_dec_init(nil, &g, &data[0], uint32(len(data)))
 			g.Fnbits_total = int32(g.Fstorage*8) + int32(bits.Len32(g.Frng)) - int32(trial%129)
 			c := g
 			energy := make([]float32, 21*channels)

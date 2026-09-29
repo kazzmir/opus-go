@@ -25,7 +25,7 @@ func TestEntropyEncoderFieldAccesses(t *testing.T) {
 	}
 
 	enc = OpusT_ec_enc{
-		Fbuf:     entropyBufferPointer(buffer),
+		Fbuf:     unsafe.SliceData(buffer),
 		Fstorage: uint32(len(buffer)),
 		Fext:     2,
 		Frem:     0x44,
@@ -70,7 +70,7 @@ func TestEntropyEncoderFieldAccesses(t *testing.T) {
 func TestEntropyDecoderFieldAccesses(t *testing.T) {
 	buffer := []byte{0x3b, 0xa1, 0x7d, 0xc4, 0x19}
 	dec := OpusT_ec_dec{
-		Fbuf:     entropyBufferPointer(buffer),
+		Fbuf:     unsafe.SliceData(buffer),
 		Fstorage: uint32(len(buffer)),
 		Foffs:    1,
 	}
@@ -91,7 +91,7 @@ func TestEntropyDecoderFieldAccesses(t *testing.T) {
 	}
 
 	dec = OpusT_ec_dec{
-		Fbuf:         entropyBufferPointer(buffer),
+		Fbuf:         unsafe.SliceData(buffer),
 		Fstorage:     uint32(len(buffer)),
 		Frng:         12345,
 		Fval:         0x12345,
@@ -105,7 +105,7 @@ func TestEntropyDecoderFieldAccesses(t *testing.T) {
 	}
 
 	encoded := []byte{0xd7, 0x4a, 0x91, 0x2e, 0xbc, 0x63}
-	Opus_ec_dec_init(nil, uintptr(unsafe.Pointer(&dec)), entropyBufferPointer(encoded), uint32(len(encoded)))
+	Opus_ec_dec_init(nil, &dec, unsafe.SliceData(encoded), uint32(len(encoded)))
 	symbol := Opus_ec_decode(nil, &dec, 13)
 	Opus_ec_dec_update(nil, &dec, symbol, symbol+1, 13)
 	bits := Opus_ec_dec_bits(nil, &dec, 11)
@@ -119,7 +119,7 @@ func TestEntropyDecoderFieldAccesses(t *testing.T) {
 	}
 
 	dec = OpusT_ec_dec{
-		Fbuf:         entropyBufferPointer(buffer),
+		Fbuf:         unsafe.SliceData(buffer),
 		Fstorage:     uint32(len(buffer)),
 		Frng:         1000000000,
 		Fval:         500000000,

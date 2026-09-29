@@ -25,6 +25,7 @@ static unsigned entropy_step(unsigned *s, unsigned char *data, int op,
  case 6: result=ec_laplace_decode_p0(&dec,(opus_uint16)a,(opus_uint16)b); break;
  case 7: silk_stereo_decode_pred(&dec,out); break;
  case 8: { int flag; silk_stereo_decode_mid_only(&dec,&flag); result=flag; break; }
+ case 9: ec_dec_init(&dec,data,a); break;
  }
  s[0]=dec.storage; s[1]=dec.end_offs; s[2]=dec.end_window;
  s[3]=dec.nend_bits; s[4]=dec.nbits_total; s[5]=dec.offs;

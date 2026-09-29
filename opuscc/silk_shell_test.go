@@ -19,7 +19,7 @@ func TestShellEncoderLocalPulseTrees(t *testing.T) {
 	Opus_ec_enc_done(tls, uintptr(unsafe.Pointer(&encoder)))
 
 	var decoder OpusT_ec_dec
-	Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&buffer[0])), uint32(len(buffer)))
+	Opus_ec_dec_init(tls, &decoder, &buffer[0], uint32(len(buffer)))
 	var decoded [16]OpusT_opus_int16
 	Opus_silk_shell_decoder(tls, &decoded, &decoder, 15)
 

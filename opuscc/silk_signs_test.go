@@ -28,7 +28,7 @@ func TestSignCodingLocalICDF(t *testing.T) {
 		}
 	}
 	var decoder OpusT_ec_dec
-	Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&buffer[0])), uint32(len(buffer)))
+	Opus_ec_dec_init(tls, &decoder, &buffer[0], uint32(len(buffer)))
 	Opus_silk_decode_signs(tls, &decoder, &decoded[0], 32, 1, 1, &sumPulses[0])
 
 	for i, want := range pulses {

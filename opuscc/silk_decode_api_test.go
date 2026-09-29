@@ -49,7 +49,7 @@ func runSilkPacket(t *testing.T, tls *libc.TLS, memory uintptr, control *OpusT_s
 	t.Helper()
 	payload := pkt[1:]
 	var rangeDec OpusT_ec_dec
-	Opus_ec_dec_init(tls, uintptr(unsafe.Pointer(&rangeDec)), uintptr(unsafe.Pointer(&payload[0])), uint32(len(payload)))
+	Opus_ec_dec_init(tls, &rangeDec, &payload[0], uint32(len(payload)))
 	var calls []silkDecodeCall
 	for f := 0; f < 3; f++ {
 		var n int32

@@ -1176,7 +1176,7 @@ func ec_write_byte(tls *libc.TLS, _this0 *OpusT_ec_enc, _value uint32) (r int32)
 	}
 	v1 = _this0.Foffs
 	_this0.Foffs++
-	*(*uint8)(unsafe.Pointer(_this0.Fbuf + uintptr(v1))) = uint8(_value)
+	*(*uint8)(unsafe.Add(unsafe.Pointer(_this0.Fbuf), uintptr(v1))) = uint8(_value)
 	return 0
 }
 
@@ -1188,7 +1188,7 @@ func ec_write_byte_at_end(tls *libc.TLS, _this0 *OpusT_ec_enc, _value uint32) (r
 	}
 	_this0.Fend_offs++
 	v1 = _this0.Fend_offs
-	*(*uint8)(unsafe.Pointer(_this0.Fbuf + uintptr(_this0.Fstorage-v1))) = uint8(_value)
+	*(*uint8)(unsafe.Add(unsafe.Pointer(_this0.Fbuf), uintptr(_this0.Fstorage-v1))) = uint8(_value)
 	return 0
 }
 
@@ -1245,7 +1245,7 @@ func ec_enc_normalize(tls *libc.TLS, _this uintptr) {
 }
 
 func Opus_ec_enc_init(tls *libc.TLS, _this uintptr, _buf uintptr, _size OpusT_opus_uint32) {
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf = _buf
+	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf = (*byte)(unsafe.Pointer(_buf))
 	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs = uint32(0)
 	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_window = uint32(0)
 	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnend_bits = 0
@@ -1413,7 +1413,11 @@ func Opus_ec_enc_shrink(tls *libc.TLS, _this uintptr, _size OpusT_opus_uint32) {
 	if !((*OpusT_ec_enc)(unsafe.Pointer(_this)).Foffs+(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs <= _size) {
 		Opus_celt_fatal(tls, __ccgo_ts+4780, __ccgo_ts+4699, int32(249))
 	}
-	libc.Xmemmove(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf+uintptr(_size)-uintptr((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs), (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf+uintptr((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage)-uintptr((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs), uint64((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs)*uint64(1)+uint64(0*(int64((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf+uintptr(_size)-uintptr((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs))-int64((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf+uintptr((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage)-uintptr((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs)))))
+	enc := (*OpusT_ec_enc)(unsafe.Pointer(_this))
+	if enc.Fend_offs > 0 {
+		buf := unsafe.Slice(enc.Fbuf, enc.Fstorage)
+		copy(buf[_size-enc.Fend_offs:_size], buf[enc.Fstorage-enc.Fend_offs:])
+	}
 	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage = _size
 }
 
@@ -1421,7 +1425,7 @@ func Opus_ec_enc_done(tls *libc.TLS, _this uintptr) {
 	var end, msk OpusT_opus_uint32
 	var l, used int32
 	var window OpusT_ec_window
-	var v1 uintptr
+	var v1 *byte
 	_, _, _, _, _, _ = end, l, msk, used, window, v1
 	/*We output the minimum number of bits that ensures that the symbols encoded
 	  thus far will be decoded correctly regardless of the bits that follow.*/
@@ -1452,8 +1456,9 @@ func Opus_ec_enc_done(tls *libc.TLS, _this uintptr) {
 	}
 	/*Clear any excess space and add any remaining extra bits to the last byte.*/
 	if !((*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 != 0) {
-		if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf != 0 {
-			libc.Xmemset(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf+uintptr((*OpusT_ec_enc)(unsafe.Pointer(_this)).Foffs), 0, uint64((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage-(*OpusT_ec_enc)(unsafe.Pointer(_this)).Foffs-(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs)*uint64(1))
+		enc := (*OpusT_ec_enc)(unsafe.Pointer(_this))
+		if enc.Fbuf != nil {
+			clear(unsafe.Slice(enc.Fbuf, enc.Fstorage)[enc.Foffs : enc.Fstorage-enc.Fend_offs])
 		}
 		if used > 0 {
 			/*If there's no range coder data at all, give up.*/
@@ -1467,8 +1472,8 @@ func Opus_ec_enc_done(tls *libc.TLS, _this uintptr) {
 					window = window & uint32(int32(1)<<l-int32(1))
 					(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 = -int32(1)
 				}
-				v1 = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf + uintptr((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage-(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs-uint32(1))
-				*(*uint8)(unsafe.Pointer(v1)) = uint8(int32(*(*uint8)(unsafe.Pointer(v1))) | int32(uint8(window)))
+				v1 = (*byte)(unsafe.Add(unsafe.Pointer(enc.Fbuf), uintptr(enc.Fstorage-enc.Fend_offs-1)))
+				*v1 |= byte(window)
 			}
 		}
 	}
@@ -2267,7 +2272,7 @@ func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, 
 		nstart_bytes = v58
 		v58 = enc_intra_state.Foffs
 		nintra_bytes = v58
-		v1 = enc_intra_state.Fbuf
+		v1 = uintptr(unsafe.Pointer(enc_intra_state.Fbuf))
 		intra_buf = v1 + uintptr(nstart_bytes)
 		save_bytes = nintra_bytes - nstart_bytes
 		if save_bytes == uint32(0) {
