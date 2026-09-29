@@ -1299,17 +1299,18 @@ func Opus_ec_enc_icdf(tls *libc.TLS, _this uintptr, _s int32, _icdf uintptr, _ft
 	ec_enc_normalize(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)))
 }
 
-func Opus_ec_enc_icdf16(tls *libc.TLS, _this uintptr, _s int32, _icdf uintptr, _ftb uint32) {
-	var r OpusT_opus_uint32
-	_ = r
-	r = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng >> _ftb
-	if _s > 0 {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*uint32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s-int32(1))*2)))
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = r * uint32(int32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s-int32(1))*2)))-int32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s)*2))))
+func Opus_ec_enc_icdf16(tls *libc.TLS, enc *OpusT_ec_enc, symbol int32, icdf *uint16, ftb uint32) {
+	r := enc.Frng >> ftb
+	// Only the current and previous entries are required; no fabricated table extent.
+	current := uint32(*(*uint16)(unsafe.Add(unsafe.Pointer(icdf), uintptr(symbol)*2)))
+	if symbol > 0 {
+		previous := uint32(*(*uint16)(unsafe.Add(unsafe.Pointer(icdf), uintptr(symbol-1)*2)))
+		enc.Fval += enc.Frng - r*previous
+		enc.Frng = r * (previous - current)
 	} else {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng -= r * uint32(*(*OpusT_opus_uint16)(unsafe.Pointer(_icdf + uintptr(_s)*2)))
+		enc.Frng -= r * current
 	}
-	ec_enc_normalize(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)))
+	ec_enc_normalize(tls, enc)
 }
 
 func Opus_ec_enc_uint(tls *libc.TLS, _this uintptr, _fl OpusT_opus_uint32, _ft OpusT_opus_uint32) {
