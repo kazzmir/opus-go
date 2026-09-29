@@ -449,165 +449,42 @@ var silk_resampler_up2_hq_14 = [3]OpusT_opus_int16{
 	2: int16(int32(55542) - int32(65536)),
 }
 
-func silk_resampler_private_down_FIR_INTERPOL(tls *libc.TLS, out uintptr, buf uintptr, FIR_Coefs uintptr, FIR_Order int32, FIR_Fracs int32, max_index_Q16 OpusT_opus_int32, index_increment_Q16 OpusT_opus_int32) (r uintptr) {
-	var buf_ptr, interpol_ptr, v9 uintptr
-	var index_Q16, interpol_ind, res_Q6 OpusT_opus_int32
-	var v10, v11 int32
-	_, _, _, _, _, _, _, _ = buf_ptr, index_Q16, interpol_ind, interpol_ptr, res_Q6, v10, v11, v9
-	switch FIR_Order {
-	case int32(RESAMPLER_DOWN_ORDER_FIR0):
-		goto _1
-	case int32(RESAMPLER_DOWN_ORDER_FIR1):
-		goto _2
-	case int32(RESAMPLER_DOWN_ORDER_FIR2):
-		goto _3
-	default:
-		goto _4
+func silk_resampler_private_down_FIR_INTERPOL(tls *libc.TLS, out *int16, buf *int32, coefs *int16, order, fracs, maxIndex, increment int32) int32 {
+	if order != 18 && order != 24 && order != 36 {
+		Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7638, 139)
 	}
-	goto _5
-_1:
-	;
-	index_Q16 = 0
-_8:
-	;
-	if !(index_Q16 < max_index_Q16) {
-		goto _6
+	if maxIndex <= 0 {
+		return 0
 	}
-	/* Integer part gives pointer to buffered input */
-	buf_ptr = buf + uintptr(index_Q16>>int32(16))*4
-	/* Fractional part gives interpolation coefficients */
-	interpol_ind = int32(int64(index_Q16&int32(0xFFFF)) * int64(int16(FIR_Fracs)) >> int32(16))
-	/* Inner product */
-	interpol_ptr = FIR_Coefs + uintptr(int32(RESAMPLER_DOWN_ORDER_FIR0)/int32(2)*interpol_ind)*2
-	res_Q6 = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr))) * int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr))) >> int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 1*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 1*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 2*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 2*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 3*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 3*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 4*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 4*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 5*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 5*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 6*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 6*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 7*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 7*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 8*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 8*2)))>>int32(16))
-	interpol_ptr = FIR_Coefs + uintptr(int32(RESAMPLER_DOWN_ORDER_FIR0)/int32(2)*(FIR_Fracs-int32(1)-interpol_ind))*2
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 17*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 16*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 1*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 15*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 2*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 14*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 3*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 13*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 4*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 12*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 5*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 11*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 6*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 10*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 7*2)))>>int32(16))
-	res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 9*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(interpol_ptr + 8*2)))>>int32(16))
-	/* Scale down, saturate and store in output array */
-	v9 = out
-	out += 2
-	if (res_Q6>>(int32(6)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX21) {
-		v10 = int32(silk_int16_MAX21)
-	} else {
-		if (res_Q6>>(int32(6)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-			v11 = int32(int16(-32768))
-		} else {
-			v11 = (res_Q6>>(int32(6)-int32(1)) + int32(1)) >> int32(1)
-		}
-		v10 = v11
+	count := 1 + (maxIndex-1)/increment
+	input := unsafe.Slice(buf, ((count-1)*increment>>16)+order)
+	output := unsafe.Slice(out, count)
+	coefCount := order / 2
+	if order == 18 {
+		coefCount *= fracs
 	}
-	*(*OpusT_opus_int16)(unsafe.Pointer(v9)) = int16(v10)
-	index_Q16 = index_Q16 + index_increment_Q16
-	goto _8
-_6:
-	goto _5
-_2:
-	;
-	index_Q16 = 0
-	for {
-		if !(index_Q16 < max_index_Q16) {
-			break
-		}
-		/* Integer part gives pointer to buffered input */
-		buf_ptr = buf + uintptr(index_Q16>>int32(16))*4
-		/* Inner product */
-		res_Q6 = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 23*4))) * int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs))) >> int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 1*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 22*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 1*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 2*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 21*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 2*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 3*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 20*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 3*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 4*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 19*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 4*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 5*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 18*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 5*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 6*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 17*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 6*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 7*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 16*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 7*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 8*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 15*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 8*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 9*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 14*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 9*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 10*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 13*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 10*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 11*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 12*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 11*2)))>>int32(16))
-		/* Scale down, saturate and store in output array */
-		v9 = out
-		out += 2
-		if (res_Q6>>(int32(6)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX21) {
-			v10 = int32(silk_int16_MAX21)
-		} else {
-			if (res_Q6>>(int32(6)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v11 = int32(int16(-32768))
-			} else {
-				v11 = (res_Q6>>(int32(6)-int32(1)) + int32(1)) >> int32(1)
+	coeff := unsafe.Slice(coefs, coefCount)
+	for i, index := int32(0), int32(0); i < count; i, index = i+1, index+increment {
+		x := input[index>>16:]
+		var sum int32
+		if order == 18 {
+			phase := int32(int64(index&65535) * int64(int16(fracs)) >> 16)
+			for j := int32(0); j < 9; j++ {
+				sum += int32(int64(x[j]) * int64(coeff[9*phase+j]) >> 16)
 			}
-			v10 = v11
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(v9)) = int16(v10)
-		index_Q16 = index_Q16 + index_increment_Q16
-	}
-	goto _5
-_3:
-	;
-	index_Q16 = 0
-	for {
-		if !(index_Q16 < max_index_Q16) {
-			break
-		}
-		/* Integer part gives pointer to buffered input */
-		buf_ptr = buf + uintptr(index_Q16>>int32(16))*4
-		/* Inner product */
-		res_Q6 = int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 35*4))) * int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs))) >> int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 1*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 34*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 1*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 2*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 33*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 2*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 3*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 32*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 3*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 4*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 31*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 4*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 5*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 30*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 5*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 6*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 29*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 6*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 7*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 28*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 7*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 8*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 27*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 8*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 9*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 26*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 9*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 10*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 25*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 10*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 11*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 24*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 11*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 12*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 23*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 12*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 13*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 22*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 13*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 14*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 21*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 14*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 15*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 20*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 15*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 16*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 19*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 16*2)))>>int32(16))
-		res_Q6 = int32(int64(res_Q6) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 17*4))+*(*OpusT_opus_int32)(unsafe.Pointer(buf_ptr + 18*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(FIR_Coefs + 17*2)))>>int32(16))
-		/* Scale down, saturate and store in output array */
-		v9 = out
-		out += 2
-		if (res_Q6>>(int32(6)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX21) {
-			v10 = int32(silk_int16_MAX21)
-		} else {
-			if (res_Q6>>(int32(6)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v11 = int32(int16(-32768))
-			} else {
-				v11 = (res_Q6>>(int32(6)-int32(1)) + int32(1)) >> int32(1)
+			for j := int32(0); j < 9; j++ {
+				sum += int32(int64(x[17-j]) * int64(coeff[9*(fracs-1-phase)+j]) >> 16)
 			}
-			v10 = v11
+		} else {
+			for j := int32(0); j < order/2; j++ {
+				// ADD32 narrows before SMULWB, not after the multiply.
+				pair := x[j] + x[order-1-j]
+				sum += int32(int64(pair) * int64(coeff[j]) >> 16)
+			}
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(v9)) = int16(v10)
-		index_Q16 = index_Q16 + index_increment_Q16
+		output[i] = int16(max(-32768, min(32767, ((sum>>5)+1)>>1)))
 	}
-	goto _5
-_4:
-	;
-	if !(int32(0) != 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7638, int32(139))
-	}
-_5:
-	;
-	return out
+	return count
 }
 
 // C documentation
@@ -712,7 +589,7 @@ func Opus_silk_resampler_private_down_FIR(tls *libc.TLS, SS uintptr, out uintptr
 		Opus_silk_resampler_private_AR2(tls, (*OpusT_opus_int32)(unsafe.Pointer(SS)), (*OpusT_opus_int32)(unsafe.Pointer(buf+uintptr(state.FFIR_Order)*4)), (*OpusT_opus_int16)(unsafe.Pointer(in)), (*OpusT_opus_int16)(unsafe.Pointer(state.FCoefs)), nSamplesIn)
 		max_index_Q16 = int32(uint32(nSamplesIn) << int32(16))
 		/* Interpolate filtered signal */
-		out = silk_resampler_private_down_FIR_INTERPOL(tls, out, buf, FIR_Coefs, state.FFIR_Order, state.FFIR_Fracs, max_index_Q16, index_increment_Q16)
+		out += uintptr(silk_resampler_private_down_FIR_INTERPOL(tls, (*int16)(unsafe.Pointer(out)), (*int32)(unsafe.Pointer(buf)), (*int16)(unsafe.Pointer(FIR_Coefs)), state.FFIR_Order, state.FFIR_Fracs, max_index_Q16, index_increment_Q16)) * 2
 		in = in + uintptr(nSamplesIn)*2
 		inLen = inLen - nSamplesIn
 		if inLen > int32(1) {
