@@ -251,17 +251,13 @@ var gains = [3][3]OpusT_opus_val16{
 	},
 }
 
-func Opus_init_caps(tls *libc.TLS, m uintptr, cap1 uintptr, LM int32, C int32) {
-	var N, i int32
-	_, _ = N, i
-	i = 0
-	for {
-		if !(i < (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands) {
-			break
-		}
-		N = (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i)*2)))) << LM
-		*(*int32)(unsafe.Pointer(cap1 + uintptr(i)*4)) = (int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).Fcache.Fcaps + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands*(int32(2)*LM+C-int32(1))+i)))) + int32(64)) * C * N >> int32(2)
-		i = i + 1
+func Opus_init_caps(tls *libc.TLS, bands *OpusT_opus_int16, cacheCaps *uint8, cap1 *int32, nbBands, LM, C int32) {
+	eBands := unsafe.Slice(bands, nbBands+1)
+	cache := unsafe.Slice(cacheCaps, nbBands*(2*LM+C))
+	caps := unsafe.Slice(cap1, nbBands)
+	for i := int32(0); i < nbBands; i++ {
+		N := (int32(eBands[i+1]) - int32(eBands[i])) << LM
+		caps[i] = (int32(cache[nbBands*(2*LM+C-1)+i]) + 64) * C * N >> 2
 	}
 }
 

@@ -1844,7 +1844,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	v21 = st
 	cap1 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(nbEBands))*(uint64(4)/uint64(1)))
-	Opus_init_caps(tls, mode, cap1, LM, C)
+	capMode := (*OpusT_OpusCustomMode)(unsafe.Pointer(mode))
+	Opus_init_caps(tls, (*OpusT_opus_int16)(unsafe.Pointer(capMode.FeBands)), (*uint8)(unsafe.Pointer(capMode.Fcache.Fcaps)), (*int32)(unsafe.Pointer(cap1)), capMode.FnbEBands, LM, C)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
