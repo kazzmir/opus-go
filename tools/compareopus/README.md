@@ -152,7 +152,9 @@ call chains become typed.
 IIR/FIR interpolation is compared against the actual static libopus helper,
 including every Q16 fractional phase, saturated inputs, guard samples, and
 input/output overlap. The Go helper returns an output count instead of a
-one-past-end pointer.
+one-past-end pointer. The IIR/FIR driver also compares PCM and complete filter
+history across empty, short, exact-batch, multi-batch, and consecutive calls,
+including the untouched tail of its FIR union. Its scratch buffer is Go-owned.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

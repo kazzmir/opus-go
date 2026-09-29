@@ -74,7 +74,7 @@ func TestIIRFIRResamplerFieldAccesses(t *testing.T) {
 	input := []int16{1400, -2500, 3700, -4800}
 	output := make([]int16, len(input)*2)
 
-	Opus_silk_resampler_private_IIR_FIR(tls, uintptr(unsafe.Pointer(&state)), uintptr(unsafe.Pointer(&output[0])), uintptr(unsafe.Pointer(&input[0])), int32(len(input)))
+	Opus_silk_resampler_private_IIR_FIR(tls, &state, &output[0], &input[0], int32(len(input)))
 
 	wantOutput := []int16{69, 86, 101, 124, 128, 7, 50, 218}
 	for i, want := range wantOutput {
