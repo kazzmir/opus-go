@@ -138,6 +138,17 @@ thresholds, prediction modes, optional previous quantization, and nil final
 energy output. Band denormalization is compared bit-for-bit across frame scales,
 downsampling factors, silence, exp2 underflow, and capped gains; its band table
 is passed as a typed pointer rather than read from the legacy mode field.
+Allocation cap tests compare mode tables and channel/frame scales. Hybrid folding
+uses a scalar C reference for the static helper in `bands.c`, including bitwise
+copies of NaN payloads. Pulse-vector decoding compares native `cwrs.c` vectors,
+energies, and entropy state across sparse/dense codebooks. Full PVQ reconstruction
+compares libopus output bits, collapse masks, and state across spreading modes,
+block counts, gains, and exhausted packets. Its pulse scratch is Go-owned.
+Outer per-frame entropy, scalar-output, CTL, and silence scratch objects are
+pinned while legacy SILK/CELT uintptr interfaces still use their addresses.
+This fixes read-chunk and multistream regressions exposed by stack-layout changes;
+it does not establish global pointer safety. Pins can be removed as the complete
+call chains become typed.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

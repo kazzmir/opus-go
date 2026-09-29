@@ -4,6 +4,7 @@ package opuscc
 
 import (
 	"reflect"
+	"runtime"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
@@ -2450,6 +2451,17 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	var silence [2]uint8
 	var celt_mode uintptr
 	var va uintptr /* va_list scratch for celt_decoder_ctl varargs */
+	// These locals still cross legacy SILK/CELT or CTL interfaces as uintptr.
+	// Pinning forces heap allocation and stable addresses across stack growth.
+	// Remove individual pins as their complete call chains become typed.
+	var framePins runtime.Pinner
+	framePins.Pin(&dec)
+	framePins.Pin(&silk_frame_size)
+	framePins.Pin(&redundant_rng)
+	framePins.Pin(&celt_mode)
+	framePins.Pin(&va)
+	framePins.Pin(&silence)
+	defer framePins.Unpin()
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st1))
 	silk_ret = 0
 	celt_ret = 0
