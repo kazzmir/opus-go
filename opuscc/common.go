@@ -3465,7 +3465,7 @@ func Opus_opus_decode(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_
 		return -int32(1)
 	}
 	if data != uintptr(uint32(0)) && len1 > 0 && !(decode_fec != 0) {
-		nb_samples = Opus_opus_decoder_get_nb_samples(tls, st1, data, len1)
+		nb_samples = Opus_opus_decoder_get_nb_samples(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1)
 		if nb_samples > 0 {
 			if frame_size < nb_samples {
 				v31 = frame_size
@@ -3645,7 +3645,7 @@ func Opus_opus_decode24(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opu
 		return -int32(1)
 	}
 	if data != uintptr(uint32(0)) && len1 > 0 && !(decode_fec != 0) {
-		nb_samples = Opus_opus_decoder_get_nb_samples(tls, st1, data, len1)
+		nb_samples = Opus_opus_decoder_get_nb_samples(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1)
 		if nb_samples > 0 {
 			if frame_size < nb_samples {
 				v31 = frame_size
@@ -3966,8 +3966,8 @@ func Opus_opus_packet_has_lbrr(tls *libc.TLS, packet uintptr, len1 OpusT_opus_in
 	return lbrr
 }
 
-func Opus_opus_decoder_get_nb_samples(tls *libc.TLS, dec uintptr, packet uintptr, len1 OpusT_opus_int32) (r int32) {
-	return Opus_opus_packet_get_nb_samples(tls, (*byte)(unsafe.Pointer(packet)), len1, (*OpusT_OpusDecoder)(unsafe.Pointer(dec)).FFs)
+func Opus_opus_decoder_get_nb_samples(tls *libc.TLS, dec *OpusT_OpusDecoder, packet *byte, len1 OpusT_opus_int32) int32 {
+	return Opus_opus_packet_get_nb_samples(tls, packet, len1, dec.FFs)
 }
 
 type OpusDREDDecoder = struct {
