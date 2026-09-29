@@ -135,7 +135,7 @@ type OpusT_silk_decoder = struct {
 /*********************/
 /* Decoder functions */
 /*********************/
-func Opus_silk_LoadOSCEModels(tls *libc.TLS, decState uintptr, data uintptr, len1 int32) (r int32) {
+func Opus_silk_LoadOSCEModels(tls *libc.TLS, decState *OpusT_silk_decoder, data *byte, len1 int32) (r int32) {
 	_ = decState
 	_ = data
 	_ = len1
@@ -150,45 +150,24 @@ func Opus_silk_Get_Decoder_Size(tls *libc.TLS, decSizeBytes *int32) (r int32) {
 // C documentation
 //
 //	/* Reset decoder state */
-func Opus_silk_ResetDecoder(tls *libc.TLS, decState uintptr) (r int32) {
-	var channel_state uintptr
-	var n, ret int32
-	_, _, _ = channel_state, n, ret
-	ret = SILK_NO_ERROR
-	channel_state = decState
-	n = 0
-	for {
-		if !(n < int32(DECODER_NUM_CHANNELS)) {
-			break
-		}
-		ret = Opus_silk_reset_decoder(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state+uintptr(n)*unsafe.Sizeof(OpusT_silk_decoder_state{}))))
-		n = n + 1
+func Opus_silk_ResetDecoder(tls *libc.TLS, decState *OpusT_silk_decoder) int32 {
+	ret := int32(SILK_NO_ERROR)
+	for n := range decState.Fchannel_state {
+		ret = Opus_silk_reset_decoder(tls, &decState.Fchannel_state[n])
 	}
-	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).FsStereo = OpusT_stereo_dec_state{}
-	/* Not strictly needed, but it's cleaner that way */
-	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).Fprev_decode_only_middle = 0
+	decState.FsStereo = OpusT_stereo_dec_state{}
+	decState.Fprev_decode_only_middle = 0
 	return ret
 }
 
-func Opus_silk_InitDecoder(tls *libc.TLS, decState uintptr) (r int32) {
-	var channel_state uintptr
-	var n, ret int32
-	_, _, _ = channel_state, n, ret
-	ret = SILK_NO_ERROR
-	channel_state = decState
-	/* load osce models */
-	Opus_silk_LoadOSCEModels(tls, decState, uintptr(uint32(0)), 0)
-	n = 0
-	for {
-		if !(n < int32(DECODER_NUM_CHANNELS)) {
-			break
-		}
-		ret = Opus_silk_init_decoder(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state+uintptr(n)*unsafe.Sizeof(OpusT_silk_decoder_state{}))))
-		n = n + 1
+func Opus_silk_InitDecoder(tls *libc.TLS, decState *OpusT_silk_decoder) int32 {
+	ret := int32(SILK_NO_ERROR)
+	Opus_silk_LoadOSCEModels(tls, decState, nil, 0)
+	for n := range decState.Fchannel_state {
+		ret = Opus_silk_init_decoder(tls, &decState.Fchannel_state[n])
 	}
-	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).FsStereo = OpusT_stereo_dec_state{}
-	/* Not strictly needed, but it's cleaner that way */
-	(*OpusT_silk_decoder)(unsafe.Pointer(decState)).Fprev_decode_only_middle = 0
+	decState.FsStereo = OpusT_stereo_dec_state{}
+	decState.Fprev_decode_only_middle = 0
 	return ret
 }
 

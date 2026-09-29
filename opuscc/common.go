@@ -2358,7 +2358,7 @@ func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, chan
 	decoder.FDecControl.FAPI_sampleRate = decoder.FFs
 	decoder.FDecControl.FnChannelsAPI = decoder.Fchannels
 	/* Reset decoder */
-	ret = Opus_silk_InitDecoder(tls, silk_dec)
+	ret = Opus_silk_InitDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(silk_dec)))
 	if ret != 0 {
 		return -int32(3)
 	}
@@ -2839,7 +2839,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			pcm_ptr = pcm
 		}
 		if decoder.Fprev_mode == int32(MODE_CELT_ONLY) {
-			Opus_silk_ResetDecoder(tls, silk_dec)
+			Opus_silk_ResetDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(silk_dec)))
 		}
 		/* The SILK PLC cannot produce frames of less than 10 ms */
 		if int32(10) > int32(1000)*audiosize/decoder.FFs {
@@ -3868,7 +3868,7 @@ func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr)
 	case int32(OPUS_RESET_STATE):
 		libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.Fstream_channels)), 0, uint64(unsafe.Sizeof(OpusT_OpusDecoder{})-unsafe.Offsetof(decoder.Fstream_channels)))
 		Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_RESET_STATE), 0)
-		Opus_silk_ResetDecoder(tls, silk_dec)
+		Opus_silk_ResetDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(silk_dec)))
 		decoder.Fstream_channels = decoder.Fchannels
 		decoder.Fframe_size = decoder.FFs / int32(400)
 	case int32(OPUS_GET_SAMPLE_RATE_REQUEST):

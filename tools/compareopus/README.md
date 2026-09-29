@@ -184,6 +184,9 @@ Smooth fades compare exactly with a scalar C reference of `opus_decoder.c`,
 covering supported sample rates, channel-major stores, and partial buffer overlap.
 Packet-duration queries exhaust all TOC/count-byte combinations at supported
 rates against libopus, including short headers and the 120 ms limit.
+Aggregate SILK init/reset compares the actual `dec_API.c` path, both channel
+states and stereo history, while checking that channel-count metadata survives.
+Native CPU dispatch is excluded, as in the per-channel reset comparisons.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

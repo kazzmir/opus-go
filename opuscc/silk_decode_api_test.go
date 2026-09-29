@@ -92,7 +92,7 @@ func TestSilkDecodeRealPacketsMonoAndPLC(t *testing.T) {
 	Opus_silk_Get_Decoder_Size(tls, &size)
 	memory := libc.Xmalloc(tls, uint64(size))
 	libc.Xmemset(tls, memory, 0, uint64(size))
-	if got := Opus_silk_InitDecoder(tls, memory); got != SILK_NO_ERROR {
+	if got := Opus_silk_InitDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(memory))); got != SILK_NO_ERROR {
 		t.Fatalf("decoder initialization: got %d", got)
 	}
 	decoder := (*OpusT_silk_decoder)(unsafe.Pointer(memory))
@@ -248,7 +248,7 @@ func TestSilkDecodeRealPacketsStereo(t *testing.T) {
 	Opus_silk_Get_Decoder_Size(tls, &size)
 	memory := libc.Xmalloc(tls, uint64(size))
 	libc.Xmemset(tls, memory, 0, uint64(size))
-	if got := Opus_silk_InitDecoder(tls, memory); got != SILK_NO_ERROR {
+	if got := Opus_silk_InitDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(memory))); got != SILK_NO_ERROR {
 		t.Fatalf("decoder initialization: got %d", got)
 	}
 	decoder := (*OpusT_silk_decoder)(unsafe.Pointer(memory))
@@ -357,7 +357,7 @@ func TestSilkDecodeLostFrameState(t *testing.T) {
 	var size int32
 	Opus_silk_Get_Decoder_Size(tls, &size)
 	memory := libc.Xmalloc(tls, uint64(size))
-	if got := Opus_silk_InitDecoder(tls, memory); got != OPUS_OK {
+	if got := Opus_silk_InitDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(memory))); got != OPUS_OK {
 		t.Fatalf("decoder initialization: got %d", got)
 	}
 	decoder := (*OpusT_silk_decoder)(unsafe.Pointer(memory))
