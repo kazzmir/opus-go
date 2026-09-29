@@ -2582,7 +2582,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 				} else {
 					v5 = x - x0 + (x0+int32(1))*p0
 				}
-				Opus_ec_encode(tls, ec, uint32(v1), uint32(v5), uint32(ft))
+				Opus_ec_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(v1), uint32(v5), uint32(ft))
 			} else {
 				fs = int32(Opus_ec_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(ft)))
 				if fs < (x0+int32(1))*p0 {
@@ -2627,7 +2627,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 						v1 = ft1 - (qn+int32(1)-itheta)*(qn+int32(2)-itheta)>>int32(1)
 					}
 					fl = v1
-					Opus_ec_encode(tls, ec, uint32(fl), uint32(fl+fs1), uint32(ft1))
+					Opus_ec_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(fl), uint32(fl+fs1), uint32(ft1))
 				} else {
 					/* Triangular pdf */
 					fl1 = 0

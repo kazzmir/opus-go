@@ -1248,20 +1248,15 @@ func Opus_ec_enc_init(tls *libc.TLS, enc *OpusT_ec_enc, buf *byte, size OpusT_op
 	enc.Ferror1 = 0
 }
 
-func Opus_ec_encode(tls *libc.TLS, _this uintptr, _fl uint32, _fh uint32, _ft uint32) {
-	var r, v1, v2 OpusT_opus_uint32
-	_, _, _ = r, v1, v2
-	v1 = _ft
-	_ = v1 > uint32(0)
-	v2 = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng / v1
-	r = v2
-	if _fl > uint32(0) {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*(_ft-_fl)
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = r * (_fh - _fl)
+func Opus_ec_encode(tls *libc.TLS, enc *OpusT_ec_enc, fl, fh, ft uint32) {
+	r := enc.Frng / ft
+	if fl > 0 {
+		enc.Fval += enc.Frng - r*(ft-fl)
+		enc.Frng = r * (fh - fl)
 	} else {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng -= r * (_ft - _fh)
+		enc.Frng -= r * (ft - fh)
 	}
-	ec_enc_normalize(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)))
+	ec_enc_normalize(tls, enc)
 }
 
 func Opus_ec_encode_bin(tls *libc.TLS, _this uintptr, _fl uint32, _fh uint32, _bits uint32) {
@@ -1340,10 +1335,10 @@ func Opus_ec_enc_uint(tls *libc.TLS, _this uintptr, _fl OpusT_opus_uint32, _ft O
 		ftb = ftb - int32(EC_UINT_BITS)
 		ft = _ft>>ftb + uint32(1)
 		fl = _fl >> ftb
-		Opus_ec_encode(tls, _this, fl, fl+uint32(1), ft)
+		Opus_ec_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), fl, fl+uint32(1), ft)
 		Opus_ec_enc_bits(tls, _this, _fl&(uint32(1)<<ftb-uint32(1)), uint32(ftb))
 	} else {
-		Opus_ec_encode(tls, _this, _fl, _fl+uint32(1), _ft+uint32(1))
+		Opus_ec_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), _fl, _fl+uint32(1), _ft+uint32(1))
 	}
 }
 

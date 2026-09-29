@@ -229,6 +229,9 @@ Carry propagation compares the actual static `entenc.c` helper across buffered
 bytes, pending carry runs and exhausted buffers; Go tests also cover counter wrap.
 Encoder normalization compares the actual static C helper around range thresholds,
 multiple normalization passes, carry-producing values and exhausted buffers.
+Interval encoding compares complete state and output after each of 400 consecutive
+intervals at representative totals, including zero lower bounds, full upper bounds,
+normalization and buffer exhaustion.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
