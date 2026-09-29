@@ -623,7 +623,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 			break
 		}
 		/* Resample decoded signal to API_sampleRate */
-		ret = ret + Opus_silk_resampler(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[n].Fresampler_state)), resample_out_ptr, samplesOut1_tmp[n]+1*2, nSamplesOutDec)
+		ret = ret + Opus_silk_resampler(tls, &decoder.Fchannel_state[n].Fresampler_state, (*int16)(unsafe.Pointer(resample_out_ptr)), (*int16)(unsafe.Pointer(samplesOut1_tmp[n]+2)), nSamplesOutDec)
 		/* Interleave if stereo output and stereo stream */
 		if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsAPI == int32(2) {
 			i = 0
@@ -651,7 +651,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 		if stereo_to_mono != 0 {
 			/* Resample right channel for newly collapsed stereo just in case
 			   we weren't doing collapsing when switching to mono */
-			ret = ret + Opus_silk_resampler(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[1].Fresampler_state)), resample_out_ptr, samplesOut1_tmp[0]+1*2, nSamplesOutDec)
+			ret = ret + Opus_silk_resampler(tls, &decoder.Fchannel_state[1].Fresampler_state, (*int16)(unsafe.Pointer(resample_out_ptr)), (*int16)(unsafe.Pointer(samplesOut1_tmp[0]+2)), nSamplesOutDec)
 			i = 0
 			for {
 				if !(i < *(*OpusT_opus_int32)(unsafe.Pointer(nSamplesOut))) {

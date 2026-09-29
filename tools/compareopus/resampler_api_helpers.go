@@ -53,6 +53,34 @@ func resamplerStateFromC(c *C.silk_resampler_state_struct) opuscc.OpusT_silk_res
 	return g
 }
 
+func nativeResamplerDriver(g *opuscc.OpusT_silk_resampler_state_struct, out, in []int16) int32 {
+	var c C.silk_resampler_state_struct
+	for i := range g.FsIIR {
+		c.sIIR[i] = C.opus_int32(g.FsIIR[i])
+	}
+	copy(unsafe.Slice((*int32)(unsafe.Pointer(&c.sFIR)), 36), g.FsFIR.Fi32[:])
+	for i := range g.FdelayBuf {
+		c.delayBuf[i] = C.opus_int16(g.FdelayBuf[i])
+	}
+	c.resampler_function = C.int(g.Fresampler_function)
+	c.batchSize = C.int(g.FbatchSize)
+	c.invRatio_Q16 = C.opus_int32(g.FinvRatio_Q16)
+	c.FIR_Order = C.int(g.FFIR_Order)
+	c.FIR_Fracs = C.int(g.FFIR_Fracs)
+	c.Fs_in_kHz = C.int(g.FFs_in_kHz)
+	c.Fs_out_kHz = C.int(g.FFs_out_kHz)
+	c.inputDelay = C.int(g.FinputDelay)
+	for id, p := range resamplerCoefPointers {
+		if g.FCoefs == uintptr(unsafe.Pointer(p)) {
+			c.Coefs = C.native_resampler_coefs(C.int(id))
+			break
+		}
+	}
+	ret := C.compare_resampler_driver(&c, (*C.opus_int16)(unsafe.Pointer(unsafe.SliceData(out))), (*C.opus_int16)(unsafe.Pointer(unsafe.SliceData(in))), C.opus_int32(len(in)))
+	*g = resamplerStateFromC(&c)
+	return int32(ret)
+}
+
 func nativeResamplerInit(in, out, enc int32) (opuscc.OpusT_silk_resampler_state_struct, int32) {
 	var ret C.int
 	c := C.native_resampler_init(C.int(in), C.int(out), C.int(enc), &ret)

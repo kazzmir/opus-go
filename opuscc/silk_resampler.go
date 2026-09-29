@@ -95,40 +95,48 @@ func Opus_silk_resampler_init(tls *libc.TLS, state *OpusT_silk_resampler_state_s
 //
 //	/* Resampler: convert from one sampling rate to another */
 //	/* Input and output sampling rate are at most 48000 Hz  */
-func Opus_silk_resampler(tls *libc.TLS, S uintptr, out uintptr, in uintptr, inLen OpusT_opus_int32) (r int32) {
-	var nSamples int32
-	_ = nSamples
-	/* Need at least 1 ms of input data */
-	if !(inLen >= (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz) {
-		Opus_celt_fatal(tls, __ccgo_ts+7406, __ccgo_ts+7386, int32(193))
+func Opus_silk_resampler(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, out, in *int16, inLen int32) int32 {
+	if inLen < state.FFs_in_kHz {
+		Opus_celt_fatal(tls, __ccgo_ts+7406, __ccgo_ts+7386, 193)
 	}
-	/* Delay can't exceed the 1 ms of buffering */
-	if !((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinputDelay <= (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz) {
-		Opus_celt_fatal(tls, __ccgo_ts+7446, __ccgo_ts+7386, int32(195))
+	if state.FinputDelay > state.FFs_in_kHz {
+		Opus_celt_fatal(tls, __ccgo_ts+7446, __ccgo_ts+7386, 195)
 	}
-	nSamples = (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz - (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinputDelay
-	/* Copy to delay buffer */
-	libc.Xmemcpy(tls, S+168+uintptr((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinputDelay)*2, in, uint64(uint32(nSamples))*uint64(2))
-	switch (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).Fresampler_function {
-	case int32(USE_silk_resampler_private_up2_HQ_wrapper):
-		state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S))
-		Opus_silk_resampler_private_up2_HQ_wrapper(tls, state, (*OpusT_opus_int16)(unsafe.Pointer(out)), &state.FdelayBuf[0], state.FFs_in_kHz)
-		Opus_silk_resampler_private_up2_HQ_wrapper(tls, state, (*OpusT_opus_int16)(unsafe.Pointer(out+uintptr(state.FFs_out_kHz)*2)), (*OpusT_opus_int16)(unsafe.Pointer(in+uintptr(nSamples)*2)), inLen-state.FFs_in_kHz)
-	case int32(USE_silk_resampler_private_IIR_FIR):
-		state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S))
-		Opus_silk_resampler_private_IIR_FIR(tls, state, (*int16)(unsafe.Pointer(out)), &state.FdelayBuf[0], state.FFs_in_kHz)
-		Opus_silk_resampler_private_IIR_FIR(tls, state, (*int16)(unsafe.Pointer(out+uintptr(state.FFs_out_kHz)*2)), (*int16)(unsafe.Pointer(in+uintptr(nSamples)*2)), inLen-state.FFs_in_kHz)
-	case int32(USE_silk_resampler_private_down_FIR):
-		state := (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S))
+	samples := unsafe.Slice(in, inLen)
+	nSamples := state.FFs_in_kHz - state.FinputDelay
+	copy(state.FdelayBuf[state.FinputDelay:state.FFs_in_kHz], samples[:nSamples])
+	remaining := inLen - state.FFs_in_kHz
+	var nextOut, nextIn *int16
+	// The second call is an identity for empty input. Avoid forming a one-past pointer.
+	if remaining > 0 {
+		nextOut = (*int16)(unsafe.Add(unsafe.Pointer(out), uintptr(state.FFs_out_kHz)*2))
+		nextIn = &samples[nSamples]
+	}
+	switch state.Fresampler_function {
+	case USE_silk_resampler_private_up2_HQ_wrapper:
+		Opus_silk_resampler_private_up2_HQ_wrapper(tls, state, out, &state.FdelayBuf[0], state.FFs_in_kHz)
+		if remaining > 0 {
+			Opus_silk_resampler_private_up2_HQ_wrapper(tls, state, nextOut, nextIn, remaining)
+		}
+	case USE_silk_resampler_private_IIR_FIR:
+		Opus_silk_resampler_private_IIR_FIR(tls, state, out, &state.FdelayBuf[0], state.FFs_in_kHz)
+		if remaining > 0 {
+			Opus_silk_resampler_private_IIR_FIR(tls, state, nextOut, nextIn, remaining)
+		}
+	case USE_silk_resampler_private_down_FIR:
+		// The legacy field is populated with permanent coefficient tables by init.
 		coefs := (*int16)(unsafe.Pointer(state.FCoefs))
-		Opus_silk_resampler_private_down_FIR(tls, state, coefs, (*int16)(unsafe.Pointer(out)), &state.FdelayBuf[0], state.FFs_in_kHz)
-		Opus_silk_resampler_private_down_FIR(tls, state, coefs, (*int16)(unsafe.Pointer(out+uintptr(state.FFs_out_kHz)*2)), (*int16)(unsafe.Pointer(in+uintptr(nSamples)*2)), inLen-state.FFs_in_kHz)
+		Opus_silk_resampler_private_down_FIR(tls, state, coefs, out, &state.FdelayBuf[0], state.FFs_in_kHz)
+		if remaining > 0 {
+			Opus_silk_resampler_private_down_FIR(tls, state, coefs, nextOut, nextIn, remaining)
+		}
 	default:
-		libc.Xmemcpy(tls, out, S+168, uint64(uint32((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz))*uint64(2))
-		libc.Xmemcpy(tls, out+uintptr((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_out_kHz)*2, in+uintptr(nSamples)*2, uint64(uint32(inLen-(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz))*uint64(2))
+		copy(unsafe.Slice(out, state.FFs_in_kHz), state.FdelayBuf[:state.FFs_in_kHz])
+		if remaining > 0 {
+			copy(unsafe.Slice(nextOut, remaining), samples[nSamples:nSamples+remaining])
+		}
 	}
-	/* Copy to delay buffer */
-	libc.Xmemcpy(tls, S+168, in+uintptr(inLen-(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinputDelay)*2, uint64(uint32((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinputDelay))*uint64(2))
+	copy(state.FdelayBuf[:state.FinputDelay], samples[inLen-state.FinputDelay:])
 	return 0
 }
 
