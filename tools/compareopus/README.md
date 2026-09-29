@@ -260,6 +260,9 @@ boundary, minimum decay probabilities, p0 extremes and output exhaustion. Fixtur
 exclude zero-probability symbols; Go tests round-trip both signs and continuations.
 CWRS indexing compares actual static C icwrs on signed pulse distributions across
 all representative PVQ shapes; Go tests invert sampled indices and check guards.
+Pulse encoding compares native CWRS/entropy state and bytes across PVQ shapes,
+consecutive signed vectors, unchanged inputs and exhausted output. Go tests
+round-trip concentrated pulses including the maximum 176-dimensional shape.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

@@ -646,7 +646,7 @@ func Opus_alg_quant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, B 
 	Opus_exp_rotation(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, int32(1), B, K, spread)
 	yy = Opus_op_pvq_search_c(tls, X, iy, K, N, arch)
 	collapse_mask = extract_collapse_mask(tls, (*int32)(unsafe.Pointer(iy)), N, B)
-	Opus_encode_pulses(tls, iy, N, K, enc)
+	Opus_encode_pulses(tls, (*int32)(unsafe.Pointer(iy)), N, K, (*OpusT_ec_enc)(unsafe.Pointer(enc)))
 	if resynth != 0 {
 		normalise_residual(tls, (*int32)(unsafe.Pointer(iy)), (*OpusT_celt_norm)(unsafe.Pointer(X)), N, yy, gain, 0)
 	}

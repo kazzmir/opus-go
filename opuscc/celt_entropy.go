@@ -1548,33 +1548,12 @@ func icwrs(tls *libc.TLS, n int32, input *int32) uint32 {
 	return index
 }
 
-func Opus_encode_pulses(tls *libc.TLS, _y uintptr, _n int32, _k int32, _enc uintptr) {
-	var v1, v2, v3, v4 int32
-	_, _, _, _ = v1, v2, v3, v4
-	if !(_k > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3649, __ccgo_ts+3634, int32(463))
+func Opus_encode_pulses(tls *libc.TLS, y *int32, n, k int32, enc *OpusT_ec_enc) {
+	if k <= 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+3649, __ccgo_ts+3634, 463)
 	}
-	if _n < _k {
-		v1 = _n
-	} else {
-		v1 = _k
-	}
-	if _n > _k {
-		v2 = _n
-	} else {
-		v2 = _k
-	}
-	if _n < _k+int32(1) {
-		v3 = _n
-	} else {
-		v3 = _k + int32(1)
-	}
-	if _n > _k+int32(1) {
-		v4 = _n
-	} else {
-		v4 = _k + int32(1)
-	}
-	Opus_ec_enc_uint(tls, (*OpusT_ec_enc)(unsafe.Pointer(_enc)), icwrs(tls, _n, (*int32)(unsafe.Pointer(_y))), *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v1] + uintptr(v2)*4))+*(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v3] + uintptr(v4)*4)))
+	total := celtPVQU(min(n, k), max(n, k)) + celtPVQU(min(n, k+1), max(n, k+1))
+	Opus_ec_enc_uint(tls, enc, icwrs(tls, n, y), total)
 }
 
 // Row offsets mirror the C table without storing pointers in uintptr values.
