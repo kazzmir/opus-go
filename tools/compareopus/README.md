@@ -243,6 +243,9 @@ all numeric fields, output and unchanged tables.
 Raw encoder tail bits compare every 0–32-bit preloaded window occupancy and
 1–25-bit append width, byte flushing, guards and exhausted output. Go tests check
 bit-accounting wrap and consecutive appends.
+Finalization compares interval termination, pending carries, 0–32 buffered tail
+bits, padding and partial-byte front/tail collisions against C, including guards
+and exhausted output. A focused Go test round-trips typed range and raw-bit coding.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

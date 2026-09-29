@@ -52,7 +52,7 @@ func TestQuantCoarseEnergyLocalQI(t *testing.T) {
 		16,
 		0,
 	)
-	Opus_ec_enc_done(tls, uintptr(unsafe.Pointer(&encoder)))
+	Opus_ec_enc_done(tls, &encoder)
 
 	if got, want := badness, int32(0); got != want {
 		t.Fatalf("badness: got %d, want %d", got, want)
@@ -208,7 +208,7 @@ func TestQuantCoarseEnergyWrapperCReference(t *testing.T) {
 			s.budget, uintptr(unsafe.Pointer(&errors[0])), uintptr(unsafe.Pointer(&encoder)),
 			2, s.LM, s.nbAvailable, s.forceIntra, uintptr(unsafe.Pointer(&delayedIntra)),
 			s.twoPass, s.lossRate, s.lfe)
-		Opus_ec_enc_done(tls, uintptr(unsafe.Pointer(&encoder)))
+		Opus_ec_enc_done(tls, &encoder)
 
 		if got := oldEBands; got != s.wantOldEBands {
 			t.Errorf("%s: oldEBands: got %v, want %v", s.name, got, s.wantOldEBands)

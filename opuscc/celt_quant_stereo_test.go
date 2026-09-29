@@ -70,7 +70,7 @@ func TestQuantBandStereoLocalSplitState(t *testing.T) {
 	y := [2]OpusT_celt_norm{-0.4, 0.9}
 
 	mask := quant_band_stereo(tls, uintptr(unsafe.Pointer(&context)), uintptr(unsafe.Pointer(&x[0])), uintptr(unsafe.Pointer(&y[0])), 2, 16, 1, 0, 0, 0, 0, 3)
-	Opus_ec_enc_done(tls, uintptr(unsafe.Pointer(&encoder)))
+	Opus_ec_enc_done(tls, &encoder)
 
 	t.Logf("mask=%d x=%v y=%v bits=%d seed=%d encoded=% x", mask, x, y, context.Fremaining_bits, context.Fseed, buffer[:encoder.Foffs])
 }

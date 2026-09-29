@@ -23,7 +23,7 @@ func TestQuantBandN1FieldAccesses(t *testing.T) {
 	if got, want := quant_band_n1(nil, uintptr(unsafe.Pointer(&context)), uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)), uintptr(unsafe.Pointer(&lowband))), uint32(1); got != want {
 		t.Fatalf("coded dimensions: got %d, want %d", got, want)
 	}
-	Opus_ec_enc_done(nil, uintptr(unsafe.Pointer(&encoder)))
+	Opus_ec_enc_done(nil, &encoder)
 
 	if got, want := x, OpusT_celt_norm(-1); got != want {
 		t.Fatalf("resynthesized X: got %v, want %v", got, want)

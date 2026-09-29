@@ -59,7 +59,7 @@ func TestQuantPartitionLocalSplitState(t *testing.T) {
 	x := [4]OpusT_celt_norm{0.2, -0.4, 0.6, -0.8}
 
 	mask := quant_partition(tls, &context, uintptr(unsafe.Pointer(&x[0])), 4, 30, 1, 0, 0, 1, 3)
-	Opus_ec_enc_done(tls, uintptr(unsafe.Pointer(&encoder)))
+	Opus_ec_enc_done(tls, &encoder)
 
 	if got, want := mask, uint32(1); got != want {
 		t.Fatalf("collapse mask: got %d, want %d", got, want)

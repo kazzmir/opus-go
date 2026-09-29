@@ -1390,62 +1390,51 @@ func Opus_ec_enc_shrink(tls *libc.TLS, enc *OpusT_ec_enc, size OpusT_opus_uint32
 	enc.Fstorage = size
 }
 
-func Opus_ec_enc_done(tls *libc.TLS, _this uintptr) {
-	var end, msk OpusT_opus_uint32
-	var l, used int32
-	var window OpusT_ec_window
-	var v1 *byte
-	_, _, _, _, _, _ = end, l, msk, used, window, v1
-	/*We output the minimum number of bits that ensures that the symbols encoded
-	  thus far will be decoded correctly regardless of the bits that follow.*/
-	l = int32(EC_CODE_BITS) - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng))
-	msk = (uint32(1)<<(int32(EC_CODE_BITS)-int32(1)) - uint32(1)) >> l
-	end = ((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval + msk) & ^msk
-	if end|msk >= (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval+(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng {
-		l = l + 1
-		msk = msk >> uint32(1)
-		end = ((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval + msk) & ^msk
+func Opus_ec_enc_done(tls *libc.TLS, enc *OpusT_ec_enc) {
+	// Minimum interval termination that decodes independently of following bits.
+	l := int32(EC_CODE_BITS - bits.Len32(enc.Frng))
+	mask := (uint32(1)<<(EC_CODE_BITS-1) - 1) >> l
+	end := (enc.Fval + mask) &^ mask
+	if end|mask >= enc.Fval+enc.Frng {
+		l++
+		mask >>= 1
+		end = (enc.Fval + mask) &^ mask
 	}
 	for l > 0 {
-		ec_enc_carry_out(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), int32(end>>(int32(EC_CODE_BITS)-int32(EC_SYM_BITS)-int32(1))))
-		end = end << int32(EC_SYM_BITS) & (uint32(1)<<(int32(EC_CODE_BITS)-int32(1)) - uint32(1))
-		l = l - int32(EC_SYM_BITS)
+		ec_enc_carry_out(tls, enc, int32(end>>(EC_CODE_BITS-EC_SYM_BITS-1)))
+		end = end << EC_SYM_BITS & (uint32(1)<<(EC_CODE_BITS-1) - 1)
+		l -= EC_SYM_BITS
 	}
-	/*If we have a buffered byte flush it into the output buffer.*/
-	if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem >= 0 || (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext > uint32(0) {
-		ec_enc_carry_out(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), 0)
+	if enc.Frem >= 0 || enc.Fext > 0 {
+		ec_enc_carry_out(tls, enc, 0)
 	}
-	/*If we have buffered extra bits, flush them as well.*/
-	window = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_window
-	used = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnend_bits
-	for used >= int32(EC_SYM_BITS) {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 |= ec_write_byte_at_end(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)), window&(uint32(1)<<int32(EC_SYM_BITS)-uint32(1)))
-		window = window >> uint32(int32(EC_SYM_BITS))
-		used = used - int32(EC_SYM_BITS)
+	window, used := enc.Fend_window, enc.Fnend_bits
+	for used >= EC_SYM_BITS {
+		enc.Ferror1 |= ec_write_byte_at_end(tls, enc, window&255)
+		window >>= EC_SYM_BITS
+		used -= EC_SYM_BITS
 	}
-	/*Clear any excess space and add any remaining extra bits to the last byte.*/
-	if !((*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 != 0) {
-		enc := (*OpusT_ec_enc)(unsafe.Pointer(_this))
-		if enc.Fbuf != nil {
-			clear(unsafe.Slice(enc.Fbuf, enc.Fstorage)[enc.Foffs : enc.Fstorage-enc.Fend_offs])
+	if enc.Ferror1 != 0 {
+		return
+	}
+	if enc.Fbuf != nil {
+		clear(unsafe.Slice(enc.Fbuf, enc.Fstorage)[enc.Foffs : enc.Fstorage-enc.Fend_offs])
+	}
+	if used > 0 {
+		if enc.Fend_offs >= enc.Fstorage {
+			enc.Ferror1 = -1
+			return
 		}
-		if used > 0 {
-			/*If there's no range coder data at all, give up.*/
-			if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs >= (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage {
-				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 = -int32(1)
-			} else {
-				l = -l
-				/*If we've busted, don't add too many extra bits to the last byte; it
-				  would corrupt the range coder data, and that's more important.*/
-				if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Foffs+(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs >= (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage && l < used {
-					window = window & uint32(int32(1)<<l-int32(1))
-					(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 = -int32(1)
-				}
-				v1 = (*byte)(unsafe.Add(unsafe.Pointer(enc.Fbuf), uintptr(enc.Fstorage-enc.Fend_offs-1)))
-				*v1 |= byte(window)
-			}
+		l = -l
+		// Preserve range-coded data when front and tail share the final byte.
+		if enc.Foffs+enc.Fend_offs >= enc.Fstorage && l < used {
+			window &= uint32(int32(1)<<l - 1)
+			enc.Ferror1 = -1
 		}
+		p := (*byte)(unsafe.Add(unsafe.Pointer(enc.Fbuf), uintptr(enc.Fstorage-enc.Fend_offs-1)))
+		*p |= byte(window)
 	}
+	// C intentionally leaves the original end_window/nend_bits fields unchanged.
 }
 
 var trim_icdf11 = [11]uint8{
