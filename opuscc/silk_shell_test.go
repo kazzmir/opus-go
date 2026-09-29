@@ -2,7 +2,6 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -15,7 +14,7 @@ func TestShellEncoderLocalPulseTrees(t *testing.T) {
 	buffer := make([]byte, 32)
 	var encoder OpusT_ec_enc
 	Opus_ec_enc_init(tls, &encoder, &buffer[0], uint32(len(buffer)))
-	Opus_silk_shell_encoder(tls, uintptr(unsafe.Pointer(&encoder)), uintptr(unsafe.Pointer(&pulses[0])))
+	Opus_silk_shell_encoder(tls, &encoder, (*[16]int32)(pulses))
 	Opus_ec_enc_done(tls, &encoder)
 
 	var decoder OpusT_ec_dec

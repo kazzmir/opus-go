@@ -263,6 +263,9 @@ all representative PVQ shapes; Go tests invert sampled indices and check guards.
 Pulse encoding compares native CWRS/entropy state and bytes across PVQ shapes,
 consecutive signed vectors, unchanged inputs and exhausted output. Go tests
 round-trip concentrated pulses including the maximum 176-dimensional shape.
+SILK shell encoding compares actual C depth-first trees for totals 0–16,
+concentrated/random distributions, input preservation and exhausted output.
+Go tests round-trip each concentrated position and verify zero trees consume nothing.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
