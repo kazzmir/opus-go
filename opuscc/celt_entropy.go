@@ -1586,13 +1586,22 @@ func Opus_encode_pulses(tls *libc.TLS, _y uintptr, _n int32, _k int32, _enc uint
 	Opus_ec_enc_uint(tls, _enc, icwrs(tls, _n, _y), *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v1] + uintptr(v2)*4))+*(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v3] + uintptr(v4)*4)))
 }
 
-func cwrsi(tls *libc.TLS, _n int32, _k int32, _i OpusT_opus_uint32, _y uintptr) (r OpusT_opus_val32) {
+// Row offsets mirror the C table without storing pointers in uintptr values.
+var celtPVQRowOffsets = [15]int32{0, 176, 351, 525, 698, 870, 1041, 1131, 1178, 1207, 1226, 1240, 1248, 1254, 1257}
+
+func celtPVQU(row, column int32) uint32 {
+	return CELT_PVQ_U_DATA[celtPVQRowOffsets[row]+column]
+}
+
+func cwrsi(tls *libc.TLS, _n int32, _k int32, _i OpusT_opus_uint32, output *int32) (r OpusT_opus_val32) {
+	y := unsafe.Slice(output, _n)
+	position := 0
 	var k0, s, v1 int32
 	var p, q OpusT_opus_uint32
-	var row, v3 uintptr
+	var row int32
 	var val OpusT_opus_int16
 	var yy OpusT_opus_val32
-	_, _, _, _, _, _, _, _, _ = k0, p, q, row, s, val, yy, v1, v3
+	_, _, _, _, _, _, _, _ = k0, p, q, row, s, val, yy, v1
 	yy = float32(0)
 	if !(_k > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+3649, __ccgo_ts+3634, int32(473))
@@ -1603,47 +1612,45 @@ func cwrsi(tls *libc.TLS, _n int32, _k int32, _i OpusT_opus_uint32, _y uintptr) 
 	for _n > int32(2) {
 		/*Lots of pulses case:*/
 		if _k >= _n {
-			row = CELT_PVQ_U_ROW[_n]
+			row = _n
 			/*Are the pulses in this dimension negative?*/
-			p = *(*OpusT_opus_uint32)(unsafe.Pointer(row + uintptr(_k+int32(1))*4))
+			p = celtPVQU(row, _k+1)
 			s = -libc.BoolInt32(_i >= p)
 			_i = _i - p&uint32(s)
 			/*Count how many pulses were placed in this dimension.*/
 			k0 = _k
-			q = *(*OpusT_opus_uint32)(unsafe.Pointer(row + uintptr(_n)*4))
+			q = celtPVQU(row, _n)
 			if q > _i {
 				_ = p > q
 				_k = _n
 				for cond := true; cond; cond = p > _i {
 					_k = _k - 1
 					v1 = _k
-					p = *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v1] + uintptr(_n)*4))
+					p = celtPVQU(v1, _n)
 				}
 			} else {
-				p = *(*OpusT_opus_uint32)(unsafe.Pointer(row + uintptr(_k)*4))
+				p = celtPVQU(row, _k)
 				for {
 					if !(p > _i) {
 						break
 					}
 					_k = _k - 1
-					p = *(*OpusT_opus_uint32)(unsafe.Pointer(row + uintptr(_k)*4))
+					p = celtPVQU(row, _k)
 				}
 			}
 			_i = _i - p
 			val = int16(k0 - _k + s ^ s)
-			v3 = _y
-			_y += 4
-			*(*int32)(unsafe.Pointer(v3)) = int32(val)
+			y[position] = int32(val)
+			position++
 			yy = yy + OpusT_opus_val32(float32(val)*float32(val))
 		} else {
 			/*Are there any pulses in this dimension at all?*/
-			p = *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[_k] + uintptr(_n)*4))
-			q = *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[_k+int32(1)] + uintptr(_n)*4))
+			p = celtPVQU(_k, _n)
+			q = celtPVQU(_k+1, _n)
 			if p <= _i && _i < q {
 				_i = _i - p
-				v3 = _y
-				_y += 4
-				*(*int32)(unsafe.Pointer(v3)) = 0
+				y[position] = 0
+				position++
 			} else {
 				/*Are the pulses in this dimension negative?*/
 				s = -libc.BoolInt32(_i >= q)
@@ -1653,13 +1660,12 @@ func cwrsi(tls *libc.TLS, _n int32, _k int32, _i OpusT_opus_uint32, _y uintptr) 
 				for cond := true; cond; cond = p > _i {
 					_k = _k - 1
 					v1 = _k
-					p = *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v1] + uintptr(_n)*4))
+					p = celtPVQU(v1, _n)
 				}
 				_i = _i - p
 				val = int16(k0 - _k + s ^ s)
-				v3 = _y
-				_y += 4
-				*(*int32)(unsafe.Pointer(v3)) = int32(val)
+				y[position] = int32(val)
+				position++
 				yy = yy + OpusT_opus_val32(float32(val)*float32(val))
 			}
 		}
@@ -1675,19 +1681,18 @@ func cwrsi(tls *libc.TLS, _n int32, _k int32, _i OpusT_opus_uint32, _y uintptr) 
 		_i = _i - uint32(int32(2)*_k-int32(1))
 	}
 	val = int16(k0 - _k + s ^ s)
-	v3 = _y
-	_y += 4
-	*(*int32)(unsafe.Pointer(v3)) = int32(val)
+	y[position] = int32(val)
+	position++
 	yy = yy + OpusT_opus_val32(float32(val)*float32(val))
 	/*_n==1*/
 	s = -int32(_i)
 	val = int16(_k + s ^ s)
-	*(*int32)(unsafe.Pointer(_y)) = int32(val)
+	y[position] = int32(val)
 	yy = yy + OpusT_opus_val32(float32(val)*float32(val))
 	return yy
 }
 
-func Opus_decode_pulses(tls *libc.TLS, _y uintptr, _n int32, _k int32, _dec uintptr) (r OpusT_opus_val32) {
+func Opus_decode_pulses(tls *libc.TLS, _y *int32, _n int32, _k int32, _dec *OpusT_ec_dec) (r OpusT_opus_val32) {
 	var v1, v2, v3, v4 int32
 	_, _, _, _ = v1, v2, v3, v4
 	if _n < _k {
@@ -1710,7 +1715,7 @@ func Opus_decode_pulses(tls *libc.TLS, _y uintptr, _n int32, _k int32, _dec uint
 	} else {
 		v4 = _k + int32(1)
 	}
-	return cwrsi(tls, _n, _k, Opus_ec_dec_uint(tls, (*OpusT_ec_dec)(unsafe.Pointer(_dec)), *(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v1] + uintptr(v2)*4))+*(*OpusT_opus_uint32)(unsafe.Pointer(CELT_PVQ_U_ROW[v3] + uintptr(v4)*4))), _y)
+	return cwrsi(tls, _n, _k, Opus_ec_dec_uint(tls, _dec, celtPVQU(v1, v2)+celtPVQU(v3, v4)), _y)
 }
 
 const CELT_SIG_SCALE7 = 32768
