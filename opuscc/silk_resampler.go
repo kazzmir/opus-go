@@ -13,120 +13,80 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_silk_resampler_init(tls *libc.TLS, S uintptr, Fs_Hz_in OpusT_opus_int32, Fs_Hz_out OpusT_opus_int32, forEnc int32) (r int32) {
-	var up2x, v1, v2 int32
-	_, _, _ = up2x, v1, v2
-	/* Clear state */
-	libc.Xmemset(tls, S, 0, uint64(400))
-	/* Input checking */
+func Opus_silk_resampler_init(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, inRate, outRate int32, forEnc int32) int32 {
+	// sizeof(state), not the generated amd64-only 400-byte memset.
+	*state = OpusT_silk_resampler_state_struct{}
+	internal := func(rate int32) bool { return rate == 8000 || rate == 12000 || rate == 16000 }
+	external := func(rate int32) bool { return internal(rate) || rate == 24000 || rate == 48000 }
 	if forEnc != 0 {
-		if Fs_Hz_in != int32(8000) && Fs_Hz_in != int32(12000) && Fs_Hz_in != int32(16000) && Fs_Hz_in != int32(24000) && Fs_Hz_in != int32(48000) || Fs_Hz_out != int32(8000) && Fs_Hz_out != int32(12000) && Fs_Hz_out != int32(16000) {
-			if !(int32(0) != 0) {
-				Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, int32(99))
-			}
-			return -int32(1)
-		}
-		if int32(5) < (Fs_Hz_in>>int32(12)-libc.BoolInt32(Fs_Hz_in > int32(16000)))>>libc.BoolInt32(Fs_Hz_in > int32(24000))-int32(1) {
-			v1 = int32(5)
-		} else {
-			v1 = (Fs_Hz_in>>int32(12)-libc.BoolInt32(Fs_Hz_in > int32(16000)))>>libc.BoolInt32(Fs_Hz_in > int32(24000)) - int32(1)
-		}
-		if int32(5) < (Fs_Hz_out>>int32(12)-libc.BoolInt32(Fs_Hz_out > int32(16000)))>>libc.BoolInt32(Fs_Hz_out > int32(24000))-int32(1) {
-			v2 = int32(5)
-		} else {
-			v2 = (Fs_Hz_out>>int32(12)-libc.BoolInt32(Fs_Hz_out > int32(16000)))>>libc.BoolInt32(Fs_Hz_out > int32(24000)) - int32(1)
-		}
-		(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinputDelay = int32(*(*OpusT_opus_int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&delay_matrix_enc)) + uintptr(v1)*3 + uintptr(v2))))
-	} else {
-		if Fs_Hz_in != int32(8000) && Fs_Hz_in != int32(12000) && Fs_Hz_in != int32(16000) || Fs_Hz_out != int32(8000) && Fs_Hz_out != int32(12000) && Fs_Hz_out != int32(16000) && Fs_Hz_out != int32(24000) && Fs_Hz_out != int32(48000) {
-			if !(int32(0) != 0) {
-				Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, int32(110))
-			}
-			return -int32(1)
-		}
-		if int32(5) < (Fs_Hz_in>>int32(12)-libc.BoolInt32(Fs_Hz_in > int32(16000)))>>libc.BoolInt32(Fs_Hz_in > int32(24000))-int32(1) {
-			v1 = int32(5)
-		} else {
-			v1 = (Fs_Hz_in>>int32(12)-libc.BoolInt32(Fs_Hz_in > int32(16000)))>>libc.BoolInt32(Fs_Hz_in > int32(24000)) - int32(1)
-		}
-		if int32(5) < (Fs_Hz_out>>int32(12)-libc.BoolInt32(Fs_Hz_out > int32(16000)))>>libc.BoolInt32(Fs_Hz_out > int32(24000))-int32(1) {
-			v2 = int32(5)
-		} else {
-			v2 = (Fs_Hz_out>>int32(12)-libc.BoolInt32(Fs_Hz_out > int32(16000)))>>libc.BoolInt32(Fs_Hz_out > int32(24000)) - int32(1)
-		}
-		(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinputDelay = int32(*(*OpusT_opus_int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&delay_matrix_dec)) + uintptr(v1)*6 + uintptr(v2))))
-	}
-	(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz = Fs_Hz_in / int32(1000)
-	(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_out_kHz = Fs_Hz_out / int32(1000)
-	/* Number of samples processed per batch */
-	(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FbatchSize = (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFs_in_kHz * int32(RESAMPLER_MAX_BATCH_SIZE_MS)
-	/* Find resampler with the right sampling ratio */
-	up2x = 0
-	if Fs_Hz_out > Fs_Hz_in {
-		/* Upsample */
-		if Fs_Hz_out == Fs_Hz_in*int32(2) { /* Fs_out : Fs_in = 2 : 1 */
-			/* Special case: directly use 2x upsampler */
-			(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).Fresampler_function = int32(USE_silk_resampler_private_up2_HQ_wrapper)
-		} else {
-			/* Default resampler */
-			(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).Fresampler_function = int32(USE_silk_resampler_private_IIR_FIR)
-			up2x = int32(1)
+		if !external(inRate) || !internal(outRate) {
+			Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, 99)
+			return -1
 		}
 	} else {
-		if Fs_Hz_out < Fs_Hz_in {
-			/* Downsample */
-			(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).Fresampler_function = int32(USE_silk_resampler_private_down_FIR)
-			if Fs_Hz_out*int32(4) == Fs_Hz_in*int32(3) { /* Fs_out : Fs_in = 3 : 4 */
-				(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Fracs = int32(3)
-				(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Order = int32(RESAMPLER_DOWN_ORDER_FIR0)
-				(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_3_4_COEFS))
-			} else {
-				if Fs_Hz_out*int32(3) == Fs_Hz_in*int32(2) { /* Fs_out : Fs_in = 2 : 3 */
-					(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Fracs = int32(2)
-					(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Order = int32(RESAMPLER_DOWN_ORDER_FIR0)
-					(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_2_3_COEFS))
-				} else {
-					if Fs_Hz_out*int32(2) == Fs_Hz_in { /* Fs_out : Fs_in = 1 : 2 */
-						(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Fracs = int32(1)
-						(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Order = int32(RESAMPLER_DOWN_ORDER_FIR1)
-						(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_2_COEFS))
-					} else {
-						if Fs_Hz_out*int32(3) == Fs_Hz_in { /* Fs_out : Fs_in = 1 : 3 */
-							(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Fracs = int32(1)
-							(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Order = int32(RESAMPLER_DOWN_ORDER_FIR2)
-							(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_3_COEFS))
-						} else {
-							if Fs_Hz_out*int32(4) == Fs_Hz_in { /* Fs_out : Fs_in = 1 : 4 */
-								(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Fracs = int32(1)
-								(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Order = int32(RESAMPLER_DOWN_ORDER_FIR2)
-								(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_4_COEFS))
-							} else {
-								if Fs_Hz_out*int32(6) == Fs_Hz_in { /* Fs_out : Fs_in = 1 : 6 */
-									(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Fracs = int32(1)
-									(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FFIR_Order = int32(RESAMPLER_DOWN_ORDER_FIR2)
-									(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_6_COEFS))
-								} else {
-									/* None available */
-									if !(int32(0) != 0) {
-										Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, int32(163))
-									}
-									return -int32(1)
-								}
-							}
-						}
-					}
-				}
-			}
-		} else {
-			/* Input and output sampling rates are equal: copy */
-			(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).Fresampler_function = USE_silk_resampler_copy
+		if !internal(inRate) || !external(outRate) {
+			Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, 110)
+			return -1
 		}
 	}
-	/* Ratio of input/output samples */
-	(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinvRatio_Q16 = int32(uint32(int32(uint32(Fs_Hz_in)<<(int32(14)+up2x))/Fs_Hz_out) << int32(2))
-	/* Make sure the ratio is rounded up */
-	for int32(int64((*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinvRatio_Q16)*int64(Fs_Hz_out)>>int32(16)) < int32(uint32(Fs_Hz_in)<<up2x) {
-		(*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinvRatio_Q16 = (*OpusT_silk_resampler_state_struct)(unsafe.Pointer(S)).FinvRatio_Q16 + 1
+	rateID := func(rate int32) int32 {
+		return min(5, (((rate>>12)-libc.BoolInt32(rate > 16000))>>libc.BoolInt32(rate > 24000))-1)
+	}
+	if forEnc != 0 {
+		state.FinputDelay = int32(delay_matrix_enc[rateID(inRate)][rateID(outRate)])
+	} else {
+		state.FinputDelay = int32(delay_matrix_dec[rateID(inRate)][rateID(outRate)])
+	}
+	state.FFs_in_kHz = inRate / 1000
+	state.FFs_out_kHz = outRate / 1000
+	state.FbatchSize = state.FFs_in_kHz * RESAMPLER_MAX_BATCH_SIZE_MS
+	up2x := int32(0)
+	switch {
+	case outRate > inRate:
+		if outRate == 2*inRate {
+			state.Fresampler_function = USE_silk_resampler_private_up2_HQ_wrapper
+		} else {
+			state.Fresampler_function = USE_silk_resampler_private_IIR_FIR
+			up2x = 1
+		}
+	case outRate < inRate:
+		state.Fresampler_function = USE_silk_resampler_private_down_FIR
+		// Coefficient addresses are permanent globals; the legacy state layout stays unchanged.
+		switch {
+		case outRate*4 == inRate*3:
+			state.FFIR_Fracs = 3
+			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR0
+			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_3_4_COEFS[0]))
+		case outRate*3 == inRate*2:
+			state.FFIR_Fracs = 2
+			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR0
+			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_2_3_COEFS[0]))
+		case outRate*2 == inRate:
+			state.FFIR_Fracs = 1
+			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR1
+			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_2_COEFS[0]))
+		case outRate*3 == inRate:
+			state.FFIR_Fracs = 1
+			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR2
+			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_3_COEFS[0]))
+		case outRate*4 == inRate:
+			state.FFIR_Fracs = 1
+			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR2
+			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_4_COEFS[0]))
+		case outRate*6 == inRate:
+			state.FFIR_Fracs = 1
+			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR2
+			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_6_COEFS[0]))
+		default:
+			Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, 163)
+			return -1
+		}
+	default:
+		state.Fresampler_function = USE_silk_resampler_copy
+	}
+	state.FinvRatio_Q16 = int32(uint32(int32(uint32(inRate)<<(14+up2x))/outRate) << 2)
+	for int32(int64(state.FinvRatio_Q16)*int64(outRate)>>16) < int32(uint32(inRate)<<up2x) {
+		state.FinvRatio_Q16++
 	}
 	return 0
 }

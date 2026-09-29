@@ -190,6 +190,9 @@ Native CPU dispatch is excluded, as in the per-channel reset comparisons.
 Soft clipping compares PCM and persistent history bit-for-bit with libopus across
 consecutive frames, ramp correction, impulses, clipping runs, zero crossings,
 signed zero, NaNs/infinities, multiple channels, and guarded output/state buffers.
+Resampler initialization compares the complete state and coefficient selection
+against `resampler.c` for all 30 supported encoder/decoder rate pairs; guard tests
+also cover the smaller 386 state layout.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

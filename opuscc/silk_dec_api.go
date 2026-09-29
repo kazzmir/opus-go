@@ -28,7 +28,7 @@ func Opus_silk_decoder_set_fs(tls *libc.TLS, psDec uintptr, fs_kHz int32, fs_API
 	/* Initialize resampler when switching internal or external sampling frequency */
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != fs_kHz || (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_API_hz != fs_API_Hz {
 		/* Initialize the resampler for dec_API.c preparing resampling from fs_kHz to API_fs_Hz */
-		ret = ret + Opus_silk_resampler_init(tls, uintptr(unsafe.Pointer(&(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fresampler_state)), int32(int16(fs_kHz))*int32(int16(int32(1000))), fs_API_Hz, 0)
+		ret = ret + Opus_silk_resampler_init(tls, &(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fresampler_state, int32(int16(fs_kHz))*int32(int16(int32(1000))), fs_API_Hz, 0)
 		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_API_hz = fs_API_Hz
 	}
 	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != fs_kHz || frame_length != (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length {

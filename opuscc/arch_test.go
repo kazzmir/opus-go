@@ -97,7 +97,7 @@ func TestArchSilkDecoderLayout(t *testing.T) {
 		t.Fatalf("set_fs = %d", ret)
 	}
 	var want OpusT_silk_resampler_state_struct
-	if ret := Opus_silk_resampler_init(tls, uintptr(unsafe.Pointer(&want)), 16000, 48000, 0); ret != 0 {
+	if ret := Opus_silk_resampler_init(tls, &want, 16000, 48000, 0); ret != 0 {
 		t.Fatalf("resampler init = %d", ret)
 	}
 	if ch.Fresampler_state != want {
