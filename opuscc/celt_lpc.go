@@ -743,7 +743,7 @@ func Opus__celt_autocorr(tls *libc.TLS, x uintptr, ac uintptr, window uintptr, o
 		xptr = xx
 	}
 	shift = 0
-	Opus_celt_pitch_xcorr_c(tls, xptr, xptr, ac, fastN, lag+int32(1), arch)
+	Opus_celt_pitch_xcorr_c(tls, (*OpusT_opus_val16)(unsafe.Pointer(xptr)), (*OpusT_opus_val16)(unsafe.Pointer(xptr)), (*OpusT_opus_val32)(unsafe.Pointer(ac)), fastN, lag+int32(1), arch)
 	k = 0
 	for {
 		if !(k <= lag) {

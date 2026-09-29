@@ -296,7 +296,7 @@ func Opus_pitch_downsample(tls *libc.TLS, x uintptr, x_lp uintptr, len1 int32, C
 // C documentation
 //
 //	/* Pure C implementation. */
-func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x uintptr, _y uintptr, xcorr uintptr, len1 int32, max_pitch int32, arch int32) {
+func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x, _y *OpusT_opus_val16, xcorr *OpusT_opus_val32, len1 int32, max_pitch int32, arch int32) {
 	_ = arch
 	/*The EDSP version requires that max_pitch is at least 1, and that _x is
 	  32-bit aligned.
@@ -304,12 +304,15 @@ func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x uintptr, _y uintptr, xcorr uintpt
 	if !(max_pitch > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+4629, __ccgo_ts+4659, int32(265))
 	}
-	_ = uint64(_x)&uint64(uint32(3)) == uint64(uint32(0))
-
-	xS := unsafe.Slice((*OpusT_opus_val16)(unsafe.Pointer(_x)), int(len1))
-	// y must have at least max_pitch+len1 samples, as we access y[i1+i].
-	yS := unsafe.Slice((*OpusT_opus_val16)(unsafe.Pointer(_y)), int(max_pitch+len1))
-	xcorrS := unsafe.Slice((*OpusT_opus_val32)(unsafe.Pointer(xcorr)), int(max_pitch))
+	xS := unsafe.Slice(_x, int(len1))
+	// The final lag reads through y[max_pitch+len1-2]. No input is
+	// accessed for the scalar zero-length case.
+	yLen := int32(0)
+	if len1 > 0 {
+		yLen = max_pitch + len1 - 1
+	}
+	yS := unsafe.Slice(_y, int(yLen))
+	xcorrS := unsafe.Slice(xcorr, int(max_pitch))
 
 	// The original unrolled path requires len1 >= 3.
 	if max_pitch > 3 && len1 < 3 {
@@ -642,7 +645,7 @@ func Opus_pitch_search(tls *libc.TLS, x_lp uintptr, y1 uintptr, len1 int32, max_
 		j = j + 1
 	}
 	/* Coarse search with 4x decimation */
-	Opus_celt_pitch_xcorr_c(tls, x_lp4, y_lp4, xcorr, len1>>int32(2), max_pitch>>int32(2), arch)
+	Opus_celt_pitch_xcorr_c(tls, (*OpusT_opus_val16)(unsafe.Pointer(x_lp4)), (*OpusT_opus_val16)(unsafe.Pointer(y_lp4)), (*OpusT_opus_val32)(unsafe.Pointer(xcorr)), len1>>int32(2), max_pitch>>int32(2), arch)
 	find_best_pitch(tls, (*OpusT_opus_val32)(unsafe.Pointer(xcorr)), (*OpusT_opus_val16)(unsafe.Pointer(y_lp4)), len1>>int32(2), max_pitch>>int32(2), &best_pitch)
 	/* Finer search with 2x decimation */
 	i1 = 0
