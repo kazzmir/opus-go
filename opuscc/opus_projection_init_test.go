@@ -68,7 +68,7 @@ func TestProjectionDecoderInitCReference(t *testing.T) {
 				t.Fatalf("matrix header mismatch: %+v, bytes %d", m, d.Fdemixing_matrix_size_in_bytes)
 			}
 			hash := uint64(14695981039346656037)
-			data := Opus_mapping_matrix_get_data(tls, get_dec_demixing_matrix(tls, st))
+			data := Opus_mapping_matrix_get_data(tls, m)
 			for _, b := range unsafe.Slice((*byte)(unsafe.Pointer(data)), int(count)*2) {
 				hash ^= uint64(b)
 				hash *= 1099511628211

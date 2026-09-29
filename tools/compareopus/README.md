@@ -204,6 +204,8 @@ copy mode, delay compensation, and empty second batches.
 The low-quality 2/3 resampler compares PCM and all six state words, including
 full-range initial state, saturation, in-place operation, 480-sample batch edges,
 and the un-emitted one/two-sample remainders (C emits two samples per triple).
+The exported mapping-matrix data accessor compares aligned coefficient addresses
+and contents with C; a Go test retains only the returned pointer across GC.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

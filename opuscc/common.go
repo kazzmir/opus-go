@@ -5099,8 +5099,8 @@ func mappingMatrixData(matrix *OpusT_MappingMatrix) *int16 {
 	return (*int16)(unsafe.Add(unsafe.Pointer(matrix), 16))
 }
 
-func Opus_mapping_matrix_get_data(tls *libc.TLS, matrix uintptr) uintptr {
-	return uintptr(unsafe.Pointer(mappingMatrixData((*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))))
+func Opus_mapping_matrix_get_data(tls *libc.TLS, matrix *OpusT_MappingMatrix) *int16 {
+	return mappingMatrixData(matrix)
 }
 
 func Opus_mapping_matrix_init(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, cols, gain int32, data *int16, data_size OpusT_opus_int32) {
@@ -5127,7 +5127,7 @@ func Opus_mapping_matrix_multiply_channel_in_float(tls *libc.TLS, matrix uintptr
 	if !(input_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Fcols && output_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Frows) {
 		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, int32(98))
 	}
-	matrix_data = Opus_mapping_matrix_get_data(tls, matrix)
+	matrix_data = uintptr(unsafe.Pointer(Opus_mapping_matrix_get_data(tls, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))))
 	i = 0
 	for {
 		if !(i < frame_size) {
@@ -5175,7 +5175,7 @@ func Opus_mapping_matrix_multiply_channel_in_short(tls *libc.TLS, matrix uintptr
 	if !(input_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Fcols && output_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Frows) {
 		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, int32(161))
 	}
-	matrix_data = Opus_mapping_matrix_get_data(tls, matrix)
+	matrix_data = uintptr(unsafe.Pointer(Opus_mapping_matrix_get_data(tls, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))))
 	i = 0
 	for {
 		if !(i < frame_size) {
@@ -5231,7 +5231,7 @@ func Opus_mapping_matrix_multiply_channel_in_int24(tls *libc.TLS, matrix uintptr
 	if !(input_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Fcols && output_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Frows) {
 		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, int32(236))
 	}
-	matrix_data = Opus_mapping_matrix_get_data(tls, matrix)
+	matrix_data = uintptr(unsafe.Pointer(Opus_mapping_matrix_get_data(tls, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))))
 	i = 0
 	for {
 		if !(i < frame_size) {
