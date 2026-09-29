@@ -5268,49 +5268,31 @@ func Opus_mapping_matrix_multiply_channel_in_short(tls *libc.TLS, matrix uintptr
 	}
 }
 
-func Opus_mapping_matrix_multiply_channel_out_short(tls *libc.TLS, matrix uintptr, input uintptr, input_row int32, input_rows int32, output uintptr, output_rows int32, frame_size int32) {
-	var i, row int32
-	var input_sample, tmp OpusT_opus_int32
-	var matrix_data, v8 uintptr
-	var v2, v3, v4 float32
-	var v5 OpusT_opus_int16
-	_, _, _, _, _, _, _, _, _, _ = i, input_sample, matrix_data, row, tmp, v2, v3, v4, v5, v8
-	if !(input_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Fcols && output_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, int32(206))
+func Opus_mapping_matrix_multiply_channel_out_short(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *OpusT_opus_res, input_row, input_rows int32, output *int16, output_rows, frame_size int32) {
+	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
+		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 206)
 	}
-	matrix_data = Opus_mapping_matrix_get_data(tls, matrix)
-	i = 0
-	for {
-		if !(i < frame_size) {
-			break
+	if frame_size <= 0 || output_rows == 0 {
+		return
+	}
+	data := unsafe.Slice(mappingMatrixData(matrix), matrix.Frows*matrix.Fcols)
+	src := unsafe.Slice(input, (frame_size-1)*input_rows+1)
+	dst := unsafe.Slice(output, frame_size*output_rows)
+	for i := int32(0); i < frame_size; i++ {
+		scaled := float32(src[input_rows*i] * 32768)
+		// Match MAX32 then MIN32, including NaN -> -32768.
+		if !(scaled > -32768) {
+			scaled = -32768
 		}
-		v2 = *(*OpusT_opus_res)(unsafe.Pointer(input + uintptr(input_rows*i)*4))
-		v2 = float32(v2 * float32(32768))
-		if v2 > float32(-int32(32768)) {
-			v3 = v2
-		} else {
-			v3 = float32(-int32(32768))
+		if !(scaled < 32767) {
+			scaled = 32767
 		}
-		v2 = v3
-		if v2 < float32(int32(32767)) {
-			v4 = v2
-		} else {
-			v4 = float32(int32(32767))
+		sample := int32(int16(libc.Xlrintf(tls, scaled)))
+		for row := int32(0); row < output_rows; row++ {
+			tmp := int32(data[matrix.Frows*input_row+row]) * sample
+			idx := output_rows*i + row
+			dst[idx] = int16(int32(dst[idx]) + ((tmp + 16384) >> 15))
 		}
-		v2 = v4
-		v5 = int16(libc.Xlrintf(tls, v2))
-		input_sample = int32(v5)
-		row = 0
-		for {
-			if !(row < output_rows) {
-				break
-			}
-			tmp = int32(*(*OpusT_opus_int16)(unsafe.Pointer(matrix_data + uintptr((*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Frows*input_row+row)*2))) * input_sample
-			v8 = output + uintptr(output_rows*i+row)*2
-			*(*OpusT_opus_int16)(unsafe.Pointer(v8)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v8))) + (tmp+int32(16384))>>int32(15))
-			row = row + 1
-		}
-		i = i + 1
 	}
 }
 
@@ -5446,7 +5428,7 @@ func opus_projection_copy_channel_out_short(tls *libc.TLS, dst uintptr, dst_stri
 		libc.Xmemset(tls, short_dst, 0, uint64(uint32(frame_size*dst_stride))*uint64(2))
 	}
 	if src != uintptr(uint32(0)) {
-		Opus_mapping_matrix_multiply_channel_out_short(tls, matrix, src, dst_channel, src_stride, short_dst, dst_stride, frame_size)
+		Opus_mapping_matrix_multiply_channel_out_short(tls, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)), (*OpusT_opus_res)(unsafe.Pointer(src)), dst_channel, src_stride, (*int16)(unsafe.Pointer(short_dst)), dst_stride, frame_size)
 	}
 }
 
