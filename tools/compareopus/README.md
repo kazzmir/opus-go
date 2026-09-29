@@ -173,6 +173,8 @@ signed zero, guards, and exact round trips.
 Projection matrix initialization uses a typed header/data path and is compared
 against libopus for metadata, aligned coefficient offsets, and matrix sizes up
 to the channel/count limits. Pointer tests also preserve forward-copy aliasing.
+Projection float output is compared bit-for-bit across matrix columns, input and
+output strides, preloaded accumulators, empty frames, and aliased input/output.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
