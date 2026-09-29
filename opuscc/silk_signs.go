@@ -41,7 +41,7 @@ func Opus_silk_encode_signs(tls *libc.TLS, psRangeEnc uintptr, pulses uintptr, l
 					break
 				}
 				if int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j)))) != 0 {
-					Opus_ec_enc_icdf(tls, psRangeEnc, int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j))))>>int32(15)+int32(1), uintptr(unsafe.Pointer(&icdf[0])), uint32(8))
+					Opus_ec_enc_icdf(tls, (*OpusT_ec_enc)(unsafe.Pointer(psRangeEnc)), int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j))))>>int32(15)+int32(1), &icdf[0], uint32(8))
 				}
 				j = j + 1
 			}

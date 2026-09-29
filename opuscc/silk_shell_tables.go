@@ -25,7 +25,7 @@ func combine_pulses(tls *libc.TLS, out *int32, in *int32, len1 int32) {
 
 func encode_split(tls *libc.TLS, psRangeEnc uintptr, p_child1 int32, p int32, shell_table uintptr) {
 	if p > 0 {
-		Opus_ec_enc_icdf(tls, psRangeEnc, p_child1, shell_table+uintptr(Opus_silk_shell_code_table_offsets[p]), uint32(8))
+		Opus_ec_enc_icdf(tls, (*OpusT_ec_enc)(unsafe.Pointer(psRangeEnc)), p_child1, (*uint8)(unsafe.Pointer(shell_table+uintptr(Opus_silk_shell_code_table_offsets[p]))), uint32(8))
 	}
 }
 

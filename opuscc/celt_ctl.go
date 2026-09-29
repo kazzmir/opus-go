@@ -1286,17 +1286,17 @@ func Opus_ec_enc_bit_logp(tls *libc.TLS, enc *OpusT_ec_enc, value int32, logp ui
 	ec_enc_normalize(tls, enc)
 }
 
-func Opus_ec_enc_icdf(tls *libc.TLS, _this uintptr, _s int32, _icdf uintptr, _ftb uint32) {
-	var r OpusT_opus_uint32
-	_ = r
-	r = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng >> _ftb
-	if _s > 0 {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval += (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng - r*uint32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s-int32(1)))))
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = r * uint32(int32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s-int32(1)))))-int32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s)))))
+func Opus_ec_enc_icdf(tls *libc.TLS, enc *OpusT_ec_enc, symbol int32, icdf *uint8, ftb uint32) {
+	r := enc.Frng >> ftb
+	current := uint32(*(*uint8)(unsafe.Add(unsafe.Pointer(icdf), uintptr(symbol))))
+	if symbol > 0 {
+		previous := uint32(*(*uint8)(unsafe.Add(unsafe.Pointer(icdf), uintptr(symbol-1))))
+		enc.Fval += enc.Frng - r*previous
+		enc.Frng = r * (previous - current)
 	} else {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng -= r * uint32(*(*uint8)(unsafe.Pointer(_icdf + uintptr(_s))))
+		enc.Frng -= r * current
 	}
-	ec_enc_normalize(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)))
+	ec_enc_normalize(tls, enc)
 }
 
 func Opus_ec_enc_icdf16(tls *libc.TLS, enc *OpusT_ec_enc, symbol int32, icdf *uint16, ftb uint32) {
@@ -2000,7 +2000,7 @@ func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, 
 						v2 = v9
 					}
 					qi = v2
-					Opus_ec_enc_icdf(tls, enc, int32(2)*qi^-libc.BoolInt32(qi < 0), uintptr(unsafe.Pointer(&small_energy_icdf)), uint32(2))
+					Opus_ec_enc_icdf(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), int32(2)*qi^-libc.BoolInt32(qi < 0), &small_energy_icdf[0], uint32(2))
 				} else {
 					if budget-tell >= int32(1) {
 						if 0 < qi {

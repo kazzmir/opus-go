@@ -44,7 +44,7 @@ func TestEntropyEncoderFieldAccesses(t *testing.T) {
 	icdf16 := []uint16{60000, 40000, 20000, 0}
 	Opus_ec_encode(nil, &enc, 3, 7, 13)
 	Opus_ec_encode_bin(nil, &enc, 5, 10, 4)
-	Opus_ec_enc_icdf(nil, uintptr(unsafe.Pointer(&enc)), 2, entropyBufferPointer(icdf8), 8)
+	Opus_ec_enc_icdf(nil, &enc, 2, &icdf8[0], 8)
 	Opus_ec_enc_icdf16(nil, &enc, 1, &icdf16[0], 16)
 	Opus_ec_enc_bits(nil, &enc, 0xbeef, 16)
 	Opus_ec_enc_done(nil, &enc)
