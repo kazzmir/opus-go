@@ -5207,31 +5207,24 @@ func Opus_mapping_matrix_multiply_channel_out_short(tls *libc.TLS, matrix *OpusT
 	}
 }
 
-func Opus_mapping_matrix_multiply_channel_in_int24(tls *libc.TLS, matrix uintptr, input uintptr, input_rows int32, output uintptr, output_row int32, output_rows int32, frame_size int32) {
-	var col, i int32
-	var matrix_data uintptr
-	var tmp OpusT_opus_val64
-	_, _, _, _ = col, i, matrix_data, tmp
-	if !(input_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Fcols && output_rows <= (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, int32(236))
+func Opus_mapping_matrix_multiply_channel_in_int24(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *int32, input_rows int32, output *OpusT_opus_res, output_row, output_rows, frame_size int32) {
+	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
+		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 236)
 	}
-	matrix_data = uintptr(unsafe.Pointer(Opus_mapping_matrix_get_data(tls, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))))
-	i = 0
-	for {
-		if !(i < frame_size) {
-			break
+	if frame_size <= 0 {
+		return
+	}
+	data := unsafe.Slice(Opus_mapping_matrix_get_data(tls, matrix), matrix.Frows*matrix.Fcols)
+	src := unsafe.Slice(input, frame_size*input_rows)
+	dst := unsafe.Slice(output, (frame_size-1)*output_rows+1)
+	for i := int32(0); i < frame_size; i++ {
+		// opus_val64 is float32 in this build, not a widened accumulator.
+		tmp := float32(0)
+		for col := int32(0); col < input_rows; col++ {
+			tmp += float32(float32(data[matrix.Frows*col+output_row]) * float32(src[input_rows*i+col]))
 		}
-		tmp = float32(0)
-		col = 0
-		for {
-			if !(col < input_rows) {
-				break
-			}
-			tmp = tmp + OpusT_opus_val64(float32(*(*OpusT_opus_int16)(unsafe.Pointer(matrix_data + uintptr((*OpusT_MappingMatrix)(unsafe.Pointer(matrix)).Frows*col+output_row)*2)))*float32(*(*OpusT_opus_int32)(unsafe.Pointer(input + uintptr(input_rows*i+col)*4))))
-			col = col + 1
-		}
-		*(*OpusT_opus_res)(unsafe.Pointer(output + uintptr(output_rows*i)*4)) = float32(float32(1) / float32(32768) / float32(256) * float32(float32(1)/float32(32768)*tmp))
-		i = i + 1
+		// Preserve the two rounded scales in INT24TORES((1/32768.f)*tmp).
+		dst[output_rows*i] = float32(float32(1.0/32768/256) * float32(float32(1.0/32768)*tmp))
 	}
 }
 

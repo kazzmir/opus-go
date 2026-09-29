@@ -211,6 +211,9 @@ strides (including zero), empty dot products, guard values and overlapping buffe
 bit-for-bit with C.
 Int16 matrix input comparisons additionally cover extreme integer products and
 255-column accumulations, preserving conversion to float32 after each product.
+Int24 matrix input tests include 24-bit limits, float32 integer-rounding boundaries,
+and full int32 values; comparisons retain the float32 accumulator and two scaling
+steps, with no added 24-bit clipping.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
