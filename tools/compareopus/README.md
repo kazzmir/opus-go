@@ -227,6 +227,8 @@ finalized/pending-byte, interval, and error branches, including threshold-adjace
 ranges and signed pending state, with exact state and buffer comparisons.
 Carry propagation compares the actual static `entenc.c` helper across buffered
 bytes, pending carry runs and exhausted buffers; Go tests also cover counter wrap.
+Encoder normalization compares the actual static C helper around range thresholds,
+multiple normalization passes, carry-producing values and exhausted buffers.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
