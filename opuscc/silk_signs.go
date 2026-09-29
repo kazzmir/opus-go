@@ -12,42 +12,26 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_silk_encode_signs(tls *libc.TLS, psRangeEnc uintptr, pulses uintptr, length int32, signalType int32, quantOffsetType int32, sum_pulses uintptr) {
-	var i, j, p, v2 int32
-	var icdf_ptr, q_ptr uintptr
-	var icdf [2]OpusT_opus_uint8
-	_, _, _, _, _, _ = i, icdf_ptr, j, p, q_ptr, v2
-	icdf[1] = 0
-	q_ptr = pulses
-	i = int32(int16(int32(7))) * int32(int16(quantOffsetType+int32(uint32(signalType)<<int32(1))))
-	icdf_ptr = uintptr(unsafe.Pointer(&Opus_silk_sign_iCDF)) + uintptr(i)
-	length = (length + int32(SHELL_CODEC_FRAME_LENGTH)/int32(2)) >> int32(LOG2_SHELL_CODEC_FRAME_LENGTH)
-	i = 0
-	for {
-		if !(i < length) {
-			break
+func Opus_silk_encode_signs(tls *libc.TLS, enc *OpusT_ec_enc, pulses *int8, length, signalType, quantOffsetType int32, sumPulses *int32) {
+	blocks := (length + SHELL_CODEC_FRAME_LENGTH/2) >> LOG2_SHELL_CODEC_FRAME_LENGTH
+	if blocks <= 0 {
+		return
+	}
+	q := unsafe.Slice(pulses, blocks*SHELL_CODEC_FRAME_LENGTH)
+	sums := unsafe.Slice(sumPulses, blocks)
+	offset := int32(7) * int32(int16(quantOffsetType+int32(uint32(signalType)<<1)))
+	table := Opus_silk_sign_iCDF[offset : offset+7]
+	var icdf [2]uint8
+	for i, p := range sums {
+		if p <= 0 {
+			continue
 		}
-		p = *(*int32)(unsafe.Pointer(sum_pulses + uintptr(i)*4))
-		if p > 0 {
-			if p&int32(0x1F) < int32(6) {
-				v2 = p & int32(0x1F)
-			} else {
-				v2 = int32(6)
-			}
-			icdf[0] = *(*OpusT_opus_uint8)(unsafe.Pointer(icdf_ptr + uintptr(v2)))
-			j = 0
-			for {
-				if !(j < int32(SHELL_CODEC_FRAME_LENGTH)) {
-					break
-				}
-				if int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j)))) != 0 {
-					Opus_ec_enc_icdf(tls, (*OpusT_ec_enc)(unsafe.Pointer(psRangeEnc)), int32(*(*OpusT_opus_int8)(unsafe.Pointer(q_ptr + uintptr(j))))>>int32(15)+int32(1), &icdf[0], uint32(8))
-				}
-				j = j + 1
+		icdf[0] = table[min(p&31, 6)]
+		for j := i * SHELL_CODEC_FRAME_LENGTH; j < (i+1)*SHELL_CODEC_FRAME_LENGTH; j++ {
+			if q[j] != 0 {
+				Opus_ec_enc_icdf(tls, enc, (int32(q[j])>>15)+1, &icdf[0], 8)
 			}
 		}
-		q_ptr = q_ptr + uintptr(SHELL_CODEC_FRAME_LENGTH)
-		i = i + 1
 	}
 }
 
