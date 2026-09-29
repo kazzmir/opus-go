@@ -13,7 +13,7 @@ func TestLaplaceP0LocalArrays(t *testing.T) {
 
 	buffer := make([]byte, 32)
 	var encoder OpusT_ec_enc
-	Opus_ec_enc_init(tls, uintptr(unsafe.Pointer(&encoder)), uintptr(unsafe.Pointer(&buffer[0])), uint32(len(buffer)))
+	Opus_ec_enc_init(tls, &encoder, &buffer[0], uint32(len(buffer)))
 	values := []int32{0, 3, -5, 11}
 	for _, value := range values {
 		Opus_ec_laplace_encode_p0(tls, uintptr(unsafe.Pointer(&encoder)), value, 16000, 12000)

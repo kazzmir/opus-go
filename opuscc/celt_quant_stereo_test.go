@@ -12,7 +12,7 @@ func TestQuantBandStereoOneSampleFieldAccesses(t *testing.T) {
 	defer tls.Close()
 	buffer := make([]byte, 16)
 	var encoder OpusT_ec_enc
-	Opus_ec_enc_init(nil, uintptr(unsafe.Pointer(&encoder)), entropyBufferPointer(buffer), uint32(len(buffer)))
+	Opus_ec_enc_init(nil, &encoder, unsafe.SliceData(buffer), uint32(len(buffer)))
 	context := band_ctx{
 		Fencode:         1,
 		Fresynth:        1,
@@ -56,7 +56,7 @@ func TestQuantBandStereoLocalSplitState(t *testing.T) {
 	bandE := [2]OpusT_celt_ener{0.8, 1.2}
 	buffer := make([]byte, 16)
 	var encoder OpusT_ec_enc
-	Opus_ec_enc_init(tls, uintptr(unsafe.Pointer(&encoder)), entropyBufferPointer(buffer), uint32(len(buffer)))
+	Opus_ec_enc_init(tls, &encoder, unsafe.SliceData(buffer), uint32(len(buffer)))
 	context := band_ctx{
 		Fm:              uintptr(unsafe.Pointer(&mode)),
 		Fencode:         1,

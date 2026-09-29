@@ -216,6 +216,9 @@ and full int32 values; comparisons retain the float32 accumulator and two scalin
 steps, with no added 24-bit clipping.
 Decoder sample-count forwarding compares actual native decoder queries at all
 supported rates, TOC values and representative counts/errors without changing state.
+Shared entropy encoder initialization compares all numeric fields with C from
+random preloaded states, verifies untouched buffers, and tests sole-context buffer
+ownership across GC and stack growth. The separate `opusccenc` copy is unchanged.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

@@ -22,7 +22,7 @@ func TestEntropyBufferAgainstC(t *testing.T) {
 		var pins runtime.Pinner
 		pins.Pin(&e)
 		pins.Pin(&g[0])
-		opuscc.Opus_ec_enc_init(nil, uintptr(unsafe.Pointer(&e)), uintptr(unsafe.Pointer(&g[0])), uint32(len(g)))
+		opuscc.Opus_ec_enc_init(nil, &e, &g[0], uint32(len(g)))
 		for i := uint32(0); i < 18; i++ {
 			opuscc.Opus_ec_enc_uint(nil, uintptr(unsafe.Pointer(&e)), i%17, 17)
 		}

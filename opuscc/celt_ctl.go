@@ -1244,20 +1244,20 @@ func ec_enc_normalize(tls *libc.TLS, _this uintptr) {
 	}
 }
 
-func Opus_ec_enc_init(tls *libc.TLS, _this uintptr, _buf uintptr, _size OpusT_opus_uint32) {
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf = (*byte)(unsafe.Pointer(_buf))
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_offs = uint32(0)
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fend_window = uint32(0)
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnend_bits = 0
-	/*This is the offset from which ec_tell() will subtract partial bits.*/
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnbits_total = int32(EC_CODE_BITS) + int32(1)
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Foffs = uint32(0)
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = uint32(1) << (int32(EC_CODE_BITS) - int32(1))
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem = -int32(1)
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval = uint32(0)
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fext = uint32(0)
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fstorage = _size
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 = 0
+func Opus_ec_enc_init(tls *libc.TLS, enc *OpusT_ec_enc, buf *byte, size OpusT_opus_uint32) {
+	enc.Fbuf = buf
+	enc.Fend_offs = 0
+	enc.Fend_window = 0
+	enc.Fnend_bits = 0
+	// The offset from which ec_tell subtracts partial bits.
+	enc.Fnbits_total = EC_CODE_BITS + 1
+	enc.Foffs = 0
+	enc.Frng = uint32(1) << (EC_CODE_BITS - 1)
+	enc.Frem = -1
+	enc.Fval = 0
+	enc.Fext = 0
+	enc.Fstorage = size
+	enc.Ferror1 = 0
 }
 
 func Opus_ec_encode(tls *libc.TLS, _this uintptr, _fl uint32, _fh uint32, _ft uint32) {

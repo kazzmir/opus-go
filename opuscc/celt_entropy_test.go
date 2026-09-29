@@ -12,7 +12,7 @@ func entropyBufferPointer(buffer []byte) uintptr {
 func TestEntropyEncoderFieldAccesses(t *testing.T) {
 	buffer := make([]byte, 32)
 	var enc OpusT_ec_enc
-	Opus_ec_enc_init(nil, uintptr(unsafe.Pointer(&enc)), entropyBufferPointer(buffer), uint32(len(buffer)))
+	Opus_ec_enc_init(nil, &enc, unsafe.SliceData(buffer), uint32(len(buffer)))
 
 	if got := ec_write_byte(nil, &enc, 0x3b); got != 0 {
 		t.Fatalf("write first byte: got %d, want 0", got)
@@ -39,7 +39,7 @@ func TestEntropyEncoderFieldAccesses(t *testing.T) {
 	}
 
 	buffer = make([]byte, 32)
-	Opus_ec_enc_init(nil, uintptr(unsafe.Pointer(&enc)), entropyBufferPointer(buffer), uint32(len(buffer)))
+	Opus_ec_enc_init(nil, &enc, unsafe.SliceData(buffer), uint32(len(buffer)))
 	icdf8 := []byte{240, 180, 100, 0}
 	icdf16 := []uint16{60000, 40000, 20000, 0}
 	Opus_ec_encode(nil, uintptr(unsafe.Pointer(&enc)), 3, 7, 13)

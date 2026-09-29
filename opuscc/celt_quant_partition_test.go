@@ -47,7 +47,7 @@ func TestQuantPartitionLocalSplitState(t *testing.T) {
 	mode.FlogN = uintptr(unsafe.Pointer(&logN[0]))
 	buffer := make([]byte, 16)
 	var encoder OpusT_ec_enc
-	Opus_ec_enc_init(tls, uintptr(unsafe.Pointer(&encoder)), entropyBufferPointer(buffer), uint32(len(buffer)))
+	Opus_ec_enc_init(tls, &encoder, unsafe.SliceData(buffer), uint32(len(buffer)))
 	context := band_ctx{
 		Fm:              uintptr(unsafe.Pointer(&mode)),
 		Fencode:         1,
