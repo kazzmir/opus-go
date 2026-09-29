@@ -222,6 +222,9 @@ ownership across GC and stack growth. The separate `opusccenc` copy is unchanged
 Entropy shrinking exhausts valid new sizes, tail counts, and boundary front
 counts for buffers through 32 bytes, comparing overlapping moves and all state
 fields with C while checking outside guards.
+Initial entropy-bit patching compares all 0–8 bit widths and byte values across
+finalized/pending-byte, interval, and error branches, including threshold-adjacent
+ranges and signed pending state, with exact state and buffer comparisons.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

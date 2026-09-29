@@ -1382,30 +1382,25 @@ func Opus_ec_enc_bits(tls *libc.TLS, _this uintptr, _fl OpusT_opus_uint32, _bits
 	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnbits_total = int32(uint32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fnbits_total) + _bits)
 }
 
-func Opus_ec_enc_patch_initial_bits(tls *libc.TLS, _this uintptr, _val uint32, _nbits uint32) {
-	var mask uint32
-	var shift int32
-	_, _ = mask, shift
-	if !(_nbits <= uint32(int32(EC_SYM_BITS))) {
-		Opus_celt_fatal(tls, __ccgo_ts+4742, __ccgo_ts+4699, int32(228))
+func Opus_ec_enc_patch_initial_bits(tls *libc.TLS, enc *OpusT_ec_enc, value, nbits uint32) {
+	if nbits > EC_SYM_BITS {
+		Opus_celt_fatal(tls, __ccgo_ts+4742, __ccgo_ts+4699, 228)
 	}
-	shift = int32(uint32(int32(EC_SYM_BITS)) - _nbits)
-	mask = uint32((int32(1)<<_nbits - int32(1)) << shift)
-	if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Foffs > uint32(0) {
-		/*The first byte has been finalized.*/
-		*(*uint8)(unsafe.Pointer((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf)) = uint8(uint32(*(*uint8)(unsafe.Pointer((*OpusT_ec_enc)(unsafe.Pointer(_this)).Fbuf))) & ^mask | _val<<shift)
-	} else {
-		if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem >= 0 {
-			/*The first byte is still awaiting carry propagation.*/
-			(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem = int32(uint32((*OpusT_ec_enc)(unsafe.Pointer(_this)).Frem) & ^mask | _val<<shift)
-		} else {
-			if (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng <= uint32(1)<<(int32(EC_CODE_BITS)-int32(1))>>_nbits {
-				/*The renormalization loop has never been run.*/
-				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval & ^(mask<<(int32(EC_CODE_BITS)-int32(EC_SYM_BITS)-int32(1))) | _val<<(int32(EC_CODE_BITS)-int32(EC_SYM_BITS)-int32(1)+shift)
-			} else {
-				(*OpusT_ec_enc)(unsafe.Pointer(_this)).Ferror1 = -int32(1)
-			}
-		}
+	shift := uint32(EC_SYM_BITS) - nbits
+	mask := ((uint32(1) << nbits) - 1) << shift
+	const codeShift = EC_CODE_BITS - EC_SYM_BITS - 1
+	switch {
+	case enc.Foffs > 0:
+		// Finalized byte: retain uint8 narrowing, even for oversized value.
+		*enc.Fbuf = byte(uint32(*enc.Fbuf)&^mask | value<<shift)
+	case enc.Frem >= 0:
+		// Pending byte awaiting carry propagation.
+		enc.Frem = int32(uint32(enc.Frem)&^mask | value<<shift)
+	case enc.Frng <= uint32(1)<<(EC_CODE_BITS-1)>>nbits:
+		// No normalization yet; patch the coding interval.
+		enc.Fval = enc.Fval&^(mask<<codeShift) | value<<(codeShift+shift)
+	default:
+		enc.Ferror1 = -1
 	}
 }
 
