@@ -235,6 +235,8 @@ normalization and buffer exhaustion.
 Binary interval encoding similarly checks 500 consecutive operations with 0/1/2/4/8/15
 bit totals, exact numeric state, emitted bytes and guards, including zero-width
 identity intervals and output exhaustion.
+Probability-coded encoder bits compare 500 consecutive operations at logp
+1/2/3/8/15, including arbitrary nonzero signed values and buffer exhaustion.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

@@ -996,10 +996,10 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 					depth_threshold = 0
 				}
 				if codedBands <= start+int32(2) || band_bits > depth_threshold*band_width<<LM<<int32(BITRES)>>int32(4) && j <= signalBandwidth {
-					Opus_ec_enc_bit_logp(tls, ec, int32(1), uint32(1))
+					Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), int32(1), uint32(1))
 					break
 				}
-				Opus_ec_enc_bit_logp(tls, ec, 0, uint32(1))
+				Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), 0, uint32(1))
 			} else {
 				if Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1)) != 0 {
 					break
@@ -1050,7 +1050,7 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 	}
 	if dual_stereo_rsv > 0 {
 		if encode != 0 {
-			Opus_ec_enc_bit_logp(tls, ec, *(*int32)(unsafe.Pointer(dual_stereo)), uint32(1))
+			Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), *(*int32)(unsafe.Pointer(dual_stereo)), uint32(1))
 		} else {
 			*(*int32)(unsafe.Pointer(dual_stereo)) = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1))
 		}
@@ -2679,7 +2679,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 			}
 			if *(*int32)(unsafe.Pointer(b)) > int32(2)<<int32(BITRES) && (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits > int32(2)<<int32(BITRES) {
 				if encode != 0 {
-					Opus_ec_enc_bit_logp(tls, ec, inv, uint32(2))
+					Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), inv, uint32(2))
 				} else {
 					inv = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(2))
 				}

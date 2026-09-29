@@ -1273,24 +1273,17 @@ func Opus_ec_encode_bin(tls *libc.TLS, enc *OpusT_ec_enc, fl, fh, bits uint32) {
 // C documentation
 //
 //	/*The probability of having a "one" is 1/(1<<_logp).*/
-func Opus_ec_enc_bit_logp(tls *libc.TLS, _this uintptr, _val int32, _logp uint32) {
-	var l, r, s OpusT_opus_uint32
-	var v1 uint32
-	_, _, _, _ = l, r, s, v1
-	r = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng
-	l = (*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval
-	s = r >> _logp
-	r = r - s
-	if _val != 0 {
-		(*OpusT_ec_enc)(unsafe.Pointer(_this)).Fval = l + r
-	}
-	if _val != 0 {
-		v1 = s
+func Opus_ec_enc_bit_logp(tls *libc.TLS, enc *OpusT_ec_enc, value int32, logp uint32) {
+	r := enc.Frng
+	s := r >> logp
+	r -= s
+	if value != 0 {
+		enc.Fval += r
+		enc.Frng = s
 	} else {
-		v1 = r
+		enc.Frng = r
 	}
-	(*OpusT_ec_enc)(unsafe.Pointer(_this)).Frng = v1
-	ec_enc_normalize(tls, (*OpusT_ec_enc)(unsafe.Pointer(_this)))
+	ec_enc_normalize(tls, enc)
 }
 
 func Opus_ec_enc_icdf(tls *libc.TLS, _this uintptr, _s int32, _icdf uintptr, _ftb uint32) {
@@ -1922,7 +1915,7 @@ func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, 
 	badness = 0
 	prev = [2]OpusT_opus_val32{}
 	if tell+int32(3) <= budget {
-		Opus_ec_enc_bit_logp(tls, enc, intra, uint32(3))
+		Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), intra, uint32(3))
 	}
 	if intra != 0 {
 		coef = float32(0)
@@ -2031,7 +2024,7 @@ func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, 
 							v2 = qi
 						}
 						qi = v2
-						Opus_ec_enc_bit_logp(tls, enc, -qi, uint32(1))
+						Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), -qi, uint32(1))
 					} else {
 						qi = -int32(1)
 					}
