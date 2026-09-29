@@ -177,6 +177,9 @@ Projection float output is compared bit-for-bit across matrix columns, input and
 output strides, preloaded accumulators, empty frames, and aliased input/output.
 Projection int16 output additionally covers ties-to-even input conversion,
 NaN/infinity clamping, Q15 product rounding, and wrapping output accumulation.
+Projection int24 output checks finite inputs within C's int32 conversion domain,
+including values beyond normalized unity, ties-to-even conversion, 64-bit
+products, asymmetric Q15 half rounding, and int32 accumulation narrowing.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
