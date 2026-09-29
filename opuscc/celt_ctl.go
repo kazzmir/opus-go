@@ -1981,7 +1981,7 @@ func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, 
 					v2 = int32(20)
 				}
 				pi = int32(2) * v2
-				Opus_ec_laplace_encode(tls, enc, uintptr(unsafe.Pointer(&qi)), uint32(int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi))))<<int32(7)), int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi+int32(1)))))<<int32(6))
+				Opus_ec_laplace_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), &qi, uint32(int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi))))<<int32(7)), int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi+int32(1)))))<<int32(6))
 			} else {
 				if budget-tell >= int32(2) {
 					if qi < int32(1) {

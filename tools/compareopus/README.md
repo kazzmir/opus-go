@@ -252,6 +252,9 @@ Go tests round-trip boundary symbols with sole-context output ownership under GC
 8-bit ICDF encoding compares all symbols in 2/8-bit tables and singleton tables,
 consecutive coding and exhausted output. Go tests round-trip symbols and guard
 the exact table allocation.
+Laplace encoding compares actual C laplace.c state, emitted bytes and in-place
+symbol clipping at representative frequencies/decays, signed tail extremes and
+exhausted buffers. Go tests decode the clipped symbols exactly.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

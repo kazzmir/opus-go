@@ -950,58 +950,44 @@ func ec_laplace_get_freq1(tls *libc.TLS, fs0 uint32, decay int32) (r uint32) {
 	return ft * uint32(int32(16384)-decay) >> int32(15)
 }
 
-func Opus_ec_laplace_encode(tls *libc.TLS, enc uintptr, value uintptr, fs uint32, decay int32) {
-	var di, i, ndi_max, s, val, v2 int32
-	var fl, v3 uint32
-	_, _, _, _, _, _, _, _ = di, fl, i, ndi_max, s, val, v2, v3
-	val = *(*int32)(unsafe.Pointer(value))
-	fl = uint32(0)
+func Opus_ec_laplace_encode(tls *libc.TLS, enc *OpusT_ec_enc, value *int32, fs uint32, decay int32) {
+	val := *value
+	fl := uint32(0)
 	if val != 0 {
-		s = -libc.BoolInt32(val < 0)
-		val = val + s ^ s
+		s := int32(0)
+		if val < 0 {
+			s = -1
+		}
+		val = (val + s) ^ s
 		fl = fs
 		fs = ec_laplace_get_freq1(tls, fs, decay)
-		/* Search the decaying part of the PDF.*/
-		i = int32(1)
-		for {
-			if !(fs > uint32(0) && i < val) {
-				break
-			}
-			fs = fs * uint32(2)
-			fl = fl + (fs + uint32(int32(2)*(int32(1)<<int32(LAPLACE_LOG_MINP))))
-			fs = fs * uint32(decay) >> int32(15)
-			i = i + 1
+		i := int32(1)
+		for fs > 0 && i < val {
+			fs *= 2
+			fl += fs + 2*(1<<LAPLACE_LOG_MINP)
+			fs = fs * uint32(decay) >> 15
+			i++
 		}
-		/* Everything beyond that has probability LAPLACE_MINP. */
-		if !(fs != 0) {
-			ndi_max = int32((uint32(32768) - fl + uint32(int32(1)<<int32(LAPLACE_LOG_MINP)) - uint32(1)) >> LAPLACE_LOG_MINP)
-			ndi_max = (ndi_max - s) >> int32(1)
-			if val-i < ndi_max-int32(1) {
-				v2 = val - i
-			} else {
-				v2 = ndi_max - int32(1)
-			}
-			di = v2
-			fl = fl + uint32((int32(2)*di+int32(1)+s)*(int32(1)<<int32(LAPLACE_LOG_MINP)))
-			if uint32(int32(1)<<int32(LAPLACE_LOG_MINP)) < uint32(32768)-fl {
-				v3 = uint32(int32(1) << int32(LAPLACE_LOG_MINP))
-			} else {
-				v3 = uint32(32768) - fl
-			}
-			fs = v3
-			*(*int32)(unsafe.Pointer(value)) = i + di + s ^ s
+		if fs == 0 {
+			maximum := int32((32768 - fl + (1 << LAPLACE_LOG_MINP) - 1) >> LAPLACE_LOG_MINP)
+			maximum = (maximum - s) >> 1
+			di := min(val-i, maximum-1)
+			fl += uint32((2*di + 1 + s) * (1 << LAPLACE_LOG_MINP))
+			fs = min(uint32(1<<LAPLACE_LOG_MINP), 32768-fl)
+			// Clip the caller's symbol before updating the entropy context (C order).
+			*value = (i + di + s) ^ s
 		} else {
-			fs = fs + uint32(int32(1)<<int32(LAPLACE_LOG_MINP))
-			fl = fl + fs&uint32(^s)
+			fs += 1 << LAPLACE_LOG_MINP
+			fl += fs & uint32(^s)
 		}
-		if !(fl+fs <= uint32(32768)) {
-			Opus_celt_fatal(tls, __ccgo_ts+5600, __ccgo_ts+5631, int32(88))
+		if fl+fs > 32768 {
+			Opus_celt_fatal(tls, __ccgo_ts+5600, __ccgo_ts+5631, 88)
 		}
-		if !(fs > uint32(0)) {
-			Opus_celt_fatal(tls, __ccgo_ts+5649, __ccgo_ts+5631, int32(89))
+		if fs == 0 {
+			Opus_celt_fatal(tls, __ccgo_ts+5649, __ccgo_ts+5631, 89)
 		}
 	}
-	Opus_ec_encode_bin(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), fl, fl+fs, uint32(15))
+	Opus_ec_encode_bin(tls, enc, fl, fl+fs, 15)
 }
 
 func Opus_ec_laplace_decode(tls *libc.TLS, dec *OpusT_ec_dec, fs uint32, decay int32) (r int32) {
