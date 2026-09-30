@@ -22,6 +22,8 @@ func sameComplexBits(a, b []opuscc.OpusT_kiss_fft_cpx) bool {
 	return true
 }
 
+func TestFFTInverseAgainstC(t *testing.T) { compareFullFFT(t, 2, opuscc.Opus_opus_ifft_c) }
+
 func TestFFTForwardAgainstC(t *testing.T) {
 	compareFullFFT(t, 1, opuscc.Opus_opus_fft_c)
 }

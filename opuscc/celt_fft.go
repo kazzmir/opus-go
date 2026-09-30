@@ -236,37 +236,23 @@ func Opus_opus_fft_c(tls *libc.TLS, st *OpusT_kiss_fft_state, bitrev *int16, twi
 	Opus_opus_fft_impl(tls, st, twiddles, fout)
 }
 
-func Opus_opus_ifft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
-	var i int32
-	_ = i
-	if !(fin != fout) {
-		Opus_celt_fatal(tls, __ccgo_ts+3512, __ccgo_ts+3493, int32(641))
+func Opus_opus_ifft_c(tls *libc.TLS, st *OpusT_kiss_fft_state, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, fin, fout *OpusT_kiss_fft_cpx) {
+	if fin == fout {
+		Opus_celt_fatal(tls, __ccgo_ts+3512, __ccgo_ts+3493, 641)
 	}
-	/* Bit-reverse the input */
-	i = 0
-	for {
-		if !(i < (*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fnfft) {
-			break
-		}
-		*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fbitrev + uintptr(i)*2)))*8)) = *(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fin + uintptr(i)*8))
-		i = i + 1
+	in := unsafe.Slice(fin, st.Fnfft)
+	out := unsafe.Slice(fout, st.Fnfft)
+	rev := unsafe.Slice(bitrev, st.Fnfft)
+	for i := range in {
+		out[rev[i]] = in[i]
 	}
-	i = 0
-	for {
-		if !(i < (*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fnfft) {
-			break
-		}
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi = -(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi
-		i = i + 1
+	// Preserve both conjugation passes, including the sign bit of zero.
+	for i := range out {
+		out[i].Fi = -out[i].Fi
 	}
-	opus_fft_impl_legacy(tls, st, fout)
-	i = 0
-	for {
-		if !(i < (*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fnfft) {
-			break
-		}
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi = -(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi
-		i = i + 1
+	Opus_opus_fft_impl(tls, st, twiddles, fout)
+	for i := range out {
+		out[i].Fi = -out[i].Fi
 	}
 }
 

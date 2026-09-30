@@ -6,6 +6,30 @@ import (
 	"testing"
 )
 
+func TestFFTInversePointers(t *testing.T) {
+	st := OpusT_kiss_fft_state{Fnfft: 4, Fscale: .25, Fshift: -1, Ffactors: [16]int16{4, 1}}
+	rev := [4]int16{0, 1, 2, 3}
+	in := [4]OpusT_kiss_fft_cpx{{Fr: 1}}
+	out := [6]OpusT_kiss_fft_cpx{{Fr: 77}, {}, {}, {}, {}, {Fr: 88}}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_opus_ifft_c(nil, &st, &rev[0], nil, &in[0], &out[1])
+	if out[0].Fr != 77 || out[5].Fr != 88 {
+		t.Fatal("guards")
+	}
+	for i := 1; i <= 4; i++ {
+		if out[i].Fr != 1 || out[i].Fi != 0 {
+			t.Fatal(out)
+		}
+	}
+	// Forward/inverse scales cancel for the full four-point chain.
+	round := [4]OpusT_kiss_fft_cpx{}
+	Opus_opus_fft_c(nil, &st, &rev[0], nil, &out[1], &round[0])
+	if round != in {
+		t.Fatal("round trip", round)
+	}
+}
+
 func TestFFTForwardPointers(t *testing.T) {
 	st := OpusT_kiss_fft_state{Fnfft: 4, Fscale: .25, Fshift: -1, Ffactors: [16]int16{4, 1}}
 	rev := [4]int16{0, 1, 2, 3}

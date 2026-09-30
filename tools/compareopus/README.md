@@ -321,6 +321,8 @@ FFT driver cases share the butterfly tests and use native-generated factors,
 bit-reversal and twiddles for sizes 4–480, including shared-table shifts -1–2.
 Forward FFT cases add native bit-reversal/scaling, separate buffers and both
 partial-overlap directions, retaining explicit typed tables throughout the driver.
+Inverse FFT reuses the grouped transform cases and checks both conjugation
+passes and an exact four-point forward/inverse round trip.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
