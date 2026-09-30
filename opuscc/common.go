@@ -4271,8 +4271,9 @@ var tapset_icdf3 = [3]uint8{
 
 /* DECODER */
 
-func validate_ms_decoder(tls *libc.TLS, st uintptr) {
-	Opus_validate_layout(tls, &(*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout)
+func validate_ms_decoder(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
+	// Preserve C's ignored layout result: this helper does not assert on it.
+	Opus_validate_layout(tls, &st.Flayout)
 }
 
 func Opus_opus_multistream_decoder_get_size(tls *libc.TLS, nb_streams int32, nb_coupled_streams int32) (r OpusT_opus_int32) {
@@ -4491,7 +4492,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	validate_ms_decoder(tls, st1)
+	validate_ms_decoder(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)))
 	if frame_size <= 0 {
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {

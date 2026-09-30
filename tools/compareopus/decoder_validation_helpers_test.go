@@ -7,6 +7,30 @@ import (
 	"testing"
 )
 
+func TestMSValidationAgainstC(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2, 255} {
+		for _, streams := range []int32{0, 1, 2, 127, 255, 256} {
+			for _, coupled := range []int32{0, 1, 127} {
+				for _, mapping := range []uint8{0, 1, 2, 254, 255} {
+					st := opuscc.OpusT_OpusMSDecoder{}
+					st.Flayout.Fnb_channels = channels
+					st.Flayout.Fnb_streams = streams
+					st.Flayout.Fnb_coupled_streams = coupled
+					for i := range st.Flayout.Fmapping {
+						st.Flayout.Fmapping[i] = mapping
+					}
+					before := st
+					g := opuscc.CompareMSValidation(&st)
+					c := nativeMSValidation(&st)
+					if g != c || st != before {
+						t.Fatal(channels, streams, coupled, mapping, g, c)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestCeltValidationAgainstC(t *testing.T) {
 	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	base := opuscc.OpusT_OpusCustomDecoder{Fmode: mode, Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}

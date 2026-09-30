@@ -15,6 +15,24 @@ func validationPanics(f func()) (panicked bool) {
 	return false
 }
 
+func TestMSValidationPointers(t *testing.T) {
+	st := OpusT_OpusMSDecoder{Flayout: OpusT_ChannelLayout{Fnb_channels: 2, Fnb_streams: 1, Fnb_coupled_streams: 1, Fmapping: [256]uint8{0, 1}}}
+	before := st
+	entropyInitGrowStack(12)
+	runtime.GC()
+	validate_ms_decoder(nil, &st)
+	if st != before {
+		t.Fatal("state changed")
+	}
+	// The original validator intentionally ignores an invalid layout return value.
+	st.Flayout.Fmapping[0] = 7
+	before = st
+	validate_ms_decoder(nil, &st)
+	if st != before || Opus_validate_layout(nil, &st.Flayout) != 0 {
+		t.Fatal("invalid-layout behavior changed")
+	}
+}
+
 func TestCeltValidationPointers(t *testing.T) {
 	mode, _ := Opus_opus_custom_mode_create(nil, 48000, 960)
 	st := OpusT_OpusCustomDecoder{Fmode: mode, Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
