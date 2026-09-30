@@ -357,6 +357,8 @@ CELT state validation reuses those files, comparing actual native mode, band,
 channel, pitch/period, tapset and architecture assertions without mutating state.
 Multistream validation compares actual static C dispatch and layout results,
 including invalid mappings: its ignored layout return is intentionally preserved.
+Custom CELT decoder sizes reuse the validator fixtures, comparing native header
+size, channels, overlaps and band counts; Go separately checks int32 size narrowing.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

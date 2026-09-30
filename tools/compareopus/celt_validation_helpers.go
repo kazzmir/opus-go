@@ -26,6 +26,7 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #define opus_custom_decode_float comparison_custom_decode_float
 #define opus_custom_decoder_ctl comparison_custom_ctl
 #include "../../../opus/celt/celt_decoder.c"
+static int native_custom_size(int overlap,int bands,int channels) {CELTMode mode={0};mode.overlap=overlap;mode.nbEBands=bands;return comparison_custom_size(&mode,channels);}
 static int native_celt_validation(const int *v,int badmode) {
  CELTDecoder st={0};st.mode=badmode?NULL:opus_custom_mode_create(48000,960,NULL);
  st.overlap=v[0];st.end=v[1];st.channels=v[2];st.stream_channels=v[3];st.downsample=v[4];st.start=v[5];st.arch=v[6];st.last_pitch_index=v[7];st.postfilter_period=v[8];st.postfilter_period_old=v[9];st.postfilter_tapset=v[10];st.postfilter_tapset_old=v[11];
@@ -38,6 +39,10 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeCustomDecoderSize(overlap, bands, channels int32) int32 {
+	return int32(C.native_custom_size(C.int(overlap), C.int(bands), C.int(channels)))
+}
 
 func nativeCeltValidation(st *opuscc.OpusT_OpusCustomDecoder) bool {
 	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)

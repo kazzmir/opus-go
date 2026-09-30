@@ -3,6 +3,7 @@ package opuscc
 import (
 	"runtime"
 	"testing"
+	"unsafe"
 )
 
 func validationPanics(f func()) (panicked bool) {
@@ -13,6 +14,33 @@ func validationPanics(f func()) (panicked bool) {
 	}()
 	f()
 	return false
+}
+
+func TestCustomDecoderSizePointers(t *testing.T) {
+	mode := OpusT_OpusCustomMode{Foverlap: 120, FnbEBands: 21}
+	before := mode
+	entropyInitGrowStack(12)
+	runtime.GC()
+	mono := opus_custom_decoder_get_size(nil, &mode, 1)
+	stereo := opus_custom_decoder_get_size(nil, &mode, 2)
+	if mode != before {
+		t.Fatal("mode changed")
+	}
+	if stereo-mono != (DEC_PITCH_BUF_SIZE+120+CELT_LPC_ORDER)*4 {
+		t.Fatal(mono, stereo)
+	}
+	mode.FnbEBands++
+	if opus_custom_decoder_get_size(nil, &mode, 1) != mono+32 {
+		t.Fatal("band stride")
+	}
+	mode = before
+	// Signed narrowing of the original generated size formula is retained.
+	mode.Foverlap = 1 << 30
+	got := opus_custom_decoder_get_size(nil, &mode, 2)
+	want := int32(uint64(unsafe.Sizeof(OpusT_OpusCustomDecoder{})) + uint64(uint32(int32(2)*(DEC_PITCH_BUF_SIZE+mode.Foverlap)-1))*4 + uint64(uint32(mode.FnbEBands*8))*4 + uint64(uint32(int32(2)*CELT_LPC_ORDER))*4)
+	if got != want {
+		t.Fatal("wrap", got, want)
+	}
 }
 
 func TestMSValidationPointers(t *testing.T) {

@@ -2,6 +2,10 @@
 
 package opuscc
 
+func CompareCustomDecoderSize(mode *OpusT_OpusCustomMode, channels int32) int32 {
+	return opus_custom_decoder_get_size(nil, mode, channels)
+}
+
 func CompareMSValidation(st *OpusT_OpusMSDecoder) int32 {
 	validate_ms_decoder(nil, st)
 	return Opus_validate_layout(nil, &st.Flayout)

@@ -7,6 +7,22 @@ import (
 	"testing"
 )
 
+func TestCustomDecoderSizeAgainstC(t *testing.T) {
+	for _, overlap := range []int32{0, 60, 120, 240} {
+		for _, bands := range []int32{0, 1, 21, 25} {
+			for _, channels := range []int32{0, 1, 2} {
+				mode := opuscc.OpusT_OpusCustomMode{Foverlap: overlap, FnbEBands: bands}
+				before := mode
+				g := opuscc.CompareCustomDecoderSize(&mode, channels)
+				c := nativeCustomDecoderSize(overlap, bands, channels)
+				if g != c || mode != before {
+					t.Fatal(overlap, bands, channels, g, c)
+				}
+			}
+		}
+	}
+}
+
 func TestMSValidationAgainstC(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2, 255} {
 		for _, streams := range []int32{0, 1, 2, 127, 255, 256} {

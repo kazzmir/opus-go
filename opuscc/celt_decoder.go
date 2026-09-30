@@ -80,14 +80,12 @@ func Opus_celt_decoder_get_size(tls *libc.TLS, channels int32) (r int32) {
 	var mode uintptr
 	_ = mode
 	mode, _ = Opus_opus_custom_mode_create(tls, int32(48000), int32(960))
-	return opus_custom_decoder_get_size(tls, mode, channels)
+	return opus_custom_decoder_get_size(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), channels)
 }
 
-func opus_custom_decoder_get_size(tls *libc.TLS, mode uintptr, channels int32) (r int32) {
-	var size int32
-	_ = size
-	size = int32(uint64(unsafe.Sizeof(OpusT_OpusCustomDecoder{})) + uint64(uint32(channels*(int32(DEC_PITCH_BUF_SIZE)+(*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap)-int32(1)))*uint64(4) + uint64(uint32(int32(4)*int32(2)*(*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FnbEBands))*uint64(4) + uint64(uint32(channels*int32(CELT_LPC_ORDER)))*uint64(4))
-	return size
+func opus_custom_decoder_get_size(tls *libc.TLS, mode *OpusT_OpusCustomMode, channels int32) int32 {
+	// The generated uint64 expression narrowed to int32; preserve its low 32 bits.
+	return int32(unsafe.Sizeof(OpusT_OpusCustomDecoder{})) + (channels*(DEC_PITCH_BUF_SIZE+mode.Foverlap)-1)*4 + mode.FnbEBands*32 + channels*CELT_LPC_ORDER*4
 }
 
 func Opus_celt_decoder_init(tls *libc.TLS, st uintptr, sampling_rate OpusT_opus_int32, channels int32) (r int32) {
@@ -116,7 +114,7 @@ func opus_custom_decoder_init(tls *libc.TLS, st uintptr, mode uintptr, channels 
 	if st == uintptr(uint32(0)) {
 		return -int32(7)
 	}
-	libc.Xmemset(tls, st, 0, uint64(uint32(opus_custom_decoder_get_size(tls, mode, channels)))*uint64(1))
+	libc.Xmemset(tls, st, 0, uint64(uint32(opus_custom_decoder_get_size(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), channels)))*uint64(1))
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode = mode
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
 	v1 = channels
