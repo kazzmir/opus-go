@@ -332,6 +332,8 @@ Mini radix-4 additionally compares all nonzero inverse flags, inverse sign/store
 order and m=1 twiddle use (unlike the CELT twiddle-free special case).
 Mini radix-3 adds typed epi3 selection and scalar rounding checks, updating the
 existing C-reference fixture without adding another test file.
+Mini radix-5 tests preserve left-associated sums and the distinct negated-product
+expressions, including cancellation-heavy inputs, impulse output and guards.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
