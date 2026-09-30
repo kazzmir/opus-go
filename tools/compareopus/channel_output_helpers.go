@@ -17,7 +17,8 @@ package main
 #include "../../../opus/src/opus_multistream_decoder.c"
 static void native_channel_output(void *dst,int ds,int dc,const float *src,int ss,int n,int op) {
  if(op==0) opus_copy_channel_out_float(dst,ds,dc,src,ss,n,NULL);
- else opus_copy_channel_out_short(dst,ds,dc,src,ss,n,NULL);
+ else if(op==1) opus_copy_channel_out_short(dst,ds,dc,src,ss,n,NULL);
+ else opus_copy_channel_out_int24(dst,ds,dc,src,ss,n,NULL);
 }
 */
 import "C"
