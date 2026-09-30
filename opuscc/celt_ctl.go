@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math"
 	"math/bits"
 	"reflect"
 	"unsafe"
@@ -2497,41 +2498,33 @@ func Opus_unquant_energy_finalise(tls *libc.TLS, m *OpusT_OpusCustomMode, start,
 	}
 }
 
-func Opus_amp2Log2(tls *libc.TLS, m uintptr, effEnd int32, end int32, bandE uintptr, bandLogE uintptr, C int32) {
-	var c, i, v1 int32
-	var integer, range_idx OpusT_opus_int32
-	var v4 float32
-	var in OpusT_opus_uint32
-	_, _, _, _, _, _ = c, i, integer, range_idx, v1, v4
-	c = 0
-	for {
-		i = 0
-		for {
-			if !(i < effEnd) {
-				break
-			}
-			*(*float32)(unsafe.Pointer(&in)) = *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
-			integer = int32(in>>int32(23)) - int32(127)
-			in = uint32(int32(in) - int32(uint32(integer)<<int32(23)))
-			range_idx = int32(in >> int32(20) & uint32(0x7))
-			*(*float32)(unsafe.Pointer(&in)) = float32(*(*float32)(unsafe.Pointer(&in))*log2_x_norm_coeff10[range_idx]) - float32(1.0625)
-			*(*float32)(unsafe.Pointer(&in)) = float32(0.08746284246444702) + float32(*(*float32)(unsafe.Pointer(&in))*(float32(1.3578295707702637)+float32(*(*float32)(unsafe.Pointer(&in))*(-float32(0.63897705078125)+float32(*(*float32)(unsafe.Pointer(&in))*(float32(0.4019712507724762)+float32(*(*float32)(unsafe.Pointer(&in))*-float32(0.2841544449329376))))))))
-			v4 = float32(integer) + *(*float32)(unsafe.Pointer(&in)) + log2_y_norm_coeff10[range_idx]
-			*(*OpusT_celt_glog)(unsafe.Pointer(bandLogE + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = v4 - Opus_eMeans[i]
-			i = i + 1
+func Opus_amp2Log2(tls *libc.TLS, m *OpusT_OpusCustomMode, effEnd, end int32, bandE *OpusT_celt_ener, bandLogE *OpusT_celt_glog, C int32) {
+	if end <= 0 {
+		return
+	}
+	var energy []float32
+	if effEnd > 0 {
+		energy = unsafe.Slice(bandE, C*m.FnbEBands)
+	}
+	out := unsafe.Slice(bandLogE, C*m.FnbEBands)
+	for c := int32(0); c < C; c++ {
+		for i := int32(0); i < effEnd; i++ {
+			pos := i + c*m.FnbEBands
+			in := math.Float32bits(energy[pos])
+			integer := int32(in>>23) - 127
+			in -= uint32(integer) << 23
+			rangeIndex := (in >> 20) & 7
+			x := float32(math.Float32frombits(in)*log2_x_norm_coeff10[rangeIndex]) - float32(1.0625)
+			// Explicit float32 products preserve the C Horner evaluation boundaries.
+			p := float32(.4019712507724762) + float32(x*float32(-.2841544449329376))
+			p = float32(-.63897705078125) + float32(x*p)
+			p = float32(1.3578295707702637) + float32(x*p)
+			p = float32(.08746284246444702) + float32(x*p)
+			v := float32(float32(integer)+p) + log2_y_norm_coeff10[rangeIndex]
+			out[pos] = v - Opus_eMeans[i]
 		}
-		i = effEnd
-		for {
-			if !(i < end) {
-				break
-			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(bandLogE + uintptr(c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4)) = -float32(14)
-			i = i + 1
-		}
-		c = c + 1
-		v1 = c
-		if !(v1 < C) {
-			break
+		for i := effEnd; i < end; i++ {
+			out[c*m.FnbEBands+i] = -14
 		}
 	}
 }
