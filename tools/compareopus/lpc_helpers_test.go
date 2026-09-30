@@ -10,6 +10,44 @@ import (
 	"unsafe"
 )
 
+func TestPitchDownsampleAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(1013))
+	for _, n := range []int{7, 8, 17, 64, 240} {
+		for _, factor := range []int{1, 2, 3, 4} {
+			for _, channels := range []int{0, 1, 2, 3} {
+				for trial := 0; trial < 12; trial++ {
+					left := make([]float32, n*factor)
+					right := make([]float32, n*factor)
+					for i := range left {
+						left[i] = float32(rng.NormFloat64())
+						right[i] = float32(rng.NormFloat64())
+					}
+					if trial == 0 {
+						clear(left)
+						clear(right)
+					}
+					l0 := append([]float32(nil), left...)
+					r0 := append([]float32(nil), right...)
+					g := make([]float32, n+2)
+					for i := range g {
+						g[i] = 77
+					}
+					c := append([]float32(nil), g...)
+					var rp *float32
+					if channels == 2 {
+						rp = &right[0]
+					}
+					opuscc.Opus_pitch_downsample(nil, &left[0], rp, &g[1], int32(n), int32(channels), int32(factor), 0)
+					nativePitchDownsample(left, right, c[1:], int32(n), int32(channels), int32(factor))
+					if !sameFloatBits(g, c) || !sameFloatBits(left, l0) || !sameFloatBits(right, r0) {
+						t.Fatal(n, factor, channels, trial, g, c)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestAutocorrAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(912))
 	for _, n := range []int{1, 4, 5, 8, 17, 64, 128} {

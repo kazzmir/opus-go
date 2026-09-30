@@ -643,7 +643,7 @@ func celt_plc_pitch_search(tls *libc.TLS, st1 uintptr, decode_mem uintptr, C int
 	}
 	v23 = st
 	lp_pitch_buf = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(int32(DEC_PITCH_BUF_SIZE)>>int32(1)))*(uint64(4)/uint64(1)))
-	Opus_pitch_downsample(tls, decode_mem, lp_pitch_buf, int32(DEC_PITCH_BUF_SIZE)>>int32(1), C, int32(2), arch)
+	pitch_downsample_legacy(tls, decode_mem, lp_pitch_buf, int32(DEC_PITCH_BUF_SIZE)>>int32(1), C, int32(2), arch)
 	Opus_pitch_search(tls, lp_pitch_buf+uintptr(int32(PLC_PITCH_LAG_MAX)>>int32(1))*4, lp_pitch_buf, int32(DEC_PITCH_BUF_SIZE)-int32(PLC_PITCH_LAG_MAX), int32(PLC_PITCH_LAG_MAX)-int32(PLC_PITCH_LAG_MIN), uintptr(unsafe.Pointer(&pitch_index)), arch)
 	pitch_index = int32(PLC_PITCH_LAG_MAX) - pitch_index
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))

@@ -395,6 +395,9 @@ Multistream packet validation now uses stack-owned typed parser outputs instead
 of TLS allocation. Native static-helper comparisons cover concatenated/self-delimited
 streams, duration mismatches, missing/malformed streams and all supported rates;
 existing C-reference fixtures also run directly on Go-owned packet buffers.
+Pitch downsampling shares scalar pitch/LPC fixtures: mono/stereo and unusual
+channel counts, factors 1–4, lag windowing, LPC/FIR stages, input preservation
+and guarded output are compared bitwise; the decoder channel-table adapter remains legacy.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

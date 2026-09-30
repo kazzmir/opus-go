@@ -7,6 +7,27 @@ import (
 	"testing"
 )
 
+func TestPitchDownsamplePointers(t *testing.T) {
+	left := [16]float32{}
+	right := [16]float32{}
+	out := [10]float32{}
+	out[0] = 77
+	out[9] = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_pitch_downsample(nil, &left[0], &right[0], &out[1], 8, 2, 2, 0)
+	if out[0] != 77 || out[9] != 88 {
+		t.Fatal("guards", out)
+	}
+	for _, x := range out[1:9] {
+		if x != 0 {
+			t.Fatal("silence", out)
+		}
+	}
+	// Any channel count other than 2 must leave the optional right input untouched.
+	Opus_pitch_downsample(nil, &left[0], nil, &out[1], 8, 0, 2, 0)
+}
+
 func TestAutocorrPointers(t *testing.T) {
 	input := [8]float32{1, 2, 3, 4, 5, 6, 7, 8}
 	out := [6]float32{77, 0, 0, 0, 0, 88}

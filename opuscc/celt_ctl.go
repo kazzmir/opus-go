@@ -232,66 +232,52 @@ func celt_fir5(tls *libc.TLS, x *OpusT_opus_val16, num *OpusT_opus_val16, N int3
 	}
 }
 
-func Opus_pitch_downsample(tls *libc.TLS, x uintptr, x_lp uintptr, len1 int32, C int32, factor int32, arch int32) {
-	var c1, tmp OpusT_opus_val16
-	var i, offset int32
-	var ac [5]OpusT_opus_val32
-	var lpc [4]OpusT_opus_val16
-	var lpc2 [5]OpusT_opus_val16
-	_, _, _, _ = c1, i, offset, tmp
-	tmp = float32(1)
-	c1 = float32(0.8)
-	offset = factor / int32(2)
-	i = int32(1)
-	for {
-		if !(i < len1) {
-			break
-		}
-		*(*OpusT_opus_val16)(unsafe.Pointer(x_lp + uintptr(i)*4)) = float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x)) + uintptr(factor*i-offset)*4))) + float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x)) + uintptr(factor*i+offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x)) + uintptr(factor*i)*4)))
-		i = i + 1
+func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, factor, arch int32) {
+	x := unsafe.Slice(left, length*factor)
+	output := unsafe.Slice(out, length)
+	offset := factor / 2
+	for i := int32(1); i < length; i++ {
+		output[i] = float32(0.25*x[factor*i-offset]) + float32(0.25*x[factor*i+offset]) + float32(0.5*x[factor*i])
 	}
-	*(*OpusT_opus_val16)(unsafe.Pointer(x_lp)) = float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x)) + uintptr(offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x)))))
-	if C == int32(2) {
-		i = int32(1)
-		for {
-			if !(i < len1) {
-				break
-			}
-			*(*OpusT_opus_val16)(unsafe.Pointer(x_lp + uintptr(i)*4)) += float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))) + uintptr(factor*i-offset)*4))) + float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))) + uintptr(factor*i+offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))) + uintptr(factor*i)*4)))
-			i = i + 1
+	output[0] = float32(0.25*x[offset]) + float32(0.5*x[0])
+	if C == 2 {
+		x = unsafe.Slice(right, length*factor)
+		for i := int32(1); i < length; i++ {
+			output[i] += float32(0.25*x[factor*i-offset]) + float32(0.25*x[factor*i+offset]) + float32(0.5*x[factor*i])
 		}
-		*(*OpusT_opus_val16)(unsafe.Pointer(x_lp)) += float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))) + uintptr(offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))))))
+		output[0] += float32(0.25*x[offset]) + float32(0.5*x[0])
 	}
-	Opus__celt_autocorr(tls, (*float32)(unsafe.Pointer(x_lp)), &ac[0], nil, 0, int32(4), len1, arch)
-	/* Noise floor -40 dB */
-	ac[0] *= float32(1.0001)
-	/* Lag windowing */
-	i = int32(1)
-	for {
-		if !(i <= int32(4)) {
-			break
-		}
-		/*ac[i] *= exp(-.5*(2*M_PI*.002*i)*(2*M_PI*.002*i));*/
-		ac[i] -= OpusT_opus_val32(OpusT_opus_val32(ac[i]*float32(float32(0.008)*float32(i))) * float32(float32(0.008)*float32(i)))
-		i = i + 1
+	var ac [5]float32
+	var lpc [4]float32
+	var lpc2 [5]float32
+	Opus__celt_autocorr(tls, out, &ac[0], nil, 0, 4, length, arch)
+	ac[0] = float32(ac[0] * 1.0001)
+	for i := 1; i <= 4; i++ {
+		w := float32(0.008 * float32(i))
+		ac[i] -= float32(float32(ac[i]*w) * w)
 	}
-	Opus__celt_lpc(tls, &lpc[0], &ac[0], int32(4))
-	i = 0
-	for {
-		if !(i < int32(4)) {
-			break
-		}
-		tmp = float32(float32(0.9) * tmp)
-		lpc[i] = OpusT_opus_val16(lpc[i] * tmp)
-		i = i + 1
+	Opus__celt_lpc(tls, &lpc[0], &ac[0], 4)
+	tmp := float32(1)
+	for i := range lpc {
+		tmp = float32(0.9 * tmp)
+		lpc[i] = float32(lpc[i] * tmp)
 	}
-	/* Add a zero */
-	lpc2[0] = lpc[0] + float32(0.8)
-	lpc2[1] = lpc[1] + OpusT_opus_val16(c1*lpc[0])
-	lpc2[2] = lpc[2] + OpusT_opus_val16(c1*lpc[1])
-	lpc2[3] = lpc[3] + OpusT_opus_val16(c1*lpc[2])
-	lpc2[4] = OpusT_opus_val16(c1 * lpc[3])
-	celt_fir5(tls, (*OpusT_opus_val16)(unsafe.Pointer(x_lp)), &lpc2[0], len1)
+	lpc2[0] = lpc[0] + 0.8
+	for i := 1; i < 4; i++ {
+		lpc2[i] = lpc[i] + float32(0.8*lpc[i-1])
+	}
+	lpc2[4] = float32(0.8 * lpc[3])
+	celt_fir5(tls, out, &lpc2[0], length)
+}
+
+func pitch_downsample_legacy(tls *libc.TLS, x, out uintptr, length, C, factor, arch int32) {
+	channels := unsafe.Slice((*uintptr)(unsafe.Pointer(x)), 1)
+	left := (*float32)(unsafe.Pointer(channels[0]))
+	var right *float32
+	if C == 2 {
+		right = (*float32)(unsafe.Pointer(unsafe.Slice((*uintptr)(unsafe.Pointer(x)), 2)[1]))
+	}
+	Opus_pitch_downsample(tls, left, right, (*float32)(unsafe.Pointer(out)), length, C, factor, arch)
 }
 
 // C documentation
