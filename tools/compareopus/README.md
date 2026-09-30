@@ -398,6 +398,9 @@ existing C-reference fixtures also run directly on Go-owned packet buffers.
 Pitch downsampling shares scalar pitch/LPC fixtures: mono/stereo and unusual
 channel counts, factors 1–4, lag windowing, LPC/FIR stages, input preservation
 and guarded output are compared bitwise; the decoder channel-table adapter remains legacy.
+Pitch search shares those fixtures, comparing coarse/fine search, odd lengths,
+lag limits, silence/periodic/random inputs and guarded pitch output; decimated
+input and correlation scratch are now Go-owned rather than TLS allocations.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

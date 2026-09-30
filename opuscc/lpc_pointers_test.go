@@ -7,6 +7,24 @@ import (
 	"testing"
 )
 
+func TestPitchSearchPointers(t *testing.T) {
+	x := [16]float32{}
+	y := [32]float32{}
+	pitch := [3]int32{77, -1, 88}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_pitch_search(nil, &x[0], &y[0], 16, 16, &pitch[1], 0)
+	if pitch != [3]int32{77, 0, 88} {
+		t.Fatal(pitch)
+	}
+	x[0] = 1
+	y[3] = 1
+	Opus_pitch_search(nil, &x[0], &y[0], 16, 16, &pitch[1], 0)
+	if pitch[0] != 77 || pitch[2] != 88 || pitch[1] < 0 || pitch[1] >= 16 {
+		t.Fatal(pitch)
+	}
+}
+
 func TestPitchDownsamplePointers(t *testing.T) {
 	left := [16]float32{}
 	right := [16]float32{}

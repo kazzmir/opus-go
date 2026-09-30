@@ -16,6 +16,10 @@ static void native_downsample(float *left,float *right,float *out,int n,int C,in
 import "C"
 import "unsafe"
 
+func nativePitchSearch(x, y []float32, length, maxPitch int32, pitch *int32) {
+	C.compare_pitch_search((*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.float)(unsafe.Pointer(unsafe.SliceData(y))), C.int(length), C.int(maxPitch), (*C.int)(unsafe.Pointer(pitch)), 0)
+}
+
 func nativePitchDownsample(left, right, out []float32, n, channels, factor int32) {
 	C.native_downsample((*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), (*C.float)(unsafe.Pointer(unsafe.SliceData(out))), C.int(n), C.int(channels), C.int(factor))
 }

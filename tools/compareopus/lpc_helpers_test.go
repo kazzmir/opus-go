@@ -10,6 +10,48 @@ import (
 	"unsafe"
 )
 
+func TestPitchSearchAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(1114))
+	for _, n := range []int{4, 8, 12, 17, 32, 128, 240} {
+		for _, maxPitch := range []int{4, 8, 12, 16, 31, 128} {
+			if maxPitch>>2 > 3 && n>>2 < 3 {
+				continue
+			}
+			for trial := 0; trial < 60; trial++ {
+				x := make([]float32, n/2)
+				y := make([]float32, (n+maxPitch)/2)
+				for i := range x {
+					x[i] = float32(rng.NormFloat64())
+				}
+				for i := range y {
+					y[i] = float32(rng.NormFloat64())
+				}
+				if trial == 0 {
+					clear(x)
+					clear(y)
+				}
+				if trial == 1 {
+					for i := range x {
+						x[i] = float32(math.Sin(float64(i) * 0.7))
+					}
+					for i := range y {
+						y[i] = float32(math.Sin(float64(i) * 0.7))
+					}
+				}
+				x0 := append([]float32(nil), x...)
+				y0 := append([]float32(nil), y...)
+				g := [3]int32{77, -1, 88}
+				c := g
+				opuscc.Opus_pitch_search(nil, &x[0], &y[0], int32(n), int32(maxPitch), &g[1], 0)
+				nativePitchSearch(x, y, int32(n), int32(maxPitch), &c[1])
+				if g != c || !sameFloatBits(x, x0) || !sameFloatBits(y, y0) {
+					t.Fatal(n, maxPitch, trial, g, c)
+				}
+			}
+		}
+	}
+}
+
 func TestPitchDownsampleAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(1013))
 	for _, n := range []int{7, 8, 17, 64, 240} {
