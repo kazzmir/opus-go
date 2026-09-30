@@ -8,6 +8,29 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestSkipExtensionPointers(t *testing.T) {
+	p := (*byte)(nil)
+	h := int32(77)
+	if skip_extension(nil, &p, 0, &h) != 0 || h != 0 || p != nil {
+		t.Fatal("empty")
+	}
+	h = 77
+	if skip_extension(nil, &p, -1, &h) != -1 || h != 77 {
+		t.Fatal("negative")
+	}
+	data := [6]byte{65, 2, 11, 12, 3, 99}
+	p = &data[0]
+	h = 77
+	if r := skip_extension(nil, &p, 6, &h); r != 2 || h != 2 || p != &data[4] {
+		t.Fatal(r, h, p)
+	}
+	p = &data[0]
+	h = 77
+	if r := skip_extension(nil, &p, 1, &h); r != -1 || h != 77 || p != &data[0] {
+		t.Fatal("error committed", r, h, p)
+	}
+}
+
 func TestSkipPayloadPointers(t *testing.T) {
 	data := [8]byte{3, 1, 2, 3, 4, 5, 6, 7}
 	p := &data[0]
