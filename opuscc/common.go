@@ -6123,59 +6123,60 @@ func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data uintptr, len1 Opu
 	return ret
 }
 
-func write_extension_payload(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, pos OpusT_opus_int32, ext uintptr, last int32) (r int32) {
-	var j, length_bytes OpusT_opus_int32
-	_, _ = j, length_bytes
-	if !((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid >= int32(3) && (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid <= int32(127)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, int32(425))
+func write_extension_payload(tls *libc.TLS, data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
+	if id < 3 || id > 127 {
+		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 425)
 	}
-	if (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid < int32(32) {
-		if (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 < 0 || (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 > int32(1) {
-			return -int32(1)
+	if id < 32 {
+		if length < 0 || length > 1 {
+			return -1
 		}
-		if (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 > 0 {
-			if len1-pos < (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 {
-				return -int32(2)
+		if length > 0 {
+			if capacity-pos < length {
+				return -2
 			}
-			if data != 0 {
-				*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = *(*uint8)(unsafe.Pointer((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata))
+			if data != nil {
+				unsafe.Slice(data, capacity)[pos] = *payload
 			}
-			pos = pos + 1
+			pos++
 		}
-	} else {
-		if (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 < 0 {
-			return -int32(1)
-		}
-		length_bytes = int32(1) + (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1/int32(255)
-		if last != 0 {
-			length_bytes = 0
-		}
-		if len1-pos < length_bytes+(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 {
-			return -int32(2)
-		}
-		if !(last != 0) {
-			j = 0
-			for {
-				if !(j < (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1/int32(255)) {
-					break
-				}
-				if data != 0 {
-					*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8(255)
-				}
-				pos = pos + 1
-				j = j + 1
-			}
-			if data != 0 {
-				*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 % int32(255))
-			}
-			pos = pos + 1
-		}
-		if data != 0 {
-			libc.Xmemcpy(tls, data+uintptr(pos), (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata, uint64(uint32((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1))*uint64(1)+uint64(0*(OpusT___predefined_ptrdiff_t(data+uintptr(pos))-int64((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata))))
-		}
-		pos = pos + (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1
+		return pos
 	}
-	return pos
+	if length < 0 {
+		return -1
+	}
+	lengthBytes := int32(1) + length/255
+	if last != 0 {
+		lengthBytes = 0
+	}
+	if capacity-pos < lengthBytes+length {
+		return -2
+	}
+	var out []byte
+	if data != nil {
+		out = unsafe.Slice(data, capacity)
+	}
+	if last == 0 {
+		for j := int32(0); j < length/255; j++ {
+			if data != nil {
+				out[pos] = 255
+			}
+			pos++
+		}
+		if data != nil {
+			out[pos] = byte(length % 255)
+		}
+		pos++
+	}
+	if data != nil {
+		copy(out[pos:pos+length], unsafe.Slice(payload, length))
+	}
+	return pos + length
+}
+
+func write_extension_payload_legacy(tls *libc.TLS, data uintptr, capacity, pos int32, ext uintptr, last int32) int32 {
+	e := (*OpusT_opus_extension_data)(unsafe.Pointer(ext))
+	return write_extension_payload(tls, (*byte)(unsafe.Pointer(data)), capacity, pos, e.Fid, e.Flen1, (*byte)(unsafe.Pointer(e.Fdata)), last)
 }
 
 func write_extension(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, pos OpusT_opus_int32, ext uintptr, last int32) (r int32) {
@@ -6196,7 +6197,7 @@ func write_extension(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, pos Opu
 		*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid<<int32(1) + v1)
 	}
 	pos = pos + 1
-	return write_extension_payload(tls, data, len1, pos, ext, last)
+	return write_extension_payload_legacy(tls, data, len1, pos, ext, last)
 }
 
 func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions OpusT_opus_int32, nb_frames int32, pad int32) (r OpusT_opus_int32) {
@@ -6396,7 +6397,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 								break
 							}
 							if (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(j1)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fframe == g1 {
-								pos = write_extension_payload(tls, data, len1, pos, extensions+uintptr(j1)*unsafe.Sizeof(OpusT_opus_extension_data{}), libc.BoolInt32(last != 0 && j1 == last_long_idx))
+								pos = write_extension_payload_legacy(tls, data, len1, pos, extensions+uintptr(j1)*unsafe.Sizeof(OpusT_opus_extension_data{}), libc.BoolInt32(last != 0 && j1 == last_long_idx))
 								if pos < 0 {
 									return pos
 								}

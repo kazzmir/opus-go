@@ -8,6 +8,34 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestWritePayloadPointers(t *testing.T) {
+	payload := make([]byte, 255)
+	for i := range payload {
+		payload[i] = byte(i)
+	}
+	out := make([]byte, 260)
+	out[0] = 77
+	out[259] = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	r := write_extension_payload(nil, &out[0], 259, 1, 32, 255, &payload[0], 0)
+	if r != 258 || out[1] != 255 || out[2] != 0 || out[3] != 0 || out[257] != 254 || out[0] != 77 || out[259] != 88 {
+		t.Fatal(r, out)
+	}
+	if write_extension_payload(nil, nil, 259, 1, 32, 255, nil, 0) != 258 {
+		t.Fatal("size-only")
+	}
+	before := append([]byte(nil), out...)
+	if write_extension_payload(nil, &out[0], 2, 1, 32, 255, &payload[0], 0) != -2 {
+		t.Fatal("capacity")
+	}
+	for i := range out {
+		if out[i] != before[i] {
+			t.Fatal("failed write changed data")
+		}
+	}
+}
+
 func TestSkipExtensionPointers(t *testing.T) {
 	p := (*byte)(nil)
 	h := int32(77)
