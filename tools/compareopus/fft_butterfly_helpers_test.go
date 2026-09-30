@@ -3,6 +3,7 @@
 package main
 
 import (
+	libc "github.com/kazzmir/opus-go/libcshim"
 	"github.com/kazzmir/opus-go/opuscc"
 	"math"
 	"slices"
@@ -19,6 +20,43 @@ func sameComplexBits(a, b []opuscc.OpusT_kiss_fft_cpx) bool {
 		}
 	}
 	return true
+}
+
+func TestFFTForwardAgainstC(t *testing.T) {
+	compareFullFFT(t, 1, opuscc.Opus_opus_fft_c)
+}
+
+func compareFullFFT(t *testing.T, op int32, transform func(*libc.TLS, *opuscc.OpusT_kiss_fft_state, *int16, *opuscc.OpusT_kiss_twiddle_cpx, *opuscc.OpusT_kiss_fft_cpx, *opuscc.OpusT_kiss_fft_cpx)) {
+	t.Helper()
+	for _, n := range []int32{4, 8, 16, 32, 60, 120, 240, 480} {
+		for _, shift := range []int32{-1, 0, 1, 2} {
+			for variant := 0; variant < 3; variant++ {
+				st, br, tw := nativeFFTFixture(n, shift)
+				g := make([]opuscc.OpusT_kiss_fft_cpx, n+4)
+				for i := range g {
+					g[i] = opuscc.OpusT_kiss_fft_cpx{Fr: float32(i-13) / 7, Fi: float32(19-i) / 11}
+				}
+				c := slices.Clone(g)
+				input := slices.Clone(g[1 : n+1])
+				ci := slices.Clone(input)
+				if variant == 1 {
+					input = g[:n]
+					ci = c[:n]
+				} else if variant == 2 {
+					input = g[2 : n+2]
+					ci = c[2 : n+2]
+				}
+				before := st
+				brBefore := slices.Clone(br)
+				twBefore := slices.Clone(tw)
+				transform(nil, &st, &br[0], &tw[0], &input[0], &g[1])
+				nativeFFTTransform(&st, br, tw, ci, c[1:], op)
+				if !sameComplexBits(g, c) || st != before || !slices.Equal(br, brBefore) || !slices.Equal(tw, twBefore) {
+					t.Fatal(op, n, shift, variant)
+				}
+			}
+		}
+	}
 }
 
 func TestFFTImplAgainstC(t *testing.T) {

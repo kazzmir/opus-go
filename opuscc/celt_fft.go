@@ -219,27 +219,21 @@ func opus_fft_impl_legacy(tls *libc.TLS, st, fout uintptr) {
 	Opus_opus_fft_impl(tls, state, (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(state.Ftwiddles)), (*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout)))
 }
 
-func Opus_opus_fft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
-	var i int32
-	var scale OpusT_celt_coef
-	var x OpusT_kiss_fft_cpx
-	_, _, _ = i, scale, x
-	scale = (*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fscale
-	if !(fin != fout) {
-		Opus_celt_fatal(tls, __ccgo_ts+3512, __ccgo_ts+3493, int32(626))
+func Opus_opus_fft_c(tls *libc.TLS, st *OpusT_kiss_fft_state, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, fin, fout *OpusT_kiss_fft_cpx) {
+	if fin == fout {
+		Opus_celt_fatal(tls, __ccgo_ts+3512, __ccgo_ts+3493, 626)
 	}
-	/* Bit-reverse the input */
-	i = 0
-	for {
-		if !(i < (*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fnfft) {
-			break
-		}
-		x = *(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fin + uintptr(i)*8))
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fbitrev + uintptr(i)*2)))*8))).Fr = float32(x.Fr * scale)
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fbitrev + uintptr(i)*2)))*8))).Fi = float32(x.Fi * scale)
-		i = i + 1
+	scale := st.Fscale
+	in := unsafe.Slice(fin, st.Fnfft)
+	out := unsafe.Slice(fout, st.Fnfft)
+	rev := unsafe.Slice(bitrev, st.Fnfft)
+	// Forward iteration intentionally preserves C's behavior on partial overlap.
+	for i := range in {
+		x := in[i]
+		out[rev[i]].Fr = float32(x.Fr * scale)
+		out[rev[i]].Fi = float32(x.Fi * scale)
 	}
-	opus_fft_impl_legacy(tls, st, fout)
+	Opus_opus_fft_impl(tls, st, twiddles, fout)
 }
 
 func Opus_opus_ifft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
