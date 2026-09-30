@@ -2,6 +2,18 @@
 
 package opuscc
 
+func CompareMiniFFT(st *OpusT_mini_kiss_fft_state, in, out *OpusT_mini_kiss_fft_cpx, stride int32) {
+	Opus_mini_kiss_fft(nil, st, in, out)
+}
+
+func CompareMiniFFTStride(st *OpusT_mini_kiss_fft_state, in, out *OpusT_mini_kiss_fft_cpx, stride int32) {
+	Opus_mini_kiss_fft_stride(nil, st, in, out, stride)
+}
+
+func CompareMiniFFTWork(st *OpusT_mini_kiss_fft_state, in, out *OpusT_mini_kiss_fft_cpx, stride int32) {
+	kf_work(nil, out, in, 1, stride, st.Ffactors[:], st)
+}
+
 func CompareMiniFFTButterfly5(out, tw *OpusT_mini_kiss_fft_cpx, stride, m uint64, inverse int32) {
 	kf_bfly51(nil, out, stride, tw, int32(m))
 }

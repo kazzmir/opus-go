@@ -2209,36 +2209,37 @@ type OpusDecoder = struct {
 	FrangeFinal           OpusT_opus_uint32
 }
 
-func validate_opus_decoder(tls *libc.TLS, st uintptr) {
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels == int32(1) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, int32(99))
+func validate_opus_decoder(tls *libc.TLS, st *OpusT_OpusDecoder) {
+	if !(st.Fchannels == 1 || st.Fchannels == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 99)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(48000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(24000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(16000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(12000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(8000)) {
-		Opus_celt_fatal(tls, __ccgo_ts+79, __ccgo_ts+57, int32(103))
+	if !(st.FFs == 48000 || st.FFs == 24000 || st.FFs == 16000 || st.FFs == 12000 || st.FFs == 8000) {
+		Opus_celt_fatal(tls, __ccgo_ts+79, __ccgo_ts+57, 103)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FAPI_sampleRate == (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs) {
-		Opus_celt_fatal(tls, __ccgo_ts+188, __ccgo_ts+57, int32(105))
+	if st.FDecControl.FAPI_sampleRate != st.FFs {
+		Opus_celt_fatal(tls, __ccgo_ts+188, __ccgo_ts+57, 105)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FinternalSampleRate == 0 || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FinternalSampleRate == int32(16000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FinternalSampleRate == int32(12000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FinternalSampleRate == int32(8000)) {
-		Opus_celt_fatal(tls, __ccgo_ts+246, __ccgo_ts+57, int32(106))
+	dc := &st.FDecControl
+	if !(dc.FinternalSampleRate == 0 || dc.FinternalSampleRate == 16000 || dc.FinternalSampleRate == 12000 || dc.FinternalSampleRate == 8000) {
+		Opus_celt_fatal(tls, __ccgo_ts+246, __ccgo_ts+57, 106)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FnChannelsAPI == (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels) {
-		Opus_celt_fatal(tls, __ccgo_ts+440, __ccgo_ts+57, int32(107))
+	if dc.FnChannelsAPI != st.Fchannels {
+		Opus_celt_fatal(tls, __ccgo_ts+440, __ccgo_ts+57, 107)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FnChannelsInternal == 0 || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FnChannelsInternal == int32(1) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FnChannelsInternal == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts+502, __ccgo_ts+57, int32(108))
+	if !(dc.FnChannelsInternal == 0 || dc.FnChannelsInternal == 1 || dc.FnChannelsInternal == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts+502, __ccgo_ts+57, 108)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == 0 || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == int32(10) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == int32(20) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == int32(40) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == int32(60)) {
-		Opus_celt_fatal(tls, __ccgo_ts+640, __ccgo_ts+57, int32(109))
+	if !(dc.FpayloadSize_ms == 0 || dc.FpayloadSize_ms == 10 || dc.FpayloadSize_ms == 20 || dc.FpayloadSize_ms == 40 || dc.FpayloadSize_ms == 60) {
+		Opus_celt_fatal(tls, __ccgo_ts+640, __ccgo_ts+57, 109)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Farch >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+849, __ccgo_ts+57, int32(111))
+	if st.Farch < 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+849, __ccgo_ts+57, 111)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Farch <= int32(OPUS_ARCHMASK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+881, __ccgo_ts+57, int32(112))
+	if st.Farch > OPUS_ARCHMASK {
+		Opus_celt_fatal(tls, __ccgo_ts+881, __ccgo_ts+57, 112)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fstream_channels == int32(1) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fstream_channels == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts+925, __ccgo_ts+57, int32(114))
+	if !(st.Fstream_channels == 1 || st.Fstream_channels == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts+925, __ccgo_ts+57, 114)
 	}
 }
 
@@ -3267,7 +3268,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	var padding_len OpusT_opus_int32
 	var iter OpusT_OpusExtensionIterator
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
-	validate_opus_decoder(tls, st)
+	validate_opus_decoder(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)))
 	if decode_fec < 0 || decode_fec > int32(1) {
 		return -int32(1)
 	}
@@ -4270,8 +4271,9 @@ var tapset_icdf3 = [3]uint8{
 
 /* DECODER */
 
-func validate_ms_decoder(tls *libc.TLS, st uintptr) {
-	Opus_validate_layout(tls, &(*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout)
+func validate_ms_decoder(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
+	// Preserve C's ignored layout result: this helper does not assert on it.
+	Opus_validate_layout(tls, &st.Flayout)
 }
 
 func Opus_opus_multistream_decoder_get_size(tls *libc.TLS, nb_streams int32, nb_coupled_streams int32) (r OpusT_opus_int32) {
@@ -4490,7 +4492,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	validate_ms_decoder(tls, st1)
+	validate_ms_decoder(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)))
 	if frame_size <= 0 {
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
@@ -5648,54 +5650,56 @@ var tapset_icdf6 = [3]uint8{
 //	   N.B., a "Repeat These Extensions" extension (ID==2) does not advance past
 //	    the repeated extension payloads.
 //	   That requires higher-level logic. */
-func skip_extension_payload(tls *libc.TLS, pdata uintptr, len1 OpusT_opus_int32, pheader_size uintptr, id_byte int32, trailing_short_len OpusT_opus_int32) (r OpusT_opus_int32) {
-	var L, id int32
-	var bytes, header_size, lacing OpusT_opus_int32
-	var data, v1 uintptr
-	_, _, _, _, _, _, _ = L, bytes, data, header_size, id, lacing, v1
-	data = *(*uintptr)(unsafe.Pointer(pdata))
-	header_size = 0
-	id = id_byte >> int32(1)
-	L = id_byte & int32(1)
-	if id == 0 && L == int32(1) || id == int32(2) {
-		/* Nothing to do. */
+func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSize *int32, idByte, trailingShort int32) int32 {
+	data := *pdata
+	header := int32(0)
+	id, L := idByte>>1, idByte&1
+	if (id == 0 && L == 1) || id == 2 {
+	} else if id > 0 && id < 32 {
+		if length < L {
+			return -1
+		}
+		data = (*byte)(unsafe.Add(unsafe.Pointer(data), L))
+		length -= L
+	} else if L == 0 {
+		if length < trailingShort {
+			return -1
+		}
+		data = (*byte)(unsafe.Add(unsafe.Pointer(data), length-trailingShort))
+		length = trailingShort
 	} else {
-		if id > 0 && id < int32(32) {
-			if len1 < L {
-				return -int32(1)
+		bytes := int32(0)
+		for {
+			if length < 1 {
+				return -1
 			}
-			data = data + uintptr(L)
-			len1 = len1 - L
-		} else {
-			if L == 0 {
-				if len1 < trailing_short_len {
-					return -int32(1)
-				}
-				data = data + uintptr(len1-trailing_short_len)
-				len1 = trailing_short_len
-			} else {
-				bytes = 0
-				for cond := true; cond; cond = lacing == int32(255) {
-					if len1 < int32(1) {
-						return -int32(1)
-					}
-					v1 = data
-					data = data + 1
-					lacing = int32(*(*uint8)(unsafe.Pointer(v1)))
-					bytes = bytes + lacing
-					header_size = header_size + 1
-					len1 = len1 - (lacing + int32(1))
-				}
-				if len1 < 0 {
-					return -int32(1)
-				}
-				data = data + uintptr(bytes)
+			lacing := int32(*data)
+			data = (*byte)(unsafe.Add(unsafe.Pointer(data), 1))
+			bytes += lacing
+			header++
+			length -= lacing + 1
+			if lacing != 255 {
+				break
 			}
 		}
+		if length < 0 {
+			return -1
+		}
+		data = (*byte)(unsafe.Add(unsafe.Pointer(data), bytes))
 	}
-	*(*uintptr)(unsafe.Pointer(pdata)) = data
-	*(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) = header_size
-	return len1
+	*pdata = data
+	*headerSize = header
+	return length
+}
+
+// Explicit remaining iterator boundary; iterator-owned packet addresses are still integers.
+func skip_extension_payload_legacy(tls *libc.TLS, pdata uintptr, length int32, header uintptr, idByte, trailingShort int32) int32 {
+	data := (*byte)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(pdata))))
+	result := skip_extension_payload(tls, &data, length, (*int32)(unsafe.Pointer(header)), idByte, trailingShort)
+	if result >= 0 {
+		*(*uintptr)(unsafe.Pointer(pdata)) = uintptr(unsafe.Pointer(data))
+	}
+	return result
 }
 
 // C documentation
@@ -5706,28 +5710,32 @@ func skip_extension_payload(tls *libc.TLS, pdata uintptr, len1 OpusT_opus_int32,
 //	    extension ID byte.
 //	   Higher-level logic is required to skip the extension payloads that come
 //	    after it.*/
-func skip_extension(tls *libc.TLS, pdata uintptr, len1 OpusT_opus_int32, pheader_size uintptr) (r OpusT_opus_int32) {
-	var id_byte int32
-	var data, v1 uintptr
-	_, _, _ = data, id_byte, v1
-	if len1 == 0 {
-		*(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) = 0
+func skip_extension(tls *libc.TLS, pdata **byte, length int32, header *int32) int32 {
+	if length == 0 {
+		*header = 0
 		return 0
 	}
-	if len1 < int32(1) {
-		return -int32(1)
+	if length < 1 {
+		return -1
 	}
-	data = *(*uintptr)(unsafe.Pointer(pdata))
-	v1 = data
-	data++
-	id_byte = int32(*(*uint8)(unsafe.Pointer(v1)))
-	len1 = len1 - 1
-	len1 = skip_extension_payload(tls, uintptr(unsafe.Pointer(&data)), len1, pheader_size, id_byte, 0)
-	if len1 >= 0 {
-		*(*uintptr)(unsafe.Pointer(pdata)) = data
-		*(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) = *(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) + 1
+	data := *pdata
+	id := int32(*data)
+	data = (*byte)(unsafe.Add(unsafe.Pointer(data), 1))
+	result := skip_extension_payload(tls, &data, length-1, header, id, 0)
+	if result >= 0 {
+		*pdata = data
+		*header += 1
 	}
-	return len1
+	return result
+}
+
+func skip_extension_legacy(tls *libc.TLS, pdata uintptr, length int32, header uintptr) int32 {
+	data := (*byte)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(pdata))))
+	result := skip_extension(tls, &data, length, (*int32)(unsafe.Pointer(header)))
+	if result >= 0 {
+		*(*uintptr)(unsafe.Pointer(pdata)) = uintptr(unsafe.Pointer(data))
+	}
+	return result
 }
 
 func Opus_opus_extension_iterator_init(tls *libc.TLS, iter uintptr, data uintptr, len1 OpusT_opus_int32, nb_frames OpusT_opus_int32) {
@@ -5811,7 +5819,7 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter uintptr, ext uintpt
 		}
 		for (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len > 0 {
 			repeat_id_byte = int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_data)))
-			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len = skip_extension(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fsrc_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len, uintptr(unsafe.Pointer(&header_size)))
+			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len = skip_extension_legacy(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fsrc_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len, uintptr(unsafe.Pointer(&header_size)))
 			/* We skipped this extension earlier, so it should not fail now. */
 			if !((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len >= int32(0)) {
 				Opus_celt_fatal(tls, __ccgo_ts+2628, __ccgo_ts+2472, int32(169))
@@ -5827,7 +5835,7 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter uintptr, ext uintpt
 				repeat_id_byte = repeat_id_byte & ^int32(1)
 			}
 			curr_data0 = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data
-			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension_payload(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fcurr_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, uintptr(unsafe.Pointer(&header_size)), repeat_id_byte, (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len)
+			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension_payload_legacy(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fcurr_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, uintptr(unsafe.Pointer(&header_size)), repeat_id_byte, (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len)
 			if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len < 0 {
 				return -int32(4)
 			}
@@ -5898,7 +5906,7 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter uintptr, ext uintptr)
 		curr_data0 = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data
 		id = int32(*(*uint8)(unsafe.Pointer(curr_data0))) >> int32(1)
 		L = int32(*(*uint8)(unsafe.Pointer(curr_data0))) & int32(1)
-		(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fcurr_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, uintptr(unsafe.Pointer(&header_size)))
+		(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension_legacy(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fcurr_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, uintptr(unsafe.Pointer(&header_size)))
 		if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len < 0 {
 			return -int32(4)
 		}
@@ -6115,59 +6123,60 @@ func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data uintptr, len1 Opu
 	return ret
 }
 
-func write_extension_payload(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, pos OpusT_opus_int32, ext uintptr, last int32) (r int32) {
-	var j, length_bytes OpusT_opus_int32
-	_, _ = j, length_bytes
-	if !((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid >= int32(3) && (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid <= int32(127)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, int32(425))
+func write_extension_payload(tls *libc.TLS, data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
+	if id < 3 || id > 127 {
+		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 425)
 	}
-	if (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid < int32(32) {
-		if (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 < 0 || (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 > int32(1) {
-			return -int32(1)
+	if id < 32 {
+		if length < 0 || length > 1 {
+			return -1
 		}
-		if (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 > 0 {
-			if len1-pos < (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 {
-				return -int32(2)
+		if length > 0 {
+			if capacity-pos < length {
+				return -2
 			}
-			if data != 0 {
-				*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = *(*uint8)(unsafe.Pointer((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata))
+			if data != nil {
+				unsafe.Slice(data, capacity)[pos] = *payload
 			}
-			pos = pos + 1
+			pos++
 		}
-	} else {
-		if (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 < 0 {
-			return -int32(1)
-		}
-		length_bytes = int32(1) + (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1/int32(255)
-		if last != 0 {
-			length_bytes = 0
-		}
-		if len1-pos < length_bytes+(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 {
-			return -int32(2)
-		}
-		if !(last != 0) {
-			j = 0
-			for {
-				if !(j < (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1/int32(255)) {
-					break
-				}
-				if data != 0 {
-					*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8(255)
-				}
-				pos = pos + 1
-				j = j + 1
-			}
-			if data != 0 {
-				*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 % int32(255))
-			}
-			pos = pos + 1
-		}
-		if data != 0 {
-			libc.Xmemcpy(tls, data+uintptr(pos), (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata, uint64(uint32((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1))*uint64(1)+uint64(0*(OpusT___predefined_ptrdiff_t(data+uintptr(pos))-int64((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata))))
-		}
-		pos = pos + (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1
+		return pos
 	}
-	return pos
+	if length < 0 {
+		return -1
+	}
+	lengthBytes := int32(1) + length/255
+	if last != 0 {
+		lengthBytes = 0
+	}
+	if capacity-pos < lengthBytes+length {
+		return -2
+	}
+	var out []byte
+	if data != nil {
+		out = unsafe.Slice(data, capacity)
+	}
+	if last == 0 {
+		for j := int32(0); j < length/255; j++ {
+			if data != nil {
+				out[pos] = 255
+			}
+			pos++
+		}
+		if data != nil {
+			out[pos] = byte(length % 255)
+		}
+		pos++
+	}
+	if data != nil {
+		copy(out[pos:pos+length], unsafe.Slice(payload, length))
+	}
+	return pos + length
+}
+
+func write_extension_payload_legacy(tls *libc.TLS, data uintptr, capacity, pos int32, ext uintptr, last int32) int32 {
+	e := (*OpusT_opus_extension_data)(unsafe.Pointer(ext))
+	return write_extension_payload(tls, (*byte)(unsafe.Pointer(data)), capacity, pos, e.Fid, e.Flen1, (*byte)(unsafe.Pointer(e.Fdata)), last)
 }
 
 func write_extension(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, pos OpusT_opus_int32, ext uintptr, last int32) (r int32) {
@@ -6188,7 +6197,7 @@ func write_extension(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, pos Opu
 		*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid<<int32(1) + v1)
 	}
 	pos = pos + 1
-	return write_extension_payload(tls, data, len1, pos, ext, last)
+	return write_extension_payload_legacy(tls, data, len1, pos, ext, last)
 }
 
 func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions OpusT_opus_int32, nb_frames int32, pad int32) (r OpusT_opus_int32) {
@@ -6388,7 +6397,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 								break
 							}
 							if (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(j1)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fframe == g1 {
-								pos = write_extension_payload(tls, data, len1, pos, extensions+uintptr(j1)*unsafe.Sizeof(OpusT_opus_extension_data{}), libc.BoolInt32(last != 0 && j1 == last_long_idx))
+								pos = write_extension_payload_legacy(tls, data, len1, pos, extensions+uintptr(j1)*unsafe.Sizeof(OpusT_opus_extension_data{}), libc.BoolInt32(last != 0 && j1 == last_long_idx))
 								if pos < 0 {
 									return pos
 								}

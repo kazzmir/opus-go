@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math/bits"
 	"reflect"
 	"unsafe"
 
@@ -12,67 +13,67 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_validate_celt_decoder(tls *libc.TLS, st uintptr) {
-	mode, _ := Opus_opus_custom_mode_create(tls, int32(48000), int32(960))
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode == mode) {
-		Opus_celt_fatal(tls, __ccgo_ts+3695, __ccgo_ts+3767, int32(147))
+func Opus_validate_celt_decoder(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
+	mode, _ := Opus_opus_custom_mode_create(tls, 48000, 960)
+	if st.Fmode != mode {
+		Opus_celt_fatal(tls, __ccgo_ts+3695, __ccgo_ts+3767, 147)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap == int32(120)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3790, __ccgo_ts+3767, int32(148))
+	if st.Foverlap != 120 {
+		Opus_celt_fatal(tls, __ccgo_ts+3790, __ccgo_ts+3767, 148)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fend <= int32(21)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3827, __ccgo_ts+3767, int32(149))
+	if st.Fend > 21 {
+		Opus_celt_fatal(tls, __ccgo_ts+3827, __ccgo_ts+3767, 149)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fchannels == int32(1) || (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fchannels == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+3767, int32(157))
+	if !(st.Fchannels == 1 || st.Fchannels == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+3767, 157)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fstream_channels == int32(1) || (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fstream_channels == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts+925, __ccgo_ts+3767, int32(158))
+	if !(st.Fstream_channels == 1 || st.Fstream_channels == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts+925, __ccgo_ts+3767, 158)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fdownsample > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3859, __ccgo_ts+3767, int32(159))
+	if st.Fdownsample <= 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+3859, __ccgo_ts+3767, 159)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fstart == 0 || (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fstart == int32(17)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3896, __ccgo_ts+3767, int32(160))
+	if !(st.Fstart == 0 || st.Fstart == 17) {
+		Opus_celt_fatal(tls, __ccgo_ts+3896, __ccgo_ts+3767, 160)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fstart < (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fend) {
-		Opus_celt_fatal(tls, __ccgo_ts+3948, __ccgo_ts+3767, int32(161))
+	if st.Fstart >= st.Fend {
+		Opus_celt_fatal(tls, __ccgo_ts+3948, __ccgo_ts+3767, 161)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Farch >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+849, __ccgo_ts+3767, int32(163))
+	if st.Farch < 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+849, __ccgo_ts+3767, 163)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Farch <= int32(OPUS_ARCHMASK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+881, __ccgo_ts+3767, int32(164))
+	if st.Farch > OPUS_ARCHMASK {
+		Opus_celt_fatal(tls, __ccgo_ts+881, __ccgo_ts+3767, 164)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Flast_pitch_index <= int32(PLC_PITCH_LAG_MAX)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3986, __ccgo_ts+3767, int32(167))
+	if st.Flast_pitch_index > PLC_PITCH_LAG_MAX {
+		Opus_celt_fatal(tls, __ccgo_ts+3986, __ccgo_ts+3767, 167)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Flast_pitch_index >= int32(PLC_PITCH_LAG_MIN) || (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Flast_pitch_index == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+4046, __ccgo_ts+3767, int32(168))
+	if !(st.Flast_pitch_index >= PLC_PITCH_LAG_MIN || st.Flast_pitch_index == 0) {
+		Opus_celt_fatal(tls, __ccgo_ts+4046, __ccgo_ts+3767, 168)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_period < int32(MAX_PERIOD)) {
-		Opus_celt_fatal(tls, __ccgo_ts+4135, __ccgo_ts+3767, int32(170))
+	if st.Fpostfilter_period >= MAX_PERIOD {
+		Opus_celt_fatal(tls, __ccgo_ts+4135, __ccgo_ts+3767, 170)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_period >= int32(COMBFILTER_MINPERIOD) || (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_period == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+4188, __ccgo_ts+3767, int32(171))
+	if !(st.Fpostfilter_period >= COMBFILTER_MINPERIOD || st.Fpostfilter_period == 0) {
+		Opus_celt_fatal(tls, __ccgo_ts+4188, __ccgo_ts+3767, 171)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_period_old < int32(MAX_PERIOD)) {
-		Opus_celt_fatal(tls, __ccgo_ts+4282, __ccgo_ts+3767, int32(172))
+	if st.Fpostfilter_period_old >= MAX_PERIOD {
+		Opus_celt_fatal(tls, __ccgo_ts+4282, __ccgo_ts+3767, 172)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_period_old >= int32(COMBFILTER_MINPERIOD) || (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_period_old == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+4339, __ccgo_ts+3767, int32(173))
+	if !(st.Fpostfilter_period_old >= COMBFILTER_MINPERIOD || st.Fpostfilter_period_old == 0) {
+		Opus_celt_fatal(tls, __ccgo_ts+4339, __ccgo_ts+3767, 173)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_tapset <= int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts+4441, __ccgo_ts+3767, int32(174))
+	if st.Fpostfilter_tapset > 2 {
+		Opus_celt_fatal(tls, __ccgo_ts+4441, __ccgo_ts+3767, 174)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_tapset >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+4486, __ccgo_ts+3767, int32(175))
+	if st.Fpostfilter_tapset < 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+4486, __ccgo_ts+3767, 175)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_tapset_old <= int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts+4531, __ccgo_ts+3767, int32(176))
+	if st.Fpostfilter_tapset_old > 2 {
+		Opus_celt_fatal(tls, __ccgo_ts+4531, __ccgo_ts+3767, 176)
 	}
-	if !((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fpostfilter_tapset_old >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+4580, __ccgo_ts+3767, int32(177))
+	if st.Fpostfilter_tapset_old < 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+4580, __ccgo_ts+3767, 177)
 	}
 }
 
@@ -80,14 +81,12 @@ func Opus_celt_decoder_get_size(tls *libc.TLS, channels int32) (r int32) {
 	var mode uintptr
 	_ = mode
 	mode, _ = Opus_opus_custom_mode_create(tls, int32(48000), int32(960))
-	return opus_custom_decoder_get_size(tls, mode, channels)
+	return opus_custom_decoder_get_size(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), channels)
 }
 
-func opus_custom_decoder_get_size(tls *libc.TLS, mode uintptr, channels int32) (r int32) {
-	var size int32
-	_ = size
-	size = int32(uint64(unsafe.Sizeof(OpusT_OpusCustomDecoder{})) + uint64(uint32(channels*(int32(DEC_PITCH_BUF_SIZE)+(*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap)-int32(1)))*uint64(4) + uint64(uint32(int32(4)*int32(2)*(*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FnbEBands))*uint64(4) + uint64(uint32(channels*int32(CELT_LPC_ORDER)))*uint64(4))
-	return size
+func opus_custom_decoder_get_size(tls *libc.TLS, mode *OpusT_OpusCustomMode, channels int32) int32 {
+	// The generated uint64 expression narrowed to int32; preserve its low 32 bits.
+	return int32(unsafe.Sizeof(OpusT_OpusCustomDecoder{})) + (channels*(DEC_PITCH_BUF_SIZE+mode.Foverlap)-1)*4 + mode.FnbEBands*32 + channels*CELT_LPC_ORDER*4
 }
 
 func Opus_celt_decoder_init(tls *libc.TLS, st uintptr, sampling_rate OpusT_opus_int32, channels int32) (r int32) {
@@ -116,7 +115,7 @@ func opus_custom_decoder_init(tls *libc.TLS, st uintptr, mode uintptr, channels 
 	if st == uintptr(uint32(0)) {
 		return -int32(7)
 	}
-	libc.Xmemset(tls, st, 0, uint64(uint32(opus_custom_decoder_get_size(tls, mode, channels)))*uint64(1))
+	libc.Xmemset(tls, st, 0, uint64(uint32(opus_custom_decoder_get_size(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), channels)))*uint64(1))
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode = mode
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
 	v1 = channels
@@ -526,58 +525,39 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
-func tf_decode(tls *libc.TLS, start int32, end int32, isTransient int32, tf_res uintptr, LM int32, dec uintptr) {
-	var budget, tell OpusT_opus_uint32
-	var curr, i, logp, tf_changed, tf_select, tf_select_rsv, v2 int32
-	var v1 uintptr
-	_, _, _, _, _, _, _, _, _, _ = budget, curr, i, logp, tell, tf_changed, tf_select, tf_select_rsv, v1, v2
-	budget = (*OpusT_ec_dec)(unsafe.Pointer(dec)).Fstorage * uint32(8)
-	v1 = dec
-	v2 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	tell = uint32(v2)
+func tf_decode(tls *libc.TLS, start, end, isTransient int32, tfRes *int32, LM int32, dec *OpusT_ec_dec) {
+	budget := dec.Fstorage * 8
+	tell := uint32(dec.Fnbits_total - int32(bits.Len32(dec.Frng)))
+	logp := int32(4)
 	if isTransient != 0 {
-		v2 = int32(2)
-	} else {
-		v2 = int32(4)
+		logp = 2
 	}
-	logp = v2
-	tf_select_rsv = libc.BoolInt32(LM > 0 && tell+uint32(logp)+uint32(1) <= budget)
-	budget = budget - uint32(tf_select_rsv)
-	v2 = int32(0)
-	curr = v2
-	tf_changed = v2
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
+	reserved := int32(0)
+	if LM > 0 && tell+uint32(logp)+1 <= budget {
+		reserved = 1
+	}
+	budget -= uint32(reserved)
+	out := unsafe.Slice(tfRes, end)
+	curr, changed := int32(0), int32(0)
+	for i := start; i < end; i++ {
 		if tell+uint32(logp) <= budget {
-			curr = curr ^ Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(logp))
-			v1 = dec
-			v2 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-			tell = uint32(v2)
-			tf_changed = tf_changed | curr
+			curr ^= Opus_ec_dec_bit_logp(tls, dec, uint32(logp))
+			tell = uint32(dec.Fnbits_total - int32(bits.Len32(dec.Frng)))
+			changed |= curr
 		}
-		*(*int32)(unsafe.Pointer(tf_res + uintptr(i)*4)) = curr
+		out[i] = curr
+		logp = 5
 		if isTransient != 0 {
-			v2 = int32(4)
-		} else {
-			v2 = int32(5)
+			logp = 4
 		}
-		logp = v2
-		i = i + 1
 	}
-	tf_select = 0
-	if tf_select_rsv != 0 && int32(*(*int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_tf_select_table)) + uintptr(LM)*8 + uintptr(int32(4)*isTransient+0+tf_changed)))) != int32(*(*int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_tf_select_table)) + uintptr(LM)*8 + uintptr(int32(4)*isTransient+int32(2)+tf_changed)))) {
-		tf_select = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1))
+	selectBit := int32(0)
+	table := Opus_tf_select_table[LM]
+	if reserved != 0 && table[4*isTransient+changed] != table[4*isTransient+2+changed] {
+		selectBit = Opus_ec_dec_bit_logp(tls, dec, 1)
 	}
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
-		*(*int32)(unsafe.Pointer(tf_res + uintptr(i)*4)) = int32(*(*int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_tf_select_table)) + uintptr(LM)*8 + uintptr(int32(4)*isTransient+int32(2)*tf_select+*(*int32)(unsafe.Pointer(tf_res + uintptr(i)*4))))))
-		i = i + 1
+	for i := start; i < end; i++ {
+		out[i] = int32(table[4*isTransient+2*selectBit+out[i]])
 	}
 }
 
@@ -1472,7 +1452,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
-	Opus_validate_celt_decoder(tls, st1)
+	Opus_validate_celt_decoder(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
 	mode = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode
 	nbEBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FnbEBands
 	overlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
@@ -1770,7 +1750,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	v21 = st
 	tf_res = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(nbEBands))*(uint64(4)/uint64(1)))
-	tf_decode(tls, start, end, isTransient, tf_res, LM, dec)
+	tf_decode(tls, start, end, isTransient, (*int32)(unsafe.Pointer(tf_res)), LM, (*OpusT_ec_dec)(unsafe.Pointer(dec)))
 	v1 = dec
 	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
 	tell = v28

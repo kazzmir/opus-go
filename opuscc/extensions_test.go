@@ -1,11 +1,92 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestWritePayloadPointers(t *testing.T) {
+	payload := make([]byte, 255)
+	for i := range payload {
+		payload[i] = byte(i)
+	}
+	out := make([]byte, 260)
+	out[0] = 77
+	out[259] = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	r := write_extension_payload(nil, &out[0], 259, 1, 32, 255, &payload[0], 0)
+	if r != 258 || out[1] != 255 || out[2] != 0 || out[3] != 0 || out[257] != 254 || out[0] != 77 || out[259] != 88 {
+		t.Fatal(r, out)
+	}
+	if write_extension_payload(nil, nil, 259, 1, 32, 255, nil, 0) != 258 {
+		t.Fatal("size-only")
+	}
+	before := append([]byte(nil), out...)
+	if write_extension_payload(nil, &out[0], 2, 1, 32, 255, &payload[0], 0) != -2 {
+		t.Fatal("capacity")
+	}
+	for i := range out {
+		if out[i] != before[i] {
+			t.Fatal("failed write changed data")
+		}
+	}
+}
+
+func TestSkipExtensionPointers(t *testing.T) {
+	p := (*byte)(nil)
+	h := int32(77)
+	if skip_extension(nil, &p, 0, &h) != 0 || h != 0 || p != nil {
+		t.Fatal("empty")
+	}
+	h = 77
+	if skip_extension(nil, &p, -1, &h) != -1 || h != 77 {
+		t.Fatal("negative")
+	}
+	data := [6]byte{65, 2, 11, 12, 3, 99}
+	p = &data[0]
+	h = 77
+	if r := skip_extension(nil, &p, 6, &h); r != 2 || h != 2 || p != &data[4] {
+		t.Fatal(r, h, p)
+	}
+	p = &data[0]
+	h = 77
+	if r := skip_extension(nil, &p, 1, &h); r != -1 || h != 77 || p != &data[0] {
+		t.Fatal("error committed", r, h, p)
+	}
+}
+
+func TestSkipPayloadPointers(t *testing.T) {
+	data := [8]byte{3, 1, 2, 3, 4, 5, 6, 7}
+	p := &data[0]
+	h := int32(77)
+	if r := skip_extension_payload(nil, &p, 8, &h, 65, 0); r != 4 || p != &data[4] || h != 1 {
+		t.Fatal(r, p, h)
+	}
+	before := p
+	h = 77
+	if r := skip_extension_payload(nil, &p, 1, &h, 65, 0); r != -1 || p != before || h != 77 {
+		t.Fatal("error committed output")
+	}
+	var owner *byte
+	func() {
+		b := make([]byte, 8)
+		b[0] = 1
+		b[2] = 99
+		p := &b[0]
+		h := int32(0)
+		skip_extension_payload(nil, &p, 8, &h, 65, 0)
+		owner = p
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *owner != 99 {
+		t.Fatal("interior ownership")
+	}
+}
 
 func TestRepeatedExtensionIterator(t *testing.T) {
 	tls := libc.NewTLS()

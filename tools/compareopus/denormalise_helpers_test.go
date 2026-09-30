@@ -12,6 +12,36 @@ import (
 	"unsafe"
 )
 
+func TestBandEnergiesAgainstC(t *testing.T) {
+	bands := []int16{1, 2, 2, 4, 7}
+	const nb = 6
+	const size = 10
+	levels := []float32{0, .5, -.5, 1e-20, -1e-10, 1e10, 1e20, float32(math.Inf(1)), math.Float32frombits(0x7fc01234)}
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, C := range []int32{0, 1, 2} {
+			for end := int32(0); end <= 4; end++ {
+				for trial := 0; trial < len(levels); trial++ {
+					freq := make([]float32, max(C, 1)*size<<LM)
+					for i := range freq {
+						freq[i] = levels[(trial+i)%len(levels)]
+					}
+					before := slices.Clone(freq)
+					g := make([]float32, max(C, 1)*nb+2)
+					for i := range g {
+						g[i] = 77
+					}
+					c := slices.Clone(g)
+					opuscc.Opus_compute_band_energies(nil, &bands[0], size, nb, &freq[0], &g[1], end, C, LM, 0)
+					nativeBandEnergies(bands, nb, size, freq, c[1:len(c)-1], end, C, LM)
+					if !sameFloatBits(g, c) || !sameFloatBits(freq, before) {
+						t.Fatal(LM, C, end, trial)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestNormaliseBandsAgainstC(t *testing.T) {
 	bands := []int16{1, 2, 2, 4, 7}
 	const nb = 6

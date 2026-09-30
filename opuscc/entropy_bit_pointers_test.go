@@ -2,6 +2,19 @@ package opuscc
 
 import "testing"
 
+func TestTFDecodePointers(t *testing.T) {
+	dec := OpusT_ec_dec{}
+	Opus_ec_dec_init(nil, &dec, nil, 0)
+	out := [6]int32{77, 9, 9, 9, 9, 88}
+	tf_decode(nil, 1, 5, 0, &out[0], 0, &dec)
+	if out != [6]int32{77, 0, 0, 0, 0, 88} {
+		t.Fatal(out)
+	}
+	dec = OpusT_ec_dec{}
+	Opus_ec_dec_init(nil, &dec, nil, 0)
+	tf_decode(nil, 0, 0, 0, nil, 0, &dec)
+}
+
 func TestEntropyBitPointers(t *testing.T) {
 	for _, logp := range []uint32{1, 2, 7, 8, 15, 24, 31} {
 		const rng = uint32(1 << 31)

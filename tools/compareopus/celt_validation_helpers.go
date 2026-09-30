@@ -1,0 +1,76 @@
+//go:build compareopus && cgo
+
+package main
+
+/*
+#include <setjmp.h>
+static _Thread_local jmp_buf celt_validation_jump;
+void comparison_celt_validator_fatal(const char *str,const char *file,int line) {longjmp(celt_validation_jump,1);}
+#define celt_fatal comparison_celt_validator_fatal
+#define VAR_ARRAYS 1
+#define OPUS_BUILD 1
+#define ENABLE_ASSERTIONS 1
+#define OPUS_DISABLE_INTRINSICS 1
+#define validate_celt_decoder comparison_celt_validate
+#define celt_decoder_get_size comparison_celt_size
+#define opus_custom_decoder_get_size comparison_custom_size
+#define opus_custom_decoder_create comparison_custom_create
+#define celt_decoder_init comparison_celt_init
+#define opus_custom_decoder_init comparison_custom_init
+#define opus_custom_decoder_destroy comparison_custom_destroy
+#define celt_synthesis comparison_celt_synthesis
+#define celt_decode_with_ec_dred comparison_celt_decode_dred
+#define celt_decode_with_ec comparison_celt_decode_ec
+#define opus_custom_decode comparison_custom_decode
+#define opus_custom_decode24 comparison_custom_decode24
+#define opus_custom_decode_float comparison_custom_decode_float
+#define opus_custom_decoder_ctl comparison_custom_ctl
+#include "../../../opus/celt/celt_decoder.c"
+static void native_tf(unsigned *s,unsigned char *data,int start,int end,int transient,int *out,int LM) {
+ ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=s[3];dec.nbits_total=s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=s[9];dec.error=s[10];
+ tf_decode(start,end,transient,out,LM,&dec);
+ s[0]=dec.storage;s[1]=dec.end_offs;s[2]=dec.end_window;s[3]=dec.nend_bits;s[4]=dec.nbits_total;s[5]=dec.offs;s[6]=dec.rng;s[7]=dec.val;s[8]=dec.ext;s[9]=dec.rem;s[10]=dec.error;
+}
+static int native_custom_size(int overlap,int bands,int channels) {CELTMode mode={0};mode.overlap=overlap;mode.nbEBands=bands;return comparison_custom_size(&mode,channels);}
+static int native_celt_validation(const int *v,int badmode) {
+ CELTDecoder st={0};st.mode=badmode?NULL:opus_custom_mode_create(48000,960,NULL);
+ st.overlap=v[0];st.end=v[1];st.channels=v[2];st.stream_channels=v[3];st.downsample=v[4];st.start=v[5];st.arch=v[6];st.last_pitch_index=v[7];st.postfilter_period=v[8];st.postfilter_period_old=v[9];st.postfilter_tapset=v[10];st.postfilter_tapset_old=v[11];
+ if(setjmp(celt_validation_jump)) return 1;
+ comparison_celt_validate(&st);return 0;
+}
+*/
+import "C"
+import (
+	"github.com/kazzmir/opus-go/opuscc"
+	"unsafe"
+)
+
+func nativeTFDecode(dec *opuscc.OpusT_ec_dec, data []byte, start, end, transient int32, out []int32, LM int32) {
+	s := [11]C.uint{C.uint(dec.Fstorage), C.uint(dec.Fend_offs), C.uint(dec.Fend_window), C.uint(dec.Fnend_bits), C.uint(dec.Fnbits_total), C.uint(dec.Foffs), C.uint(dec.Frng), C.uint(dec.Fval), C.uint(dec.Fext), C.uint(dec.Frem), C.uint(dec.Ferror1)}
+	C.native_tf(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(start), C.int(end), C.int(transient), (*C.int)(unsafe.Pointer(unsafe.SliceData(out))), C.int(LM))
+	dec.Fstorage = uint32(s[0])
+	dec.Fend_offs = uint32(s[1])
+	dec.Fend_window = uint32(s[2])
+	dec.Fnend_bits = int32(s[3])
+	dec.Fnbits_total = int32(s[4])
+	dec.Foffs = uint32(s[5])
+	dec.Frng = uint32(s[6])
+	dec.Fval = uint32(s[7])
+	dec.Fext = uint32(s[8])
+	dec.Frem = int32(s[9])
+	dec.Ferror1 = int32(s[10])
+}
+
+func nativeCustomDecoderSize(overlap, bands, channels int32) int32 {
+	return int32(C.native_custom_size(C.int(overlap), C.int(bands), C.int(channels)))
+}
+
+func nativeCeltValidation(st *opuscc.OpusT_OpusCustomDecoder) bool {
+	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	badmode := int32(0)
+	if st.Fmode != mode {
+		badmode = 1
+	}
+	v := [12]int32{st.Foverlap, st.Fend, st.Fchannels, st.Fstream_channels, st.Fdownsample, st.Fstart, st.Farch, st.Flast_pitch_index, st.Fpostfilter_period, st.Fpostfilter_period_old, st.Fpostfilter_tapset, st.Fpostfilter_tapset_old}
+	return C.native_celt_validation((*C.int)(unsafe.Pointer(&v[0])), C.int(badmode)) != 0
+}

@@ -5,7 +5,94 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+	"unsafe"
 )
+
+func miniPointerFixture(n, inverse int32) *OpusT_mini_kiss_fft_state {
+	backing := make([]uint64, (264+8*int(n)+7)/8)
+	st := (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(&backing[0]))
+	st.Fnfft = n
+	st.Finverse = inverse
+	kf_factor(nil, n, &st.Ffactors)
+	tw := unsafe.Slice(&st.Ftwiddles[0], n)
+	for i := range tw {
+		phase := -2 * math.Pi * float64(i) / float64(n)
+		if inverse != 0 {
+			phase = -phase
+		}
+		tw[i] = OpusT_mini_kiss_fft_cpx{Fr: float32(math.Cos(phase)), Fi: float32(math.Sin(phase))}
+	}
+	return st
+}
+
+func TestMiniFFTPointers(t *testing.T) {
+	st := miniPointerFixture(4, 0)
+	inverse := miniPointerFixture(4, 1)
+	in := [4]OpusT_mini_kiss_fft_cpx{{Fr: 1, Fi: 2}, {Fr: -3, Fi: 4}, {Fr: 5, Fi: -6}, {Fr: 7, Fi: 8}}
+	out := [6]OpusT_mini_kiss_fft_cpx{{Fr: 77}, {}, {}, {}, {}, {Fr: 88}}
+	round := [4]OpusT_mini_kiss_fft_cpx{}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_mini_kiss_fft(nil, st, &in[0], &out[1])
+	Opus_mini_kiss_fft(nil, inverse, &out[1], &round[0])
+	if out[0].Fr != 77 || out[5].Fr != 88 {
+		t.Fatal("guards")
+	}
+	for i := range in {
+		if round[i].Fr != 4*in[i].Fr || round[i].Fi != 4*in[i].Fi {
+			t.Fatal("unnormalized round trip", round)
+		}
+	}
+}
+
+func TestMiniFFTStridePointers(t *testing.T) {
+	for _, n := range []int32{2, 5, 12, 60} {
+		for _, stride := range []int32{1, 3} {
+			st := miniPointerFixture(n, 0)
+			in := make([]OpusT_mini_kiss_fft_cpx, (n-1)*stride+1)
+			in[0].Fr = 1
+			before := slices.Clone(in)
+			out := make([]OpusT_mini_kiss_fft_cpx, n+2)
+			out[0].Fr = 77
+			out[n+1].Fr = 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_mini_kiss_fft_stride(nil, st, &in[0], &out[1], stride)
+			if out[0].Fr != 77 || out[n+1].Fr != 88 || !slices.Equal(in, before) {
+				t.Fatal("guards/input")
+			}
+			for _, v := range out[1 : n+1] {
+				if v.Fr != 1 || v.Fi != 0 {
+					t.Fatal(n, stride, v)
+				}
+			}
+		}
+	}
+}
+
+func TestMiniFFTWorkPointers(t *testing.T) {
+	for _, n := range []int32{2, 3, 4, 5, 8, 12, 60, 120} {
+		for _, inverse := range []int32{0, 1} {
+			st := miniPointerFixture(n, inverse)
+			in := make([]OpusT_mini_kiss_fft_cpx, n)
+			in[0].Fr = 1
+			out := make([]OpusT_mini_kiss_fft_cpx, n+2)
+			out[0].Fr = 77
+			out[n+1].Fr = 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			kf_work(nil, &out[1], &in[0], 1, 1, st.Ffactors[:], st)
+			if out[0].Fr != 77 || out[n+1].Fr != 88 {
+				t.Fatal("guards")
+			}
+			for _, v := range out[1 : n+1] {
+				if v.Fr != 1 || v.Fi != 0 {
+					t.Fatal(n, inverse, v)
+				}
+			}
+		}
+	}
+}
 
 // Explicit intermediate conversions are the oracle: multiply then add,
 // not an ARM64 fused multiply-add. Both radix-3 implementations need this.

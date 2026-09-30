@@ -4,6 +4,7 @@ package main
 
 /*
 #define VAR_ARRAYS 1
+#define ENABLE_ASSERTIONS 1
 #define opus_multistream_decoder_get_size comparison_channels_get_size
 #define opus_multistream_decoder_init comparison_channels_init
 #define opus_multistream_decoder_create comparison_channels_create
@@ -15,6 +16,7 @@ package main
 #define opus_multistream_decoder_ctl comparison_channels_ctl
 #define opus_multistream_decoder_destroy comparison_channels_destroy
 #include "../../../opus/src/opus_multistream_decoder.c"
+static int native_ms_validate(void *state) {OpusMSDecoder *st=state;validate_ms_decoder(st);return validate_layout(&st->layout);}
 static void native_channel_output(void *dst,int ds,int dc,const float *src,int ss,int n,int op) {
  if(op==0) opus_copy_channel_out_float(dst,ds,dc,src,ss,n,NULL);
  else if(op==1) opus_copy_channel_out_short(dst,ds,dc,src,ss,n,NULL);
@@ -22,7 +24,13 @@ static void native_channel_output(void *dst,int ds,int dc,const float *src,int s
 }
 */
 import "C"
+
 import "unsafe"
+import "github.com/kazzmir/opus-go/opuscc"
+
+func nativeMSValidation(st *opuscc.OpusT_OpusMSDecoder) int32 {
+	return int32(C.native_ms_validate(unsafe.Pointer(st)))
+}
 
 func nativeChannelOutput(dst unsafe.Pointer, ds, dc int32, src []float32, ss, n int32, operations ...int32) {
 	var op int32
