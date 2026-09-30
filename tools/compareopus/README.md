@@ -339,6 +339,10 @@ Mini radix-3 adds typed epi3 selection and scalar rounding checks, updating the
 existing C-reference fixture without adding another test file.
 Mini radix-5 tests preserve left-associated sums and the distinct negated-product
 expressions, including cancellation-heavy inputs, impulse output and guards.
+Mini-FFT recursive work compares native-generated complete states and twiddles,
+all four radices, inverse flags, repeated/strided reads, and unchanged inputs/state.
+Each subsequent pointer round also runs full ARM64 tests and focused checkptr
+under QEMU, in addition to amd64/386, native comparisons and GC stress.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

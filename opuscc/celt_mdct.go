@@ -555,59 +555,33 @@ func kf_bfly51(tls *libc.TLS, out *OpusT_mini_kiss_fft_cpx, stride OpusT_size_t,
 	}
 }
 
-func kf_work(tls *libc.TLS, Fout uintptr, f uintptr, fstride OpusT_size_t, in_stride int32, factors uintptr, st OpusT_mini_kiss_fft_cfg) {
-	var Fout_beg, Fout_end, v1, v2, v3 uintptr
-	var m, p int32
-	var v6 bool
-	_, _, _, _, _, _, _, _ = Fout_beg, Fout_end, m, p, v1, v2, v3, v6
-	Fout_beg = Fout
-	v1 = factors
-	factors += 4
-	p = *(*int32)(unsafe.Pointer(v1))
-	v2 = factors
-	factors += 4                      /* the radix  */
-	m = *(*int32)(unsafe.Pointer(v2)) /* stage's fft length/p */
-	Fout_end = Fout + uintptr(p*m)*8
-	if m == int32(1) {
-		for {
-			*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)) = *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(f))
-			f = f + uintptr(fstride*uint64(uint32(in_stride)))*8
-			Fout += 8
-			v3 = Fout
-			if !(v3 != Fout_end) {
-				break
-			}
+// st must belong to its complete variable-sized allocation, including all twiddles.
+func kf_work(tls *libc.TLS, out, in *OpusT_mini_kiss_fft_cpx, fstride OpusT_size_t, inStride int32, factors []int32, st *OpusT_mini_kiss_fft_state) {
+	p, m := factors[0], factors[1]
+	data := unsafe.Slice(out, p*m)
+	step := fstride * uint64(uint32(inStride))
+	input := unsafe.Slice(in, uint64(p*m-1)*step+1)
+	if m == 1 {
+		for i := int32(0); i < p; i++ {
+			data[i] = input[uint64(i)*step]
 		}
 	} else {
-		for {
-			/* recursive call:
-			   DFT of size m*p performed by doing
-			   p instances of smaller DFTs of size m,
-			   each one takes a decimated version of the input */
-			kf_work(tls, Fout, f, fstride*uint64(uint32(p)), in_stride, factors, st)
-			f = f + uintptr(fstride*uint64(uint32(in_stride)))*8
-			Fout = Fout + uintptr(m)*8
-			if !(Fout != Fout_end) {
-				break
-			}
+		for i := int32(0); i < p; i++ {
+			kf_work(tls, &data[i*m], &input[uint64(i)*step], fstride*uint64(uint32(p)), inStride, factors[2:], st)
 		}
 	}
-	Fout = Fout_beg
-	/* recombine the p smaller DFTs*/
+	tw := &st.Ftwiddles[0]
 	switch p {
-	case int32(2):
-		kf_bfly21(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)), fstride, &(*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Ftwiddles[0], m)
-	case int32(3):
-		kf_bfly31(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)), fstride, &(*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Ftwiddles[0], uint64(uint32(m)))
-	case int32(4):
-		kf_bfly41(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)), fstride, &(*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Ftwiddles[0], uint64(uint32(m)), (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Finverse)
-	case int32(5):
-		kf_bfly51(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)), fstride, &(*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Ftwiddles[0], m)
+	case 2:
+		kf_bfly21(tls, out, fstride, tw, m)
+	case 3:
+		kf_bfly31(tls, out, fstride, tw, uint64(uint32(m)))
+	case 4:
+		kf_bfly41(tls, out, fstride, tw, uint64(uint32(m)), st.Finverse)
+	case 5:
+		kf_bfly51(tls, out, fstride, tw, m)
 	default:
-		if v6 = libc.Bool(0 != 0); !v6 {
-			libc.X__assert_fail(tls, __ccgo_ts+5527, __ccgo_ts+5529, int32(317), uintptr(unsafe.Pointer(&__func__)))
-		}
-		_ = v6 || libc.Bool(int32(0) != 0)
+		libc.X__assert_fail(tls, __ccgo_ts+5527, __ccgo_ts+5529, 317, uintptr(unsafe.Pointer(&__func__)))
 	}
 }
 
@@ -704,7 +678,8 @@ func Opus_mini_kiss_fft_stride(tls *libc.TLS, st OpusT_mini_kiss_fft_cfg, fin ui
 		libc.X__assert_fail(tls, __ccgo_ts+5549, __ccgo_ts+5529, int32(391), uintptr(unsafe.Pointer(&__func__1)))
 	}
 	_ = v1 || libc.Bool(int32(0) != 0)
-	kf_work(tls, fout, fin, uint64(1), in_stride, st+8, st)
+	state := (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st))
+	kf_work(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fout)), (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fin)), 1, in_stride, state.Ffactors[:], state)
 }
 
 var __func__1 = [21]int8{'m', 'i', 'n', 'i', '_', 'k', 'i', 's', 's', '_', 'f', 'f', 't', '_', 's', 't', 'r', 'i', 'd', 'e'}

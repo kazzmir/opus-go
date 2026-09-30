@@ -8,6 +8,7 @@ import (
 	"math"
 	"slices"
 	"testing"
+	"unsafe"
 )
 
 func sameComplexBits(a, b []opuscc.OpusT_kiss_fft_cpx) bool {
@@ -20,6 +21,38 @@ func sameComplexBits(a, b []opuscc.OpusT_kiss_fft_cpx) bool {
 		}
 	}
 	return true
+}
+
+func TestMiniFFTWorkAgainstC(t *testing.T) { compareMiniTransforms(t, 0, opuscc.CompareMiniFFTWork) }
+
+func compareMiniTransforms(t *testing.T, op int32, transform func(*opuscc.OpusT_mini_kiss_fft_state, *opuscc.OpusT_mini_kiss_fft_cpx, *opuscc.OpusT_mini_kiss_fft_cpx, int32)) {
+	t.Helper()
+	for _, n := range []int32{2, 3, 4, 5, 8, 12, 16, 20, 60, 120, 240, 480} {
+		for _, inverse := range []int32{0, 1, -3} {
+			for _, stride := range []int32{0, 1, 2, 5} {
+				if op == 2 && stride != 1 {
+					continue
+				}
+				st := nativeMiniFixture(n, inverse)
+				stateBytes := unsafe.Slice((*byte)(unsafe.Pointer(st)), 264+8*n)
+				before := slices.Clone(stateBytes)
+				input := make([]opuscc.OpusT_mini_kiss_fft_cpx, (n-1)*stride+1)
+				for i := range input {
+					input[i] = opuscc.OpusT_mini_kiss_fft_cpx{Fr: float32(i-13) / 7, Fi: float32(19-i) / 11}
+				}
+				ib := slices.Clone(input)
+				g := make([]opuscc.OpusT_mini_kiss_fft_cpx, n+2)
+				g[0].Fr = 77
+				g[n+1].Fr = 88
+				c := slices.Clone(g)
+				transform(st, &input[0], &g[1], stride)
+				nativeMiniTransform(st, input, c[1:], stride, op)
+				if !sameComplexBits(g, c) || !sameComplexBits(input, ib) || !slices.Equal(stateBytes, before) {
+					t.Fatal(op, n, inverse, stride)
+				}
+			}
+		}
+	}
 }
 
 func TestMiniButterfly5AgainstC(t *testing.T) {
