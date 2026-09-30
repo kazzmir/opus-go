@@ -12,6 +12,7 @@ package main
 #define mini_kiss_fftr_alloc compare_factor_fftr_alloc
 #define mini_kiss_fftr compare_factor_fftr
 #include "../../../opus/celt/mini_kfft.c"
+static void native_mini_r_layout(void *state,size_t *offsets) {mini_kiss_fftr_cfg st=state;offsets[0]=(char*)st->substate-(char*)st;offsets[1]=(char*)st->tmpbuf-(char*)st;offsets[2]=(char*)st->super_twiddles-(char*)st;}
 static void native_mini_fixture(int n,int inverse,void *out) {
  mini_kiss_fft_cfg st=mini_kiss_fft_alloc(n,inverse,NULL,NULL);
  memcpy(out,st,sizeof(mini_kiss_fft_state)+(n-1)*sizeof(mini_kiss_fft_cpx));free(st);
@@ -43,6 +44,17 @@ static int native_factor(int n,int *factors) {
 import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
+
+func nativeMiniRAlloc(n, inverse int32, mem *byte, length *uint64) (bool, [3]uint64) {
+	cap := C.size_t(*length)
+	st := C.compare_factor_fftr_alloc(C.int(n), C.int(inverse), unsafe.Pointer(mem), &cap)
+	*length = uint64(cap)
+	var offsets [3]C.size_t
+	if st != nil {
+		C.native_mini_r_layout(unsafe.Pointer(st), &offsets[0])
+	}
+	return st != nil, [3]uint64{uint64(offsets[0]), uint64(offsets[1]), uint64(offsets[2])}
+}
 
 func nativeMiniAlloc(n, inverse int32, mem *byte, length *uint64) bool {
 	cap := C.size_t(*length)

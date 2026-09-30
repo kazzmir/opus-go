@@ -690,55 +690,46 @@ type mini_kiss_fftr_state = struct {
 }
 
 type OpusT_mini_kiss_fftr_state = struct {
-	Fsubstate       OpusT_mini_kiss_fft_cfg
-	Ftmpbuf         uintptr
-	Fsuper_twiddles uintptr
+	Fsubstate       *OpusT_mini_kiss_fft_state
+	Ftmpbuf         *OpusT_mini_kiss_fft_cpx
+	Fsuper_twiddles *OpusT_mini_kiss_fft_cpx
 }
 
-func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem uintptr, lenmem uintptr) (r OpusT_mini_kiss_fftr_cfg) {
-	var i int32
-	var memneeded OpusT_size_t
-	var phase float64
-	var st OpusT_mini_kiss_fftr_cfg
+func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fftr_state {
+	if nfft&1 != 0 {
+		libc.X__assert_fail(tls, __ccgo_ts+5561, __ccgo_ts+5529, 416, uintptr(unsafe.Pointer(&__func__2)))
+	}
+	nfft >>= 1
 	var subsize OpusT_size_t
-	var v1 bool
-	_, _, _, _, _, _ = i, memneeded, phase, st, subsize, v1
-	st = uintptr(uint32(0))
-	subsize = 0
-	if v1 = nfft&int32(1) == 0; !v1 {
-		libc.X__assert_fail(tls, __ccgo_ts+5561, __ccgo_ts+5529, int32(416), uintptr(unsafe.Pointer(&__func__2)))
-	}
-	_ = v1 || libc.Bool(int32(0) != 0)
-	nfft = nfft >> int32(1)
-	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, nil, &subsize)
-	memneeded = uint64(24) + subsize + uint64(8)*uint64(uint32(nfft*int32(3)/int32(2)))
-	if lenmem == uintptr(uint32(0)) {
-		st = libc.Xmalloc(tls, memneeded)
+	Opus_mini_kiss_fft_alloc(tls, nfft, inverse, nil, &subsize)
+	header := unsafe.Sizeof(OpusT_mini_kiss_fftr_state{})
+	needed := uint64(header) + subsize + 8*uint64(uint32(nfft*3/2))
+	var st *OpusT_mini_kiss_fftr_state
+	if lenmem == nil {
+		// Every stored pointer is an interior of this complete owning allocation.
+		backing := make([]uint64, (needed+7)/8)
+		st = (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(unsafe.SliceData(backing)))
 	} else {
-		if *(*OpusT_size_t)(unsafe.Pointer(lenmem)) >= memneeded {
-			st = mem
+		if *lenmem >= needed {
+			st = (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(mem))
 		}
-		*(*OpusT_size_t)(unsafe.Pointer(lenmem)) = memneeded
+		*lenmem = needed
 	}
-	if !(st != 0) {
-		return uintptr(uint32(0))
+	if st == nil {
+		return nil
 	}
-	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate = st + uintptr(uint32(1))*24 /*just beyond kiss_fftr_state struct */
-	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate + uintptr(subsize)
-	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsuper_twiddles = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf + uintptr(nfft)*8
-	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, (*byte)(unsafe.Pointer((*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate)), &subsize)
-	i = 0
-	for {
-		if !(i < nfft/int32(2)) {
-			break
+	submem := (*byte)(unsafe.Add(unsafe.Pointer(st), header))
+	st.Fsubstate = Opus_mini_kiss_fft_alloc(tls, nfft, inverse, submem, &subsize)
+	st.Ftmpbuf = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(submem), subsize))
+	st.Fsuper_twiddles = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(st.Ftmpbuf), int(nfft)*8))
+	tw := unsafe.Slice(st.Fsuper_twiddles, nfft/2)
+	for i := int32(0); i < nfft/2; i++ {
+		phase := -float64(3.141592653589793) * (float64(i+1)/float64(nfft) + 0.5)
+		if inverse != 0 {
+			phase *= -1
 		}
-		phase = float64(-float64(3.141592653589793) * (float64(i+int32(1))/float64(nfft) + float64(0.5)))
-		if inverse_fft != 0 {
-			phase = phase * float64(-int32(1))
-		}
-		(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer((*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsuper_twiddles + uintptr(i)*8)).Fr = float32(libc.Xcos(tls, phase))
-		(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer((*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsuper_twiddles + uintptr(i)*8)).Fi = float32(libc.Xsin(tls, phase))
-		i = i + 1
+		tw[i].Fr = float32(libc.Xcos(tls, phase))
+		tw[i].Fi = float32(libc.Xsin(tls, phase))
 	}
 	return st
 }

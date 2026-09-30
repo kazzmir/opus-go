@@ -411,6 +411,9 @@ for both subframe counts and all supported rates; fixed-offset clears are gone.
 Mini-FFT allocation reuses FFT fixtures to compare native size queries, null or
 undersized caller storage, full initialized bytes, factor/twiddle tables and guards;
 typed owning returns keep the full flexible-array allocation alive across GC.
+Real-FFT allocation shares these tests, comparing relative interior pointers,
+architecture-sized headers, substate/super-twiddle bytes and query/capacity behavior;
+the owning return and its three interior fields are typed.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

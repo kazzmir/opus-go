@@ -8,6 +8,38 @@ import (
 	"unsafe"
 )
 
+func TestMiniFFTRAllocPointers(t *testing.T) {
+	var needed OpusT_size_t
+	Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, &needed)
+	header := unsafe.Sizeof(OpusT_mini_kiss_fftr_state{})
+	if needed != uint64(header)+296+48 {
+		t.Fatal("size query", needed)
+	}
+	backing := make([]uint64, (needed+7)/8+2)
+	for i := range backing {
+		backing[i] = 0xa5a5a5a5a5a5a5a5
+	}
+	mem := (*byte)(unsafe.Pointer(&backing[1]))
+	capacity := needed - 1
+	before := slices.Clone(backing)
+	if Opus_mini_kiss_fftr_alloc(nil, 8, 0, mem, &capacity) != nil || capacity != needed || !slices.Equal(backing, before) {
+		t.Fatal("undersized")
+	}
+	st := Opus_mini_kiss_fftr_alloc(nil, 8, 0, mem, &capacity)
+	if st != (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(mem)) || backing[0] != before[0] || backing[len(backing)-1] != before[len(backing)-1] {
+		t.Fatal("caller storage")
+	}
+	owned := Opus_mini_kiss_fftr_alloc(nil, 16, 1, nil, nil)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if owned.Fsubstate.Fnfft != 8 || owned.Fsubstate.Finverse != 1 || owned.Fsuper_twiddles.Fi != 0.9238795 {
+		t.Fatal("owned interiors", owned.Fsubstate, *owned.Fsuper_twiddles)
+	}
+	if uintptr(unsafe.Pointer(owned.Fsubstate))-uintptr(unsafe.Pointer(owned)) != header {
+		t.Fatal("header size")
+	}
+}
+
 func TestMiniFFTAllocPointers(t *testing.T) {
 	var needed OpusT_size_t
 	if Opus_mini_kiss_fft_alloc(nil, 8, 0, nil, &needed) != nil || needed != 328 {

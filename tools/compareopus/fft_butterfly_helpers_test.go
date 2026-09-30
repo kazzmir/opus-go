@@ -11,6 +11,50 @@ import (
 	"unsafe"
 )
 
+func TestMiniFFTRAllocAgainstC(t *testing.T) {
+	for _, n := range []int32{2, 4, 6, 8, 10, 16, 24, 60, 120, 240, 480} {
+		for _, inverse := range []int32{0, 1, -1, 2} {
+			var needed uint64
+			opuscc.Opus_mini_kiss_fftr_alloc(nil, n, inverse, nil, &needed)
+			cn := uint64(0)
+			if ok, _ := nativeMiniRAlloc(n, inverse, nil, &cn); ok || cn != needed {
+				t.Fatal("query", n, inverse, needed, cn)
+			}
+			for _, capacity := range []uint64{0, needed - 1, needed, needed + 64} {
+				for _, noMem := range []bool{false, true} {
+					g := make([]uint64, (needed+64+7)/8+2)
+					for i := range g {
+						g[i] = 0xa5a5a5a5a5a5a5a5
+					}
+					c := slices.Clone(g)
+					gp := (*byte)(unsafe.Pointer(&g[1]))
+					cp := (*byte)(unsafe.Pointer(&c[1]))
+					if noMem {
+						gp = nil
+						cp = nil
+					}
+					gs, cs := capacity, capacity
+					st := opuscc.Opus_mini_kiss_fftr_alloc(nil, n, inverse, gp, &gs)
+					success, offsets := nativeMiniRAlloc(n, inverse, cp, &cs)
+					if (st != nil) != success || gs != cs {
+						t.Fatal(n, inverse, capacity, noMem, "status/size")
+					}
+					if st != nil {
+						base := uintptr(unsafe.Pointer(st))
+						goOffsets := [3]uint64{uint64(uintptr(unsafe.Pointer(st.Fsubstate)) - base), uint64(uintptr(unsafe.Pointer(st.Ftmpbuf)) - base), uint64(uintptr(unsafe.Pointer(st.Fsuper_twiddles)) - base)}
+						header := int(unsafe.Sizeof(*st)) / 8
+						if goOffsets != offsets || g[0] != c[0] || !slices.Equal(g[1+header:], c[1+header:]) {
+							t.Fatal(n, inverse, capacity, noMem, "layout/tables", goOffsets, offsets)
+						}
+					} else if !slices.Equal(g, c) {
+						t.Fatal("failed allocation wrote storage")
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestMiniFFTAllocAgainstC(t *testing.T) {
 	for _, n := range []int32{1, 2, 3, 4, 5, 7, 8, 11, 16, 31, 60, 120, 240, 480} {
 		for _, inverse := range []int32{0, 1, -1, 2} {
