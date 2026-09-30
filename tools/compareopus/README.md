@@ -292,6 +292,9 @@ and unchanged inputs. Go tests retain packet ownership solely through the decode
 SILK gain quantization compares all signed previous-index values, conditional/full
 coding, 1/2/4 subframes and aliased previous/index storage against C; Go tests
 round-trip valid gain histories through typed dequantization.
+PLC parameter updates compare actual static PLC.c for 2/4 subframes, LPC orders
+10/16, signal types and LTP gain clamp/narrowing edges, checking all PLC fields,
+unchanged control and unused LPC tails.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

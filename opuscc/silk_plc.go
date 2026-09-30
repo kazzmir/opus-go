@@ -37,7 +37,7 @@ func Opus_silk_PLC(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 		/****************************/
 		/* Update state             */
 		/****************************/
-		silk_PLC_update(tls, psDec, psDecCtrl)
+		silk_PLC_update(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)))
 	}
 }
 
@@ -46,12 +46,10 @@ func Opus_silk_PLC(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 //	/**************************************************/
 //	/* Update state of PLC                            */
 //	/**************************************************/
-func silk_PLC_update(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr) {
+func silk_PLC_update(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control) {
 	var LTP_Gain_Q14, temp_LTP_Gain_Q14, tmp, tmp1 OpusT_opus_int32
 	var i, j, scale_Q10, scale_Q14, v3 int32
 	_, _, _, _, _, _, _, _, _ = LTP_Gain_Q14, i, j, scale_Q10, scale_Q14, temp_LTP_Gain_Q14, tmp, tmp1, v3
-	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
-	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
 	plc := &decoder.FsPLC
 	/* Update parameters used in case of packet loss */
 	decoder.FprevSignalType = int32(decoder.Findices.FsignalType)
@@ -77,12 +75,12 @@ func silk_PLC_update(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr) {
 			}
 			if temp_LTP_Gain_Q14 > LTP_Gain_Q14 {
 				LTP_Gain_Q14 = temp_LTP_Gain_Q14
-				libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&plc.FLTPCoef_Q14[0])), uintptr(unsafe.Pointer(&control.FLTPCoef_Q14[(decoder.Fnb_subfr-int32(1)-j)*int32(LTP_ORDER)])), uint64(uint32(LTP_ORDER))*uint64(2))
+				copy(plc.FLTPCoef_Q14[:], control.FLTPCoef_Q14[(decoder.Fnb_subfr-1-j)*LTP_ORDER:(decoder.Fnb_subfr-j)*LTP_ORDER])
 				plc.FpitchL_Q8 = int32(uint32(control.FpitchL[decoder.Fnb_subfr-int32(1)-j]) << int32(8))
 			}
 			j = j + 1
 		}
-		libc.Xmemset(tls, uintptr(unsafe.Pointer(&plc.FLTPCoef_Q14[0])), 0, uint64(uint32(LTP_ORDER))*uint64(2))
+		clear(plc.FLTPCoef_Q14[:])
 		plc.FLTPCoef_Q14[int32(LTP_ORDER)/int32(2)] = int16(LTP_Gain_Q14)
 		/* Limit LT coefs */
 		if LTP_Gain_Q14 < int32(V_PITCH_GAIN_START_MIN_Q14) {
@@ -122,13 +120,13 @@ func silk_PLC_update(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr) {
 		}
 	} else {
 		plc.FpitchL_Q8 = int32(uint32(int32(int16(decoder.Ffs_kHz))*int32(int16(int32(18)))) << int32(8))
-		libc.Xmemset(tls, uintptr(unsafe.Pointer(&plc.FLTPCoef_Q14[0])), 0, uint64(uint32(LTP_ORDER))*uint64(2))
+		clear(plc.FLTPCoef_Q14[:])
 	}
 	/* Save LPC coefficients */
-	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&plc.FprevLPC_Q12[0])), uintptr(unsafe.Pointer(&control.FPredCoef_Q12[1][0])), uint64(uint32(decoder.FLPC_order))*uint64(2))
+	copy(plc.FprevLPC_Q12[:decoder.FLPC_order], control.FPredCoef_Q12[1][:decoder.FLPC_order])
 	plc.FprevLTP_scale_Q14 = int16(control.FLTP_scale_Q14)
 	/* Save last two gains */
-	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&plc.FprevGain_Q16[0])), uintptr(unsafe.Pointer(&control.FGains_Q16[decoder.Fnb_subfr-int32(2)])), uint64(uint32(2))*uint64(4))
+	copy(plc.FprevGain_Q16[:], control.FGains_Q16[decoder.Fnb_subfr-2:decoder.Fnb_subfr])
 	plc.Fsubfr_length = decoder.Fsubfr_length
 	plc.Fnb_subfr = decoder.Fnb_subfr
 }

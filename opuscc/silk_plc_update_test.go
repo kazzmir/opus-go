@@ -2,7 +2,6 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 )
 
 func TestPLCUpdateFieldAccesses(t *testing.T) {
@@ -25,7 +24,7 @@ func TestPLCUpdateFieldAccesses(t *testing.T) {
 		FLTP_scale_Q14: 12345,
 	}
 
-	silk_PLC_update(nil, uintptr(unsafe.Pointer(&dec)), uintptr(unsafe.Pointer(&control)))
+	silk_PLC_update(nil, &dec, &control)
 
 	if got, want := dec.FprevSignalType, int32(TYPE_VOICED); got != want {
 		t.Fatalf("previous signal type: got %d, want %d", got, want)
