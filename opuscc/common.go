@@ -2209,36 +2209,37 @@ type OpusDecoder = struct {
 	FrangeFinal           OpusT_opus_uint32
 }
 
-func validate_opus_decoder(tls *libc.TLS, st uintptr) {
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels == int32(1) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, int32(99))
+func validate_opus_decoder(tls *libc.TLS, st *OpusT_OpusDecoder) {
+	if !(st.Fchannels == 1 || st.Fchannels == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 99)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(48000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(24000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(16000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(12000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs == int32(8000)) {
-		Opus_celt_fatal(tls, __ccgo_ts+79, __ccgo_ts+57, int32(103))
+	if !(st.FFs == 48000 || st.FFs == 24000 || st.FFs == 16000 || st.FFs == 12000 || st.FFs == 8000) {
+		Opus_celt_fatal(tls, __ccgo_ts+79, __ccgo_ts+57, 103)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FAPI_sampleRate == (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs) {
-		Opus_celt_fatal(tls, __ccgo_ts+188, __ccgo_ts+57, int32(105))
+	if st.FDecControl.FAPI_sampleRate != st.FFs {
+		Opus_celt_fatal(tls, __ccgo_ts+188, __ccgo_ts+57, 105)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FinternalSampleRate == 0 || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FinternalSampleRate == int32(16000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FinternalSampleRate == int32(12000) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FinternalSampleRate == int32(8000)) {
-		Opus_celt_fatal(tls, __ccgo_ts+246, __ccgo_ts+57, int32(106))
+	dc := &st.FDecControl
+	if !(dc.FinternalSampleRate == 0 || dc.FinternalSampleRate == 16000 || dc.FinternalSampleRate == 12000 || dc.FinternalSampleRate == 8000) {
+		Opus_celt_fatal(tls, __ccgo_ts+246, __ccgo_ts+57, 106)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FnChannelsAPI == (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fchannels) {
-		Opus_celt_fatal(tls, __ccgo_ts+440, __ccgo_ts+57, int32(107))
+	if dc.FnChannelsAPI != st.Fchannels {
+		Opus_celt_fatal(tls, __ccgo_ts+440, __ccgo_ts+57, 107)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FnChannelsInternal == 0 || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FnChannelsInternal == int32(1) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FnChannelsInternal == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts+502, __ccgo_ts+57, int32(108))
+	if !(dc.FnChannelsInternal == 0 || dc.FnChannelsInternal == 1 || dc.FnChannelsInternal == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts+502, __ccgo_ts+57, 108)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == 0 || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == int32(10) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == int32(20) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == int32(40) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FpayloadSize_ms == int32(60)) {
-		Opus_celt_fatal(tls, __ccgo_ts+640, __ccgo_ts+57, int32(109))
+	if !(dc.FpayloadSize_ms == 0 || dc.FpayloadSize_ms == 10 || dc.FpayloadSize_ms == 20 || dc.FpayloadSize_ms == 40 || dc.FpayloadSize_ms == 60) {
+		Opus_celt_fatal(tls, __ccgo_ts+640, __ccgo_ts+57, 109)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Farch >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+849, __ccgo_ts+57, int32(111))
+	if st.Farch < 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+849, __ccgo_ts+57, 111)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Farch <= int32(OPUS_ARCHMASK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+881, __ccgo_ts+57, int32(112))
+	if st.Farch > OPUS_ARCHMASK {
+		Opus_celt_fatal(tls, __ccgo_ts+881, __ccgo_ts+57, 112)
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fstream_channels == int32(1) || (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fstream_channels == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts+925, __ccgo_ts+57, int32(114))
+	if !(st.Fstream_channels == 1 || st.Fstream_channels == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts+925, __ccgo_ts+57, 114)
 	}
 }
 
@@ -3267,7 +3268,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	var padding_len OpusT_opus_int32
 	var iter OpusT_OpusExtensionIterator
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
-	validate_opus_decoder(tls, st)
+	validate_opus_decoder(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)))
 	if decode_fec < 0 || decode_fec > int32(1) {
 		return -int32(1)
 	}

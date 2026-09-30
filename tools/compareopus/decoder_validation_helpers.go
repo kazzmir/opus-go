@@ -1,0 +1,59 @@
+//go:build compareopus && cgo
+
+package main
+
+/*
+#include <setjmp.h>
+static _Thread_local jmp_buf validation_jump;
+void comparison_validator_fatal(const char *str,const char *file,int line) {longjmp(validation_jump,1);}
+#define celt_fatal comparison_validator_fatal
+#define VAR_ARRAYS 1
+#define OPUS_BUILD 1
+#define ENABLE_ASSERTIONS 1
+#define OPUS_DISABLE_INTRINSICS 1
+#define opus_decoder_get_size validation_decoder_get_size
+#define opus_decoder_init validation_decoder_init
+#define opus_decoder_create validation_decoder_create
+#define opus_decode_native validation_decode_native
+#define opus_decode validation_decode
+#define opus_decode24 validation_decode24
+#define opus_decode_float validation_decode_float
+#define opus_decoder_ctl validation_decoder_ctl
+#define opus_decoder_destroy validation_decoder_destroy
+#define opus_packet_get_bandwidth validation_packet_bandwidth
+#define opus_packet_get_nb_channels validation_packet_channels
+#define opus_packet_get_nb_frames validation_packet_frames
+#define opus_packet_get_nb_samples validation_packet_samples
+#define opus_packet_has_lbrr validation_packet_lbrr
+#define opus_decoder_get_nb_samples validation_decoder_samples
+#define opus_dred_decoder_get_size validation_dred_decoder_size
+#define opus_dred_decoder_init validation_dred_decoder_init
+#define opus_dred_decoder_create validation_dred_decoder_create
+#define opus_dred_decoder_destroy validation_dred_decoder_destroy
+#define opus_dred_decoder_ctl validation_dred_decoder_ctl
+#define opus_dred_get_size validation_dred_size
+#define opus_dred_alloc validation_dred_alloc
+#define opus_dred_free validation_dred_free
+#define opus_dred_parse validation_dred_parse
+#define opus_dred_process validation_dred_process
+#define opus_decoder_dred_decode validation_dred_decode
+#define opus_decoder_dred_decode24 validation_dred_decode24
+#define opus_decoder_dred_decode_float validation_dred_decode_float
+#include "../../../opus/src/opus_decoder.c"
+static int native_opus_validation(const int *v) {
+ OpusDecoder st={0};st.channels=v[0];st.Fs=v[1];st.DecControl.API_sampleRate=v[2];st.DecControl.internalSampleRate=v[3];st.DecControl.nChannelsAPI=v[4];st.DecControl.nChannelsInternal=v[5];st.DecControl.payloadSize_ms=v[6];st.arch=v[7];st.stream_channels=v[8];
+ if(setjmp(validation_jump)) return 1;
+ validate_opus_decoder(&st);return 0;
+}
+*/
+import "C"
+import (
+	"github.com/kazzmir/opus-go/opuscc"
+	"unsafe"
+)
+
+func nativeOpusValidation(st *opuscc.OpusT_OpusDecoder) bool {
+	dc := st.FDecControl
+	v := [9]int32{st.Fchannels, st.FFs, dc.FAPI_sampleRate, dc.FinternalSampleRate, dc.FnChannelsAPI, dc.FnChannelsInternal, dc.FpayloadSize_ms, st.Farch, st.Fstream_channels}
+	return C.native_opus_validation((*C.int)(unsafe.Pointer(&v[0]))) != 0
+}
