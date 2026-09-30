@@ -309,6 +309,36 @@ Projection int16 output compares first-channel clearing, later-channel accumulat
 clipping/ties/NaN inputs, nil sources and destination guards against actual C callbacks.
 Projection int24 output compares channel clearing/accumulation, rounding boundaries,
 representable int32 extremes, nil sources and guards without adding 24-bit clipping.
+FFT butterfly tests share `fft_butterfly_helpers_test.go`. Radix-2 compares the
+actual static `kiss_fft.c` helper, including guards, subnormals and signed zeros.
+Radix-4 also covers its twiddle-free m=1 path, multiple blocks, gaps, zero/repeated
+strides, untouched twiddles and float32 product rounding with exact C bit comparisons.
+`TestRadix3ScratchRounding` checks explicit multiply-before-add float32 rounding
+in both radix-3 implementations; it catches ARM64 FMA fusion without changing
+frame goldens. Cross-architecture Go-only validation can run with
+`GOARCH=arm64 CGO_ENABLED=0 go test -exec qemu-aarch64 ./...` on Linux with QEMU.
+
+Radix-3 reuses the grouped fixtures and compares epi3 selection, half/scalar
+rounding, guards and stack-growth/GC calls with exact native output bits.
+Radix-5 uses the same grouped cases to verify ya/yb selection, parenthesized
+float32 sums/products, five-way stores and impulse/guard behavior.
+FFT driver cases share the butterfly tests and use native-generated factors,
+bit-reversal and twiddles for sizes 4–480, including shared-table shifts -1–2.
+Forward FFT cases add native bit-reversal/scaling, separate buffers and both
+partial-overlap directions, retaining explicit typed tables throughout the driver.
+Inverse FFT reuses the grouped transform cases and checks both conjugation
+passes and an exact four-point forward/inverse round trip.
+Band normalization tests live beside denormalization tests and compare partial
+bands/channel strides, empty bands/M=0, C's channel-zero visit, exceptional energies,
+untouched tails and input preservation with the native bands implementation.
+Mini-FFT radix-2 shares the FFT butterfly test files and compares actual static
+mini_kfft.c helpers, arbitrary positive widths, repeated strides and raw float bits.
+Mini radix-4 additionally compares all nonzero inverse flags, inverse sign/store
+order and m=1 twiddle use (unlike the CELT twiddle-free special case).
+Mini radix-3 adds typed epi3 selection and scalar rounding checks, updating the
+existing C-reference fixture without adding another test file.
+Mini radix-5 tests preserve left-associated sums and the distinct negated-product
+expressions, including cancellation-heavy inputs, impulse output and guards.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

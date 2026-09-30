@@ -1,10 +1,30 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 )
 
 var denormalisePointerBands = [4]int16{0, 2, 4, 6}
+
+func TestNormaliseBandsPointers(t *testing.T) {
+	Opus_normalise_bands(nil, nil, 0, 0, nil, nil, nil, 0, 0, 0)
+	bands := [3]int16{1, 2, 3}
+	in := [8]float32{1, 2, 3, 4, 5, 6, 7, 8}
+	energy := [4]float32{2, 4, 2, 4}
+	out := [10]float32{77, 9, 9, 9, 9, 9, 9, 9, 9, 88}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_normalise_bands(nil, &bands[0], 4, 2, &in[0], &out[1], &energy[0], 2, 2, 1)
+	if out != [10]float32{77, 9, 1, .75, 9, 9, 3, 1.75, 9, 88} {
+		t.Fatal(out)
+	}
+	// C also visits channel zero for C=0; only selected bands are overwritten.
+	Opus_normalise_bands(nil, &bands[0], 4, 2, &in[0], &out[1], &energy[0], 2, 0, 1)
+	if out[2] != 1 || out[3] != .75 || out[0] != 77 || out[9] != 88 {
+		t.Fatal("zero channel contract", out)
+	}
+}
 
 func TestDenormalisePointers(t *testing.T) {
 	in := [6]float32{1, 2, 3, 4, 5, 6}
