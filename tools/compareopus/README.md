@@ -307,6 +307,8 @@ Projection float output compares actual C callbacks over consecutive input chann
 clear-before-read aliasing, nil sources, frame boundaries and valid matrix/stride extents.
 Projection int16 output compares first-channel clearing, later-channel accumulation,
 clipping/ties/NaN inputs, nil sources and destination guards against actual C callbacks.
+Projection int24 output compares channel clearing/accumulation, rounding boundaries,
+representable int32 extremes, nil sources and guards without adding 24-bit clipping.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
