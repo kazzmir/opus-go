@@ -2332,56 +2332,42 @@ func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, 
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
-func Opus_quant_fine_energy(tls *libc.TLS, m uintptr, start int32, end int32, oldEBands uintptr, error1 uintptr, prev_quant uintptr, extra_quant uintptr, enc uintptr, C int32) {
-	var c, i, q2, v3 int32
-	var extra, prev OpusT_opus_int16
-	var offset OpusT_celt_glog
-	var v2 uintptr
-	_, _, _, _, _, _, _, _ = c, extra, i, offset, prev, q2, v2, v3
-	/* Encode finer resolution */
-	i = start
-	for {
-		if !(i < end) {
-			break
+func Opus_quant_fine_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, oldEBands, error1 *OpusT_celt_glog, prevQuant, extraQuant *int32, enc *OpusT_ec_enc, C int32) {
+	if start >= end {
+		return
+	}
+	extraQ := unsafe.Slice(extraQuant, end)
+	var previous []int32
+	if prevQuant != nil {
+		previous = unsafe.Slice(prevQuant, end)
+	}
+	old := unsafe.Slice(oldEBands, C*m.FnbEBands)
+	err := unsafe.Slice(error1, C*m.FnbEBands)
+	for i := start; i < end; i++ {
+		width := extraQ[i]
+		if width <= 0 {
+			continue
 		}
-		extra = int16(int32(1) << *(*int32)(unsafe.Pointer(extra_quant + uintptr(i)*4)))
-		if *(*int32)(unsafe.Pointer(extra_quant + uintptr(i)*4)) <= 0 {
-			goto _1
+		extra := int16(int32(1) << width)
+		tell := enc.Fnbits_total - int32(bits.Len32(enc.Frng))
+		if tell+C*width > int32(enc.Fstorage)*8 {
+			continue
 		}
-		v2 = enc
-		v3 = (*OpusT_ec_ctx)(unsafe.Pointer(v2)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v2)).Frng))
-		if v3+C**(*int32)(unsafe.Pointer(extra_quant + uintptr(i)*4)) > int32((*OpusT_ec_enc)(unsafe.Pointer(enc)).Fstorage)*int32(8) {
-			goto _1
+		prev := int16(0)
+		if previous != nil {
+			prev = int16(previous[i])
 		}
-		if prev_quant != uintptr(uint32(0)) {
-			v3 = *(*int32)(unsafe.Pointer(prev_quant + uintptr(i)*4))
-		} else {
-			v3 = 0
+		for c := int32(0); c < C; c++ {
+			pos := i + c*m.FnbEBands
+			scaled := float32(err[pos] * float32(int32(1)<<prev))
+			q2 := int32(libc.Xfloor(tls, float64(float32((scaled+float32(.5))*float32(extra)))))
+			q2 = max(int32(0), min(q2, int32(extra)-1))
+			Opus_ec_enc_bits(tls, enc, uint32(q2), uint32(width))
+			offset := float32(float32((float32(q2)+.5)*float32(int32(1)<<(14-width)))*(float32(1)/16384)) - .5
+			offset = float32(offset * float32(float32(int32(1)<<(14-int32(prev)))*(float32(1)/16384)))
+			old[pos] += offset
+			err[pos] -= offset
 		}
-		prev = int16(v3)
-		c = 0
-		for {
-			q2 = int32(libc.Xfloor(tls, float64((OpusT_celt_glog(*(*OpusT_celt_glog)(unsafe.Pointer(error1 + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))*float32(int32(1)<<prev))+float32(0.5))*float32(extra))))
-			if q2 > int32(extra)-int32(1) {
-				q2 = int32(extra) - int32(1)
-			}
-			if q2 < 0 {
-				q2 = 0
-			}
-			Opus_ec_enc_bits(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), uint32(q2), uint32(*(*int32)(unsafe.Pointer(extra_quant + uintptr(i)*4))))
-			offset = float32(float32((float32(q2)+float32(0.5))*float32(int32(1)<<(int32(14)-*(*int32)(unsafe.Pointer(extra_quant + uintptr(i)*4)))))*(float32(1)/float32(16384))) - float32(0.5)
-			offset = offset * OpusT_celt_glog(float32(int32(1)<<(int32(14)-int32(prev)))*(float32(1)/float32(16384)))
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) += offset
-			*(*OpusT_celt_glog)(unsafe.Pointer(error1 + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) -= offset
-			/*printf ("%f ", error[i] - offset);*/
-			c = c + 1
-			v3 = c
-			if !(v3 < C) {
-				break
-			}
-		}
-	_1:
-		i = i + 1
 	}
 }
 

@@ -270,6 +270,8 @@ SILK sign encoding compares every signal/quantization type, signed int8 extremes
 skipped sums, low-five-bit sum table selection, rounded block counts and 120-sample
 padding against C, checking state, bytes, guards and unchanged inputs. Go tests
 round-trip signs through the typed decoder.
+Fine-energy quantization compares float bit patterns, full encoder state/output,
+optional previous quantization, budget skips, clipping and aliased energy/error arrays.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
