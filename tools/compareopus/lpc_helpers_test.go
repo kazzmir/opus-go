@@ -7,7 +7,68 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	"unsafe"
 )
+
+func TestAutocorrAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(912))
+	for _, n := range []int{1, 4, 5, 8, 17, 64, 128} {
+		for _, lag := range []int{0, 1, 3, 4, 8, 24} {
+			// The four-lag scalar C kernel requires at least three samples.
+			if lag >= n || (lag >= 3 && n-lag < 3) {
+				continue
+			}
+			for _, overlap := range []int{0, 1, n / 2, n} {
+				for trial := 0; trial < 12; trial++ {
+					input := make([]float32, n)
+					window := make([]float32, overlap)
+					for i := range input {
+						input[i] = float32(rng.NormFloat64() * 3)
+					}
+					for i := range window {
+						window[i] = float32(rng.Float64())
+					}
+					if trial == 0 {
+						for i := range input {
+							input[i] = math.Float32frombits(uint32(i%2) << 31)
+						}
+					}
+					if trial == 1 {
+						for i := range input {
+							input[i] = math.Float32frombits(uint32(i + 1))
+						}
+					}
+					before := append([]float32(nil), input...)
+					weights := append([]float32(nil), window...)
+					goOut := make([]float32, lag+3)
+					for i := range goOut {
+						goOut[i] = 77
+					}
+					cOut := append([]float32(nil), goOut...)
+					r := opuscc.Opus__celt_autocorr(nil, &input[0], &goOut[1], unsafe.SliceData(window), int32(overlap), int32(lag), int32(n), 0)
+					c := nativeAutocorr(input, cOut[1:], window, int32(overlap), int32(lag), int32(n))
+					if r != c || !sameFloatBits(goOut, cOut) || !sameFloatBits(input, before) || !sameFloatBits(window, weights) {
+						t.Fatal(n, lag, overlap, trial, goOut, cOut)
+					}
+				}
+			}
+		}
+	}
+	// Input/output aliasing has C's correlation-then-tail update order.
+	for _, overlap := range []int{0, 4} {
+		g := make([]float32, 32)
+		for i := range g {
+			g[i] = float32(i) * 0.17
+		}
+		c := append([]float32(nil), g...)
+		window := []float32{0.2, 0.4, 0.6, 0.8}
+		opuscc.Opus__celt_autocorr(nil, &g[0], &g[1], &window[0], int32(overlap), 4, 32, 0)
+		nativeAutocorr(c, c[1:], window, int32(overlap), 4, 32)
+		if !sameFloatBits(g, c) {
+			t.Fatal("alias", overlap, g, c)
+		}
+	}
+}
 
 func TestIIRAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(811))

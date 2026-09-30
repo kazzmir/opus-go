@@ -1199,7 +1199,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
 				/* Compute LPC coefficients for the last MAX_PERIOD samples before
 				   the first loss so we can work in the excitation-filter domain. */
-				Opus__celt_autocorr(tls, exc, uintptr(unsafe.Pointer(&ac[0])), window, overlap, int32(CELT_LPC_ORDER), max_period, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+				Opus__celt_autocorr(tls, (*float32)(unsafe.Pointer(exc)), &ac[0], (*float32)(unsafe.Pointer(window)), overlap, int32(CELT_LPC_ORDER), max_period, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 				/* Add a noise floor of -40 dB. */
 				ac[0] *= float32(1.0001)
 				/* Use lag windowing to stabilize the Levinson-Durbin recursion. */

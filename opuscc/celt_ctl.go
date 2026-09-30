@@ -262,7 +262,7 @@ func Opus_pitch_downsample(tls *libc.TLS, x uintptr, x_lp uintptr, len1 int32, C
 		}
 		*(*OpusT_opus_val16)(unsafe.Pointer(x_lp)) += float32(float32(0.25)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))) + uintptr(offset)*4))) + float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(x + uintptr(libc.PtrSize))))))
 	}
-	Opus__celt_autocorr(tls, x_lp, uintptr(unsafe.Pointer(&ac[0])), uintptr(uint32(0)), 0, int32(4), len1, arch)
+	Opus__celt_autocorr(tls, (*float32)(unsafe.Pointer(x_lp)), &ac[0], nil, 0, int32(4), len1, arch)
 	/* Noise floor -40 dB */
 	ac[0] *= float32(1.0001)
 	/* Lag windowing */

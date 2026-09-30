@@ -124,150 +124,36 @@ func Opus_celt_iir(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float
 	}
 }
 
-func Opus__celt_autocorr(tls *libc.TLS, x uintptr, ac uintptr, window uintptr, overlap int32, lag int32, n int32, arch int32) (r int32) {
-	var _saved_stack, st, xptr, xx, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
-	var d OpusT_opus_val32
-	var fastN, i, k, shift int32
-	var w OpusT_opus_val16
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, d, fastN, i, k, shift, st, w, xptr, xx, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
-	fastN = n - lag
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
+func Opus__celt_autocorr(tls *libc.TLS, x, ac, window *float32, overlap, lag, n, arch int32) int32 {
+	if n <= 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+3419, __ccgo_ts+3330, 302)
+	}
+	if overlap < 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+3441, __ccgo_ts+3330, 303)
+	}
+	input := unsafe.Slice(x, n)
+	signal := input
+	if overlap != 0 {
+		signal = make([]float32, n)
+		copy(signal, input)
+		weights := unsafe.Slice(window, overlap)
+		for i := int32(0); i < overlap; i++ {
+			// Always multiply the original input, even when the two ends overlap.
+			signal[i] = float32(input[i] * weights[i])
+			signal[n-i-1] = float32(input[n-i-1] * weights[i])
 		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
+	fastN := n - lag
+	Opus_celt_pitch_xcorr_c(tls, unsafe.SliceData(signal), unsafe.SliceData(signal), ac, fastN, lag+1, arch)
+	out := unsafe.Slice(ac, lag+1)
+	for k := int32(0); k <= lag; k++ {
+		d := float32(0)
+		for i := k + fastN; i < n; i++ {
+			d += float32(signal[i] * signal[i-k])
 		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+		out[k] += d
 	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(n))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3330, int32(301))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(n)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	xx = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(n))*(uint64(4)/uint64(1)))
-	if !(n > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3419, __ccgo_ts+3330, int32(302))
-	}
-	if !(overlap >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3441, __ccgo_ts+3330, int32(303))
-	}
-	if overlap == 0 {
-		xptr = x
-	} else {
-		i = 0
-		for {
-			if !(i < n) {
-				break
-			}
-			*(*OpusT_opus_val16)(unsafe.Pointer(xx + uintptr(i)*4)) = *(*OpusT_opus_val16)(unsafe.Pointer(x + uintptr(i)*4))
-			i = i + 1
-		}
-		i = 0
-		for {
-			if !(i < overlap) {
-				break
-			}
-			w = *(*OpusT_celt_coef)(unsafe.Pointer(window + uintptr(i)*4))
-			*(*OpusT_opus_val16)(unsafe.Pointer(xx + uintptr(i)*4)) = OpusT_opus_val16(*(*OpusT_opus_val16)(unsafe.Pointer(x + uintptr(i)*4)) * w)
-			*(*OpusT_opus_val16)(unsafe.Pointer(xx + uintptr(n-i-int32(1))*4)) = OpusT_opus_val16(*(*OpusT_opus_val16)(unsafe.Pointer(x + uintptr(n-i-int32(1))*4)) * w)
-			i = i + 1
-		}
-		xptr = xx
-	}
-	shift = 0
-	Opus_celt_pitch_xcorr_c(tls, (*OpusT_opus_val16)(unsafe.Pointer(xptr)), (*OpusT_opus_val16)(unsafe.Pointer(xptr)), (*OpusT_opus_val32)(unsafe.Pointer(ac)), fastN, lag+int32(1), arch)
-	k = 0
-	for {
-		if !(k <= lag) {
-			break
-		}
-		i = k + fastN
-		d = float32(0)
-		for {
-			if !(i < n) {
-				break
-			}
-			d = d + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(xptr + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(xptr + uintptr(i-k)*4)))
-			i = i + 1
-		}
-		*(*OpusT_opus_val32)(unsafe.Pointer(ac + uintptr(k)*4)) += d
-		k = k + 1
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-	return shift
+	return 0
 }
 
 var log2_x_norm_coeff5 = [8]float32{

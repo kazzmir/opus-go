@@ -377,6 +377,10 @@ signed zeros, subnormals, guards and partial overlap are checked bitwise.
 CELT IIR shares those scalar C fixtures and checks recurrence patch/store order,
 positive tail scratch, output-derived memory (including N<order history), guards,
 in-place/partial overlap, signed zeros and subnormals bitwise.
+CELT autocorrelation shares LPC fixtures and explicitly links the scalar pitch.c
+bridge (the library's SIMD dispatch can change accumulation). Window copying,
+overlapping window ends, prefix/tail grouping, lag bounds, input/output aliasing,
+input/window preservation and guarded results are compared bitwise.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

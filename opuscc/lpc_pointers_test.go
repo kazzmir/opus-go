@@ -7,6 +7,33 @@ import (
 	"testing"
 )
 
+func TestAutocorrPointers(t *testing.T) {
+	input := [8]float32{1, 2, 3, 4, 5, 6, 7, 8}
+	out := [6]float32{77, 0, 0, 0, 0, 88}
+	window := [4]float32{0.25, 0.5, 0.75, 1}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	r := Opus__celt_autocorr(nil, &input[0], &out[1], &window[0], 4, 3, 8, 0)
+	signal := [8]float32{0.25, 1, 2.25, 4, 5, 4.5, 3.5, 2}
+	if r != 0 || out[0] != 77 || out[5] != 88 {
+		t.Fatal(r, out)
+	}
+	for k := 0; k <= 3; k++ {
+		sum := float32(0)
+		for i := k; i < 8; i++ {
+			sum += float32(signal[i] * signal[i-k])
+		}
+		if out[k+1] != sum {
+			t.Fatal(k, out, sum)
+		}
+	}
+	one := float32(3)
+	r = Opus__celt_autocorr(nil, &one, &out[1], nil, 0, 0, 1, 0)
+	if r != 0 || out[1] != 9 {
+		t.Fatal("single sample")
+	}
+}
+
 func TestIIRPointers(t *testing.T) {
 	input := [8]float32{1, 2, 3, 4, 5, 6, 7, 8}
 	coeff := [4]float32{0, 0, 0, 0}
