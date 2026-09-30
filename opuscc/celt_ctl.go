@@ -2371,49 +2371,36 @@ func Opus_quant_fine_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end i
 	}
 }
 
-func Opus_quant_energy_finalise(tls *libc.TLS, m uintptr, start int32, end int32, oldEBands uintptr, error1 uintptr, fine_quant uintptr, fine_priority uintptr, bits_left int32, enc uintptr, C int32) {
-	var c, i, prio, q2, v3, v5 int32
-	var offset OpusT_celt_glog
-	_, _, _, _, _, _, _ = c, i, offset, prio, q2, v3, v5
-	/* Use up the remaining bits */
-	prio = 0
-	for {
-		if !(prio < int32(2)) {
-			break
+func Opus_quant_energy_finalise(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, oldEBands, error1 *OpusT_celt_glog, fineQuant, finePriority *int32, bitsLeft int32, enc *OpusT_ec_enc, C int32) {
+	if start >= end || bitsLeft < C {
+		return
+	}
+	quant, priority := unsafe.Slice(fineQuant, end), unsafe.Slice(finePriority, end)
+	err := unsafe.Slice(error1, C*m.FnbEBands)
+	var old []float32
+	if oldEBands != nil {
+		old = unsafe.Slice(oldEBands, C*m.FnbEBands)
+	}
+	for prio := int32(0); prio < 2; prio++ {
+		for i := start; i < end && bitsLeft >= C; i++ {
+			if quant[i] >= MAX_FINE_BITS || priority[i] != prio {
+				continue
+			}
+			for c := int32(0); c < C; c++ {
+				pos := i + c*m.FnbEBands
+				q2 := uint32(1)
+				if err[pos] < 0 {
+					q2 = 0
+				}
+				Opus_ec_enc_bits(tls, enc, q2, 1)
+				offset := float32(float32((float32(q2)-.5)*float32(int32(1)<<(14-quant[i]-1))) * (float32(1) / 16384))
+				if old != nil {
+					old[pos] += offset
+				}
+				err[pos] -= offset
+				bitsLeft--
+			}
 		}
-		i = start
-		for {
-			if !(i < end && bits_left >= C) {
-				break
-			}
-			if *(*int32)(unsafe.Pointer(fine_quant + uintptr(i)*4)) >= int32(MAX_FINE_BITS) || *(*int32)(unsafe.Pointer(fine_priority + uintptr(i)*4)) != prio {
-				goto _2
-			}
-			c = 0
-			for {
-				if *(*OpusT_celt_glog)(unsafe.Pointer(error1 + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) < float32(0) {
-					v5 = 0
-				} else {
-					v5 = int32(1)
-				}
-				q2 = v5
-				Opus_ec_enc_bits(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), uint32(q2), uint32(1))
-				offset = OpusT_celt_glog(float32((float32(q2)-float32(0.5))*float32(int32(1)<<(int32(14)-*(*int32)(unsafe.Pointer(fine_quant + uintptr(i)*4))-int32(1)))) * (float32(1) / float32(16384)))
-				if oldEBands != uintptr(uint32(0)) {
-					*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) += offset
-				}
-				*(*OpusT_celt_glog)(unsafe.Pointer(error1 + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) -= offset
-				bits_left = bits_left - 1
-				c = c + 1
-				v3 = c
-				if !(v3 < C) {
-					break
-				}
-			}
-		_2:
-			i = i + 1
-		}
-		prio = prio + 1
 	}
 }
 
