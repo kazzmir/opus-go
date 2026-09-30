@@ -305,6 +305,8 @@ Projection multistream-state access compares native alignment for matrix sizes
 0–1024 and checks interior-pointer ownership through GC and stack growth.
 Projection float output compares actual C callbacks over consecutive input channels,
 clear-before-read aliasing, nil sources, frame boundaries and valid matrix/stride extents.
+Projection int16 output compares first-channel clearing, later-channel accumulation,
+clipping/ties/NaN inputs, nil sources and destination guards against actual C callbacks.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
