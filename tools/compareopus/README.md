@@ -313,6 +313,8 @@ FFT butterfly tests share `fft_butterfly_helpers_test.go`. Radix-2 compares the
 actual static `kiss_fft.c` helper, including guards, subnormals and signed zeros.
 Radix-4 also covers its twiddle-free m=1 path, multiple blocks, gaps, zero/repeated
 strides, untouched twiddles and float32 product rounding with exact C bit comparisons.
+Radix-3 reuses the grouped fixtures and compares epi3 selection, half/scalar
+rounding, guards and stack-growth/GC calls with exact native output bits.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
