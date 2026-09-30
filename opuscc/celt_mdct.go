@@ -680,8 +680,13 @@ func Opus_mini_kiss_fft_stride(tls *libc.TLS, st *OpusT_mini_kiss_fft_state, fin
 
 var __func__1 = [21]int8{'m', 'i', 'n', 'i', '_', 'k', 'i', 's', 's', '_', 'f', 'f', 't', '_', 's', 't', 'r', 'i', 'd', 'e'}
 
-func Opus_mini_kiss_fft(tls *libc.TLS, cfg OpusT_mini_kiss_fft_cfg, fin uintptr, fout uintptr) {
-	Opus_mini_kiss_fft_stride(tls, (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(cfg)), (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fin)), (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fout)), 1)
+func Opus_mini_kiss_fft(tls *libc.TLS, cfg *OpusT_mini_kiss_fft_state, fin, fout *OpusT_mini_kiss_fft_cpx) {
+	Opus_mini_kiss_fft_stride(tls, cfg, fin, fout, 1)
+}
+
+// Boundary retained for the remaining uintptr-based real-FFT entry point.
+func mini_fft_legacy(tls *libc.TLS, cfg OpusT_mini_kiss_fft_cfg, fin, fout uintptr) {
+	Opus_mini_kiss_fft(tls, (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(cfg)), (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fin)), (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fout)))
 }
 
 type OpusT_mini_kiss_fftr_cfg = uintptr
@@ -760,7 +765,7 @@ func Opus_mini_kiss_fftr(tls *libc.TLS, st OpusT_mini_kiss_fftr_cfg, timedata ui
 	_ = v1 || libc.Bool(int32(0) != 0)
 	ncfft = (*mini_kiss_fft_state)(unsafe.Pointer((*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate)).Fnfft
 	/*perform the parallel fft of two real signals packed in real,imag*/
-	Opus_mini_kiss_fft(tls, (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate, timedata, (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf)
+	mini_fft_legacy(tls, (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate, timedata, (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf)
 	/* The real part of the DC element of the frequency spectrum in st->tmpbuf
 	 * contains the sum of the even-numbered elements of the input time sequence
 	 * The imag part is the sum of the odd-numbered elements

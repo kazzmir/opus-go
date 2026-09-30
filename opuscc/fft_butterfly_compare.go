@@ -2,6 +2,10 @@
 
 package opuscc
 
+func CompareMiniFFT(st *OpusT_mini_kiss_fft_state, in, out *OpusT_mini_kiss_fft_cpx, stride int32) {
+	Opus_mini_kiss_fft(nil, st, in, out)
+}
+
 func CompareMiniFFTStride(st *OpusT_mini_kiss_fft_state, in, out *OpusT_mini_kiss_fft_cpx, stride int32) {
 	Opus_mini_kiss_fft_stride(nil, st, in, out, stride)
 }

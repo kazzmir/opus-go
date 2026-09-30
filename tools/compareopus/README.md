@@ -345,6 +345,8 @@ Each subsequent pointer round also runs full ARM64 tests and focused checkptr
 under QEMU, in addition to amd64/386, native comparisons and GC stress.
 Typed mini-FFT stride entry tests reuse these complete-state fixtures, including
 zero stride in native comparisons and stack growth/GC with Go-owned state/input.
+The typed unit-stride mini-FFT entry also compares actual C entry dispatch and
+checks its unnormalized forward/inverse round trip; the real-FFT adapter remains legacy.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
