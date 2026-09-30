@@ -5,6 +5,31 @@ import (
 	"testing"
 )
 
+func TestPacketParsePointers(t *testing.T) {
+	var frames [48]*byte
+	var sizes [48]int16
+	var toc byte
+	offset := int32(-1)
+	func() {
+		packet := []byte{0x82, 1, 11, 12, 13}
+		r := Opus_opus_packet_parse(nil, &packet[0], 5, &toc, &frames, &sizes, &offset)
+		if r != 2 || sizes[0] != 1 || sizes[1] != 2 || offset != 2 || toc != 0x82 {
+			t.Fatal(r, sizes, offset, toc)
+		}
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *frames[0] != 11 || *frames[1] != 12 {
+		t.Fatal("returned frame ownership")
+	}
+	if r := Opus_opus_packet_parse(nil, nil, 0, nil, nil, &sizes, nil); r != -4 {
+		t.Fatal("empty", r)
+	}
+	if r := Opus_opus_packet_parse(nil, nil, 0, nil, nil, nil, nil); r != -1 {
+		t.Fatal("bad size", r)
+	}
+}
+
 func TestPacketParseImplPointers(t *testing.T) {
 	var frames [48]*byte
 	var size [48]int16

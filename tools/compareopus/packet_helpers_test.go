@@ -11,7 +11,7 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 )
 
-func goPacketParse(data *byte, length, self, mask int32) packetParseResult {
+func goPacketParse(data *byte, length, self, mask int32, public ...bool) packetParseResult {
 	r := packetParseResult{Toc: 0xa5, Payload: -77, Packet: -78, PaddingLen: -79}
 	for i := range r.Sizes {
 		r.Sizes[i] = 1234
@@ -45,7 +45,11 @@ func goPacketParse(data *byte, length, self, mask int32) packetParseResult {
 		padding = &pad
 		padlen = &r.PaddingLen
 	}
-	r.Count = opuscc.Opus_opus_packet_parse_impl(nil, data, length, self, toc, frames, size, payload, offset, padding, padlen)
+	if len(public) != 0 && public[0] {
+		r.Count = opuscc.Opus_opus_packet_parse(nil, data, length, toc, frames, size, payload)
+	} else {
+		r.Count = opuscc.Opus_opus_packet_parse_impl(nil, data, length, self, toc, frames, size, payload, offset, padding, padlen)
+	}
 	for i, p := range f {
 		r.Frames[i] = -1
 		if p != nil {
@@ -78,6 +82,20 @@ func packetParserFixtures() [][]byte {
 		}
 	}
 	return fixtures
+}
+
+func TestPacketParseAgainstC(t *testing.T) {
+	for _, packet := range packetParserFixtures() {
+		for _, mask := range []int32{63, 62, 61, 55, 4, 0} {
+			data := append(slices.Clone(packet), 0, 0)
+			before := slices.Clone(data)
+			g := goPacketParse(&data[0], int32(len(packet)), 0, mask, true)
+			c := nativePacketParse(&data[0], int32(len(packet)), 0, mask, 1)
+			if g != c || !slices.Equal(data, before) {
+				t.Fatalf("packet=%x mask=%d Go=%+v C=%+v", packet, mask, g, c)
+			}
+		}
+	}
 }
 
 func TestPacketParseImplAgainstC(t *testing.T) {

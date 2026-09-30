@@ -1355,8 +1355,12 @@ func opus_packet_parse_impl_legacy(tls *libc.TLS, data uintptr, length, selfDeli
 	return r
 }
 
-func Opus_opus_packet_parse(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, out_toc uintptr, frames uintptr, size uintptr, payload_offset uintptr) (r int32) {
-	return opus_packet_parse_impl_legacy(tls, data, len1, 0, out_toc, frames, size, payload_offset, uintptr(uint32(0)), uintptr(uint32(0)), uintptr(uint32(0)))
+func Opus_opus_packet_parse(tls *libc.TLS, data *byte, length int32, toc *byte, frames *[48]*byte, size *[48]int16, payload *int32) int32 {
+	return Opus_opus_packet_parse_impl(tls, data, length, 0, toc, frames, size, payload, nil, nil, nil)
+}
+
+func opus_packet_parse_legacy(tls *libc.TLS, data uintptr, length int32, toc, frames, size, payload uintptr) int32 {
+	return opus_packet_parse_impl_legacy(tls, data, length, 0, toc, frames, size, payload, 0, 0, 0)
 }
 
 const OPUS_BAD_ARG = -1
@@ -3929,7 +3933,7 @@ func Opus_opus_packet_has_lbrr(tls *libc.TLS, packet uintptr, len1 OpusT_opus_in
 		nb_frames = packet_frame_size / int32(960)
 	}
 	packet_stream_channels = Opus_opus_packet_get_nb_channels(tls, (*byte)(unsafe.Pointer(packet)))
-	ret = Opus_opus_packet_parse(tls, packet, len1, uintptr(uint32(0)), uintptr(unsafe.Pointer(&frames[0])), uintptr(unsafe.Pointer(&size[0])), uintptr(uint32(0)))
+	ret = opus_packet_parse_legacy(tls, packet, len1, uintptr(uint32(0)), uintptr(unsafe.Pointer(&frames[0])), uintptr(unsafe.Pointer(&size[0])), uintptr(uint32(0)))
 	if ret <= 0 {
 		return ret
 	}

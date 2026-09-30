@@ -385,6 +385,9 @@ The internal packet parser compares native opus_packet_parse_impl outputs,
 including untouched/error outputs, all framing branches, optional outputs,
 self-delimited streams, duration/size limits, padding and signed size narrowing.
 Frames/padding are typed packet interiors; outer integer APIs use an explicit adapter.
+The public packet parser shares these fixtures and additionally checks native
+public-API optional outputs and frame ownership across GC/stack growth on Go;
+architecture guards check both consumed and untouched array entries.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
