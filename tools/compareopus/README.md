@@ -417,6 +417,10 @@ the owning return and its three interior fields are typed.
 Real-FFT transforms reuse native mini_kfft.c fixtures for all supported radix
 combinations, odd/even complex halves, impulse/signed-zero inputs, exact spectrum
 and scratch bits, immutable state/twiddles, guards and in-place time/frequency output.
+CELT PLC pitch search now owns a fixed Go low-pass buffer and calls the fully
+typed pitch chain. The actual static C driver is linked to scalar pitch fixtures;
+silence, periodic/random mono/stereo data, input guards and shared channels are covered.
+The surrounding concealment state/scratch boundary remains legacy.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

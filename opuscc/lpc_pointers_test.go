@@ -7,6 +7,23 @@ import (
 	"testing"
 )
 
+func TestPLCPitchSearchPointers(t *testing.T) {
+	input := [DEC_PITCH_BUF_SIZE + 2]float32{}
+	input[0] = 77
+	input[len(input)-1] = 88
+	before := input
+	entropyInitGrowStack(12)
+	runtime.GC()
+	got := celt_plc_pitch_search(nil, nil, &input[1], nil, 1, 0)
+	if got != PLC_PITCH_LAG_MAX || input != before {
+		t.Fatal("silence/guards", got)
+	}
+	got = celt_plc_pitch_search(nil, nil, &input[1], &input[1], 2, 0)
+	if got != PLC_PITCH_LAG_MAX || input != before {
+		t.Fatal("shared channels", got)
+	}
+}
+
 func TestRemoveDoublingPointers(t *testing.T) {
 	input := [16]float32{}
 	period := [3]int32{77, 100, 88}

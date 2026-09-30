@@ -25,7 +25,10 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #define opus_custom_decode24 comparison_custom_decode24
 #define opus_custom_decode_float comparison_custom_decode_float
 #define opus_custom_decoder_ctl comparison_custom_ctl
+#define pitch_downsample compare_pitch_downsample
+#define pitch_search compare_pitch_search
 #include "../../../opus/celt/celt_decoder.c"
+static int native_plc_pitch(float *left,float *right,int channels) {float *data[2]={left,right};return celt_plc_pitch_search(NULL,data,channels,0);}
 static void native_tf(unsigned *s,unsigned char *data,int start,int end,int transient,int *out,int LM) {
  ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=s[3];dec.nbits_total=s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=s[9];dec.error=s[10];
  tf_decode(start,end,transient,out,LM,&dec);
@@ -44,6 +47,10 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePLCPitchSearch(left, right []float32, channels int32) int32 {
+	return int32(C.native_plc_pitch((*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), C.int(channels)))
+}
 
 func nativeTFDecode(dec *opuscc.OpusT_ec_dec, data []byte, start, end, transient int32, out []int32, LM int32) {
 	s := [11]C.uint{C.uint(dec.Fstorage), C.uint(dec.Fend_offs), C.uint(dec.Fend_window), C.uint(dec.Fnend_bits), C.uint(dec.Fnbits_total), C.uint(dec.Foffs), C.uint(dec.Frng), C.uint(dec.Fval), C.uint(dec.Fext), C.uint(dec.Frem), C.uint(dec.Ferror1)}

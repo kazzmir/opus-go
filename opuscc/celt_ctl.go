@@ -270,16 +270,6 @@ func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, 
 	celt_fir5(tls, out, &lpc2[0], length)
 }
 
-func pitch_downsample_legacy(tls *libc.TLS, x, out uintptr, length, C, factor, arch int32) {
-	channels := unsafe.Slice((*uintptr)(unsafe.Pointer(x)), 1)
-	left := (*float32)(unsafe.Pointer(channels[0]))
-	var right *float32
-	if C == 2 {
-		right = (*float32)(unsafe.Pointer(unsafe.Slice((*uintptr)(unsafe.Pointer(x)), 2)[1]))
-	}
-	Opus_pitch_downsample(tls, left, right, (*float32)(unsafe.Pointer(out)), length, C, factor, arch)
-}
-
 // C documentation
 //
 //	/* Pure C implementation. */

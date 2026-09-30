@@ -6,9 +6,45 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"math"
 	"math/rand"
+	"slices"
 	"testing"
 	"unsafe"
 )
+
+func TestPLCPitchSearchAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(1316))
+	for _, channels := range []int32{0, 1, 2, 3} {
+		for trial := 0; trial < 80; trial++ {
+			left := make([]float32, opuscc.DEC_PITCH_BUF_SIZE)
+			right := make([]float32, opuscc.DEC_PITCH_BUF_SIZE)
+			for i := range left {
+				left[i] = float32(rng.NormFloat64())
+				right[i] = float32(rng.NormFloat64())
+			}
+			if trial == 0 {
+				clear(left)
+				clear(right)
+			}
+			if trial%3 == 1 {
+				for i := range left {
+					left[i] = float32(math.Sin(float64(i) * 0.17))
+					right[i] = float32(math.Sin(float64(i) * 0.13))
+				}
+			}
+			beforeL := slices.Clone(left)
+			beforeR := slices.Clone(right)
+			var rp *float32
+			if channels == 2 {
+				rp = &right[0]
+			}
+			g := opuscc.ComparePLCPitchSearch(&left[0], rp, channels)
+			c := nativePLCPitchSearch(left, right, channels)
+			if g != c || !sameFloatBits(left, beforeL) || !sameFloatBits(right, beforeR) {
+				t.Fatal(channels, trial, g, c)
+			}
+		}
+	}
+}
 
 func TestRemoveDoublingAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(1215))

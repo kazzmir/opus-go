@@ -2,6 +2,10 @@
 
 package opuscc
 
+func ComparePLCPitchSearch(left, right *float32, C int32) int32 {
+	return celt_plc_pitch_search(nil, nil, left, right, C, 0)
+}
+
 func CompareTFDecode(start, end, transient int32, out *int32, LM int32, dec *OpusT_ec_dec) {
 	tf_decode(nil, start, end, transient, out, LM, dec)
 }
