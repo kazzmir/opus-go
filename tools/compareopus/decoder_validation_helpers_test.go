@@ -5,6 +5,7 @@ package main
 import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"testing"
+	"unsafe"
 )
 
 func TestCustomDecoderSizeAgainstC(t *testing.T) {
@@ -47,9 +48,24 @@ func TestMSValidationAgainstC(t *testing.T) {
 	}
 }
 
+func TestCustomModeAgainstC(t *testing.T) {
+	for _, rate := range []int32{-1, 0, 8000, 16000, 24000, 44100, 48000, 96000} {
+		for frame := int32(0); frame <= 2000; frame++ {
+			mode, err := opuscc.Opus_opus_custom_mode_create(nil, rate, frame)
+			code, values := nativeCustomMode(rate, frame)
+			if (mode != nil) != (code == 0) || (err != nil) != (code != 0) {
+				t.Fatal(rate, frame, mode, err, code)
+			}
+			if mode != nil && [7]int32{mode.FFs, mode.Foverlap, mode.FnbEBands, mode.FeffEBands, mode.FshortMdctSize, mode.FnbShortMdcts, mode.FmaxLM} != values {
+				t.Fatal("mode fields", rate, frame)
+			}
+		}
+	}
+}
+
 func TestCeltValidationAgainstC(t *testing.T) {
 	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
-	base := opuscc.OpusT_OpusCustomDecoder{Fmode: mode, Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
+	base := opuscc.OpusT_OpusCustomDecoder{Fmode: uintptr(unsafe.Pointer(mode)), Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
 	for field := 0; field < 13; field++ {
 		for _, v := range []int32{-1, 0, 1, 2, 3, 15, 16, 17, 18, 20, 21, 22, 100, 120, 1023, 1024} {
 			st := base

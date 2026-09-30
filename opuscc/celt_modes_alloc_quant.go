@@ -14,27 +14,15 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frame_size int32) (uintptr, error) {
-	var i, j int32
-	_, _ = i, j
-	i = 0
-	for {
-		if !(i < int32(TOTAL_MODES)) {
-			break
-		}
-		j = 0
-		for {
-			if !(j < int32(4)) {
-				break
+func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frameSize int32) (*OpusT_OpusCustomMode, error) {
+	for _, mode := range static_mode_list {
+		for j := uint(0); j < 4; j++ {
+			if Fs == mode.FFs && frameSize<<j == mode.FshortMdctSize*mode.FnbShortMdcts {
+				return mode, nil
 			}
-			if Fs == (*OpusT_OpusCustomMode)(unsafe.Pointer(static_mode_list[i])).FFs && frame_size<<j == (*OpusT_OpusCustomMode)(unsafe.Pointer(static_mode_list[i])).FshortMdctSize*(*OpusT_OpusCustomMode)(unsafe.Pointer(static_mode_list[i])).FnbShortMdcts {
-				return static_mode_list[i], nil
-			}
-			j = j + 1
 		}
-		i = i + 1
 	}
-	return uintptr(uint32(0)), opusErrorFromCode(-int32(1))
+	return nil, opusErrorFromCode(OPUS_BAD_ARG)
 }
 
 const EPSILON1 = 1e-15

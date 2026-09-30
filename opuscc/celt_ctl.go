@@ -7892,6 +7892,4 @@ var mode48000_960_120 = OpusT_OpusCustomMode{
 		Fcaps:  uintptr(unsafe.Pointer(&cache_caps50)),
 	},
 }
-var static_mode_list = [1]uintptr{
-	0: uintptr(unsafe.Pointer(&mode48000_960_120)),
-}
+var static_mode_list = [1]*OpusT_OpusCustomMode{&mode48000_960_120}

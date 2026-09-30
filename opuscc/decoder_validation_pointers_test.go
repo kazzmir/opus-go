@@ -61,9 +61,43 @@ func TestMSValidationPointers(t *testing.T) {
 	}
 }
 
+func TestCustomModePointers(t *testing.T) {
+	var first *OpusT_OpusCustomMode
+	for _, frame := range []int32{120, 240, 480, 960} {
+		mode, err := Opus_opus_custom_mode_create(nil, 48000, frame)
+		if err != nil || mode == nil {
+			t.Fatal(frame, err)
+		}
+		if first == nil {
+			first = mode
+		}
+		if mode != first {
+			t.Fatal("mode identity")
+		}
+	}
+	before := *first
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *first != before {
+		t.Fatal("mode changed")
+	}
+	for _, frame := range []int32{0, 60, 119, 121, 1920} {
+		if mode, err := Opus_opus_custom_mode_create(nil, 48000, frame); mode != nil || err == nil {
+			t.Fatal(frame, mode, err)
+		}
+	}
+	if mode, err := Opus_opus_custom_mode_create(nil, 44100, 960); mode != nil || err == nil {
+		t.Fatal("unsupported rate")
+	}
+	// Preserve the generated int32 shift's low bits, without using C's undefined signed overflow as an oracle.
+	if mode, err := Opus_opus_custom_mode_create(nil, 48000, 0x20000078); err != nil || mode != first {
+		t.Fatal("shift wrapping")
+	}
+}
+
 func TestCeltValidationPointers(t *testing.T) {
 	mode, _ := Opus_opus_custom_mode_create(nil, 48000, 960)
-	st := OpusT_OpusCustomDecoder{Fmode: mode, Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
+	st := OpusT_OpusCustomDecoder{Fmode: uintptr(unsafe.Pointer(mode)), Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
 	before := st
 	entropyInitGrowStack(12)
 	runtime.GC()

@@ -15,7 +15,7 @@ var _ unsafe.Pointer
 
 func Opus_validate_celt_decoder(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 	mode, _ := Opus_opus_custom_mode_create(tls, 48000, 960)
-	if st.Fmode != mode {
+	if st.Fmode != uintptr(unsafe.Pointer(mode)) {
 		Opus_celt_fatal(tls, __ccgo_ts+3695, __ccgo_ts+3767, 147)
 	}
 	if st.Foverlap != 120 {
@@ -78,10 +78,8 @@ func Opus_validate_celt_decoder(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 }
 
 func Opus_celt_decoder_get_size(tls *libc.TLS, channels int32) (r int32) {
-	var mode uintptr
-	_ = mode
-	mode, _ = Opus_opus_custom_mode_create(tls, int32(48000), int32(960))
-	return opus_custom_decoder_get_size(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), channels)
+	mode, _ := Opus_opus_custom_mode_create(tls, int32(48000), int32(960))
+	return opus_custom_decoder_get_size(tls, mode, channels)
 }
 
 func opus_custom_decoder_get_size(tls *libc.TLS, mode *OpusT_OpusCustomMode, channels int32) int32 {
@@ -93,7 +91,7 @@ func Opus_celt_decoder_init(tls *libc.TLS, st uintptr, sampling_rate OpusT_opus_
 	var ret int32
 	_ = ret
 	mode, _ := Opus_opus_custom_mode_create(tls, int32(48000), int32(960))
-	ret = opus_custom_decoder_init(tls, st, mode, channels)
+	ret = opus_custom_decoder_init(tls, st, uintptr(unsafe.Pointer(mode)), channels)
 	if ret != OPUS_OK {
 		return ret
 	}

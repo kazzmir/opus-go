@@ -29,6 +29,12 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #define pitch_search compare_pitch_search
 #include "../../../opus/celt/celt_decoder.c"
 static int native_plc_pitch(float *left,float *right,int channels) {float *data[2]={left,right};return celt_plc_pitch_search(NULL,data,channels,0);}
+#define opus_custom_mode_create comparison_mode_create
+#define opus_custom_mode_destroy comparison_mode_destroy
+#include "../../../opus/celt/modes.c"
+static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
+#undef opus_custom_mode_create
+#undef opus_custom_mode_destroy
 static void native_tf(unsigned *s,unsigned char *data,int start,int end,int transient,int *out,int LM) {
  ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=s[3];dec.nbits_total=s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=s[9];dec.error=s[10];
  tf_decode(start,end,transient,out,LM,&dec);
@@ -50,6 +56,16 @@ import (
 
 func nativePLCPitchSearch(left, right []float32, channels int32) int32 {
 	return int32(C.native_plc_pitch((*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), C.int(channels)))
+}
+
+func nativeCustomMode(rate, frame int32) (int32, [7]int32) {
+	var v [7]C.int
+	code := C.native_mode_lookup(C.int(rate), C.int(frame), &v[0])
+	var out [7]int32
+	for i := range v {
+		out[i] = int32(v[i])
+	}
+	return int32(code), out
 }
 
 func nativeTFDecode(dec *opuscc.OpusT_ec_dec, data []byte, start, end, transient int32, out []int32, LM int32) {
@@ -75,7 +91,7 @@ func nativeCustomDecoderSize(overlap, bands, channels int32) int32 {
 func nativeCeltValidation(st *opuscc.OpusT_OpusCustomDecoder) bool {
 	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	badmode := int32(0)
-	if st.Fmode != mode {
+	if st.Fmode != uintptr(unsafe.Pointer(mode)) {
 		badmode = 1
 	}
 	v := [12]int32{st.Foverlap, st.Fend, st.Fchannels, st.Fstream_channels, st.Fdownsample, st.Fstart, st.Farch, st.Flast_pitch_index, st.Fpostfilter_period, st.Fpostfilter_period_old, st.Fpostfilter_tapset, st.Fpostfilter_tapset_old}
