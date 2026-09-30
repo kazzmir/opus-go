@@ -6,6 +6,31 @@ import (
 	"testing"
 )
 
+func TestFFTButterfly5Pointers(t *testing.T) {
+	kf_bfly5(nil, nil, 1, nil, 4, 0, 20)
+	tw := make([]OpusT_kiss_twiddle_cpx, 13)
+	for i := range tw {
+		tw[i].Fr = 1
+	}
+	out := make([]OpusT_kiss_fft_cpx, 22)
+	out[0].Fr = 77
+	out[21].Fr = 88
+	for i := 1; i <= 4; i++ {
+		out[i].Fr = 1
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	kf_bfly5(nil, &out[1], 1, &tw[0], 4, 1, 20)
+	if out[0].Fr != 77 || out[21].Fr != 88 {
+		t.Fatal("guards")
+	}
+	for i := 1; i <= 20; i++ {
+		if out[i].Fr != 1 || out[i].Fi != 0 {
+			t.Fatal(out)
+		}
+	}
+}
+
 func TestFFTButterfly3Pointers(t *testing.T) {
 	kf_bfly3(nil, nil, 1, nil, 4, 0, 12)
 	tw := make([]OpusT_kiss_twiddle_cpx, 7)

@@ -2,6 +2,10 @@
 
 package opuscc
 
+func CompareFFTButterfly5(out *OpusT_kiss_fft_cpx, stride uint64, tw *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
+	kf_bfly5(nil, out, stride, tw, m, N, mm)
+}
+
 func CompareFFTButterfly3(out *OpusT_kiss_fft_cpx, stride uint64, tw *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
 	kf_bfly3(nil, out, stride, tw, m, N, mm)
 }
