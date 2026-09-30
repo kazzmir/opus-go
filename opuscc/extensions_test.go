@@ -1,11 +1,41 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestSkipPayloadPointers(t *testing.T) {
+	data := [8]byte{3, 1, 2, 3, 4, 5, 6, 7}
+	p := &data[0]
+	h := int32(77)
+	if r := skip_extension_payload(nil, &p, 8, &h, 65, 0); r != 4 || p != &data[4] || h != 1 {
+		t.Fatal(r, p, h)
+	}
+	before := p
+	h = 77
+	if r := skip_extension_payload(nil, &p, 1, &h, 65, 0); r != -1 || p != before || h != 77 {
+		t.Fatal("error committed output")
+	}
+	var owner *byte
+	func() {
+		b := make([]byte, 8)
+		b[0] = 1
+		b[2] = 99
+		p := &b[0]
+		h := int32(0)
+		skip_extension_payload(nil, &p, 8, &h, 65, 0)
+		owner = p
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *owner != 99 {
+		t.Fatal("interior ownership")
+	}
+}
 
 func TestRepeatedExtensionIterator(t *testing.T) {
 	tls := libc.NewTLS()

@@ -361,6 +361,9 @@ Custom CELT decoder sizes reuse the validator fixtures, comparing native header
 size, channels, overlaps and band counts; Go separately checks int32 size narrowing.
 Time/frequency decode reuses entropy-bit tests and the actual static C helper,
 comparing all LM/transient choices, budget exhaustion, selected bands and entropy state.
+Extension payload skipping compares actual extensions.c helpers across all ID
+bytes, lacing boundaries, trailing-short reservations and failure output preservation;
+Go tests also check ownership through returned interior pointers.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

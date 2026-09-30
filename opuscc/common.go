@@ -5650,54 +5650,56 @@ var tapset_icdf6 = [3]uint8{
 //	   N.B., a "Repeat These Extensions" extension (ID==2) does not advance past
 //	    the repeated extension payloads.
 //	   That requires higher-level logic. */
-func skip_extension_payload(tls *libc.TLS, pdata uintptr, len1 OpusT_opus_int32, pheader_size uintptr, id_byte int32, trailing_short_len OpusT_opus_int32) (r OpusT_opus_int32) {
-	var L, id int32
-	var bytes, header_size, lacing OpusT_opus_int32
-	var data, v1 uintptr
-	_, _, _, _, _, _, _ = L, bytes, data, header_size, id, lacing, v1
-	data = *(*uintptr)(unsafe.Pointer(pdata))
-	header_size = 0
-	id = id_byte >> int32(1)
-	L = id_byte & int32(1)
-	if id == 0 && L == int32(1) || id == int32(2) {
-		/* Nothing to do. */
+func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSize *int32, idByte, trailingShort int32) int32 {
+	data := *pdata
+	header := int32(0)
+	id, L := idByte>>1, idByte&1
+	if (id == 0 && L == 1) || id == 2 {
+	} else if id > 0 && id < 32 {
+		if length < L {
+			return -1
+		}
+		data = (*byte)(unsafe.Add(unsafe.Pointer(data), L))
+		length -= L
+	} else if L == 0 {
+		if length < trailingShort {
+			return -1
+		}
+		data = (*byte)(unsafe.Add(unsafe.Pointer(data), length-trailingShort))
+		length = trailingShort
 	} else {
-		if id > 0 && id < int32(32) {
-			if len1 < L {
-				return -int32(1)
+		bytes := int32(0)
+		for {
+			if length < 1 {
+				return -1
 			}
-			data = data + uintptr(L)
-			len1 = len1 - L
-		} else {
-			if L == 0 {
-				if len1 < trailing_short_len {
-					return -int32(1)
-				}
-				data = data + uintptr(len1-trailing_short_len)
-				len1 = trailing_short_len
-			} else {
-				bytes = 0
-				for cond := true; cond; cond = lacing == int32(255) {
-					if len1 < int32(1) {
-						return -int32(1)
-					}
-					v1 = data
-					data = data + 1
-					lacing = int32(*(*uint8)(unsafe.Pointer(v1)))
-					bytes = bytes + lacing
-					header_size = header_size + 1
-					len1 = len1 - (lacing + int32(1))
-				}
-				if len1 < 0 {
-					return -int32(1)
-				}
-				data = data + uintptr(bytes)
+			lacing := int32(*data)
+			data = (*byte)(unsafe.Add(unsafe.Pointer(data), 1))
+			bytes += lacing
+			header++
+			length -= lacing + 1
+			if lacing != 255 {
+				break
 			}
 		}
+		if length < 0 {
+			return -1
+		}
+		data = (*byte)(unsafe.Add(unsafe.Pointer(data), bytes))
 	}
-	*(*uintptr)(unsafe.Pointer(pdata)) = data
-	*(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) = header_size
-	return len1
+	*pdata = data
+	*headerSize = header
+	return length
+}
+
+// Explicit remaining iterator boundary; iterator-owned packet addresses are still integers.
+func skip_extension_payload_legacy(tls *libc.TLS, pdata uintptr, length int32, header uintptr, idByte, trailingShort int32) int32 {
+	data := (*byte)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(pdata))))
+	result := skip_extension_payload(tls, &data, length, (*int32)(unsafe.Pointer(header)), idByte, trailingShort)
+	if result >= 0 {
+		*(*uintptr)(unsafe.Pointer(pdata)) = uintptr(unsafe.Pointer(data))
+	}
+	return result
 }
 
 // C documentation
@@ -5724,7 +5726,7 @@ func skip_extension(tls *libc.TLS, pdata uintptr, len1 OpusT_opus_int32, pheader
 	data++
 	id_byte = int32(*(*uint8)(unsafe.Pointer(v1)))
 	len1 = len1 - 1
-	len1 = skip_extension_payload(tls, uintptr(unsafe.Pointer(&data)), len1, pheader_size, id_byte, 0)
+	len1 = skip_extension_payload_legacy(tls, uintptr(unsafe.Pointer(&data)), len1, pheader_size, id_byte, 0)
 	if len1 >= 0 {
 		*(*uintptr)(unsafe.Pointer(pdata)) = data
 		*(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) = *(*OpusT_opus_int32)(unsafe.Pointer(pheader_size)) + 1
@@ -5829,7 +5831,7 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter uintptr, ext uintpt
 				repeat_id_byte = repeat_id_byte & ^int32(1)
 			}
 			curr_data0 = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data
-			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension_payload(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fcurr_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, uintptr(unsafe.Pointer(&header_size)), repeat_id_byte, (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len)
+			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension_payload_legacy(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fcurr_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, uintptr(unsafe.Pointer(&header_size)), repeat_id_byte, (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len)
 			if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len < 0 {
 				return -int32(4)
 			}
