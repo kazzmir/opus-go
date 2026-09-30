@@ -365,7 +365,7 @@ func TestSilkDecodeLostFrameState(t *testing.T) {
 	decoder.FnChannelsInternal = 1
 	decoder.Fchannel_state[0].Ffs_API_hz = 8000
 	decoder.Fchannel_state[0].Fnb_subfr = MAX_NB_SUBFR
-	if got := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[0])), 8, 8000); got != OPUS_OK {
+	if got := Opus_silk_decoder_set_fs(tls, &decoder.Fchannel_state[0], 8, 8000); got != OPUS_OK {
 		t.Fatalf("sample rate setup: got %d", got)
 	}
 	Opus_silk_PLC_Reset(tls, &decoder.Fchannel_state[0])

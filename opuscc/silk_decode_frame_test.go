@@ -13,7 +13,7 @@ func TestDecodeFrameFieldAccesses(t *testing.T) {
 	setupResamplerPseudostack(tls)
 	var decoder OpusT_silk_decoder_state
 	decoder.Fnb_subfr = MAX_NB_SUBFR
-	if got := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder)), 8, 8000); got != OPUS_OK {
+	if got := Opus_silk_decoder_set_fs(tls, &decoder, 8, 8000); got != OPUS_OK {
 		t.Fatalf("set fs: got %d", got)
 	}
 	Opus_silk_PLC_Reset(tls, &decoder)

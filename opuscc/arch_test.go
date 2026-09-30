@@ -98,7 +98,7 @@ func TestArchSilkDecoderLayout(t *testing.T) {
 	}
 	ch := &storage.decoder.Fchannel_state[0]
 	ch.Fnb_subfr = MAX_NB_SUBFR
-	if ret := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(ch)), 16, 48000); ret != 0 {
+	if ret := Opus_silk_decoder_set_fs(tls, ch, 16, 48000); ret != 0 {
 		t.Fatalf("set_fs = %d", ret)
 	}
 	var want OpusT_silk_resampler_state_struct

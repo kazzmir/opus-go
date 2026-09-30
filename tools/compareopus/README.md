@@ -404,6 +404,10 @@ input and correlation scratch are now Go-owned rather than TLS allocations.
 Pitch-doubling removal shares scalar pitch fixtures and compares period/gain
 bits, continuity thresholds, rolling energy lookup, minimum/clamped/odd periods,
 short windows and input/output guards; energy lookup is now Go-owned scratch.
+SILK decoder rate setup reuses reset/resampler fixtures and compiles the actual
+silk_decoder_set_fs helper. Internal/API/frame-only/no-change transitions compare
+full Go state, resampler history, table identities and C untouched-state checks
+for both subframe counts and all supported rates; fixed-offset clears are gone.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

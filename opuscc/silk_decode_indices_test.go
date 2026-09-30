@@ -12,7 +12,7 @@ func TestDecodeIndicesFieldAccesses(t *testing.T) {
 	defer tls.Close()
 	var decoder OpusT_silk_decoder_state
 	decoder.Fnb_subfr = MAX_NB_SUBFR
-	if got := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder)), 8, 8000); got != OPUS_OK {
+	if got := Opus_silk_decoder_set_fs(tls, &decoder, 8, 8000); got != OPUS_OK {
 		t.Fatalf("set decoder sample rate: got %d", got)
 	}
 	data := []byte{0x93, 0x57, 0xc1, 0x2a, 0xee, 0x44, 0x18, 0xb7, 0x6d, 0x09, 0xfa, 0x35, 0x81, 0x62, 0xdc, 0x4e}
