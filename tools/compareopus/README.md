@@ -414,6 +414,9 @@ typed owning returns keep the full flexible-array allocation alive across GC.
 Real-FFT allocation shares these tests, comparing relative interior pointers,
 architecture-sized headers, substate/super-twiddle bytes and query/capacity behavior;
 the owning return and its three interior fields are typed.
+Real-FFT transforms reuse native mini_kfft.c fixtures for all supported radix
+combinations, odd/even complex halves, impulse/signed-zero inputs, exact spectrum
+and scratch bits, immutable state/twiddles, guards and in-place time/frequency output.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

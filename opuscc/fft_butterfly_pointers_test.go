@@ -8,6 +8,25 @@ import (
 	"unsafe"
 )
 
+func TestMiniFFTRPointers(t *testing.T) {
+	st := Opus_mini_kiss_fftr_alloc(nil, 16, 0, nil, nil)
+	input := [16]float32{1}
+	out := [11]OpusT_mini_kiss_fft_cpx{}
+	out[0].Fr = 77
+	out[10].Fr = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_mini_kiss_fftr(nil, st, &input[0], &out[1])
+	for _, v := range out[1:10] {
+		if v.Fr != 1 || v.Fi != 0 {
+			t.Fatal("impulse spectrum", out)
+		}
+	}
+	if out[0].Fr != 77 || out[10].Fr != 88 || input != [16]float32{1} {
+		t.Fatal("guards/input")
+	}
+}
+
 func TestMiniFFTRAllocPointers(t *testing.T) {
 	var needed OpusT_size_t
 	Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, &needed)

@@ -11,6 +11,56 @@ import (
 	"unsafe"
 )
 
+func TestMiniFFTRAgainstC(t *testing.T) {
+	for _, n := range []int32{4, 6, 8, 10, 12, 16, 24, 30, 60, 120, 240, 480} {
+		for trial := 0; trial < 12; trial++ {
+			g := opuscc.Opus_mini_kiss_fftr_alloc(nil, n, 0, nil, nil)
+			c := nativeMiniRFixture(n)
+			input := make([]float32, n)
+			for i := range input {
+				input[i] = float32(math.Sin(float64(i*17+trial) * 0.31))
+			}
+			if trial == 0 {
+				clear(input)
+				input[0] = 1
+			}
+			if trial == 1 {
+				for i := range input {
+					input[i] = math.Float32frombits(uint32(i%2) << 31)
+				}
+			}
+			before := slices.Clone(input)
+			subBefore := slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(g.Fsubstate)), 264+8*int(n/2)))
+			twBefore := slices.Clone(unsafe.Slice(g.Fsuper_twiddles, n/4))
+			out := make([]opuscc.OpusT_mini_kiss_fft_cpx, n/2+3)
+			for i := range out {
+				out[i] = opuscc.OpusT_mini_kiss_fft_cpx{Fr: 77, Fi: 88}
+			}
+			native := slices.Clone(out)
+			opuscc.Opus_mini_kiss_fftr(nil, g, &input[0], &out[1])
+			nativeMiniRTransform(c, &input[0], &native[1])
+			if !sameComplexBits(out, native) || !sameFloatBits(input, before) || !sameComplexBits(unsafe.Slice(g.Ftmpbuf, n/2), unsafe.Slice(c.Ftmpbuf, n/2)) || !slices.Equal(subBefore, unsafe.Slice((*byte)(unsafe.Pointer(g.Fsubstate)), len(subBefore))) || !sameComplexBits(twBefore, unsafe.Slice(g.Fsuper_twiddles, n/4)) {
+				t.Fatal(n, trial, "transform/state")
+			}
+		}
+	}
+	// The complete time input is read into scratch before aliased frequency output stores.
+	for _, n := range []int32{8, 12, 30, 120} {
+		g := opuscc.Opus_mini_kiss_fftr_alloc(nil, n, 0, nil, nil)
+		c := nativeMiniRFixture(n)
+		goBuffer := make([]float32, n+4)
+		for i := range goBuffer {
+			goBuffer[i] = float32(math.Sin(float64(i)))
+		}
+		cBuffer := slices.Clone(goBuffer)
+		opuscc.Opus_mini_kiss_fftr(nil, g, &goBuffer[1], (*opuscc.OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(&goBuffer[1])))
+		nativeMiniRTransform(c, &cBuffer[1], (*opuscc.OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(&cBuffer[1])))
+		if !sameFloatBits(goBuffer, cBuffer) {
+			t.Fatal("alias", n, goBuffer, cBuffer)
+		}
+	}
+}
+
 func TestMiniFFTRAllocAgainstC(t *testing.T) {
 	for _, n := range []int32{2, 4, 6, 8, 10, 16, 24, 60, 120, 240, 480} {
 		for _, inverse := range []int32{0, 1, -1, 2} {
