@@ -561,103 +561,13 @@ func tf_decode(tls *libc.TLS, start, end, isTransient int32, tfRes *int32, LM in
 	}
 }
 
-func celt_plc_pitch_search(tls *libc.TLS, st1 uintptr, decode_mem uintptr, C int32, arch int32) (r int32) {
-	var _saved_stack, lp_pitch_buf, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
-	var pitch_index int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, lp_pitch_buf, pitch_index, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	_ = st1
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(int32(DEC_PITCH_BUF_SIZE)>>int32(1)))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3767, int32(565))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(int32(DEC_PITCH_BUF_SIZE)>>int32(1))) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	lp_pitch_buf = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(int32(DEC_PITCH_BUF_SIZE)>>int32(1)))*(uint64(4)/uint64(1)))
-	Opus_pitch_downsample(tls, decode_mem, lp_pitch_buf, int32(DEC_PITCH_BUF_SIZE)>>int32(1), C, int32(2), arch)
-	Opus_pitch_search(tls, lp_pitch_buf+uintptr(int32(PLC_PITCH_LAG_MAX)>>int32(1))*4, lp_pitch_buf, int32(DEC_PITCH_BUF_SIZE)-int32(PLC_PITCH_LAG_MAX), int32(PLC_PITCH_LAG_MAX)-int32(PLC_PITCH_LAG_MIN), uintptr(unsafe.Pointer(&pitch_index)), arch)
-	pitch_index = int32(PLC_PITCH_LAG_MAX) - pitch_index
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-	return pitch_index
+func celt_plc_pitch_search(tls *libc.TLS, st *OpusT_OpusCustomDecoder, left, right *float32, C, arch int32) int32 {
+	// st is unused in the non-QEXT C implementation.
+	var lowpass [DEC_PITCH_BUF_SIZE / 2]float32
+	var pitch int32
+	Opus_pitch_downsample(tls, left, right, &lowpass[0], DEC_PITCH_BUF_SIZE/2, C, 2, arch)
+	Opus_pitch_search(tls, &lowpass[PLC_PITCH_LAG_MAX/2], &lowpass[0], DEC_PITCH_BUF_SIZE-PLC_PITCH_LAG_MAX, PLC_PITCH_LAG_MAX-PLC_PITCH_LAG_MIN, &pitch, arch)
+	return PLC_PITCH_LAG_MAX - pitch
 }
 
 func prefilter_and_fold(tls *libc.TLS, st1 uintptr, N int32) {
@@ -1035,7 +945,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 		curr_neural = libc.BoolInt32(curr_frame_type == int32(FRAME_PLC_NEURAL) || curr_frame_type == int32(FRAME_DRED))
 		last_neural = libc.BoolInt32((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type == int32(FRAME_PLC_NEURAL) || (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type == int32(FRAME_DRED))
 		if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
-			v5 = celt_plc_pitch_search(tls, st1, uintptr(unsafe.Pointer(&decode_mem[0])), C, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+			v5 = celt_plc_pitch_search(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*float32)(unsafe.Pointer(decode_mem[0])), (*float32)(unsafe.Pointer(decode_mem[1])), C, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 			pitch_index = v5
 			(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_pitch_index = v5
 		} else {
@@ -1199,7 +1109,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
 				/* Compute LPC coefficients for the last MAX_PERIOD samples before
 				   the first loss so we can work in the excitation-filter domain. */
-				Opus__celt_autocorr(tls, exc, uintptr(unsafe.Pointer(&ac[0])), window, overlap, int32(CELT_LPC_ORDER), max_period, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+				Opus__celt_autocorr(tls, (*float32)(unsafe.Pointer(exc)), &ac[0], (*float32)(unsafe.Pointer(window)), overlap, int32(CELT_LPC_ORDER), max_period, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 				/* Add a noise floor of -40 dB. */
 				ac[0] *= float32(1.0001)
 				/* Use lag windowing to stabilize the Levinson-Durbin recursion. */
@@ -1218,7 +1128,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			   of the region for which we're computing the excitation. */
 			/* Compute the excitation for exc_length samples before the loss. We need the copy
 			   because celt_fir() cannot filter in-place. */
-			Opus_celt_fir_c(tls, exc+uintptr(max_period)*4-uintptr(exc_length)*4, lpc+uintptr(c*int32(CELT_LPC_ORDER))*4, fir_tmp, exc_length, int32(CELT_LPC_ORDER), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+			Opus_celt_fir_c(tls, (*float32)(unsafe.Pointer(exc+uintptr(max_period)*4-uintptr(exc_length)*4)), (*float32)(unsafe.Pointer(lpc+uintptr(c*int32(CELT_LPC_ORDER))*4)), (*float32)(unsafe.Pointer(fir_tmp)), exc_length, int32(CELT_LPC_ORDER), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 			libc.Xmemcpy(tls, exc+uintptr(max_period)*4-uintptr(exc_length)*4, fir_tmp, uint64(uint32(exc_length))*uint64(4)+uint64(0*((int64(exc+uintptr(max_period)*4-uintptr(exc_length)*4)-int64(fir_tmp))/4)))
 			/* Check if the waveform is decaying, and if so how fast.
 			   We do this to avoid adding energy when concealing in a segment
@@ -1288,7 +1198,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			}
 			/* Apply the synthesis filter to convert the excitation back into
 			   the signal domain. */
-			Opus_celt_iir(tls, buf+uintptr(decode_buffer_size)*4-uintptr(N)*4, lpc+uintptr(c*int32(CELT_LPC_ORDER))*4, buf+uintptr(decode_buffer_size)*4-uintptr(N)*4, extrapolation_len, int32(CELT_LPC_ORDER), uintptr(unsafe.Pointer(&lpc_mem[0])), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+			Opus_celt_iir(tls, (*float32)(unsafe.Pointer(buf+uintptr(decode_buffer_size)*4-uintptr(N)*4)), (*float32)(unsafe.Pointer(lpc+uintptr(c*int32(CELT_LPC_ORDER))*4)), (*float32)(unsafe.Pointer(buf+uintptr(decode_buffer_size)*4-uintptr(N)*4)), extrapolation_len, int32(CELT_LPC_ORDER), &lpc_mem[0], (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 			/* Check if the synthesis energy is higher than expected, which can
 			   happen with the signal changes during our window. If so,
 			   attenuate. */

@@ -6,8 +6,333 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"math"
 	"math/rand"
+	"slices"
 	"testing"
+	"unsafe"
 )
+
+func TestPLCPitchSearchAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(1316))
+	for _, channels := range []int32{0, 1, 2, 3} {
+		for trial := 0; trial < 80; trial++ {
+			left := make([]float32, opuscc.DEC_PITCH_BUF_SIZE)
+			right := make([]float32, opuscc.DEC_PITCH_BUF_SIZE)
+			for i := range left {
+				left[i] = float32(rng.NormFloat64())
+				right[i] = float32(rng.NormFloat64())
+			}
+			if trial == 0 {
+				clear(left)
+				clear(right)
+			}
+			if trial%3 == 1 {
+				for i := range left {
+					left[i] = float32(math.Sin(float64(i) * 0.17))
+					right[i] = float32(math.Sin(float64(i) * 0.13))
+				}
+			}
+			beforeL := slices.Clone(left)
+			beforeR := slices.Clone(right)
+			var rp *float32
+			if channels == 2 {
+				rp = &right[0]
+			}
+			g := opuscc.ComparePLCPitchSearch(&left[0], rp, channels)
+			c := nativePLCPitchSearch(left, right, channels)
+			if g != c || !sameFloatBits(left, beforeL) || !sameFloatBits(right, beforeR) {
+				t.Fatal(channels, trial, g, c)
+			}
+		}
+	}
+}
+
+func TestRemoveDoublingAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(1215))
+	for _, maxPeriod := range []int{16, 31, 64, 128} {
+		for _, minPeriod := range []int{4, 5, 8} {
+			for _, n := range []int{8, 17, 64, 240} {
+				for trial := 0; trial < 100; trial++ {
+					x := make([]float32, maxPeriod/2+n/2)
+					for i := range x {
+						x[i] = float32(rng.NormFloat64())
+					}
+					if trial == 0 {
+						clear(x)
+					}
+					if trial%3 == 1 {
+						for i := range x {
+							x[i] = float32(math.Sin(float64(i) * 0.3))
+						}
+					}
+					before := append([]float32(nil), x...)
+					initial := minPeriod + rng.Intn(maxPeriod-minPeriod+8)
+					previous := rng.Intn(maxPeriod)
+					previousGain := float32(rng.Float64())
+					g := [3]int32{77, int32(initial), 88}
+					c := g
+					gg := opuscc.Opus_remove_doubling(nil, &x[0], int32(maxPeriod), int32(minPeriod), int32(n), &g[1], int32(previous), previousGain, 0)
+					cg := nativeRemoveDoubling(x, int32(maxPeriod), int32(minPeriod), int32(n), &c[1], int32(previous), previousGain)
+					if g != c || math.Float32bits(gg) != math.Float32bits(cg) || !sameFloatBits(x, before) {
+						t.Fatal(maxPeriod, minPeriod, n, trial, initial, previous, g, c, gg, cg)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestPitchSearchAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(1114))
+	for _, n := range []int{4, 8, 12, 17, 32, 128, 240} {
+		for _, maxPitch := range []int{4, 8, 12, 16, 31, 128} {
+			if maxPitch>>2 > 3 && n>>2 < 3 {
+				continue
+			}
+			for trial := 0; trial < 60; trial++ {
+				x := make([]float32, n/2)
+				y := make([]float32, (n+maxPitch)/2)
+				for i := range x {
+					x[i] = float32(rng.NormFloat64())
+				}
+				for i := range y {
+					y[i] = float32(rng.NormFloat64())
+				}
+				if trial == 0 {
+					clear(x)
+					clear(y)
+				}
+				if trial == 1 {
+					for i := range x {
+						x[i] = float32(math.Sin(float64(i) * 0.7))
+					}
+					for i := range y {
+						y[i] = float32(math.Sin(float64(i) * 0.7))
+					}
+				}
+				x0 := append([]float32(nil), x...)
+				y0 := append([]float32(nil), y...)
+				g := [3]int32{77, -1, 88}
+				c := g
+				opuscc.Opus_pitch_search(nil, &x[0], &y[0], int32(n), int32(maxPitch), &g[1], 0)
+				nativePitchSearch(x, y, int32(n), int32(maxPitch), &c[1])
+				if g != c || !sameFloatBits(x, x0) || !sameFloatBits(y, y0) {
+					t.Fatal(n, maxPitch, trial, g, c)
+				}
+			}
+		}
+	}
+}
+
+func TestPitchDownsampleAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(1013))
+	for _, n := range []int{7, 8, 17, 64, 240} {
+		for _, factor := range []int{1, 2, 3, 4} {
+			for _, channels := range []int{0, 1, 2, 3} {
+				for trial := 0; trial < 12; trial++ {
+					left := make([]float32, n*factor)
+					right := make([]float32, n*factor)
+					for i := range left {
+						left[i] = float32(rng.NormFloat64())
+						right[i] = float32(rng.NormFloat64())
+					}
+					if trial == 0 {
+						clear(left)
+						clear(right)
+					}
+					l0 := append([]float32(nil), left...)
+					r0 := append([]float32(nil), right...)
+					g := make([]float32, n+2)
+					for i := range g {
+						g[i] = 77
+					}
+					c := append([]float32(nil), g...)
+					var rp *float32
+					if channels == 2 {
+						rp = &right[0]
+					}
+					opuscc.Opus_pitch_downsample(nil, &left[0], rp, &g[1], int32(n), int32(channels), int32(factor), 0)
+					nativePitchDownsample(left, right, c[1:], int32(n), int32(channels), int32(factor))
+					if !sameFloatBits(g, c) || !sameFloatBits(left, l0) || !sameFloatBits(right, r0) {
+						t.Fatal(n, factor, channels, trial, g, c)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestAutocorrAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(912))
+	for _, n := range []int{1, 4, 5, 8, 17, 64, 128} {
+		for _, lag := range []int{0, 1, 3, 4, 8, 24} {
+			// The four-lag scalar C kernel requires at least three samples.
+			if lag >= n || (lag >= 3 && n-lag < 3) {
+				continue
+			}
+			for _, overlap := range []int{0, 1, n / 2, n} {
+				for trial := 0; trial < 12; trial++ {
+					input := make([]float32, n)
+					window := make([]float32, overlap)
+					for i := range input {
+						input[i] = float32(rng.NormFloat64() * 3)
+					}
+					for i := range window {
+						window[i] = float32(rng.Float64())
+					}
+					if trial == 0 {
+						for i := range input {
+							input[i] = math.Float32frombits(uint32(i%2) << 31)
+						}
+					}
+					if trial == 1 {
+						for i := range input {
+							input[i] = math.Float32frombits(uint32(i + 1))
+						}
+					}
+					before := append([]float32(nil), input...)
+					weights := append([]float32(nil), window...)
+					goOut := make([]float32, lag+3)
+					for i := range goOut {
+						goOut[i] = 77
+					}
+					cOut := append([]float32(nil), goOut...)
+					r := opuscc.Opus__celt_autocorr(nil, &input[0], &goOut[1], unsafe.SliceData(window), int32(overlap), int32(lag), int32(n), 0)
+					c := nativeAutocorr(input, cOut[1:], window, int32(overlap), int32(lag), int32(n))
+					if r != c || !sameFloatBits(goOut, cOut) || !sameFloatBits(input, before) || !sameFloatBits(window, weights) {
+						t.Fatal(n, lag, overlap, trial, goOut, cOut)
+					}
+				}
+			}
+		}
+	}
+	// Input/output aliasing has C's correlation-then-tail update order.
+	for _, overlap := range []int{0, 4} {
+		g := make([]float32, 32)
+		for i := range g {
+			g[i] = float32(i) * 0.17
+		}
+		c := append([]float32(nil), g...)
+		window := []float32{0.2, 0.4, 0.6, 0.8}
+		opuscc.Opus__celt_autocorr(nil, &g[0], &g[1], &window[0], int32(overlap), 4, 32, 0)
+		nativeAutocorr(c, c[1:], window, int32(overlap), 4, 32)
+		if !sameFloatBits(g, c) {
+			t.Fatal("alias", overlap, g, c)
+		}
+	}
+}
+
+func TestIIRAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(811))
+	for _, ord := range []int{4, 8, 24} {
+		for _, n := range []int{0, 1, 2, 3, 4, 5, 7, 8, 31, 64} {
+			for trial := 0; trial < 12; trial++ {
+				input := make([]float32, n+2)
+				coeff := make([]float32, ord)
+				mem := make([]float32, ord+2)
+				for i := range input {
+					input[i] = float32(rng.NormFloat64() * 3)
+				}
+				for i := range coeff {
+					coeff[i] = float32(rng.NormFloat64() * 0.02)
+				}
+				for i := range mem {
+					mem[i] = float32(rng.NormFloat64())
+				}
+				if trial == 0 {
+					for i := range input {
+						input[i] = math.Float32frombits(uint32(i%2) << 31)
+					}
+				}
+				if trial == 1 {
+					for i := range input {
+						input[i] = math.Float32frombits(uint32(i + 1))
+					}
+				}
+				before := append([]float32(nil), input...)
+				goOut := make([]float32, ord+n+2)
+				for i := range goOut {
+					goOut[i] = 77
+				}
+				cOut := append([]float32(nil), goOut...)
+				cMem := append([]float32(nil), mem...)
+				opuscc.Opus_celt_iir(nil, &input[0], &coeff[0], &goOut[ord], int32(n), int32(ord), &mem[1], 0)
+				nativeIIR(input, coeff, cOut[ord:], cMem[1:], int32(n), int32(ord))
+				if !sameFloatBits(goOut, cOut) || !sameFloatBits(mem, cMem) || !sameFloatBits(input, before) {
+					t.Fatal(ord, n, trial, goOut, cOut, mem, cMem)
+				}
+			}
+		}
+	}
+	// In-place and partial overlaps preserve block read-ahead and store order.
+	for _, offset := range []int{3, 4, 5} {
+		g := make([]float32, 40)
+		for i := range g {
+			g[i] = float32(i) * 0.17
+		}
+		c := append([]float32(nil), g...)
+		coeff := []float32{0.1, 0.2, 0.3, 0.4}
+		gm := []float32{1, 2, 3, 4}
+		cm := append([]float32(nil), gm...)
+		opuscc.Opus_celt_iir(nil, &g[4], &coeff[0], &g[offset], 24, 4, &gm[0], 0)
+		nativeIIR(c[4:], coeff, c[offset:], cm, 24, 4)
+		if !sameFloatBits(g, c) || !sameFloatBits(gm, cm) {
+			t.Fatal("overlap", offset, g, c)
+		}
+	}
+}
+
+func TestFIRAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(710))
+	for _, ord := range []int{3, 4, 5, 7, 8, 24} {
+		for _, n := range []int{0, 1, 2, 3, 4, 5, 7, 8, 31, 64} {
+			for trial := 0; trial < 12; trial++ {
+				input := make([]float32, ord+n+2)
+				coeff := make([]float32, ord)
+				for i := range input {
+					input[i] = float32(rng.NormFloat64() * 3)
+				}
+				for i := range coeff {
+					coeff[i] = float32(rng.NormFloat64())
+				}
+				if trial == 0 {
+					for i := range input {
+						input[i] = math.Float32frombits(uint32(i%2) << 31)
+					}
+				}
+				if trial == 1 {
+					for i := range input {
+						input[i] = math.Float32frombits(uint32(i + 1))
+					}
+				}
+				before := append([]float32(nil), input...)
+				goOut := make([]float32, n+2)
+				for i := range goOut {
+					goOut[i] = 77
+				}
+				cOut := append([]float32(nil), goOut...)
+				opuscc.Opus_celt_fir_c(nil, &input[ord], &coeff[0], &goOut[1], int32(n), int32(ord), 0)
+				nativeFIR(input, coeff, cOut[1:], int32(n), int32(ord))
+				if !sameFloatBits(goOut, cOut) || !sameFloatBits(input, before) {
+					t.Fatal(ord, n, trial, goOut, cOut)
+				}
+			}
+		}
+	}
+	// Partial overlaps are permitted (only exact x==y is asserted against).
+	for _, offset := range []int{3, 5} {
+		g := make([]float32, 40)
+		for i := range g {
+			g[i] = float32(i) * 0.17
+		}
+		c := append([]float32(nil), g...)
+		coeff := []float32{0.1, 0.2, 0.3, 0.4}
+		opuscc.Opus_celt_fir_c(nil, &g[4], &coeff[0], &g[offset], 24, 4, 0)
+		nativeFIR(c, coeff, c[offset:], 24, 4)
+		if !sameFloatBits(g, c) {
+			t.Fatal("overlap", offset, g, c)
+		}
+	}
+}
 
 func TestLPCAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(2026))

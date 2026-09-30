@@ -369,6 +369,58 @@ empty/negative lengths, all ID bytes and failure cursor/header behavior.
 Payload writing shares extension fixtures and compares actual C lacing for
 short/long IDs, 255-byte boundaries, final payloads, sizing-only calls, capacity
 failures and untouched buffers. Iterator/generator adapters remain explicitly legacy.
+Whole-extension writing additionally compares ID-byte narrowing and partial writes
+before payload errors, using the same extension fixtures and actual static C helper.
+CELT FIR comparisons compile the actual celt_lpc.c scalar helper beside existing
+LPC fixtures: reversed coefficients/history, 4-lane/tail arithmetic, odd orders,
+signed zeros, subnormals, guards and partial overlap are checked bitwise.
+CELT IIR shares those scalar C fixtures and checks recurrence patch/store order,
+positive tail scratch, output-derived memory (including N<order history), guards,
+in-place/partial overlap, signed zeros and subnormals bitwise.
+CELT autocorrelation shares LPC fixtures and explicitly links the scalar pitch.c
+bridge (the library's SIMD dispatch can change accumulation). Window copying,
+overlapping window ends, prefix/tail grouping, lag bounds, input/output aliasing,
+input/window preservation and guarded results are compared bitwise.
+The internal packet parser compares native opus_packet_parse_impl outputs,
+including untouched/error outputs, all framing branches, optional outputs,
+self-delimited streams, duration/size limits, padding and signed size narrowing.
+Frames/padding are typed packet interiors; outer integer APIs use an explicit adapter.
+The public packet parser shares these fixtures and additionally checks native
+public-API optional outputs and frame ownership across GC/stack growth on Go;
+architecture guards check both consumed and untouched array entries.
+LBRR detection uses that typed parser and compares native results for every TOC
+and first payload byte, SILK mono/stereo/durations, CELT's pre-parse short circuit,
+malformed packets and zero-size frames, without changing input bytes.
+Multistream packet validation now uses stack-owned typed parser outputs instead
+of TLS allocation. Native static-helper comparisons cover concatenated/self-delimited
+streams, duration mismatches, missing/malformed streams and all supported rates;
+existing C-reference fixtures also run directly on Go-owned packet buffers.
+Pitch downsampling shares scalar pitch/LPC fixtures: mono/stereo and unusual
+channel counts, factors 1–4, lag windowing, LPC/FIR stages, input preservation
+and guarded output are compared bitwise; the decoder channel-table adapter remains legacy.
+Pitch search shares those fixtures, comparing coarse/fine search, odd lengths,
+lag limits, silence/periodic/random inputs and guarded pitch output; decimated
+input and correlation scratch are now Go-owned rather than TLS allocations.
+Pitch-doubling removal shares scalar pitch fixtures and compares period/gain
+bits, continuity thresholds, rolling energy lookup, minimum/clamped/odd periods,
+short windows and input/output guards; energy lookup is now Go-owned scratch.
+SILK decoder rate setup reuses reset/resampler fixtures and compiles the actual
+silk_decoder_set_fs helper. Internal/API/frame-only/no-change transitions compare
+full Go state, resampler history, table identities and C untouched-state checks
+for both subframe counts and all supported rates; fixed-offset clears are gone.
+Mini-FFT allocation reuses FFT fixtures to compare native size queries, null or
+undersized caller storage, full initialized bytes, factor/twiddle tables and guards;
+typed owning returns keep the full flexible-array allocation alive across GC.
+Real-FFT allocation shares these tests, comparing relative interior pointers,
+architecture-sized headers, substate/super-twiddle bytes and query/capacity behavior;
+the owning return and its three interior fields are typed.
+Real-FFT transforms reuse native mini_kfft.c fixtures for all supported radix
+combinations, odd/even complex halves, impulse/signed-zero inputs, exact spectrum
+and scratch bits, immutable state/twiddles, guards and in-place time/frequency output.
+CELT PLC pitch search now owns a fixed Go low-pass buffer and calls the fully
+typed pitch chain. The actual static C driver is linked to scalar pitch fixtures;
+silence, periodic/random mono/stereo data, input guards and shared channels are covered.
+The surrounding concealment state/scratch boundary remains legacy.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

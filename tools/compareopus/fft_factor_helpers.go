@@ -12,6 +12,8 @@ package main
 #define mini_kiss_fftr_alloc compare_factor_fftr_alloc
 #define mini_kiss_fftr compare_factor_fftr
 #include "../../../opus/celt/mini_kfft.c"
+static void native_mini_r_transform(void *sub,void *tmp,void *tw,const float *in,void *out) {mini_kiss_fftr_state st;st.substate=sub;st.tmpbuf=tmp;st.super_twiddles=tw;mini_kiss_fftr(&st,in,out);}
+static void native_mini_r_layout(void *state,size_t *offsets) {mini_kiss_fftr_cfg st=state;offsets[0]=(char*)st->substate-(char*)st;offsets[1]=(char*)st->tmpbuf-(char*)st;offsets[2]=(char*)st->super_twiddles-(char*)st;}
 static void native_mini_fixture(int n,int inverse,void *out) {
  mini_kiss_fft_cfg st=mini_kiss_fft_alloc(n,inverse,NULL,NULL);
  memcpy(out,st,sizeof(mini_kiss_fft_state)+(n-1)*sizeof(mini_kiss_fft_cpx));free(st);
@@ -43,6 +45,37 @@ static int native_factor(int n,int *factors) {
 import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
+
+func nativeMiniRFixture(n int32) *opuscc.OpusT_mini_kiss_fftr_state {
+	var needed uint64
+	nativeMiniRAlloc(n, 0, nil, &needed)
+	backing := make([]uint64, (needed+7)/8)
+	mem := (*byte)(unsafe.Pointer(&backing[0]))
+	nativeMiniRAlloc(n, 0, mem, &needed)
+	return (*opuscc.OpusT_mini_kiss_fftr_state)(unsafe.Pointer(mem))
+}
+
+func nativeMiniRTransform(st *opuscc.OpusT_mini_kiss_fftr_state, in *float32, out *opuscc.OpusT_mini_kiss_fft_cpx) {
+	C.native_mini_r_transform(unsafe.Pointer(st.Fsubstate), unsafe.Pointer(st.Ftmpbuf), unsafe.Pointer(st.Fsuper_twiddles), (*C.float)(unsafe.Pointer(in)), unsafe.Pointer(out))
+}
+
+func nativeMiniRAlloc(n, inverse int32, mem *byte, length *uint64) (bool, [3]uint64) {
+	cap := C.size_t(*length)
+	st := C.compare_factor_fftr_alloc(C.int(n), C.int(inverse), unsafe.Pointer(mem), &cap)
+	*length = uint64(cap)
+	var offsets [3]C.size_t
+	if st != nil {
+		C.native_mini_r_layout(unsafe.Pointer(st), &offsets[0])
+	}
+	return st != nil, [3]uint64{uint64(offsets[0]), uint64(offsets[1]), uint64(offsets[2])}
+}
+
+func nativeMiniAlloc(n, inverse int32, mem *byte, length *uint64) bool {
+	cap := C.size_t(*length)
+	st := C.compare_factor_fft_alloc(C.int(n), C.int(inverse), unsafe.Pointer(mem), &cap)
+	*length = uint64(cap)
+	return st != nil
+}
 
 func nativeMiniFixture(n, inverse int32) *opuscc.OpusT_mini_kiss_fft_state {
 	backing := make([]uint64, (264+8*int(n)+7)/8)

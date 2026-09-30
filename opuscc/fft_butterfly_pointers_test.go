@@ -8,6 +8,85 @@ import (
 	"unsafe"
 )
 
+func TestMiniFFTRPointers(t *testing.T) {
+	st := Opus_mini_kiss_fftr_alloc(nil, 16, 0, nil, nil)
+	input := [16]float32{1}
+	out := [11]OpusT_mini_kiss_fft_cpx{}
+	out[0].Fr = 77
+	out[10].Fr = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_mini_kiss_fftr(nil, st, &input[0], &out[1])
+	for _, v := range out[1:10] {
+		if v.Fr != 1 || v.Fi != 0 {
+			t.Fatal("impulse spectrum", out)
+		}
+	}
+	if out[0].Fr != 77 || out[10].Fr != 88 || input != [16]float32{1} {
+		t.Fatal("guards/input")
+	}
+}
+
+func TestMiniFFTRAllocPointers(t *testing.T) {
+	var needed OpusT_size_t
+	Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, &needed)
+	header := unsafe.Sizeof(OpusT_mini_kiss_fftr_state{})
+	if needed != uint64(header)+296+48 {
+		t.Fatal("size query", needed)
+	}
+	backing := make([]uint64, (needed+7)/8+2)
+	for i := range backing {
+		backing[i] = 0xa5a5a5a5a5a5a5a5
+	}
+	mem := (*byte)(unsafe.Pointer(&backing[1]))
+	capacity := needed - 1
+	before := slices.Clone(backing)
+	if Opus_mini_kiss_fftr_alloc(nil, 8, 0, mem, &capacity) != nil || capacity != needed || !slices.Equal(backing, before) {
+		t.Fatal("undersized")
+	}
+	st := Opus_mini_kiss_fftr_alloc(nil, 8, 0, mem, &capacity)
+	if st != (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(mem)) || backing[0] != before[0] || backing[len(backing)-1] != before[len(backing)-1] {
+		t.Fatal("caller storage")
+	}
+	owned := Opus_mini_kiss_fftr_alloc(nil, 16, 1, nil, nil)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if owned.Fsubstate.Fnfft != 8 || owned.Fsubstate.Finverse != 1 || owned.Fsuper_twiddles.Fi != 0.9238795 {
+		t.Fatal("owned interiors", owned.Fsubstate, *owned.Fsuper_twiddles)
+	}
+	if uintptr(unsafe.Pointer(owned.Fsubstate))-uintptr(unsafe.Pointer(owned)) != header {
+		t.Fatal("header size")
+	}
+}
+
+func TestMiniFFTAllocPointers(t *testing.T) {
+	var needed OpusT_size_t
+	if Opus_mini_kiss_fft_alloc(nil, 8, 0, nil, &needed) != nil || needed != 328 {
+		t.Fatal("size query", needed)
+	}
+	backing := make([]uint64, (needed+7)/8+2)
+	for i := range backing {
+		backing[i] = 0xa5a5a5a5a5a5a5a5
+	}
+	mem := (*byte)(unsafe.Pointer(&backing[1]))
+	capacity := needed - 1
+	before := slices.Clone(backing)
+	if Opus_mini_kiss_fft_alloc(nil, 8, 0, mem, &capacity) != nil || capacity != needed || !slices.Equal(backing, before) {
+		t.Fatal("undersized")
+	}
+	st := Opus_mini_kiss_fft_alloc(nil, 8, 0, mem, &capacity)
+	if st != (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(mem)) || backing[0] != before[0] || backing[len(backing)-1] != before[len(backing)-1] {
+		t.Fatal("caller buffer")
+	}
+	owned := Opus_mini_kiss_fft_alloc(nil, 16, 1, nil, nil)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	tw := unsafe.Slice(&owned.Ftwiddles[0], 16)
+	if owned.Fnfft != 16 || owned.Finverse != 1 || tw[0].Fr != 1 || tw[4].Fi != 1 {
+		t.Fatal("owned state")
+	}
+}
+
 func miniPointerFixture(n, inverse int32) *OpusT_mini_kiss_fft_state {
 	backing := make([]uint64, (264+8*int(n)+7)/8)
 	st := (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(&backing[0]))

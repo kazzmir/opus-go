@@ -2,12 +2,20 @@
 
 package opuscc
 
+func ComparePLCPitchSearch(left, right *float32, C int32) int32 {
+	return celt_plc_pitch_search(nil, nil, left, right, C, 0)
+}
+
 func CompareTFDecode(start, end, transient int32, out *int32, LM int32, dec *OpusT_ec_dec) {
 	tf_decode(nil, start, end, transient, out, LM, dec)
 }
 
 func CompareCustomDecoderSize(mode *OpusT_OpusCustomMode, channels int32) int32 {
 	return opus_custom_decoder_get_size(nil, mode, channels)
+}
+
+func CompareMSPacketValidation(data *byte, length, streams, Fs int32) int32 {
+	return opus_multistream_packet_validate(nil, data, length, streams, Fs)
 }
 
 func CompareMSValidation(st *OpusT_OpusMSDecoder) int32 {

@@ -13,7 +13,7 @@ func TestDecodeParametersFieldAccesses(t *testing.T) {
 
 	var decoder OpusT_silk_decoder_state
 	decoder.Fnb_subfr = MAX_NB_SUBFR
-	if got := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder)), 8, 8000); got != OPUS_OK {
+	if got := Opus_silk_decoder_set_fs(tls, &decoder, 8, 8000); got != OPUS_OK {
 		t.Fatalf("set decoder sample rate: got %d", got)
 	}
 	decoder.Findices.FsignalType = TYPE_UNVOICED
@@ -42,7 +42,7 @@ func TestDecodeParametersLocalNLSFs(t *testing.T) {
 	/* unvoiced with NLSF interpolation: exercises both the pNLSF_Q15 and pNLSF0_Q15 locals */
 	var decoder OpusT_silk_decoder_state
 	decoder.Fnb_subfr = MAX_NB_SUBFR
-	if got := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder)), 8, 8000); got != OPUS_OK {
+	if got := Opus_silk_decoder_set_fs(tls, &decoder, 8, 8000); got != OPUS_OK {
 		t.Fatalf("set decoder sample rate: got %d", got)
 	}
 	decoder.Findices.FsignalType = TYPE_UNVOICED
@@ -69,7 +69,7 @@ func TestDecodeParametersLocalNLSFs(t *testing.T) {
 	/* voiced after a packet loss: exercises the LTP codebook, pitch decode and bwexpander */
 	var decoder2 OpusT_silk_decoder_state
 	decoder2.Fnb_subfr = MAX_NB_SUBFR
-	if got := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder2)), 8, 8000); got != OPUS_OK {
+	if got := Opus_silk_decoder_set_fs(tls, &decoder2, 8, 8000); got != OPUS_OK {
 		t.Fatalf("set decoder sample rate: got %d", got)
 	}
 	decoder2.Findices.FsignalType = TYPE_VOICED

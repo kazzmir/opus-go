@@ -8,6 +8,25 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestWriteExtensionPointers(t *testing.T) {
+	out := [8]byte{77, 77, 77, 77, 77, 77, 77, 88}
+	payload := [2]byte{11, 12}
+	r := write_extension(nil, &out[0], 7, 1, 32, 2, &payload[0], 0)
+	if r != 5 || out != [8]byte{77, 65, 2, 11, 12, 77, 77, 88} {
+		t.Fatal(r, out)
+	}
+	if write_extension(nil, nil, 7, 1, 32, 2, nil, 0) != 5 {
+		t.Fatal("size-only")
+	}
+	// C writes the ID byte before rejecting an invalid or oversized payload.
+	if r := write_extension(nil, &out[0], 7, 1, 3, 2, &payload[0], 0); r != -1 || out[1] != 8 {
+		t.Fatal("invalid short payload", r, out)
+	}
+	if r := write_extension(nil, &out[0], 2, 1, 32, 2, &payload[0], 0); r != -2 || out[1] != 65 {
+		t.Fatal("capacity", r, out)
+	}
+}
+
 func TestWritePayloadPointers(t *testing.T) {
 	payload := make([]byte, 255)
 	for i := range payload {

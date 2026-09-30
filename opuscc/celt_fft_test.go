@@ -11,12 +11,12 @@ func TestMiniFFTAllocUsesFields(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 
-	config := Opus_mini_kiss_fft_alloc(tls, 8, 1, 0, 0)
-	if config == 0 {
+	config := Opus_mini_kiss_fft_alloc(tls, 8, 1, nil, nil)
+	if config == nil {
 		t.Fatal("mini FFT allocation returned nil")
 	}
-	state := (*mini_kiss_fft_state)(unsafe.Pointer(config))
-	secondTwiddle := *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + 8))
+	state := config
+	secondTwiddle := unsafe.Slice(&state.Ftwiddles[0], 8)[1]
 	if state.Fnfft != 8 || state.Finverse != 1 {
 		t.Fatalf("FFT state dimensions: nfft=%d inverse=%d, want 8 and 1", state.Fnfft, state.Finverse)
 	}
@@ -38,22 +38,22 @@ func TestMiniFFTRAllocUsesLocalSubsize(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 
-	config := Opus_mini_kiss_fftr_alloc(tls, 8, 0, 0, 0)
-	if config == 0 {
+	config := Opus_mini_kiss_fftr_alloc(tls, 8, 0, nil, nil)
+	if config == nil {
 		t.Fatal("mini real FFT allocation returned nil")
 	}
-	state := (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(config))
-	substate := (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(state.Fsubstate))
+	state := config
+	substate := state.Fsubstate
 	if got, want := substate.Fnfft, int32(4); got != want {
 		t.Fatalf("substate size: got %d, want %d", got, want)
 	}
-	if got, want := state.Ftmpbuf-state.Fsubstate, uintptr(296); got != want {
+	if got, want := uintptr(unsafe.Pointer(state.Ftmpbuf))-uintptr(unsafe.Pointer(state.Fsubstate)), uintptr(296); got != want {
 		t.Fatalf("temporary buffer offset: got %d, want %d", got, want)
 	}
-	if got, want := state.Fsuper_twiddles-state.Ftmpbuf, uintptr(32); got != want {
+	if got, want := uintptr(unsafe.Pointer(state.Fsuper_twiddles))-uintptr(unsafe.Pointer(state.Ftmpbuf)), uintptr(32); got != want {
 		t.Fatalf("super twiddle offset: got %d, want %d", got, want)
 	}
-	if got, want := *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(state.Fsuper_twiddles)), (OpusT_mini_kiss_fft_cpx{Fr: -0.70710677, Fi: -0.70710677}); got != want {
+	if got, want := *state.Fsuper_twiddles, (OpusT_mini_kiss_fft_cpx{Fr: -0.70710677, Fi: -0.70710677}); got != want {
 		t.Fatalf("first super twiddle: got %+v, want %+v", got, want)
 	}
 }

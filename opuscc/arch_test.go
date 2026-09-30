@@ -22,17 +22,22 @@ func TestArchPacketFramePointers(t *testing.T) {
 	defer tls.Close()
 	packet := [3]byte{0x81, 0x12, 0x34} // Two equal-sized CELT frames.
 	storage := struct {
-		frames [2]uintptr
+		frames [48]*byte
 		guard  [2]uintptr
 	}{guard: [2]uintptr{123, 456}}
-	var sizes [2]int16
-	n := Opus_opus_packet_parse(tls, uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), 0, uintptr(unsafe.Pointer(&storage.frames)), uintptr(unsafe.Pointer(&sizes)), 0)
+	var sizes [48]int16
+	n := Opus_opus_packet_parse(tls, &packet[0], int32(len(packet)), nil, &storage.frames, &sizes, nil)
 	if n != 2 {
 		t.Fatalf("frame count = %d", n)
 	}
-	for i := range storage.frames {
-		if storage.frames[i] != uintptr(unsafe.Pointer(&packet[i+1])) || sizes[i] != 1 {
+	for i := 0; i < 2; i++ {
+		if storage.frames[i] != &packet[i+1] || sizes[i] != 1 {
 			t.Fatalf("frame %d: wrong pointer or size", i)
+		}
+	}
+	for i := 2; i < 48; i++ {
+		if storage.frames[i] != nil || sizes[i] != 0 {
+			t.Fatal("unused outputs changed")
 		}
 	}
 	if storage.guard != [2]uintptr{123, 456} {
@@ -93,7 +98,7 @@ func TestArchSilkDecoderLayout(t *testing.T) {
 	}
 	ch := &storage.decoder.Fchannel_state[0]
 	ch.Fnb_subfr = MAX_NB_SUBFR
-	if ret := Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(ch)), 16, 48000); ret != 0 {
+	if ret := Opus_silk_decoder_set_fs(tls, ch, 16, 48000); ret != 0 {
 		t.Fatalf("set_fs = %d", ret)
 	}
 	var want OpusT_silk_resampler_state_struct

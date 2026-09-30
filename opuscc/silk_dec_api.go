@@ -12,77 +12,63 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_silk_decoder_set_fs(tls *libc.TLS, psDec uintptr, fs_kHz int32, fs_API_Hz OpusT_opus_int32) (r int32) {
-	var frame_length, ret int32
-	_, _ = frame_length, ret
-	ret = 0
-	if !(fs_kHz == int32(8) || fs_kHz == int32(12) || fs_kHz == int32(16)) {
-		Opus_celt_fatal(tls, __ccgo_ts+6261, __ccgo_ts+6323, int32(43))
+func Opus_silk_decoder_set_fs(tls *libc.TLS, st *OpusT_silk_decoder_state, fsKHz, apiHz int32) int32 {
+	if fsKHz != 8 && fsKHz != 12 && fsKHz != 16 {
+		Opus_celt_fatal(tls, __ccgo_ts+6261, __ccgo_ts+6323, 43)
 	}
-	if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr == int32(MAX_NB_SUBFR) || (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr == int32(MAX_NB_SUBFR)/int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts+6348, __ccgo_ts+6323, int32(44))
+	if st.Fnb_subfr != MAX_NB_SUBFR && st.Fnb_subfr != MAX_NB_SUBFR/2 {
+		Opus_celt_fatal(tls, __ccgo_ts+6348, __ccgo_ts+6323, 44)
 	}
-	/* New (sub)frame length */
-	(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length = int32(int16(int32(SUB_FRAME_LENGTH_MS))) * int32(int16(fs_kHz))
-	frame_length = int32(int16((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr)) * int32(int16((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length))
-	/* Initialize resampler when switching internal or external sampling frequency */
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != fs_kHz || (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_API_hz != fs_API_Hz {
-		/* Initialize the resampler for dec_API.c preparing resampling from fs_kHz to API_fs_Hz */
-		ret = ret + Opus_silk_resampler_init(tls, &(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fresampler_state, int32(int16(fs_kHz))*int32(int16(int32(1000))), fs_API_Hz, 0)
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_API_hz = fs_API_Hz
+	st.Fsubfr_length = int32(int16(SUB_FRAME_LENGTH_MS)) * int32(int16(fsKHz))
+	frameLength := int32(int16(st.Fnb_subfr)) * int32(int16(st.Fsubfr_length))
+	ret := int32(0)
+	if st.Ffs_kHz != fsKHz || st.Ffs_API_hz != apiHz {
+		ret += Opus_silk_resampler_init(tls, &st.Fresampler_state, int32(int16(fsKHz))*int32(int16(1000)), apiHz, 0)
+		st.Ffs_API_hz = apiHz
 	}
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != fs_kHz || frame_length != (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length {
-		if fs_kHz == int32(8) {
-			if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr == int32(MAX_NB_SUBFR) {
-				(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_NB_iCDF))
+	if st.Ffs_kHz != fsKHz || frameLength != st.Fframe_length {
+		if fsKHz == 8 {
+			if st.Fnb_subfr == MAX_NB_SUBFR {
+				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_NB_iCDF))
 			} else {
-				(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_10_ms_NB_iCDF))
+				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_10_ms_NB_iCDF))
 			}
 		} else {
-			if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr == int32(MAX_NB_SUBFR) {
-				(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_iCDF))
+			if st.Fnb_subfr == MAX_NB_SUBFR {
+				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_iCDF))
 			} else {
-				(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_10_ms_iCDF))
+				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_10_ms_iCDF))
 			}
 		}
-		if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != fs_kHz {
-			(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length = int32(int16(int32(LTP_MEM_LENGTH_MS))) * int32(int16(fs_kHz))
-			if fs_kHz == int32(8) || fs_kHz == int32(12) {
-				(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order = int32(MIN_LPC_ORDER)
-				(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB = uintptr(unsafe.Pointer(&Opus_silk_NLSF_CB_NB_MB))
+		if st.Ffs_kHz != fsKHz {
+			st.Fltp_mem_length = int32(int16(LTP_MEM_LENGTH_MS)) * int32(int16(fsKHz))
+			if fsKHz == 8 || fsKHz == 12 {
+				st.FLPC_order = MIN_LPC_ORDER
+				st.FpsNLSF_CB = uintptr(unsafe.Pointer(&Opus_silk_NLSF_CB_NB_MB))
 			} else {
-				(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order = int32(MAX_LPC_ORDER)
-				(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FpsNLSF_CB = uintptr(unsafe.Pointer(&Opus_silk_NLSF_CB_WB))
+				st.FLPC_order = MAX_LPC_ORDER
+				st.FpsNLSF_CB = uintptr(unsafe.Pointer(&Opus_silk_NLSF_CB_WB))
 			}
-			if fs_kHz == int32(16) {
-				(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform8_iCDF))
-			} else {
-				if fs_kHz == int32(12) {
-					(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform6_iCDF))
-				} else {
-					if fs_kHz == int32(8) {
-						(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform4_iCDF))
-					} else {
-						/* unsupported sampling rate */
-						if !(int32(0) != 0) {
-							Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+6323, int32(89))
-						}
-					}
-				}
+			switch fsKHz {
+			case 16:
+				st.Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform8_iCDF))
+			case 12:
+				st.Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform6_iCDF))
+			case 8:
+				st.Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform4_iCDF))
 			}
-			(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffirst_frame_after_reset = int32(1)
-			(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlagPrev = int32(100)
-			(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLastGainIndex = int8(10)
-			(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType = TYPE_NO_VOICE_ACTIVITY
-			libc.Xmemset(tls, psDec+1348, 0, uint64(960))
-			libc.Xmemset(tls, psDec+1284, 0, uint64(64))
+			st.Ffirst_frame_after_reset = 1
+			st.FlagPrev = 100
+			st.FLastGainIndex = 10
+			st.FprevSignalType = TYPE_NO_VOICE_ACTIVITY
+			clear(st.FoutBuf[:])
+			clear(st.FsLPC_Q14_buf[:])
 		}
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz = fs_kHz
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length = frame_length
+		st.Ffs_kHz = fsKHz
+		st.Fframe_length = frameLength
 	}
-	/* Check that settings are valid */
-	if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length > 0 && (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length <= int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)*int32(MAX_FS_KHZ)) {
-		Opus_celt_fatal(tls, __ccgo_ts+6435, __ccgo_ts+6323, int32(104))
+	if st.Fframe_length <= 0 || st.Fframe_length > SUB_FRAME_LENGTH_MS*MAX_NB_SUBFR*MAX_FS_KHZ {
+		Opus_celt_fatal(tls, __ccgo_ts+6435, __ccgo_ts+6323, 104)
 	}
 	return ret
 }
@@ -288,7 +274,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 				(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 				return -int32(200)
 			}
-			ret = ret + Opus_silk_decoder_set_fs(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[n])), fs_kHz_dec, control.FAPI_sampleRate)
+			ret = ret + Opus_silk_decoder_set_fs(tls, &decoder.Fchannel_state[n], fs_kHz_dec, control.FAPI_sampleRate)
 			n = n + 1
 		}
 	}
