@@ -1,9 +1,40 @@
 package opuscc
 
 import (
+	"runtime"
 	"slices"
 	"testing"
 )
+
+func TestFFTButterfly4Pointers(t *testing.T) {
+	kf_bfly4(nil, nil, 1, nil, 1, 0, 4)
+	out := make([]OpusT_kiss_fft_cpx, 10)
+	out[0].Fr = 77
+	out[9].Fr = 88
+	for i := 1; i < 9; i++ {
+		out[i].Fr = 1
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	kf_bfly4(nil, &out[1], 1, nil, 1, 2, 999)
+	if out[0].Fr != 77 || out[9].Fr != 88 || out[1].Fr != 4 || out[5].Fr != 4 || out[2].Fr != 0 {
+		t.Fatal(out)
+	}
+	tw := make([]OpusT_kiss_twiddle_cpx, 10)
+	for i := range tw {
+		tw[i].Fr = 1
+	}
+	out = make([]OpusT_kiss_fft_cpx, 18)
+	for i := 1; i < 17; i++ {
+		out[i].Fr = 1
+	}
+	kf_bfly4(nil, &out[1], 1, &tw[0], 4, 1, 16)
+	for i := 1; i <= 4; i++ {
+		if out[i].Fr != 4 {
+			t.Fatal(out)
+		}
+	}
+}
 
 func TestFFTButterfly2Pointers(t *testing.T) {
 	kf_bfly2(nil, nil, 4, 0)
