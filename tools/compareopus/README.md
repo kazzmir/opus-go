@@ -328,6 +328,8 @@ bands/channel strides, empty bands/M=0, C's channel-zero visit, exceptional ener
 untouched tails and input preservation with the native bands implementation.
 Mini-FFT radix-2 shares the FFT butterfly test files and compares actual static
 mini_kfft.c helpers, arbitrary positive widths, repeated strides and raw float bits.
+Mini radix-4 additionally compares all nonzero inverse flags, inverse sign/store
+order and m=1 twiddle use (unlike the CELT twiddle-free special case).
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

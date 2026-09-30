@@ -22,6 +22,10 @@ func sameComplexBits(a, b []opuscc.OpusT_kiss_fft_cpx) bool {
 	return true
 }
 
+func TestMiniButterfly4AgainstC(t *testing.T) {
+	compareMiniButterflies(t, 4, opuscc.CompareMiniFFTButterfly4)
+}
+
 func TestMiniButterfly2AgainstC(t *testing.T) {
 	compareMiniButterflies(t, 2, opuscc.CompareMiniFFTButterfly2)
 }
