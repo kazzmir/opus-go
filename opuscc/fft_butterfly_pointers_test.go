@@ -25,6 +25,31 @@ func miniPointerFixture(n, inverse int32) *OpusT_mini_kiss_fft_state {
 	return st
 }
 
+func TestMiniFFTStridePointers(t *testing.T) {
+	for _, n := range []int32{2, 5, 12, 60} {
+		for _, stride := range []int32{1, 3} {
+			st := miniPointerFixture(n, 0)
+			in := make([]OpusT_mini_kiss_fft_cpx, (n-1)*stride+1)
+			in[0].Fr = 1
+			before := slices.Clone(in)
+			out := make([]OpusT_mini_kiss_fft_cpx, n+2)
+			out[0].Fr = 77
+			out[n+1].Fr = 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_mini_kiss_fft_stride(nil, st, &in[0], &out[1], stride)
+			if out[0].Fr != 77 || out[n+1].Fr != 88 || !slices.Equal(in, before) {
+				t.Fatal("guards/input")
+			}
+			for _, v := range out[1 : n+1] {
+				if v.Fr != 1 || v.Fi != 0 {
+					t.Fatal(n, stride, v)
+				}
+			}
+		}
+	}
+}
+
 func TestMiniFFTWorkPointers(t *testing.T) {
 	for _, n := range []int32{2, 3, 4, 5, 8, 12, 60, 120} {
 		for _, inverse := range []int32{0, 1} {

@@ -671,21 +671,17 @@ func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem 
 	return st
 }
 
-func Opus_mini_kiss_fft_stride(tls *libc.TLS, st OpusT_mini_kiss_fft_cfg, fin uintptr, fout uintptr, in_stride int32) {
-	var v1 bool
-	_ = v1
-	if v1 = fin != fout; !v1 {
-		libc.X__assert_fail(tls, __ccgo_ts+5549, __ccgo_ts+5529, int32(391), uintptr(unsafe.Pointer(&__func__1)))
+func Opus_mini_kiss_fft_stride(tls *libc.TLS, st *OpusT_mini_kiss_fft_state, fin, fout *OpusT_mini_kiss_fft_cpx, inStride int32) {
+	if fin == fout {
+		libc.X__assert_fail(tls, __ccgo_ts+5549, __ccgo_ts+5529, 391, uintptr(unsafe.Pointer(&__func__1)))
 	}
-	_ = v1 || libc.Bool(int32(0) != 0)
-	state := (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st))
-	kf_work(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fout)), (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fin)), 1, in_stride, state.Ffactors[:], state)
+	kf_work(tls, fout, fin, 1, inStride, st.Ffactors[:], st)
 }
 
 var __func__1 = [21]int8{'m', 'i', 'n', 'i', '_', 'k', 'i', 's', 's', '_', 'f', 'f', 't', '_', 's', 't', 'r', 'i', 'd', 'e'}
 
 func Opus_mini_kiss_fft(tls *libc.TLS, cfg OpusT_mini_kiss_fft_cfg, fin uintptr, fout uintptr) {
-	Opus_mini_kiss_fft_stride(tls, cfg, fin, fout, int32(1))
+	Opus_mini_kiss_fft_stride(tls, (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(cfg)), (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fin)), (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(fout)), 1)
 }
 
 type OpusT_mini_kiss_fftr_cfg = uintptr

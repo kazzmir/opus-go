@@ -23,6 +23,10 @@ func sameComplexBits(a, b []opuscc.OpusT_kiss_fft_cpx) bool {
 	return true
 }
 
+func TestMiniFFTStrideAgainstC(t *testing.T) {
+	compareMiniTransforms(t, 1, opuscc.CompareMiniFFTStride)
+}
+
 func TestMiniFFTWorkAgainstC(t *testing.T) { compareMiniTransforms(t, 0, opuscc.CompareMiniFFTWork) }
 
 func compareMiniTransforms(t *testing.T, op int32, transform func(*opuscc.OpusT_mini_kiss_fft_state, *opuscc.OpusT_mini_kiss_fft_cpx, *opuscc.OpusT_mini_kiss_fft_cpx, int32)) {
