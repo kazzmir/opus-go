@@ -5322,14 +5322,15 @@ func get_dec_demixing_matrix(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *Op
 	return (*OpusT_MappingMatrix)(unsafe.Add(unsafe.Pointer(st), 8))
 }
 
-func get_multistream_decoder(tls *libc.TLS, st uintptr) (r uintptr) {
-	var alignment uint32
-	var v1 int32
-	_, _ = alignment, v1
-	/* void* cast avoids clang -Wcast-align warning */
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(uint64(4)+uint64(uint32((*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)).Fdemixing_matrix_size_in_bytes)))) + alignment - uint32(1)) / alignment * alignment)
-	return st + uintptr(v1)
+// st belongs to the full header/matrix/multistream backing allocation.
+func get_multistream_decoder(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *OpusT_OpusMSDecoder {
+	offset := int32((uint32(st.Fdemixing_matrix_size_in_bytes) + 4 + 7) / 8 * 8)
+	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), uintptr(offset)))
+}
+
+// Explicit boundary for the remaining outer uintptr-based projection APIs.
+func get_multistream_decoder_legacy(tls *libc.TLS, st uintptr) uintptr {
+	return uintptr(unsafe.Pointer(get_multistream_decoder(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)))))
 }
 
 func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels int32, streams int32, coupled_streams int32) (r OpusT_opus_int32) {
@@ -5541,7 +5542,7 @@ func Opus_opus_projection_decoder_init(tls *libc.TLS, st1 uintptr, Fs OpusT_opus
 		mapping[i] = uint8(i)
 		i = i + 1
 	}
-	ret = Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st1), Fs, channels, streams, coupled_streams, uintptr(unsafe.Pointer(&mapping[0])))
+	ret = Opus_opus_multistream_decoder_init(tls, get_multistream_decoder_legacy(tls, st1), Fs, channels, streams, coupled_streams, uintptr(unsafe.Pointer(&mapping[0])))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -5581,15 +5582,15 @@ func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, cha
 }
 
 func Opus_opus_projection_decode(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_short), frame_size, decode_fec, int32(OPTIONAL_CLIP), uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
+	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder_legacy(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_short), frame_size, decode_fec, int32(OPTIONAL_CLIP), uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
 }
 
 func Opus_opus_projection_decode24(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_int24), frame_size, decode_fec, 0, uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
+	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder_legacy(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_int24), frame_size, decode_fec, 0, uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
 }
 
 func Opus_opus_projection_decode_float(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_float), frame_size, decode_fec, 0, uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
+	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder_legacy(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_float), frame_size, decode_fec, 0, uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
 }
 
 func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
@@ -5598,7 +5599,7 @@ func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, 
 	_, _ = ap, ret
 	ret = OPUS_OK
 	ap = va
-	ret = Opus_opus_multistream_decoder_ctl_va_list(tls, get_multistream_decoder(tls, st), request, ap)
+	ret = Opus_opus_multistream_decoder_ctl_va_list(tls, get_multistream_decoder_legacy(tls, st), request, ap)
 	_ = ap
 	return ret
 }

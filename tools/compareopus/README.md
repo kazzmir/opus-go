@@ -301,6 +301,8 @@ checking full Go state, frame guards and zero-length no-op behavior.
 Projection demixing-matrix access compares the actual static C accessor's aligned
 interior pointer and header fields; Go tests retain the backing allocation solely
 through returned matrix/coefficient pointers during GC and stack growth.
+Projection multistream-state access compares native alignment for matrix sizes
+0–1024 and checks interior-pointer ownership through GC and stack growth.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

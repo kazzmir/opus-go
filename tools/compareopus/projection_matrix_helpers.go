@@ -13,6 +13,7 @@ package main
 #define opus_projection_decoder_ctl comparison_projection_ctl
 #define opus_projection_decoder_destroy comparison_projection_destroy
 #include "../../../opus/src/opus_projection_decoder.c"
+static size_t native_projection_multistream(void *base) {return (char *)get_multistream_decoder((OpusProjectionDecoder *)base)-(char *)base;}
 static size_t native_projection_matrix(void *base,int *fields) {
  MappingMatrix *matrix=get_dec_demixing_matrix((OpusProjectionDecoder *)base);
  fields[0]=matrix->rows;fields[1]=matrix->cols;fields[2]=matrix->gain;
@@ -21,6 +22,10 @@ static size_t native_projection_matrix(void *base,int *fields) {
 */
 import "C"
 import "unsafe"
+
+func nativeProjectionMultistream(base unsafe.Pointer) uintptr {
+	return uintptr(C.native_projection_multistream(base))
+}
 
 func nativeProjectionMatrix(base unsafe.Pointer) (uintptr, [3]int32) {
 	var fields [3]C.int

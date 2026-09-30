@@ -76,7 +76,7 @@ func TestProjectionDecoderInitCReference(t *testing.T) {
 			if hash != wantHash {
 				t.Fatalf("matrix hash %d, want %d", hash, wantHash)
 			}
-			ms := (*OpusT_OpusMSDecoder)(unsafe.Pointer(get_multistream_decoder(tls, st)))
+			ms := get_multistream_decoder(tls, d)
 			if ms.Flayout.Fnb_channels != ch || ms.Flayout.Fnb_streams != streams || ms.Flayout.Fnb_coupled_streams != coupled {
 				t.Fatal("multistream layout mismatch")
 			}
