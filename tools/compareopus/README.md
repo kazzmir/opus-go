@@ -347,6 +347,9 @@ Typed mini-FFT stride entry tests reuse these complete-state fixtures, including
 zero stride in native comparisons and stack growth/GC with Go-owned state/input.
 The typed unit-stride mini-FFT entry also compares actual C entry dispatch and
 checks its unnormalized forward/inverse round trip; the real-FFT adapter remains legacy.
+Band energies share the normalization/denormalization test files and compare
+scalar C square accumulation/sqrt, empty bands, channel gaps, LM=0–3, exceptional
+inputs and untouched energy tails; Go checks explicit product rounding on ARM64.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

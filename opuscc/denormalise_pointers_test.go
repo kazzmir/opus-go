@@ -1,11 +1,39 @@
 package opuscc
 
 import (
+	"math"
 	"runtime"
 	"testing"
 )
 
 var denormalisePointerBands = [4]int16{0, 2, 4, 6}
+
+func TestBandEnergiesPointers(t *testing.T) {
+	Opus_compute_band_energies(nil, nil, 0, 0, nil, nil, 0, 0, 0, 0)
+	bands := [4]int16{1, 3, 3, 4}
+	input := [8]float32{99, 3, 4, 2, 99, 6, 8, 3}
+	out := [10]float32{77, 9, 9, 9, 9, 9, 9, 9, 9, 88}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_compute_band_energies(nil, &bands[0], 4, 4, &input[0], &out[1], 3, 2, 0, 0)
+	tiny := float32(math.Sqrt(float64(float32(1e-27))))
+	if out != [10]float32{77, 5, tiny, 2, 9, 10, tiny, 3, 9, 88} {
+		t.Fatal(out)
+	}
+	// A scalar rounded-square oracle catches inadvertent fused accumulation.
+	samples := [7]float32{.12345, -2.3456, 31.2345, .01234, -.76543, 4.56789, -13.987}
+	oneBand := [2]int16{0, 7}
+	sum := float32(0)
+	for _, v := range samples {
+		sum += float32(v * v)
+	}
+	want := float32(math.Sqrt(float64(float32(1e-27) + sum)))
+	result := float32(0)
+	Opus_compute_band_energies(nil, &oneBand[0], 7, 1, &samples[0], &result, 1, 0, 0, 0)
+	if math.Float32bits(result) != math.Float32bits(want) {
+		t.Fatal(result, want)
+	}
+}
 
 func TestNormaliseBandsPointers(t *testing.T) {
 	Opus_normalise_bands(nil, nil, 0, 0, nil, nil, nil, 0, 0, 0)

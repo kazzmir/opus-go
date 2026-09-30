@@ -1838,43 +1838,28 @@ func Opus_bitexact_log2tan(tls *libc.TLS, isin int32, icos int32) (r int32) {
 // C documentation
 //
 //	/* Compute the amplitude (sqrt energy) in each of the bands */
-func Opus_compute_band_energies(tls *libc.TLS, m uintptr, X uintptr, bandE uintptr, end int32, C int32, LM int32, arch int32) {
-	var N1, c, i, i1, v1 int32
-	var eBands uintptr
-	var sum, xy, v5 OpusT_opus_val32
-	_, _, _, _, _, _, _, _, _ = N1, c, eBands, i, i1, sum, xy, v1, v5
-	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands
-	N1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FshortMdctSize << LM
-	c = 0
-	for {
-		i1 = 0
-		for {
-			if !(i1 < end) {
-				break
+func Opus_compute_band_energies(tls *libc.TLS, bands *int16, shortMdctSize, nbEBands int32, X, bandE *float32, end, C, LM, arch int32) {
+	if end <= 0 {
+		return
+	}
+	// As in the C do/while, channel zero is visited even for C=0.
+	channels := max(C, 1)
+	N := shortMdctSize << LM
+	eBands := unsafe.Slice(bands, end+1)
+	in := unsafe.Slice(X, (channels-1)*N+(int32(eBands[end])<<LM))
+	out := unsafe.Slice(bandE, (channels-1)*nbEBands+end)
+	for c := int32(0); c < channels; c++ {
+		for band := int32(0); band < end; band++ {
+			xy := float32(0)
+			for j := int32(eBands[band]) << LM; j < int32(eBands[band+1])<<LM; j++ {
+				sample := in[c*N+j]
+				// Keep the product rounded before accumulation, including on ARM64.
+				xy += float32(sample * sample)
 			}
-			_ = arch
-			xy = float32(0)
-			i = int32(0)
-			for {
-				if !(i < (int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1+int32(1))*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))<<LM) {
-					break
-				}
-				xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(X + uintptr(c*N1+int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2)))<<LM)*4 + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(X + uintptr(c*N1+int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2)))<<LM)*4 + uintptr(i)*4)))
-				i = i + 1
-			}
-			v5 = xy
-			sum = float32(1e-27) + v5
-			*(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i1+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = float32(libc.Xsqrt(tls, float64(sum)))
-			/*printf ("%f ", bandE[i+c*m->nbEBands]);*/
-			i1 = i1 + 1
-		}
-		c = c + 1
-		v1 = c
-		if !(v1 < C) {
-			break
+			sum := float32(1e-27) + xy
+			out[c*nbEBands+band] = float32(math.Sqrt(float64(sum)))
 		}
 	}
-	/*printf ("\n");*/
 }
 
 // C documentation
