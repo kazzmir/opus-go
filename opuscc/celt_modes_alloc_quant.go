@@ -1880,35 +1880,24 @@ func Opus_compute_band_energies(tls *libc.TLS, m uintptr, X uintptr, bandE uintp
 // C documentation
 //
 //	/* Normalise each band such that the energy is one. */
-func Opus_normalise_bands(tls *libc.TLS, m uintptr, freq uintptr, X uintptr, bandE uintptr, end int32, C int32, M int32) {
-	var N, c, i, j, v1 int32
-	var eBands uintptr
-	var g OpusT_opus_val16
-	_, _, _, _, _, _, _ = N, c, eBands, g, i, j, v1
-	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands
-	N = M * (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FshortMdctSize
-	c = 0
-	for {
-		i = 0
-		for {
-			if !(i < end) {
-				break
+func Opus_normalise_bands(tls *libc.TLS, bands *int16, shortMdctSize, nbEBands int32, freq, X, bandE *float32, end, C, M int32) {
+	if end <= 0 {
+		return
+	}
+	// C's do/while visits channel zero even if C is zero.
+	channels := max(C, 1)
+	N := M * shortMdctSize
+	eBands := unsafe.Slice(bands, end+1)
+	extent := (channels-1)*N + M*int32(eBands[end])
+	in := unsafe.Slice(freq, extent)
+	out := unsafe.Slice(X, extent)
+	energy := unsafe.Slice(bandE, (channels-1)*nbEBands+end)
+	for c := int32(0); c < channels; c++ {
+		for i := int32(0); i < end; i++ {
+			g := float32(1) / (float32(1e-27) + energy[i+c*nbEBands])
+			for j := M * int32(eBands[i]); j < M*int32(eBands[i+1]); j++ {
+				out[j+c*N] = in[j+c*N] * g
 			}
-			g = float32(1) / (float32(1e-27) + *(*OpusT_celt_ener)(unsafe.Pointer(bandE + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)))
-			j = M * int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i)*2)))
-			for {
-				if !(j < M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i+int32(1))*2)))) {
-					break
-				}
-				*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j+c*N)*4)) = OpusT_celt_norm(*(*OpusT_celt_sig)(unsafe.Pointer(freq + uintptr(j+c*N)*4)) * g)
-				j = j + 1
-			}
-			i = i + 1
-		}
-		c = c + 1
-		v1 = c
-		if !(v1 < C) {
-			break
 		}
 	}
 }
