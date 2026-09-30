@@ -353,6 +353,8 @@ inputs and untouched energy tails; Go checks explicit product rounding on ARM64.
 Decoder state validation tests are grouped in decoder_validation test files.
 Opus checks compare actual static C assertions (captured by a test-only longjmp),
 valid rate/channel combinations, rejected fields and unchanged state.
+CELT state validation reuses those files, comparing actual native mode, band,
+channel, pitch/period, tapset and architecture assertions without mutating state.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

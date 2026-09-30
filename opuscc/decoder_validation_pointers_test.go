@@ -15,6 +15,33 @@ func validationPanics(f func()) (panicked bool) {
 	return false
 }
 
+func TestCeltValidationPointers(t *testing.T) {
+	mode, _ := Opus_opus_custom_mode_create(nil, 48000, 960)
+	st := OpusT_OpusCustomDecoder{Fmode: mode, Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
+	before := st
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_validate_celt_decoder(nil, &st)
+	if st != before {
+		t.Fatal("state changed")
+	}
+	for _, pitch := range []int32{0, PLC_PITCH_LAG_MIN, PLC_PITCH_LAG_MAX} {
+		st = before
+		st.Flast_pitch_index = pitch
+		Opus_validate_celt_decoder(nil, &st)
+	}
+	st = before
+	st.Fpostfilter_period = MAX_PERIOD
+	if !validationPanics(func() { Opus_validate_celt_decoder(nil, &st) }) {
+		t.Fatal("period accepted")
+	}
+	st = before
+	st.Fmode = 0
+	if !validationPanics(func() { Opus_validate_celt_decoder(nil, &st) }) {
+		t.Fatal("mode accepted")
+	}
+}
+
 func TestOpusValidationPointers(t *testing.T) {
 	st := OpusT_OpusDecoder{Fchannels: 2, FFs: 48000, Fstream_channels: 1}
 	st.FDecControl.FAPI_sampleRate = 48000

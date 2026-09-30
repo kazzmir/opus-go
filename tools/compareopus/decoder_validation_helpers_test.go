@@ -7,6 +7,50 @@ import (
 	"testing"
 )
 
+func TestCeltValidationAgainstC(t *testing.T) {
+	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	base := opuscc.OpusT_OpusCustomDecoder{Fmode: mode, Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
+	for field := 0; field < 13; field++ {
+		for _, v := range []int32{-1, 0, 1, 2, 3, 15, 16, 17, 18, 20, 21, 22, 100, 120, 1023, 1024} {
+			st := base
+			switch field {
+			case 0:
+				st.Foverlap = v
+			case 1:
+				st.Fend = v
+			case 2:
+				st.Fchannels = v
+			case 3:
+				st.Fstream_channels = v
+			case 4:
+				st.Fdownsample = v
+			case 5:
+				st.Fstart = v
+			case 6:
+				st.Farch = v
+			case 7:
+				st.Flast_pitch_index = v
+			case 8:
+				st.Fpostfilter_period = v
+			case 9:
+				st.Fpostfilter_period_old = v
+			case 10:
+				st.Fpostfilter_tapset = v
+			case 11:
+				st.Fpostfilter_tapset_old = v
+			case 12:
+				st.Fmode = uintptr(v)
+			}
+			before := st
+			g := opuscc.CompareCeltValidation(&st)
+			c := nativeCeltValidation(&st)
+			if g != c || st != before {
+				t.Fatal(field, v, g, c)
+			}
+		}
+	}
+}
+
 func TestOpusValidationAgainstC(t *testing.T) {
 	base := opuscc.OpusT_OpusDecoder{Fchannels: 2, FFs: 48000, Fstream_channels: 1}
 	base.FDecControl.FAPI_sampleRate = 48000
