@@ -225,7 +225,7 @@ func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pO
 	/****************************************************************/
 	/* Ensure smooth connection of extrapolated and good frames     */
 	/****************************************************************/
-	Opus_silk_PLC_glue_frames(tls, psDec, pOut, L)
+	Opus_silk_PLC_glue_frames(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*int16)(unsafe.Pointer(pOut)), L)
 	/* Update some decoder state variables */
 	decoder.FlagPrev = control.FpitchL[decoder.Fnb_subfr-int32(1)]
 	/* Set output frame length */

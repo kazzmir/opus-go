@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math/bits"
 	"reflect"
 	"unsafe"
 
@@ -736,120 +737,50 @@ _102:
 // C documentation
 //
 //	/* Glues concealed frames with new good received frames */
-func Opus_silk_PLC_glue_frames(tls *libc.TLS, psDec uintptr, frame uintptr, length int32) {
-	var LZ, energy, frac_Q24, frac_Q7, gain_Q16, lz, lzeros, slope_Q16, y, v1, v11, v12, v2, v5, v6, v7 OpusT_opus_int32
-	var energy_shift int32
-	var i, v4, v9 int32
-	var m, r, x OpusT_opus_uint32
-	var psPLC uintptr
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = LZ, energy, energy_shift, frac_Q24, frac_Q7, gain_Q16, i, lz, lzeros, m, psPLC, r, slope_Q16, x, y, v1, v11, v12, v2, v4, v5, v6, v7, v9
-	psPLC = uintptr(unsafe.Pointer(&(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC))
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 {
-		/* Calculate energy in concealed residual */
-		Opus_silk_sum_sqr_shift(tls, &(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy, &(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift, (*OpusT_opus_int16)(unsafe.Pointer(frame)), length)
-		(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Flast_frame_lost = int32(1)
-	} else {
-		if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Flast_frame_lost != 0 {
-			/* Calculate residual in decoded signal if last frame was lost */
-			Opus_silk_sum_sqr_shift(tls, &energy, &energy_shift, (*OpusT_opus_int16)(unsafe.Pointer(frame)), length)
-			/* Normalize energies */
-			if energy_shift > (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift {
-				(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy >> (energy_shift - (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift)
-			} else {
-				if energy_shift < (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift {
-					energy = energy >> ((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy_shift - energy_shift)
+func Opus_silk_PLC_glue_frames(tls *libc.TLS, dec *OpusT_silk_decoder_state, frame *int16, length int32) {
+	plc := &dec.FsPLC
+	if dec.FlossCnt != 0 {
+		Opus_silk_sum_sqr_shift(tls, &plc.Fconc_energy, &plc.Fconc_energy_shift, frame, length)
+		plc.Flast_frame_lost = 1
+		return
+	}
+	if plc.Flast_frame_lost != 0 {
+		var energy, shift int32
+		Opus_silk_sum_sqr_shift(tls, &energy, &shift, frame, length)
+		if shift > plc.Fconc_energy_shift {
+			plc.Fconc_energy >>= shift - plc.Fconc_energy_shift
+		} else if shift < plc.Fconc_energy_shift {
+			energy >>= plc.Fconc_energy_shift - shift
+		}
+		if energy > plc.Fconc_energy {
+			lz := int32(bits.LeadingZeros32(uint32(plc.Fconc_energy))) - 1
+			plc.Fconc_energy = int32(uint32(plc.Fconc_energy) << lz)
+			energy >>= max(24-lz, int32(0))
+			fraction := plc.Fconc_energy / max(energy, int32(1))
+			root := int32(0)
+			if fraction > 0 {
+				zeros := bits.LeadingZeros32(uint32(fraction))
+				fracQ7 := int32(bits.RotateLeft32(uint32(fraction), zeros-24)) & 127
+				root = 46214
+				if zeros&1 != 0 {
+					root = 32768
 				}
+				root >>= zeros >> 1
+				root += int32(int64(root) * int64(int16(213*fracQ7)) >> 16)
 			}
-			/* Fade in the energy difference */
-			if energy > (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy {
-				v1 = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy
-				if v1 != 0 {
-					v4 = int32(32) - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, uint32(v1)))
-				} else {
-					v4 = int32(32)
-				}
-				v2 = v4
-				LZ = v2
-				LZ = LZ - int32(1)
-				(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy = int32(uint32((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy) << LZ)
-				v1 = int32(24) - LZ
-				v2 = 0
-				if v1 > v2 {
-					v4 = v1
-				} else {
-					v4 = v2
-				}
-				v5 = v4
-				energy = energy >> v5
-				if energy > int32(1) {
-					v4 = energy
-				} else {
-					v4 = int32(1)
-				}
-				frac_Q24 = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fconc_energy / v4
-				v1 = frac_Q24
-				if v1 <= int32(0) {
-					v2 = 0
-					goto _13
-				}
-				v5 = v1
-				v6 = v5
-				if v6 != 0 {
-					v4 = int32(32) - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, uint32(v6)))
-				} else {
-					v4 = int32(32)
-				}
-				v7 = v4
-				lzeros = v7
-				lz = lzeros
-				v11 = v5
-				v9 = int32(24) - lzeros
-				x = uint32(v11)
-				r = uint32(v9)
-				m = uint32(-v9)
-				if v9 == int32(0) {
-					v12 = v11
-					goto _22
-				} else {
-					if v9 < int32(0) {
-						v12 = int32(x<<m | x>>(uint32(32)-m))
-						goto _22
-					} else {
-						v12 = int32(x<<(uint32(32)-r) | x>>r)
-						goto _22
-					}
-				}
-			_22:
-				frac_Q7 = v12 & int32(0x7f)
-				if lz&int32(1) != 0 {
-					y = int32(32768)
-				} else {
-					y = int32(46214)
-				}
-				y = y >> (lz >> int32(1))
-				y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(frac_Q7))))>>int32(16))
-				v2 = y
-			_13:
-				gain_Q16 = int32(uint32(v2) << int32(4))
-				slope_Q16 = (int32(1)<<int32(16) - gain_Q16) / length
-				/* Make slope 4x steeper to avoid missing onsets after DTX */
-				slope_Q16 = int32(uint32(slope_Q16) << int32(2))
-				i = 0
-				for {
-					if !(i < length) {
-						break
-					}
-					*(*OpusT_opus_int16)(unsafe.Pointer(frame + uintptr(i)*2)) = int16(int32(int64(gain_Q16) * int64(*(*OpusT_opus_int16)(unsafe.Pointer(frame + uintptr(i)*2))) >> int32(16)))
-					gain_Q16 = gain_Q16 + slope_Q16
-					if gain_Q16 > int32(1)<<int32(16) {
-						break
-					}
-					i = i + 1
+			gain := int32(uint32(root) << 4)
+			slope := int32(uint32(((1<<16)-gain)/length) << 2)
+			samples := unsafe.Slice(frame, length)
+			for i := range samples {
+				samples[i] = int16(int64(gain) * int64(samples[i]) >> 16)
+				gain += slope
+				if gain > 1<<16 {
+					break
 				}
 			}
 		}
-		(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Flast_frame_lost = 0
 	}
+	plc.Flast_frame_lost = 0
 }
 
 const silk_int16_MAX8 = 0x7FFF

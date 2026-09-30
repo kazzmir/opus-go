@@ -295,6 +295,9 @@ round-trip valid gain histories through typed dequantization.
 PLC parameter updates compare actual static PLC.c for 2/4 subframes, LPC orders
 10/16, signal types and LTP gain clamp/narrowing edges, checking all PLC fields,
 unchanged control and unused LPC tails.
+PLC frame gluing compares concealed-energy capture, unequal energy shifts, integer
+sqrt approximation, onset fade/break boundaries and saturation-extreme PCM with C,
+checking full Go state, frame guards and zero-length no-op behavior.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

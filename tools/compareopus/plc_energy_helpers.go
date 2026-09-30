@@ -20,6 +20,11 @@ static void plc_update(int *p,int *d,int *c) {
  silk_PLC_update(&dec,&ctrl);
  p[0]=plc->pitchL_Q8;for(int i=0;i<5;i++) p[1+i]=plc->LTPCoef_Q14[i];for(int i=0;i<16;i++) p[6+i]=plc->prevLPC_Q12[i];p[22]=plc->last_frame_lost;p[23]=plc->rand_seed;p[24]=plc->randScale_Q14;p[25]=plc->conc_energy;p[26]=plc->conc_energy_shift;p[27]=plc->prevLTP_scale_Q14;p[28]=plc->prevGain_Q16[0];p[29]=plc->prevGain_Q16[1];p[30]=plc->fs_kHz;p[31]=plc->nb_subfr;p[32]=plc->subfr_length;d[5]=dec.prevSignalType;
 }
+static void plc_glue(int *p,int loss,short *frame,int length) {
+ silk_decoder_state d={0};d.lossCnt=loss;d.sPLC.conc_energy=p[0];d.sPLC.conc_energy_shift=p[1];d.sPLC.last_frame_lost=p[2];
+ silk_PLC_glue_frames(&d,frame,length);
+ p[0]=d.sPLC.conc_energy;p[1]=d.sPLC.conc_energy_shift;p[2]=d.sPLC.last_frame_lost;
+}
 static void plc_energy(int *out, const opus_int32 *exc, const opus_int32 *gains, int n, int nb) {
  silk_PLC_energy(&out[0],&out[1],&out[2],&out[3],exc,gains,n,nb);
 }
@@ -71,6 +76,14 @@ func nativePLCUpdate(dec *opuscc.OpusT_silk_decoder_state, ctrl *opuscc.OpusT_si
 	plc.Fnb_subfr = p[31]
 	plc.Fsubfr_length = p[32]
 	dec.FprevSignalType = d[5]
+}
+
+func nativePLCGlue(dec *opuscc.OpusT_silk_decoder_state, frame []int16) {
+	p := [3]int32{dec.FsPLC.Fconc_energy, dec.FsPLC.Fconc_energy_shift, dec.FsPLC.Flast_frame_lost}
+	C.plc_glue((*C.int)(unsafe.Pointer(&p[0])), C.int(dec.FlossCnt), (*C.short)(unsafe.Pointer(unsafe.SliceData(frame))), C.int(len(frame)))
+	dec.FsPLC.Fconc_energy = p[0]
+	dec.FsPLC.Fconc_energy_shift = p[1]
+	dec.FsPLC.Flast_frame_lost = p[2]
 }
 
 func nativePLCEnergy(exc []int32, gains *[2]int32, n, nb int32) [4]int32 {
