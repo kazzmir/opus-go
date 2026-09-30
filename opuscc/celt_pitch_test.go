@@ -71,7 +71,7 @@ func TestCeltFIRLocalSums(t *testing.T) {
 	coefficients := []OpusT_opus_val16{0.11, -0.23, 0.37, -0.41}
 	output := make([]OpusT_opus_val16, 8)
 
-	Opus_celt_fir_c(tls, uintptr(unsafe.Pointer(&input[4])), uintptr(unsafe.Pointer(&coefficients[0])), uintptr(unsafe.Pointer(&output[0])), int32(len(output)), 4, 0)
+	Opus_celt_fir_c(tls, &input[4], &coefficients[0], &output[0], int32(len(output)), 4, 0)
 
 	want := []OpusT_opus_val16{0.30320004, -0.28890002, 0.2734, -0.25649995, -0.5608, 0.48600003, -0.31520003, 0.032400023}
 	for i, value := range output {

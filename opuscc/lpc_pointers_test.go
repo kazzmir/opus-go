@@ -2,9 +2,40 @@ package opuscc
 
 import (
 	"math"
+	"runtime"
 	"slices"
 	"testing"
 )
+
+func TestFIRPointers(t *testing.T) {
+	input := [12]float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
+	coeff := [4]float32{1, 2, 3, 4}
+	out := [10]float32{}
+	out[0] = 77
+	out[9] = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_celt_fir_c(nil, &input[4], &coeff[0], &out[1], 8, 4, 0)
+	for i := 0; i < 8; i++ {
+		want := input[4+i]
+		for j := 0; j < 4; j++ {
+			want += float32(coeff[3-j] * input[i+j])
+		}
+		if out[i+1] != want {
+			t.Fatal(i, out, want)
+		}
+	}
+	if out[0] != 77 || out[9] != 88 {
+		t.Fatal("guard")
+	}
+	// Tail-only, zero-order filtering requires no coefficients or input history.
+	Opus_celt_fir_c(nil, &input[0], nil, &out[1], 3, 0, 0)
+	for i := 0; i < 3; i++ {
+		if out[i+1] != input[i] {
+			t.Fatal("identity")
+		}
+	}
+}
 
 func TestLPCPointers(t *testing.T) {
 	for _, tc := range []struct{ ac, want []float32 }{

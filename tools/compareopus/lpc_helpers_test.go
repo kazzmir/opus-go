@@ -9,6 +9,59 @@ import (
 	"testing"
 )
 
+func TestFIRAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(710))
+	for _, ord := range []int{3, 4, 5, 7, 8, 24} {
+		for _, n := range []int{0, 1, 2, 3, 4, 5, 7, 8, 31, 64} {
+			for trial := 0; trial < 12; trial++ {
+				input := make([]float32, ord+n+2)
+				coeff := make([]float32, ord)
+				for i := range input {
+					input[i] = float32(rng.NormFloat64() * 3)
+				}
+				for i := range coeff {
+					coeff[i] = float32(rng.NormFloat64())
+				}
+				if trial == 0 {
+					for i := range input {
+						input[i] = math.Float32frombits(uint32(i%2) << 31)
+					}
+				}
+				if trial == 1 {
+					for i := range input {
+						input[i] = math.Float32frombits(uint32(i + 1))
+					}
+				}
+				before := append([]float32(nil), input...)
+				goOut := make([]float32, n+2)
+				for i := range goOut {
+					goOut[i] = 77
+				}
+				cOut := append([]float32(nil), goOut...)
+				opuscc.Opus_celt_fir_c(nil, &input[ord], &coeff[0], &goOut[1], int32(n), int32(ord), 0)
+				nativeFIR(input, coeff, cOut[1:], int32(n), int32(ord))
+				if !sameFloatBits(goOut, cOut) || !sameFloatBits(input, before) {
+					t.Fatal(ord, n, trial, goOut, cOut)
+				}
+			}
+		}
+	}
+	// Partial overlaps are permitted (only exact x==y is asserted against).
+	for _, offset := range []int{3, 5} {
+		g := make([]float32, 40)
+		for i := range g {
+			g[i] = float32(i) * 0.17
+		}
+		c := append([]float32(nil), g...)
+		coeff := []float32{0.1, 0.2, 0.3, 0.4}
+		opuscc.Opus_celt_fir_c(nil, &g[4], &coeff[0], &g[offset], 24, 4, 0)
+		nativeFIR(c, coeff, c[offset:], 24, 4)
+		if !sameFloatBits(g, c) {
+			t.Fatal("overlap", offset, g, c)
+		}
+	}
+}
+
 func TestLPCAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(2026))
 	for _, p := range []int{1, 4, 16, 24} {

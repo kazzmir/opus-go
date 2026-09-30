@@ -371,6 +371,9 @@ short/long IDs, 255-byte boundaries, final payloads, sizing-only calls, capacity
 failures and untouched buffers. Iterator/generator adapters remain explicitly legacy.
 Whole-extension writing additionally compares ID-byte narrowing and partial writes
 before payload errors, using the same extension fixtures and actual static C helper.
+CELT FIR comparisons compile the actual celt_lpc.c scalar helper beside existing
+LPC fixtures: reversed coefficients/history, 4-lane/tail arithmetic, odd orders,
+signed zeros, subnormals, guards and partial overlap are checked bitwise.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

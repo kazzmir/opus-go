@@ -1218,7 +1218,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			   of the region for which we're computing the excitation. */
 			/* Compute the excitation for exc_length samples before the loss. We need the copy
 			   because celt_fir() cannot filter in-place. */
-			Opus_celt_fir_c(tls, exc+uintptr(max_period)*4-uintptr(exc_length)*4, lpc+uintptr(c*int32(CELT_LPC_ORDER))*4, fir_tmp, exc_length, int32(CELT_LPC_ORDER), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+			Opus_celt_fir_c(tls, (*float32)(unsafe.Pointer(exc+uintptr(max_period)*4-uintptr(exc_length)*4)), (*float32)(unsafe.Pointer(lpc+uintptr(c*int32(CELT_LPC_ORDER))*4)), (*float32)(unsafe.Pointer(fir_tmp)), exc_length, int32(CELT_LPC_ORDER), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 			libc.Xmemcpy(tls, exc+uintptr(max_period)*4-uintptr(exc_length)*4, fir_tmp, uint64(uint32(exc_length))*uint64(4)+uint64(0*((int64(exc+uintptr(max_period)*4-uintptr(exc_length)*4)-int64(fir_tmp))/4)))
 			/* Check if the waveform is decaying, and if so how fast.
 			   We do this to avoid adding energy when concealing in a segment
