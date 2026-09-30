@@ -489,46 +489,29 @@ func kf_bfly41(tls *libc.TLS, out *OpusT_mini_kiss_fft_cpx, stride OpusT_size_t,
 	}
 }
 
-func kf_bfly31(tls *libc.TLS, Fout uintptr, fstride OpusT_size_t, st OpusT_mini_kiss_fft_cfg, m OpusT_size_t) {
-	var epi3 OpusT_mini_kiss_fft_cpx
-	var k, m2, v2 OpusT_size_t
-	var scratch [5]OpusT_mini_kiss_fft_cpx
-	var tw1, tw2, v1 uintptr
-	_, _, _, _, _, _, _, _ = epi3, k, m2, scratch, tw1, tw2, v1, v2
-	state := (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st))
-	k = m
-	m2 = uint64(2) * m
-	epi3 = *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(fstride*m)*8))
-	v1 = uintptr(unsafe.Pointer(&state.Ftwiddles[0]))
-	tw2 = v1
-	tw1 = v1
-	for {
-		scratch[int32(1)].Fr = float32((*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fr*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw1)).Fr) - float32((*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fi*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw1)).Fi)
-		scratch[int32(1)].Fi = float32((*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fr*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw1)).Fi) + float32((*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fi*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw1)).Fr)
-		scratch[int32(2)].Fr = float32((*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m2)*8))).Fr*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw2)).Fr) - float32((*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m2)*8))).Fi*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw2)).Fi)
-		scratch[int32(2)].Fi = float32((*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m2)*8))).Fr*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw2)).Fi) + float32((*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m2)*8))).Fi*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw2)).Fr)
-		scratch[int32(3)].Fr = scratch[int32(1)].Fr + scratch[int32(2)].Fr
-		scratch[int32(3)].Fi = scratch[int32(1)].Fi + scratch[int32(2)].Fi
-		scratch[0].Fr = scratch[int32(1)].Fr - scratch[int32(2)].Fr
-		scratch[0].Fi = scratch[int32(1)].Fi - scratch[int32(2)].Fi
-		tw1 = tw1 + uintptr(fstride)*8
-		tw2 = tw2 + uintptr(fstride*uint64(2))*8
-		(*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fr = (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)).Fr - float32(scratch[int32(3)].Fr*float32(0.5))
-		(*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fi = (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)).Fi - float32(scratch[int32(3)].Fi*float32(0.5))
-		scratch[0].Fr *= epi3.Fi
-		scratch[0].Fi *= epi3.Fi
-		(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)).Fr += scratch[int32(3)].Fr
-		(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)).Fi += scratch[int32(3)].Fi
-		(*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m2)*8))).Fr = (*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fr + scratch[0].Fi
-		(*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m2)*8))).Fi = (*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fi - scratch[0].Fr
-		(*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fr -= scratch[0].Fi
-		(*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout + uintptr(m)*8))).Fi += scratch[0].Fr
-		Fout += 8
-		k = k - 1
-		v2 = k
-		if !(v2 != 0) {
-			break
-		}
+func kf_bfly31(tls *libc.TLS, out *OpusT_mini_kiss_fft_cpx, stride OpusT_size_t, twiddles *OpusT_mini_kiss_fft_cpx, m OpusT_size_t) {
+	if m == 0 {
+		return
+	}
+	data := unsafe.Slice(out, 3*m)
+	maxTw := m * stride
+	if v := 2 * (m - 1) * stride; v > maxTw {
+		maxTw = v
+	}
+	tw := unsafe.Slice(twiddles, maxTw+1)
+	epi3 := tw[m*stride]
+	for j := uint64(0); j < m; j++ {
+		s1 := fftMul(data[j+m], tw[j*stride])
+		s2 := fftMul(data[j+2*m], tw[2*j*stride])
+		s3 := fftAdd(s1, s2)
+		s0 := fftSub(s1, s2)
+		data[j+m] = OpusT_mini_kiss_fft_cpx{Fr: data[j].Fr - float32(s3.Fr*.5), Fi: data[j].Fi - float32(s3.Fi*.5)}
+		s0.Fr *= epi3.Fi
+		s0.Fi *= epi3.Fi
+		data[j] = fftAdd(data[j], s3)
+		data[j+2*m] = OpusT_mini_kiss_fft_cpx{Fr: data[j+m].Fr + s0.Fi, Fi: data[j+m].Fi - s0.Fr}
+		data[j+m].Fr -= s0.Fi
+		data[j+m].Fi += s0.Fr
 	}
 }
 
@@ -639,7 +622,7 @@ func kf_work(tls *libc.TLS, Fout uintptr, f uintptr, fstride OpusT_size_t, in_st
 	case int32(2):
 		kf_bfly21(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)), fstride, &(*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Ftwiddles[0], m)
 	case int32(3):
-		kf_bfly31(tls, Fout, fstride, st, uint64(uint32(m)))
+		kf_bfly31(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)), fstride, &(*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Ftwiddles[0], uint64(uint32(m)))
 	case int32(4):
 		kf_bfly41(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)), fstride, &(*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Ftwiddles[0], uint64(uint32(m)), (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Finverse)
 	case int32(5):

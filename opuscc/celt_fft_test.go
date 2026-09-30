@@ -105,7 +105,7 @@ func TestRadix3ButterflyUsesTwiddlesField(t *testing.T) {
 		{Fr: 11, Fi: 13},
 	}
 
-	kf_bfly31(nil, uintptr(unsafe.Pointer(&values[0])), 1, uintptr(unsafe.Pointer(&state.OpusT_mini_kiss_fft_state)), 1)
+	kf_bfly31(nil, &values[0], 1, &state.Ftwiddles[0], 1)
 
 	want := [3]OpusT_mini_kiss_fft_cpx{
 		{Fr: 9, Fi: 18},
