@@ -280,6 +280,8 @@ in-place/partial overlaps and inactive-band fills against C.
 Mini-FFT factorization compares actual mini_kfft.c for lengths 1–4096 and large
 prime/power-of-two boundaries, including radix order, returned word counts and
 untouched factor tails. Go tests also verify products, remainders and guards.
+Multistream float channel output compares the actual static C helper for varied
+strides/channels, zero-length and nil-source fills, raw float bits and forward overlap.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
