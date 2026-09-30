@@ -6179,25 +6179,26 @@ func write_extension_payload_legacy(tls *libc.TLS, data uintptr, capacity, pos i
 	return write_extension_payload(tls, (*byte)(unsafe.Pointer(data)), capacity, pos, e.Fid, e.Flen1, (*byte)(unsafe.Pointer(e.Fdata)), last)
 }
 
-func write_extension(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, pos OpusT_opus_int32, ext uintptr, last int32) (r int32) {
-	var v1 int32
-	_ = v1
-	if len1-pos < int32(1) {
-		return -int32(2)
+func write_extension(tls *libc.TLS, data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
+	if capacity-pos < 1 {
+		return -2
 	}
-	if !((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid >= int32(3) && (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid <= int32(127)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, int32(465))
+	if id < 3 || id > 127 {
+		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 465)
 	}
-	if data != 0 {
-		if (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid < int32(32) {
-			v1 = (*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1
-		} else {
-			v1 = libc.BoolInt32(!(last != 0))
+	if data != nil {
+		L := length
+		if id >= 32 {
+			L = libc.BoolInt32(last == 0)
 		}
-		*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8((*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid<<int32(1) + v1)
+		unsafe.Slice(data, capacity)[pos] = byte(id<<1 + L)
 	}
-	pos = pos + 1
-	return write_extension_payload_legacy(tls, data, len1, pos, ext, last)
+	return write_extension_payload(tls, data, capacity, pos+1, id, length, payload, last)
+}
+
+func write_extension_legacy(tls *libc.TLS, data uintptr, capacity, pos int32, ext uintptr, last int32) int32 {
+	e := (*OpusT_opus_extension_data)(unsafe.Pointer(ext))
+	return write_extension(tls, (*byte)(unsafe.Pointer(data)), capacity, pos, e.Fid, e.Flen1, (*byte)(unsafe.Pointer(e.Fdata)), last)
 }
 
 func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions OpusT_opus_int32, nb_frames int32, pad int32) (r OpusT_opus_int32) {
@@ -6370,7 +6371,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 					}
 					curr_frame = f
 				}
-				pos = write_extension(tls, data, len1, pos, extensions+uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{}), libc.BoolInt32(written == nb_extensions-int32(1)))
+				pos = write_extension_legacy(tls, data, len1, pos, extensions+uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{}), libc.BoolInt32(written == nb_extensions-int32(1)))
 				if pos < 0 {
 					return pos
 				}

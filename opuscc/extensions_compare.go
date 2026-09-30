@@ -2,6 +2,10 @@
 
 package opuscc
 
+func CompareWriteExtension(data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
+	return write_extension(nil, data, capacity, pos, id, length, payload, last)
+}
+
 func CompareWritePayload(data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
 	return write_extension_payload(nil, data, capacity, pos, id, length, payload, last)
 }

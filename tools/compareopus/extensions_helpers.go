@@ -16,6 +16,9 @@ package main
 #define opus_packet_extensions_parse_ext comparison_extensions_parse_ext
 #define opus_packet_extensions_generate comparison_extensions_generate
 #include "../../../opus/src/extensions.c"
+static int native_write_extension(unsigned char *data,int capacity,int pos,int id,int length,const unsigned char *payload,int last) {
+ opus_extension_data ext={0};ext.id=id;ext.len=length;ext.data=payload;return write_extension(data,capacity,pos,&ext,last);
+}
 static int native_write_payload(unsigned char *data,int capacity,int pos,int id,int length,const unsigned char *payload,int last) {
  opus_extension_data ext={0};ext.id=id;ext.len=length;ext.data=payload;return write_extension_payload(data,capacity,pos,&ext,last);
 }
@@ -27,6 +30,10 @@ static int native_skip_payload(const unsigned char *base,int len,int id,int trai
 */
 import "C"
 import "unsafe"
+
+func nativeWriteExtension(data []byte, capacity, pos, id, length int32, payload []byte, last int32) int32 {
+	return int32(C.native_write_extension((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(capacity), C.int(pos), C.int(id), C.int(length), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(payload))), C.int(last)))
+}
 
 func nativeWritePayload(data []byte, capacity, pos, id, length int32, payload []byte, last int32) int32 {
 	return int32(C.native_write_payload((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(capacity), C.int(pos), C.int(id), C.int(length), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(payload))), C.int(last)))

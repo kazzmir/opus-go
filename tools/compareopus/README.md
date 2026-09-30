@@ -369,6 +369,8 @@ empty/negative lengths, all ID bytes and failure cursor/header behavior.
 Payload writing shares extension fixtures and compares actual C lacing for
 short/long IDs, 255-byte boundaries, final payloads, sizing-only calls, capacity
 failures and untouched buffers. Iterator/generator adapters remain explicitly legacy.
+Whole-extension writing additionally compares ID-byte narrowing and partial writes
+before payload errors, using the same extension fixtures and actual static C helper.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
