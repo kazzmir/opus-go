@@ -91,7 +91,7 @@ func TestCeltIIRLocalSums(t *testing.T) {
 	memory := []OpusT_opus_val16{0.06, -0.11, 0.17, -0.22}
 	output := make([]OpusT_opus_val32, len(input))
 
-	Opus_celt_iir(tls, uintptr(unsafe.Pointer(&input[0])), uintptr(unsafe.Pointer(&denominator[0])), uintptr(unsafe.Pointer(&output[0])), int32(len(input)), 4, uintptr(unsafe.Pointer(&memory[0])), 0)
+	Opus_celt_iir(tls, &input[0], &denominator[0], &output[0], int32(len(input)), 4, &memory[0], 0)
 
 	wantOutput := []OpusT_opus_val32{0.22119999, -0.50764394, 0.25934526, 0.5231022, -0.2412248, 0.03571423, -0.83317864, 0.6697526}
 	for i, value := range output {

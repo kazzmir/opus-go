@@ -79,349 +79,49 @@ func celtCorrelation4(coeff, input []float32, sum *[4]float32) {
 	}
 }
 
-func Opus_celt_iir(tls *libc.TLS, _x uintptr, den uintptr, _y uintptr, N int32, ord int32, mem uintptr, arch int32) {
-	var _saved_stack, rden, st, y1, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v29, v3, v31, v33, v35, v37, v39, v5, v7, v9 uintptr
-	var i, j, j1, v60, v73, v76 int32
-	var sum2 OpusT_opus_val32
-	var tmp, tmp1, tmp2, tmp3, y_0, y_1, y_2, y_3 OpusT_opus_val16
-	var sum [4]OpusT_opus_val32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, i, j, j1, rden, st, sum2, tmp, tmp1, tmp2, tmp3, y1, y_0, y_1, y_2, y_3, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v29, v3, v31, v33, v35, v37, v39, v5, v60, v7, v73, v76, v9
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
+func Opus_celt_iir(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float32, arch int32) {
+	if ord&3 != 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+3390, __ccgo_ts+3330, 225)
+	}
+	input, coeff, output, memory := unsafe.Slice(x, N), unsafe.Slice(den, ord), unsafe.Slice(out, N), unsafe.Slice(mem, ord)
+	reversed := make([]float32, ord)
+	history := make([]float32, N+ord)
+	for i := int32(0); i < ord; i++ {
+		reversed[i] = coeff[ord-i-1]
+	}
+	for i := int32(0); i < ord; i++ {
+		history[i] = -memory[ord-i-1]
+	}
+	i := int32(0)
+	for ; i < N-3; i += 4 {
+		if ord < 3 {
+			Opus_celt_fatal(tls, __ccgo_ts+3349, __ccgo_ts+3374, 69)
 		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	if !(ord&int32(3) == int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3390, __ccgo_ts+3330, int32(225))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(ord))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3330, int32(226))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(ord)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	rden = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(ord))*(uint64(4)/uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(N+ord))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3330, int32(227))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(N+ord)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	y1 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N+ord))*(uint64(4)/uint64(1)))
-	i = 0
-	for {
-		if !(i < ord) {
-			break
-		}
-		*(*OpusT_opus_val16)(unsafe.Pointer(rden + uintptr(i)*4)) = *(*OpusT_opus_val16)(unsafe.Pointer(den + uintptr(ord-i-int32(1))*4))
-		i = i + 1
-	}
-	i = 0
-	for {
-		if !(i < ord) {
-			break
-		}
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i)*4)) = -*(*OpusT_opus_val16)(unsafe.Pointer(mem + uintptr(ord-i-int32(1))*4))
-		i = i + 1
-	}
-	for {
-		if !(i < N+ord) {
-			break
-		}
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i)*4)) = float32(0)
-		i = i + 1
-	}
-	i = 0
-	for {
-		if !(i < N-int32(3)) {
-			break
-		}
-		sum[0] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i)*4))
-		sum[1] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i+1)*4))
-		sum[2] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i+2)*4))
-		sum[3] = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i+3)*4))
-		_ = arch
-		v1 = rden
-		v3 = y1 + uintptr(i)*4
-		v5 = uintptr(unsafe.Pointer(&sum[0]))
-		v60 = ord
-		if !(v60 >= int32(3)) {
-			Opus_celt_fatal(tls, __ccgo_ts+3349, __ccgo_ts+3374, int32(69))
-		}
-		y_3 = float32(0)
-		v7 = v3
-		v3 += 4
-		y_0 = *(*OpusT_opus_val16)(unsafe.Pointer(v7))
-		v9 = v3
-		v3 += 4
-		y_1 = *(*OpusT_opus_val16)(unsafe.Pointer(v9))
-		v11 = v3
-		v3 += 4
-		y_2 = *(*OpusT_opus_val16)(unsafe.Pointer(v11))
-		j = int32(0)
-		for {
-			if !(j < v60-int32(3)) {
-				break
+		sum := [4]float32{input[i], input[i+1], input[i+2], input[i+3]}
+		celtCorrelation4(reversed, history[i:], &sum)
+		// Preserve patch order and output stores, including in-place input/output.
+		for lane := int32(0); lane < 4; lane++ {
+			for j := int32(0); j < lane; j++ {
+				sum[lane] += float32(history[i+ord+lane-j-1] * coeff[j])
 			}
-			v13 = v1
-			v1 += 4
-			tmp = *(*OpusT_opus_val16)(unsafe.Pointer(v13))
-			v15 = v3
-			v3 += 4
-			y_3 = *(*OpusT_opus_val16)(unsafe.Pointer(v15))
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5)) + OpusT_opus_val32(tmp*y_0)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) + OpusT_opus_val32(tmp*y_1)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp*y_2)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp*y_3)
-			v17 = v1
-			v1 += 4
-			tmp = *(*OpusT_opus_val16)(unsafe.Pointer(v17))
-			v19 = v3
-			v3 += 4
-			y_0 = *(*OpusT_opus_val16)(unsafe.Pointer(v19))
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5)) + OpusT_opus_val32(tmp*y_1)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) + OpusT_opus_val32(tmp*y_2)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp*y_3)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp*y_0)
-			v21 = v1
-			v1 += 4
-			tmp = *(*OpusT_opus_val16)(unsafe.Pointer(v21))
-			v23 = v3
-			v3 += 4
-			y_1 = *(*OpusT_opus_val16)(unsafe.Pointer(v23))
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5)) + OpusT_opus_val32(tmp*y_2)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) + OpusT_opus_val32(tmp*y_3)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp*y_0)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp*y_1)
-			v25 = v1
-			v1 += 4
-			tmp = *(*OpusT_opus_val16)(unsafe.Pointer(v25))
-			v27 = v3
-			v3 += 4
-			y_2 = *(*OpusT_opus_val16)(unsafe.Pointer(v27))
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5)) + OpusT_opus_val32(tmp*y_3)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) + OpusT_opus_val32(tmp*y_0)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp*y_1)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp*y_2)
-			j = j + int32(4)
+			history[i+ord+lane] = -sum[lane]
+			output[i+lane] = sum[lane]
 		}
-		v73 = j
-		j = j + 1
-		if v73 < v60 {
-			v29 = v1
-			v1 += 4
-			tmp1 = *(*OpusT_opus_val16)(unsafe.Pointer(v29))
-			v31 = v3
-			v3 += 4
-			y_3 = *(*OpusT_opus_val16)(unsafe.Pointer(v31))
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5)) + OpusT_opus_val32(tmp1*y_0)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) + OpusT_opus_val32(tmp1*y_1)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp1*y_2)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp1*y_3)
-		}
-		v76 = j
-		j = j + 1
-		if v76 < v60 {
-			v33 = v1
-			v1 += 4
-			tmp2 = *(*OpusT_opus_val16)(unsafe.Pointer(v33))
-			v35 = v3
-			v3 += 4
-			y_0 = *(*OpusT_opus_val16)(unsafe.Pointer(v35))
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5)) + OpusT_opus_val32(tmp2*y_1)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) + OpusT_opus_val32(tmp2*y_2)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp2*y_3)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp2*y_0)
-		}
-		if j < v60 {
-			v37 = v1
-			v1 += 4
-			tmp3 = *(*OpusT_opus_val16)(unsafe.Pointer(v37))
-			v39 = v3
-			v3 += 4
-			y_1 = *(*OpusT_opus_val16)(unsafe.Pointer(v39))
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5)) + OpusT_opus_val32(tmp3*y_2)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 1*4)) + OpusT_opus_val32(tmp3*y_3)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 2*4)) + OpusT_opus_val32(tmp3*y_0)
-			*(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(v5 + 3*4)) + OpusT_opus_val32(tmp3*y_1)
-		}
-		/* Patch up the result to compensate for the fact that this is an IIR */
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) = -sum[0]
-		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i)*4)) = sum[0]
-		sum[1] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den)))
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+1)*4)) = -sum[1]
-		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+1)*4)) = sum[1]
-		sum[2] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+1)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den)))
-		sum[2] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den + 4)))
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+2)*4)) = -sum[2]
-		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+2)*4)) = sum[2]
-		sum[3] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+2)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den)))
-		sum[3] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+1)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den + 4)))
-		sum[3] += OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) * *(*OpusT_opus_val16)(unsafe.Pointer(den + 8)))
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord+3)*4)) = -sum[3]
-		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i+3)*4)) = sum[3]
-		i = i + int32(4)
 	}
-	for {
-		if !(i < N) {
-			break
+	for ; i < N; i++ {
+		sum := input[i]
+		for j := int32(0); j < ord; j++ {
+			sum -= float32(reversed[j] * history[i+j])
 		}
-		sum2 = *(*OpusT_opus_val32)(unsafe.Pointer(_x + uintptr(i)*4))
-		j1 = 0
-		for {
-			if !(j1 < ord) {
-				break
-			}
-			sum2 = sum2 - OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(rden + uintptr(j1)*4))**(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+j1)*4)))
-			j1 = j1 + 1
-		}
-		*(*OpusT_opus_val16)(unsafe.Pointer(y1 + uintptr(i+ord)*4)) = sum2
-		*(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(i)*4)) = sum2
-		i = i + 1
+		// The C tail stores the positive sum, unlike the four-sample block.
+		history[i+ord] = sum
+		output[i] = sum
 	}
-	i = 0
-	for {
-		if !(i < ord) {
-			break
-		}
-		*(*OpusT_opus_val16)(unsafe.Pointer(mem + uintptr(i)*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(_y + uintptr(N-i-int32(1))*4))
-		i = i + 1
+	// For N<ord, C reads caller-owned samples preceding out as well.
+	tail := unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(out), int(N-ord)*4)), ord)
+	for i := int32(0); i < ord; i++ {
+		memory[i] = tail[ord-i-1]
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
 func Opus__celt_autocorr(tls *libc.TLS, x uintptr, ac uintptr, window uintptr, overlap int32, lag int32, n int32, arch int32) (r int32) {

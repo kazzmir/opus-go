@@ -7,6 +7,32 @@ import (
 	"testing"
 )
 
+func TestIIRPointers(t *testing.T) {
+	input := [8]float32{1, 2, 3, 4, 5, 6, 7, 8}
+	coeff := [4]float32{0, 0, 0, 0}
+	out := [10]float32{}
+	out[0] = 77
+	out[9] = 88
+	mem := [6]float32{77, 1, 2, 3, 4, 88}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_celt_iir(nil, &input[0], &coeff[0], &out[1], 8, 4, &mem[1], 0)
+	for i := range input {
+		if out[i+1] != input[i] {
+			t.Fatal("identity", out)
+		}
+	}
+	if mem != [6]float32{77, 8, 7, 6, 5, 88} || out[0] != 77 || out[9] != 88 {
+		t.Fatal("history or guards", mem, out)
+	}
+	// A zero-length call still updates memory from the preceding output history.
+	history := [5]float32{1, 2, 3, 4, 99}
+	Opus_celt_iir(nil, nil, &coeff[0], &history[4], 0, 4, &mem[1], 0)
+	if mem != [6]float32{77, 4, 3, 2, 1, 88} {
+		t.Fatal(mem)
+	}
+}
+
 func TestFIRPointers(t *testing.T) {
 	input := [12]float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
 	coeff := [4]float32{1, 2, 3, 4}

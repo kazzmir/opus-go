@@ -1288,7 +1288,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			}
 			/* Apply the synthesis filter to convert the excitation back into
 			   the signal domain. */
-			Opus_celt_iir(tls, buf+uintptr(decode_buffer_size)*4-uintptr(N)*4, lpc+uintptr(c*int32(CELT_LPC_ORDER))*4, buf+uintptr(decode_buffer_size)*4-uintptr(N)*4, extrapolation_len, int32(CELT_LPC_ORDER), uintptr(unsafe.Pointer(&lpc_mem[0])), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+			Opus_celt_iir(tls, (*float32)(unsafe.Pointer(buf+uintptr(decode_buffer_size)*4-uintptr(N)*4)), (*float32)(unsafe.Pointer(lpc+uintptr(c*int32(CELT_LPC_ORDER))*4)), (*float32)(unsafe.Pointer(buf+uintptr(decode_buffer_size)*4-uintptr(N)*4)), extrapolation_len, int32(CELT_LPC_ORDER), &lpc_mem[0], (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 			/* Check if the synthesis energy is higher than expected, which can
 			   happen with the signal changes during our window. If so,
 			   attenuate. */

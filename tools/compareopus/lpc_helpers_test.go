@@ -9,6 +9,66 @@ import (
 	"testing"
 )
 
+func TestIIRAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(811))
+	for _, ord := range []int{4, 8, 24} {
+		for _, n := range []int{0, 1, 2, 3, 4, 5, 7, 8, 31, 64} {
+			for trial := 0; trial < 12; trial++ {
+				input := make([]float32, n+2)
+				coeff := make([]float32, ord)
+				mem := make([]float32, ord+2)
+				for i := range input {
+					input[i] = float32(rng.NormFloat64() * 3)
+				}
+				for i := range coeff {
+					coeff[i] = float32(rng.NormFloat64() * 0.02)
+				}
+				for i := range mem {
+					mem[i] = float32(rng.NormFloat64())
+				}
+				if trial == 0 {
+					for i := range input {
+						input[i] = math.Float32frombits(uint32(i%2) << 31)
+					}
+				}
+				if trial == 1 {
+					for i := range input {
+						input[i] = math.Float32frombits(uint32(i + 1))
+					}
+				}
+				before := append([]float32(nil), input...)
+				goOut := make([]float32, ord+n+2)
+				for i := range goOut {
+					goOut[i] = 77
+				}
+				cOut := append([]float32(nil), goOut...)
+				cMem := append([]float32(nil), mem...)
+				opuscc.Opus_celt_iir(nil, &input[0], &coeff[0], &goOut[ord], int32(n), int32(ord), &mem[1], 0)
+				nativeIIR(input, coeff, cOut[ord:], cMem[1:], int32(n), int32(ord))
+				if !sameFloatBits(goOut, cOut) || !sameFloatBits(mem, cMem) || !sameFloatBits(input, before) {
+					t.Fatal(ord, n, trial, goOut, cOut, mem, cMem)
+				}
+			}
+		}
+	}
+	// In-place and partial overlaps preserve block read-ahead and store order.
+	for _, offset := range []int{3, 4, 5} {
+		g := make([]float32, 40)
+		for i := range g {
+			g[i] = float32(i) * 0.17
+		}
+		c := append([]float32(nil), g...)
+		coeff := []float32{0.1, 0.2, 0.3, 0.4}
+		gm := []float32{1, 2, 3, 4}
+		cm := append([]float32(nil), gm...)
+		opuscc.Opus_celt_iir(nil, &g[4], &coeff[0], &g[offset], 24, 4, &gm[0], 0)
+		nativeIIR(c[4:], coeff, c[offset:], cm, 24, 4)
+		if !sameFloatBits(g, c) || !sameFloatBits(gm, cm) {
+			t.Fatal("overlap", offset, g, c)
+		}
+	}
+}
+
 func TestFIRAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(710))
 	for _, ord := range []int{3, 4, 5, 7, 8, 24} {

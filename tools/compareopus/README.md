@@ -374,6 +374,9 @@ before payload errors, using the same extension fixtures and actual static C hel
 CELT FIR comparisons compile the actual celt_lpc.c scalar helper beside existing
 LPC fixtures: reversed coefficients/history, 4-lane/tail arithmetic, odd orders,
 signed zeros, subnormals, guards and partial overlap are checked bitwise.
+CELT IIR shares those scalar C fixtures and checks recurrence patch/store order,
+positive tail scratch, output-derived memory (including N<order history), guards,
+in-place/partial overlap, signed zeros and subnormals bitwise.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

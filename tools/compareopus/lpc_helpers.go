@@ -14,6 +14,10 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 import "C"
 import "unsafe"
 
+func nativeIIR(input, coeff, out, mem []float32, N, ord int32) {
+	C.comparison_iir((*C.float)(unsafe.Pointer(unsafe.SliceData(input))), (*C.float)(unsafe.Pointer(unsafe.SliceData(coeff))), (*C.float)(unsafe.Pointer(unsafe.SliceData(out))), C.int(N), C.int(ord), (*C.float)(unsafe.Pointer(unsafe.SliceData(mem))), 0)
+}
+
 func nativeFIR(input, coeff, out []float32, N, ord int32) {
 	C.comparison_fir((*C.float)(unsafe.Pointer(&input[ord])), (*C.float)(unsafe.Pointer(unsafe.SliceData(coeff))), (*C.float)(unsafe.Pointer(unsafe.SliceData(out))), C.int(N), C.int(ord), 0)
 }
