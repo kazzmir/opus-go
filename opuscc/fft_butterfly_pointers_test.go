@@ -6,6 +6,18 @@ import (
 	"testing"
 )
 
+func TestMiniButterfly2Pointers(t *testing.T) {
+	kf_bfly21(nil, nil, 1, nil, 0)
+	out := [6]OpusT_mini_kiss_fft_cpx{{Fr: 77}, {Fr: 1}, {Fr: 2}, {Fr: 3}, {Fr: 4}, {Fr: 88}}
+	tw := [2]OpusT_mini_kiss_fft_cpx{{Fr: 1}, {Fr: 1}}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	kf_bfly21(nil, &out[1], 1, &tw[0], 2)
+	if out != [6]OpusT_mini_kiss_fft_cpx{{Fr: 77}, {Fr: 4}, {Fr: 6}, {Fr: -2}, {Fr: -2}, {Fr: 88}} {
+		t.Fatal(out)
+	}
+}
+
 func TestFFTInversePointers(t *testing.T) {
 	st := OpusT_kiss_fft_state{Fnfft: 4, Fscale: .25, Fshift: -1, Ffactors: [16]int16{4, 1}}
 	rev := [4]int16{0, 1, 2, 3}

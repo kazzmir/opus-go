@@ -449,28 +449,17 @@ type OpusT_mini_kiss_fft_state = struct {
    C_ADDTO( res , a)    : res += a
  * */
 
-func kf_bfly21(tls *libc.TLS, Fout uintptr, fstride OpusT_size_t, st OpusT_mini_kiss_fft_cfg, m int32) {
-	var Fout2, tw1 uintptr
-	var t OpusT_mini_kiss_fft_cpx
-	var v1 int32
-	_, _, _, _ = Fout2, t, tw1, v1
-	tw1 = st + 264
-	Fout2 = Fout + uintptr(m)*8
-	for {
-		t.Fr = float32((*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout2)).Fr*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw1)).Fr) - float32((*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout2)).Fi*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw1)).Fi)
-		t.Fi = float32((*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout2)).Fr*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw1)).Fi) + float32((*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout2)).Fi*(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(tw1)).Fr)
-		tw1 = tw1 + uintptr(fstride)*8
-		(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout2)).Fr = (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)).Fr - t.Fr
-		(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout2)).Fi = (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)).Fi - t.Fi
-		(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)).Fr += t.Fr
-		(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)).Fi += t.Fi
-		Fout2 += 8
-		Fout += 8
-		m = m - 1
-		v1 = m
-		if !(v1 != 0) {
-			break
-		}
+func kf_bfly21(tls *libc.TLS, out *OpusT_mini_kiss_fft_cpx, stride OpusT_size_t, twiddles *OpusT_mini_kiss_fft_cpx, m int32) {
+	// The native do/while requires positive m.
+	if m <= 0 {
+		return
+	}
+	data := unsafe.Slice(out, 2*m)
+	tw := unsafe.Slice(twiddles, uint64(m-1)*stride+1)
+	for j := int32(0); j < m; j++ {
+		t := fftMul(data[j+m], tw[uint64(j)*stride])
+		data[j+m] = fftSub(data[j], t)
+		data[j] = fftAdd(data[j], t)
 	}
 }
 
@@ -677,7 +666,7 @@ func kf_work(tls *libc.TLS, Fout uintptr, f uintptr, fstride OpusT_size_t, in_st
 	/* recombine the p smaller DFTs*/
 	switch p {
 	case int32(2):
-		kf_bfly21(tls, Fout, fstride, st, m)
+		kf_bfly21(tls, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(Fout)), fstride, &(*OpusT_mini_kiss_fft_state)(unsafe.Pointer(st)).Ftwiddles[0], m)
 	case int32(3):
 		kf_bfly31(tls, Fout, fstride, st, uint64(uint32(m)))
 	case int32(4):

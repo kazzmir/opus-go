@@ -326,6 +326,8 @@ passes and an exact four-point forward/inverse round trip.
 Band normalization tests live beside denormalization tests and compare partial
 bands/channel strides, empty bands/M=0, C's channel-zero visit, exceptional energies,
 untouched tails and input preservation with the native bands implementation.
+Mini-FFT radix-2 shares the FFT butterfly test files and compares actual static
+mini_kfft.c helpers, arbitrary positive widths, repeated strides and raw float bits.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

@@ -22,6 +22,44 @@ func sameComplexBits(a, b []opuscc.OpusT_kiss_fft_cpx) bool {
 	return true
 }
 
+func TestMiniButterfly2AgainstC(t *testing.T) {
+	compareMiniButterflies(t, 2, opuscc.CompareMiniFFTButterfly2)
+}
+
+func compareMiniButterflies(t *testing.T, radix int32, transform func(*opuscc.OpusT_mini_kiss_fft_cpx, *opuscc.OpusT_mini_kiss_fft_cpx, uint64, uint64, int32)) {
+	t.Helper()
+	for _, m := range []uint64{1, 2, 4, 7, 16} {
+		for _, stride := range []uint64{0, 1, 3} {
+			for _, inverse := range []int32{0, 1, -3} {
+				for variant := 0; variant < 4; variant++ {
+					g := make([]opuscc.OpusT_mini_kiss_fft_cpx, uint64(radix)*m+2)
+					for i := range g {
+						r := float32(i-13) / 7
+						if variant == 1 {
+							r = math.Float32frombits(uint32(i)*123457 + 1)
+						}
+						if variant == 2 {
+							r = math.Float32frombits(0x80000000)
+						}
+						if variant == 3 {
+							r = []float32{1e20, -1e20, 1, -1}[i%4]
+						}
+						g[i] = opuscc.OpusT_mini_kiss_fft_cpx{Fr: r, Fi: -r}
+					}
+					c := slices.Clone(g)
+					tw := butterflyTwiddles(int(4*m*stride + 1))
+					before := slices.Clone(tw)
+					transform(&g[1], &tw[0], stride, m, inverse)
+					nativeMiniButterfly(radix, c[1:], tw, stride, m, inverse)
+					if !sameComplexBits(g, c) || !slices.Equal(tw, before) {
+						t.Fatal(radix, m, stride, inverse, variant)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestFFTInverseAgainstC(t *testing.T) { compareFullFFT(t, 2, opuscc.Opus_opus_ifft_c) }
 
 func TestFFTForwardAgainstC(t *testing.T) {
