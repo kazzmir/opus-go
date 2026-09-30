@@ -1,10 +1,49 @@
 package opuscc
 
 import (
+	"math"
 	"runtime"
 	"slices"
 	"testing"
 )
+
+// Explicit intermediate conversions are the oracle: multiply then add,
+// not an ARM64 fused multiply-add. Both radix-3 implementations need this.
+func TestRadix3ScratchRounding(t *testing.T) {
+	tw := [2]OpusT_kiss_twiddle_cpx{{Fr: 1}, {Fr: -.5, Fi: -.8660254}}
+	seed := uint32(1234567)
+	for trial := 0; trial < 128; trial++ {
+		var input [3]OpusT_kiss_fft_cpx
+		for i := range input {
+			seed = seed*1664525 + 1013904223
+			input[i].Fr = float32(int32(seed)) / 1234567
+			seed = seed*1664525 + 1013904223
+			input[i].Fi = float32(int32(seed)) / 7654321
+		}
+		s1 := fftMul(input[1], tw[0])
+		s2 := fftMul(input[2], tw[0])
+		sumR := float32(s1.Fr + s2.Fr)
+		sumI := float32(s1.Fi + s2.Fi)
+		baseR := float32(input[0].Fr - float32(sumR*.5))
+		baseI := float32(input[0].Fi - float32(sumI*.5))
+		pR := float32(float32(s1.Fr-s2.Fr) * tw[1].Fi)
+		pI := float32(float32(s1.Fi-s2.Fi) * tw[1].Fi)
+		want := [3]OpusT_kiss_fft_cpx{{Fr: input[0].Fr + sumR, Fi: input[0].Fi + sumI}, {Fr: baseR - pI, Fi: baseI + pR}, {Fr: baseR + pI, Fi: baseI - pR}}
+		for _, mini := range []bool{false, true} {
+			got := input
+			if mini {
+				kf_bfly31(nil, &got[0], 1, &tw[0], 1)
+			} else {
+				kf_bfly3(nil, &got[0], 1, &tw[0], 1, 1, 3)
+			}
+			for i := range got {
+				if math.Float32bits(got[i].Fr) != math.Float32bits(want[i].Fr) || math.Float32bits(got[i].Fi) != math.Float32bits(want[i].Fi) {
+					t.Fatalf("trial=%d mini=%v bin=%d got=%+v want=%+v", trial, mini, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
 
 func TestMiniButterfly5Pointers(t *testing.T) {
 	kf_bfly51(nil, nil, 1, nil, 0)

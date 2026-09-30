@@ -506,8 +506,9 @@ func kf_bfly31(tls *libc.TLS, out *OpusT_mini_kiss_fft_cpx, stride OpusT_size_t,
 		s3 := fftAdd(s1, s2)
 		s0 := fftSub(s1, s2)
 		data[j+m] = OpusT_mini_kiss_fft_cpx{Fr: data[j].Fr - float32(s3.Fr*.5), Fi: data[j].Fi - float32(s3.Fi*.5)}
-		s0.Fr *= epi3.Fi
-		s0.Fi *= epi3.Fi
+		// Preserve the native scratch-product rounding before later sums.
+		s0.Fr = float32(s0.Fr * epi3.Fi)
+		s0.Fi = float32(s0.Fi * epi3.Fi)
 		data[j] = fftAdd(data[j], s3)
 		data[j+2*m] = OpusT_mini_kiss_fft_cpx{Fr: data[j+m].Fr + s0.Fi, Fi: data[j+m].Fi - s0.Fr}
 		data[j+m].Fr -= s0.Fi

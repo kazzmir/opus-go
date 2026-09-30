@@ -116,8 +116,10 @@ func kf_bfly3(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twidd
 			s3 := fftAdd(s1, s2)
 			s0 := fftSub(s1, s2)
 			f[j+m] = OpusT_kiss_fft_cpx{Fr: f[j].Fr - float32(s3.Fr*.5), Fi: f[j].Fi - float32(s3.Fi*.5)}
-			s0.Fr *= epi3.Fi
-			s0.Fi *= epi3.Fi
+			// Explicit rounding prevents ARM64 from fusing these products with
+			// the following additions/subtractions (C stores scratch first).
+			s0.Fr = float32(s0.Fr * epi3.Fi)
+			s0.Fi = float32(s0.Fi * epi3.Fi)
 			f[j] = fftAdd(f[j], s3)
 			f[j+2*m] = OpusT_kiss_fft_cpx{Fr: f[j+m].Fr + s0.Fi, Fi: f[j+m].Fi - s0.Fr}
 			f[j+m].Fr -= s0.Fi
