@@ -12,49 +12,33 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func kf_bfly2(tls *libc.TLS, Fout uintptr, m int32, N int32) {
-	var Fout2 uintptr
-	var i int32
-	var t OpusT_kiss_fft_cpx
-	var tw OpusT_celt_coef
-	_, _, _, _ = Fout2, i, t, tw
-	_ = m
-	tw = float32(0.7071067812)
-	/* We know that m==4 here because the radix-2 is just after a radix-4 */
-	if !(m == int32(4)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3470, __ccgo_ts+3493, int32(80))
+func kf_bfly2(tls *libc.TLS, out *OpusT_kiss_fft_cpx, m, N int32) {
+	// The no-custom-modes radix-2 stage always follows a radix-4 stage.
+	if m != 4 {
+		Opus_celt_fatal(tls, __ccgo_ts+3470, __ccgo_ts+3493, 80)
 	}
-	i = 0
-	for {
-		if !(i < N) {
-			break
+	if N <= 0 {
+		return
+	}
+	data := unsafe.Slice(out, 8*N)
+	const tw = float32(0.7071067812)
+	for i := int32(0); i < N; i++ {
+		f := data[8*i : 8*i+8]
+		for j := 0; j < 4; j++ {
+			t := f[j+4]
+			switch j {
+			case 1:
+				t = OpusT_kiss_fft_cpx{Fr: float32((t.Fr + t.Fi) * tw), Fi: float32((t.Fi - t.Fr) * tw)}
+			case 2:
+				t = OpusT_kiss_fft_cpx{Fr: t.Fi, Fi: -t.Fr}
+			case 3:
+				t = OpusT_kiss_fft_cpx{Fr: float32((t.Fi - t.Fr) * tw), Fi: float32(-(t.Fi + t.Fr) * tw)}
+			}
+			f[j+4].Fr = f[j].Fr - t.Fr
+			f[j+4].Fi = f[j].Fi - t.Fi
+			f[j].Fr += t.Fr
+			f[j].Fi += t.Fi
 		}
-		Fout2 = Fout + uintptr(4)*8
-		t = *(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2))
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2))).Fr = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout))).Fr - t.Fr
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2))).Fi = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout))).Fi - t.Fi
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout))).Fr += t.Fr
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout))).Fi += t.Fi
-		t.Fr = float32(((*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 1*8))).Fr + (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 1*8))).Fi) * tw)
-		t.Fi = float32(((*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 1*8))).Fi - (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 1*8))).Fr) * tw)
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 1*8))).Fr = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 1*8))).Fr - t.Fr
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 1*8))).Fi = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 1*8))).Fi - t.Fi
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 1*8))).Fr += t.Fr
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 1*8))).Fi += t.Fi
-		t.Fr = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 2*8))).Fi
-		t.Fi = -(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 2*8))).Fr
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 2*8))).Fr = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 2*8))).Fr - t.Fr
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 2*8))).Fi = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 2*8))).Fi - t.Fi
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 2*8))).Fr += t.Fr
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 2*8))).Fi += t.Fi
-		t.Fr = float32(((*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 3*8))).Fi - (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 3*8))).Fr) * tw)
-		t.Fi = float32(-((*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 3*8))).Fi + (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 3*8))).Fr) * tw)
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 3*8))).Fr = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 3*8))).Fr - t.Fr
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout2 + 3*8))).Fi = (*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 3*8))).Fi - t.Fi
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 3*8))).Fr += t.Fr
-		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(Fout + 3*8))).Fi += t.Fi
-		Fout = Fout + uintptr(8)*8
-		i = i + 1
 	}
 }
 
@@ -303,7 +287,7 @@ func Opus_opus_fft_impl(tls *libc.TLS, st uintptr, fout uintptr) {
 		}
 		switch int32(state.Ffactors[2*i]) {
 		case int32(2):
-			kf_bfly2(tls, fout, m, fstride[i])
+			kf_bfly2(tls, (*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout)), m, fstride[i])
 		case int32(4):
 			kf_bfly4(tls, fout, uint64(uint32(fstride[i]<<shift)), st, m, fstride[i], m2)
 		case int32(3):
