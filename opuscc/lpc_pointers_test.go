@@ -7,6 +7,22 @@ import (
 	"testing"
 )
 
+func TestRemoveDoublingPointers(t *testing.T) {
+	input := [16]float32{}
+	period := [3]int32{77, 100, 88}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	gain := Opus_remove_doubling(nil, &input[0], 16, 4, 16, &period[1], 9, 0.46, 0)
+	if gain != 0 || period != [3]int32{77, 14, 88} {
+		t.Fatal(gain, period)
+	}
+	period[1] = 4
+	gain = Opus_remove_doubling(nil, &input[0], 16, 5, 16, &period[1], 0, 0, 0)
+	if gain != 0 || period != [3]int32{77, 5, 88} {
+		t.Fatal("minimum", gain, period)
+	}
+}
+
 func TestPitchSearchPointers(t *testing.T) {
 	x := [16]float32{}
 	y := [32]float32{}

@@ -10,6 +10,41 @@ import (
 	"unsafe"
 )
 
+func TestRemoveDoublingAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(1215))
+	for _, maxPeriod := range []int{16, 31, 64, 128} {
+		for _, minPeriod := range []int{4, 5, 8} {
+			for _, n := range []int{8, 17, 64, 240} {
+				for trial := 0; trial < 100; trial++ {
+					x := make([]float32, maxPeriod/2+n/2)
+					for i := range x {
+						x[i] = float32(rng.NormFloat64())
+					}
+					if trial == 0 {
+						clear(x)
+					}
+					if trial%3 == 1 {
+						for i := range x {
+							x[i] = float32(math.Sin(float64(i) * 0.3))
+						}
+					}
+					before := append([]float32(nil), x...)
+					initial := minPeriod + rng.Intn(maxPeriod-minPeriod+8)
+					previous := rng.Intn(maxPeriod)
+					previousGain := float32(rng.Float64())
+					g := [3]int32{77, int32(initial), 88}
+					c := g
+					gg := opuscc.Opus_remove_doubling(nil, &x[0], int32(maxPeriod), int32(minPeriod), int32(n), &g[1], int32(previous), previousGain, 0)
+					cg := nativeRemoveDoubling(x, int32(maxPeriod), int32(minPeriod), int32(n), &c[1], int32(previous), previousGain)
+					if g != c || math.Float32bits(gg) != math.Float32bits(cg) || !sameFloatBits(x, before) {
+						t.Fatal(maxPeriod, minPeriod, n, trial, initial, previous, g, c, gg, cg)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestPitchSearchAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(1114))
 	for _, n := range []int{4, 8, 12, 17, 32, 128, 240} {

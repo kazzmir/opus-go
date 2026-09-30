@@ -466,287 +466,106 @@ var second_check = [16]int32{
 	15: int32(2),
 }
 
-func Opus_remove_doubling(tls *libc.TLS, x2 uintptr, maxperiod int32, minperiod int32, N2 int32, T0_ uintptr, prev_period int32, prev_gain OpusT_opus_val16, arch int32) (r OpusT_opus_val16) {
-	var T, T0, T1, T1b, i, i1, i2, k, minperiod0, offset, v5 int32
-	var _saved_stack, st, yy_lookup, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v6, v8 uintptr
-	var best_xy, best_yy, xx, xy, xy01, xy02, xy2, yy, v33 OpusT_opus_val32
-	var cont, g, g0, g1, pg, thresh, v34 OpusT_opus_val16
-	var xcorr [3]OpusT_opus_val32
-	var v36, v37 OpusT_opus_uint32
-	var v44 float32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = T, T0, T1, T1b, _saved_stack, best_xy, best_yy, cont, g, g0, g1, i, i1, i2, k, minperiod0, offset, pg, st, thresh, xcorr, xx, xy, xy01, xy02, xy2, yy, yy_lookup, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v33, v34, v36, v37, v44, v5, v6, v8
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+func Opus_remove_doubling(tls *libc.TLS, x *float32, maxPeriod, minPeriod, N int32, period *int32, previousPeriod int32, previousGain float32, arch int32) float32 {
+	minimum := minPeriod
+	maxPeriod /= 2
+	minPeriod /= 2
+	*period /= 2
+	previousPeriod /= 2
+	N /= 2
+	if *period >= maxPeriod {
+		*period = maxPeriod - 1
 	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	minperiod0 = minperiod
-	maxperiod = maxperiod / int32(2)
-	minperiod = minperiod / int32(2)
-	*(*int32)(unsafe.Pointer(T0_)) /= int32(2)
-	prev_period = prev_period / int32(2)
-	N2 = N2 / int32(2)
-	x2 = x2 + uintptr(maxperiod)*4
-	if *(*int32)(unsafe.Pointer(T0_)) >= maxperiod {
-		*(*int32)(unsafe.Pointer(T0_)) = maxperiod - int32(1)
+	T0 := *period
+	T := T0
+	input := unsafe.Slice(x, maxPeriod+N)
+	current := input[maxPeriod:]
+	lookup := make([]float32, maxPeriod+1)
+	xx := pitchInnerProduct(current, current)
+	xy := pitchInnerProduct(current, input[maxPeriod-T0:])
+	lookup[0] = xx
+	yy := xx
+	for i := int32(1); i <= maxPeriod; i++ {
+		a, b := input[maxPeriod-i], input[maxPeriod+N-i]
+		yy = yy + float32(a*a) - float32(b*b)
+		lookup[i] = pitchMaximum(0, yy)
 	}
-	v5 = *(*int32)(unsafe.Pointer(T0_))
-	T0 = v5
-	T = v5
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v6 = libc.Xmalloc(tls, uint64(16))
-		st = v6
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v8 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v10 = libc.Xmalloc(tls, uint64(16))
-		st = v10
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v12 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v14 = libc.Xmalloc(tls, uint64(16))
-		st = v14
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v16 = st
-	if !(int64(int32(uint64(uint32(maxperiod+int32(1)))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v12)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v16)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+4659, int32(479))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v18 = libc.Xmalloc(tls, uint64(16))
-		st = v18
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v20 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v20)).Fglobal_stack += uintptr(uint64(uint32(maxperiod+int32(1))) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v22 = libc.Xmalloc(tls, uint64(16))
-		st = v22
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v24 = st
-	yy_lookup = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v24)).Fglobal_stack - uintptr(uint64(uint32(maxperiod+int32(1)))*(uint64(4)/uint64(1)))
-	_ = arch
-	v1 = x2
-	xy01 = float32(0)
-	xy02 = float32(0)
-	i = int32(0)
-	for {
-		if !(i < N2) {
+	yy = lookup[T0]
+	bestXY, bestYY := xy, yy
+	g0 := compute_pitch_gain(tls, xy, xx, yy)
+	g := g0
+	for k := int32(2); k <= 15; k++ {
+		T1 := int32(uint32(2*T0+k) / uint32(2*k))
+		if T1 < minPeriod {
 			break
 		}
-		xy01 = xy01 + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(v1 + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x2 + uintptr(i)*4)))
-		xy02 = xy02 + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(v1 + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x2 - uintptr(T0)*4 + uintptr(i)*4)))
-		i = i + 1
-	}
-	xx = xy01
-	xy = xy02
-	*(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup)) = xx
-	yy = xx
-	i2 = int32(1)
-	for {
-		if !(i2 <= maxperiod) {
-			break
-		}
-		yy = yy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(x2 + uintptr(-i2)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x2 + uintptr(-i2)*4))) - OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(x2 + uintptr(N2-i2)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x2 + uintptr(N2-i2)*4)))
-		if float32(int32(0)) > yy {
-			v33 = float32(int32(0))
-		} else {
-			v33 = yy
-		}
-		*(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup + uintptr(i2)*4)) = v33
-		i2 = i2 + 1
-	}
-	yy = *(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup + uintptr(T0)*4))
-	best_xy = xy
-	best_yy = yy
-	v34 = compute_pitch_gain(tls, xy, xx, yy)
-	g0 = v34
-	g = v34
-	/* Look for any pitch at T/k */
-	k = int32(2)
-	for {
-		if !(k <= int32(15)) {
-			break
-		}
-		cont = float32(0)
-		v36 = uint32(int32(2) * k)
-		_ = v36 > uint32(0)
-		v37 = uint32(int32(2)*T0+k) / v36
-		T1 = int32(v37)
-		if T1 < minperiod {
-			break
-		}
-		/* Look for another strong correlation at T1b */
-		if k == int32(2) {
-			if T1+T0 > maxperiod {
-				T1b = T0
-			} else {
+		var T1b int32
+		if k == 2 {
+			T1b = T0
+			if T1+T0 <= maxPeriod {
 				T1b = T0 + T1
 			}
 		} else {
-			v36 = uint32(int32(2) * k)
-			_ = v36 > uint32(0)
-			v37 = uint32(int32(2)*second_check[k]*T0+k) / v36
-			T1b = int32(v37)
+			T1b = int32(uint32(2*second_check[k]*T0+k) / uint32(2*k))
 		}
-		_ = arch
-		v1 = x2
-		xy01 = float32(0)
-		xy02 = float32(0)
-		i = int32(0)
-		for {
-			if !(i < N2) {
-				break
-			}
-			xy01 = xy01 + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(v1 + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x2 + uintptr(-T1)*4 + uintptr(i)*4)))
-			xy02 = xy02 + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(v1 + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x2 + uintptr(-T1b)*4 + uintptr(i)*4)))
-			i = i + 1
+		xya := pitchInnerProduct(current, input[maxPeriod-T1:])
+		xyb := pitchInnerProduct(current, input[maxPeriod-T1b:])
+		xy = float32(0.5 * (xya + xyb))
+		yy = float32(0.5 * (lookup[T1] + lookup[T1b]))
+		g1 := compute_pitch_gain(tls, xy, xx, yy)
+		continuity := float32(0)
+		if libc.Xabs(tls, T1-previousPeriod) <= 1 {
+			continuity = previousGain
+		} else if libc.Xabs(tls, T1-previousPeriod) <= 2 && 5*k*k < T0 {
+			continuity = float32(0.5 * previousGain)
 		}
-		xy = xy01
-		xy2 = xy02
-		xy = float32(0.5 * (xy + xy2))
-		yy = float32(float32(0.5) * (*(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup + uintptr(T1)*4)) + *(*OpusT_opus_val32)(unsafe.Pointer(yy_lookup + uintptr(T1b)*4))))
-		g1 = compute_pitch_gain(tls, xy, xx, yy)
-		if libc.Xabs(tls, T1-prev_period) <= int32(1) {
-			cont = prev_gain
-		} else {
-			if libc.Xabs(tls, T1-prev_period) <= int32(2) && int32(5)*k*k < T0 {
-				cont = float32(float32(0.5) * prev_gain)
-			} else {
-				cont = float32(0)
-			}
+		threshold := pitchMaximum(0.3, float32(0.7*g0)-continuity)
+		// Keep C's original branch order, even though the second bound is smaller.
+		if T1 < 3*minPeriod {
+			threshold = pitchMaximum(0.4, float32(0.85*g0)-continuity)
+		} else if T1 < 2*minPeriod {
+			threshold = pitchMaximum(0.5, float32(0.9*g0)-continuity)
 		}
-		if float32(0.3) > float32(float32(0.7)*g0)-cont {
-			v44 = float32(0.3)
-		} else {
-			v44 = float32(float32(0.7)*g0) - cont
-		}
-		thresh = v44
-		/* Bias against very high pitch (very short period) to avoid false-positives
-		   due to short-term correlation */
-		if T1 < int32(3)*minperiod {
-			if float32(0.4) > float32(float32(0.85)*g0)-cont {
-				v44 = float32(0.4)
-			} else {
-				v44 = float32(float32(0.85)*g0) - cont
-			}
-			thresh = v44
-		} else {
-			if T1 < int32(2)*minperiod {
-				if float32(0.5) > float32(float32(0.9)*g0)-cont {
-					v44 = float32(0.5)
-				} else {
-					v44 = float32(float32(0.9)*g0) - cont
-				}
-				thresh = v44
-			}
-		}
-		if g1 > thresh {
-			best_xy = xy
-			best_yy = yy
+		if g1 > threshold {
+			bestXY = xy
+			bestYY = yy
 			T = T1
 			g = g1
 		}
-		k = k + 1
 	}
-	if float32(int32(0)) > best_xy {
-		v33 = float32(int32(0))
+	bestXY = pitchMaximum(0, bestXY)
+	var pg float32
+	if bestYY <= bestXY {
+		pg = 1
 	} else {
-		v33 = best_xy
+		pg = bestXY / (bestYY + 1)
 	}
-	best_xy = v33
-	if best_yy <= best_xy {
-		pg = float32(1)
-	} else {
-		pg = best_xy / (best_yy + float32(1))
+	var corr [3]float32
+	for k := int32(0); k < 3; k++ {
+		corr[k] = pitchInnerProduct(current, input[maxPeriod-(T+k-1):])
 	}
-	k = 0
-	for {
-		if !(k < int32(3)) {
-			break
-		}
-		_ = arch
-		xy = float32(0)
-		i1 = int32(0)
-		for {
-			if !(i1 < N2) {
-				break
-			}
-			xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(x2 + uintptr(i1)*4))**(*OpusT_opus_val16)(unsafe.Pointer(x2 - uintptr(T+k-int32(1))*4 + uintptr(i1)*4)))
-			i1 = i1 + 1
-		}
-		v33 = xy
-		xcorr[k] = v33
-		k = k + 1
-	}
-	if xcorr[int32(2)]-xcorr[0] > float32(float32(0.7)*(xcorr[int32(1)]-xcorr[0])) {
-		offset = int32(1)
-	} else {
-		if xcorr[0]-xcorr[int32(2)] > float32(float32(0.7)*(xcorr[int32(1)]-xcorr[int32(2)])) {
-			offset = -int32(1)
-		} else {
-			offset = 0
-		}
+	offset := int32(0)
+	if corr[2]-corr[0] > float32(0.7*(corr[1]-corr[0])) {
+		offset = 1
+	} else if corr[0]-corr[2] > float32(0.7*(corr[1]-corr[2])) {
+		offset = -1
 	}
 	if pg > g {
 		pg = g
 	}
-	*(*int32)(unsafe.Pointer(T0_)) = int32(2)*T + offset
-	if *(*int32)(unsafe.Pointer(T0_)) < minperiod0 {
-		*(*int32)(unsafe.Pointer(T0_)) = minperiod0
+	*period = 2*T + offset
+	if *period < minimum {
+		*period = minimum
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	return pg
+}
+
+// C MAX macros return the second operand on equality or unordered comparisons.
+func pitchMaximum(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 const Q15ONE2 = "1.0f"

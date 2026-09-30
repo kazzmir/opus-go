@@ -401,6 +401,9 @@ and guarded output are compared bitwise; the decoder channel-table adapter remai
 Pitch search shares those fixtures, comparing coarse/fine search, odd lengths,
 lag limits, silence/periodic/random inputs and guarded pitch output; decimated
 input and correlation scratch are now Go-owned rather than TLS allocations.
+Pitch-doubling removal shares scalar pitch fixtures and compares period/gain
+bits, continuity thresholds, rolling energy lookup, minimum/clamped/odd periods,
+short windows and input/output guards; energy lookup is now Go-owned scratch.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

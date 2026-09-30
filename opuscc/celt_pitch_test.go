@@ -3,7 +3,6 @@ package opuscc
 import (
 	"math"
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -51,7 +50,7 @@ func TestRemoveDoublingLocalCorrelations(t *testing.T) {
 	samples := []OpusT_opus_val16{0.18, -0.42, 0.67, -0.23, 0.51, -0.76, 0.34, 0.82, -0.39, 0.12, -0.58, 0.45, -0.16, 0.71, -0.64, 0.29, 0.18, -0.42, 0.67, -0.23, 0.51, -0.76, 0.34, 0.82, -0.39, 0.12, -0.58, 0.45, -0.16, 0.71, -0.64, 0.29}
 	period := int32(10)
 
-	gain := Opus_remove_doubling(tls, uintptr(unsafe.Pointer(&samples[0])), 16, 4, 16, uintptr(unsafe.Pointer(&period)), 9, 0.46, 0)
+	gain := Opus_remove_doubling(tls, &samples[0], 16, 4, 16, &period, 9, 0.46, 0)
 
 	if got, want := period, int32(9); got != want {
 		t.Fatalf("period: got %d, want %d", got, want)

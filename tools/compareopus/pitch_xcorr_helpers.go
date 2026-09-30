@@ -16,6 +16,10 @@ static void native_downsample(float *left,float *right,float *out,int n,int C,in
 import "C"
 import "unsafe"
 
+func nativeRemoveDoubling(x []float32, maxPeriod, minPeriod, N int32, period *int32, previousPeriod int32, previousGain float32) float32 {
+	return float32(C.compare_remove_doubling((*C.float)(unsafe.Pointer(unsafe.SliceData(x))), C.int(maxPeriod), C.int(minPeriod), C.int(N), (*C.int)(unsafe.Pointer(period)), C.int(previousPeriod), C.float(previousGain), 0))
+}
+
 func nativePitchSearch(x, y []float32, length, maxPitch int32, pitch *int32) {
 	C.compare_pitch_search((*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.float)(unsafe.Pointer(unsafe.SliceData(y))), C.int(length), C.int(maxPitch), (*C.int)(unsafe.Pointer(pitch)), 0)
 }
