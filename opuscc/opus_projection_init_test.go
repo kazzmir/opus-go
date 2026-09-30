@@ -63,7 +63,7 @@ func TestProjectionDecoderInitCReference(t *testing.T) {
 				t.Fatal(err)
 			}
 			d := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))
-			m := (*OpusT_MappingMatrix)(unsafe.Pointer(get_dec_demixing_matrix(tls, st)))
+			m := get_dec_demixing_matrix(tls, d)
 			if d.Fdemixing_matrix_size_in_bytes != matrixSize || m.Frows != rows || m.Fcols != cols || m.Fgain != gain {
 				t.Fatalf("matrix header mismatch: %+v, bytes %d", m, d.Fdemixing_matrix_size_in_bytes)
 			}
