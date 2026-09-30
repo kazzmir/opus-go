@@ -408,6 +408,9 @@ SILK decoder rate setup reuses reset/resampler fixtures and compiles the actual
 silk_decoder_set_fs helper. Internal/API/frame-only/no-change transitions compare
 full Go state, resampler history, table identities and C untouched-state checks
 for both subframe counts and all supported rates; fixed-offset clears are gone.
+Mini-FFT allocation reuses FFT fixtures to compare native size queries, null or
+undersized caller storage, full initialized bytes, factor/twiddle tables and guards;
+typed owning returns keep the full flexible-array allocation alive across GC.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

@@ -11,12 +11,12 @@ func TestMiniFFTAllocUsesFields(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 
-	config := Opus_mini_kiss_fft_alloc(tls, 8, 1, 0, 0)
-	if config == 0 {
+	config := Opus_mini_kiss_fft_alloc(tls, 8, 1, nil, nil)
+	if config == nil {
 		t.Fatal("mini FFT allocation returned nil")
 	}
-	state := (*mini_kiss_fft_state)(unsafe.Pointer(config))
-	secondTwiddle := *(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + 8))
+	state := config
+	secondTwiddle := unsafe.Slice(&state.Ftwiddles[0], 8)[1]
 	if state.Fnfft != 8 || state.Finverse != 1 {
 		t.Fatalf("FFT state dimensions: nfft=%d inverse=%d, want 8 and 1", state.Fnfft, state.Finverse)
 	}

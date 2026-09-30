@@ -11,6 +11,40 @@ import (
 	"unsafe"
 )
 
+func TestMiniFFTAllocAgainstC(t *testing.T) {
+	for _, n := range []int32{1, 2, 3, 4, 5, 7, 8, 11, 16, 31, 60, 120, 240, 480} {
+		for _, inverse := range []int32{0, 1, -1, 2} {
+			var needed uint64
+			opuscc.Opus_mini_kiss_fft_alloc(nil, n, inverse, nil, &needed)
+			cn := uint64(0)
+			if nativeMiniAlloc(n, inverse, nil, &cn) || cn != needed {
+				t.Fatal("query", n, inverse, needed, cn)
+			}
+			for _, capacity := range []uint64{0, needed - 1, needed, needed + 64} {
+				for _, noMem := range []bool{false, true} {
+					g := make([]uint64, (needed+64+7)/8+2)
+					for i := range g {
+						g[i] = 0xa5a5a5a5a5a5a5a5
+					}
+					c := slices.Clone(g)
+					gp := (*byte)(unsafe.Pointer(&g[1]))
+					cp := (*byte)(unsafe.Pointer(&c[1]))
+					if noMem {
+						gp = nil
+						cp = nil
+					}
+					gs, cs := capacity, capacity
+					st := opuscc.Opus_mini_kiss_fft_alloc(nil, n, inverse, gp, &gs)
+					success := nativeMiniAlloc(n, inverse, cp, &cs)
+					if (st != nil) != success || gs != cs || !slices.Equal(g, c) {
+						t.Fatal(n, inverse, capacity, noMem, "success", st != nil, success, "size", gs, cs)
+					}
+				}
+			}
+		}
+	}
+}
+
 func sameComplexBits(a, b []opuscc.OpusT_kiss_fft_cpx) bool {
 	if len(a) != len(b) {
 		return false

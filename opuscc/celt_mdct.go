@@ -632,43 +632,35 @@ func kf_factor(tls *libc.TLS, n int32, factors *[2 * MINI_MAXFACTORS]int32) int 
 //	 * The return value is a contiguous block of memory, allocated with malloc.  As such,
 //	 * It can be freed with free(), rather than a kiss_fft-specific function.
 //	 * */
-func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem uintptr, lenmem uintptr) (r OpusT_mini_kiss_fft_cfg) {
-	var i int32
-	var memneeded OpusT_size_t
-	var phase, pi float64
-	var st OpusT_mini_kiss_fft_cfg
-	_, _, _, _, _ = i, memneeded, phase, pi, st
-	st = uintptr(uint32(0))
-	memneeded = uint64(272) + uint64(8)*uint64(uint32(nfft-int32(1))) /* twiddle factors*/
-	if lenmem == uintptr(uint32(0)) {
-		st = libc.Xmalloc(tls, memneeded)
+func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fft_state {
+	needed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{})) + 8*uint64(uint32(nfft-1))
+	var state *OpusT_mini_kiss_fft_state
+	if lenmem == nil {
+		// The returned interior pointer owns the complete flexible-array allocation.
+		backing := make([]uint64, (needed+7)/8)
+		state = (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(unsafe.SliceData(backing)))
 	} else {
-		if mem != uintptr(uint32(0)) && *(*OpusT_size_t)(unsafe.Pointer(lenmem)) >= memneeded {
-			st = mem
+		if mem != nil && *lenmem >= needed {
+			state = (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(mem))
 		}
-		*(*OpusT_size_t)(unsafe.Pointer(lenmem)) = memneeded
+		*lenmem = needed
 	}
-	if st != 0 {
-		state := (*mini_kiss_fft_state)(unsafe.Pointer(st))
-		state.Fnfft = nfft
-		state.Finverse = inverse_fft
-		i = 0
-		for {
-			if !(i < nfft) {
-				break
-			}
-			pi = float64(3.141592653589793)
-			phase = float64(float64(float64(-int32(2))*pi)*float64(i)) / float64(nfft)
-			if state.Finverse != 0 {
-				phase = phase * float64(-int32(1))
-			}
-			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(i)*8)).Fr = float32(libc.Xcos(tls, phase))
-			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(i)*8)).Fi = float32(libc.Xsin(tls, phase))
-			i = i + 1
+	if state == nil {
+		return nil
+	}
+	state.Fnfft = nfft
+	state.Finverse = inverse
+	twiddles := unsafe.Slice(&state.Ftwiddles[0], nfft)
+	for i := int32(0); i < nfft; i++ {
+		phase := float64(float64(-2)*float64(3.141592653589793)) * float64(i) / float64(nfft)
+		if inverse != 0 {
+			phase *= -1
 		}
-		kf_factor(tls, nfft, &state.Ffactors)
+		twiddles[i].Fr = float32(libc.Xcos(tls, phase))
+		twiddles[i].Fi = float32(libc.Xsin(tls, phase))
 	}
-	return st
+	kf_factor(tls, nfft, &state.Ffactors)
+	return state
 }
 
 func Opus_mini_kiss_fft_stride(tls *libc.TLS, st *OpusT_mini_kiss_fft_state, fin, fout *OpusT_mini_kiss_fft_cpx, inStride int32) {
@@ -718,7 +710,7 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem
 	}
 	_ = v1 || libc.Bool(int32(0) != 0)
 	nfft = nfft >> int32(1)
-	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, uintptr(uint32(0)), uintptr(unsafe.Pointer(&subsize)))
+	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, nil, &subsize)
 	memneeded = uint64(24) + subsize + uint64(8)*uint64(uint32(nfft*int32(3)/int32(2)))
 	if lenmem == uintptr(uint32(0)) {
 		st = libc.Xmalloc(tls, memneeded)
@@ -734,7 +726,7 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem
 	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate = st + uintptr(uint32(1))*24 /*just beyond kiss_fftr_state struct */
 	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate + uintptr(subsize)
 	(*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsuper_twiddles = (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Ftmpbuf + uintptr(nfft)*8
-	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, (*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate, uintptr(unsafe.Pointer(&subsize)))
+	Opus_mini_kiss_fft_alloc(tls, nfft, inverse_fft, (*byte)(unsafe.Pointer((*mini_kiss_fftr_state)(unsafe.Pointer(st)).Fsubstate)), &subsize)
 	i = 0
 	for {
 		if !(i < nfft/int32(2)) {

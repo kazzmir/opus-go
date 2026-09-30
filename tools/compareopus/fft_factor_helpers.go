@@ -44,6 +44,13 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeMiniAlloc(n, inverse int32, mem *byte, length *uint64) bool {
+	cap := C.size_t(*length)
+	st := C.compare_factor_fft_alloc(C.int(n), C.int(inverse), unsafe.Pointer(mem), &cap)
+	*length = uint64(cap)
+	return st != nil
+}
+
 func nativeMiniFixture(n, inverse int32) *opuscc.OpusT_mini_kiss_fft_state {
 	backing := make([]uint64, (264+8*int(n)+7)/8)
 	st := (*opuscc.OpusT_mini_kiss_fft_state)(unsafe.Pointer(&backing[0]))
