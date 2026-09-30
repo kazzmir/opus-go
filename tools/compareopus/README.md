@@ -282,6 +282,8 @@ prime/power-of-two boundaries, including radix order, returned word counts and
 untouched factor tails. Go tests also verify products, remainders and guards.
 Multistream float channel output compares the actual static C helper for varied
 strides/channels, zero-length and nil-source fills, raw float bits and forward overlap.
+Multistream int16 output compares clipping, ties-even conversion, NaN/infinity
+handling, zero-stride writes, nil fills and guards against the actual static C helper.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
