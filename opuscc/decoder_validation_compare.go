@@ -2,6 +2,10 @@
 
 package opuscc
 
+func CompareTFDecode(start, end, transient int32, out *int32, LM int32, dec *OpusT_ec_dec) {
+	tf_decode(nil, start, end, transient, out, LM, dec)
+}
+
 func CompareCustomDecoderSize(mode *OpusT_OpusCustomMode, channels int32) int32 {
 	return opus_custom_decoder_get_size(nil, mode, channels)
 }

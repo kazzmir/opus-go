@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math/bits"
 	"reflect"
 	"unsafe"
 
@@ -524,58 +525,39 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
-func tf_decode(tls *libc.TLS, start int32, end int32, isTransient int32, tf_res uintptr, LM int32, dec uintptr) {
-	var budget, tell OpusT_opus_uint32
-	var curr, i, logp, tf_changed, tf_select, tf_select_rsv, v2 int32
-	var v1 uintptr
-	_, _, _, _, _, _, _, _, _, _ = budget, curr, i, logp, tell, tf_changed, tf_select, tf_select_rsv, v1, v2
-	budget = (*OpusT_ec_dec)(unsafe.Pointer(dec)).Fstorage * uint32(8)
-	v1 = dec
-	v2 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	tell = uint32(v2)
+func tf_decode(tls *libc.TLS, start, end, isTransient int32, tfRes *int32, LM int32, dec *OpusT_ec_dec) {
+	budget := dec.Fstorage * 8
+	tell := uint32(dec.Fnbits_total - int32(bits.Len32(dec.Frng)))
+	logp := int32(4)
 	if isTransient != 0 {
-		v2 = int32(2)
-	} else {
-		v2 = int32(4)
+		logp = 2
 	}
-	logp = v2
-	tf_select_rsv = libc.BoolInt32(LM > 0 && tell+uint32(logp)+uint32(1) <= budget)
-	budget = budget - uint32(tf_select_rsv)
-	v2 = int32(0)
-	curr = v2
-	tf_changed = v2
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
+	reserved := int32(0)
+	if LM > 0 && tell+uint32(logp)+1 <= budget {
+		reserved = 1
+	}
+	budget -= uint32(reserved)
+	out := unsafe.Slice(tfRes, end)
+	curr, changed := int32(0), int32(0)
+	for i := start; i < end; i++ {
 		if tell+uint32(logp) <= budget {
-			curr = curr ^ Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(logp))
-			v1 = dec
-			v2 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-			tell = uint32(v2)
-			tf_changed = tf_changed | curr
+			curr ^= Opus_ec_dec_bit_logp(tls, dec, uint32(logp))
+			tell = uint32(dec.Fnbits_total - int32(bits.Len32(dec.Frng)))
+			changed |= curr
 		}
-		*(*int32)(unsafe.Pointer(tf_res + uintptr(i)*4)) = curr
+		out[i] = curr
+		logp = 5
 		if isTransient != 0 {
-			v2 = int32(4)
-		} else {
-			v2 = int32(5)
+			logp = 4
 		}
-		logp = v2
-		i = i + 1
 	}
-	tf_select = 0
-	if tf_select_rsv != 0 && int32(*(*int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_tf_select_table)) + uintptr(LM)*8 + uintptr(int32(4)*isTransient+0+tf_changed)))) != int32(*(*int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_tf_select_table)) + uintptr(LM)*8 + uintptr(int32(4)*isTransient+int32(2)+tf_changed)))) {
-		tf_select = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1))
+	selectBit := int32(0)
+	table := Opus_tf_select_table[LM]
+	if reserved != 0 && table[4*isTransient+changed] != table[4*isTransient+2+changed] {
+		selectBit = Opus_ec_dec_bit_logp(tls, dec, 1)
 	}
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
-		*(*int32)(unsafe.Pointer(tf_res + uintptr(i)*4)) = int32(*(*int8)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_tf_select_table)) + uintptr(LM)*8 + uintptr(int32(4)*isTransient+int32(2)*tf_select+*(*int32)(unsafe.Pointer(tf_res + uintptr(i)*4))))))
-		i = i + 1
+	for i := start; i < end; i++ {
+		out[i] = int32(table[4*isTransient+2*selectBit+out[i]])
 	}
 }
 
@@ -1768,7 +1750,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	v21 = st
 	tf_res = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(nbEBands))*(uint64(4)/uint64(1)))
-	tf_decode(tls, start, end, isTransient, tf_res, LM, dec)
+	tf_decode(tls, start, end, isTransient, (*int32)(unsafe.Pointer(tf_res)), LM, (*OpusT_ec_dec)(unsafe.Pointer(dec)))
 	v1 = dec
 	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
 	tell = v28

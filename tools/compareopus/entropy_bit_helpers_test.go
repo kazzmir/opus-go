@@ -10,6 +10,34 @@ import (
 	"unsafe"
 )
 
+func TestTFDecodeAgainstC(t *testing.T) {
+	for _, n := range []int{0, 1, 2, 8, 32} {
+		for LM := int32(0); LM < 4; LM++ {
+			for transient := int32(0); transient < 2; transient++ {
+				for _, start := range []int32{0, 2} {
+					data := make([]byte, n)
+					for i := range data {
+						data[i] = byte(71*i + 123)
+					}
+					g := opuscc.OpusT_ec_dec{}
+					opuscc.Opus_ec_dec_init(nil, &g, unsafe.SliceData(data), uint32(n))
+					c := g
+					goOut := [23]int32{}
+					for i := range goOut {
+						goOut[i] = 77
+					}
+					cOut := goOut
+					opuscc.CompareTFDecode(start, 21, transient, &goOut[0], LM, &g)
+					nativeTFDecode(&c, data, start, 21, transient, cOut[:], LM)
+					if goOut != cOut || g != c {
+						t.Fatal(n, LM, transient, start, goOut, cOut, g, c)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestEntropyBitAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(2026))
 	for _, n := range []int{0, 1, 2, 3, 8, 64} {
