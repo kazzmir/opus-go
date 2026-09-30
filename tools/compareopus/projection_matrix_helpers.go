@@ -13,6 +13,11 @@ package main
 #define opus_projection_decoder_ctl comparison_projection_ctl
 #define opus_projection_decoder_destroy comparison_projection_destroy
 #include "../../../opus/src/opus_projection_decoder.c"
+static void native_projection_output(void *dst,int ds,int dc,const float *src,int ss,int n,void *matrix,int op) {
+ if(op==0) opus_projection_copy_channel_out_float(dst,ds,dc,src,ss,n,matrix);
+ else if(op==1) opus_projection_copy_channel_out_short(dst,ds,dc,src,ss,n,matrix);
+ else opus_projection_copy_channel_out_int24(dst,ds,dc,src,ss,n,matrix);
+}
 static size_t native_projection_multistream(void *base) {return (char *)get_multistream_decoder((OpusProjectionDecoder *)base)-(char *)base;}
 static size_t native_projection_matrix(void *base,int *fields) {
  MappingMatrix *matrix=get_dec_demixing_matrix((OpusProjectionDecoder *)base);
@@ -22,6 +27,10 @@ static size_t native_projection_matrix(void *base,int *fields) {
 */
 import "C"
 import "unsafe"
+
+func nativeProjectionOutput(dst unsafe.Pointer, ds, dc int32, src []float32, ss, n int32, matrix unsafe.Pointer, op int32) {
+	C.native_projection_output(dst, C.int(ds), C.int(dc), (*C.float)(unsafe.Pointer(unsafe.SliceData(src))), C.int(ss), C.int(n), matrix, C.int(op))
+}
 
 func nativeProjectionMultistream(base unsafe.Pointer) uintptr {
 	return uintptr(C.native_projection_multistream(base))

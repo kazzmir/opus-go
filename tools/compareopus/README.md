@@ -303,6 +303,8 @@ interior pointer and header fields; Go tests retain the backing allocation solel
 through returned matrix/coefficient pointers during GC and stack growth.
 Projection multistream-state access compares native alignment for matrix sizes
 0–1024 and checks interior-pointer ownership through GC and stack growth.
+Projection float output compares actual C callbacks over consecutive input channels,
+clear-before-read aliasing, nil sources, frame boundaries and valid matrix/stride extents.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
