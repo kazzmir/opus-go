@@ -289,6 +289,9 @@ clipping, full representable int32-domain boundaries, strides, nil fills and gua
 Exported 8-bit ICDF decoding compares C decision-threshold neighbors, representative
 ranges, singleton/exact-size tables and exhausted input, including full context state
 and unchanged inputs. Go tests retain packet ownership solely through the decoder.
+SILK gain quantization compares all signed previous-index values, conditional/full
+coding, 1/2/4 subframes and aliased previous/index storage against C; Go tests
+round-trip valid gain histories through typed dequantization.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
