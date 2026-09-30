@@ -391,6 +391,10 @@ architecture guards check both consumed and untouched array entries.
 LBRR detection uses that typed parser and compares native results for every TOC
 and first payload byte, SILK mono/stereo/durations, CELT's pre-parse short circuit,
 malformed packets and zero-size frames, without changing input bytes.
+Multistream packet validation now uses stack-owned typed parser outputs instead
+of TLS allocation. Native static-helper comparisons cover concatenated/self-delimited
+streams, duration mismatches, missing/malformed streams and all supported rates;
+existing C-reference fixtures also run directly on Go-owned packet buffers.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

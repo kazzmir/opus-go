@@ -4348,40 +4348,26 @@ func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, ch
 	return st, nil
 }
 
-func opus_multistream_packet_validate(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, nb_streams int32, Fs OpusT_opus_int32) (r int32) {
-	// Parser outputs cross a uintptr API; use named fields in pinned storage
-	// rather than addresses into the movable goroutine stack.
-	type parseOutputs struct {
-		toc          uint8
-		size         [48]OpusT_opus_int16
-		packetOffset OpusT_opus_int32
-	}
-	storage := libc.Xmalloc(tls, uint64(unsafe.Sizeof(parseOutputs{})))
-	defer libc.Xfree(tls, storage)
-	parsed := (*parseOutputs)(unsafe.Pointer(storage))
-	var count, s, samples, tmp_samples int32
-	_, _, _, _ = count, s, samples, tmp_samples
-	samples = 0
-	s = 0
-	for {
-		if !(s < nb_streams) {
-			break
+func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams, Fs int32) int32 {
+	var toc byte
+	var sizes [48]int16
+	var packetOffset int32
+	samples := int32(0)
+	for s := int32(0); s < streams; s++ {
+		if length <= 0 {
+			return OPUS_INVALID_PACKET
 		}
-		if len1 <= 0 {
-			return -int32(4)
-		}
-		count = opus_packet_parse_impl_legacy(tls, data, len1, libc.BoolInt32(s != nb_streams-int32(1)), uintptr(unsafe.Pointer(&parsed.toc)), uintptr(uint32(0)), uintptr(unsafe.Pointer(&parsed.size[0])), uintptr(uint32(0)), uintptr(unsafe.Pointer(&parsed.packetOffset)), uintptr(uint32(0)), uintptr(uint32(0)))
+		count := Opus_opus_packet_parse_impl(tls, data, length, libc.BoolInt32(s != streams-1), &toc, nil, &sizes, nil, &packetOffset, nil, nil)
 		if count < 0 {
 			return count
 		}
-		tmp_samples = Opus_opus_packet_get_nb_samples(tls, (*byte)(unsafe.Pointer(data)), parsed.packetOffset, Fs)
-		if s != 0 && samples != tmp_samples {
-			return -int32(4)
+		nextSamples := Opus_opus_packet_get_nb_samples(tls, data, packetOffset, Fs)
+		if s != 0 && samples != nextSamples {
+			return OPUS_INVALID_PACKET
 		}
-		samples = tmp_samples
-		data = data + uintptr(parsed.packetOffset)
-		len1 = len1 - parsed.packetOffset
-		s = s + 1
+		samples = nextSamples
+		data = (*byte)(unsafe.Add(unsafe.Pointer(data), packetOffset))
+		length -= packetOffset
 	}
 	return samples
 }
@@ -4594,7 +4580,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 		return -int32(4)
 	}
 	if !(do_plc != 0) {
-		ret = opus_multistream_packet_validate(tls, data, len1, decoder.Flayout.Fnb_streams, scratch.Fs)
+		ret = opus_multistream_packet_validate(tls, (*byte)(unsafe.Pointer(data)), len1, decoder.Flayout.Fnb_streams, scratch.Fs)
 		if ret < 0 {
 			st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 			if !(st != 0) {

@@ -16,6 +16,7 @@ package main
 #define opus_multistream_decoder_ctl comparison_channels_ctl
 #define opus_multistream_decoder_destroy comparison_channels_destroy
 #include "../../../opus/src/opus_multistream_decoder.c"
+static int native_ms_packet_validate(const unsigned char *data,int length,int streams,int Fs) {return opus_multistream_packet_validate(data,length,streams,Fs);}
 static int native_ms_validate(void *state) {OpusMSDecoder *st=state;validate_ms_decoder(st);return validate_layout(&st->layout);}
 static void native_channel_output(void *dst,int ds,int dc,const float *src,int ss,int n,int op) {
  if(op==0) opus_copy_channel_out_float(dst,ds,dc,src,ss,n,NULL);
@@ -27,6 +28,10 @@ import "C"
 
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
+
+func nativeMSPacketValidation(data *byte, length, streams, Fs int32) int32 {
+	return int32(C.native_ms_packet_validate((*C.uchar)(unsafe.Pointer(data)), C.int(length), C.int(streams), C.int(Fs)))
+}
 
 func nativeMSValidation(st *opuscc.OpusT_OpusMSDecoder) int32 {
 	return int32(C.native_ms_validate(unsafe.Pointer(st)))

@@ -84,6 +84,33 @@ func packetParserFixtures() [][]byte {
 	return fixtures
 }
 
+func TestMSPacketValidationAgainstC(t *testing.T) {
+	fixtures := packetParserFixtures()
+	fixtures = append(fixtures, []byte{0, 0, 0}, []byte{0, 0, 0x80}, []byte{0x81, 1, 11, 12, 0x81, 13, 14}, []byte{0, 1, 11, 0, 1, 12, 0, 13})
+	for _, packet := range fixtures {
+		for _, streams := range []int32{-1, 0, 1, 2, 3, 5} {
+			for _, Fs := range []int32{8000, 12000, 16000, 24000, 48000} {
+				data := append(slices.Clone(packet), 0, 0)
+				before := slices.Clone(data)
+				g := opuscc.CompareMSPacketValidation(&data[0], int32(len(packet)), streams, Fs)
+				c := nativeMSPacketValidation(&data[0], int32(len(packet)), streams, Fs)
+				if g != c || !slices.Equal(data, before) {
+					t.Fatal(packet, streams, Fs, g, c)
+				}
+			}
+		}
+	}
+	for _, streams := range []int32{-1, 0, 1, 2} {
+		for _, length := range []int32{-1, 0} {
+			g := opuscc.CompareMSPacketValidation(nil, length, streams, 48000)
+			c := nativeMSPacketValidation(nil, length, streams, 48000)
+			if g != c {
+				t.Fatal(length, streams, g, c)
+			}
+		}
+	}
+}
+
 func TestPacketLBRRAgainstC(t *testing.T) {
 	for toc := 0; toc < 256; toc++ {
 		for payload := 0; payload < 256; payload++ {
