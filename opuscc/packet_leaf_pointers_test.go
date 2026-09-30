@@ -1,6 +1,39 @@
 package opuscc
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
+
+func TestPacketParseImplPointers(t *testing.T) {
+	var frames [48]*byte
+	var size [48]int16
+	var toc byte
+	var payload, offset, padLen int32
+	var pad *byte
+	func() {
+		packet := []byte{0x83, 0xc2, 2, 1, 0xaa, 0xbb, 0xcc, 0xdd, 0xee}
+		r := Opus_opus_packet_parse_impl(nil, &packet[0], 9, 0, &toc, &frames, &size, &payload, &offset, &pad, &padLen)
+		if r != 2 || size[0] != 1 || size[1] != 2 || payload != 4 || offset != 9 || padLen != 2 || toc != 0x83 {
+			t.Fatal(r, size, payload, offset, padLen, toc)
+		}
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *frames[0] != 0xaa || *frames[1] != 0xbb || *pad != 0xdd {
+		t.Fatal("packet ownership")
+	}
+	packet := []byte{0x81, 3, 11, 12, 13, 14, 15, 16, 99, 99}
+	r := Opus_opus_packet_parse_impl(nil, &packet[0], 10, 1, nil, &frames, &size, &payload, &offset, nil, nil)
+	if r != 2 || size[0] != 3 || size[1] != 3 || payload != 2 || offset != 8 {
+		t.Fatal("self-delimited", r, size, payload, offset)
+	}
+	pad = &packet[0]
+	padLen = 99
+	if r := Opus_opus_packet_parse_impl(nil, nil, -1, 0, nil, nil, nil, nil, nil, &pad, &padLen); r != -1 || pad != nil || padLen != 0 {
+		t.Fatal("error padding", r, pad, padLen)
+	}
+}
 
 func TestPacketSizePointers(t *testing.T) {
 	// Every representable Opus frame length, including the 251/252 boundary.

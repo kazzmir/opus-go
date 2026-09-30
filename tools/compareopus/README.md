@@ -381,6 +381,10 @@ CELT autocorrelation shares LPC fixtures and explicitly links the scalar pitch.c
 bridge (the library's SIMD dispatch can change accumulation). Window copying,
 overlapping window ends, prefix/tail grouping, lag bounds, input/output aliasing,
 input/window preservation and guarded results are compared bitwise.
+The internal packet parser compares native opus_packet_parse_impl outputs,
+including untouched/error outputs, all framing branches, optional outputs,
+self-delimited streams, duration/size limits, padding and signed size narrowing.
+Frames/padding are typed packet interiors; outer integer APIs use an explicit adapter.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
