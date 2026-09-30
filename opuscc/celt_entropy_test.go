@@ -128,7 +128,7 @@ func TestEntropyDecoderFieldAccesses(t *testing.T) {
 	icdf8 := []byte{250, 180, 100, 0}
 	icdf16 := []uint16{60000, 40000, 20000, 0}
 	bit := Opus_ec_dec_bit_logp(nil, &dec, 4)
-	symbol8 := Opus_ec_dec_icdf(nil, uintptr(unsafe.Pointer(&dec)), entropyBufferPointer(icdf8), 8)
+	symbol8 := Opus_ec_dec_icdf(nil, &dec, &icdf8[0], 8)
 	symbol16 := Opus_ec_dec_icdf16(nil, &dec, &icdf16[0], 16)
 	if bit != 0 || symbol8 != 2 || symbol16 != 3 {
 		t.Fatalf("decoded coding results: bit=%d symbol8=%d symbol16=%d, want 0, 2, 3", bit, symbol8, symbol16)

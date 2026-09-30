@@ -1587,7 +1587,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 			v1 = dec
 			v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
 			if v28+int32(2) <= total_bits {
-				postfilter_tapset = Opus_ec_dec_icdf(tls, dec, uintptr(unsafe.Pointer(&tapset_icdf9)), uint32(2))
+				postfilter_tapset = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &tapset_icdf9[0], uint32(2))
 			}
 			postfilter_gain = OpusT_opus_val16(float32(0.09375) * float32(qg+int32(1)))
 		}
@@ -1776,7 +1776,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	tell = v28
 	spread_decision = int32(SPREAD_NORMAL)
 	if tell+int32(4) <= total_bits {
-		spread_decision = Opus_ec_dec_icdf(tls, dec, uintptr(unsafe.Pointer(&spread_icdf9)), uint32(5))
+		spread_decision = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &spread_icdf9[0], uint32(5))
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -2030,7 +2030,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	v21 = st
 	fine_quant = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(nbEBands))*(uint64(4)/uint64(1)))
 	if tell+int32(6)<<int32(BITRES) <= total_bits {
-		v28 = Opus_ec_dec_icdf(tls, dec, uintptr(unsafe.Pointer(&trim_icdf9)), uint32(7))
+		v28 = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &trim_icdf9[0], uint32(7))
 	} else {
 		v28 = int32(5)
 	}

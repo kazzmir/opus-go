@@ -344,7 +344,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 				if decoder.Fchannel_state[n].FnFramesPerPacket == int32(1) {
 					decoder.Fchannel_state[n].FLBRR_flags[0] = int32(1)
 				} else {
-					LBRR_symbol = Opus_ec_dec_icdf(tls, psRangeDec, Opus_silk_LBRR_flags_iCDF_ptr[decoder.Fchannel_state[n].FnFramesPerPacket-int32(2)], uint32(8)) + int32(1)
+					LBRR_symbol = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*uint8)(unsafe.Pointer(Opus_silk_LBRR_flags_iCDF_ptr[decoder.Fchannel_state[n].FnFramesPerPacket-int32(2)])), uint32(8)) + int32(1)
 					i = 0
 					for {
 						if !(i < decoder.Fchannel_state[n].FnFramesPerPacket) {

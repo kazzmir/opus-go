@@ -26,6 +26,7 @@ static unsigned entropy_step(unsigned *s, unsigned char *data, int op,
  case 7: silk_stereo_decode_pred(&dec,out); break;
  case 8: { int flag; silk_stereo_decode_mid_only(&dec,&flag); result=flag; break; }
  case 9: ec_dec_init(&dec,data,a); break;
+ case 10: result=ec_dec_icdf(&dec,(const unsigned char *)table,a); break;
  }
  s[0]=dec.storage; s[1]=dec.end_offs; s[2]=dec.end_window;
  s[3]=dec.nend_bits; s[4]=dec.nbits_total; s[5]=dec.offs;
@@ -46,13 +47,17 @@ func nativeEntropyStep(dec *opuscc.OpusT_ec_dec, data []byte, op int, a, b, c ui
 }
 
 func nativeEntropyStepOutput(dec *opuscc.OpusT_ec_dec, data []byte, op int, a, b, c uint32, tables ...[]uint16) (uint32, [2]int32) {
-	var out [2]C.opus_int32
 	var table *C.opus_uint16
 	if len(tables) != 0 {
 		table = (*C.opus_uint16)(unsafe.Pointer(unsafe.SliceData(tables[0])))
 	}
+	return nativeEntropyStepPointer(dec, data, op, a, b, c, unsafe.Pointer(table))
+}
+
+func nativeEntropyStepPointer(dec *opuscc.OpusT_ec_dec, data []byte, op int, a, b, c uint32, table unsafe.Pointer) (uint32, [2]int32) {
+	var out [2]C.opus_int32
 	s := [11]C.uint{C.uint(dec.Fstorage), C.uint(dec.Fend_offs), C.uint(dec.Fend_window), C.uint(dec.Fnend_bits), C.uint(dec.Fnbits_total), C.uint(dec.Foffs), C.uint(dec.Frng), C.uint(dec.Fval), C.uint(dec.Fext), C.uint(dec.Frem), C.uint(dec.Ferror1)}
-	result := C.entropy_step(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(op), C.uint(a), C.uint(b), C.uint(c), table, &out[0])
+	result := C.entropy_step(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(op), C.uint(a), C.uint(b), C.uint(c), (*C.opus_uint16)(table), &out[0])
 	dec.Fstorage = uint32(s[0])
 	dec.Fend_offs = uint32(s[1])
 	dec.Fend_window = uint32(s[2])

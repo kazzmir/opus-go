@@ -124,11 +124,11 @@ func Opus_ec_dec_bit_logp(tls *libc.TLS, dec *OpusT_ec_dec, logp uint32) int32 {
 	return result
 }
 
-func Opus_ec_dec_icdf(tls *libc.TLS, _this uintptr, _icdf uintptr, _ftb uint32) int32 {
-	return ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(_this)), (*uint8)(unsafe.Pointer(_icdf)), _ftb)
+func Opus_ec_dec_icdf(tls *libc.TLS, dec *OpusT_ec_dec, icdf *uint8, ftb uint32) int32 {
+	return ec_dec_icdf(tls, dec, icdf, ftb)
 }
 
-// The legacy API has no table length. Walk its zero-terminated ICDF with a
+// The zero-terminated table has no explicit length. Walk its zero-terminated ICDF with a
 // GC-visible pointer rather than constructing a slice beyond the allocation.
 func ec_dec_icdf(tls *libc.TLS, dec *OpusT_ec_dec, icdf *uint8, ftb uint32) int32 {
 	s, d := dec.Frng, dec.Fval

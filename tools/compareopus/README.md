@@ -286,6 +286,9 @@ Multistream int16 output compares clipping, ties-even conversion, NaN/infinity
 handling, zero-stride writes, nil fills and guards against the actual static C helper.
 Multistream int24 output compares scaling and ties-even conversion without 24-bit
 clipping, full representable int32-domain boundaries, strides, nil fills and guards.
+Exported 8-bit ICDF decoding compares C decision-threshold neighbors, representative
+ranges, singleton/exact-size tables and exhausted input, including full context state
+and unchanged inputs. Go tests retain packet ownership solely through the decoder.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
