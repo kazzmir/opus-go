@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math"
 	"reflect"
 	"unsafe"
 
@@ -699,36 +700,33 @@ var __func__ = [8]int8{'k', 'f', '_', 'w', 'o', 'r', 'k'}
 //	    where
 //	    p[i] * m[i] = m[i-1]
 //	    m0 = n                  */
-func kf_factor(tls *libc.TLS, n int32, facbuf uintptr) {
-	var floor_sqrt float64
-	var p int32
-	var v1 uintptr
-	_, _, _ = floor_sqrt, p, v1
-	p = int32(4)
-	floor_sqrt = libc.Xfloor(tls, libc.Xsqrt(tls, float64(n)))
-	/*factor out powers of 4, powers of 2, then any remaining primes */
-	for cond := true; cond; cond = n > int32(1) {
+//
+// kf_factor requires positive n, like the C helper, and leaves unused factors untouched.
+func kf_factor(tls *libc.TLS, n int32, factors *[2 * MINI_MAXFACTORS]int32) int {
+	p := int32(4)
+	floorSqrt := math.Floor(math.Sqrt(float64(n)))
+	used := 0
+	for {
 		for n%p != 0 {
 			switch p {
-			case int32(4):
-				p = int32(2)
-			case int32(2):
-				p = int32(3)
+			case 4:
+				p = 2
+			case 2:
+				p = 3
 			default:
-				p = p + int32(2)
-				break
+				p += 2
 			}
-			if float64(p) > floor_sqrt {
+			if float64(p) > floorSqrt {
 				p = n
-			} /* no more factors, skip to end */
+			}
 		}
-		n = n / p
-		v1 = facbuf
-		facbuf += 4
-		*(*int32)(unsafe.Pointer(v1)) = p
-		v1 = facbuf
-		facbuf += 4
-		*(*int32)(unsafe.Pointer(v1)) = n
+		n /= p
+		factors[used] = p
+		factors[used+1] = n
+		used += 2
+		if n <= 1 {
+			return used
+		}
 	}
 }
 
@@ -775,7 +773,7 @@ func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft int32, inverse_fft int32, mem 
 			(*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(uintptr(unsafe.Pointer(&state.Ftwiddles[0])) + uintptr(i)*8)).Fi = float32(libc.Xsin(tls, phase))
 			i = i + 1
 		}
-		kf_factor(tls, nfft, uintptr(unsafe.Pointer(&state.Ffactors[0])))
+		kf_factor(tls, nfft, &state.Ffactors)
 	}
 	return st
 }

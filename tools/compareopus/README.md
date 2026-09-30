@@ -277,6 +277,9 @@ fine bits, nil/aliased energy outputs, signed zero and NaN sign decisions with C
 Amplitude-to-log conversion compares raw float bits for exponent/mantissa-bin
 boundaries, subnormals, signed zero, negative inputs, infinities and NaNs, plus
 in-place/partial overlaps and inactive-band fills against C.
+Mini-FFT factorization compares actual mini_kfft.c for lengths 1–4096 and large
+prime/power-of-two boundaries, including radix order, returned word counts and
+untouched factor tails. Go tests also verify products, remainders and guards.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
