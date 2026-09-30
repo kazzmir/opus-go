@@ -45,6 +45,10 @@ func nativePacketParse(data *byte, length, self, mask, public int32) packetParse
 
 // These small bridges let opt-in tests compare the real C implementation;
 // Go does not support importing C directly in a _test.go file.
+func nativePacketLBRR(data *byte, length int32) int32 {
+	return int32(C.opus_packet_has_lbrr((*C.uchar)(unsafe.Pointer(data)), C.opus_int32(length)))
+}
+
 func nativePacketBandwidth(data *byte) int32 {
 	return int32(C.opus_packet_get_bandwidth((*C.uchar)(unsafe.Pointer(data))))
 }

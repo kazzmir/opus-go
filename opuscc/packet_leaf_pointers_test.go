@@ -5,6 +5,31 @@ import (
 	"testing"
 )
 
+func TestPacketLBRRPointers(t *testing.T) {
+	for _, tc := range []struct {
+		toc, payload byte
+		want         int32
+	}{{0, 0x40, 1}, {0, 0, 0}, {4, 0x10, 1}, {0x10, 0x20, 1}, {0x18, 0x10, 1}, {0x1c, 1, 1}, {0x80, 0xff, 0}} {
+		packet := [2]byte{tc.toc, tc.payload}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if got := Opus_opus_packet_has_lbrr(nil, &packet[0], 2); got != tc.want {
+			t.Fatal(tc, got)
+		}
+	}
+	header := byte(0)
+	if Opus_opus_packet_has_lbrr(nil, &header, 1) != 0 {
+		t.Fatal("zero-size frame")
+	}
+	if Opus_opus_packet_has_lbrr(nil, &header, 0) != -4 {
+		t.Fatal("empty SILK packet")
+	}
+	header = 0x80
+	if Opus_opus_packet_has_lbrr(nil, &header, -1) != 0 {
+		t.Fatal("CELT short circuit")
+	}
+}
+
 func TestPacketParsePointers(t *testing.T) {
 	var frames [48]*byte
 	var sizes [48]int16

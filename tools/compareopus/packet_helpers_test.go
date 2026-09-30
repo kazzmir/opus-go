@@ -84,6 +84,31 @@ func packetParserFixtures() [][]byte {
 	return fixtures
 }
 
+func TestPacketLBRRAgainstC(t *testing.T) {
+	for toc := 0; toc < 256; toc++ {
+		for payload := 0; payload < 256; payload++ {
+			packet := [8]byte{byte(toc), byte(payload), 0, 1, 2, 3, 4, 5}
+			before := packet
+			for _, length := range []int32{-1, 0, 1, 2, 3, 8} {
+				g := opuscc.Opus_opus_packet_has_lbrr(nil, &packet[0], length)
+				c := nativePacketLBRR(&packet[0], length)
+				if g != c || packet != before {
+					t.Fatal(toc, payload, length, g, c)
+				}
+			}
+		}
+	}
+	for _, packet := range packetParserFixtures() {
+		data := append(slices.Clone(packet), 0, 0)
+		before := slices.Clone(data)
+		g := opuscc.Opus_opus_packet_has_lbrr(nil, &data[0], int32(len(packet)))
+		c := nativePacketLBRR(&data[0], int32(len(packet)))
+		if g != c || !slices.Equal(data, before) {
+			t.Fatal(packet, g, c)
+		}
+	}
+}
+
 func TestPacketParseAgainstC(t *testing.T) {
 	for _, packet := range packetParserFixtures() {
 		for _, mask := range []int32{63, 62, 61, 55, 4, 0} {

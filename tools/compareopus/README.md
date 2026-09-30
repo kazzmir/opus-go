@@ -388,6 +388,9 @@ Frames/padding are typed packet interiors; outer integer APIs use an explicit ad
 The public packet parser shares these fixtures and additionally checks native
 public-API optional outputs and frame ownership across GC/stack growth on Go;
 architecture guards check both consumed and untouched array entries.
+LBRR detection uses that typed parser and compares native results for every TOC
+and first payload byte, SILK mono/stereo/durations, CELT's pre-parse short circuit,
+malformed packets and zero-size frames, without changing input bytes.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

@@ -1359,10 +1359,6 @@ func Opus_opus_packet_parse(tls *libc.TLS, data *byte, length int32, toc *byte, 
 	return Opus_opus_packet_parse_impl(tls, data, length, 0, toc, frames, size, payload, nil, nil, nil)
 }
 
-func opus_packet_parse_legacy(tls *libc.TLS, data uintptr, length int32, toc, frames, size, payload uintptr) int32 {
-	return opus_packet_parse_impl_legacy(tls, data, length, 0, toc, frames, size, payload, 0, 0, 0)
-}
-
 const OPUS_BAD_ARG = -1
 const OPUS_INVALID_PACKET = -4
 
@@ -3918,31 +3914,29 @@ func Opus_opus_packet_get_nb_samples(tls *libc.TLS, packet *byte, len1 OpusT_opu
 	return samples
 }
 
-func Opus_opus_packet_has_lbrr(tls *libc.TLS, packet uintptr, len1 OpusT_opus_int32) (r int32) {
-	var lbrr, nb_frames, packet_frame_size, packet_mode, packet_stream_channels, ret int32
-	var frames [48]uintptr
-	var size [48]OpusT_opus_int16
-	_, _, _, _, _, _, _, _ = frames, lbrr, nb_frames, packet_frame_size, packet_mode, packet_stream_channels, ret, size
-	nb_frames = int32(1)
-	packet_mode = opus_packet_get_mode(tls, (*byte)(unsafe.Pointer(packet)))
-	if packet_mode == int32(MODE_CELT_ONLY) {
+func Opus_opus_packet_has_lbrr(tls *libc.TLS, packet *byte, length int32) int32 {
+	// C reads the TOC before checking length and skips parsing CELT-only packets.
+	if opus_packet_get_mode(tls, packet) == MODE_CELT_ONLY {
 		return 0
 	}
-	packet_frame_size = Opus_opus_packet_get_samples_per_frame(tls, (*byte)(unsafe.Pointer(packet)), int32(48000))
-	if packet_frame_size > int32(960) {
-		nb_frames = packet_frame_size / int32(960)
+	nbFrames := int32(1)
+	frameSize := Opus_opus_packet_get_samples_per_frame(tls, packet, 48000)
+	if frameSize > 960 {
+		nbFrames = frameSize / 960
 	}
-	packet_stream_channels = Opus_opus_packet_get_nb_channels(tls, (*byte)(unsafe.Pointer(packet)))
-	ret = opus_packet_parse_legacy(tls, packet, len1, uintptr(uint32(0)), uintptr(unsafe.Pointer(&frames[0])), uintptr(unsafe.Pointer(&size[0])), uintptr(uint32(0)))
+	channels := Opus_opus_packet_get_nb_channels(tls, packet)
+	var frames [48]*byte
+	var sizes [48]int16
+	ret := Opus_opus_packet_parse(tls, packet, length, nil, &frames, &sizes, nil)
 	if ret <= 0 {
 		return ret
 	}
-	if int32(size[0]) == 0 {
+	if sizes[0] == 0 {
 		return 0
 	}
-	lbrr = int32(*(*uint8)(unsafe.Pointer(frames[0]))) >> (int32(7) - nb_frames) & int32(0x1)
-	if packet_stream_channels == int32(2) {
-		lbrr = libc.BoolInt32(lbrr != 0 || int32(*(*uint8)(unsafe.Pointer(frames[0])))>>(int32(6)-int32(2)*nb_frames)&int32(0x1) != 0)
+	lbrr := int32(*frames[0]) >> (7 - nbFrames) & 1
+	if channels == 2 {
+		lbrr = libc.BoolInt32(lbrr != 0 || int32(*frames[0])>>(6-2*nbFrames)&1 != 0)
 	}
 	return lbrr
 }
