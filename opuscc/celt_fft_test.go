@@ -71,7 +71,7 @@ func TestFFTImplUsesFactorsField(t *testing.T) {
 		{Fr: 7, Fi: 8},
 	}
 
-	Opus_opus_fft_impl(nil, uintptr(unsafe.Pointer(&state)), uintptr(unsafe.Pointer(&values[0])))
+	Opus_opus_fft_impl(nil, &state, nil, &values[0])
 
 	want := [4]OpusT_kiss_fft_cpx{
 		{Fr: 10, Fi: 8},

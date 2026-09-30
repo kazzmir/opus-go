@@ -265,7 +265,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 		i = i + 1
 	}
 	/* N/4 complex FFT, does not downscale anymore */
-	Opus_opus_fft_impl(tls, st1, f2)
+	opus_fft_impl_legacy(tls, st1, f2)
 	/* Post-rotate */
 	/* Temp pointers to make it really clear to the compiler what we're doing */
 	fp = f2
@@ -349,7 +349,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr,
 		xp2 = xp2 - uintptr(int32(2)*stride)*4
 		i = i + 1
 	}
-	Opus_opus_fft_impl(tls, (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift], out+uintptr(overlap>>int32(1))*4)
+	opus_fft_impl_legacy(tls, (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift], out+uintptr(overlap>>int32(1))*4)
 	/* Post-rotate and de-shuffle from both ends of the buffer at once to make
 	   it in-place. */
 	yp0 = out + uintptr(overlap>>int32(1))*4

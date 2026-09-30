@@ -6,6 +6,17 @@ import (
 	"testing"
 )
 
+func TestFFTImplPointers(t *testing.T) {
+	state := OpusT_kiss_fft_state{Fnfft: 4, Fshift: -1, Ffactors: [16]int16{4, 1}}
+	out := [6]OpusT_kiss_fft_cpx{{Fr: 77}, {Fr: 1}, {Fr: 1}, {Fr: 1}, {Fr: 1}, {Fr: 88}}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_opus_fft_impl(nil, &state, nil, &out[1])
+	if out[0].Fr != 77 || out[5].Fr != 88 || out[1].Fr != 4 || out[2].Fr != 0 {
+		t.Fatal(out)
+	}
+}
+
 func TestFFTButterfly5Pointers(t *testing.T) {
 	kf_bfly5(nil, nil, 1, nil, 4, 0, 20)
 	tw := make([]OpusT_kiss_twiddle_cpx, 13)

@@ -167,11 +167,10 @@ func kf_bfly5(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twidd
 	}
 }
 
-func Opus_opus_fft_impl(tls *libc.TLS, st uintptr, fout uintptr) {
+func Opus_opus_fft_impl(tls *libc.TLS, state *OpusT_kiss_fft_state, twiddles *OpusT_kiss_twiddle_cpx, fout *OpusT_kiss_fft_cpx) {
 	var L, i, m, m2, p, shift, v1 int32
 	var fstride [8]int32
 	_, _, _, _, _, _, _, _ = L, fstride, i, m, m2, p, shift, v1
-	state := (*OpusT_kiss_fft_state)(unsafe.Pointer(st))
 	/* st->shift can be -1 */
 	if state.Fshift > 0 {
 		v1 = state.Fshift
@@ -200,18 +199,24 @@ func Opus_opus_fft_impl(tls *libc.TLS, st uintptr, fout uintptr) {
 		}
 		switch int32(state.Ffactors[2*i]) {
 		case int32(2):
-			kf_bfly2(tls, (*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout)), m, fstride[i])
+			kf_bfly2(tls, fout, m, fstride[i])
 		case int32(4):
-			kf_bfly4(tls, (*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout)), uint64(uint32(fstride[i]<<shift)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(state.Ftwiddles)), m, fstride[i], m2)
+			kf_bfly4(tls, fout, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
 		case int32(3):
-			kf_bfly3(tls, (*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout)), uint64(uint32(fstride[i]<<shift)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(state.Ftwiddles)), m, fstride[i], m2)
+			kf_bfly3(tls, fout, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
 		case int32(5):
-			kf_bfly5(tls, (*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout)), uint64(uint32(fstride[i]<<shift)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(state.Ftwiddles)), m, fstride[i], m2)
+			kf_bfly5(tls, fout, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
 			break
 		}
 		m = m2
 		i = i - 1
 	}
+}
+
+// Legacy MDCT and outer-transform boundary; only permanent mode tables cross here.
+func opus_fft_impl_legacy(tls *libc.TLS, st, fout uintptr) {
+	state := (*OpusT_kiss_fft_state)(unsafe.Pointer(st))
+	Opus_opus_fft_impl(tls, state, (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(state.Ftwiddles)), (*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout)))
 }
 
 func Opus_opus_fft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
@@ -234,7 +239,7 @@ func Opus_opus_fft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
 		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fbitrev + uintptr(i)*2)))*8))).Fi = float32(x.Fi * scale)
 		i = i + 1
 	}
-	Opus_opus_fft_impl(tls, st, fout)
+	opus_fft_impl_legacy(tls, st, fout)
 }
 
 func Opus_opus_ifft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
@@ -260,7 +265,7 @@ func Opus_opus_ifft_c(tls *libc.TLS, st uintptr, fin uintptr, fout uintptr) {
 		(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi = -(*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout + uintptr(i)*8))).Fi
 		i = i + 1
 	}
-	Opus_opus_fft_impl(tls, st, fout)
+	opus_fft_impl_legacy(tls, st, fout)
 	i = 0
 	for {
 		if !(i < (*OpusT_kiss_fft_state)(unsafe.Pointer(st)).Fnfft) {

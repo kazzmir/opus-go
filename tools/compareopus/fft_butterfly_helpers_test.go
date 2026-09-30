@@ -21,6 +21,26 @@ func sameComplexBits(a, b []opuscc.OpusT_kiss_fft_cpx) bool {
 	return true
 }
 
+func TestFFTImplAgainstC(t *testing.T) {
+	for _, n := range []int32{4, 8, 16, 32, 60, 120, 240, 480} {
+		for _, shift := range []int32{-1, 0, 1, 2} {
+			st, br, tw := nativeFFTFixture(n, shift)
+			g := make([]opuscc.OpusT_kiss_fft_cpx, n+2)
+			for i := range g {
+				g[i] = opuscc.OpusT_kiss_fft_cpx{Fr: float32(i-13) / 7, Fi: float32(19-i) / 11}
+			}
+			c := slices.Clone(g)
+			before := st
+			twBefore := slices.Clone(tw)
+			opuscc.Opus_opus_fft_impl(nil, &st, &tw[0], &g[1])
+			nativeFFTTransform(&st, br, tw, nil, c[1:], 0)
+			if !sameComplexBits(g, c) || st != before || !slices.Equal(tw, twBefore) {
+				t.Fatal(n, shift)
+			}
+		}
+	}
+}
+
 func TestFFTButterfly5AgainstC(t *testing.T) {
 	compareButterflyStages(t, 5, opuscc.CompareFFTButterfly5)
 }

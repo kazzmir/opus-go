@@ -317,6 +317,8 @@ Radix-3 reuses the grouped fixtures and compares epi3 selection, half/scalar
 rounding, guards and stack-growth/GC calls with exact native output bits.
 Radix-5 uses the same grouped cases to verify ya/yb selection, parenthesized
 float32 sums/products, five-way stores and impulse/guard behavior.
+FFT driver cases share the butterfly tests and use native-generated factors,
+bit-reversal and twiddles for sizes 4–480, including shared-table shifts -1–2.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
