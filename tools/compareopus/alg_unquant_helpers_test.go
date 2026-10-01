@@ -7,9 +7,54 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 )
+
+func TestPVQSearchAgainstC(t *testing.T) {
+	for _, n := range []int32{2, 3, 4, 5, 8, 16, 32, 64, 128, 176} {
+		for _, k := range []int32{0, 1, 2, 3, 8, 16, 32, 128} {
+			for trial := 0; trial < 20; trial++ {
+				g := make([]float32, n+2)
+				g[0] = 77
+				g[len(g)-1] = 88
+				for j := int32(1); j <= n; j++ {
+					g[j] = float32(math.Sin(float64(j*17+int32(trial)) * 0.31))
+				}
+				if trial == 0 {
+					clear(g[1 : len(g)-1])
+				}
+				if trial == 1 {
+					for j := 1; j < len(g)-1; j++ {
+						g[j] = 1e-20
+					}
+				}
+				if trial == 2 {
+					g[1] = float32(math.Inf(1))
+				}
+				if trial == 3 {
+					g[1] = float32(math.NaN())
+				}
+				if trial == 4 {
+					for j := 1; j < len(g)-1; j++ {
+						g[j] = math.Float32frombits(uint32(j%2) << 31)
+					}
+				}
+				c := append([]float32(nil), g...)
+				gp := make([]int32, n+2)
+				gp[0] = 77
+				gp[len(gp)-1] = 88
+				cp := append([]int32(nil), gp...)
+				gy := opuscc.Opus_op_pvq_search_c(nil, &g[1], &gp[1], k, n, 0)
+				cy := nativePVQSearch(c[1:], cp[1:], k, n)
+				if math.Float32bits(gy) != math.Float32bits(cy) || !sameFloatBits(g, c) || !slices.Equal(gp, cp) {
+					t.Fatal(n, k, trial, gy, cy, gp, cp)
+				}
+			}
+		}
+	}
+}
 
 func TestAlgUnquantAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(3704))

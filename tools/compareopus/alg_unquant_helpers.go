@@ -4,7 +4,14 @@ package main
 
 /*
 #define VAR_ARRAYS 1
-#include "vq.h"
+#define OPUS_DISABLE_INTRINSICS 1
+#define exp_rotation compare_vq_rotation
+#define op_pvq_search_c compare_vq_search
+#define alg_quant compare_vq_quant
+#define alg_unquant compare_vq_unquant
+#define renormalise_vector compare_vq_renormalise
+#define stereo_itheta compare_vq_itheta
+#include "../../../opus/celt/vq.c"
 #include "entdec.h"
 static unsigned decode_alg(unsigned char *data,unsigned size,float *out,int n,int k,
  int spread,int B,float gain,unsigned *s) {
@@ -22,6 +29,10 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePVQSearch(x []float32, pulses []int32, k, n int32) float32 {
+	return float32(C.compare_vq_search((*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.int)(unsafe.Pointer(unsafe.SliceData(pulses))), C.int(k), C.int(n), 0))
+}
 
 func nativeAlgUnquant(data []byte, out []float32, n, k, spread, B int32, gain float32) (uint32, opuscc.OpusT_ec_dec) {
 	var s [11]C.uint
