@@ -19,6 +19,7 @@ package main
 #define opus_multistream_decoder_destroy comparison_channels_destroy
 #include "../../../opus/src/opus_multistream_decoder.c"
 extern void validation_normalize_decoder_mode(void *);
+void comparison_normalize_ms_modes(void *base,int streams,int coupled) {char *ptr=(char*)base+align(sizeof(OpusMSDecoder));for(int i=0;i<streams;i++){validation_normalize_decoder_mode(ptr);ptr+=align(validation_decoder_get_size(i<coupled?2:1));}}
 static int native_ms_init_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,const unsigned char *mapping,int mapping_offset) {
  OpusMSDecoder *st=malloc(size);memcpy(st,data,size);if(mapping_offset>=0)mapping=(unsigned char*)st+mapping_offset;
  int result=comparison_channels_init(st,rate,channels,streams,coupled,mapping);

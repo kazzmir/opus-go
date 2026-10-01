@@ -438,6 +438,16 @@ behavior, unchanged argument failures and initialized state before unsupported-r
 assertions (captured in C). Typed Opus initialization removes its TLS vararg scratch;
 Go-owned buffers, reinitialization, stack growth and GC are exercised. Creation,
 multistream/control and decode boundaries still have explicit legacy adapters.
+SILK parameter/index decoding reuses decoder-reset fixtures and actual
+silk/decode_parameters.c and decode_indices.c for all rates/subframe counts,
+voicing, interpolation/reset/loss cases, coding modes and entropy fields. Typed
+state/control/entropy arguments, direct LTP tables and copy/clear operations keep
+local scratch visible; codebook and table address fields remain legacy.
+Multistream/projection init fixtures compare complete state images (mode addresses
+only normalized), invalid/partial writes, guards and aliased mappings/matrices.
+Projection coefficient and identity-map scratch is Go-owned, and the complete
+initialization chain no longer needs TLS scratch. Creation/decode/control adapters
+and broader allocation ownership remain legacy.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

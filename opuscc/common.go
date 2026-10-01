@@ -5291,210 +5291,34 @@ func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels int32, stream
 	return v1 + matrix_size + decoder_size
 }
 
-func Opus_opus_projection_decoder_init(tls *libc.TLS, st1 uintptr, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, demixing_matrix uintptr, demixing_matrix_size OpusT_opus_int32) (r int32) {
-	// Initialization descends through uintptr APIs; pin the identity mapping
-	// so its address remains valid across goroutine stack growth.
-	mappingStorage := libc.Xmalloc(tls, uint64(unsafe.Sizeof([255]uint8{})))
-	defer libc.Xfree(tls, mappingStorage)
-	mapping := (*[255]uint8)(unsafe.Pointer(mappingStorage))
-	var _saved_stack, buf, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
-	var expected_matrix_size OpusT_opus_int32
-	var i, nb_input_streams, ret, s int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, buf, expected_matrix_size, i, nb_input_streams, ret, s, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+func Opus_opus_projection_decoder_init(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes OpusT_opus_int32) int32 {
+	inputs := streams + coupled
+	count := inputs * channels
+	expected := count * 2
+	if expected != matrixBytes {
+		return OPUS_BAD_ARG
 	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v6 = libc.Xmalloc(tls, uint64(16))
-		st = v6
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+	// Snapshot all coefficients before writing state, preserving aliased input.
+	src := unsafe.Slice(matrix, matrixBytes)
+	coefficients := make([]int16, count)
+	for i := int32(0); i < count; i++ {
+		s := int32(src[2*i+1])<<8 | int32(src[2*i])
+		coefficients[i] = int16(((s & 0xffff) ^ 0x8000) - 0x8000)
 	}
-	v8 = st
-	if (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack == uintptr(0) {
-		v13 = libc.Xmalloc(tls, uint64(GLOBAL_STACK_SIZE))
-		v11 = v13
-		v10 = v11
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v15 = libc.Xmalloc(tls, uint64(16))
-			st = v15
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v17 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fscratch_ptr = v10
-		v5 = v10
-	} else {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v19 = libc.Xmalloc(tls, uint64(16))
-			st = v19
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v21 = st
-		v5 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack
+	st.Fdemixing_matrix_size_in_bytes = Opus_mapping_matrix_get_size(tls, channels, inputs)
+	if st.Fdemixing_matrix_size_in_bytes == 0 {
+		return OPUS_BAD_ARG
 	}
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = v5
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+	Opus_mapping_matrix_init(tls, get_dec_demixing_matrix(tls, st), channels, inputs, 0, unsafe.SliceData(coefficients), matrixBytes)
+	var mapping [255]byte
+	for i := int32(0); i < channels; i++ {
+		mapping[i] = byte(i)
 	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	/* Verify supplied matrix size. */
-	nb_input_streams = streams + coupled_streams
-	expected_matrix_size = int32(uint64(uint32(nb_input_streams*channels)) * uint64(2))
-	if expected_matrix_size != demixing_matrix_size {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-		return -int32(1)
-	}
-	/* Convert demixing matrix input into internal format. */
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v6 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(2)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v6)).Fglobal_stack))) & (uint64(uint32(2)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v8 = libc.Xmalloc(tls, uint64(16))
-		st = v8
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v10 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v11 = libc.Xmalloc(tls, uint64(16))
-		st = v11
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v13 = st
-	if !(int64(int32(uint64(uint32(nb_input_streams*channels))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v10)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v13)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+2412, int32(167))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v15 = libc.Xmalloc(tls, uint64(16))
-		st = v15
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v17 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fglobal_stack += uintptr(uint64(uint32(nb_input_streams*channels)) * (uint64(2) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v19 = libc.Xmalloc(tls, uint64(16))
-		st = v19
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v21 = st
-	buf = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(nb_input_streams*channels))*(uint64(2)/uint64(1)))
-	i = 0
-	for {
-		if !(i < nb_input_streams*channels) {
-			break
-		}
-		s = int32(*(*uint8)(unsafe.Pointer(demixing_matrix + uintptr(int32(2)*i+int32(1)))))<<int32(8) | int32(*(*uint8)(unsafe.Pointer(demixing_matrix + uintptr(int32(2)*i))))
-		s = s&int32(0xFFFF) ^ int32(0x8000) - int32(0x8000)
-		*(*OpusT_opus_int16)(unsafe.Pointer(buf + uintptr(i)*2)) = int16(s)
-		i = i + 1
-	}
-	/* Assign demixing matrix. */
-	(*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st1)).Fdemixing_matrix_size_in_bytes = Opus_mapping_matrix_get_size(tls, channels, nb_input_streams)
-	if !((*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st1)).Fdemixing_matrix_size_in_bytes != 0) {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-		return -int32(1)
-	}
-	Opus_mapping_matrix_init(tls, get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st1))), channels, nb_input_streams, 0, (*int16)(unsafe.Pointer(buf)), demixing_matrix_size)
-	/* Set trivial mapping so each input channel pairs with a matrix column. */
-	i = 0
-	for {
-		if !(i < channels) {
-			break
-		}
-		mapping[i] = uint8(i)
-		i = i + 1
-	}
-	ret = multistream_decoder_init_legacy(tls, get_multistream_decoder_legacy(tls, st1), Fs, channels, streams, coupled_streams, uintptr(unsafe.Pointer(&mapping[0])))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-	return ret
+	return Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st), Fs, channels, streams, coupled, &mapping[0])
+}
+
+func projection_decoder_init_legacy(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix uintptr, matrixBytes OpusT_opus_int32) int32 {
+	return Opus_opus_projection_decoder_init(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(matrix)), matrixBytes)
 }
 
 func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, demixing_matrix uintptr, demixing_matrix_size OpusT_opus_int32) (uintptr, error) {
@@ -5512,7 +5336,7 @@ func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, cha
 		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
 	}
 	/* Initialize projection decoder with provided settings. */
-	ret = Opus_opus_projection_decoder_init(tls, st, Fs, channels, streams, coupled_streams, demixing_matrix, demixing_matrix_size)
+	ret = projection_decoder_init_legacy(tls, st, Fs, channels, streams, coupled_streams, demixing_matrix, demixing_matrix_size)
 	if ret != OPUS_OK {
 		libc.Xfree(tls, st)
 		st = uintptr(uint32(0))
