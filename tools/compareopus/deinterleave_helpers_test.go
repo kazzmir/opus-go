@@ -10,6 +10,53 @@ import (
 	"testing"
 )
 
+func TestQuantN1AgainstC(t *testing.T) {
+	for encode := int32(0); encode <= 1; encode++ {
+		for resynth := int32(0); resynth <= 1; resynth++ {
+			for _, remaining := range []int32{-1, 0, 7, 8, 15, 16, 24} {
+				for _, capacity := range []int{0, 1, 8} {
+					for _, y := range []int32{-1, 0, 1} {
+						for _, low := range []int32{-1, 0, 1, 2} {
+							gb := make([]byte, max(capacity, 1))
+							for i := range gb {
+								gb[i] = byte(0x81 + i)
+							}
+							cb := slices.Clone(gb)
+							var g opuscc.OpusT_ec_ctx
+							if encode != 0 {
+								opuscc.Opus_ec_enc_init(nil, &g, &gb[0], uint32(capacity))
+							} else {
+								opuscc.Opus_ec_dec_init(nil, &g, &gb[0], uint32(capacity))
+							}
+							c := g
+							gv := []float32{-0.375, math.Float32frombits(0x80000000), 77}
+							cv := slices.Clone(gv)
+							gr, cr := remaining, remaining
+							var yp, lp *float32
+							if y >= 0 {
+								yp = &gv[y]
+							}
+							if low >= 0 {
+								lp = &gv[low]
+							}
+							mask := opuscc.CompareQuantN1(encode, resynth, &gr, &g, &gv[0], yp, lp)
+							if encode != 0 {
+								opuscc.Opus_ec_enc_done(nil, &g)
+							}
+							native := nativeQuantN1(&c, cb, cv, encode, resynth, &cr, y, low)
+							g.Fbuf = nil
+							c.Fbuf = nil
+							if mask != native || gr != cr || g != c || !slices.Equal(gb, cb) || !sameFloatBits(gv, cv) {
+								t.Fatal(encode, resynth, remaining, capacity, y, low, g, c, gv, cv)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestDeinterleaveAgainstC(t *testing.T) {
 	r := rand.New(rand.NewSource(503))
 	for _, stride := range []int32{1, 2, 3, 4, 8, 16} {

@@ -2358,47 +2358,41 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 	(*split_ctx)(unsafe.Pointer(sctx)).Fqalloc = qalloc
 }
 
-func quant_band_n1(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, lowband_out uintptr) (r uint32) {
-	var c, encode, sign, stereo, v1 int32
-	var ec, x uintptr
-	var v3 float32
-	_, _, _, _, _, _, _, _ = c, ec, encode, sign, stereo, x, v1, v3
-	bandContext := (*band_ctx)(unsafe.Pointer(ctx))
-	x = X
-	encode = bandContext.Fencode
-	ec = bandContext.Fec
-	stereo = libc.BoolInt32(Y != uintptr(uint32(0)))
-	c = 0
-	for {
-		sign = 0
-		if bandContext.Fremaining_bits >= int32(1)<<int32(BITRES) {
-			if encode != 0 {
-				sign = libc.BoolInt32(*(*OpusT_celt_norm)(unsafe.Pointer(x)) < float32(0))
-				Opus_ec_enc_bits(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(sign), uint32(1))
+func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband *OpusT_celt_norm) uint32 {
+	x := X
+	channels := 1
+	if Y != nil {
+		channels = 2
+	}
+	for c := 0; c < channels; c++ {
+		sign := int32(0)
+		if ctx.Fremaining_bits >= 1<<BITRES {
+			if ctx.Fencode != 0 {
+				sign = libc.BoolInt32(*x < 0)
+				Opus_ec_enc_bits(tls, ec, uint32(sign), 1)
 			} else {
-				sign = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1)))
+				sign = int32(Opus_ec_dec_bits(tls, ec, 1))
 			}
-			bandContext.Fremaining_bits -= int32(1) << int32(BITRES)
+			ctx.Fremaining_bits -= 1 << BITRES
 		}
-		if bandContext.Fresynth != 0 {
+		if ctx.Fresynth != 0 {
 			if sign != 0 {
-				v3 = -float32(1)
+				*x = -1
 			} else {
-				v3 = float32(1)
+				*x = 1
 			}
-			*(*OpusT_celt_norm)(unsafe.Pointer(x)) = v3
 		}
 		x = Y
-		c = c + 1
-		v1 = c
-		if !(v1 < int32(1)+stereo) {
-			break
-		}
 	}
-	if lowband_out != 0 {
-		*(*OpusT_celt_norm)(unsafe.Pointer(lowband_out)) = *(*OpusT_celt_norm)(unsafe.Pointer(X))
+	if lowband != nil {
+		*lowband = *X
 	}
-	return uint32(1)
+	return 1
+}
+
+func quant_band_n1_legacy(tls *libc.TLS, ctx, X, Y, lowband uintptr) uint32 {
+	context := (*band_ctx)(unsafe.Pointer(ctx))
+	return quant_band_n1(tls, context, (*OpusT_ec_ctx)(unsafe.Pointer(context.Fec)), (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(lowband)))
 }
 
 // C documentation
@@ -2658,7 +2652,7 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 	N_B = int32(v2)
 	/* Special case for one sample */
 	if N == int32(1) {
-		return quant_band_n1(tls, ctx, X, uintptr(uint32(0)), lowband_out)
+		return quant_band_n1_legacy(tls, ctx, X, uintptr(uint32(0)), lowband_out)
 	}
 	if tf_change > 0 {
 		recombine = tf_change
@@ -2818,7 +2812,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 	ec = bandContext.Fec
 	/* Special case for one sample */
 	if N == int32(1) {
-		return quant_band_n1(tls, ctx, X, Y, lowband_out)
+		return quant_band_n1_legacy(tls, ctx, X, Y, lowband_out)
 	}
 	orig_fill = fill
 	if encode != 0 {
