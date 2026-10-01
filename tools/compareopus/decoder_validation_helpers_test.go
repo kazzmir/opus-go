@@ -34,6 +34,14 @@ func TestCustomDecoderSizeAgainstC(t *testing.T) {
 	}
 }
 
+func TestMSDecoderDestroyAgainstC(t *testing.T) {
+	for _, null := range []bool{false, true} {
+		if !nativeMSDestroy(null) {
+			t.Fatal("multistream must free only its base", null)
+		}
+	}
+}
+
 func TestMSValidationAgainstC(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2, 255} {
 		for _, streams := range []int32{0, 1, 2, 127, 255, 256} {

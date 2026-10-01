@@ -6,6 +6,11 @@ package main
 #include <stdlib.h>
 static _Thread_local int channels_factory_fail;
 static void *channels_factory_alloc(size_t size){return channels_factory_fail?NULL:calloc(1,size);}
+static _Thread_local int channels_free_calls,channels_free_matches;
+static _Thread_local void *channels_free_expected;
+static void channels_factory_free(void *p){channels_free_calls++;channels_free_matches=p==channels_free_expected;free(p);}
+#define OVERRIDE_OPUS_FREE 1
+#define opus_free channels_factory_free
 #define OVERRIDE_OPUS_ALLOC 1
 #define opus_alloc channels_factory_alloc
 #define VAR_ARRAYS 1
@@ -25,6 +30,7 @@ static void *channels_factory_alloc(size_t size){return channels_factory_fail?NU
 #include "../../../opus/src/opus_multistream_decoder.c"
 extern void validation_normalize_decoder_mode(void *);
 void comparison_normalize_ms_modes(void *base,int streams,int coupled) {char *ptr=(char*)base+align(sizeof(OpusMSDecoder));for(int i=0;i<streams;i++){validation_normalize_decoder_mode(ptr);ptr+=align(validation_decoder_get_size(i<coupled?2:1));}}
+static int native_ms_destroy(int null) {void *p=null?NULL:malloc(sizeof(OpusMSDecoder));channels_free_calls=0;channels_free_expected=p;comparison_channels_destroy(p);return channels_free_calls==1&&channels_free_matches;}
 static int native_ms_create_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,const unsigned char *mapping,int fail) {
  int error=99;channels_factory_fail=fail;OpusMSDecoder *st=comparison_channels_create(rate,channels,streams,coupled,mapping,&error);channels_factory_fail=0;
  if(st){comparison_normalize_ms_modes(st,streams,coupled);memcpy(data,st,size);comparison_channels_destroy(st);}return error;
@@ -47,6 +53,14 @@ import "C"
 
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
+
+func nativeMSDestroy(null bool) bool {
+	var n C.int
+	if null {
+		n = 1
+	}
+	return C.native_ms_destroy(n) != 0
+}
 
 func nativeMSCreateImage(data []byte, rate, channels, streams, coupled int32, mapping []byte, fail bool) int32 {
 	f := C.int(0)

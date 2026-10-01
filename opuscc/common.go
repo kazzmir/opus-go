@@ -4941,6 +4941,11 @@ func Opus_opus_multistream_decoder_destroy(tls *libc.TLS, st uintptr) {
 	libc.Xfree(tls, st)
 }
 
+func Opus_opus_multistream_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
+	// All component decoders belong to the same allocation; free only the base.
+	libc.XfreePointer(tls, unsafe.Pointer(st))
+}
+
 const OPUS_PROJECTION_GET_DEMIXING_MATRIX_GAIN_REQUEST = 6001
 const OPUS_PROJECTION_GET_DEMIXING_MATRIX_REQUEST = 6005
 const OPUS_PROJECTION_GET_DEMIXING_MATRIX_SIZE_REQUEST = 6003

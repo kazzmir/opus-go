@@ -93,6 +93,41 @@ func TestDecoderCreatePointers(t *testing.T) {
 	}
 }
 
+func TestMSDecoderDestroyPointers(t *testing.T) {
+	for _, legacy := range []bool{false, true} {
+		tls := libc.NewTLS()
+		release := func() weak.Pointer[OpusT_OpusMSDecoder] {
+			mapping := [3]byte{0, 1, 2}
+			st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 3, 2, 1, &mapping[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := weak.Make(st)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if legacy {
+				Opus_opus_multistream_decoder_destroy(tls, uintptr(unsafe.Pointer(st)))
+			} else {
+				Opus_opus_multistream_decoder_destroy_typed(tls, st)
+			}
+			return w
+		}
+		w := release()
+		for i := 0; i < 10; i++ {
+			runtime.GC()
+		}
+		if w.Value() != nil {
+			t.Fatal("multistream allocation retained", legacy)
+		}
+		runtime.KeepAlive(tls)
+		tls.Close()
+	}
+	Opus_opus_multistream_decoder_destroy_typed(nil, nil)
+	tls := libc.NewTLS()
+	defer tls.Close()
+	Opus_opus_multistream_decoder_destroy_typed(tls, nil)
+}
+
 func TestMSDecoderCreatePointers(t *testing.T) {
 	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
 		tls := libc.NewTLS()
