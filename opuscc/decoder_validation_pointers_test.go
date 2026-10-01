@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 )
@@ -61,6 +62,47 @@ func TestMSValidationPointers(t *testing.T) {
 	}
 }
 
+type celtStateTestStorage struct {
+	State OpusT_OpusCustomDecoder
+	Tail  [5000]float32
+}
+
+func celtStateTestBuffer(mode *OpusT_OpusCustomMode, channels int32) (*celtStateTestStorage, []byte, int) {
+	storage := new(celtStateTestStorage)
+	size := int(opus_custom_decoder_get_size(nil, mode, channels))
+	image := unsafe.Slice((*byte)(unsafe.Pointer(&storage.State)), size+16)
+	// Never put arbitrary byte patterns in a GC-scanned pointer slot.
+	for i := int(unsafe.Sizeof(storage.State.Fmode)); i < len(image); i++ {
+		image[i] = 0xa5
+	}
+	storage.State.Fmode = mode
+	storage.State.Fchannels = channels
+	storage.State.Foverlap = mode.Foverlap
+	return storage, image, size
+}
+
+func TestCeltResetPointers(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		mode := &OpusT_OpusCustomMode{Foverlap: 120, FnbEBands: 21}
+		storage, image, size := celtStateTestBuffer(mode, channels)
+		before := append([]byte(nil), image...)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		celt_decoder_reset(nil, &storage.State)
+		start := int(unsafe.Offsetof(storage.State.Frng))
+		if !slices.Equal(image[:start], before[:start]) || !slices.Equal(image[size:], before[size:]) || storage.State.Frng != 0 || storage.State.Fskip_plc != 1 || storage.State.Flast_frame_type != FRAME_NONE {
+			t.Fatal(channels, "prefix/guards/reset")
+		}
+		oldBand := unsafe.Add(unsafe.Pointer(&storage.State.F_decode_mem[0]), int((DEC_PITCH_BUF_SIZE+mode.Foverlap)*channels)*4)
+		logs := unsafe.Slice((*float32)(unsafe.Add(oldBand, int(2*mode.FnbEBands)*4)), 4*mode.FnbEBands)
+		for _, v := range logs {
+			if v != -28 {
+				t.Fatal("log history")
+			}
+		}
+	}
+}
+
 func TestCustomModePointers(t *testing.T) {
 	var first *OpusT_OpusCustomMode
 	for _, frame := range []int32{120, 240, 480, 960} {
@@ -97,7 +139,7 @@ func TestCustomModePointers(t *testing.T) {
 
 func TestCeltValidationPointers(t *testing.T) {
 	mode, _ := Opus_opus_custom_mode_create(nil, 48000, 960)
-	st := OpusT_OpusCustomDecoder{Fmode: uintptr(unsafe.Pointer(mode)), Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
+	st := OpusT_OpusCustomDecoder{Fmode: mode, Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
 	before := st
 	entropyInitGrowStack(12)
 	runtime.GC()
@@ -116,7 +158,7 @@ func TestCeltValidationPointers(t *testing.T) {
 		t.Fatal("period accepted")
 	}
 	st = before
-	st.Fmode = 0
+	st.Fmode = nil
 	if !validationPanics(func() { Opus_validate_celt_decoder(nil, &st) }) {
 		t.Fatal("mode accepted")
 	}

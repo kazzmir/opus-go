@@ -15,7 +15,7 @@ var _ unsafe.Pointer
 
 func Opus_validate_celt_decoder(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 	mode, _ := Opus_opus_custom_mode_create(tls, 48000, 960)
-	if st.Fmode != uintptr(unsafe.Pointer(mode)) {
+	if st.Fmode != mode {
 		Opus_celt_fatal(tls, __ccgo_ts+3695, __ccgo_ts+3767, 147)
 	}
 	if st.Foverlap != 120 {
@@ -114,7 +114,7 @@ func opus_custom_decoder_init(tls *libc.TLS, st uintptr, mode uintptr, channels 
 		return -int32(7)
 	}
 	libc.Xmemset(tls, st, 0, uint64(uint32(opus_custom_decoder_get_size(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), channels)))*uint64(1))
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode = mode
+	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode))
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
 	v1 = channels
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fchannels = v1
@@ -585,7 +585,7 @@ func prefilter_and_fold(tls *libc.TLS, st1 uintptr, N int32) {
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
-	mode = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode
+	mode = uintptr(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode))
 	overlap = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Foverlap
 	CC = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fchannels
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -729,7 +729,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
 	max_period = int32(MAX_PERIOD)
-	mode = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode
+	mode = uintptr(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode))
 	nbEBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FnbEBands
 	overlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
 	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeBands
@@ -1361,7 +1361,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
 	Opus_validate_celt_decoder(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
-	mode = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode
+	mode = uintptr(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode))
 	nbEBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FnbEBands
 	overlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
 	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeBands

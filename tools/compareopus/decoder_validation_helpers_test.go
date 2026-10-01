@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/kazzmir/opus-go/opuscc"
+	"slices"
 	"testing"
 	"unsafe"
 )
@@ -48,6 +49,36 @@ func TestMSValidationAgainstC(t *testing.T) {
 	}
 }
 
+func TestCeltResetAgainstC(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		for _, bands := range []int32{0, 1, 21, 32} {
+			for _, overlap := range []int32{0, 12, 120} {
+				mode := &opuscc.OpusT_OpusCustomMode{Foverlap: overlap, FnbEBands: bands}
+				size := int(opuscc.CompareCustomDecoderSize(mode, channels))
+				storage := new(struct {
+					State opuscc.OpusT_OpusCustomDecoder
+					Tail  [6000]float32
+				})
+				g := unsafe.Slice((*byte)(unsafe.Pointer(&storage.State)), size+16)
+				for i := int(unsafe.Sizeof(storage.State.Fmode)); i < len(g); i++ {
+					g[i] = 0xa5
+				}
+				storage.State.Fmode = mode
+				storage.State.Foverlap = overlap
+				storage.State.Fchannels = channels
+				c := slices.Clone(g)
+				opuscc.CompareCeltReset(&storage.State)
+				nativeCeltState(c, 0, channels, 48000, overlap, bands, bands)
+				normalized := slices.Clone(g)
+				clear(normalized[:unsafe.Sizeof(storage.State.Fmode)])
+				if !slices.Equal(normalized, c) {
+					t.Fatal(channels, bands, overlap, "reset image")
+				}
+			}
+		}
+	}
+}
+
 func TestCustomModeAgainstC(t *testing.T) {
 	for _, rate := range []int32{-1, 0, 8000, 16000, 24000, 44100, 48000, 96000} {
 		for frame := int32(0); frame <= 2000; frame++ {
@@ -65,7 +96,7 @@ func TestCustomModeAgainstC(t *testing.T) {
 
 func TestCeltValidationAgainstC(t *testing.T) {
 	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
-	base := opuscc.OpusT_OpusCustomDecoder{Fmode: uintptr(unsafe.Pointer(mode)), Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
+	base := opuscc.OpusT_OpusCustomDecoder{Fmode: mode, Foverlap: 120, Fchannels: 2, Fstream_channels: 1, Fdownsample: 1, Fend: 21}
 	for field := 0; field < 13; field++ {
 		for _, v := range []int32{-1, 0, 1, 2, 3, 15, 16, 17, 18, 20, 21, 22, 100, 120, 1023, 1024} {
 			st := base
@@ -95,7 +126,10 @@ func TestCeltValidationAgainstC(t *testing.T) {
 			case 11:
 				st.Fpostfilter_tapset_old = v
 			case 12:
-				st.Fmode = uintptr(v)
+				st.Fmode = nil
+				if v != 0 {
+					st.Fmode = &opuscc.OpusT_OpusCustomMode{}
+				}
 			}
 			before := st
 			g := opuscc.CompareCeltValidation(&st)

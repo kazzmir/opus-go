@@ -35,6 +35,11 @@ static int native_plc_pitch(float *left,float *right,int channels) {float *data[
 static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
 #undef opus_custom_mode_create
 #undef opus_custom_mode_destroy
+static int native_celt_state(unsigned char *data,size_t size,int op,int channels,int rate,int overlap,int bands,int eff) {
+ CELTMode mode={0};mode.overlap=overlap;mode.nbEBands=bands;mode.effEBands=eff;CELTDecoder *st=size?malloc(size):NULL;if(size)memcpy(st,data,size);
+ int result;if(op==0){st->mode=&mode;result=comparison_custom_ctl(st,OPUS_RESET_STATE);}else if(op==1)result=comparison_custom_init(st,&mode,channels);else result=comparison_celt_init(st,rate,channels);
+ if(size){st->mode=NULL;memcpy(data,st,size);free(st);}return result;
+}
 static void native_tf(unsigned *s,unsigned char *data,int start,int end,int transient,int *out,int LM) {
  ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=s[3];dec.nbits_total=s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=s[9];dec.error=s[10];
  tf_decode(start,end,transient,out,LM,&dec);
@@ -56,6 +61,10 @@ import (
 
 func nativePLCPitchSearch(left, right []float32, channels int32) int32 {
 	return int32(C.native_plc_pitch((*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), C.int(channels)))
+}
+
+func nativeCeltState(data []byte, op, channels, rate, overlap, bands, eff int32) int32 {
+	return int32(C.native_celt_state((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(op), C.int(channels), C.int(rate), C.int(overlap), C.int(bands), C.int(eff)))
 }
 
 func nativeCustomMode(rate, frame int32) (int32, [7]int32) {
@@ -91,7 +100,7 @@ func nativeCustomDecoderSize(overlap, bands, channels int32) int32 {
 func nativeCeltValidation(st *opuscc.OpusT_OpusCustomDecoder) bool {
 	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	badmode := int32(0)
-	if st.Fmode != uintptr(unsafe.Pointer(mode)) {
+	if st.Fmode != mode {
 		badmode = 1
 	}
 	v := [12]int32{st.Foverlap, st.Fend, st.Fchannels, st.Fstream_channels, st.Fdownsample, st.Fstart, st.Farch, st.Flast_pitch_index, st.Fpostfilter_period, st.Fpostfilter_period_old, st.Fpostfilter_tapset, st.Fpostfilter_tapset_old}

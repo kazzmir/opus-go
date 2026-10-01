@@ -2,6 +2,8 @@
 
 package opuscc
 
+func CompareCeltReset(st *OpusT_OpusCustomDecoder) { celt_decoder_reset(nil, st) }
+
 func ComparePLCPitchSearch(left, right *float32, C int32) int32 {
 	return celt_plc_pitch_search(nil, nil, left, right, C, 0)
 }
