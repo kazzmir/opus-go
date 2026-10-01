@@ -2279,30 +2279,25 @@ func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_
 	return OPUS_OK
 }
 
-// Creation and multistream drivers still pass their backing allocations as integers.
-func opus_decoder_init_legacy(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels int32) int32 {
-	return Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), Fs, channels)
-}
-
-func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (uintptr, error) {
-	var ret int32
-	var st, v1 uintptr
-	_, _, _ = ret, st, v1
-	if Fs != int32(48000) && Fs != int32(24000) && Fs != int32(16000) && Fs != int32(12000) && Fs != int32(8000) || channels != int32(1) && channels != int32(2) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(1))
+func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (*OpusT_OpusDecoder, error) {
+	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
+		return nil, opusErrorFromCode(-1)
 	}
-	v1 = libc.Xmalloc(tls, uint64(uint32(Opus_opus_decoder_get_size(tls, channels))))
-	st = v1
-	if st == uintptr(uint32(0)) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
+	st := (*OpusT_OpusDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_decoder_get_size(tls, channels)))))
+	if st == nil {
+		return nil, opusErrorFromCode(-7)
 	}
-	ret = opus_decoder_init_legacy(tls, st, Fs, channels)
-	if ret != OPUS_OK {
-		libc.Xfree(tls, st)
-		st = uintptr(uint32(0))
-		return uintptr(uint32(0)), opusErrorFromCode(ret)
+	if ret := Opus_opus_decoder_init(tls, st, Fs, channels); ret != OPUS_OK {
+		libc.XfreePointer(tls, unsafe.Pointer(st))
+		return nil, opusErrorFromCode(ret)
 	}
 	return st, nil
+}
+
+// Legacy exported creation ABI for the remaining integer-address decode/control callers.
+func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (uintptr, error) {
+	st, err := Opus_opus_decoder_create_typed(tls, Fs, channels)
+	return uintptr(unsafe.Pointer(st)), err
 }
 
 func smooth_fade(tls *libc.TLS, in1, in2, out *OpusT_opus_res, overlap, channels int32, window *OpusT_celt_coef, Fs OpusT_opus_int32) {

@@ -36,6 +36,35 @@ func TestDecoderAllocationPointers(t *testing.T) {
 	}
 }
 
+func TestDecoderCreatePointers(t *testing.T) {
+	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
+		for _, channels := range []int32{1, 2} {
+			tls := libc.NewTLS()
+			st, err := Opus_opus_decoder_create_typed(tls, rate, channels)
+			if err != nil || st == nil || st.FFs != rate || st.Fchannels != channels {
+				t.Fatal(rate, channels, st, err)
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if st.FFs != rate || st.Fchannels != channels {
+				t.Fatal("creation lifetime")
+			}
+			libc.XfreePointer(tls, unsafe.Pointer(st))
+			tls.Close()
+		}
+	}
+	for _, args := range [][2]int32{{44100, 1}, {48000, 0}, {48000, 3}, {48000, 1}} {
+		st, err := Opus_opus_decoder_create_typed(nil, args[0], args[1])
+		want := int32(-1)
+		if args == [2]int32{48000, 1} {
+			want = -7
+		}
+		if st != nil || err == nil || err.(*OpusError).Code != want {
+			t.Fatal("error ordering", args, st, err)
+		}
+	}
+}
+
 func TestCustomDecoderSizePointers(t *testing.T) {
 	mode := OpusT_OpusCustomMode{Foverlap: 120, FnbEBands: 21}
 	before := mode

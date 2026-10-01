@@ -3,6 +3,7 @@
 package main
 
 import (
+	libc "github.com/kazzmir/opus-go/libcshim"
 	"github.com/kazzmir/opus-go/opuscc"
 	"slices"
 	"testing"
@@ -191,6 +192,42 @@ func TestMSDecoderInitAgainstC(t *testing.T) {
 		}
 		if code != native || !slices.Equal(g, c) {
 			t.Fatal("alias", delta, code, native)
+		}
+	}
+}
+
+func factoryErrorCode(err error) int32 {
+	if err == nil {
+		return 0
+	}
+	return err.(*opuscc.OpusError).Code
+}
+func TestDecoderCreateAgainstC(t *testing.T) {
+	for _, rate := range []int32{0, 8000, 12000, 16000, 24000, 48000, 44100} {
+		for _, channels := range []int32{0, 1, 2, 3} {
+			for _, fail := range []bool{false, true} {
+				var tls *libc.TLS
+				if !fail {
+					tls = libc.NewTLS()
+				}
+				st, err := opuscc.Opus_opus_decoder_create_typed(tls, rate, channels)
+				code := factoryErrorCode(err)
+				var image []byte
+				if st != nil {
+					image = slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(st)), int(opuscc.Opus_opus_decoder_get_size(nil, channels))))
+					off := int(st.Fcelt_dec_offset)
+					clear(image[off : off+int(unsafe.Sizeof(uintptr(0)))])
+				}
+				native := make([]byte, len(image))
+				want := nativeOpusCreateImage(native, rate, channels, fail)
+				if code != want || !slices.Equal(image, native) {
+					t.Fatal(rate, channels, fail, code, want, "factory image")
+				}
+				if tls != nil {
+					libc.XfreePointer(tls, unsafe.Pointer(st))
+					tls.Close()
+				}
+			}
 		}
 	}
 }
