@@ -81,6 +81,41 @@ func celtStateTestBuffer(mode *OpusT_OpusCustomMode, channels int32) (*celtState
 	return storage, image, size
 }
 
+func TestCustomDecoderInitPointers(t *testing.T) {
+	if opus_custom_decoder_init(nil, nil, nil, -1) != OPUS_BAD_ARG || opus_custom_decoder_init(nil, nil, nil, 1) != -7 {
+		t.Fatal("argument order")
+	}
+	for _, channels := range []int32{0, 1, 2} {
+		storage, image, size := func() (*celtStateTestStorage, []byte, int) {
+			mode := &OpusT_OpusCustomMode{Foverlap: 120, FnbEBands: 21, FeffEBands: 19}
+			s, b, n := celtStateTestBuffer(mode, channels)
+			if opus_custom_decoder_init(nil, &s.State, mode, channels) != 0 {
+				t.Fatal("init")
+			}
+			return s, b, n
+		}()
+		entropyInitGrowStack(12)
+		runtime.GC()
+		st := &storage.State
+		wantInv := int32(0)
+		if channels == 1 {
+			wantInv = 1
+		}
+		if st.Fmode.FeffEBands != 19 || st.Fend != 19 || st.Fchannels != channels || st.Fstream_channels != channels || st.Fdownsample != 1 || st.Fsignalling != 1 || st.Fdisable_inv != wantInv || st.Frng != 0 || st.Fskip_plc != 1 {
+			t.Fatal("state/mode ownership", st)
+		}
+		for _, b := range image[size:] {
+			if b != 0xa5 {
+				t.Fatal("guard")
+			}
+		}
+		before := slices.Clone(image)
+		if opus_custom_decoder_init(nil, st, nil, 3) != OPUS_BAD_ARG || !slices.Equal(before, image) {
+			t.Fatal("failure modified state")
+		}
+	}
+}
+
 func TestCeltResetPointers(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		mode := &OpusT_OpusCustomMode{Foverlap: 120, FnbEBands: 21}

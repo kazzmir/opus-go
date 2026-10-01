@@ -91,7 +91,7 @@ func Opus_celt_decoder_init(tls *libc.TLS, st uintptr, sampling_rate OpusT_opus_
 	var ret int32
 	_ = ret
 	mode, _ := Opus_opus_custom_mode_create(tls, int32(48000), int32(960))
-	ret = opus_custom_decoder_init(tls, st, uintptr(unsafe.Pointer(mode)), channels)
+	ret = opus_custom_decoder_init(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)), mode, channels)
 	if ret != OPUS_OK {
 		return ret
 	}
@@ -104,29 +104,29 @@ func Opus_celt_decoder_init(tls *libc.TLS, st uintptr, sampling_rate OpusT_opus_
 	return r
 }
 
-func opus_custom_decoder_init(tls *libc.TLS, st uintptr, mode uintptr, channels int32) (r int32) {
-	var v1 int32
-	_ = v1
-	if channels < 0 || channels > int32(2) {
-		return -int32(1)
+func opus_custom_decoder_init(tls *libc.TLS, st *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, channels int32) int32 {
+	if channels < 0 || channels > 2 {
+		return OPUS_BAD_ARG
 	}
-	if st == uintptr(uint32(0)) {
-		return -int32(7)
+	if st == nil {
+		return -7
 	}
-	libc.Xmemset(tls, st, 0, uint64(uint32(opus_custom_decoder_get_size(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), channels)))*uint64(1))
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode))
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
-	v1 = channels
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fchannels = v1
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fstream_channels = v1
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fdownsample = int32(1)
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fstart = 0
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fend = (*OpusT_OpusCustomMode)(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode)).FeffEBands
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fsignalling = int32(1)
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fdisable_inv = libc.BoolInt32(channels == int32(1))
-	v1 = 0
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Farch = v1
-	Opus_opus_custom_decoder_ctl(tls, st, int32(OPUS_RESET_STATE), 0)
+	size := opus_custom_decoder_get_size(tls, mode, channels)
+	pointerBytes := unsafe.Sizeof(st.Fmode)
+	// Clear the sole pointer through its typed slot (including the GC write barrier).
+	st.Fmode = nil
+	clear(unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(st), pointerBytes)), int(size)-int(pointerBytes)))
+	st.Fmode = mode
+	st.Foverlap = mode.Foverlap
+	st.Fchannels = channels
+	st.Fstream_channels = channels
+	st.Fdownsample = 1
+	st.Fstart = 0
+	st.Fend = st.Fmode.FeffEBands
+	st.Fsignalling = 1
+	st.Fdisable_inv = libc.BoolInt32(channels == 1)
+	st.Farch = 0
+	celt_decoder_reset(tls, st)
 	return OPUS_OK
 }
 

@@ -49,6 +49,38 @@ func TestMSValidationAgainstC(t *testing.T) {
 	}
 }
 
+func TestCustomDecoderInitAgainstC(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		for _, bands := range []int32{0, 1, 21, 32} {
+			for _, overlap := range []int32{0, 12, 120} {
+				mode := &opuscc.OpusT_OpusCustomMode{Foverlap: overlap, FnbEBands: bands, FeffEBands: bands - 1}
+				size := int(opuscc.CompareCustomDecoderSize(mode, channels))
+				storage := new(struct {
+					State opuscc.OpusT_OpusCustomDecoder
+					Tail  [6000]float32
+				})
+				g := unsafe.Slice((*byte)(unsafe.Pointer(&storage.State)), size+16)
+				for i := int(unsafe.Sizeof(storage.State.Fmode)); i < len(g); i++ {
+					g[i] = 0xa5
+				}
+				c := slices.Clone(g)
+				code := opuscc.CompareCustomDecoderInit(&storage.State, mode, channels)
+				native := nativeCeltState(c, 1, channels, 48000, overlap, bands, bands-1)
+				normalized := slices.Clone(g)
+				clear(normalized[:unsafe.Sizeof(storage.State.Fmode)])
+				if code != native || !slices.Equal(normalized, c) {
+					t.Fatal(channels, bands, overlap, "initialization image", code, native)
+				}
+			}
+		}
+	}
+	for _, ch := range []int32{-1, 0, 1, 2, 3} {
+		if g, c := opuscc.CompareCustomDecoderInit(nil, nil, ch), nativeCeltState(nil, 1, ch, 48000, 120, 21, 21); g != c {
+			t.Fatal("nil/invalid", ch, g, c)
+		}
+	}
+}
+
 func TestCeltResetAgainstC(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		for _, bands := range []int32{0, 1, 21, 32} {
