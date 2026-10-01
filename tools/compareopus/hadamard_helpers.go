@@ -3,6 +3,10 @@
 package main
 
 /*
+#define FLOAT_APPROX 1
+#define OPUS_DISABLE_INTRINSICS 1
+static void scalar_anti_renormalise(float *x,int n,float gain,int arch);
+#define renormalise_vector scalar_anti_renormalise
 #define VAR_ARRAYS 1
 #define celt_lcg_rand compare_hadamard_lcg_rand
 #define hysteresis_decision compare_hadamard_hysteresis
@@ -16,11 +20,18 @@ package main
 #define haar1 compare_hadamard_haar1
 #define quant_all_bands compare_hadamard_quant_all_bands
 #include "../../../opus/celt/bands.c"
+// Use the scalar vq.c normalization path, not the linked build's presumed SSE.
+static void scalar_anti_renormalise(float *x,int n,float gain,int arch) {
+ float energy=EPSILON+celt_inner_prod_c(x,x,n);float g=celt_rsqrt(energy)*gain;for(int i=0;i<n;i++)x[i]=g*x[i];
+}
 static unsigned native_quant_n1(unsigned *s,unsigned char *buf,float *v,int encode,int resynth,int *remaining,int y,int low,int done) {
  ec_ctx ec={0};ec.buf=buf;ec.storage=s[0];ec.end_offs=s[1];ec.end_window=s[2];ec.nend_bits=s[3];ec.nbits_total=s[4];ec.offs=s[5];ec.rng=s[6];ec.val=s[7];ec.ext=s[8];ec.rem=s[9];ec.error=s[10];
  struct band_ctx ctx={0};ctx.encode=encode;ctx.resynth=resynth;ctx.remaining_bits=*remaining;ctx.ec=&ec;
  unsigned result=quant_band_n1(&ctx,v,y<0?NULL:v+y,low<0?NULL:v+low);if(done&&encode)ec_enc_done(&ec);*remaining=ctx.remaining_bits;
  s[0]=ec.storage;s[1]=ec.end_offs;s[2]=ec.end_window;s[3]=ec.nend_bits;s[4]=ec.nbits_total;s[5]=ec.offs;s[6]=ec.rng;s[7]=ec.val;s[8]=ec.ext;s[9]=ec.rem;s[10]=ec.error;return result;
+}
+static void native_anti_collapse(const short *bands,int nb,float *x,unsigned char *masks,int lm,int channels,int size,int start,int end,const float *energy,const float *p1,const float *p2,const int *pulses,unsigned seed,int encode) {
+ CELTMode mode={0};mode.eBands=bands;mode.nbEBands=nb;anti_collapse(&mode,x,masks,lm,channels,size,start,end,energy,p1,p2,pulses,seed,encode,0);
 }
 static void compare_interleave(float *x,int n0,int stride,int hadamard) {
  interleave_hadamard(x,n0,stride,hadamard);
@@ -48,6 +59,10 @@ func nativeQuantN1(e *opuscc.OpusT_ec_ctx, buf []byte, v []float32, encode, resy
 	e.Frem = int32(s[9])
 	e.Ferror1 = int32(s[10])
 	return uint32(result)
+}
+
+func nativeAntiCollapse(bands []int16, nb int32, x []float32, masks []byte, lm, channels, size, start, end int32, energy, p1, p2 []float32, pulses []int32, seed uint32, encode int32) {
+	C.native_anti_collapse((*C.short)(unsafe.Pointer(unsafe.SliceData(bands))), C.int(nb), (*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(masks))), C.int(lm), C.int(channels), C.int(size), C.int(start), C.int(end), (*C.float)(unsafe.Pointer(unsafe.SliceData(energy))), (*C.float)(unsafe.Pointer(unsafe.SliceData(p1))), (*C.float)(unsafe.Pointer(unsafe.SliceData(p2))), (*C.int)(unsafe.Pointer(unsafe.SliceData(pulses))), C.uint(seed), C.int(encode))
 }
 
 func nativeInterleaveHadamard(x []float32, n0, stride, hadamard int32) {

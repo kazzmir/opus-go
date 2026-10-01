@@ -1595,136 +1595,92 @@ func Opus_denormalise_bands(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSiz
 // C documentation
 //
 //	/* This prevents energy collapse for transients with multiple short MDCTs */
-func Opus_anti_collapse(tls *libc.TLS, m uintptr, X_ uintptr, collapse_masks uintptr, LM int32, C int32, size int32, start int32, end int32, logE uintptr, prev1logE uintptr, prev2logE uintptr, pulses uintptr, seed OpusT_opus_uint32, encode int32, arch int32) {
-	var Ediff, v13 OpusT_opus_val32
-	var N0, c, depth, i, j, k, renormalize, v8 int32
-	var X uintptr
-	var frac, v5, v6 float32
-	var integer OpusT_opus_int32
-	var prev1, prev2, v10 OpusT_celt_glog
-	var r, v20 OpusT_celt_norm
-	var sqrt_1, thresh, v17 OpusT_opus_val16
-	var res, v2, v3 OpusT_opus_uint32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = Ediff, N0, X, c, depth, frac, i, integer, j, k, prev1, prev2, r, renormalize, sqrt_1, thresh, v10, v13, v17, v2, v20, v3, v5, v6, v8
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
-		N0 = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i)*2)))
-		/* depth in 1/8 bits */
-		_ = *(*int32)(unsafe.Pointer(pulses + uintptr(i)*4)) >= int32(0)
-		v2 = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i)*2))))
-		_ = v2 > uint32(0)
-		v3 = uint32(int32(1)+*(*int32)(unsafe.Pointer(pulses + uintptr(i)*4))) / v2
-		depth = int32(v3 >> LM)
-		v5 = float32(-float32(0.125) * float32(depth))
-		integer = int32(libc.Xfloor(tls, float64(v5)))
-		if integer < -int32(50) {
-			v6 = float32(0)
-			goto _7
-		}
-		frac = v5 - float32(integer)
-		*(*float32)(unsafe.Pointer(&res)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
-		res = uint32(int32(res)+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
-		v6 = *(*float32)(unsafe.Pointer(&res))
-	_7:
-		thresh = OpusT_opus_val16(float32(0.5) * v6)
-		sqrt_1 = float32(1) / float32(libc.Xsqrt(tls, float64(N0<<LM)))
-		c = 0
-		for {
-			renormalize = 0
-			prev1 = *(*OpusT_celt_glog)(unsafe.Pointer(prev1logE + uintptr(c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4))
-			prev2 = *(*OpusT_celt_glog)(unsafe.Pointer(prev2logE + uintptr(c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4))
-			if !(encode != 0) && C == int32(1) {
-				if prev1 > *(*OpusT_celt_glog)(unsafe.Pointer(prev1logE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4)) {
-					v10 = prev1
-				} else {
-					v10 = *(*OpusT_celt_glog)(unsafe.Pointer(prev1logE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4))
-				}
-				prev1 = v10
-				if prev2 > *(*OpusT_celt_glog)(unsafe.Pointer(prev2logE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4)) {
-					v10 = prev2
-				} else {
-					v10 = *(*OpusT_celt_glog)(unsafe.Pointer(prev2logE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4))
-				}
-				prev2 = v10
-			}
-			if prev1 < prev2 {
-				v10 = prev1
-			} else {
-				v10 = prev2
-			}
-			Ediff = *(*OpusT_celt_glog)(unsafe.Pointer(logE + uintptr(c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4)) - v10
-			if float32(int32(0)) > Ediff {
-				v13 = float32(int32(0))
-			} else {
-				v13 = Ediff
-			}
-			Ediff = v13
-			/* r needs to be multiplied by 2 or 2*sqrt(2) depending on LM because
-			   short blocks don't have the same energy as long */
-			v5 = -Ediff
-			integer = int32(libc.Xfloor(tls, float64(v5)))
-			if integer < -int32(50) {
-				v6 = float32(0)
-				goto _16
-			}
-			frac = v5 - float32(integer)
-			*(*float32)(unsafe.Pointer(&res)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
-			res = uint32(int32(res)+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
-			v6 = *(*float32)(unsafe.Pointer(&res))
-		_16:
-			r = OpusT_celt_norm(float32(2) * v6)
-			if LM == int32(3) {
-				r = r * float32(1.41421356)
-			}
-			if thresh < r {
-				v17 = thresh
-			} else {
-				v17 = r
-			}
-			r = v17
-			r = OpusT_celt_norm(r * sqrt_1)
-			X = X_ + uintptr(c*size)*4 + uintptr(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i)*2)))<<LM)*4
-			k = 0
-			for {
-				if !(k < int32(1)<<LM) {
-					break
-				}
-				/* Detect collapse */
-				if !(int32(*(*uint8)(unsafe.Pointer(collapse_masks + uintptr(i*C+c))))&(int32(1)<<k) != 0) {
-					/* Fill with noise */
-					j = 0
-					for {
-						if !(j < N0) {
-							break
-						}
-						seed = Opus_celt_lcg_rand(tls, seed)
-						if seed&uint32(0x8000) != 0 {
-							v20 = r
-						} else {
-							v20 = -r
-						}
-						*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j<<LM+k)*4)) = v20
-						j = j + 1
-					}
-					renormalize = int32(1)
-				}
-				k = k + 1
-			}
-			/* We just added some energy, so we need to renormalise */
-			if renormalize != 0 {
-				Opus_renormalise_vector(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N0<<LM, float32(1), arch)
-			}
-			c = c + 1
-			v8 = c
-			if !(v8 < C) {
-				break
-			}
-		}
-		i = i + 1
+func collapseExp2(x float32) float32 {
+	integer := int32(math.Floor(float64(x)))
+	if integer < -50 {
+		return 0
 	}
+	frac := x - float32(integer)
+	p := float32(0.00898933969438076) + float32(frac*float32(0.0018775766948238015))
+	p = float32(0.05582631751894951) + float32(frac*p)
+	p = float32(0.24015361070632935) + float32(frac*p)
+	p = float32(0.6931530833244324) + float32(frac*p)
+	p = float32(0.9999999403953552) + float32(frac*p)
+	return math.Float32frombits((math.Float32bits(p) + (uint32(integer) << 23)) & 0x7fffffff)
+}
+
+func Opus_anti_collapse(tls *libc.TLS, bands *int16, nbBands int32, X *float32, masks *byte, LM, C, size, start, end int32, logE, prev1logE, prev2logE *float32, pulses *int32, seed uint32, encode, arch int32) {
+	if start >= end {
+		return
+	}
+	b := unsafe.Slice(bands, end+1)
+	x := unsafe.Slice(X, max(C, 1)*size)
+	mask := unsafe.Slice(masks, max(end*C, 1))
+	pulse := unsafe.Slice(pulses, end)
+	energy := unsafe.Slice(logE, max(C, 1)*nbBands)
+	historyChannels := max(C, 1)
+	if encode == 0 && C == 1 {
+		historyChannels = 2
+	}
+	p1 := unsafe.Slice(prev1logE, historyChannels*nbBands)
+	p2 := unsafe.Slice(prev2logE, historyChannels*nbBands)
+	for i := start; i < end; i++ {
+		n0 := int32(b[i+1]) - int32(b[i])
+		depth := int32((uint32(1+pulse[i]) / uint32(n0)) >> LM)
+		threshold := float32(.5) * collapseExp2(float32(-.125)*float32(depth))
+		sqrt1 := float32(1) / float32(math.Sqrt(float64(n0<<LM)))
+		for c := int32(0); c < max(C, 1); c++ {
+			index := c*nbBands + i
+			prev1, prev2 := p1[index], p2[index]
+			if encode == 0 && C == 1 {
+				if !(prev1 > p1[nbBands+i]) {
+					prev1 = p1[nbBands+i]
+				}
+				if !(prev2 > p2[nbBands+i]) {
+					prev2 = p2[nbBands+i]
+				}
+			}
+			previous := prev2
+			if prev1 < prev2 {
+				previous = prev1
+			}
+			diff := energy[index] - previous
+			if 0 > diff {
+				diff = 0
+			}
+			r := float32(2) * collapseExp2(-diff)
+			if LM == 3 {
+				r = float32(r * float32(1.41421356))
+			}
+			if threshold < r {
+				r = threshold
+			}
+			r = float32(r * sqrt1)
+			offset := c*size + (int32(b[i]) << LM)
+			renormalize := false
+			for k := int32(0); k < 1<<LM; k++ {
+				if int32(mask[i*C+c])&(1<<k) == 0 {
+					for j := int32(0); j < n0; j++ {
+						seed = Opus_celt_lcg_rand(tls, seed)
+						value := -r
+						if seed&0x8000 != 0 {
+							value = r
+						}
+						x[offset+(j<<LM)+k] = value
+					}
+					renormalize = true
+				}
+			}
+			if renormalize {
+				Opus_renormalise_vector(tls, &x[offset], n0<<LM, 1, arch)
+			}
+		}
+	}
+}
+
+func anti_collapse_legacy(tls *libc.TLS, m, X, masks uintptr, LM, C, size, start, end int32, logE, p1, p2, pulses uintptr, seed uint32, encode, arch int32) {
+	mode := (*OpusT_OpusCustomMode)(unsafe.Pointer(m))
+	Opus_anti_collapse(tls, (*int16)(unsafe.Pointer(mode.FeBands)), mode.FnbEBands, (*float32)(unsafe.Pointer(X)), (*byte)(unsafe.Pointer(masks)), LM, C, size, start, end, (*float32)(unsafe.Pointer(logE)), (*float32)(unsafe.Pointer(p1)), (*float32)(unsafe.Pointer(p2)), (*int32)(unsafe.Pointer(pulses)), seed, encode, arch)
 }
 
 // C documentation
