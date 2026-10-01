@@ -23,6 +23,45 @@ func modePulseIndex(m *OpusT_OpusCustomMode, index int32) int16 {
 	return *(*int16)(unsafe.Add(unsafe.Pointer(m.Fcache.Findex), uintptr(index)*2))
 }
 
+func modePulseCache(m *OpusT_OpusCustomMode, index int32) *byte {
+	bits := m.Fcache.Fbits
+	offset := modePulseIndex(m, index)
+	return (*byte)(unsafe.Add(unsafe.Pointer(bits), int(offset)))
+}
+
+func modePulseByte(cache *byte, index int32) byte {
+	return *(*byte)(unsafe.Add(unsafe.Pointer(cache), int(index)))
+}
+
+// These are the scalar rate.h searches, with C int32 wrapping and tie order.
+func modeBits2Pulses(cache *byte, bits int32) int32 {
+	lo, hi := int32(0), int32(*cache)
+	bits--
+	for i := 0; i < LOG_MAX_PSEUDO; i++ {
+		mid := (lo + hi + 1) >> 1
+		if int32(modePulseByte(cache, mid)) >= bits {
+			hi = mid
+		} else {
+			lo = mid
+		}
+	}
+	lowBits := int32(-1)
+	if lo != 0 {
+		lowBits = int32(modePulseByte(cache, lo))
+	}
+	if bits-lowBits <= int32(modePulseByte(cache, hi))-bits {
+		return lo
+	}
+	return hi
+}
+
+func modePulses2Bits(cache *byte, pulses int32) int32 {
+	if pulses == 0 {
+		return 0
+	}
+	return int32(modePulseByte(cache, pulses)) + 1
+}
+
 func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frameSize int32) (*OpusT_OpusCustomMode, error) {
 	for _, mode := range static_mode_list {
 		for j := uint(0); j < 4; j++ {
@@ -2326,7 +2365,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 	b := _b
 	fill := _fill
 	var B0, K, curr_bits, delta, encode, hi, i1, i2, imid, iside, itheta, j, lo, mbits, mid, q, qalloc, sbits, spread, v1, v2, v3, v4 int32
-	var Y, cache, cache1, cache2, ec, m2, next_lowband2, v5 uintptr
+	var Y, ec, m2, next_lowband2, v5 uintptr
+	var cache, cache1, cache2 *byte
 	var cm, cm_mask uint32
 	var mid1, side OpusT_opus_val32
 	var rebalance OpusT_opus_int32
@@ -2346,8 +2386,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 	spread = ctx.Fspread
 	ec = ctx.Fec
 	/* If we need 1.5 more bit than we can produce, split the band in two. */
-	cache2 = (*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).Fcache.Fbits + uintptr(modePulseIndex((*OpusT_OpusCustomMode)(unsafe.Pointer(m2)), (LM2+int32(1))*(*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).FnbEBands+i2))
-	if LM2 != -int32(1) && b > int32(*(*uint8)(unsafe.Pointer(cache2 + uintptr(*(*uint8)(unsafe.Pointer(cache2))))))+int32(12) && N > int32(2) {
+	cache2 = modePulseCache((*OpusT_OpusCustomMode)(unsafe.Pointer(m2)), (LM2+int32(1))*(*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).FnbEBands+i2)
+	if LM2 != -int32(1) && b > int32(modePulseByte(cache2, int32(*cache2)))+int32(12) && N > int32(2) {
 		next_lowband2 = uintptr(uint32(0))
 		N = N >> int32(1)
 		Y = X + uintptr(N)*4
@@ -2417,71 +2457,18 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 			cm = cm | quant_partition(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), fill)
 		}
 	} else {
-		/* This is the basic no-split case */
-		v5 = m2
-		v1 = LM2
-		v2 = b
-		v1 = v1 + 1
-		cache = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(modePulseIndex((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)), v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2))
-		lo = 0
-		hi = int32(*(*uint8)(unsafe.Pointer(cache)))
-		v2 = v2 - 1
-		i1 = int32(0)
-		for {
-			if !(i1 < int32(LOG_MAX_PSEUDO)) {
-				break
-			}
-			mid = (lo + hi + int32(1)) >> int32(1)
-			if int32(*(*uint8)(unsafe.Pointer(cache + uintptr(mid)))) >= v2 {
-				hi = mid
-			} else {
-				lo = mid
-			}
-			i1 = i1 + 1
-		}
-		if lo == 0 {
-			v3 = -int32(1)
-		} else {
-			v3 = int32(*(*uint8)(unsafe.Pointer(cache + uintptr(lo))))
-		}
-		if v2-v3 <= int32(*(*uint8)(unsafe.Pointer(cache + uintptr(hi))))-v2 {
-			v4 = lo
-			goto _11
-		} else {
-			v4 = hi
-			goto _11
-		}
-	_11:
-		q = v4
-		v5 = m2
-		v1 = LM2
-		v2 = q
-		v1 = v1 + 1
-		cache1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(modePulseIndex((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)), v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2))
-		if v2 == 0 {
-			v4 = 0
-		} else {
-			v4 = int32(*(*uint8)(unsafe.Pointer(cache1 + uintptr(v2)))) + int32(1)
-		}
-		v3 = v4
-		curr_bits = v3
+		/* This is the basic no-split case. Reload the cache for each C helper. */
+		cache = modePulseCache((*OpusT_OpusCustomMode)(unsafe.Pointer(m2)), (LM2+1)*(*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).FnbEBands+i2)
+		q = modeBits2Pulses(cache, b)
+		cache1 = modePulseCache((*OpusT_OpusCustomMode)(unsafe.Pointer(m2)), (LM2+1)*(*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).FnbEBands+i2)
+		curr_bits = modePulses2Bits(cache1, q)
 		ctx.Fremaining_bits -= curr_bits
 		/* Ensures we can never bust the budget */
 		for ctx.Fremaining_bits < 0 && q > 0 {
 			ctx.Fremaining_bits += curr_bits
 			q = q - 1
-			v5 = m2
-			v1 = LM2
-			v2 = q
-			v1 = v1 + 1
-			cache1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(modePulseIndex((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)), v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2))
-			if v2 == 0 {
-				v4 = 0
-			} else {
-				v4 = int32(*(*uint8)(unsafe.Pointer(cache1 + uintptr(v2)))) + int32(1)
-			}
-			v3 = v4
-			curr_bits = v3
+			cache1 = modePulseCache((*OpusT_OpusCustomMode)(unsafe.Pointer(m2)), (LM2+1)*(*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).FnbEBands+i2)
+			curr_bits = modePulses2Bits(cache1, q)
 			ctx.Fremaining_bits -= curr_bits
 		}
 		if q != 0 {

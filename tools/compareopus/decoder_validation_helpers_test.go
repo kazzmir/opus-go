@@ -62,6 +62,40 @@ func TestModePulseIndexTableAgainstC(t *testing.T) {
 	}
 }
 
+func TestModePulseBitsTableAgainstC(t *testing.T) {
+	m, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := make([]byte, m.Fcache.Fsize)
+	layout := nativeModeRemainingTable(2, unsafe.Pointer(&data[0]))
+	want := [3]uint64{uint64(unsafe.Sizeof(m.Fcache)), uint64(unsafe.Offsetof(m.Fcache.Fbits)), uint64(len(data))}
+	if layout != want || !slices.Equal(data, unsafe.Slice(m.Fcache.Fbits, len(data))) {
+		t.Fatal("pulse bits layout/payload", layout, want)
+	}
+	index := unsafe.Slice(m.Fcache.Findex, int((m.FmaxLM+2)*m.FnbEBands))
+	for LM := int32(-1); LM <= m.FmaxLM; LM++ {
+		for band := int32(0); band < m.FnbEBands; band++ {
+			offset := index[(LM+1)*m.FnbEBands+band]
+			if offset < 0 {
+				continue
+			}
+			max := int32(data[offset])
+			for bits := int32(-2); bits <= 400; bits++ {
+				pulse := bits % (max + 1)
+				if pulse < 0 {
+					pulse = 0
+				}
+				gq, gb := opuscc.CompareModePulseRate(m, band, LM, bits, pulse)
+				cq, cb := nativeModePulseRate(band, LM, bits, pulse)
+				if gq != cq || gb != cb {
+					t.Fatal(band, LM, bits, pulse, gq, cq, gb, cb)
+				}
+			}
+		}
+	}
+}
+
 func TestCustomDecoderSizeAgainstC(t *testing.T) {
 	for _, overlap := range []int32{0, 60, 120, 240} {
 		for _, bands := range []int32{0, 1, 21, 25} {

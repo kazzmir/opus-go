@@ -98,6 +98,54 @@ func TestModePulseIndexPointers(t *testing.T) {
 	runtime.KeepAlive(m)
 }
 
+func TestModePulseBitsPointers(t *testing.T) {
+	makeMode := func() *OpusT_OpusCustomMode {
+		m := mode48000_960_120
+		index := slices.Clone(cache_index50[:])
+		bits := slices.Clone(cache_bits50[:])
+		m.Fcache.Findex = &index[0]
+		m.Fcache.Fbits = &bits[0]
+		return &m
+	}
+	m := makeMode()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if !slices.Equal(unsafe.Slice(m.Fcache.Fbits, int(m.Fcache.Fsize)), cache_bits50[:]) {
+		t.Fatal("owned pulse bits")
+	}
+	for i, offset := range cache_index50 {
+		if offset < 0 {
+			continue
+		}
+		cache := modePulseCache(m, int32(i))
+		max := int32(*cache)
+		for pulse := int32(0); pulse <= max; pulse++ {
+			want := int32(0)
+			if pulse != 0 {
+				want = int32(cache_bits50[int(offset)+int(pulse)]) + 1
+			}
+			if modePulses2Bits(cache, pulse) != want {
+				t.Fatal(i, pulse)
+			}
+		}
+		for bits := int32(-2); bits <= 260; bits++ {
+			q := modeBits2Pulses(cache, bits)
+			if q < 0 || q > max {
+				t.Fatal(i, bits, q)
+			}
+		}
+	}
+	// Signed index -1 must remain a backwards interior offset, not an unsigned load.
+	guarded := []byte{0, 77}
+	index := []int16{-1}
+	m.Fcache.Fbits = &guarded[1]
+	m.Fcache.Findex = &index[0]
+	if cache := modePulseCache(m, 0); cache != &guarded[0] || modeBits2Pulses(cache, 1) != 0 || modePulses2Bits(cache, 0) != 0 {
+		t.Fatal("signed cache offset / zero pulses")
+	}
+	runtime.KeepAlive(m)
+}
+
 func TestCapsPointers(t *testing.T) {
 	bands := [4]int16{0, 1, 3, 7}
 	var cache [24]uint8

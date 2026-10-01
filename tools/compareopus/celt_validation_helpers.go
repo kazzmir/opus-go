@@ -42,6 +42,7 @@ static int native_plc_pitch(float *left,float *right,int channels) {float *data[
 static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
 #undef opus_custom_mode_create
 #undef opus_custom_mode_destroy
+static void native_mode_pulse_rate(int band,int LM,int bits,int pulses,int *v) {CELTMode *m=comparison_mode_create(48000,960,NULL);v[0]=bits2pulses(m,band,LM,bits);v[1]=pulses2bits(m,band,LM,pulses);}
 static void native_mode_remaining_table(int op,void *out,size_t *v) {
  CELTMode *m=comparison_mode_create(48000,960,NULL);const void *p;
  v[0]=sizeof(CELTMode);
@@ -80,6 +81,12 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeModePulseRate(band, LM, bits, pulses int32) (int32, int32) {
+	var v [2]C.int
+	C.native_mode_pulse_rate(C.int(band), C.int(LM), C.int(bits), C.int(pulses), &v[0])
+	return int32(v[0]), int32(v[1])
+}
 
 func nativeModeRemainingTable(op int, data unsafe.Pointer) [3]uint64 {
 	var v [3]C.size_t

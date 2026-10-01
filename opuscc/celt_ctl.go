@@ -7578,7 +7578,7 @@ var mode48000_960_120 = OpusT_OpusCustomMode{
 	Fcache: OpusT_PulseCache{
 		Fsize:  int32(392),
 		Findex: &cache_index50[0],
-		Fbits:  uintptr(unsafe.Pointer(&cache_bits50)),
+		Fbits:  &cache_bits50[0],
 		Fcaps:  &cache_caps50[0],
 	},
 }
