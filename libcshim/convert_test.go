@@ -1,6 +1,63 @@
 package libcshim
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+	"unsafe"
+)
+
+func TestMallocPointer(t *testing.T) {
+	if XmallocPointer(nil, ^uint64(0)) != nil || Xmalloc(nil, 1) != 0 {
+		t.Fatal("nil TLS")
+	}
+	for _, size := range []uint64{0, 1, 15, 16, 17, 255, 4096} {
+		tls := NewTLS()
+		p := XmallocPointer(tls, size)
+		if p == nil || uintptr(p)&15 != 0 || len(tls.heap) != 1 || tls.heap[uintptr(p)] == nil {
+			t.Fatal("allocation/alignment/registry", size)
+		}
+		n := int(size)
+		if n == 0 {
+			n = 1
+		}
+		view := unsafe.Slice((*byte)(p), n)
+		for _, b := range view {
+			if b != 0 {
+				t.Fatal("zeroed storage")
+			}
+		}
+		view[n-1] = 77
+		runtime.GC()
+		if view[n-1] != 77 {
+			t.Fatal("lifetime")
+		}
+		XfreePointer(tls, p)
+		if len(tls.heap) != 0 {
+			t.Fatal("unregister")
+		}
+		tls.Close()
+		runtime.GC()
+		if *(*byte)(unsafe.Add(p, n-1)) != 77 {
+			t.Fatal("typed backing ownership")
+		}
+	}
+	tls := NewTLS()
+	defer tls.Close()
+	a, b := XmallocPointer(tls, 32), XmallocPointer(tls, 32)
+	if a == b || len(tls.heap) != 2 {
+		t.Fatal("independent allocations")
+	}
+	Xfree(tls, uintptr(a))
+	XfreePointer(tls, b)
+	if len(tls.heap) != 0 {
+		t.Fatal("mixed free boundaries")
+	}
+	panicked := false
+	func() { defer func() { panicked = recover() != nil }(); XmallocPointer(tls, ^uint64(0)) }()
+	if !panicked || len(tls.heap) != 0 {
+		t.Fatal("oversized allocation")
+	}
+}
 
 // C converts a signed integer to a wider unsigned type by value modulo
 // 2^N - i.e. it sign-extends first. Transpiled expressions like

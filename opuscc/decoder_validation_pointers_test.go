@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	libc "github.com/kazzmir/opus-go/libcshim"
 	"runtime"
 	"slices"
 	"testing"
@@ -15,6 +16,24 @@ func validationPanics(f func()) (panicked bool) {
 	}()
 	f()
 	return false
+}
+
+func TestDecoderAllocationPointers(t *testing.T) {
+	tls := libc.NewTLS()
+	p := libc.XmallocPointer(tls, uint64(Opus_opus_decoder_get_size(nil, 2)))
+	st := (*OpusT_OpusDecoder)(p)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_decoder_init(nil, st, 48000, 2) != 0 || st.Fchannels != 2 || st.FFs != 48000 {
+		t.Fatal("typed allocated initialization")
+	}
+	libc.XfreePointer(tls, p)
+	tls.Close()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if st.Fchannels != 2 || st.FFs != 48000 {
+		t.Fatal("typed allocation ownership")
+	}
 }
 
 func TestCustomDecoderSizePointers(t *testing.T) {

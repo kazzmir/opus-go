@@ -154,10 +154,17 @@ func VaInt32(ap *uintptr) int32 {
 
 // ---- Memory allocation / libc-ish primitives ----
 
-// Xmalloc allocates size bytes and returns a 16-byte aligned pointer.
+// Xmalloc is the legacy integer-address allocation boundary.
 func Xmalloc(tls *TLS, size uint64) uintptr {
+	return uintptr(XmallocPointer(tls, size))
+}
+
+// XmallocPointer allocates registered, zeroed storage with 16-byte alignment.
+// The typed pointer retains its Go backing allocation independently of the registry.
+// Storage is still a byte allocation, not a GC-scanned C struct allocation.
+func XmallocPointer(tls *TLS, size uint64) unsafe.Pointer {
 	if tls == nil {
-		return 0
+		return nil
 	}
 	if size == 0 {
 		size = 1
@@ -166,8 +173,9 @@ func Xmalloc(tls *TLS, size uint64) uintptr {
 		panic("libcshim: Xmalloc too large")
 	}
 	buf := make([]byte, int(size)+16)
-	base := uintptr(unsafe.Pointer(unsafe.SliceData(buf)))
-	aligned := (base + 15) &^ 15
+	base := unsafe.Pointer(unsafe.SliceData(buf))
+	pointer := unsafe.Add(base, (-uintptr(base))&15)
+	aligned := uintptr(pointer)
 
 	tls.heapMu.Lock()
 	if tls.heap == nil {
@@ -175,8 +183,11 @@ func Xmalloc(tls *TLS, size uint64) uintptr {
 	}
 	tls.heap[aligned] = &heapAlloc{buf: buf}
 	tls.heapMu.Unlock()
-	return aligned
+	return pointer
 }
+
+// XfreePointer unregisters storage; callers must stop using it as with Xfree.
+func XfreePointer(tls *TLS, p unsafe.Pointer) { Xfree(tls, uintptr(p)) }
 
 func Xfree(tls *TLS, p uintptr) {
 	if tls == nil || p == 0 {
