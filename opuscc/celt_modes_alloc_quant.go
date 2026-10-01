@@ -1761,132 +1761,87 @@ func stereo_merge(tls *libc.TLS, X *OpusT_celt_norm, Y *OpusT_celt_norm, mid Opu
 // C documentation
 //
 //	/* Decide whether we should spread the pulses in the current frame */
-func Opus_spreading_decision(tls *libc.TLS, m uintptr, X uintptr, average uintptr, last_decision int32, hf_average uintptr, tapset_decision uintptr, update_hf int32, end int32, C int32, M int32, spread_weight uintptr) (r int32) {
-	var N, N0, c, decision, hf_sum, i, j, nbBands, sum, tmp, v1 int32
-	var eBands, x uintptr
-	var tcount [3]int32
-	var x2N OpusT_opus_val32
-	var v5, v6 OpusT_opus_uint32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N0, c, decision, eBands, hf_sum, i, j, nbBands, sum, tcount, tmp, x, x2N, v1, v5, v6
-	sum = 0
-	nbBands = 0
-	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands
-	hf_sum = 0
-	if !(end > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5328, __ccgo_ts+5312, int32(480))
+func Opus_spreading_decision(tls *libc.TLS, bands *int16, nbBands, shortMdctSize int32, X *float32, average *int32, lastDecision int32, hfAverage, tapset *int32, updateHF, end, C, M int32, spreadWeight *int32) int32 {
+	if end <= 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+5328, __ccgo_ts+5312, 480)
 	}
-	N0 = M * (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FshortMdctSize
-	if M*(int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(end)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(end-int32(1))*2)))) <= int32(8) {
+	b := unsafe.Slice(bands, end+1)
+	n0 := M * shortMdctSize
+	if M*(int32(b[end])-int32(b[end-1])) <= 8 {
 		return SPREAD_NONE
 	}
-	c = 0
-	for {
-		i = 0
-		for {
-			if !(i < end) {
-				break
+	x := unsafe.Slice(X, max(C, 1)*n0)
+	weights := unsafe.Slice(spreadWeight, end)
+	var sum, weightedBands, hfSum int32
+	for c := int32(0); c < max(C, 1); c++ {
+		for i := int32(0); i < end; i++ {
+			n := M * (int32(b[i+1]) - int32(b[i]))
+			if n <= 8 {
+				continue
 			}
-			tmp = 0
-			tcount = [3]int32{}
-			x = X + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i)*2))))*4 + uintptr(c*N0)*4
-			N = M * (int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i)*2))))
-			if N <= int32(8) {
-				goto _3
+			var count [3]int32
+			offset := M*int32(b[i]) + c*n0
+			for j := int32(0); j < n; j++ {
+				value := x[offset+j]
+				square := float32(value * value)
+				v := float32(square * float32(n))
+				if v < .25 {
+					count[0]++
+				}
+				if v < .0625 {
+					count[1]++
+				}
+				if v < .015625 {
+					count[2]++
+				}
 			}
-			/* Compute rough CDF of |x[j]| */
-			j = 0
-			for {
-				if !(j < N) {
-					break
-				}
-				/* Q13 */
-				x2N = OpusT_opus_val32(OpusT_celt_norm(*(*OpusT_celt_norm)(unsafe.Pointer(x + uintptr(j)*4))**(*OpusT_celt_norm)(unsafe.Pointer(x + uintptr(j)*4))) * float32(N))
-				if x2N < float32(0.25) {
-					tcount[0] = tcount[0] + 1
-				}
-				if x2N < float32(0.0625) {
-					tcount[int32(1)] = tcount[int32(1)] + 1
-				}
-				if x2N < float32(0.015625) {
-					tcount[int32(2)] = tcount[int32(2)] + 1
-				}
-				j = j + 1
+			if i > nbBands-4 {
+				hfSum = int32(uint32(hfSum) + uint32(32*(count[1]+count[0]))/uint32(n))
 			}
-			/* Only include four last bands (8 kHz and up) */
-			if i > (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands-int32(4) {
-				v5 = uint32(N)
-				_ = v5 > uint32(0)
-				v6 = uint32(int32(32)*(tcount[int32(1)]+tcount[0])) / v5
-				hf_sum = int32(uint32(hf_sum) + v6)
-			}
-			tmp = libc.BoolInt32(int32(2)*tcount[int32(2)] >= N) + libc.BoolInt32(int32(2)*tcount[int32(1)] >= N) + libc.BoolInt32(int32(2)*tcount[0] >= N)
-			sum = sum + tmp**(*int32)(unsafe.Pointer(spread_weight + uintptr(i)*4))
-			nbBands = nbBands + *(*int32)(unsafe.Pointer(spread_weight + uintptr(i)*4))
-		_3:
-			i = i + 1
-		}
-		c = c + 1
-		v1 = c
-		if !(v1 < C) {
-			break
+			tmp := libc.BoolInt32(2*count[2] >= n) + libc.BoolInt32(2*count[1] >= n) + libc.BoolInt32(2*count[0] >= n)
+			sum += tmp * weights[i]
+			weightedBands += weights[i]
 		}
 	}
-	if update_hf != 0 {
-		if hf_sum != 0 {
-			v5 = uint32(C * (int32(4) - (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands + end))
-			_ = v5 > uint32(0)
-			v6 = uint32(hf_sum) / v5
-			hf_sum = int32(v6)
+	if updateHF != 0 {
+		if hfSum != 0 {
+			hfSum = int32(uint32(hfSum) / uint32(C*(4-nbBands+end)))
 		}
-		*(*int32)(unsafe.Pointer(hf_average)) = (*(*int32)(unsafe.Pointer(hf_average)) + hf_sum) >> int32(1)
-		hf_sum = *(*int32)(unsafe.Pointer(hf_average))
-		if *(*int32)(unsafe.Pointer(tapset_decision)) == int32(2) {
-			hf_sum = hf_sum + int32(4)
+		*hfAverage = (*hfAverage + hfSum) >> 1
+		hfSum = *hfAverage
+		if *tapset == 2 {
+			hfSum += 4
+		} else if *tapset == 0 {
+			hfSum -= 4
+		}
+		if hfSum > 22 {
+			*tapset = 2
+		} else if hfSum > 18 {
+			*tapset = 1
 		} else {
-			if *(*int32)(unsafe.Pointer(tapset_decision)) == 0 {
-				hf_sum = hf_sum - int32(4)
-			}
-		}
-		if hf_sum > int32(22) {
-			*(*int32)(unsafe.Pointer(tapset_decision)) = int32(2)
-		} else {
-			if hf_sum > int32(18) {
-				*(*int32)(unsafe.Pointer(tapset_decision)) = int32(1)
-			} else {
-				*(*int32)(unsafe.Pointer(tapset_decision)) = 0
-			}
+			*tapset = 0
 		}
 	}
-	/*printf("%d %d %d\n", hf_sum, *hf_average, *tapset_decision);*/
-	if !(nbBands > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5352, __ccgo_ts+5312, int32(536))
-	} /* end has to be non-zero */
-	if !(sum >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5380, __ccgo_ts+5312, int32(537))
+	if weightedBands <= 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+5352, __ccgo_ts+5312, 536)
 	}
-	v5 = uint32(nbBands)
-	_ = v5 > uint32(0)
-	v6 = uint32(sum<<int32(8)) / v5
-	sum = int32(v6)
-	/* Recursive averaging */
-	sum = (sum + *(*int32)(unsafe.Pointer(average))) >> int32(1)
-	*(*int32)(unsafe.Pointer(average)) = sum
-	/* Hysteresis */
-	sum = (int32(3)*sum + ((int32(3)-last_decision)<<int32(7) + int32(64)) + int32(2)) >> int32(2)
-	if sum < int32(80) {
-		decision = int32(SPREAD_AGGRESSIVE)
-	} else {
-		if sum < int32(256) {
-			decision = int32(SPREAD_NORMAL)
-		} else {
-			if sum < int32(384) {
-				decision = int32(SPREAD_LIGHT)
-			} else {
-				decision = SPREAD_NONE
-			}
-		}
+	if sum < 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+5380, __ccgo_ts+5312, 537)
 	}
-	return decision
+	sum = int32(uint32(sum<<8) / uint32(weightedBands))
+	sum = (sum + *average) >> 1
+	*average = sum
+	sum = (3*sum + ((3 - lastDecision) << 7) + 64 + 2) >> 2
+	if sum < 80 {
+		return SPREAD_AGGRESSIVE
+	}
+	if sum < 256 {
+		return SPREAD_NORMAL
+	}
+	if sum < 384 {
+		return SPREAD_LIGHT
+	}
+	return SPREAD_NONE
 }
 
 // C documentation

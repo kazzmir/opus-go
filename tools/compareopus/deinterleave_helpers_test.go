@@ -101,6 +101,59 @@ func TestAntiCollapseAgainstC(t *testing.T) {
 	}
 }
 
+func TestSpreadingAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(28179))
+	bands := []int16{0, 1, 4, 13, 32}
+	for _, mult := range []int32{1, 2, 4, 8} {
+		for channels := int32(0); channels <= 2; channels++ {
+			for end := int32(1); end <= 4; end++ {
+				for update := int32(0); update <= 1; update++ {
+					if channels == 0 && update != 0 {
+						continue
+					}
+					for trial := 0; trial < 12; trial++ {
+						x := make([]float32, max(channels, 1)*32*mult)
+						for i := range x {
+							x[i] = float32(rng.NormFloat64() * .1)
+						}
+						if trial == 0 {
+							clear(x)
+						}
+						if trial == 1 {
+							for i := range x {
+								x[i] = float32(math.Inf(1))
+							}
+						}
+						weights := []int32{1, 2, 3, 4}
+						if trial == 2 {
+							clear(weights)
+						}
+						g := []int32{int32(rng.Intn(800)), int32(rng.Intn(50)), int32(rng.Intn(3))}
+						c := slices.Clone(g)
+						alias := [][3]int32{{0, 1, 2}, {0, 0, 0}, {0, 1, 0}, {0, 1, 1}}[trial%4]
+						last := int32(trial % 4)
+						result := extensionCollectionResult(func() int32 {
+							return opuscc.Opus_spreading_decision(nil, &bands[0], 4, 32, &x[0], &g[alias[0]], last, &g[alias[1]], &g[alias[2]], update, end, channels, mult, &weights[0])
+						})
+						native := nativeSpreading(bands, 4, 32, x, c, alias[0], alias[1], alias[2], last, update, end, channels, mult, weights)
+						if result != native || !slices.Equal(g, c) {
+							t.Fatal(mult, channels, end, update, trial, result, native, g, c)
+						}
+					}
+				}
+			}
+		}
+	}
+	g, c := []int32{77, 88, 99}, []int32{77, 88, 99}
+	got := extensionCollectionResult(func() int32 {
+		return opuscc.Opus_spreading_decision(nil, nil, 0, 0, nil, &g[0], 0, &g[1], &g[2], 0, 0, 1, 1, nil)
+	})
+	native := nativeSpreading(nil, 0, 0, nil, c, 0, 1, 2, 0, 0, 0, 1, 1, nil)
+	if got != native || !slices.Equal(g, c) {
+		t.Fatal("assert", got, native, g, c)
+	}
+}
+
 func TestDeinterleaveAgainstC(t *testing.T) {
 	r := rand.New(rand.NewSource(503))
 	for _, stride := range []int32{1, 2, 3, 4, 8, 16} {

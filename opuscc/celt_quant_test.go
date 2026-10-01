@@ -24,6 +24,27 @@ func TestQuantBandN1Pointers(t *testing.T) {
 	}
 }
 
+func TestSpreadingPointers(t *testing.T) {
+	bands := [3]int16{0, 1, 10}
+	x := [12]float32{77}
+	x[11] = 88
+	weights := [2]int32{1, 1}
+	state := [3]int32{256, 20, 1}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	decision := Opus_spreading_decision(nil, &bands[0], 2, 10, &x[1], &state[0], 2, &state[1], &state[2], 1, 2, 1, 1, &weights[0])
+	if decision < SPREAD_NONE || decision > SPREAD_AGGRESSIVE || x[0] != 77 || x[11] != 88 {
+		t.Fatal(decision, state, x)
+	}
+	short := [2]int16{0, 8}
+	if Opus_spreading_decision(nil, &short[0], 1, 8, nil, nil, 0, nil, nil, 1, 1, 1, 1, nil) != SPREAD_NONE {
+		t.Fatal("early exit")
+	}
+	if !validationPanics(func() { Opus_spreading_decision(nil, nil, 0, 0, nil, nil, 0, nil, nil, 0, 0, 1, 1, nil) }) {
+		t.Fatal("end assertion")
+	}
+}
+
 func TestQuantBandN1FieldAccesses(t *testing.T) {
 	buffer := make([]byte, 16)
 	var encoder OpusT_ec_enc

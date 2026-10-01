@@ -3,6 +3,11 @@
 package main
 
 /*
+#include <setjmp.h>
+static _Thread_local jmp_buf hadamard_jump;
+void comparison_hadamard_fatal(const char *str,const char *file,int line){longjmp(hadamard_jump,1);}
+#define celt_fatal comparison_hadamard_fatal
+#define ENABLE_ASSERTIONS 1
 #define FLOAT_APPROX 1
 #define OPUS_DISABLE_INTRINSICS 1
 static void scalar_anti_renormalise(float *x,int n,float gain,int arch);
@@ -32,6 +37,10 @@ static unsigned native_quant_n1(unsigned *s,unsigned char *buf,float *v,int enco
 }
 static void native_anti_collapse(const short *bands,int nb,float *x,unsigned char *masks,int lm,int channels,int size,int start,int end,const float *energy,const float *p1,const float *p2,const int *pulses,unsigned seed,int encode) {
  CELTMode mode={0};mode.eBands=bands;mode.nbEBands=nb;anti_collapse(&mode,x,masks,lm,channels,size,start,end,energy,p1,p2,pulses,seed,encode,0);
+}
+static int native_spreading(const short *bands,int nb,int short_size,float *x,int *state,int avg,int hf,int tap,int last,int update,int end,int channels,int mult,const int *weights) {
+ CELTMode m={0};m.eBands=bands;m.nbEBands=nb;m.shortMdctSize=short_size;
+ if(setjmp(hadamard_jump))return -99;return spreading_decision(&m,x,state+avg,last,state+hf,state+tap,update,end,channels,mult,weights);
 }
 static void compare_interleave(float *x,int n0,int stride,int hadamard) {
  interleave_hadamard(x,n0,stride,hadamard);
@@ -63,6 +72,10 @@ func nativeQuantN1(e *opuscc.OpusT_ec_ctx, buf []byte, v []float32, encode, resy
 
 func nativeAntiCollapse(bands []int16, nb int32, x []float32, masks []byte, lm, channels, size, start, end int32, energy, p1, p2 []float32, pulses []int32, seed uint32, encode int32) {
 	C.native_anti_collapse((*C.short)(unsafe.Pointer(unsafe.SliceData(bands))), C.int(nb), (*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(masks))), C.int(lm), C.int(channels), C.int(size), C.int(start), C.int(end), (*C.float)(unsafe.Pointer(unsafe.SliceData(energy))), (*C.float)(unsafe.Pointer(unsafe.SliceData(p1))), (*C.float)(unsafe.Pointer(unsafe.SliceData(p2))), (*C.int)(unsafe.Pointer(unsafe.SliceData(pulses))), C.uint(seed), C.int(encode))
+}
+
+func nativeSpreading(bands []int16, nb, shortSize int32, x []float32, state []int32, avg, hf, tap, last, update, end, channels, mult int32, weights []int32) int32 {
+	return int32(C.native_spreading((*C.short)(unsafe.Pointer(unsafe.SliceData(bands))), C.int(nb), C.int(shortSize), (*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.int)(unsafe.Pointer(unsafe.SliceData(state))), C.int(avg), C.int(hf), C.int(tap), C.int(last), C.int(update), C.int(end), C.int(channels), C.int(mult), (*C.int)(unsafe.Pointer(unsafe.SliceData(weights)))))
 }
 
 func nativeInterleaveHadamard(x []float32, n0, stride, hadamard int32) {
