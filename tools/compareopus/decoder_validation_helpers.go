@@ -50,6 +50,7 @@ void comparison_validator_fatal(const char *str,const char *file,int line) {long
 #include "../../../opus/src/opus_decoder.c"
 #include "../../../opus/silk/init_decoder.c"
 #include "../../../opus/silk/dec_API.c"
+void validation_normalize_decoder_mode(void *decoder) {OpusDecoder *st=decoder;memset((char*)st+st->celt_dec_offset,0,sizeof(void*));}
 static int native_opus_init_image(unsigned char *data,size_t size,int rate,int channels) {
  OpusDecoder *st=malloc(size);memcpy(st,data,size);int result=validation_decoder_init(st,rate,channels);
  if(result==OPUS_OK)memset((char*)st+st->celt_dec_offset,0,sizeof(void*));memcpy(data,st,size);free(st);return result;

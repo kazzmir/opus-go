@@ -49,6 +49,85 @@ func TestMSValidationAgainstC(t *testing.T) {
 	}
 }
 
+func normalizeMSModes(image []byte, streams, coupled int32) {
+	ptr := int((unsafe.Sizeof(opuscc.OpusT_OpusMSDecoder{}) + 7) &^ uintptr(7))
+	var silk int32
+	opuscc.Opus_silk_Get_Decoder_Size(nil, &silk)
+	celt := int((unsafe.Sizeof(opuscc.OpusT_OpusDecoder{})+7)&^uintptr(7)) + int((uint32(silk)+7)&^uint32(7))
+	for i := int32(0); i < streams; i++ {
+		clear(image[ptr+celt : ptr+celt+int(unsafe.Sizeof(uintptr(0)))])
+		ch := int32(1)
+		if i < coupled {
+			ch = 2
+		}
+		ptr += int((uint32(opuscc.Opus_opus_decoder_get_size(nil, ch)) + 7) &^ uint32(7))
+	}
+}
+
+func TestMSDecoderInitAgainstC(t *testing.T) {
+	for _, shape := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {3, 2, 1}, {5, 3, 2}, {4, 4, 0}} {
+		channels, streams, coupled := shape[0], shape[1], shape[2]
+		size := int(opuscc.Opus_opus_multistream_decoder_get_size(nil, streams, coupled))
+		if size != int(nativeMSSize(streams, coupled)) {
+			t.Fatal("size", shape)
+		}
+		for _, rate := range []int32{8000, 12000, 16000, 24000, 48000, 44100} {
+			for trial := 0; trial < 4; trial++ {
+				backing := make([]uint64, (size+7)/8+2)
+				st := (*opuscc.OpusT_OpusMSDecoder)(unsafe.Pointer(&backing[0]))
+				g := unsafe.Slice((*byte)(unsafe.Pointer(st)), size+16)
+				for i := range g {
+					g[i] = 0xa5
+				}
+				normalizeMSModes(g, streams, coupled)
+				c := slices.Clone(g)
+				mapping := make([]byte, channels)
+				for i := range mapping {
+					mapping[i] = byte(i)
+				}
+				if trial == 1 {
+					mapping[0] = 255
+				}
+				if trial == 2 {
+					mapping[len(mapping)-1] = byte(streams + coupled)
+				}
+				if trial == 3 {
+					clear(mapping)
+				}
+				code := opuscc.Opus_opus_multistream_decoder_init(nil, st, rate, channels, streams, coupled, &mapping[0])
+				native := nativeMSInitImage(c, rate, channels, streams, coupled, mapping, -1)
+				normalized := slices.Clone(g)
+				if code == 0 {
+					normalizeMSModes(normalized, streams, coupled)
+				}
+				if code != native || !slices.Equal(normalized, c) {
+					t.Fatal(shape, rate, trial, "state image", code, native)
+				}
+			}
+		}
+	}
+	// Forward alias stores, including a source one byte before the destination.
+	for _, delta := range []int32{-1, 0, 1} {
+		size := int(opuscc.Opus_opus_multistream_decoder_get_size(nil, 2, 1))
+		b := make([]uint64, (size+7)/8+2)
+		st := (*opuscc.OpusT_OpusMSDecoder)(unsafe.Pointer(&b[0]))
+		g := unsafe.Slice((*byte)(unsafe.Pointer(st)), size+16)
+		for i := range st.Flayout.Fmapping {
+			st.Flayout.Fmapping[i] = byte(i % 3)
+		}
+		off := int32(unsafe.Offsetof(st.Flayout.Fmapping)) + delta
+		c := slices.Clone(g)
+		code := opuscc.Opus_opus_multistream_decoder_init(nil, st, 48000, 3, 2, 1, &g[off])
+		native := nativeMSInitImage(c, 48000, 3, 2, 1, nil, off)
+		if code == 0 {
+			normalizeMSModes(g, 2, 1)
+		}
+		if code != native || !slices.Equal(g, c) {
+			t.Fatal("alias", delta, code, native)
+		}
+	}
+}
+
 func TestOpusDecoderInitAgainstC(t *testing.T) {
 	for _, ch := range []int32{1, 2} {
 		size := int(opuscc.Opus_opus_decoder_get_size(nil, ch))

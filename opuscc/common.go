@@ -4259,63 +4259,40 @@ func Opus_opus_multistream_decoder_get_size(tls *libc.TLS, nb_streams int32, nb_
 	return v1 + nb_coupled_streams*v3 + (nb_streams-nb_coupled_streams)*v5
 }
 
-func Opus_opus_multistream_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, mapping uintptr) (r int32) {
-	var alignment uint32
-	var coupled_size, i1, mono_size, ret, v2 int32
-	var ptr uintptr
-	_, _, _, _, _, _, _ = alignment, coupled_size, i1, mono_size, ptr, ret, v2
-	if channels > int32(255) || channels < int32(1) || coupled_streams > streams || streams < int32(1) || coupled_streams < 0 || streams > int32(255)-coupled_streams {
-		return -int32(1)
+func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte) int32 {
+	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
+		return OPUS_BAD_ARG
 	}
-	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st))
-	layout := &decoder.Flayout
+	layout := &st.Flayout
 	layout.Fnb_channels = channels
 	layout.Fnb_streams = streams
-	layout.Fnb_coupled_streams = coupled_streams
-	i1 = 0
-	for {
-		if !(i1 < layout.Fnb_channels) {
-			break
-		}
-		layout.Fmapping[i1] = *(*uint8)(unsafe.Pointer(mapping + uintptr(i1)))
-		i1 = i1 + 1
+	layout.Fnb_coupled_streams = coupled
+	src := unsafe.Slice(mapping, channels)
+	// Preserve forward stores when mapping aliases the layout's own storage.
+	for i := int32(0); i < layout.Fnb_channels; i++ {
+		layout.Fmapping[i] = src[i]
 	}
-	if !(Opus_validate_layout(tls, layout) != 0) {
-		return -int32(1)
+	if Opus_validate_layout(tls, layout) == 0 {
+		return OPUS_BAD_ARG
 	}
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v2 = int32((uint32(int32(268)) + alignment - uint32(1)) / alignment * alignment)
-	ptr = st + uintptr(v2)
-	coupled_size = Opus_opus_decoder_get_size(tls, int32(2))
-	mono_size = Opus_opus_decoder_get_size(tls, int32(1))
-	i1 = 0
-	for {
-		if !(i1 < layout.Fnb_coupled_streams) {
-			break
+	ptr := unsafe.Add(unsafe.Pointer(st), (unsafe.Sizeof(*st)+7)&^uintptr(7))
+	coupledSize := Opus_opus_decoder_get_size(tls, 2)
+	monoSize := Opus_opus_decoder_get_size(tls, 1)
+	for i := int32(0); i < layout.Fnb_streams; i++ {
+		ch, size := int32(1), monoSize
+		if i < layout.Fnb_coupled_streams {
+			ch, size = 2, coupledSize
 		}
-		ret = opus_decoder_init_legacy(tls, ptr, Fs, int32(2))
-		if ret != OPUS_OK {
+		if ret := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(ptr), Fs, ch); ret != OPUS_OK {
 			return ret
 		}
-		alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-		v2 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
-		ptr = ptr + uintptr(v2)
-		i1 = i1 + 1
-	}
-	for {
-		if !(i1 < layout.Fnb_streams) {
-			break
-		}
-		ret = opus_decoder_init_legacy(tls, ptr, Fs, int32(1))
-		if ret != OPUS_OK {
-			return ret
-		}
-		alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-		v2 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
-		ptr = ptr + uintptr(v2)
-		i1 = i1 + 1
+		ptr = unsafe.Add(ptr, int((uint32(size)+7)&^uint32(7)))
 	}
 	return OPUS_OK
+}
+
+func multistream_decoder_init_legacy(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping uintptr) int32 {
+	return Opus_opus_multistream_decoder_init(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(mapping)))
 }
 
 func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, mapping uintptr) (uintptr, error) {
@@ -4330,7 +4307,7 @@ func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, ch
 	if st == uintptr(uint32(0)) {
 		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
 	}
-	ret = Opus_opus_multistream_decoder_init(tls, st, Fs, channels, streams, coupled_streams, mapping)
+	ret = multistream_decoder_init_legacy(tls, st, Fs, channels, streams, coupled_streams, mapping)
 	if ret != OPUS_OK {
 		libc.Xfree(tls, st)
 		st = uintptr(uint32(0))
@@ -5505,7 +5482,7 @@ func Opus_opus_projection_decoder_init(tls *libc.TLS, st1 uintptr, Fs OpusT_opus
 		mapping[i] = uint8(i)
 		i = i + 1
 	}
-	ret = Opus_opus_multistream_decoder_init(tls, get_multistream_decoder_legacy(tls, st1), Fs, channels, streams, coupled_streams, uintptr(unsafe.Pointer(&mapping[0])))
+	ret = multistream_decoder_init_legacy(tls, get_multistream_decoder_legacy(tls, st1), Fs, channels, streams, coupled_streams, uintptr(unsafe.Pointer(&mapping[0])))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
