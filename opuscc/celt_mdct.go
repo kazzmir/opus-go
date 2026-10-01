@@ -13,401 +13,131 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, window uintptr, overlap int32, shift int32, stride int32, arch int32) {
-	var N, N2, N4, i int32
-	var _saved_stack, f, f2, fp, st, st1, t, t1, trig, wp1, wp2, xp1, xp2, yp, yp1, yp11, yp2, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v6, v8 uintptr
-	var im, re, t0, t01, t11, t12, yi, yi1, yr, yr1 float32
-	var scale OpusT_celt_coef
-	var yc OpusT_kiss_fft_cpx
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N2, N4, _saved_stack, f, f2, fp, i, im, re, scale, st, st1, t, t0, t01, t1, t11, t12, trig, wp1, wp2, xp1, xp2, yc, yi, yi1, yp, yp1, yp11, yp2, yr, yr1, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v6, v8
-	st1 = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift]
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	_ = arch
-	scale = (*OpusT_kiss_fft_state)(unsafe.Pointer(st1)).Fscale
-	N = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fn
-	trig = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Ftrig
-	i = 0
-	for {
-		if !(i < shift) {
-			break
-		}
-		N = N >> int32(1)
-		trig = trig + uintptr(N)*4
-		i = i + 1
-	}
-	N2 = N >> int32(1)
-	N4 = N >> int32(2)
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v6 = libc.Xmalloc(tls, uint64(16))
-		st = v6
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v8 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v10 = libc.Xmalloc(tls, uint64(16))
-		st = v10
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v12 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v14 = libc.Xmalloc(tls, uint64(16))
-		st = v14
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v16 = st
-	if !(int64(int32(uint64(uint32(N2))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v12)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v16)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+5512, int32(152))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v18 = libc.Xmalloc(tls, uint64(16))
-		st = v18
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v20 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v20)).Fglobal_stack += uintptr(uint64(uint32(N2)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v22 = libc.Xmalloc(tls, uint64(16))
-		st = v22
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v24 = st
-	f = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v24)).Fglobal_stack - uintptr(uint64(uint32(N2))*(uint64(4)/uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v6 = libc.Xmalloc(tls, uint64(16))
-		st = v6
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v8 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v10 = libc.Xmalloc(tls, uint64(16))
-		st = v10
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v12 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v14 = libc.Xmalloc(tls, uint64(16))
-		st = v14
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v16 = st
-	if !(int64(int32(uint64(uint32(N4))*(uint64(8)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v12)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v16)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+5512, int32(153))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v18 = libc.Xmalloc(tls, uint64(16))
-		st = v18
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v20 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v20)).Fglobal_stack += uintptr(uint64(uint32(N4)) * (uint64(8) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v22 = libc.Xmalloc(tls, uint64(16))
-		st = v22
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v24 = st
-	f2 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v24)).Fglobal_stack - uintptr(uint64(uint32(N4))*(uint64(8)/uint64(1)))
-	/* Consider the input to be composed of four blocks: [a, b, c, d] */
-	/* Window, shuffle, fold */
-	/* Temp pointers to make it really clear to the compiler what we're doing */
-	xp1 = in + uintptr(overlap>>int32(1))*4
-	xp2 = in + uintptr(N2)*4 - uintptr(1)*4 + uintptr(overlap>>int32(1))*4
-	yp = f
-	wp1 = window + uintptr(overlap>>int32(1))*4
-	wp2 = window + uintptr(overlap>>int32(1))*4 - uintptr(1)*4
-	i = 0
-	for {
-		if !(i < (overlap+int32(3))>>int32(2)) {
-			break
-		}
-		/* Real part arranged as -d-cR, Imag part arranged as -b+aR*/
-		v1 = yp
-		yp += 4
-		*(*float32)(unsafe.Pointer(v1)) = float32(*(*float32)(unsafe.Pointer(xp1 + uintptr(N2)*4))**(*OpusT_celt_coef)(unsafe.Pointer(wp2))) + float32(*(*float32)(unsafe.Pointer(xp2))**(*OpusT_celt_coef)(unsafe.Pointer(wp1)))
-		v1 = yp
-		yp += 4
-		*(*float32)(unsafe.Pointer(v1)) = float32(*(*float32)(unsafe.Pointer(xp1))**(*OpusT_celt_coef)(unsafe.Pointer(wp1))) - float32(*(*float32)(unsafe.Pointer(xp2 + uintptr(-N2)*4))**(*OpusT_celt_coef)(unsafe.Pointer(wp2)))
-		xp1 = xp1 + uintptr(2)*4
-		xp2 = xp2 - uintptr(2)*4
-		wp1 = wp1 + uintptr(2)*4
-		wp2 = wp2 - uintptr(2)*4
-		i = i + 1
-	}
-	wp1 = window
-	wp2 = window + uintptr(overlap)*4 - uintptr(1)*4
-	for {
-		if !(i < N4-(overlap+int32(3))>>int32(2)) {
-			break
-		}
-		/* Real part arranged as a-bR, Imag part arranged as -c-dR */
-		v1 = yp
-		yp += 4
-		*(*float32)(unsafe.Pointer(v1)) = *(*float32)(unsafe.Pointer(xp2))
-		v1 = yp
-		yp += 4
-		*(*float32)(unsafe.Pointer(v1)) = *(*float32)(unsafe.Pointer(xp1))
-		xp1 = xp1 + uintptr(2)*4
-		xp2 = xp2 - uintptr(2)*4
-		i = i + 1
-	}
-	for {
-		if !(i < N4) {
-			break
-		}
-		/* Real part arranged as a-bR, Imag part arranged as -c-dR */
-		v1 = yp
-		yp += 4
-		*(*float32)(unsafe.Pointer(v1)) = -float32(*(*float32)(unsafe.Pointer(xp1 + uintptr(-N2)*4))**(*OpusT_celt_coef)(unsafe.Pointer(wp1))) + float32(*(*float32)(unsafe.Pointer(xp2))**(*OpusT_celt_coef)(unsafe.Pointer(wp2)))
-		v1 = yp
-		yp += 4
-		*(*float32)(unsafe.Pointer(v1)) = float32(*(*float32)(unsafe.Pointer(xp1))**(*OpusT_celt_coef)(unsafe.Pointer(wp2))) + float32(*(*float32)(unsafe.Pointer(xp2 + uintptr(N2)*4))**(*OpusT_celt_coef)(unsafe.Pointer(wp1)))
-		xp1 = xp1 + uintptr(2)*4
-		xp2 = xp2 - uintptr(2)*4
-		wp1 = wp1 + uintptr(2)*4
-		wp2 = wp2 - uintptr(2)*4
-		i = i + 1
-	}
-	/* Pre-rotation */
-	yp1 = f
-	t = trig
-	i = 0
-	for {
-		if !(i < N4) {
-			break
-		}
-		t0 = *(*float32)(unsafe.Pointer(t + uintptr(i)*4))
-		t11 = *(*float32)(unsafe.Pointer(t + uintptr(N4+i)*4))
-		v1 = yp1
-		yp1 += 4
-		re = *(*float32)(unsafe.Pointer(v1))
-		v1 = yp1
-		yp1 += 4
-		im = *(*float32)(unsafe.Pointer(v1))
-		yr = float32(re*t0) - float32(im*t11)
-		yi = float32(im*t0) + float32(re*t11)
-		/* For QEXT, it's best to scale before the FFT, but otherwise it's best to scale after.
-		   For floating-point it doesn't matter. */
-		yc.Fr = float32(yr * scale)
-		yc.Fi = float32(yi * scale)
-		*(*OpusT_kiss_fft_cpx)(unsafe.Pointer(f2 + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_kiss_fft_state)(unsafe.Pointer(st1)).Fbitrev + uintptr(i)*2)))*8)) = yc
-		i = i + 1
-	}
-	/* N/4 complex FFT, does not downscale anymore */
-	opus_fft_impl_legacy(tls, st1, f2)
-	/* Post-rotate */
-	/* Temp pointers to make it really clear to the compiler what we're doing */
-	fp = f2
-	yp11 = out
-	yp2 = out + uintptr(stride*(N2-int32(1)))*4
-	t1 = trig
-	/* Temp pointers to make it really clear to the compiler what we're doing */
-	i = 0
-	for {
-		if !(i < N4) {
-			break
-		}
-		t01 = *(*float32)(unsafe.Pointer(t1 + uintptr(i)*4))
-		t12 = *(*float32)(unsafe.Pointer(t1 + uintptr(N4+i)*4))
-		yr1 = float32((*OpusT_kiss_fft_cpx)(unsafe.Pointer(fp)).Fi*t12) - float32((*OpusT_kiss_fft_cpx)(unsafe.Pointer(fp)).Fr*t01)
-		yi1 = float32((*OpusT_kiss_fft_cpx)(unsafe.Pointer(fp)).Fr*t12) + float32((*OpusT_kiss_fft_cpx)(unsafe.Pointer(fp)).Fi*t01)
-		*(*float32)(unsafe.Pointer(yp11)) = yr1
-		*(*float32)(unsafe.Pointer(yp2)) = yi1
-		fp += 8
-		yp11 = yp11 + uintptr(int32(2)*stride)*4
-		yp2 = yp2 - uintptr(int32(2)*stride)*4
-		i = i + 1
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
+// Keep signed strides and zero-stride store order without integer addresses.
+func mdctStridedSlice(p *float32, n, stride int32) ([]float32, int32) {
+	last := (n - 1) * stride
+	first := min(int32(0), last)
+	end := max(int32(0), last)
+	base := (*float32)(unsafe.Add(unsafe.Pointer(p), int64(first)*4))
+	return unsafe.Slice(base, end-first+1), -first
 }
 
-func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, window uintptr, overlap int32, shift int32, stride int32, arch int32) {
-	var N, N2, N4, i, rev int32
-	var bitrev, t, t1, trig, wp1, wp2, xp1, xp11, xp2, yp, yp0, yp1, yp11, v3 uintptr
-	var im, re, t0, t11, x11, x21, yi, yi1, yr, yr1 float32
-	var x1, x2 OpusT_opus_val32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N2, N4, bitrev, i, im, re, rev, t, t0, t1, t11, trig, wp1, wp2, x1, x11, x2, x21, xp1, xp11, xp2, yi, yi1, yp, yp0, yp1, yp11, yr, yr1, v3
+func Opus_clt_mdct_forward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in, out, window *float32, overlap, shift, stride, arch int32) {
 	_ = arch
-	N = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fn
-	trig = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Ftrig
-	i = 0
-	for {
-		if !(i < shift) {
-			break
-		}
-		N = N >> int32(1)
-		trig = trig + uintptr(N)*4
-		i = i + 1
+	st := l.Fkfft[shift]
+	scale := st.Fscale
+	N := l.Fn
+	offset := int32(0)
+	for i := int32(0); i < shift; i++ {
+		N >>= 1
+		offset += N
 	}
-	N2 = N >> int32(1)
-	N4 = N >> int32(2)
-	/* Pre-rotate */
-	/* Temp pointers to make it really clear to the compiler what we're doing */
-	xp1 = in
-	xp2 = in + uintptr(stride*(N2-int32(1)))*4
-	yp = out + uintptr(overlap>>int32(1))*4
-	t = trig
-	bitrev = (*OpusT_kiss_fft_state)(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift])).Fbitrev
-	i = 0
-	for {
-		if !(i < N4) {
-			break
-		}
-		v3 = bitrev
-		bitrev += 2
-		rev = int32(*(*OpusT_opus_int16)(unsafe.Pointer(v3)))
-		x1 = *(*float32)(unsafe.Pointer(xp1))
-		x2 = *(*float32)(unsafe.Pointer(xp2))
-		yr = OpusT_opus_val32(x2**(*float32)(unsafe.Pointer(t + uintptr(i)*4))) + OpusT_opus_val32(x1**(*float32)(unsafe.Pointer(t + uintptr(N4+i)*4)))
-		yi = OpusT_opus_val32(x1**(*float32)(unsafe.Pointer(t + uintptr(i)*4))) - OpusT_opus_val32(x2**(*float32)(unsafe.Pointer(t + uintptr(N4+i)*4)))
-		/* We swap real and imag because we use an FFT instead of an IFFT. */
-		*(*float32)(unsafe.Pointer(yp + uintptr(int32(2)*rev+int32(1))*4)) = yr
-		*(*float32)(unsafe.Pointer(yp + uintptr(int32(2)*rev)*4)) = yi
-		/* Storing the pre-rotation directly in the bitrev order. */
-		xp1 = xp1 + uintptr(int32(2)*stride)*4
-		xp2 = xp2 - uintptr(int32(2)*stride)*4
-		i = i + 1
+	N2, N4 := N>>1, N>>2
+	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
+	input := unsafe.Slice(in, N2+overlap)
+	output, outputBase := mdctStridedSlice(out, N2, stride)
+	win := unsafe.Slice(window, overlap)
+	rev := unsafe.Slice(bitrev, N4)
+	f := make([]float32, N2)
+	f2 := make([]OpusT_kiss_fft_cpx, N4)
+	var i int32
+	xp1, xp2 := overlap>>1, N2-1+(overlap>>1)
+	wp1, wp2 := overlap>>1, (overlap>>1)-1
+	for ; i < (overlap+3)>>2; i++ {
+		f[2*i] = float32(input[xp1+N2]*win[wp2]) + float32(input[xp2]*win[wp1])
+		f[2*i+1] = float32(input[xp1]*win[wp1]) - float32(input[xp2-N2]*win[wp2])
+		xp1 += 2
+		xp2 -= 2
+		wp1 += 2
+		wp2 -= 2
 	}
-	opus_fft_impl_legacy(tls, (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift], out+uintptr(overlap>>int32(1))*4)
-	/* Post-rotate and de-shuffle from both ends of the buffer at once to make
-	   it in-place. */
-	yp0 = out + uintptr(overlap>>int32(1))*4
-	yp1 = out + uintptr(overlap>>int32(1))*4 + uintptr(N2)*4 - uintptr(2)*4
-	t1 = trig
-	/* Loop to (N4+1)>>1 to handle odd N4. When N4 is odd, the
-	   middle pair will be computed twice. */
-	i = 0
-	for {
-		if !(i < (N4+int32(1))>>int32(1)) {
-			break
-		}
-		/* We swap real and imag because we're using an FFT instead of an IFFT. */
-		re = *(*float32)(unsafe.Pointer(yp0 + 1*4))
-		im = *(*float32)(unsafe.Pointer(yp0))
-		t0 = *(*float32)(unsafe.Pointer(t1 + uintptr(i)*4))
-		t11 = *(*float32)(unsafe.Pointer(t1 + uintptr(N4+i)*4))
-		/* We'd scale up by 2 here, but instead it's done when mixing the windows */
-		yr1 = float32(re*t0) + float32(im*t11)
-		yi1 = float32(re*t11) - float32(im*t0)
-		/* We swap real and imag because we're using an FFT instead of an IFFT. */
-		re = *(*float32)(unsafe.Pointer(yp1 + 1*4))
-		im = *(*float32)(unsafe.Pointer(yp1))
-		*(*float32)(unsafe.Pointer(yp0)) = yr1
-		*(*float32)(unsafe.Pointer(yp1 + 1*4)) = yi1
-		t0 = *(*float32)(unsafe.Pointer(t1 + uintptr(N4-i-int32(1))*4))
-		t11 = *(*float32)(unsafe.Pointer(t1 + uintptr(N2-i-int32(1))*4))
-		/* We'd scale up by 2 here, but instead it's done when mixing the windows */
-		yr1 = float32(re*t0) + float32(im*t11)
-		yi1 = float32(re*t11) - float32(im*t0)
-		*(*float32)(unsafe.Pointer(yp1)) = yr1
-		*(*float32)(unsafe.Pointer(yp0 + 1*4)) = yi1
-		yp0 = yp0 + uintptr(2)*4
-		yp1 = yp1 - uintptr(2)*4
-		i = i + 1
+	wp1, wp2 = 0, overlap-1
+	for ; i < N4-((overlap+3)>>2); i++ {
+		f[2*i] = input[xp2]
+		f[2*i+1] = input[xp1]
+		xp1 += 2
+		xp2 -= 2
 	}
-	/* Mirror on both sides for TDAC */
-	xp11 = out + uintptr(overlap)*4 - uintptr(1)*4
-	yp11 = out
-	wp1 = window
-	wp2 = window + uintptr(overlap)*4 - uintptr(1)*4
-	i = 0
-	for {
-		if !(i < overlap/int32(2)) {
-			break
-		}
-		x11 = *(*float32)(unsafe.Pointer(xp11))
-		x21 = *(*float32)(unsafe.Pointer(yp11))
-		v3 = yp11
-		yp11 += 4
-		*(*float32)(unsafe.Pointer(v3)) = float32(x21**(*OpusT_celt_coef)(unsafe.Pointer(wp2))) - float32(x11**(*OpusT_celt_coef)(unsafe.Pointer(wp1)))
-		v3 = xp11
-		xp11 -= 4
-		*(*float32)(unsafe.Pointer(v3)) = float32(x21**(*OpusT_celt_coef)(unsafe.Pointer(wp1))) + float32(x11**(*OpusT_celt_coef)(unsafe.Pointer(wp2)))
-		wp1 += 4
-		wp2 -= 4
-		i = i + 1
+	for ; i < N4; i++ {
+		f[2*i] = -float32(input[xp1-N2]*win[wp1]) + float32(input[xp2]*win[wp2])
+		f[2*i+1] = float32(input[xp1]*win[wp2]) + float32(input[xp2+N2]*win[wp1])
+		xp1 += 2
+		xp2 -= 2
+		wp1 += 2
+		wp2 -= 2
 	}
+	for i = 0; i < N4; i++ {
+		re, im := f[2*i], f[2*i+1]
+		t0, t1 := trig[i], trig[N4+i]
+		yr := float32(re*t0) - float32(im*t1)
+		yi := float32(im*t0) + float32(re*t1)
+		f2[rev[i]] = OpusT_kiss_fft_cpx{Fr: float32(yr * scale), Fi: float32(yi * scale)}
+	}
+	Opus_opus_fft_impl(tls, st, twiddles, &f2[0])
+	for i = 0; i < N4; i++ {
+		t0, t1 := trig[i], trig[N4+i]
+		v := f2[i]
+		yr := float32(v.Fi*t1) - float32(v.Fr*t0)
+		yi := float32(v.Fr*t1) + float32(v.Fi*t0)
+		output[outputBase+2*i*stride] = yr
+		output[outputBase+(N2-1-2*i)*stride] = yi
+	}
+}
+
+func Opus_clt_mdct_backward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in, out, window *float32, overlap, shift, stride, arch int32) {
+	_ = arch
+	N := l.Fn
+	offset := int32(0)
+	for i := int32(0); i < shift; i++ {
+		N >>= 1
+		offset += N
+	}
+	N2, N4 := N>>1, N>>2
+	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
+	input, inputBase := mdctStridedSlice(in, N2, stride)
+	output := unsafe.Slice(out, N2+(overlap>>1))
+	win := unsafe.Slice(window, overlap)
+	rev := unsafe.Slice(bitrev, N4)
+	base := overlap >> 1
+	for i := int32(0); i < N4; i++ {
+		x1, x2 := input[inputBase+2*i*stride], input[inputBase+(N2-1-2*i)*stride]
+		yr := float32(x2*trig[i]) + float32(x1*trig[N4+i])
+		yi := float32(x1*trig[i]) - float32(x2*trig[N4+i])
+		r := int32(rev[i])
+		output[base+2*r+1] = yr
+		output[base+2*r] = yi
+	}
+	Opus_opus_fft_impl(tls, l.Fkfft[shift], twiddles, (*OpusT_kiss_fft_cpx)(unsafe.Pointer(&output[base])))
+	// Capture both ends before storing: odd N4 computes the middle pair twice.
+	p0, p1 := base, base+N2-2
+	for i := int32(0); i < (N4+1)>>1; i++ {
+		re, im := output[p0+1], output[p0]
+		t0, t1 := trig[i], trig[N4+i]
+		yr := float32(re*t0) + float32(im*t1)
+		yi := float32(re*t1) - float32(im*t0)
+		re, im = output[p1+1], output[p1]
+		output[p0] = yr
+		output[p1+1] = yi
+		t0, t1 = trig[N4-i-1], trig[N2-i-1]
+		yr = float32(re*t0) + float32(im*t1)
+		yi = float32(re*t1) - float32(im*t0)
+		output[p1] = yr
+		output[p0+1] = yi
+		p0 += 2
+		p1 -= 2
+	}
+	for i := int32(0); i < overlap/2; i++ {
+		j := overlap - 1 - i
+		x1, x2 := output[j], output[i]
+		output[i] = float32(x2*win[j]) - float32(x1*win[i])
+		output[j] = float32(x2*win[i]) + float32(x1*win[j])
+	}
+}
+
+func mdct_backward_legacy(tls *libc.TLS, l, in, out, window uintptr, overlap, shift, stride, arch int32) {
+	lookup := (*OpusT_mdct_lookup)(unsafe.Pointer(l))
+	st := lookup.Fkfft[shift]
+	Opus_clt_mdct_backward_c(tls, lookup, st.Fbitrev, st.Ftwiddles, (*float32)(unsafe.Pointer(in)), (*float32)(unsafe.Pointer(out)), (*float32)(unsafe.Pointer(window)), overlap, shift, stride, arch)
 }
 
 const MINI_MAXFACTORS = 32

@@ -8,6 +8,146 @@ import (
 	"unsafe"
 )
 
+func TestFFTTablePointers(t *testing.T) {
+	makeLookup := func() *OpusT_mdct_lookup {
+		bitrev := []int16{0, 1, 2, 3}
+		tw := []OpusT_kiss_twiddle_cpx{{Fr: 1}, {Fi: -1}, {Fr: -1}, {Fi: 1}}
+		trig := make([]float32, 8)
+		for i := range trig {
+			trig[i] = float32(math.Cos(2 * math.Pi * (float64(i) + .125) / 16))
+		}
+		st := &OpusT_kiss_fft_state{Fnfft: 4, Fscale: .25, Fshift: -1, Ffactors: [16]int16{4, 1}, Fbitrev: &bitrev[0], Ftwiddles: &tw[0]}
+		return &OpusT_mdct_lookup{Fn: 16, Fkfft: [4]*OpusT_kiss_fft_state{st}, Ftrig: &trig[0]}
+	}
+	l := makeLookup()
+	entropyInitGrowStack(12)
+	for i := 0; i < 3; i++ {
+		runtime.GC()
+	}
+	st := l.Fkfft[0]
+	if unsafe.Slice(st.Fbitrev, 4)[3] != 3 || unsafe.Slice(st.Ftwiddles, 4)[3].Fi != 1 {
+		t.Fatal("table backing lifetime")
+	}
+	input := [4]OpusT_kiss_fft_cpx{{Fr: 1}}
+	out := [6]OpusT_kiss_fft_cpx{}
+	out[0].Fr = 77
+	out[5].Fr = 88
+	Opus_opus_fft_c(nil, st, st.Fbitrev, st.Ftwiddles, &input[0], &out[1])
+	for _, v := range out[1:5] {
+		if v != (OpusT_kiss_fft_cpx{Fr: .25}) {
+			t.Fatal(out)
+		}
+	}
+	if out[0].Fr != 77 || out[5].Fr != 88 {
+		t.Fatal("FFT guards")
+	}
+	pcm := [12]float32{}
+	spectrum := [8]float32{}
+	Opus_clt_mdct_forward_c(nil, l, st.Fbitrev, st.Ftwiddles, &pcm[0], &spectrum[0], nil, 0, 0, 1, 0)
+	Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &spectrum[0], &pcm[0], nil, 0, 0, 1, 0)
+	var reversed [17]float32
+	reversed[0] = 77
+	reversed[16] = 88
+	pcm[3] = 1
+	Opus_clt_mdct_forward_c(nil, l, st.Fbitrev, st.Ftwiddles, &pcm[0], &spectrum[0], nil, 0, 0, 1, 0)
+	Opus_clt_mdct_forward_c(nil, l, st.Fbitrev, st.Ftwiddles, &pcm[0], &reversed[15], nil, 0, 0, -2, 0)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i := 0; i < 8; i++ {
+		if reversed[15-2*i] != spectrum[i] {
+			t.Fatal("negative stride")
+		}
+	}
+	if reversed[0] != 77 || reversed[16] != 88 {
+		t.Fatal("reverse guards")
+	}
+	var expected, back [8]float32
+	Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &spectrum[0], &expected[0], nil, 0, 0, 1, 0)
+	Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &reversed[15], &back[0], nil, 0, 0, -2, 0)
+	if back != expected {
+		t.Fatal("negative input stride")
+	}
+	var collapsed float32
+	Opus_clt_mdct_forward_c(nil, l, st.Fbitrev, st.Ftwiddles, &pcm[0], &collapsed, nil, 0, 0, 0, 0)
+	if collapsed != spectrum[1] {
+		t.Fatal("zero stride store order", collapsed, spectrum)
+	}
+}
+
+func TestMDCTBackwardPointers(t *testing.T) {
+	l := &mode48000_960_120.Fmdct
+	st := l.Fkfft[3]
+	input := [239]float32{}
+	output := [182]float32{}
+	output[0] = 77
+	output[181] = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_clt_mdct_backward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &output[1], &window120[0], 120, 3, 2, 0)
+	if output[0] != 77 || output[181] != 88 {
+		t.Fatal("guards")
+	}
+	for _, v := range output[1:181] {
+		if v != 0 {
+			t.Fatal("zero synthesis")
+		}
+	}
+	Opus_clt_mdct_backward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &output[1], nil, 0, 3, 2, 0)
+}
+
+func TestMDCTForwardPointers(t *testing.T) {
+	l := &mode48000_960_120.Fmdct
+	st := l.Fkfft[3]
+	input := [240]float32{}
+	output := [241]float32{}
+	output[0] = 77
+	output[240] = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_clt_mdct_forward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &output[1], &window120[0], 120, 3, 2, 0)
+	if output[0] != 77 || output[240] != 88 {
+		t.Fatal("guards")
+	}
+	for _, v := range output[1:240] {
+		if v != 0 {
+			t.Fatal("zero spectrum")
+		}
+	}
+	for i := range input {
+		input[i] = float32(i%13) - 6
+	}
+	var expected [120]float32
+	Opus_clt_mdct_forward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &expected[0], &window120[0], 120, 3, 1, 0)
+	Opus_clt_mdct_forward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &input[0], &window120[0], 120, 3, 1, 0)
+	if !slices.Equal(input[:120], expected[:]) {
+		t.Fatal("fold-before-output alias")
+	}
+}
+
+func TestMDCTLookupPointers(t *testing.T) {
+	makeLookup := func() *OpusT_mdct_lookup {
+		trig := make([]float32, 12)
+		for i := range trig {
+			trig[i] = float32(i) + .25
+		}
+		l := &OpusT_mdct_lookup{Fn: 16, Fmaxshift: 1, Ftrig: &trig[0]}
+		l.Fkfft[0] = &OpusT_kiss_fft_state{Fnfft: 4}
+		l.Fkfft[1] = &OpusT_kiss_fft_state{Fnfft: 2}
+		return l
+	}
+	l := makeLookup()
+	entropyInitGrowStack(12)
+	for i := 0; i < 3; i++ {
+		runtime.GC()
+	}
+	if l.Fkfft[0].Fnfft != 4 || l.Fkfft[1].Fnfft != 2 || unsafe.Slice(l.Ftrig, 12)[11] != 11.25 {
+		t.Fatal("lookup backing lifetime")
+	}
+	if unsafe.Offsetof(l.Fkfft) != 8 || unsafe.Offsetof(l.Ftrig) != 8+4*unsafe.Sizeof(l.Ftrig) {
+		t.Fatal("C layout")
+	}
+}
+
 func TestMiniFFTRPointers(t *testing.T) {
 	st := Opus_mini_kiss_fftr_alloc(nil, 16, 0, nil, nil)
 	input := [16]float32{1}

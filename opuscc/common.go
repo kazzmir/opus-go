@@ -932,8 +932,8 @@ type OpusT_kiss_fft_state = struct {
 	Fscale    OpusT_celt_coef
 	Fshift    int32
 	Ffactors  [16]OpusT_opus_int16
-	Fbitrev   uintptr
-	Ftwiddles uintptr
+	Fbitrev   *int16
+	Ftwiddles *OpusT_kiss_twiddle_cpx
 	Farch_fft uintptr
 }
 
@@ -1659,8 +1659,8 @@ type OpusT_OpusDREDDecoder = struct {
 type OpusT_mdct_lookup = struct {
 	Fn        int32
 	Fmaxshift int32
-	Fkfft     [4]uintptr
-	Ftrig     uintptr
+	Fkfft     [4]*OpusT_kiss_fft_state
+	Ftrig     *float32
 }
 
 type OpusT_PulseCache = struct {
@@ -3841,8 +3841,13 @@ bad_arg:
 	return -int32(1)
 }
 
+// The legacy ABI frees an address key without reconstructing a Go pointer.
 func Opus_opus_decoder_destroy(tls *libc.TLS, st uintptr) {
 	libc.Xfree(tls, st)
+}
+
+func Opus_opus_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusDecoder) {
+	libc.XfreePointer(tls, unsafe.Pointer(st))
 }
 
 func Opus_opus_packet_get_bandwidth(tls *libc.TLS, data *byte) (r int32) {
@@ -4936,6 +4941,11 @@ func Opus_opus_multistream_decoder_destroy(tls *libc.TLS, st uintptr) {
 	libc.Xfree(tls, st)
 }
 
+func Opus_opus_multistream_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
+	// All component decoders belong to the same allocation; free only the base.
+	libc.XfreePointer(tls, unsafe.Pointer(st))
+}
+
 const OPUS_PROJECTION_GET_DEMIXING_MATRIX_GAIN_REQUEST = 6001
 const OPUS_PROJECTION_GET_DEMIXING_MATRIX_REQUEST = 6005
 const OPUS_PROJECTION_GET_DEMIXING_MATRIX_SIZE_REQUEST = 6003
@@ -5356,6 +5366,11 @@ func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, 
 
 func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {
 	libc.Xfree(tls, st)
+}
+
+func Opus_opus_projection_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) {
+	// Demixing coefficients and multistream decoders are interiors, not owners.
+	libc.XfreePointer(tls, unsafe.Pointer(st))
 }
 
 var trim_icdf6 = [11]uint8{

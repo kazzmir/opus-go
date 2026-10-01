@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 	"unsafe"
+	"weak"
 )
 
 func validationPanics(f func()) (panicked bool) {
@@ -36,6 +37,33 @@ func TestDecoderAllocationPointers(t *testing.T) {
 	}
 }
 
+func TestDecoderDestroyPointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	release := func() weak.Pointer[OpusT_OpusDecoder] {
+		st, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := weak.Make(st)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus_opus_decoder_destroy_typed(tls, st)
+		return w
+	}
+	w := release()
+	for i := 0; i < 10; i++ {
+		runtime.GC()
+	}
+	if w.Value() != nil {
+		t.Fatal("destroy left allocation registered")
+	}
+	runtime.KeepAlive(tls)
+	Opus_opus_decoder_destroy_typed(tls, nil)
+	Opus_opus_decoder_destroy_typed(nil, nil)
+	Opus_opus_decoder_destroy_typed(nil, &OpusT_OpusDecoder{})
+}
+
 func TestDecoderCreatePointers(t *testing.T) {
 	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
 		for _, channels := range []int32{1, 2} {
@@ -49,7 +77,7 @@ func TestDecoderCreatePointers(t *testing.T) {
 			if st.FFs != rate || st.Fchannels != channels {
 				t.Fatal("creation lifetime")
 			}
-			libc.XfreePointer(tls, unsafe.Pointer(st))
+			Opus_opus_decoder_destroy_typed(tls, st)
 			tls.Close()
 		}
 	}
@@ -65,6 +93,41 @@ func TestDecoderCreatePointers(t *testing.T) {
 	}
 }
 
+func TestMSDecoderDestroyPointers(t *testing.T) {
+	for _, legacy := range []bool{false, true} {
+		tls := libc.NewTLS()
+		release := func() weak.Pointer[OpusT_OpusMSDecoder] {
+			mapping := [3]byte{0, 1, 2}
+			st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 3, 2, 1, &mapping[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := weak.Make(st)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if legacy {
+				Opus_opus_multistream_decoder_destroy(tls, uintptr(unsafe.Pointer(st)))
+			} else {
+				Opus_opus_multistream_decoder_destroy_typed(tls, st)
+			}
+			return w
+		}
+		w := release()
+		for i := 0; i < 10; i++ {
+			runtime.GC()
+		}
+		if w.Value() != nil {
+			t.Fatal("multistream allocation retained", legacy)
+		}
+		runtime.KeepAlive(tls)
+		tls.Close()
+	}
+	Opus_opus_multistream_decoder_destroy_typed(nil, nil)
+	tls := libc.NewTLS()
+	defer tls.Close()
+	Opus_opus_multistream_decoder_destroy_typed(tls, nil)
+}
+
 func TestMSDecoderCreatePointers(t *testing.T) {
 	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
 		tls := libc.NewTLS()
@@ -76,7 +139,7 @@ func TestMSDecoderCreatePointers(t *testing.T) {
 			t.Fatal(st, err)
 		}
 		runtime.GC()
-		libc.XfreePointer(tls, unsafe.Pointer(st))
+		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		tls.Close()
 	}
 	for _, test := range []struct{ rate, channels, streams, coupled, code int32 }{{48000, 0, 1, 0, -1}, {48000, 1, 0, 0, -1}, {48000, 1, 1, 2, -1}, {44100, 1, 1, 0, -7}, {48000, 1, 1, 0, -7}} {
@@ -92,6 +155,36 @@ func TestMSDecoderCreatePointers(t *testing.T) {
 	if st != nil || err == nil || err.(*OpusError).Code != -1 {
 		t.Fatal("failed layout", st, err)
 	}
+}
+
+func TestProjectionDecoderDestroyPointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	release := func() weak.Pointer[OpusT_OpusProjectionDecoder] {
+		matrix := [18]byte{}
+		st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], 18)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := weak.Make(st)
+		if unsafe.Pointer(get_dec_demixing_matrix(nil, st)) == unsafe.Pointer(st) || unsafe.Pointer(get_multistream_decoder(nil, st)) == unsafe.Pointer(st) {
+			t.Fatal("expected interiors")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus_opus_projection_decoder_destroy_typed(tls, st)
+		return w
+	}
+	w := release()
+	for i := 0; i < 10; i++ {
+		runtime.GC()
+	}
+	if w.Value() != nil {
+		t.Fatal("projection base retained")
+	}
+	runtime.KeepAlive(tls)
+	Opus_opus_projection_decoder_destroy_typed(tls, nil)
+	Opus_opus_projection_decoder_destroy_typed(nil, nil)
 }
 
 func TestProjectionDecoderCreatePointers(t *testing.T) {
@@ -111,7 +204,7 @@ func TestProjectionDecoderCreatePointers(t *testing.T) {
 		if m.Frows != 3 || m.Fcols != 3 || data[1] != 32767 || data[2] != -32768 || get_multistream_decoder(nil, st).Flayout.Fmapping[2] != 2 {
 			t.Fatal("created matrix/state")
 		}
-		libc.XfreePointer(tls, unsafe.Pointer(st))
+		Opus_opus_projection_decoder_destroy_typed(tls, st)
 		tls.Close()
 	}
 	for _, args := range [][4]int32{{48000, 3, 2, 17}, {44100, 3, 2, 18}, {48000, 256, 1, 0}} {

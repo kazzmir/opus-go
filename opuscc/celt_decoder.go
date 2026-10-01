@@ -434,7 +434,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 			if !(b < B) {
 				break
 			}
-			Opus_clt_mdct_backward_c(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq2+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+			mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq2+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
 			b = b + 1
 		}
 		b = 0
@@ -442,7 +442,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 			if !(b < B) {
 				break
 			}
-			Opus_clt_mdct_backward_c(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+			mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
 			b = b + 1
 		}
 	} else {
@@ -464,7 +464,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 				if !(b < B) {
 					break
 				}
-				Opus_clt_mdct_backward_c(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+				mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
 				b = b + 1
 			}
 		} else {
@@ -477,7 +477,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 					if !(b < B) {
 						break
 					}
-					Opus_clt_mdct_backward_c(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(c)*uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+					mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(c)*uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
 					b = b + 1
 				}
 				c = c + 1
@@ -2216,7 +2216,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
 	Opus_unquant_energy_finalise(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*OpusT_celt_glog)(unsafe.Pointer(oldBandE)), (*int32)(unsafe.Pointer(fine_quant)), (*int32)(unsafe.Pointer(fine_priority)), len1*int32(8)-v28, (*OpusT_ec_dec)(unsafe.Pointer(dec)), C)
 	if anti_collapse_on != 0 {
-		Opus_anti_collapse(tls, mode, X, collapse_masks, LM, C, N, start, end, oldBandE, oldLogE, oldLogE2, pulses, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+		anti_collapse_legacy(tls, mode, X, collapse_masks, LM, C, N, start, end, oldBandE, oldLogE, oldLogE2, pulses, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 	}
 	if silence != 0 {
 		i = 0

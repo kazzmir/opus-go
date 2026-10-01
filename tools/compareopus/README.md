@@ -322,6 +322,17 @@ Radix-3 reuses the grouped fixtures and compares epi3 selection, half/scalar
 rounding, guards and stack-growth/GC calls with exact native output bits.
 Radix-5 uses the same grouped cases to verify ya/yb selection, parenthesized
 float32 sums/products, five-way stores and impulse/guard behavior.
+MDCT lookups retain typed FFT-state and trig-table pointers; FFT states in turn
+retain typed bit-reversal and twiddle pointers. Grouped FFT tests compare both C
+layouts and force GC/stack growth with a heap lookup as the only table owner.
+Forward/inverse MDCT cases use actual mdct.c plus scalar kiss_fft.c and compare
+input/output bits and guards across shifts 0–3, overlap 0/4/120, signed/zero/strided
+spectra, standard FFT sizes and odd N/4. Forward folding and rotation use Go scratch,
+not TLS pseudostack storage. Inverse de-shuffling preserves both-end capture and
+the double-processed odd middle pair before TDAC. Go also checks forward fold-before-
+output aliases; native cases keep restrict-qualified buffers distinct. The obsolete
+FFT integer adapter is removed; the outer synthesis MDCT boundary remains legacy.
+Architecture headers and opaque decoder allocations are still not globally GC-safe.
 FFT driver cases share the butterfly tests and use native-generated factors,
 bit-reversal and twiddles for sizes 4–480, including shared-table shifts -1–2.
 Forward FFT cases add native bit-reversal/scaling, separate buffers and both
@@ -449,6 +460,34 @@ PVQ search/quantization reuse renamed vq.c: exact pulses, energy, fallback/sign 
 reconstruction, collapse masks, entropy state and finalized bytes, including tiny
 encoder capacities. Search/pulse scratch is Go-owned; outer partition/synthesis
 adapters and mode pointer fields remain legacy.
+One-bin quantization uses typed context/entropy/sample pointers and preserves
+cached encode mode, mono/stereo aliases, lowband store order and insufficient-bit
+behavior. Grouped bands fixtures compare sign bits, all entropy fields and finalized
+buffers (including tiny/zero capacities) with actual bands.c.
+Anti-collapse and spreading use explicit typed band tables and buffer/output
+pointers. Anti-collapse preserves the float32 exp2 Horner/bit reconstruction, seed
+order, mono decoder's second-channel history and normalization. Its actual bands.c
+reference enables FLOAT_APPROX as the generated build does and binds scalar
+normalization rather than linked-library SIMD. Spreading fixtures compare decisions,
+recursive/HF state, shared output pointers, early exits and captured assertions.
+The coarse-energy encoding leaf uses typed arrays/encoder and fixed predictor
+scratch; actual quant_bands.c fixtures compare badness, error/reconstructed energy
+store aliases, all LM/coding/LFE choices, budget branches, band-20 probability
+clipping and full finalized entropy buffers. Float32 rounding and C store order
+are preserved. The outer coarse-energy driver now uses typed mode, arrays, delayed history and
+encoder snapshots, plus Go candidate-energy/error and saved-byte scratch. Actual
+quant_bands.c cases compare one-/two-pass and forced/automatic intra behavior,
+low budgets, pre-existing prefix/tail bits, tiny buffers, LFE, loss bias and output/
+delayed-history aliases. Full-band cases initialize every C candidate-error slot;
+partial-band intra copies can expose indeterminate C scratch and are not a defined
+native oracle. Go scratch is zero-initialized. Outer quantizers and band-context
+fields still cross legacy adapters; these checks are not a global GC-safety proof.
+Typed single-stream, multistream and projection destroy entries pair with the typed
+factories. Each releases only its allocation base. Native free spies verify exactly
+one base free, including nil; Go weak-reference tests keep TLS live while verifying
+that destruction releases the registry owner. Legacy destroy ABIs retain integer
+registry-key frees without reconstructing heap pointers. These APIs do not change
+the C no-use-after-destroy contract or make opaque byte allocations GC-scanned.
 Decoder reset/init fixtures compare complete state images and guards using actual
 celt_decoder.c, opus_decoder.c, SILK init_decoder.c and dec_API.c scalar builds;
 only mode-pointer addresses are normalized. CELT reset uses offsetof(rng), retains

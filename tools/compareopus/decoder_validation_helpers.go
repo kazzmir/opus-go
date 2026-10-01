@@ -7,6 +7,11 @@ package main
 #include <stdlib.h>
 static _Thread_local int validation_factory_fail;
 static void *validation_factory_alloc(size_t size){return validation_factory_fail?NULL:calloc(1,size);}
+static _Thread_local int validation_free_calls,validation_free_matches;
+static _Thread_local void *validation_free_expected;
+static void validation_factory_free(void *p){validation_free_calls++;validation_free_matches=p==validation_free_expected;free(p);}
+#define OVERRIDE_OPUS_FREE 1
+#define opus_free validation_factory_free
 #define OVERRIDE_OPUS_ALLOC 1
 #define opus_alloc validation_factory_alloc
 static _Thread_local jmp_buf validation_jump;
@@ -56,6 +61,9 @@ void comparison_validator_fatal(const char *str,const char *file,int line) {long
 #include "../../../opus/silk/init_decoder.c"
 #include "../../../opus/silk/dec_API.c"
 void validation_normalize_decoder_mode(void *decoder) {OpusDecoder *st=decoder;memset((char*)st+st->celt_dec_offset,0,sizeof(void*));}
+static int native_opus_destroy(int null) {
+ void *p=null?NULL:malloc(sizeof(OpusDecoder));validation_free_calls=0;validation_free_expected=p;validation_decoder_destroy(p);return validation_free_calls==1&&validation_free_matches;
+}
 static int native_opus_create_image(unsigned char *data,size_t size,int rate,int channels,int fail) {
  int error=99;validation_factory_fail=fail;OpusDecoder *st=validation_decoder_create(rate,channels,&error);validation_factory_fail=0;
  if(st){validation_normalize_decoder_mode(st);memcpy(data,st,size);validation_decoder_destroy(st);}return error;
@@ -75,6 +83,14 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeOpusDestroy(null bool) bool {
+	var n C.int
+	if null {
+		n = 1
+	}
+	return C.native_opus_destroy(n) != 0
+}
 
 func nativeOpusCreateImage(data []byte, rate, channels int32, fail bool) int32 {
 	f := C.int(0)

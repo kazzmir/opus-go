@@ -3,8 +3,29 @@
 package main
 
 /*
+#define VAR_ARRAYS 1
+#define FLOAT_APPROX 1
+#define eMeans comparison_energy_means
+#define quant_coarse_energy comparison_coarse_energy_encode
+#define quant_fine_energy comparison_fine_energy_encode
+#define quant_energy_finalise comparison_final_energy_encode
+#define unquant_coarse_energy comparison_coarse_energy_decode
+#define unquant_fine_energy comparison_fine_energy_decode
+#define unquant_energy_finalise comparison_final_energy_decode
+#define amp2Log2 comparison_energy_amp_log
+#include "../../../opus/celt/quant_bands.c"
 #include "modes.h"
 #include "quant_bands.h"
+static void energy_coarse_driver(unsigned *s,unsigned char *buf,float *energy,float *old,float *error,int bands,int start,int end,int eff,unsigned budget,int channels,int lm,int available,int force,float *delay,int two,int loss,int lfe) {
+ CELTMode m={0};m.nbEBands=bands;ec_enc e={0};e.buf=buf;e.storage=s[0];e.end_offs=s[1];e.end_window=s[2];e.nend_bits=s[3];e.nbits_total=s[4];e.offs=s[5];e.rng=s[6];e.val=s[7];e.ext=s[8];e.rem=s[9];e.error=s[10];
+ comparison_coarse_energy_encode(&m,start,end,eff,energy,old,budget,error,&e,channels,lm,available,force,delay,two,loss,lfe);ec_enc_done(&e);
+ s[0]=e.storage;s[1]=e.end_offs;s[2]=e.end_window;s[3]=e.nend_bits;s[4]=e.nbits_total;s[5]=e.offs;s[6]=e.rng;s[7]=e.val;s[8]=e.ext;s[9]=e.rem;s[10]=e.error;
+}
+static int energy_coarse_encode(unsigned *s,unsigned char *buf,float *energy,float *old,float *error,int bands,int start,int end,int budget,int tell,int channels,int lm,int intra,float decay,int lfe) {
+ CELTMode m={0};m.nbEBands=bands;ec_enc e={0};e.buf=buf;e.storage=s[0];e.end_offs=s[1];e.end_window=s[2];e.nend_bits=s[3];e.nbits_total=s[4];e.offs=s[5];e.rng=s[6];e.val=s[7];e.ext=s[8];e.rem=s[9];e.error=s[10];
+ int result=quant_coarse_energy_impl(&m,start,end,energy,old,budget,tell,e_prob_model[lm][intra],error,&e,channels,lm,intra,decay,lfe);ec_enc_done(&e);
+ s[0]=e.storage;s[1]=e.end_offs;s[2]=e.end_window;s[3]=e.nend_bits;s[4]=e.nbits_total;s[5]=e.offs;s[6]=e.rng;s[7]=e.val;s[8]=e.ext;s[9]=e.rem;s[10]=e.error;return result;
+}
 static void energy_encode(unsigned *s,unsigned char *buf,float *old,float *error,int bands,int start,int end,int channels,int *prev,int *extra,int op,int bitsLeft) {
  CELTMode m={0};m.nbEBands=bands;
  ec_enc e={0};e.buf=buf;e.storage=s[0];e.end_offs=s[1];e.end_window=s[2];e.nend_bits=s[3];e.nbits_total=s[4];e.offs=s[5];e.rng=s[6];e.val=s[7];e.ext=s[8];e.rem=s[9];e.error=s[10];
@@ -18,6 +39,39 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeCoarseEnergyDriver(e *opuscc.OpusT_ec_enc, buf []byte, energy, old, err *float32, nb, start, end, eff int32, budget uint32, channels, lm, available, force int32, delay *float32, two, loss, lfe int32) {
+	s := [11]C.uint{C.uint(e.Fstorage), C.uint(e.Fend_offs), C.uint(e.Fend_window), C.uint(e.Fnend_bits), C.uint(e.Fnbits_total), C.uint(e.Foffs), C.uint(e.Frng), C.uint(e.Fval), C.uint(e.Fext), C.uint(e.Frem), C.uint(e.Ferror1)}
+	C.energy_coarse_driver(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf))), (*C.float)(unsafe.Pointer(energy)), (*C.float)(unsafe.Pointer(old)), (*C.float)(unsafe.Pointer(err)), C.int(nb), C.int(start), C.int(end), C.int(eff), C.uint(budget), C.int(channels), C.int(lm), C.int(available), C.int(force), (*C.float)(unsafe.Pointer(delay)), C.int(two), C.int(loss), C.int(lfe))
+	e.Fstorage = uint32(s[0])
+	e.Fend_offs = uint32(s[1])
+	e.Fend_window = uint32(s[2])
+	e.Fnend_bits = int32(s[3])
+	e.Fnbits_total = int32(s[4])
+	e.Foffs = uint32(s[5])
+	e.Frng = uint32(s[6])
+	e.Fval = uint32(s[7])
+	e.Fext = uint32(s[8])
+	e.Frem = int32(s[9])
+	e.Ferror1 = int32(s[10])
+}
+
+func nativeCoarseEnergyImpl(e *opuscc.OpusT_ec_enc, buf []byte, energy, old, err *float32, nb, start, end, budget, tell, channels, lm, intra int32, decay float32, lfe int32) int32 {
+	s := [11]C.uint{C.uint(e.Fstorage), C.uint(e.Fend_offs), C.uint(e.Fend_window), C.uint(e.Fnend_bits), C.uint(e.Fnbits_total), C.uint(e.Foffs), C.uint(e.Frng), C.uint(e.Fval), C.uint(e.Fext), C.uint(e.Frem), C.uint(e.Ferror1)}
+	result := C.energy_coarse_encode(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf))), (*C.float)(unsafe.Pointer(energy)), (*C.float)(unsafe.Pointer(old)), (*C.float)(unsafe.Pointer(err)), C.int(nb), C.int(start), C.int(end), C.int(budget), C.int(tell), C.int(channels), C.int(lm), C.int(intra), C.float(decay), C.int(lfe))
+	e.Fstorage = uint32(s[0])
+	e.Fend_offs = uint32(s[1])
+	e.Fend_window = uint32(s[2])
+	e.Fnend_bits = int32(s[3])
+	e.Fnbits_total = int32(s[4])
+	e.Foffs = uint32(s[5])
+	e.Frng = uint32(s[6])
+	e.Fval = uint32(s[7])
+	e.Fext = uint32(s[8])
+	e.Frem = int32(s[9])
+	e.Ferror1 = int32(s[10])
+	return int32(result)
+}
 
 func nativeEnergyEncode(e *opuscc.OpusT_ec_enc, buf []byte, old, err []float32, bands, start, end, channels int32, prev, extra []int32, options ...int32) {
 	var op, bitsLeft int32

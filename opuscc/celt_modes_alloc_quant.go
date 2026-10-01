@@ -1595,136 +1595,92 @@ func Opus_denormalise_bands(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSiz
 // C documentation
 //
 //	/* This prevents energy collapse for transients with multiple short MDCTs */
-func Opus_anti_collapse(tls *libc.TLS, m uintptr, X_ uintptr, collapse_masks uintptr, LM int32, C int32, size int32, start int32, end int32, logE uintptr, prev1logE uintptr, prev2logE uintptr, pulses uintptr, seed OpusT_opus_uint32, encode int32, arch int32) {
-	var Ediff, v13 OpusT_opus_val32
-	var N0, c, depth, i, j, k, renormalize, v8 int32
-	var X uintptr
-	var frac, v5, v6 float32
-	var integer OpusT_opus_int32
-	var prev1, prev2, v10 OpusT_celt_glog
-	var r, v20 OpusT_celt_norm
-	var sqrt_1, thresh, v17 OpusT_opus_val16
-	var res, v2, v3 OpusT_opus_uint32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = Ediff, N0, X, c, depth, frac, i, integer, j, k, prev1, prev2, r, renormalize, sqrt_1, thresh, v10, v13, v17, v2, v20, v3, v5, v6, v8
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
-		N0 = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i)*2)))
-		/* depth in 1/8 bits */
-		_ = *(*int32)(unsafe.Pointer(pulses + uintptr(i)*4)) >= int32(0)
-		v2 = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i)*2))))
-		_ = v2 > uint32(0)
-		v3 = uint32(int32(1)+*(*int32)(unsafe.Pointer(pulses + uintptr(i)*4))) / v2
-		depth = int32(v3 >> LM)
-		v5 = float32(-float32(0.125) * float32(depth))
-		integer = int32(libc.Xfloor(tls, float64(v5)))
-		if integer < -int32(50) {
-			v6 = float32(0)
-			goto _7
-		}
-		frac = v5 - float32(integer)
-		*(*float32)(unsafe.Pointer(&res)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
-		res = uint32(int32(res)+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
-		v6 = *(*float32)(unsafe.Pointer(&res))
-	_7:
-		thresh = OpusT_opus_val16(float32(0.5) * v6)
-		sqrt_1 = float32(1) / float32(libc.Xsqrt(tls, float64(N0<<LM)))
-		c = 0
-		for {
-			renormalize = 0
-			prev1 = *(*OpusT_celt_glog)(unsafe.Pointer(prev1logE + uintptr(c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4))
-			prev2 = *(*OpusT_celt_glog)(unsafe.Pointer(prev2logE + uintptr(c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4))
-			if !(encode != 0) && C == int32(1) {
-				if prev1 > *(*OpusT_celt_glog)(unsafe.Pointer(prev1logE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4)) {
-					v10 = prev1
-				} else {
-					v10 = *(*OpusT_celt_glog)(unsafe.Pointer(prev1logE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4))
-				}
-				prev1 = v10
-				if prev2 > *(*OpusT_celt_glog)(unsafe.Pointer(prev2logE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4)) {
-					v10 = prev2
-				} else {
-					v10 = *(*OpusT_celt_glog)(unsafe.Pointer(prev2logE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4))
-				}
-				prev2 = v10
-			}
-			if prev1 < prev2 {
-				v10 = prev1
-			} else {
-				v10 = prev2
-			}
-			Ediff = *(*OpusT_celt_glog)(unsafe.Pointer(logE + uintptr(c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands+i)*4)) - v10
-			if float32(int32(0)) > Ediff {
-				v13 = float32(int32(0))
-			} else {
-				v13 = Ediff
-			}
-			Ediff = v13
-			/* r needs to be multiplied by 2 or 2*sqrt(2) depending on LM because
-			   short blocks don't have the same energy as long */
-			v5 = -Ediff
-			integer = int32(libc.Xfloor(tls, float64(v5)))
-			if integer < -int32(50) {
-				v6 = float32(0)
-				goto _16
-			}
-			frac = v5 - float32(integer)
-			*(*float32)(unsafe.Pointer(&res)) = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
-			res = uint32(int32(res)+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
-			v6 = *(*float32)(unsafe.Pointer(&res))
-		_16:
-			r = OpusT_celt_norm(float32(2) * v6)
-			if LM == int32(3) {
-				r = r * float32(1.41421356)
-			}
-			if thresh < r {
-				v17 = thresh
-			} else {
-				v17 = r
-			}
-			r = v17
-			r = OpusT_celt_norm(r * sqrt_1)
-			X = X_ + uintptr(c*size)*4 + uintptr(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(i)*2)))<<LM)*4
-			k = 0
-			for {
-				if !(k < int32(1)<<LM) {
-					break
-				}
-				/* Detect collapse */
-				if !(int32(*(*uint8)(unsafe.Pointer(collapse_masks + uintptr(i*C+c))))&(int32(1)<<k) != 0) {
-					/* Fill with noise */
-					j = 0
-					for {
-						if !(j < N0) {
-							break
-						}
-						seed = Opus_celt_lcg_rand(tls, seed)
-						if seed&uint32(0x8000) != 0 {
-							v20 = r
-						} else {
-							v20 = -r
-						}
-						*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j<<LM+k)*4)) = v20
-						j = j + 1
-					}
-					renormalize = int32(1)
-				}
-				k = k + 1
-			}
-			/* We just added some energy, so we need to renormalise */
-			if renormalize != 0 {
-				Opus_renormalise_vector(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N0<<LM, float32(1), arch)
-			}
-			c = c + 1
-			v8 = c
-			if !(v8 < C) {
-				break
-			}
-		}
-		i = i + 1
+func collapseExp2(x float32) float32 {
+	integer := int32(math.Floor(float64(x)))
+	if integer < -50 {
+		return 0
 	}
+	frac := x - float32(integer)
+	p := float32(0.00898933969438076) + float32(frac*float32(0.0018775766948238015))
+	p = float32(0.05582631751894951) + float32(frac*p)
+	p = float32(0.24015361070632935) + float32(frac*p)
+	p = float32(0.6931530833244324) + float32(frac*p)
+	p = float32(0.9999999403953552) + float32(frac*p)
+	return math.Float32frombits((math.Float32bits(p) + (uint32(integer) << 23)) & 0x7fffffff)
+}
+
+func Opus_anti_collapse(tls *libc.TLS, bands *int16, nbBands int32, X *float32, masks *byte, LM, C, size, start, end int32, logE, prev1logE, prev2logE *float32, pulses *int32, seed uint32, encode, arch int32) {
+	if start >= end {
+		return
+	}
+	b := unsafe.Slice(bands, end+1)
+	x := unsafe.Slice(X, max(C, 1)*size)
+	mask := unsafe.Slice(masks, max(end*C, 1))
+	pulse := unsafe.Slice(pulses, end)
+	energy := unsafe.Slice(logE, max(C, 1)*nbBands)
+	historyChannels := max(C, 1)
+	if encode == 0 && C == 1 {
+		historyChannels = 2
+	}
+	p1 := unsafe.Slice(prev1logE, historyChannels*nbBands)
+	p2 := unsafe.Slice(prev2logE, historyChannels*nbBands)
+	for i := start; i < end; i++ {
+		n0 := int32(b[i+1]) - int32(b[i])
+		depth := int32((uint32(1+pulse[i]) / uint32(n0)) >> LM)
+		threshold := float32(.5) * collapseExp2(float32(-.125)*float32(depth))
+		sqrt1 := float32(1) / float32(math.Sqrt(float64(n0<<LM)))
+		for c := int32(0); c < max(C, 1); c++ {
+			index := c*nbBands + i
+			prev1, prev2 := p1[index], p2[index]
+			if encode == 0 && C == 1 {
+				if !(prev1 > p1[nbBands+i]) {
+					prev1 = p1[nbBands+i]
+				}
+				if !(prev2 > p2[nbBands+i]) {
+					prev2 = p2[nbBands+i]
+				}
+			}
+			previous := prev2
+			if prev1 < prev2 {
+				previous = prev1
+			}
+			diff := energy[index] - previous
+			if 0 > diff {
+				diff = 0
+			}
+			r := float32(2) * collapseExp2(-diff)
+			if LM == 3 {
+				r = float32(r * float32(1.41421356))
+			}
+			if threshold < r {
+				r = threshold
+			}
+			r = float32(r * sqrt1)
+			offset := c*size + (int32(b[i]) << LM)
+			renormalize := false
+			for k := int32(0); k < 1<<LM; k++ {
+				if int32(mask[i*C+c])&(1<<k) == 0 {
+					for j := int32(0); j < n0; j++ {
+						seed = Opus_celt_lcg_rand(tls, seed)
+						value := -r
+						if seed&0x8000 != 0 {
+							value = r
+						}
+						x[offset+(j<<LM)+k] = value
+					}
+					renormalize = true
+				}
+			}
+			if renormalize {
+				Opus_renormalise_vector(tls, &x[offset], n0<<LM, 1, arch)
+			}
+		}
+	}
+}
+
+func anti_collapse_legacy(tls *libc.TLS, m, X, masks uintptr, LM, C, size, start, end int32, logE, p1, p2, pulses uintptr, seed uint32, encode, arch int32) {
+	mode := (*OpusT_OpusCustomMode)(unsafe.Pointer(m))
+	Opus_anti_collapse(tls, (*int16)(unsafe.Pointer(mode.FeBands)), mode.FnbEBands, (*float32)(unsafe.Pointer(X)), (*byte)(unsafe.Pointer(masks)), LM, C, size, start, end, (*float32)(unsafe.Pointer(logE)), (*float32)(unsafe.Pointer(p1)), (*float32)(unsafe.Pointer(p2)), (*int32)(unsafe.Pointer(pulses)), seed, encode, arch)
 }
 
 // C documentation
@@ -1805,132 +1761,87 @@ func stereo_merge(tls *libc.TLS, X *OpusT_celt_norm, Y *OpusT_celt_norm, mid Opu
 // C documentation
 //
 //	/* Decide whether we should spread the pulses in the current frame */
-func Opus_spreading_decision(tls *libc.TLS, m uintptr, X uintptr, average uintptr, last_decision int32, hf_average uintptr, tapset_decision uintptr, update_hf int32, end int32, C int32, M int32, spread_weight uintptr) (r int32) {
-	var N, N0, c, decision, hf_sum, i, j, nbBands, sum, tmp, v1 int32
-	var eBands, x uintptr
-	var tcount [3]int32
-	var x2N OpusT_opus_val32
-	var v5, v6 OpusT_opus_uint32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N0, c, decision, eBands, hf_sum, i, j, nbBands, sum, tcount, tmp, x, x2N, v1, v5, v6
-	sum = 0
-	nbBands = 0
-	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands
-	hf_sum = 0
-	if !(end > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5328, __ccgo_ts+5312, int32(480))
+func Opus_spreading_decision(tls *libc.TLS, bands *int16, nbBands, shortMdctSize int32, X *float32, average *int32, lastDecision int32, hfAverage, tapset *int32, updateHF, end, C, M int32, spreadWeight *int32) int32 {
+	if end <= 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+5328, __ccgo_ts+5312, 480)
 	}
-	N0 = M * (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FshortMdctSize
-	if M*(int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(end)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(end-int32(1))*2)))) <= int32(8) {
+	b := unsafe.Slice(bands, end+1)
+	n0 := M * shortMdctSize
+	if M*(int32(b[end])-int32(b[end-1])) <= 8 {
 		return SPREAD_NONE
 	}
-	c = 0
-	for {
-		i = 0
-		for {
-			if !(i < end) {
-				break
+	x := unsafe.Slice(X, max(C, 1)*n0)
+	weights := unsafe.Slice(spreadWeight, end)
+	var sum, weightedBands, hfSum int32
+	for c := int32(0); c < max(C, 1); c++ {
+		for i := int32(0); i < end; i++ {
+			n := M * (int32(b[i+1]) - int32(b[i]))
+			if n <= 8 {
+				continue
 			}
-			tmp = 0
-			tcount = [3]int32{}
-			x = X + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i)*2))))*4 + uintptr(c*N0)*4
-			N = M * (int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i)*2))))
-			if N <= int32(8) {
-				goto _3
+			var count [3]int32
+			offset := M*int32(b[i]) + c*n0
+			for j := int32(0); j < n; j++ {
+				value := x[offset+j]
+				square := float32(value * value)
+				v := float32(square * float32(n))
+				if v < .25 {
+					count[0]++
+				}
+				if v < .0625 {
+					count[1]++
+				}
+				if v < .015625 {
+					count[2]++
+				}
 			}
-			/* Compute rough CDF of |x[j]| */
-			j = 0
-			for {
-				if !(j < N) {
-					break
-				}
-				/* Q13 */
-				x2N = OpusT_opus_val32(OpusT_celt_norm(*(*OpusT_celt_norm)(unsafe.Pointer(x + uintptr(j)*4))**(*OpusT_celt_norm)(unsafe.Pointer(x + uintptr(j)*4))) * float32(N))
-				if x2N < float32(0.25) {
-					tcount[0] = tcount[0] + 1
-				}
-				if x2N < float32(0.0625) {
-					tcount[int32(1)] = tcount[int32(1)] + 1
-				}
-				if x2N < float32(0.015625) {
-					tcount[int32(2)] = tcount[int32(2)] + 1
-				}
-				j = j + 1
+			if i > nbBands-4 {
+				hfSum = int32(uint32(hfSum) + uint32(32*(count[1]+count[0]))/uint32(n))
 			}
-			/* Only include four last bands (8 kHz and up) */
-			if i > (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands-int32(4) {
-				v5 = uint32(N)
-				_ = v5 > uint32(0)
-				v6 = uint32(int32(32)*(tcount[int32(1)]+tcount[0])) / v5
-				hf_sum = int32(uint32(hf_sum) + v6)
-			}
-			tmp = libc.BoolInt32(int32(2)*tcount[int32(2)] >= N) + libc.BoolInt32(int32(2)*tcount[int32(1)] >= N) + libc.BoolInt32(int32(2)*tcount[0] >= N)
-			sum = sum + tmp**(*int32)(unsafe.Pointer(spread_weight + uintptr(i)*4))
-			nbBands = nbBands + *(*int32)(unsafe.Pointer(spread_weight + uintptr(i)*4))
-		_3:
-			i = i + 1
-		}
-		c = c + 1
-		v1 = c
-		if !(v1 < C) {
-			break
+			tmp := libc.BoolInt32(2*count[2] >= n) + libc.BoolInt32(2*count[1] >= n) + libc.BoolInt32(2*count[0] >= n)
+			sum += tmp * weights[i]
+			weightedBands += weights[i]
 		}
 	}
-	if update_hf != 0 {
-		if hf_sum != 0 {
-			v5 = uint32(C * (int32(4) - (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands + end))
-			_ = v5 > uint32(0)
-			v6 = uint32(hf_sum) / v5
-			hf_sum = int32(v6)
+	if updateHF != 0 {
+		if hfSum != 0 {
+			hfSum = int32(uint32(hfSum) / uint32(C*(4-nbBands+end)))
 		}
-		*(*int32)(unsafe.Pointer(hf_average)) = (*(*int32)(unsafe.Pointer(hf_average)) + hf_sum) >> int32(1)
-		hf_sum = *(*int32)(unsafe.Pointer(hf_average))
-		if *(*int32)(unsafe.Pointer(tapset_decision)) == int32(2) {
-			hf_sum = hf_sum + int32(4)
+		*hfAverage = (*hfAverage + hfSum) >> 1
+		hfSum = *hfAverage
+		if *tapset == 2 {
+			hfSum += 4
+		} else if *tapset == 0 {
+			hfSum -= 4
+		}
+		if hfSum > 22 {
+			*tapset = 2
+		} else if hfSum > 18 {
+			*tapset = 1
 		} else {
-			if *(*int32)(unsafe.Pointer(tapset_decision)) == 0 {
-				hf_sum = hf_sum - int32(4)
-			}
-		}
-		if hf_sum > int32(22) {
-			*(*int32)(unsafe.Pointer(tapset_decision)) = int32(2)
-		} else {
-			if hf_sum > int32(18) {
-				*(*int32)(unsafe.Pointer(tapset_decision)) = int32(1)
-			} else {
-				*(*int32)(unsafe.Pointer(tapset_decision)) = 0
-			}
+			*tapset = 0
 		}
 	}
-	/*printf("%d %d %d\n", hf_sum, *hf_average, *tapset_decision);*/
-	if !(nbBands > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5352, __ccgo_ts+5312, int32(536))
-	} /* end has to be non-zero */
-	if !(sum >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5380, __ccgo_ts+5312, int32(537))
+	if weightedBands <= 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+5352, __ccgo_ts+5312, 536)
 	}
-	v5 = uint32(nbBands)
-	_ = v5 > uint32(0)
-	v6 = uint32(sum<<int32(8)) / v5
-	sum = int32(v6)
-	/* Recursive averaging */
-	sum = (sum + *(*int32)(unsafe.Pointer(average))) >> int32(1)
-	*(*int32)(unsafe.Pointer(average)) = sum
-	/* Hysteresis */
-	sum = (int32(3)*sum + ((int32(3)-last_decision)<<int32(7) + int32(64)) + int32(2)) >> int32(2)
-	if sum < int32(80) {
-		decision = int32(SPREAD_AGGRESSIVE)
-	} else {
-		if sum < int32(256) {
-			decision = int32(SPREAD_NORMAL)
-		} else {
-			if sum < int32(384) {
-				decision = int32(SPREAD_LIGHT)
-			} else {
-				decision = SPREAD_NONE
-			}
-		}
+	if sum < 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+5380, __ccgo_ts+5312, 537)
 	}
-	return decision
+	sum = int32(uint32(sum<<8) / uint32(weightedBands))
+	sum = (sum + *average) >> 1
+	*average = sum
+	sum = (3*sum + ((3 - lastDecision) << 7) + 64 + 2) >> 2
+	if sum < 80 {
+		return SPREAD_AGGRESSIVE
+	}
+	if sum < 256 {
+		return SPREAD_NORMAL
+	}
+	if sum < 384 {
+		return SPREAD_LIGHT
+	}
+	return SPREAD_NONE
 }
 
 // C documentation
@@ -2358,47 +2269,42 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 	(*split_ctx)(unsafe.Pointer(sctx)).Fqalloc = qalloc
 }
 
-func quant_band_n1(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, lowband_out uintptr) (r uint32) {
-	var c, encode, sign, stereo, v1 int32
-	var ec, x uintptr
-	var v3 float32
-	_, _, _, _, _, _, _, _ = c, ec, encode, sign, stereo, x, v1, v3
-	bandContext := (*band_ctx)(unsafe.Pointer(ctx))
-	x = X
-	encode = bandContext.Fencode
-	ec = bandContext.Fec
-	stereo = libc.BoolInt32(Y != uintptr(uint32(0)))
-	c = 0
-	for {
-		sign = 0
-		if bandContext.Fremaining_bits >= int32(1)<<int32(BITRES) {
+func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband *OpusT_celt_norm) uint32 {
+	encode := ctx.Fencode // C caches this before either channel can emit bytes.
+	x := X
+	channels := 1
+	if Y != nil {
+		channels = 2
+	}
+	for c := 0; c < channels; c++ {
+		sign := int32(0)
+		if ctx.Fremaining_bits >= 1<<BITRES {
 			if encode != 0 {
-				sign = libc.BoolInt32(*(*OpusT_celt_norm)(unsafe.Pointer(x)) < float32(0))
-				Opus_ec_enc_bits(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(sign), uint32(1))
+				sign = libc.BoolInt32(*x < 0)
+				Opus_ec_enc_bits(tls, ec, uint32(sign), 1)
 			} else {
-				sign = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1)))
+				sign = int32(Opus_ec_dec_bits(tls, ec, 1))
 			}
-			bandContext.Fremaining_bits -= int32(1) << int32(BITRES)
+			ctx.Fremaining_bits -= 1 << BITRES
 		}
-		if bandContext.Fresynth != 0 {
+		if ctx.Fresynth != 0 {
 			if sign != 0 {
-				v3 = -float32(1)
+				*x = -1
 			} else {
-				v3 = float32(1)
+				*x = 1
 			}
-			*(*OpusT_celt_norm)(unsafe.Pointer(x)) = v3
 		}
 		x = Y
-		c = c + 1
-		v1 = c
-		if !(v1 < int32(1)+stereo) {
-			break
-		}
 	}
-	if lowband_out != 0 {
-		*(*OpusT_celt_norm)(unsafe.Pointer(lowband_out)) = *(*OpusT_celt_norm)(unsafe.Pointer(X))
+	if lowband != nil {
+		*lowband = *X
 	}
-	return uint32(1)
+	return 1
+}
+
+func quant_band_n1_legacy(tls *libc.TLS, ctx, X, Y, lowband uintptr) uint32 {
+	context := (*band_ctx)(unsafe.Pointer(ctx))
+	return quant_band_n1(tls, context, (*OpusT_ec_ctx)(unsafe.Pointer(context.Fec)), (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(lowband)))
 }
 
 // C documentation
@@ -2658,7 +2564,7 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 	N_B = int32(v2)
 	/* Special case for one sample */
 	if N == int32(1) {
-		return quant_band_n1(tls, ctx, X, uintptr(uint32(0)), lowband_out)
+		return quant_band_n1_legacy(tls, ctx, X, uintptr(uint32(0)), lowband_out)
 	}
 	if tf_change > 0 {
 		recombine = tf_change
@@ -2818,7 +2724,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 	ec = bandContext.Fec
 	/* Special case for one sample */
 	if N == int32(1) {
-		return quant_band_n1(tls, ctx, X, Y, lowband_out)
+		return quant_band_n1_legacy(tls, ctx, X, Y, lowband_out)
 	}
 	orig_fill = fill
 	if encode != 0 {

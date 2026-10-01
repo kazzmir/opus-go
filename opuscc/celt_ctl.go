@@ -1430,448 +1430,143 @@ func loss_distortion(tls *libc.TLS, eBands *OpusT_celt_glog, oldEBands *OpusT_ce
 	return dist
 }
 
-func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, eBands uintptr, oldEBands uintptr, budget OpusT_opus_int32, tell OpusT_opus_int32, prob_model uintptr, error1 uintptr, enc uintptr, C int32, LM int32, intra int32, max_decay OpusT_celt_glog, lfe int32) (r int32) {
-	var badness, bits_left, c, i, pi, qi, qi0, v2, v7, v9 int32
-	var beta, coef OpusT_opus_val16
-	var decay_bound, oldE, x OpusT_celt_glog
-	var f, q, tmp OpusT_opus_val32
-	var prev [2]OpusT_opus_val32
-	var v4 float32
-	var v6 uintptr
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = badness, beta, bits_left, c, coef, decay_bound, f, i, oldE, pi, prev, q, qi, qi0, tmp, x, v2, v4, v6, v7, v9
-	badness = 0
-	prev = [2]OpusT_opus_val32{}
-	if tell+int32(3) <= budget {
-		Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), intra, uint32(3))
+func quant_coarse_energy_impl(tls *libc.TLS, nbBands, start, end int32, eBands, oldEBands *float32, budget, tell int32, probModel *byte, errors *float32, enc *OpusT_ec_enc, C, LM, intra int32, maxDecay float32, lfe int32) int32 {
+	var prev [2]float32
+	var badness int32
+	if tell+3 <= budget {
+		Opus_ec_enc_bit_logp(tls, enc, intra, 3)
 	}
+	var coef, beta float32
 	if intra != 0 {
-		coef = float32(0)
 		beta = beta_intra
 	} else {
 		beta = beta_coef[LM]
 		coef = pred_coef[LM]
 	}
-	/* Encode at a fixed coarse resolution */
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
-		c = 0
-		for {
-			x = *(*OpusT_celt_glog)(unsafe.Pointer(eBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
-			if -float32(9) > *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) {
-				v4 = -float32(9)
-			} else {
-				v4 = *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
+	if start >= end {
+		return 0
+	}
+	energy := unsafe.Slice(eBands, nbBands*max(C, 1))
+	old := unsafe.Slice(oldEBands, nbBands*max(C, 1))
+	err := unsafe.Slice(errors, nbBands*max(C, 1))
+	for i := start; i < end; i++ {
+		for c := int32(0); c < max(C, 1); c++ {
+			index := i + c*nbBands
+			x := energy[index]
+			oldE := old[index]
+			if -9 > oldE {
+				oldE = -9
 			}
-			oldE = v4
-			f = x - OpusT_celt_glog(coef*oldE) - prev[c]
-			/* Rounding to nearest integer here is really important! */
-			qi = int32(libc.Xfloor(tls, float64(float32(0.5)+f)))
-			if -float32(28) > *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) {
-				v4 = -float32(28)
-			} else {
-				v4 = *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
+			f := x - float32(coef*oldE) - prev[c]
+			qi := int32(math.Floor(float64(float32(.5) + f)))
+			bound := old[index]
+			if -28 > bound {
+				bound = -28
 			}
-			decay_bound = v4 - max_decay
-			/* Prevent the energy from going down too quickly (e.g. for bands
-			   that have just one bin) */
-			if qi < 0 && x < decay_bound {
-				qi += int32(decay_bound - x)
+			bound -= maxDecay
+			if qi < 0 && x < bound {
+				qi += int32(bound - x)
 				if qi > 0 {
 					qi = 0
 				}
 			}
-			qi0 = qi
-			/* If we don't have enough bits to encode all the energy, just assume
-			   something safe. */
-			v6 = enc
-			v2 = (*OpusT_ec_ctx)(unsafe.Pointer(v6)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v6)).Frng))
-			tell = v2
-			bits_left = budget - tell - int32(3)*C*(end-i)
-			if i != start && bits_left < int32(30) {
-				if bits_left < int32(24) {
-					if int32(1) < qi {
-						v2 = int32(1)
-					} else {
-						v2 = qi
-					}
-					qi = v2
+			qi0 := qi
+			tell = enc.Fnbits_total - int32(bits.Len32(enc.Frng))
+			left := budget - tell - 3*C*(end-i)
+			if i != start && left < 30 {
+				if left < 24 && 1 < qi {
+					qi = 1
 				}
-				if bits_left < int32(16) {
-					if -int32(1) > qi {
-						v2 = -int32(1)
-					} else {
-						v2 = qi
-					}
-					qi = v2
+				if left < 16 && -1 > qi {
+					qi = -1
 				}
 			}
-			if lfe != 0 && i >= int32(2) {
-				if qi < 0 {
-					v2 = qi
-				} else {
-					v2 = 0
-				}
-				qi = v2
+			if lfe != 0 && i >= 2 && qi > 0 {
+				qi = 0
 			}
-			if budget-tell >= int32(15) {
-				if i < int32(20) {
-					v2 = i
-				} else {
-					v2 = int32(20)
-				}
-				pi = int32(2) * v2
-				Opus_ec_laplace_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), &qi, uint32(int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi))))<<int32(7)), int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi+int32(1)))))<<int32(6))
+			if budget-tell >= 15 {
+				pi := 2 * min(i, int32(20))
+				fs := *(*byte)(unsafe.Add(unsafe.Pointer(probModel), pi))
+				decay := *(*byte)(unsafe.Add(unsafe.Pointer(probModel), pi+1))
+				Opus_ec_laplace_encode(tls, enc, &qi, uint32(fs)<<7, int32(decay)<<6)
+			} else if budget-tell >= 2 {
+				qi = max(-1, min(qi, 1))
+				Opus_ec_enc_icdf(tls, enc, 2*qi^-libc.BoolInt32(qi < 0), &small_energy_icdf[0], 2)
+			} else if budget-tell >= 1 {
+				qi = min(0, qi)
+				Opus_ec_enc_bit_logp(tls, enc, -qi, 1)
 			} else {
-				if budget-tell >= int32(2) {
-					if qi < int32(1) {
-						v7 = qi
-					} else {
-						v7 = int32(1)
-					}
-					if -int32(1) > v7 {
-						v2 = -int32(1)
-					} else {
-						if qi < int32(1) {
-							v9 = qi
-						} else {
-							v9 = int32(1)
-						}
-						v2 = v9
-					}
-					qi = v2
-					Opus_ec_enc_icdf(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), int32(2)*qi^-libc.BoolInt32(qi < 0), &small_energy_icdf[0], uint32(2))
-				} else {
-					if budget-tell >= int32(1) {
-						if 0 < qi {
-							v2 = 0
-						} else {
-							v2 = qi
-						}
-						qi = v2
-						Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), -qi, uint32(1))
-					} else {
-						qi = -int32(1)
-					}
-				}
+				qi = -1
 			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(error1 + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = f - float32(qi)
-			badness = badness + libc.Xabs(tls, qi0-qi)
-			q = float32(qi)
-			tmp = OpusT_opus_val16(coef*oldE) + prev[c] + q
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = tmp
-			prev[c] = prev[c] + q - OpusT_opus_val16(beta*q)
-			c = c + 1
-			v2 = c
-			if !(v2 < C) {
-				break
-			}
+			// Preserve error-before-energy stores when outputs alias.
+			err[index] = f - float32(qi)
+			badness += libc.Xabs(tls, qi0-qi)
+			q := float32(qi)
+			old[index] = float32(coef*oldE) + prev[c] + q
+			prev[c] = prev[c] + q - float32(beta*q)
 		}
-		i = i + 1
 	}
 	if lfe != 0 {
-		v2 = 0
-	} else {
-		v2 = badness
+		return 0
 	}
-	return v2
+	return badness
 }
 
-func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, effEnd int32, eBands uintptr, oldEBands uintptr, budget OpusT_opus_uint32, error1 uintptr, enc uintptr, C int32, LM int32, nbAvailableBytes int32, force_intra int32, delayedIntra uintptr, two_pass int32, loss_rate int32, lfe int32) {
-	var _saved_stack, error_intra, intra_bits, intra_buf, oldEBands_intra, st, v1, v10, v12, v14, v16, v18, v20, v22, v24, v26, v3, v5 uintptr
-	var badness1, badness2, intra, v6 int32
-	var intra_bias, tell_intra OpusT_opus_int32
-	var max_decay, v9 OpusT_celt_glog
-	var new_distortion OpusT_opus_val32
-	var nintra_bytes, nstart_bytes, save_bytes, tell, v58 OpusT_opus_uint32
-	var enc_intra_state OpusT_ec_enc
-	var enc_start_state OpusT_ec_enc
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, badness1, badness2, error_intra, intra, intra_bias, intra_bits, intra_buf, max_decay, new_distortion, nintra_bytes, nstart_bytes, oldEBands_intra, save_bytes, st, tell, tell_intra, v1, v10, v12, v14, v16, v18, v20, v22, v24, v26, v3, v5, v58, v6, v9
-	badness1 = 0
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+func Opus_quant_coarse_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end, effEnd int32, eBands, oldEBands *float32, budget uint32, errors *float32, enc *OpusT_ec_enc, C, LM, nbAvailableBytes, forceIntra int32, delayedIntra *float32, twoPass, lossRate, lfe int32) {
+	intra := libc.BoolInt32(forceIntra != 0 || twoPass == 0 && *delayedIntra > float32(2*C*(end-start)) && nbAvailableBytes > (end-start)*C)
+	bias := int32(float32(float32(float32(budget)**delayedIntra)*float32(lossRate)) / float32(C*512))
+	distortion := loss_distortion(tls, eBands, oldEBands, start, effEnd, m.FnbEBands, C)
+	tell := uint32(enc.Fnbits_total - int32(bits.Len32(enc.Frng)))
+	if tell+3 > budget {
+		intra = 0
+		twoPass = 0
 	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	intra = libc.BoolInt32(force_intra != 0 || !(two_pass != 0) && *(*OpusT_opus_val32)(unsafe.Pointer(delayedIntra)) > OpusT_opus_val32(int32(2)*C*(end-start)) && nbAvailableBytes > (end-start)*C)
-	intra_bias = int32(OpusT_opus_val32(OpusT_opus_val32(float32(budget)**(*OpusT_opus_val32)(unsafe.Pointer(delayedIntra)))*float32(loss_rate)) / float32(C*int32(512)))
-	new_distortion = loss_distortion(tls, (*OpusT_celt_glog)(unsafe.Pointer(eBands)), (*OpusT_celt_glog)(unsafe.Pointer(oldEBands)), start, effEnd, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands, C)
-	v1 = enc
-	v6 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	tell = uint32(v6)
-	if tell+uint32(3) > budget {
-		v6 = int32(0)
-		intra = v6
-		two_pass = v6
-	}
-	max_decay = float32(16)
-	if end-start > int32(10) {
-		if max_decay < float32(float32(0.125)*float32(nbAvailableBytes)) {
-			v9 = max_decay
-		} else {
-			v9 = float32(float32(0.125) * float32(nbAvailableBytes))
+	maxDecay := float32(16)
+	if end-start > 10 {
+		limit := float32(.125) * float32(nbAvailableBytes)
+		if !(maxDecay < limit) {
+			maxDecay = limit
 		}
-		max_decay = v9
 	}
 	if lfe != 0 {
-		max_decay = float32(3)
+		maxDecay = 3
 	}
-	enc_start_state = *(*OpusT_ec_enc)(unsafe.Pointer(enc))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+	encStart := *enc
+	old := unsafe.Slice(oldEBands, C*m.FnbEBands)
+	err := unsafe.Slice(errors, C*m.FnbEBands)
+	oldIntra := make([]float32, len(old))
+	errorIntra := make([]float32, len(err))
+	copy(oldIntra, old)
+	var badness1 int32
+	if twoPass != 0 || intra != 0 {
+		badness1 = quant_coarse_energy_impl(tls, m.FnbEBands, start, end, eBands, unsafe.SliceData(oldIntra), int32(budget), int32(tell), &e_prob_model[LM][1][0], unsafe.SliceData(errorIntra), enc, C, LM, 1, maxDecay, lfe)
 	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v10 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v10)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v12 = libc.Xmalloc(tls, uint64(16))
-		st = v12
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v14 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v16 = libc.Xmalloc(tls, uint64(16))
-		st = v16
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v18 = st
-	if !(int64(int32(uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v14)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v18)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+4833, int32(297))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v20 = libc.Xmalloc(tls, uint64(16))
-		st = v20
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v22 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v22)).Fglobal_stack += uintptr(uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v24 = libc.Xmalloc(tls, uint64(16))
-		st = v24
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v26 = st
-	oldEBands_intra = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v26)).Fglobal_stack - uintptr(uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*(uint64(4)/uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v10 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v10)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v12 = libc.Xmalloc(tls, uint64(16))
-		st = v12
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v14 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v16 = libc.Xmalloc(tls, uint64(16))
-		st = v16
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v18 = st
-	if !(int64(int32(uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v14)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v18)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+4833, int32(298))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v20 = libc.Xmalloc(tls, uint64(16))
-		st = v20
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v22 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v22)).Fglobal_stack += uintptr(uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v24 = libc.Xmalloc(tls, uint64(16))
-		st = v24
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v26 = st
-	error_intra = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v26)).Fglobal_stack - uintptr(uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*(uint64(4)/uint64(1)))
-	libc.Xmemcpy(tls, oldEBands_intra, oldEBands, uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*uint64(4)+uint64(0*((int64(oldEBands_intra)-int64(oldEBands))/4)))
-	if two_pass != 0 || intra != 0 {
-		badness1 = quant_coarse_energy_impl(tls, m, start, end, eBands, oldEBands_intra, int32(budget), int32(tell), uintptr(unsafe.Pointer(&e_prob_model))+uintptr(LM)*84+1*42, error_intra, enc, C, LM, int32(1), max_decay, lfe)
-	}
-	if !(intra != 0) {
-		tell_intra = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(enc))))
-		enc_intra_state = *(*OpusT_ec_enc)(unsafe.Pointer(enc))
-		v58 = enc_start_state.Foffs
-		nstart_bytes = v58
-		v58 = enc_intra_state.Foffs
-		nintra_bytes = v58
-		v1 = uintptr(unsafe.Pointer(enc_intra_state.Fbuf))
-		intra_buf = v1 + uintptr(nstart_bytes)
-		save_bytes = nintra_bytes - nstart_bytes
-		if save_bytes == uint32(0) {
-			save_bytes = uint32(ALLOC_NONE)
-		}
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v5 = libc.Xmalloc(tls, uint64(16))
-			st = v5
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v10 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(1)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v10)).Fglobal_stack))) & (uint64(uint32(1)) - uint64(uint32(1))))
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v12 = libc.Xmalloc(tls, uint64(16))
-			st = v12
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v14 = st
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v16 = libc.Xmalloc(tls, uint64(16))
-			st = v16
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v18 = st
-		if !(int64(int32(uint64(save_bytes)*(uint64(1)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v14)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v18)).Fglobal_stack)) {
-			Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+4833, int32(328))
-		}
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v20 = libc.Xmalloc(tls, uint64(16))
-			st = v20
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v22 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v22)).Fglobal_stack += uintptr(uint64(save_bytes) * (uint64(1) / uint64(1)))
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v24 = libc.Xmalloc(tls, uint64(16))
-			st = v24
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v26 = st
-		intra_bits = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v26)).Fglobal_stack - uintptr(uint64(save_bytes)*(uint64(1)/uint64(1)))
-		/* Copy bits from intra bit-stream */
-		libc.Xmemcpy(tls, intra_bits, intra_buf, uint64(nintra_bytes-nstart_bytes)*uint64(1)+uint64(0*(int64(intra_bits)-int64(intra_buf))))
-		*(*OpusT_ec_enc)(unsafe.Pointer(enc)) = enc_start_state
-		badness2 = quant_coarse_energy_impl(tls, m, start, end, eBands, oldEBands, int32(budget), int32(tell), uintptr(unsafe.Pointer(&e_prob_model))+uintptr(LM)*84+uintptr(intra)*42, error1, enc, C, LM, 0, max_decay, lfe)
-		if two_pass != 0 && (badness1 < badness2 || badness1 == badness2 && int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(enc))))+intra_bias > tell_intra) {
-			*(*OpusT_ec_enc)(unsafe.Pointer(enc)) = enc_intra_state
-			/* Copy intra bits to bit-stream */
-			libc.Xmemcpy(tls, intra_buf, intra_bits, uint64(nintra_bytes-nstart_bytes)*uint64(1)+uint64(0*(int64(intra_buf)-int64(intra_bits))))
-			libc.Xmemcpy(tls, oldEBands, oldEBands_intra, uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*uint64(4)+uint64(0*((int64(oldEBands)-int64(oldEBands_intra))/4)))
-			libc.Xmemcpy(tls, error1, error_intra, uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*uint64(4)+uint64(0*((int64(error1)-int64(error_intra))/4)))
-			intra = int32(1)
+	if intra == 0 {
+		tellIntra := int32(Opus_ec_tell_frac(tls, enc))
+		encIntra := *enc
+		// Retain the candidate's buffer while the complete encoder state is rolled back.
+		candidateBytes := unsafe.Slice(encIntra.Fbuf, encIntra.Fstorage)[encStart.Foffs:encIntra.Foffs]
+		saved := make([]byte, len(candidateBytes))
+		copy(saved, candidateBytes)
+		*enc = encStart
+		badness2 := quant_coarse_energy_impl(tls, m.FnbEBands, start, end, eBands, oldEBands, int32(budget), int32(tell), &e_prob_model[LM][intra][0], errors, enc, C, LM, 0, maxDecay, lfe)
+		if twoPass != 0 && (badness1 < badness2 || badness1 == badness2 && int32(Opus_ec_tell_frac(tls, enc))+bias > tellIntra) {
+			*enc = encIntra
+			copy(candidateBytes, saved)
+			copy(old, oldIntra)
+			copy(err, errorIntra)
+			intra = 1
 		}
 	} else {
-		libc.Xmemcpy(tls, oldEBands, oldEBands_intra, uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*uint64(4)+uint64(0*((int64(oldEBands)-int64(oldEBands_intra))/4)))
-		libc.Xmemcpy(tls, error1, error_intra, uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*uint64(4)+uint64(0*((int64(error1)-int64(error_intra))/4)))
+		copy(old, oldIntra)
+		copy(err, errorIntra)
 	}
+	// Read delayed history after the output stores, even when it aliases an output.
 	if intra != 0 {
-		*(*OpusT_opus_val32)(unsafe.Pointer(delayedIntra)) = new_distortion
+		*delayedIntra = distortion
 	} else {
-		*(*OpusT_opus_val32)(unsafe.Pointer(delayedIntra)) = OpusT_opus_val16(OpusT_opus_val16(pred_coef[LM]*pred_coef[LM])**(*OpusT_opus_val32)(unsafe.Pointer(delayedIntra))) + new_distortion
+		*delayedIntra = float32(float32(pred_coef[LM]*pred_coef[LM])**delayedIntra) + distortion
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
 func Opus_quant_fine_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, oldEBands, error1 *OpusT_celt_glog, prevQuant, extraQuant *int32, enc *OpusT_ec_enc, C int32) {
@@ -6000,8 +5695,8 @@ var fft_state48000_960_0 = OpusT_kiss_fft_state{
 		8: int16(4),
 		9: int16(1),
 	},
-	Fbitrev:   uintptr(unsafe.Pointer(&fft_bitrev480)),
-	Ftwiddles: uintptr(unsafe.Pointer(&fft_twiddles48000_960)),
+	Fbitrev:   &fft_bitrev480[0],
+	Ftwiddles: &fft_twiddles48000_960[0],
 }
 var fft_state48000_960_1 = OpusT_kiss_fft_state{
 	Fnfft:  int32(240),
@@ -6017,8 +5712,8 @@ var fft_state48000_960_1 = OpusT_kiss_fft_state{
 		6: int16(4),
 		7: int16(1),
 	},
-	Fbitrev:   uintptr(unsafe.Pointer(&fft_bitrev240)),
-	Ftwiddles: uintptr(unsafe.Pointer(&fft_twiddles48000_960)),
+	Fbitrev:   &fft_bitrev240[0],
+	Ftwiddles: &fft_twiddles48000_960[0],
 }
 var fft_state48000_960_2 = OpusT_kiss_fft_state{
 	Fnfft:  int32(120),
@@ -6034,8 +5729,8 @@ var fft_state48000_960_2 = OpusT_kiss_fft_state{
 		6: int16(4),
 		7: int16(1),
 	},
-	Fbitrev:   uintptr(unsafe.Pointer(&fft_bitrev120)),
-	Ftwiddles: uintptr(unsafe.Pointer(&fft_twiddles48000_960)),
+	Fbitrev:   &fft_bitrev120[0],
+	Ftwiddles: &fft_twiddles48000_960[0],
 }
 var fft_state48000_960_3 = OpusT_kiss_fft_state{
 	Fnfft:  int32(60),
@@ -6049,8 +5744,8 @@ var fft_state48000_960_3 = OpusT_kiss_fft_state{
 		4: int16(4),
 		5: int16(1),
 	},
-	Fbitrev:   uintptr(unsafe.Pointer(&fft_bitrev60)),
-	Ftwiddles: uintptr(unsafe.Pointer(&fft_twiddles48000_960)),
+	Fbitrev:   &fft_bitrev60[0],
+	Ftwiddles: &fft_twiddles48000_960[0],
 }
 var mdct_twiddles960 = [1800]OpusT_celt_coef{
 	0:    float32(0.99999992),
@@ -7875,13 +7570,10 @@ var mode48000_960_120 = OpusT_OpusCustomMode{
 	Fmdct: OpusT_mdct_lookup{
 		Fn:        int32(1920),
 		Fmaxshift: int32(3),
-		Fkfft: [4]uintptr{
-			0: uintptr(unsafe.Pointer(&fft_state48000_960_0)),
-			1: uintptr(unsafe.Pointer(&fft_state48000_960_1)),
-			2: uintptr(unsafe.Pointer(&fft_state48000_960_2)),
-			3: uintptr(unsafe.Pointer(&fft_state48000_960_3)),
+		Fkfft: [4]*OpusT_kiss_fft_state{
+			&fft_state48000_960_0, &fft_state48000_960_1, &fft_state48000_960_2, &fft_state48000_960_3,
 		},
-		Ftrig: uintptr(unsafe.Pointer(&mdct_twiddles960)),
+		Ftrig: &mdct_twiddles960[0],
 	},
 	Fcache: OpusT_PulseCache{
 		Fsize:  int32(392),

@@ -11,6 +11,129 @@ import (
 	"unsafe"
 )
 
+func TestFFTTableOwnershipAgainstC(t *testing.T) {
+	state, bitrev, tw := nativeFFTFixture(16, -1)
+	state.Fbitrev = &bitrev[0]
+	state.Ftwiddles = &tw[0]
+	expected := [4]uint64{uint64(unsafe.Sizeof(state)), uint64(unsafe.Offsetof(state.Fbitrev)), uint64(unsafe.Offsetof(state.Ftwiddles)), uint64(unsafe.Offsetof(state.Farch_fft))}
+	if nativeFFTLayout() != expected {
+		t.Fatal(nativeFFTLayout(), expected)
+	}
+	in := make([]opuscc.OpusT_kiss_fft_cpx, 16)
+	for i := range in {
+		in[i].Fr = float32(i%5 - 2)
+		in[i].Fi = float32(i%3 - 1)
+	}
+	g, c := make([]opuscc.OpusT_kiss_fft_cpx, 16), make([]opuscc.OpusT_kiss_fft_cpx, 16)
+	opuscc.Opus_opus_fft_c(nil, &state, state.Fbitrev, state.Ftwiddles, &in[0], &g[0])
+	nativeFFTTransform(&state, unsafe.Slice(state.Fbitrev, 16), unsafe.Slice(state.Ftwiddles, 16), in, c, 1)
+	if !slices.Equal(g, c) {
+		t.Fatal(g, c)
+	}
+}
+
+func TestMDCTBackwardAgainstC(t *testing.T) { compareMDCTTransforms(t, 1) }
+func TestMDCTForwardAgainstC(t *testing.T)  { compareMDCTTransforms(t, 0) }
+func compareMDCTTransforms(t *testing.T, op int32) {
+	for _, n := range []int32{20, 32, 1920} {
+		for shift := int32(0); shift <= 3; shift++ {
+			effective := n >> shift
+			if effective%4 != 0 || effective < 16 {
+				continue
+			}
+			trig, _, _ := nativeMDCTLookup(n, shift)
+			state, bitrev, tw := nativeFFTFixture(effective/4, func() int32 {
+				if shift == 0 {
+					return -1
+				}
+				return shift
+			}())
+			l := opuscc.OpusT_mdct_lookup{Fn: n, Fmaxshift: shift, Ftrig: &trig[0]}
+			state.Fbitrev = &bitrev[0]
+			state.Ftwiddles = &tw[0]
+			l.Fkfft[shift] = &state
+			for _, overlap := range []int32{0, 4, min(120, (effective/2)&^3)} {
+				for _, stride := range []int32{-2, 0, 1, 2, 3, 8} {
+					for trial := 0; trial < 3; trial++ {
+						last := (effective/2 - 1) * stride
+						count := max(last, -last) + 1
+						inputBase, outputBase := int32(0), int32(0)
+						if stride < 0 {
+							if op == 0 {
+								outputBase = count - 1
+							} else {
+								inputBase = count - 1
+							}
+						}
+						input := make([]float32, max(count, effective/2+overlap))
+						for i := range input {
+							input[i] = float32((i*17+trial*3)%51-25) * .03125
+						}
+						if trial == 0 {
+							clear(input)
+						}
+						window := make([]float32, overlap)
+						for i := range window {
+							window[i] = float32(math.Sin(float64(i+1) * .5 / float64(overlap) * math.Pi))
+						}
+						outLen := count
+						if op != 0 {
+							outLen = effective/2 + overlap/2
+						}
+						g := make([]float32, outLen+2)
+						for i := range g {
+							g[i] = .375
+						}
+						g[0] = 77
+						g[len(g)-1] = 88
+						c := slices.Clone(g)
+						ci := slices.Clone(input)
+						if op == 0 {
+							opuscc.Opus_clt_mdct_forward_c(nil, &l, state.Fbitrev, state.Ftwiddles, &input[inputBase], &g[1+outputBase], unsafe.SliceData(window), overlap, shift, stride, 0)
+						} else {
+							opuscc.Opus_clt_mdct_backward_c(nil, &l, state.Fbitrev, state.Ftwiddles, &input[inputBase], &g[1+outputBase], unsafe.SliceData(window), overlap, shift, stride, 0)
+						}
+						nativeMDCTTransform(&l, bitrev, tw, trig, ci[inputBase:], c[1+outputBase:len(c)-1], window, overlap, shift, stride, op)
+						if !sameFloatBits(g, c) || !sameFloatBits(input, ci) {
+							for i := range g {
+								if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+									t.Fatal(op, n, shift, overlap, stride, trial, i, g[i], c[i])
+								}
+							}
+							t.Fatal("input mutation")
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestMDCTLookupAgainstC(t *testing.T) {
+	for _, n := range []int32{32, 240, 1920} {
+		for shifts := int32(0); shifts <= 3; shifts++ {
+			if (n>>shifts)%16 != 0 {
+				continue
+			}
+			trig, sizes, layout := nativeMDCTLookup(n, shifts)
+			l := opuscc.OpusT_mdct_lookup{Fn: n, Fmaxshift: shifts, Ftrig: &trig[0]}
+			for i := int32(0); i <= shifts; i++ {
+				l.Fkfft[i] = &opuscc.OpusT_kiss_fft_state{Fnfft: n >> 2 >> i}
+				if l.Fkfft[i].Fnfft != sizes[i] {
+					t.Fatal(n, shifts, sizes)
+				}
+			}
+			want := [3]uint64{uint64(unsafe.Sizeof(l)), uint64(unsafe.Offsetof(l.Fkfft)), uint64(unsafe.Offsetof(l.Ftrig))}
+			if layout != want {
+				t.Fatal(layout, want)
+			}
+			if len(unsafe.Slice(l.Ftrig, n-((n/2)>>shifts))) != len(trig) {
+				t.Fatal("trig span")
+			}
+		}
+	}
+}
+
 func TestMiniFFTRAgainstC(t *testing.T) {
 	for _, n := range []int32{4, 6, 8, 10, 12, 16, 24, 30, 60, 120, 240, 480} {
 		for trial := 0; trial < 12; trial++ {
