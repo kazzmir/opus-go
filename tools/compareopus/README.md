@@ -421,6 +421,14 @@ CELT PLC pitch search now owns a fixed Go low-pass buffer and calls the fully
 typed pitch chain. The actual static C driver is linked to scalar pitch fixtures;
 silence, periodic/random mono/stereo data, input guards and shared channels are covered.
 The surrounding concealment state/scratch boundary remains legacy.
+Custom-mode lookup compares the actual static modes.c path over rates/frame sizes;
+Go-only tests retain int32 shift wrapping without treating C signed-overflow UB as
+an oracle. Comb transitions use renamed scalar celt.c for tapsets, gain changes,
+history, zero-length/memmove paths, unchanged filters and overlapping buffers.
+PVQ search/quantization reuse renamed vq.c: exact pulses, energy, fallback/sign bits,
+reconstruction, collapse masks, entropy state and finalized bytes, including tiny
+encoder capacities. Search/pulse scratch is Go-owned; outer partition/synthesis
+adapters and mode pointer fields remain legacy.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass
