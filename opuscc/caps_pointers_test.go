@@ -73,6 +73,31 @@ func TestModeLogPointers(t *testing.T) {
 	runtime.KeepAlive(m)
 }
 
+func TestModePulseIndexPointers(t *testing.T) {
+	makeMode := func() *OpusT_OpusCustomMode {
+		m := mode48000_960_120
+		index := slices.Clone(cache_index50[:])
+		m.Fcache.Findex = &index[0]
+		return &m
+	}
+	m := makeMode()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i, want := range cache_index50 {
+		if got := modePulseIndex(m, int32(i)); got != want {
+			t.Fatal(i, got, want)
+		}
+	}
+	signed := []int16{-32768, -1, 0, 32767}
+	m.Fcache.Findex = &signed[0]
+	for i, want := range signed {
+		if modePulseIndex(m, int32(i)) != want {
+			t.Fatal("signed index", i)
+		}
+	}
+	runtime.KeepAlive(m)
+}
+
 func TestCapsPointers(t *testing.T) {
 	bands := [4]int16{0, 1, 3, 7}
 	var cache [24]uint8

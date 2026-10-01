@@ -64,7 +64,7 @@ func TestQuantAllBandsCReference(t *testing.T) {
 		FeBands:    uintptr(unsafe.Pointer(&eBandsTab[0])),
 		FlogN:      &logNTab[0],
 	}
-	mode[0].Fcache.Findex = uintptr(unsafe.Pointer(&cacheIndex[0]))
+	mode[0].Fcache.Findex = &cacheIndex[0]
 	mode[0].Fcache.Fbits = uintptr(unsafe.Pointer(&cacheBits[0]))
 
 	bandE := xmallocArray[OpusT_celt_ener](tls, 6)

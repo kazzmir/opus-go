@@ -19,6 +19,10 @@ func modeLogN(m *OpusT_OpusCustomMode, band int32) int16 {
 	return *(*int16)(unsafe.Add(unsafe.Pointer(m.FlogN), uintptr(band)*2))
 }
 
+func modePulseIndex(m *OpusT_OpusCustomMode, index int32) int16 {
+	return *(*int16)(unsafe.Add(unsafe.Pointer(m.Fcache.Findex), uintptr(index)*2))
+}
+
 func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frameSize int32) (*OpusT_OpusCustomMode, error) {
 	for _, mode := range static_mode_list {
 		for j := uint(0); j < 4; j++ {
@@ -2342,7 +2346,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 	spread = ctx.Fspread
 	ec = ctx.Fec
 	/* If we need 1.5 more bit than we can produce, split the band in two. */
-	cache2 = (*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).Fcache.Findex + uintptr((LM2+int32(1))*(*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).FnbEBands+i2)*2)))
+	cache2 = (*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).Fcache.Fbits + uintptr(modePulseIndex((*OpusT_OpusCustomMode)(unsafe.Pointer(m2)), (LM2+int32(1))*(*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).FnbEBands+i2))
 	if LM2 != -int32(1) && b > int32(*(*uint8)(unsafe.Pointer(cache2 + uintptr(*(*uint8)(unsafe.Pointer(cache2))))))+int32(12) && N > int32(2) {
 		next_lowband2 = uintptr(uint32(0))
 		N = N >> int32(1)
@@ -2418,7 +2422,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 		v1 = LM2
 		v2 = b
 		v1 = v1 + 1
-		cache = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Findex + uintptr(v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2)*2)))
+		cache = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(modePulseIndex((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)), v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2))
 		lo = 0
 		hi = int32(*(*uint8)(unsafe.Pointer(cache)))
 		v2 = v2 - 1
@@ -2453,7 +2457,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 		v1 = LM2
 		v2 = q
 		v1 = v1 + 1
-		cache1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Findex + uintptr(v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2)*2)))
+		cache1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(modePulseIndex((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)), v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2))
 		if v2 == 0 {
 			v4 = 0
 		} else {
@@ -2470,7 +2474,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 			v1 = LM2
 			v2 = q
 			v1 = v1 + 1
-			cache1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Findex + uintptr(v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2)*2)))
+			cache1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(modePulseIndex((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)), v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2))
 			if v2 == 0 {
 				v4 = 0
 			} else {

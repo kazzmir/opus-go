@@ -1665,7 +1665,7 @@ type OpusT_mdct_lookup = struct {
 
 type OpusT_PulseCache = struct {
 	Fsize  int32
-	Findex uintptr
+	Findex *int16
 	Fbits  uintptr
 	Fcaps  *byte
 }

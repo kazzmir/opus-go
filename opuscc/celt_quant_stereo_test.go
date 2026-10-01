@@ -60,7 +60,7 @@ func TestQuantBandStereoLocalSplitState(t *testing.T) {
 	cacheBits := [2]byte{1, 0}
 	logN := [1]int16{8}
 	mode := OpusT_OpusCustomMode{FnbEBands: 1}
-	mode.Fcache.Findex = uintptr(unsafe.Pointer(&cacheIndex[0]))
+	mode.Fcache.Findex = &cacheIndex[0]
 	mode.Fcache.Fbits = uintptr(unsafe.Pointer(&cacheBits[0]))
 	mode.FlogN = &logN[0]
 	bandE := [2]OpusT_celt_ener{0.8, 1.2}
