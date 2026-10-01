@@ -5720,32 +5720,30 @@ func Opus_opus_packet_extensions_count_ext(tls *libc.TLS, data *byte, length int
 //	    order.
 //	   Due to the extension repetition mechanism, extensions are not necessarily
 //	    returned in frame order. */
-func Opus_opus_packet_extensions_parse(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions uintptr, nb_frames int32) (r OpusT_opus_int32) {
-	var count, ret int32
-	var ext OpusT_opus_extension_data
+func Opus_opus_packet_extensions_parse(tls *libc.TLS, data *byte, length int32, extensions *OpusT_opus_extension_data, nbExtensions *int32, frames int32) int32 {
+	if nbExtensions == nil {
+		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, 365)
+	}
+	if extensions == nil && *nbExtensions != 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, 366)
+	}
 	var iter OpusT_OpusExtensionIterator
-	_, _, _, _ = count, ext, iter, ret
-	if !(nb_extensions != uintptr(uint32(0))) {
-		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, int32(365))
-	}
-	if !(extensions != uintptr(uint32(0)) || *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, int32(366))
-	}
-	Opus_opus_extension_iterator_init(tls, &iter, (*byte)(unsafe.Pointer(data)), len1, nb_frames)
-	count = 0
+	var ext OpusT_opus_extension_data
+	Opus_opus_extension_iterator_init(tls, &iter, data, length, frames)
+	var count int32
 	for {
-		ret = Opus_opus_extension_iterator_next(tls, &iter, &ext)
+		ret := Opus_opus_extension_iterator_next(tls, &iter, &ext)
 		if ret <= 0 {
-			break
+			*nbExtensions = count
+			return ret
 		}
-		if count == *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) {
-			return -int32(2)
+		// Read capacity each time: it may alias an output field. A full buffer leaves it unchanged.
+		if count == *nbExtensions {
+			return -2
 		}
-		*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(count)*unsafe.Sizeof(OpusT_opus_extension_data{}))) = ext
-		count = count + 1
+		*(*OpusT_opus_extension_data)(unsafe.Add(unsafe.Pointer(extensions), uintptr(count)*unsafe.Sizeof(ext))) = ext
+		count++
 	}
-	*(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) = count
-	return ret
 }
 
 // C documentation

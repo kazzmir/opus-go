@@ -98,6 +98,71 @@ func TestExtensionCountExtAgainstC(t *testing.T) {
 	}
 }
 
+func extensionOutputWords(base *byte, out []opuscc.OpusT_opus_extension_data) []int32 {
+	v := make([]int32, len(out)*4)
+	for i, e := range out {
+		v[i*4] = e.Fid
+		v[i*4+1] = e.Fframe
+		v[i*4+2] = extensionTestOffset(base, e.Fdata)
+		v[i*4+3] = e.Flen1
+	}
+	return v
+}
+func TestExtensionParseAgainstC(t *testing.T) {
+	for pi, data := range extensionCollectionPackets() {
+		for _, frames := range []int32{0, 1, 3, 48} {
+			total := opuscc.Opus_opus_packet_extensions_count(nil, unsafe.SliceData(data), int32(len(data)), frames)
+			for _, capacity := range []int32{0, 1, total, total + 1} {
+				out := make([]opuscc.OpusT_opus_extension_data, total+3)
+				for i := range out {
+					out[i] = opuscc.OpusT_opus_extension_data{Fid: 91, Fframe: 92, Flen1: 93}
+				}
+				words := extensionOutputWords(unsafe.SliceData(data), out)
+				g, c := capacity, capacity
+				got := opuscc.Opus_opus_packet_extensions_parse(nil, unsafe.SliceData(data), int32(len(data)), &out[0], &g, frames)
+				native := nativeExtensionParse(data, int32(len(data)), frames, words, &c, false, false, 0)
+				if got != native || g != c || !slices.Equal(extensionOutputWords(unsafe.SliceData(data), out), words) {
+					t.Fatal(pi, frames, capacity, got, native, g, c)
+				}
+			}
+		}
+	}
+	data := []byte{7, 11, 7, 22}
+	out := make([]opuscc.OpusT_opus_extension_data, 4)
+	out[0].Fframe = 1
+	words := extensionOutputWords(&data[0], out)
+	c := int32(1)
+	got := opuscc.Opus_opus_packet_extensions_parse(nil, &data[0], 4, &out[0], &out[0].Fframe, 1)
+	native := nativeExtensionParse(data, 4, 1, words, &c, false, false, 1)
+	if got != native || out[0].Fframe != c || !slices.Equal(extensionOutputWords(&data[0], out), words) {
+		t.Fatal("alias", got, native, out, c, words)
+	}
+	for _, test := range []struct {
+		data                     []byte
+		length, frames, capacity int32
+		no, nc                   bool
+	}{{nil, 0, 0, 0, true, false}, {data, 4, 1, 0, true, false}, {data, 4, 1, 1, true, false}, {nil, -1, 1, 2, false, false}, {nil, 1, 1, 2, false, false}, {nil, 0, 49, 2, false, false}, {nil, -1, 49, 2, true, true}} {
+		g, c := test.capacity, test.capacity
+		out := make([]opuscc.OpusT_opus_extension_data, 4)
+		words := extensionOutputWords(unsafe.SliceData(test.data), out)
+		p := &out[0]
+		n := &g
+		if test.no {
+			p = nil
+		}
+		if test.nc {
+			n = nil
+		}
+		got := extensionCollectionResult(func() int32 {
+			return opuscc.Opus_opus_packet_extensions_parse(nil, unsafe.SliceData(test.data), test.length, p, n, test.frames)
+		})
+		native := nativeExtensionParse(test.data, test.length, test.frames, words, &c, test.no, test.nc, 0)
+		if got != native || g != c || !slices.Equal(extensionOutputWords(unsafe.SliceData(test.data), out), words) {
+			t.Fatal("assert/nil", test, got, native, g, c)
+		}
+	}
+}
+
 func TestExtensionFindAgainstC(t *testing.T) {
 	fixtures := [][]byte{nil, {0}, {1}, {2}, {3, 0}, {3, 255}, {4}, {5}, {6}, {7}, {7, 44}, {65, 255}, {65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}, {6, 6, 6, 4}, {7, 11, 2, 7, 22}}
 	rng := rand.New(rand.NewSource(51173))

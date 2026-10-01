@@ -244,6 +244,43 @@ func TestExtensionCountExtPointers(t *testing.T) {
 	}
 }
 
+func TestExtensionParsePointers(t *testing.T) {
+	owned := func() [2]OpusT_opus_extension_data {
+		packet := [32]byte{7, 11, 7, 22, 65}
+		guard := struct {
+			before uint64
+			ext    [2]OpusT_opus_extension_data
+			after  uint64
+		}{before: 77, after: 88}
+		count := int32(2)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_packet_extensions_parse(nil, &packet[0], 5, &guard.ext[0], &count, 1) != OPUS_INVALID_PACKET || count != 2 || guard.before != 77 || guard.after != 88 {
+			t.Fatal("partial/error/guards", count)
+		}
+		return guard.ext
+	}()
+	runtime.GC()
+	entropyInitGrowStack(12)
+	if *owned[0].Fdata != 11 || *owned[1].Fdata != 22 {
+		t.Fatal("payload ownership")
+	}
+	packet := [16]byte{7, 11, 7, 22}
+	out := [3]OpusT_opus_extension_data{{Fid: 77}, {Fid: 88}, {Fid: 99}}
+	count := int32(1)
+	if Opus_opus_packet_extensions_parse(nil, &packet[0], 4, &out[0], &count, 1) != -2 || count != 1 || out[0].Fid != 3 || out[1].Fid != 88 || out[2].Fid != 99 {
+		t.Fatal("capacity partial output", out, count)
+	}
+	out[0].Fframe = 1
+	if Opus_opus_packet_extensions_parse(nil, &packet[0], 4, &out[0], &out[0].Fframe, 1) != 0 || out[0].Fframe != 2 || out[1].Fid != 3 {
+		t.Fatal("live aliased capacity")
+	}
+	count = 0
+	if Opus_opus_packet_extensions_parse(nil, nil, 0, nil, &count, 0) != 0 || Opus_opus_packet_extensions_parse(nil, &packet[0], 4, nil, &count, 1) != -2 || count != 0 {
+		t.Fatal("nil zero capacity")
+	}
+}
+
 func TestWriteExtensionPointers(t *testing.T) {
 	out := [8]byte{77, 77, 77, 77, 77, 77, 77, 88}
 	payload := [2]byte{11, 12}
@@ -387,7 +424,7 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 	}
 	parsed := make([]OpusT_opus_extension_data, 3)
 	count := int32(len(parsed))
-	if got := Opus_opus_packet_extensions_parse(tls, uintptr(unsafe.Pointer(&packet[0])), length, uintptr(unsafe.Pointer(&parsed[0])), uintptr(unsafe.Pointer(&count)), 3); got != 0 {
+	if got := Opus_opus_packet_extensions_parse(tls, &packet[0], length, &parsed[0], &count, 3); got != 0 {
 		t.Fatalf("parse result: got %d, want 0", got)
 	}
 	if count != 3 || parsed[2].Fid != 3 || parsed[2].Fframe != 2 || *(*byte)(unsafe.Pointer(parsed[2].Fdata)) != 'x' {

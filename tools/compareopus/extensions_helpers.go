@@ -39,6 +39,13 @@ static int native_extension_count(const unsigned char *data,int length,int frame
  if(setjmp(extension_jump))return -99;return opus_packet_extensions_count(data,length,frames);
 }
 static int native_extension_count_ext(const unsigned char *data,int length,int *counts,int frames) {if(setjmp(extension_jump))return -99;return opus_packet_extensions_count_ext(data,length,counts,frames);}
+static int native_extension_parse(const unsigned char *base,int length,int frames,int *words,int slots,int *nb,int null_output,int null_count,int capacity_alias) {
+ opus_extension_data *out=calloc(slots,sizeof(*out));for(int i=0;i<slots;i++){out[i].id=words[4*i];out[i].frame=words[4*i+1];out[i].data=extension_pointer(base,words[4*i+2]);out[i].len=words[4*i+3];}
+ int *capacity=null_count?NULL:capacity_alias==1?&out[0].frame:nb;
+ int result;if(setjmp(extension_jump))result=-99;else result=opus_packet_extensions_parse(base,length,null_output?NULL:out,capacity,frames);
+ if(capacity&&nb)*nb=*capacity;
+ for(int i=0;i<slots;i++){words[4*i]=out[i].id;words[4*i+1]=out[i].frame;words[4*i+2]=extension_offset(base,out[i].data);words[4*i+3]=out[i].len;}free(out);return result;
+}
 static int native_write_extension(unsigned char *data,int capacity,int pos,int id,int length,const unsigned char *payload,int last) {
  opus_extension_data ext={0};ext.id=id;ext.len=length;ext.data=payload;return write_extension(data,capacity,pos,&ext,last);
 }
@@ -74,6 +81,17 @@ func nativeExtensionCount(data []byte, length, frames int32) int32 {
 
 func nativeExtensionCountExt(data *byte, length int32, counts *int32, frames int32) int32 {
 	return int32(C.native_extension_count_ext((*C.uchar)(unsafe.Pointer(data)), C.int(length), (*C.int)(unsafe.Pointer(counts)), C.int(frames)))
+}
+
+func nativeExtensionParse(data []byte, length, frames int32, words []int32, capacity *int32, nullOutput, nullCount bool, alias int32) int32 {
+	no, nc := C.int(0), C.int(0)
+	if nullOutput {
+		no = 1
+	}
+	if nullCount {
+		nc = 1
+	}
+	return int32(C.native_extension_parse((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(length), C.int(frames), (*C.int)(unsafe.Pointer(unsafe.SliceData(words))), C.int(len(words)/4), (*C.int)(unsafe.Pointer(capacity)), no, nc, C.int(alias)))
 }
 
 func nativeWriteExtension(data []byte, capacity, pos, id, length int32, payload []byte, last int32) int32 {
