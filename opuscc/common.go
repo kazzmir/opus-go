@@ -4286,29 +4286,25 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, 
 	return OPUS_OK
 }
 
-func multistream_decoder_init_legacy(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping uintptr) int32 {
-	return Opus_opus_multistream_decoder_init(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(mapping)))
-}
-
-func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, mapping uintptr) (uintptr, error) {
-	var ret int32
-	var st, v1 uintptr
-	_, _, _ = ret, st, v1
-	if channels > int32(255) || channels < int32(1) || coupled_streams > streams || streams < int32(1) || coupled_streams < 0 || streams > int32(255)-coupled_streams {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(1))
+func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte) (*OpusT_OpusMSDecoder, error) {
+	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
+		return nil, opusErrorFromCode(-1)
 	}
-	v1 = libc.Xmalloc(tls, uint64(uint32(Opus_opus_multistream_decoder_get_size(tls, streams, coupled_streams))))
-	st = v1
-	if st == uintptr(uint32(0)) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
+	st := (*OpusT_OpusMSDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_multistream_decoder_get_size(tls, streams, coupled)))))
+	if st == nil {
+		return nil, opusErrorFromCode(-7)
 	}
-	ret = multistream_decoder_init_legacy(tls, st, Fs, channels, streams, coupled_streams, mapping)
-	if ret != OPUS_OK {
-		libc.Xfree(tls, st)
-		st = uintptr(uint32(0))
-		return uintptr(uint32(0)), opusErrorFromCode(ret)
+	if ret := Opus_opus_multistream_decoder_init(tls, st, Fs, channels, streams, coupled, mapping); ret != OPUS_OK {
+		libc.XfreePointer(tls, unsafe.Pointer(st))
+		return nil, opusErrorFromCode(ret)
 	}
 	return st, nil
+}
+
+// Legacy exported creation ABI for integer-address outer decode/control callers.
+func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping uintptr) (uintptr, error) {
+	st, err := Opus_opus_multistream_decoder_create_typed(tls, Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(mapping)))
+	return uintptr(unsafe.Pointer(st)), err
 }
 
 func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams, Fs int32) int32 {

@@ -3,6 +3,11 @@
 package main
 
 /*
+#include <stdlib.h>
+static _Thread_local int channels_factory_fail;
+static void *channels_factory_alloc(size_t size){return channels_factory_fail?NULL:calloc(1,size);}
+#define OVERRIDE_OPUS_ALLOC 1
+#define opus_alloc channels_factory_alloc
 #define VAR_ARRAYS 1
 #define ENABLE_ASSERTIONS 1
 #define opus_decoder_init validation_decoder_init
@@ -20,6 +25,10 @@ package main
 #include "../../../opus/src/opus_multistream_decoder.c"
 extern void validation_normalize_decoder_mode(void *);
 void comparison_normalize_ms_modes(void *base,int streams,int coupled) {char *ptr=(char*)base+align(sizeof(OpusMSDecoder));for(int i=0;i<streams;i++){validation_normalize_decoder_mode(ptr);ptr+=align(validation_decoder_get_size(i<coupled?2:1));}}
+static int native_ms_create_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,const unsigned char *mapping,int fail) {
+ int error=99;channels_factory_fail=fail;OpusMSDecoder *st=comparison_channels_create(rate,channels,streams,coupled,mapping,&error);channels_factory_fail=0;
+ if(st){comparison_normalize_ms_modes(st,streams,coupled);memcpy(data,st,size);comparison_channels_destroy(st);}return error;
+}
 static int native_ms_init_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,const unsigned char *mapping,int mapping_offset) {
  OpusMSDecoder *st=malloc(size);memcpy(st,data,size);if(mapping_offset>=0)mapping=(unsigned char*)st+mapping_offset;
  int result=comparison_channels_init(st,rate,channels,streams,coupled,mapping);
@@ -38,6 +47,14 @@ import "C"
 
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
+
+func nativeMSCreateImage(data []byte, rate, channels, streams, coupled int32, mapping []byte, fail bool) int32 {
+	f := C.int(0)
+	if fail {
+		f = 1
+	}
+	return int32(C.native_ms_create_image((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(rate), C.int(channels), C.int(streams), C.int(coupled), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(mapping))), f))
+}
 
 func nativeMSInitImage(data []byte, rate, channels, streams, coupled int32, mapping []byte, mappingOffset int32) int32 {
 	return int32(C.native_ms_init_image((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(rate), C.int(channels), C.int(streams), C.int(coupled), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(mapping))), C.int(mappingOffset)))
