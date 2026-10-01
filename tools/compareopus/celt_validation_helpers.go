@@ -25,10 +25,17 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #define opus_custom_decode24 comparison_custom_decode24
 #define opus_custom_decode_float comparison_custom_decode_float
 #define opus_custom_decoder_ctl comparison_custom_ctl
+#define resampling_factor comparison_celt_resampling
 #define pitch_downsample compare_pitch_downsample
 #define pitch_search compare_pitch_search
 #include "../../../opus/celt/celt_decoder.c"
 static int native_plc_pitch(float *left,float *right,int channels) {float *data[2]={left,right};return celt_plc_pitch_search(NULL,data,channels,0);}
+#define comb_filter comparison_celt_comb_filter
+#define init_caps comparison_celt_init_caps
+#define tf_select_table comparison_celt_tf_select_table
+#define opus_strerror comparison_celt_strerror
+#define opus_get_version_string comparison_celt_version
+#include "../../../opus/celt/celt.c"
 #define opus_custom_mode_create comparison_mode_create
 #define opus_custom_mode_destroy comparison_mode_destroy
 #include "../../../opus/celt/modes.c"
@@ -37,7 +44,7 @@ static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *m
 #undef opus_custom_mode_destroy
 static int native_celt_state(unsigned char *data,size_t size,int op,int channels,int rate,int overlap,int bands,int eff) {
  CELTMode mode={0};mode.overlap=overlap;mode.nbEBands=bands;mode.effEBands=eff;CELTDecoder *st=size?malloc(size):NULL;if(size)memcpy(st,data,size);
- int result;if(op==0){st->mode=&mode;result=comparison_custom_ctl(st,OPUS_RESET_STATE);}else if(op==1)result=comparison_custom_init(st,&mode,channels);else result=comparison_celt_init(st,rate,channels);
+ int result;if(setjmp(celt_validation_jump))result=-99;else if(op==0){st->mode=&mode;result=comparison_custom_ctl(st,OPUS_RESET_STATE);}else if(op==1)result=comparison_custom_init(st,&mode,channels);else result=comparison_celt_init(st,rate,channels);
  if(size){st->mode=NULL;memcpy(data,st,size);free(st);}return result;
 }
 static void native_tf(unsigned *s,unsigned char *data,int start,int end,int transient,int *out,int LM) {

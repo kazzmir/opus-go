@@ -81,6 +81,36 @@ func celtStateTestBuffer(mode *OpusT_OpusCustomMode, channels int32) (*celtState
 	return storage, image, size
 }
 
+func TestCeltDecoderInitPointers(t *testing.T) {
+	mode, _ := Opus_opus_custom_mode_create(nil, 48000, 960)
+	for _, rate := range []int32{48000, 24000, 16000, 12000, 8000} {
+		storage, image, size := celtStateTestBuffer(mode, 2)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		code := Opus_celt_decoder_init(nil, &storage.State, rate, 2)
+		factor := Opus_resampling_factor(nil, rate)
+		want := int32(0)
+		if factor == 0 {
+			want = OPUS_BAD_ARG
+		}
+		if code != want || storage.State.Fmode != mode || storage.State.Fdownsample != factor || storage.State.Fskip_plc != 1 {
+			t.Fatal(rate, code, &storage.State)
+		}
+		for _, b := range image[size:] {
+			if b != 0xa5 {
+				t.Fatal("guard")
+			}
+		}
+	}
+	storage, _, _ := celtStateTestBuffer(mode, 2)
+	if !validationPanics(func() { Opus_celt_decoder_init(nil, &storage.State, 44100, 2) }) || storage.State.Fdownsample != 1 || storage.State.Fskip_plc != 1 {
+		t.Fatal("rate assertion/initialized state")
+	}
+	if Opus_celt_decoder_init(nil, nil, 44100, 1) != -7 || Opus_celt_decoder_init(nil, nil, 48000, 3) != OPUS_BAD_ARG {
+		t.Fatal("early errors")
+	}
+}
+
 func TestCustomDecoderInitPointers(t *testing.T) {
 	if opus_custom_decoder_init(nil, nil, nil, -1) != OPUS_BAD_ARG || opus_custom_decoder_init(nil, nil, nil, 1) != -7 {
 		t.Fatal("argument order")

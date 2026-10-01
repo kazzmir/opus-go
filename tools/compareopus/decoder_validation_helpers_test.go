@@ -49,6 +49,44 @@ func TestMSValidationAgainstC(t *testing.T) {
 	}
 }
 
+func TestCeltDecoderInitAgainstC(t *testing.T) {
+	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	for _, channels := range []int32{0, 1, 2} {
+		for _, rate := range []int32{-1, 0, 8000, 12000, 16000, 24000, 44100, 48000, 96000} {
+			size := int(opuscc.CompareCustomDecoderSize(mode, channels))
+			storage := new(struct {
+				State opuscc.OpusT_OpusCustomDecoder
+				Tail  [6000]float32
+			})
+			g := unsafe.Slice((*byte)(unsafe.Pointer(&storage.State)), size+16)
+			for i := int(unsafe.Sizeof(storage.State.Fmode)); i < len(g); i++ {
+				g[i] = 0xa5
+			}
+			c := slices.Clone(g)
+			code := int32(0)
+			func() {
+				defer func() {
+					if recover() != nil {
+						code = -99
+					}
+				}()
+				code = opuscc.Opus_celt_decoder_init(nil, &storage.State, rate, channels)
+			}()
+			native := nativeCeltState(c, 2, channels, rate, 120, 21, 21)
+			normalized := slices.Clone(g)
+			clear(normalized[:unsafe.Sizeof(storage.State.Fmode)])
+			if code != native || !slices.Equal(normalized, c) {
+				t.Fatal(channels, rate, "initialization image", code, native)
+			}
+		}
+	}
+	for _, ch := range []int32{-1, 0, 1, 2, 3} {
+		if g, c := opuscc.Opus_celt_decoder_init(nil, nil, 44100, ch), nativeCeltState(nil, 2, ch, 44100, 120, 21, 21); g != c {
+			t.Fatal("nil/invalid", ch, g, c)
+		}
+	}
+}
+
 func TestCustomDecoderInitAgainstC(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		for _, bands := range []int32{0, 1, 21, 32} {

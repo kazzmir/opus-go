@@ -2276,7 +2276,7 @@ func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, chan
 		return -int32(3)
 	}
 	/* Initialize CELT decoder */
-	ret = Opus_celt_decoder_init(tls, celt_dec, Fs, channels)
+	ret = Opus_celt_decoder_init(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), Fs, channels)
 	if ret != OPUS_OK {
 		return -int32(3)
 	}

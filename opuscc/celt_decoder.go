@@ -87,21 +87,17 @@ func opus_custom_decoder_get_size(tls *libc.TLS, mode *OpusT_OpusCustomMode, cha
 	return int32(unsafe.Sizeof(OpusT_OpusCustomDecoder{})) + (channels*(DEC_PITCH_BUF_SIZE+mode.Foverlap)-1)*4 + mode.FnbEBands*32 + channels*CELT_LPC_ORDER*4
 }
 
-func Opus_celt_decoder_init(tls *libc.TLS, st uintptr, sampling_rate OpusT_opus_int32, channels int32) (r int32) {
-	var ret int32
-	_ = ret
-	mode, _ := Opus_opus_custom_mode_create(tls, int32(48000), int32(960))
-	ret = opus_custom_decoder_init(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)), mode, channels)
-	if ret != OPUS_OK {
+func Opus_celt_decoder_init(tls *libc.TLS, st *OpusT_OpusCustomDecoder, rate OpusT_opus_int32, channels int32) int32 {
+	mode, _ := Opus_opus_custom_mode_create(tls, 48000, 960)
+	if ret := opus_custom_decoder_init(tls, st, mode, channels); ret != OPUS_OK {
 		return ret
 	}
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fdownsample = Opus_resampling_factor(tls, sampling_rate)
-	if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fdownsample == 0 {
-		return -int32(1)
-	} else {
-		return OPUS_OK
+	// C initializes the complete state before rejecting an unsupported rate.
+	st.Fdownsample = Opus_resampling_factor(tls, rate)
+	if st.Fdownsample == 0 {
+		return OPUS_BAD_ARG
 	}
-	return r
+	return OPUS_OK
 }
 
 func opus_custom_decoder_init(tls *libc.TLS, st *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, channels int32) int32 {
