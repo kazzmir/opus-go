@@ -5698,20 +5698,17 @@ func Opus_opus_packet_extensions_count(tls *libc.TLS, data *byte, length, frames
 //
 //	/* Count the number of extensions for each frame, excluding real padding and
 //	    separators and repeat indicators, but including the repeated extensions. */
-func Opus_opus_packet_extensions_count_ext(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, nb_frame_exts uintptr, nb_frames int32) (r OpusT_opus_int32) {
-	var count int32
-	var ext OpusT_opus_extension_data
+func Opus_opus_packet_extensions_count_ext(tls *libc.TLS, data *byte, length int32, frameCounts *int32, frames int32) int32 {
 	var iter OpusT_OpusExtensionIterator
-	_, _, _ = count, ext, iter
-	Opus_opus_extension_iterator_init(tls, &iter, (*byte)(unsafe.Pointer(data)), len1, nb_frames)
-	libc.Xmemset(tls, nb_frame_exts, 0, uint64(uint32(nb_frames))*uint64(4))
-	count = 0
-	for {
-		if !(Opus_opus_extension_iterator_next(tls, &iter, &ext) > 0) {
-			break
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(nb_frame_exts + uintptr(ext.Fframe)*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(nb_frame_exts + uintptr(ext.Fframe)*4)) + 1
-		count = count + 1
+	var ext OpusT_opus_extension_data
+	Opus_opus_extension_iterator_init(tls, &iter, data, length, frames)
+	counts := unsafe.Slice(frameCounts, frames)
+	// Clear before reading extensions, including when counts aliases packet bytes.
+	clear(counts)
+	var count int32
+	for Opus_opus_extension_iterator_next(tls, &iter, &ext) > 0 {
+		counts[ext.Fframe]++
+		count++
 	}
 	return count
 }

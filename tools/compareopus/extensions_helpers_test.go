@@ -65,6 +65,39 @@ func TestExtensionCountAgainstC(t *testing.T) {
 	}
 }
 
+func TestExtensionCountExtAgainstC(t *testing.T) {
+	for i, data := range extensionCollectionPackets() {
+		for _, frames := range []int32{0, 1, 3, 48} {
+			var g, c [50]int32
+			for i := range g {
+				g[i] = 77
+				c[i] = 77
+			}
+			got := opuscc.Opus_opus_packet_extensions_count_ext(nil, unsafe.SliceData(data), int32(len(data)), &g[1], frames)
+			native := nativeExtensionCountExt(unsafe.SliceData(data), int32(len(data)), &c[1], frames)
+			if got != native || g != c {
+				t.Fatal(i, frames, got, native, g, c)
+			}
+		}
+	}
+	for _, args := range [][2]int32{{-1, 1}, {1, 1}, {0, -1}, {0, 49}} {
+		g, c := [50]int32{77, 88}, [50]int32{77, 88}
+		got := extensionCollectionResult(func() int32 { return opuscc.Opus_opus_packet_extensions_count_ext(nil, nil, args[0], &g[0], args[1]) })
+		native := nativeExtensionCountExt(nil, args[0], &c[0], args[1])
+		if got != native || g != c {
+			t.Fatal("assert", args, got, native, g, c)
+		}
+	}
+	for _, frames := range []int32{1, 2, 3} {
+		g, c := [8]int32{0x2c072c07, 0x2c072c07, 0x2c072c07, 77}, [8]int32{0x2c072c07, 0x2c072c07, 0x2c072c07, 77}
+		got := opuscc.Opus_opus_packet_extensions_count_ext(nil, (*byte)(unsafe.Pointer(&g[0])), 12, &g[0], frames)
+		native := nativeExtensionCountExt((*byte)(unsafe.Pointer(&c[0])), 12, &c[0], frames)
+		if got != native || g != c {
+			t.Fatal("alias", frames, got, native, g, c)
+		}
+	}
+}
+
 func TestExtensionFindAgainstC(t *testing.T) {
 	fixtures := [][]byte{nil, {0}, {1}, {2}, {3, 0}, {3, 255}, {4}, {5}, {6}, {7}, {7, 44}, {65, 255}, {65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}, {6, 6, 6, 4}, {7, 11, 2, 7, 22}}
 	rng := rand.New(rand.NewSource(51173))

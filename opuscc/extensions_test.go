@@ -212,6 +212,38 @@ func TestExtensionCountPointers(t *testing.T) {
 	}
 }
 
+func TestExtensionCountExtPointers(t *testing.T) {
+	packet := [32]byte{7, 11, 3, 2, 7, 22, 2, 7, 33, 65}
+	var counts [50]int32
+	for i := range counts {
+		counts[i] = 77
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if got := Opus_opus_packet_extensions_count_ext(nil, &packet[0], 10, &counts[1], 4); got != 3 || counts[0] != 77 || counts[5] != 77 || counts[1] != 1 || counts[2] != 0 || counts[3] != 1 || counts[4] != 1 {
+		t.Fatal(got, counts)
+	}
+	before := counts
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("missing assert")
+			}
+		}()
+		Opus_opus_packet_extensions_count_ext(nil, nil, -1, &counts[1], 4)
+	}()
+	if counts != before {
+		t.Fatal("clear before assertion")
+	}
+	alias := [4]int32{0x2c072c07, 0x2c072c07, 77, 88}
+	if got := Opus_opus_packet_extensions_count_ext(nil, (*byte)(unsafe.Pointer(&alias[0])), 8, &alias[0], 1); got != 0 || alias != [4]int32{0, 0x2c072c07, 77, 88} {
+		t.Fatal("clear/read alias", got, alias)
+	}
+	if Opus_opus_packet_extensions_count_ext(nil, nil, 0, nil, 0) != 0 {
+		t.Fatal("empty")
+	}
+}
+
 func TestWriteExtensionPointers(t *testing.T) {
 	out := [8]byte{77, 77, 77, 77, 77, 77, 77, 88}
 	payload := [2]byte{11, 12}
@@ -362,7 +394,7 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 		t.Fatalf("parsed extensions: count=%d entries=%+v", count, parsed)
 	}
 	frameCounts := make([]OpusT_opus_int32, 3)
-	if got := Opus_opus_packet_extensions_count_ext(tls, uintptr(unsafe.Pointer(&packet[0])), length, uintptr(unsafe.Pointer(&frameCounts[0])), 3); got != 3 {
+	if got := Opus_opus_packet_extensions_count_ext(tls, &packet[0], length, &frameCounts[0], 3); got != 3 {
 		t.Fatalf("per-frame extension count: got %d, want 3", got)
 	}
 	if want := []OpusT_opus_int32{1, 1, 1}; frameCounts[0] != want[0] || frameCounts[1] != want[1] || frameCounts[2] != want[2] {
