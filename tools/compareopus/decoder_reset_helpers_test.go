@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/kazzmir/opus-go/opuscc"
+	"math/rand"
 	"testing"
 	"unsafe"
 )
@@ -39,6 +40,43 @@ func TestDecoderSetFSAgainstC(t *testing.T) {
 						if gr != cr || g != c || !unchanged {
 							t.Fatal(initial, subframes, api, rate, step, gr, cr, "state differs", g != c, "C remainder", unchanged)
 						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestDecodeIndicesAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(8917))
+	for _, fs := range []int32{8, 12, 16} {
+		for _, sub := range []int32{2, 4} {
+			for _, cond := range []int32{0, 1, 2} {
+				for trial := 0; trial < 80; trial++ {
+					var g opuscc.OpusT_silk_decoder_state
+					g.Fnb_subfr = sub
+					opuscc.Opus_silk_decoder_set_fs(nil, &g, fs, 16000)
+					frame := int32(trial % 3)
+					lbrr := int32((trial / 3) % 2)
+					g.FVAD_flags[frame] = int32((trial / 6) % 2)
+					g.Fec_prevSignalType = int32(trial % 3)
+					g.Fec_prevLagIndex = 100
+					g.Findices.FLTP_scaleIndex = 2
+					g.Findices.FPERIndex = 1
+					c := g
+					data := make([]byte, []int{0, 1, 32}[trial%3])
+					rng.Read(data)
+					var gd opuscc.OpusT_ec_dec
+					gd.Fext = uint32(trial)
+					opuscc.Opus_ec_dec_init(nil, &gd, unsafe.SliceData(data), uint32(len(data)))
+					cd := gd
+					opuscc.Opus_silk_decode_indices(nil, &g, &gd, frame, lbrr, cond)
+					nativeSilkIndices(&c, &cd, data, frame, lbrr, cond)
+					g.FpsNLSF_CB = 0
+					gd.Fbuf = nil
+					cd.Fbuf = nil
+					if g != c || gd != cd {
+						t.Fatal(fs, sub, cond, trial, "state/entropy", g.Findices, c.Findices, gd, cd)
 					}
 				}
 			}
