@@ -11,6 +11,31 @@ import (
 	"unsafe"
 )
 
+func TestMDCTLookupAgainstC(t *testing.T) {
+	for _, n := range []int32{32, 240, 1920} {
+		for shifts := int32(0); shifts <= 3; shifts++ {
+			if (n>>shifts)%16 != 0 {
+				continue
+			}
+			trig, sizes, layout := nativeMDCTLookup(n, shifts)
+			l := opuscc.OpusT_mdct_lookup{Fn: n, Fmaxshift: shifts, Ftrig: &trig[0]}
+			for i := int32(0); i <= shifts; i++ {
+				l.Fkfft[i] = &opuscc.OpusT_kiss_fft_state{Fnfft: n >> 2 >> i}
+				if l.Fkfft[i].Fnfft != sizes[i] {
+					t.Fatal(n, shifts, sizes)
+				}
+			}
+			want := [3]uint64{uint64(unsafe.Sizeof(l)), uint64(unsafe.Offsetof(l.Fkfft)), uint64(unsafe.Offsetof(l.Ftrig))}
+			if layout != want {
+				t.Fatal(layout, want)
+			}
+			if len(unsafe.Slice(l.Ftrig, n-((n/2)>>shifts))) != len(trig) {
+				t.Fatal("trig span")
+			}
+		}
+	}
+}
+
 func TestMiniFFTRAgainstC(t *testing.T) {
 	for _, n := range []int32{4, 6, 8, 10, 12, 16, 24, 30, 60, 120, 240, 480} {
 		for trial := 0; trial < 12; trial++ {

@@ -1659,8 +1659,8 @@ type OpusT_OpusDREDDecoder = struct {
 type OpusT_mdct_lookup = struct {
 	Fn        int32
 	Fmaxshift int32
-	Fkfft     [4]uintptr
-	Ftrig     uintptr
+	Fkfft     [4]*OpusT_kiss_fft_state
+	Ftrig     *float32
 }
 
 type OpusT_PulseCache = struct {

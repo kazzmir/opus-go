@@ -14,6 +14,16 @@ package main
 #define opus_fft_c compare_bfly_fft
 #define opus_ifft_c compare_bfly_ifft
 #include "../../../opus/celt/kiss_fft.c"
+#define clt_mdct_init compare_mdct_init
+#define clt_mdct_clear compare_mdct_clear
+#define clt_mdct_forward_c compare_mdct_forward
+#define clt_mdct_backward_c compare_mdct_backward
+#include "../../../opus/celt/mdct.c"
+static int native_mdct_fixture(int n,int shifts,float *trig,int *sizes,size_t *layout) {
+ mdct_lookup l={0};if(!compare_mdct_init(&l,n,shifts,0))return 0;
+ memcpy(trig,l.trig,(n-((n/2)>>shifts))*sizeof(float));for(int i=0;i<=shifts;i++)sizes[i]=l.kfft[i]->nfft;
+ layout[0]=sizeof(l);layout[1]=offsetof(mdct_lookup,kfft);layout[2]=offsetof(mdct_lookup,trig);compare_mdct_clear(&l,0);return 1;
+}
 static int native_fft_fixture(int n,int shift,short *factors,short *bitrev,void *tw,float *scale) {
  int total=n<<(shift>0?shift:0);
  kiss_fft_state *base=compare_bfly_alloc(total,NULL,NULL,0);
@@ -45,6 +55,16 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeMDCTLookup(n, shifts int32) ([]float32, []int32, [3]uint64) {
+	trig := make([]float32, n-((n/2)>>shifts))
+	sizes := make([]int32, shifts+1)
+	var layout [3]C.size_t
+	if C.native_mdct_fixture(C.int(n), C.int(shifts), (*C.float)(unsafe.Pointer(&trig[0])), (*C.int)(unsafe.Pointer(&sizes[0])), &layout[0]) == 0 {
+		panic("MDCT fixture allocation")
+	}
+	return trig, sizes, [3]uint64{uint64(layout[0]), uint64(layout[1]), uint64(layout[2])}
+}
 
 func nativeFFTFixture(n, shift int32) (opuscc.OpusT_kiss_fft_state, []int16, []opuscc.OpusT_kiss_twiddle_cpx) {
 	state := opuscc.OpusT_kiss_fft_state{Fnfft: n, Fshift: shift}

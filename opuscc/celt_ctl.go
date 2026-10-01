@@ -7813,13 +7813,10 @@ var mode48000_960_120 = OpusT_OpusCustomMode{
 	Fmdct: OpusT_mdct_lookup{
 		Fn:        int32(1920),
 		Fmaxshift: int32(3),
-		Fkfft: [4]uintptr{
-			0: uintptr(unsafe.Pointer(&fft_state48000_960_0)),
-			1: uintptr(unsafe.Pointer(&fft_state48000_960_1)),
-			2: uintptr(unsafe.Pointer(&fft_state48000_960_2)),
-			3: uintptr(unsafe.Pointer(&fft_state48000_960_3)),
+		Fkfft: [4]*OpusT_kiss_fft_state{
+			&fft_state48000_960_0, &fft_state48000_960_1, &fft_state48000_960_2, &fft_state48000_960_3,
 		},
-		Ftrig: uintptr(unsafe.Pointer(&mdct_twiddles960)),
+		Ftrig: &mdct_twiddles960[0],
 	},
 	Fcache: OpusT_PulseCache{
 		Fsize:  int32(392),

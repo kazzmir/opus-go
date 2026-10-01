@@ -8,6 +8,30 @@ import (
 	"unsafe"
 )
 
+func TestMDCTLookupPointers(t *testing.T) {
+	makeLookup := func() *OpusT_mdct_lookup {
+		trig := make([]float32, 12)
+		for i := range trig {
+			trig[i] = float32(i) + .25
+		}
+		l := &OpusT_mdct_lookup{Fn: 16, Fmaxshift: 1, Ftrig: &trig[0]}
+		l.Fkfft[0] = &OpusT_kiss_fft_state{Fnfft: 4}
+		l.Fkfft[1] = &OpusT_kiss_fft_state{Fnfft: 2}
+		return l
+	}
+	l := makeLookup()
+	entropyInitGrowStack(12)
+	for i := 0; i < 3; i++ {
+		runtime.GC()
+	}
+	if l.Fkfft[0].Fnfft != 4 || l.Fkfft[1].Fnfft != 2 || unsafe.Slice(l.Ftrig, 12)[11] != 11.25 {
+		t.Fatal("lookup backing lifetime")
+	}
+	if unsafe.Offsetof(l.Fkfft) != 8 || unsafe.Offsetof(l.Ftrig) != 8+4*unsafe.Sizeof(l.Ftrig) {
+		t.Fatal("C layout")
+	}
+}
+
 func TestMiniFFTRPointers(t *testing.T) {
 	st := Opus_mini_kiss_fftr_alloc(nil, 16, 0, nil, nil)
 	input := [16]float32{1}

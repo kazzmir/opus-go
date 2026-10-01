@@ -20,7 +20,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 	var scale OpusT_celt_coef
 	var yc OpusT_kiss_fft_cpx
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N2, N4, _saved_stack, f, f2, fp, i, im, re, scale, st, st1, t, t0, t01, t1, t11, t12, trig, wp1, wp2, xp1, xp2, yc, yi, yi1, yp, yp1, yp11, yp2, yr, yr1, v1, v10, v12, v14, v16, v18, v20, v22, v24, v3, v6, v8
-	st1 = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift]
+	st1 = uintptr(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift]))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -35,7 +35,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, 
 	_ = arch
 	scale = (*OpusT_kiss_fft_state)(unsafe.Pointer(st1)).Fscale
 	N = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fn
-	trig = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Ftrig
+	trig = uintptr(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Ftrig))
 	i = 0
 	for {
 		if !(i < shift) {
@@ -310,7 +310,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr,
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N2, N4, bitrev, i, im, re, rev, t, t0, t1, t11, trig, wp1, wp2, x1, x11, x2, x21, xp1, xp11, xp2, yi, yi1, yp, yp0, yp1, yp11, yr, yr1, v3
 	_ = arch
 	N = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fn
-	trig = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Ftrig
+	trig = uintptr(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Ftrig))
 	i = 0
 	for {
 		if !(i < shift) {
@@ -328,7 +328,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr,
 	xp2 = in + uintptr(stride*(N2-int32(1)))*4
 	yp = out + uintptr(overlap>>int32(1))*4
 	t = trig
-	bitrev = (*OpusT_kiss_fft_state)(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift])).Fbitrev
+	bitrev = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift].Fbitrev
 	i = 0
 	for {
 		if !(i < N4) {
@@ -349,7 +349,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr,
 		xp2 = xp2 - uintptr(int32(2)*stride)*4
 		i = i + 1
 	}
-	opus_fft_impl_legacy(tls, (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift], out+uintptr(overlap>>int32(1))*4)
+	opus_fft_impl_legacy(tls, uintptr(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift])), out+uintptr(overlap>>int32(1))*4)
 	/* Post-rotate and de-shuffle from both ends of the buffer at once to make
 	   it in-place. */
 	yp0 = out + uintptr(overlap>>int32(1))*4
