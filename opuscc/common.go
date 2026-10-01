@@ -5664,21 +5664,19 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter *OpusT_OpusExtensionI
 	return 0
 }
 
-func Opus_opus_extension_iterator_find(tls *libc.TLS, iter uintptr, ext uintptr, id int32) (r int32) {
-	var ret int32
-	var curr_ext OpusT_opus_extension_data
-	_, _ = curr_ext, ret
+func Opus_opus_extension_iterator_find(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, ext *OpusT_opus_extension_data, id int32) int32 {
+	var current OpusT_opus_extension_data
 	for {
-		ret = Opus_opus_extension_iterator_next(tls, (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)), &curr_ext)
+		ret := Opus_opus_extension_iterator_next(tls, iter, &current)
 		if ret <= 0 {
 			return ret
 		}
-		if curr_ext.Fid == id {
-			*(*OpusT_opus_extension_data)(unsafe.Pointer(ext)) = curr_ext
+		// Do not touch the output until a matching extension has been found.
+		if current.Fid == id {
+			*ext = current
 			return ret
 		}
 	}
-	return r
 }
 
 // C documentation

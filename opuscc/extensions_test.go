@@ -131,6 +131,50 @@ func TestExtensionNextPointers(t *testing.T) {
 	}
 }
 
+func TestExtensionFindPointers(t *testing.T) {
+	owned := func() OpusT_opus_extension_data {
+		packet := []byte{65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}
+		var st OpusT_OpusExtensionIterator
+		Opus_opus_extension_iterator_init(nil, &st, &packet[0], int32(len(packet)), 3)
+		var ext, first OpusT_opus_extension_data
+		for i, want := range []byte{99, 23, 33} {
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if Opus_opus_extension_iterator_find(nil, &st, &ext, 3) != 1 || ext.Fframe != int32(i) || ext.Fid != 3 || ext.Flen1 != 1 || *ext.Fdata != want {
+				t.Fatal("find", i, ext)
+			}
+			if i == 0 {
+				first = ext
+			}
+		}
+		before := ext
+		if Opus_opus_extension_iterator_find(nil, &st, &ext, 128) != 0 || ext != before {
+			t.Fatal("not found modified output")
+		}
+		Opus_opus_extension_iterator_reset(nil, &st)
+		Opus_opus_extension_iterator_set_frame_max(nil, &st, 0)
+		if Opus_opus_extension_iterator_find(nil, &st, nil, 3) != 0 {
+			t.Fatal("frame limit")
+		}
+		return first
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *owned.Fdata != 99 {
+		t.Fatal("payload ownership")
+	}
+	packet := []byte{65}
+	var st OpusT_OpusExtensionIterator
+	Opus_opus_extension_iterator_init(nil, &st, &packet[0], 1, 1)
+	ext := owned
+	if Opus_opus_extension_iterator_find(nil, &st, &ext, 32) != OPUS_INVALID_PACKET || ext != owned || st.Fcurr_len != -1 {
+		t.Fatal("failed find")
+	}
+	if Opus_opus_extension_iterator_find(nil, &st, nil, 128) != OPUS_INVALID_PACKET {
+		t.Fatal("sticky failure")
+	}
+}
+
 func TestWriteExtensionPointers(t *testing.T) {
 	out := [8]byte{77, 77, 77, 77, 77, 77, 77, 88}
 	payload := [2]byte{11, 12}
@@ -263,7 +307,7 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 
 	Opus_opus_extension_iterator_init(tls, &iterator, &packet[0], length, 3)
 	var found OpusT_opus_extension_data
-	if got := Opus_opus_extension_iterator_find(tls, uintptr(unsafe.Pointer(&iterator)), uintptr(unsafe.Pointer(&found)), 3); got != 1 {
+	if got := Opus_opus_extension_iterator_find(tls, &iterator, &found, 3); got != 1 {
 		t.Fatalf("find result: got %d, want 1", got)
 	}
 	if found.Fframe != 0 || found.Flen1 != 1 || *(*byte)(unsafe.Pointer(found.Fdata)) != 'x' {

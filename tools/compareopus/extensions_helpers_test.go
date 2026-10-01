@@ -27,6 +27,57 @@ func extensionTestWithOutput(st *opuscc.OpusT_OpusExtensionIterator, ext *opuscc
 	v[18] = ext.Flen1
 	return v
 }
+func TestExtensionFindAgainstC(t *testing.T) {
+	fixtures := [][]byte{nil, {0}, {1}, {2}, {3, 0}, {3, 255}, {4}, {5}, {6}, {7}, {7, 44}, {65, 255}, {65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}, {6, 6, 6, 4}, {7, 11, 2, 7, 22}}
+	rng := rand.New(rand.NewSource(51173))
+	for i := 0; i < 500; i++ {
+		data := make([]byte, rng.Intn(33))
+		rng.Read(data)
+		fixtures = append(fixtures, data)
+	}
+	for fi, data := range fixtures {
+		for _, frames := range []int32{0, 1, 3, 48} {
+			for _, id := range []int32{-1, 0, 2, 3, 31, 32, 127, 128} {
+				for scenario := 0; scenario < 4; scenario++ {
+					if scenario == 3 && id != 128 {
+						continue
+					} // NULL output is defined only when no match is found.
+					base := unsafe.SliceData(data)
+					var st opuscc.OpusT_OpusExtensionIterator
+					opuscc.Opus_opus_extension_iterator_init(nil, &st, base, int32(len(data)), frames)
+					if scenario == 1 {
+						opuscc.Opus_opus_extension_iterator_set_frame_max(nil, &st, 1)
+					} else if scenario == 2 {
+						opuscc.Opus_opus_extension_iterator_set_frame_max(nil, &st, 0)
+					}
+					ext := opuscc.OpusT_opus_extension_data{Fid: 91, Fframe: 92, Fdata: base, Flen1: 93}
+					want := int32(1)
+					var out *opuscc.OpusT_opus_extension_data = &ext
+					if scenario == 3 {
+						out = nil
+						want = 0
+					}
+					limit := (len(data)+1)*(int(frames)+1) + 1
+					for step := 0; step < limit; step++ {
+						v := extensionTestWithOutput(&st, &ext)
+						result := opuscc.Opus_opus_extension_iterator_find(nil, &st, out, id)
+						native := nativeExtensionIterator(data, 0, 0, &v, 3, want, id)
+						if result != native || extensionTestWithOutput(&st, &ext) != v {
+							t.Fatal(fi, frames, id, scenario, step, result, native, extensionTestWithOutput(&st, &ext), v)
+						}
+						if result <= 0 {
+							break
+						}
+						if step == limit-1 {
+							t.Fatal("find did not stop")
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestExtensionNextAgainstC(t *testing.T) {
 	fixtures := [][]byte{nil, {0}, {1}, {2}, {3, 0}, {3, 255}, {4}, {5}, {6}, {7}, {7, 44}, {65, 255}, {65, 255, 0}, {65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}, {65, 1, 19, 3, 0, 7, 20, 5, 1, 21, 22, 1, 23, 24}, {6, 6, 6, 4}, {7, 11, 2, 7, 22}}
 	fixtures = append(fixtures, append([]byte{65, 255, 0}, make([]byte, 255)...))

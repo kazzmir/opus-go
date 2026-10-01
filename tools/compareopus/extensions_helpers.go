@@ -30,7 +30,7 @@ static int native_extension_iterator(const unsigned char *base,int length,int fr
  st->data=extension_pointer(base,v[0]);st->curr_data=extension_pointer(base,v[1]);st->repeat_data=extension_pointer(base,v[2]);st->last_long=extension_pointer(base,v[3]);st->src_data=extension_pointer(base,v[4]);
  st->len=v[5];st->curr_len=v[6];st->repeat_len=v[7];st->src_len=v[8];st->trailing_short_len=v[9];st->nb_frames=v[10];st->frame_max=v[11];st->curr_frame=v[12];st->repeat_frame=v[13];st->repeat_l=v[14];
  if(op){ext->id=v[15];ext->frame=v[16];ext->data=extension_pointer(base,v[17]);ext->len=v[18];}
- int result=0;if(setjmp(extension_jump))result=-99;else if(op==0)opus_extension_iterator_init(st,base,length,frames);else if(op==1)result=opus_extension_iterator_next_repeat(st,want?ext:NULL);else result=opus_extension_iterator_next(st,want?ext:NULL);
+ int result=0;if(setjmp(extension_jump))result=-99;else if(op==0)opus_extension_iterator_init(st,base,length,frames);else if(op==1)result=opus_extension_iterator_next_repeat(st,want?ext:NULL);else if(op==2)result=opus_extension_iterator_next(st,want?ext:NULL);else result=opus_extension_iterator_find(st,want?ext:NULL,id);
  v[0]=extension_offset(base,st->data);v[1]=extension_offset(base,st->curr_data);v[2]=extension_offset(base,st->repeat_data);v[3]=extension_offset(base,st->last_long);v[4]=extension_offset(base,st->src_data);
  v[5]=st->len;v[6]=st->curr_len;v[7]=st->repeat_len;v[8]=st->src_len;v[9]=st->trailing_short_len;v[10]=st->nb_frames;v[11]=st->frame_max;v[12]=st->curr_frame;v[13]=st->repeat_frame;v[14]=st->repeat_l;
  if(op){v[15]=ext->id;v[16]=ext->frame;v[17]=extension_offset(base,ext->data);v[18]=ext->len;}free(ext);free(st);return result;
