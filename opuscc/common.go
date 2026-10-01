@@ -5683,17 +5683,13 @@ func Opus_opus_extension_iterator_find(tls *libc.TLS, iter *OpusT_OpusExtensionI
 //
 //	/* Count the number of extensions, excluding real padding, separators, and
 //	    repeat indicators, but including the repeated extensions. */
-func Opus_opus_packet_extensions_count(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, nb_frames int32) (r OpusT_opus_int32) {
-	var count int32
+func Opus_opus_packet_extensions_count(tls *libc.TLS, data *byte, length, frames int32) int32 {
 	var iter OpusT_OpusExtensionIterator
-	_, _ = count, iter
-	Opus_opus_extension_iterator_init(tls, &iter, (*byte)(unsafe.Pointer(data)), len1, nb_frames)
-	count = 0
-	for {
-		if !(Opus_opus_extension_iterator_next(tls, &iter, nil) > 0) {
-			break
-		}
-		count = count + 1
+	Opus_opus_extension_iterator_init(tls, &iter, data, length, frames)
+	var count int32
+	// As in C, malformed trailing data terminates counting rather than returning an error.
+	for Opus_opus_extension_iterator_next(tls, &iter, nil) > 0 {
+		count++
 	}
 	return count
 }

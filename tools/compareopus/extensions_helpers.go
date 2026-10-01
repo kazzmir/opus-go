@@ -35,6 +35,9 @@ static int native_extension_iterator(const unsigned char *base,int length,int fr
  v[5]=st->len;v[6]=st->curr_len;v[7]=st->repeat_len;v[8]=st->src_len;v[9]=st->trailing_short_len;v[10]=st->nb_frames;v[11]=st->frame_max;v[12]=st->curr_frame;v[13]=st->repeat_frame;v[14]=st->repeat_l;
  if(op){v[15]=ext->id;v[16]=ext->frame;v[17]=extension_offset(base,ext->data);v[18]=ext->len;}free(ext);free(st);return result;
 }
+static int native_extension_count(const unsigned char *data,int length,int frames) {
+ if(setjmp(extension_jump))return -99;return opus_packet_extensions_count(data,length,frames);
+}
 static int native_write_extension(unsigned char *data,int capacity,int pos,int id,int length,const unsigned char *payload,int last) {
  opus_extension_data ext={0};ext.id=id;ext.len=length;ext.data=payload;return write_extension(data,capacity,pos,&ext,last);
 }
@@ -62,6 +65,10 @@ func nativeExtensionIterator(data []byte, length, frames int32, v *[19]int32, op
 		id = options[2]
 	}
 	return int32(C.native_extension_iterator((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(length), C.int(frames), (*C.int)(unsafe.Pointer(&v[0])), C.int(op), C.int(want), C.int(id)))
+}
+
+func nativeExtensionCount(data []byte, length, frames int32) int32 {
+	return int32(C.native_extension_count((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(length), C.int(frames)))
 }
 
 func nativeWriteExtension(data []byte, capacity, pos, id, length int32, payload []byte, last int32) int32 {

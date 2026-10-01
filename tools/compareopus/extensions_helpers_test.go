@@ -27,6 +27,44 @@ func extensionTestWithOutput(st *opuscc.OpusT_OpusExtensionIterator, ext *opuscc
 	v[18] = ext.Flen1
 	return v
 }
+func extensionCollectionPackets() [][]byte {
+	packets := [][]byte{nil, {0}, {1}, {2}, {3, 0}, {3, 255}, {4}, {5}, {6}, {7}, {7, 44, 65}, {7, 11, 5, 22}, {65, 255}, {65, 255, 0}, {65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}, {6, 6, 6, 4}, {7, 11, 2, 7, 22}, {7, 11, 3, 2, 7, 22, 2, 7, 33}}
+	packets = append(packets, append([]byte{65, 255, 0}, make([]byte, 255)...))
+	rng := rand.New(rand.NewSource(89731))
+	for i := 0; i < 1000; i++ {
+		p := make([]byte, rng.Intn(65))
+		rng.Read(p)
+		packets = append(packets, p)
+	}
+	return packets
+}
+func extensionCollectionResult(fn func() int32) (result int32) {
+	defer func() {
+		if recover() != nil {
+			result = -99
+		}
+	}()
+	return fn()
+}
+func TestExtensionCountAgainstC(t *testing.T) {
+	for i, data := range extensionCollectionPackets() {
+		for _, frames := range []int32{0, 1, 3, 48} {
+			before := slices.Clone(data)
+			got := opuscc.Opus_opus_packet_extensions_count(nil, unsafe.SliceData(data), int32(len(data)), frames)
+			native := nativeExtensionCount(data, int32(len(data)), frames)
+			if got != native || !slices.Equal(before, data) {
+				t.Fatal(i, frames, got, native)
+			}
+		}
+	}
+	for _, args := range [][2]int32{{-1, 1}, {1, 1}, {0, -1}, {0, 49}} {
+		got := extensionCollectionResult(func() int32 { return opuscc.Opus_opus_packet_extensions_count(nil, nil, args[0], args[1]) })
+		if native := nativeExtensionCount(nil, args[0], args[1]); got != native {
+			t.Fatal("assert", args, got, native)
+		}
+	}
+}
+
 func TestExtensionFindAgainstC(t *testing.T) {
 	fixtures := [][]byte{nil, {0}, {1}, {2}, {3, 0}, {3, 255}, {4}, {5}, {6}, {7}, {7, 44}, {65, 255}, {65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}, {6, 6, 6, 4}, {7, 11, 2, 7, 22}}
 	rng := rand.New(rand.NewSource(51173))

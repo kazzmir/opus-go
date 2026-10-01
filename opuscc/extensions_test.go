@@ -175,6 +175,43 @@ func TestExtensionFindPointers(t *testing.T) {
 	}
 }
 
+func TestExtensionCountPointers(t *testing.T) {
+	for _, test := range []struct {
+		data         []byte
+		frames, want int32
+	}{{nil, 0, 0}, {nil, 48, 0}, {[]byte{7, 44, 65}, 3, 1}, {[]byte{7, 11, 5, 22}, 3, 2}, {[]byte{6, 6, 6, 4}, 48, 144}, {[]byte{7, 11, 2, 7, 22}, 3, 2}} {
+		// C-style end cursors must stay inside the Go allocation, not one past it.
+		storage := make([]byte, len(test.data)+16)
+		copy(storage, test.data)
+		for i := len(test.data); i < len(storage); i++ {
+			storage[i] = 7
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if got := Opus_opus_packet_extensions_count(nil, unsafe.SliceData(storage), int32(len(test.data)), test.frames); got != test.want {
+			t.Fatal(test, got)
+		}
+		for _, b := range storage[len(test.data):] {
+			if b != 7 {
+				t.Fatal("guard")
+			}
+		}
+		if len(test.data) == 0 && Opus_opus_packet_extensions_count(nil, nil, 0, test.frames) != 0 {
+			t.Fatal("nil empty input")
+		}
+	}
+	for _, args := range [][2]int32{{-1, 1}, {1, 1}, {0, -1}, {0, 49}} {
+		panicked := false
+		func() {
+			defer func() { panicked = recover() != nil }()
+			Opus_opus_packet_extensions_count(nil, nil, args[0], args[1])
+		}()
+		if !panicked {
+			t.Fatal("assert", args)
+		}
+	}
+}
+
 func TestWriteExtensionPointers(t *testing.T) {
 	out := [8]byte{77, 77, 77, 77, 77, 77, 77, 88}
 	payload := [2]byte{11, 12}
@@ -313,7 +350,7 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 	if found.Fframe != 0 || found.Flen1 != 1 || *(*byte)(unsafe.Pointer(found.Fdata)) != 'x' {
 		t.Fatalf("found extension: %+v", found)
 	}
-	if got := Opus_opus_packet_extensions_count(tls, uintptr(unsafe.Pointer(&packet[0])), length, 3); got != 3 {
+	if got := Opus_opus_packet_extensions_count(tls, &packet[0], length, 3); got != 3 {
 		t.Fatalf("extension count: got %d, want 3", got)
 	}
 	parsed := make([]OpusT_opus_extension_data, 3)
