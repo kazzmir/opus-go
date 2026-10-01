@@ -46,6 +46,47 @@ func TestDecoderSetFSAgainstC(t *testing.T) {
 	}
 }
 
+func TestDecodeParametersAgainstC(t *testing.T) {
+	for _, fs := range []int32{8, 12, 16} {
+		for _, sub := range []int32{2, 4} {
+			for _, signal := range []int8{0, 1, 2} {
+				for _, cond := range []int32{0, 1, 2} {
+					for trial := 0; trial < 12; trial++ {
+						var g opuscc.OpusT_silk_decoder_state
+						g.Fnb_subfr = sub
+						opuscc.Opus_silk_decoder_set_fs(nil, &g, fs, 16000)
+						g.Ffirst_frame_after_reset = int32(trial % 2)
+						g.FlossCnt = int32(trial % 3)
+						g.Findices.FsignalType = signal
+						g.Findices.FNLSFInterpCoef_Q2 = int8(trial % 5)
+						g.Findices.FGainsIndices = [4]int8{9, 3, 5, 7}
+						g.FLastGainIndex = 12
+						g.Findices.FlagIndex = 100
+						g.Findices.FPERIndex = int8(trial % 3)
+						g.Findices.FLTPIndex = [4]int8{2, 5, 1, 3}
+						g.Findices.FLTP_scaleIndex = int8(trial % 3)
+						for i := int32(0); i < g.FLPC_order; i++ {
+							g.FprevNLSF_Q15[i] = int16((i + 1) * 32768 / (g.FLPC_order + 1))
+						}
+						c := g
+						var gc opuscc.OpusT_silk_decoder_control
+						for i := range gc.FLTPCoef_Q14 {
+							gc.FLTPCoef_Q14[i] = 77
+						}
+						cc := gc
+						opuscc.Opus_silk_decode_parameters(nil, &g, &gc, cond)
+						nativeSilkParameters(&c, &cc, cond)
+						g.FpsNLSF_CB = 0
+						if g != c || gc != cc {
+							t.Fatal(fs, sub, signal, cond, trial, "state/control")
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestDecoderResetAgainstC(t *testing.T) {
 	for _, init := range []bool{false, true} {
 		var g opuscc.OpusT_silk_decoder_state

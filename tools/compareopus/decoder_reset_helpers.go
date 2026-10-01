@@ -25,6 +25,12 @@ static int reset_remainder_zero(silk_decoder_state s) {
 #define silk_InitDecoder compare_api_InitDecoder
 #define silk_Decode compare_api_Decode
 #include "../../../opus/silk/dec_API.c"
+#define silk_decode_parameters compare_silk_decode_parameters
+#include "../../../opus/silk/decode_parameters.c"
+static void native_silk_parameters(void *state,void *control,int cond) {
+ silk_decoder_state *st=state;st->psNLSF_CB=st->fs_kHz==16?&silk_NLSF_CB_WB:&silk_NLSF_CB_NB_MB;
+ silk_decode_parameters(st,control,cond);st->psNLSF_CB=NULL;
+}
 static int native_api_reset(int init,int *meta) {
  silk_decoder s; silk_decoder_state ref; stereo_dec_state zero={0};
  memset(&s,0xa5,sizeof(s));s.nChannelsAPI=2;s.nChannelsInternal=1;s.prev_decode_only_middle=1;
@@ -38,6 +44,11 @@ static int native_api_reset(int init,int *meta) {
 */
 import "C"
 import "github.com/kazzmir/opus-go/opuscc"
+import "unsafe"
+
+func nativeSilkParameters(st *opuscc.OpusT_silk_decoder_state, control *opuscc.OpusT_silk_decoder_control, cond int32) {
+	C.native_silk_parameters(unsafe.Pointer(st), unsafe.Pointer(control), C.int(cond))
+}
 
 func nativeSilkAPIReset(init bool) (int32, [5]int32) {
 	var mode C.int

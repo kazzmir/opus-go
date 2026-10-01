@@ -1,11 +1,36 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestDecodeParametersPointers(t *testing.T) {
+	for _, fs := range []int32{8, 12, 16} {
+		for _, sub := range []int32{2, 4} {
+			var st OpusT_silk_decoder_state
+			st.Fnb_subfr = sub
+			Opus_silk_decoder_set_fs(nil, &st, fs, 16000)
+			st.Findices.FsignalType = TYPE_UNVOICED
+			st.Findices.FNLSFInterpCoef_Q2 = 4
+			st.Findices.FGainsIndices = [4]int8{9, 3, 5, 7}
+			st.FLastGainIndex = 12
+			guarded := struct {
+				Before  int32
+				Control OpusT_silk_decoder_control
+				After   int32
+			}{Before: 77, After: 88}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_silk_decode_parameters(nil, &st, &guarded.Control, CODE_INDEPENDENTLY)
+			if guarded.Before != 77 || guarded.After != 88 || st.Findices.FNLSFInterpCoef_Q2 != 4 || guarded.Control.FGains_Q16[0] == 0 {
+				t.Fatal("state/guards")
+			}
+		}
+	}
+}
 
 func TestDecodeParametersFieldAccesses(t *testing.T) {
 	tls := libc.NewTLS()
@@ -23,7 +48,7 @@ func TestDecodeParametersFieldAccesses(t *testing.T) {
 	decoder.FLastGainIndex = 12
 	var control OpusT_silk_decoder_control
 
-	Opus_silk_decode_parameters(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&control)), CODE_INDEPENDENTLY)
+	Opus_silk_decode_parameters(tls, &decoder, &control, CODE_INDEPENDENTLY)
 	if got, want := control.FGains_Q16, [4]OpusT_opus_int32{335872, 286720, 335872, 540672}; got != want {
 		t.Fatalf("gains: got %v, want %v", got, want)
 	}
@@ -54,7 +79,7 @@ func TestDecodeParametersLocalNLSFs(t *testing.T) {
 	decoder.FprevNLSF_Q15 = [16]OpusT_opus_int16{1000, 3000, 5000, 7000, 9000, 11000, 13000, 15000, 17000, 19000}
 	var control OpusT_silk_decoder_control
 
-	Opus_silk_decode_parameters(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&control)), CODE_INDEPENDENTLY)
+	Opus_silk_decode_parameters(tls, &decoder, &control, CODE_INDEPENDENTLY)
 
 	if got, want := control.FPredCoef_Q12[0][:10], []int16{10969, -16800, 20578, -21315, 19297, -15196, 10325, -5752, 2412, -566}; !equalInt16s(got, want) {
 		t.Fatalf("interpolated LPC coefficients: got %v, want %v", got, want)
@@ -85,7 +110,7 @@ func TestDecodeParametersLocalNLSFs(t *testing.T) {
 	decoder2.Findices.FLTP_scaleIndex = 2
 	var control2 OpusT_silk_decoder_control
 
-	Opus_silk_decode_parameters(tls, uintptr(unsafe.Pointer(&decoder2)), uintptr(unsafe.Pointer(&control2)), CODE_INDEPENDENTLY)
+	Opus_silk_decode_parameters(tls, &decoder2, &control2, CODE_INDEPENDENTLY)
 
 	if got, want := control2.FpitchL, [4]int32{115, 116, 116, 117}; got != want {
 		t.Fatalf("pitch lags: got %v, want %v", got, want)
