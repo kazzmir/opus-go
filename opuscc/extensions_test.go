@@ -42,6 +42,50 @@ func TestExtensionIteratorInitPointers(t *testing.T) {
 	}
 }
 
+func TestExtensionRepeatPointers(t *testing.T) {
+	owned := func() OpusT_opus_extension_data {
+		packet := []byte{7, 11, 5, 22, 33}
+		var st OpusT_OpusExtensionIterator
+		Opus_opus_extension_iterator_init(nil, &st, &packet[0], 5, 3)
+		st.Fcurr_data = &packet[3]
+		st.Fcurr_len = 2
+		st.Frepeat_len = 2
+		st.Fsrc_data = &packet[0]
+		st.Fsrc_len = 2
+		st.Frepeat_frame = 1
+		st.Frepeat_l = 1
+		var ext OpusT_opus_extension_data
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opus_extension_iterator_next_repeat(nil, &st, &ext) != 1 || ext.Fid != 3 || ext.Fframe != 1 || ext.Flen1 != 1 || *ext.Fdata != 22 {
+			t.Fatal("first repeat")
+		}
+		if opus_extension_iterator_next_repeat(nil, &st, nil) != 1 || opus_extension_iterator_next_repeat(nil, &st, nil) != 0 || st.Frepeat_frame != 0 || st.Fcurr_len != 0 {
+			t.Fatal("repeat completion")
+		}
+		return ext
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *owned.Fdata != 22 {
+		t.Fatal("payload ownership")
+	}
+	packet := []byte{7, 11, 5}
+	var st OpusT_OpusExtensionIterator
+	Opus_opus_extension_iterator_init(nil, &st, &packet[0], 3, 3)
+	st.Fcurr_data = (*byte)(unsafe.Add(unsafe.Pointer(&packet[0]), 3))
+	st.Fcurr_len = 0
+	st.Frepeat_len = 2
+	st.Fsrc_data = &packet[0]
+	st.Fsrc_len = 2
+	st.Frepeat_frame = 1
+	st.Frepeat_l = 1
+	ext := owned
+	if opus_extension_iterator_next_repeat(nil, &st, &ext) != OPUS_INVALID_PACKET || ext != owned || st.Fcurr_len != -1 || st.Fsrc_len != 0 {
+		t.Fatal("failure cursor/output")
+	}
+}
+
 func TestWriteExtensionPointers(t *testing.T) {
 	out := [8]byte{77, 77, 77, 77, 77, 77, 77, 88}
 	payload := [2]byte{11, 12}
@@ -147,9 +191,9 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 
 	payload := []byte{'x'}
 	extensions := []OpusT_opus_extension_data{
-		{Fid: 3, Fframe: 0, Fdata: uintptr(unsafe.Pointer(&payload[0])), Flen1: 1},
-		{Fid: 3, Fframe: 1, Fdata: uintptr(unsafe.Pointer(&payload[0])), Flen1: 1},
-		{Fid: 3, Fframe: 2, Fdata: uintptr(unsafe.Pointer(&payload[0])), Flen1: 1},
+		{Fid: 3, Fframe: 0, Fdata: &payload[0], Flen1: 1},
+		{Fid: 3, Fframe: 1, Fdata: &payload[0], Flen1: 1},
+		{Fid: 3, Fframe: 2, Fdata: &payload[0], Flen1: 1},
 	}
 	packet := make([]byte, 32)
 	length := Opus_opus_packet_extensions_generate(tls, uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&extensions[0])), int32(len(extensions)), 3, 1)

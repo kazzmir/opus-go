@@ -18,6 +18,69 @@ func extensionTestOffset(base, p *byte) int32 {
 func extensionTestState(st *opuscc.OpusT_OpusExtensionIterator) [19]int32 {
 	return [19]int32{extensionTestOffset(st.Fdata, st.Fdata), extensionTestOffset(st.Fdata, st.Fcurr_data), extensionTestOffset(st.Fdata, st.Frepeat_data), extensionTestOffset(st.Fdata, st.Flast_long), extensionTestOffset(st.Fdata, st.Fsrc_data), st.Flen1, st.Fcurr_len, st.Frepeat_len, st.Fsrc_len, st.Ftrailing_short_len, st.Fnb_frames, st.Fframe_max, st.Fcurr_frame, st.Frepeat_frame, int32(st.Frepeat_l)}
 }
+func extensionTestWithOutput(st *opuscc.OpusT_OpusExtensionIterator, ext *opuscc.OpusT_opus_extension_data) [19]int32 {
+	v := extensionTestState(st)
+	v[15] = ext.Fid
+	v[16] = ext.Fframe
+	v[17] = extensionTestOffset(st.Fdata, ext.Fdata)
+	v[18] = ext.Flen1
+	return v
+}
+func TestExtensionRepeatAgainstC(t *testing.T) {
+	fixtures := []struct {
+		data                                []byte
+		source, current, lastLong, trailing int32
+		flag                                byte
+	}{
+		{[]byte{7, 11, 5, 22, 33}, 2, 3, -1, 1, 1}, {[]byte{6, 5, 0, 0}, 1, 2, -1, 0, 1},
+		{[]byte{0, 1, 2, 0, 3, 0, 7, 11, 5, 22, 33}, 8, 9, -1, 1, 1},
+		{[]byte{65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}, 6, 7, 4, 1, 0},
+		{[]byte{7, 11, 5}, 2, 3, -1, 1, 1}, {[]byte{65, 2, 11, 12, 7, 99, 4}, 6, 7, 4, 1, 0},
+	}
+	for fi, f := range fixtures {
+		for _, frames := range []int32{1, 2, 3} {
+			for _, max := range []int32{0, 1, 2, 3, 48} {
+				for _, want := range []int32{0, 1} {
+					base := unsafe.SliceData(f.data)
+					var st opuscc.OpusT_OpusExtensionIterator
+					opuscc.Opus_opus_extension_iterator_init(nil, &st, base, int32(len(f.data)), frames)
+					st.Fcurr_data = (*byte)(unsafe.Add(unsafe.Pointer(base), f.current))
+					st.Fcurr_len = int32(len(f.data)) - f.current
+					st.Frepeat_len = f.source
+					st.Fsrc_data = base
+					st.Fsrc_len = f.source
+					st.Frepeat_frame = 1
+					st.Frepeat_l = f.flag
+					st.Fframe_max = max
+					st.Ftrailing_short_len = f.trailing
+					if f.lastLong >= 0 {
+						st.Flast_long = (*byte)(unsafe.Add(unsafe.Pointer(base), f.lastLong))
+					}
+					ext := opuscc.OpusT_opus_extension_data{Fid: 91, Fframe: 92, Fdata: base, Flen1: 93}
+					for step := 0; step < 20; step++ {
+						v := extensionTestWithOutput(&st, &ext)
+						var out *opuscc.OpusT_opus_extension_data
+						if want != 0 {
+							out = &ext
+						}
+						result := opuscc.CompareExtensionRepeat(&st, out)
+						native := nativeExtensionIterator(f.data, 0, 0, &v, 1, want)
+						if result != native || extensionTestWithOutput(&st, &ext) != v {
+							t.Fatal(fi, frames, max, want, step, result, native, extensionTestWithOutput(&st, &ext), v)
+						}
+						if result <= 0 {
+							break
+						}
+						if step == 19 {
+							t.Fatal("repeat did not stop")
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestExtensionIteratorInitAgainstC(t *testing.T) {
 	for _, data := range [][]byte{nil, {7, 99, 0, 1, 2, 3, 4, 5}} {
 		for _, length := range []int32{-1, 0, 1, int32(len(data))} {

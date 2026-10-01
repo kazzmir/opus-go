@@ -2,6 +2,10 @@
 
 package opuscc
 
+func CompareExtensionRepeat(iter *OpusT_OpusExtensionIterator, ext *OpusT_opus_extension_data) int32 {
+	return opus_extension_iterator_next_repeat(nil, iter, ext)
+}
+
 func CompareWriteExtension(data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
 	return write_extension(nil, data, capacity, pos, id, length, payload, last)
 }
