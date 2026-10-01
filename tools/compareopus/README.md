@@ -468,6 +468,21 @@ only normalized), invalid/partial writes, guards and aliased mappings/matrices.
 Projection coefficient and identity-map scratch is Go-owned, and the complete
 initialization chain no longer needs TLS scratch. Creation/decode/control adapters
 and broader allocation ownership remain legacy.
+Typed registered allocation (`libcshim.XmallocPointer`/`XfreePointer`) derives
+aligned pointers with unsafe.Add from the original Go backing slice, rather than
+reconstructing them from integer addresses. Alignment, zero/oversized/nil-TLS
+behavior, registry/free compatibility and backing lifetime are checked under
+checkptr on amd64/386/ARM64. The three decoder factories have `_typed` entry points
+with typed returns and mapping/matrix inputs; old exported integer-address APIs
+remain explicit adapters. Creation calls typed initialization directly, and the
+three unused initialization adapters were removed. Grouped native fixtures call
+actual C factories with an allocator matching the Go shim's zeroed storage and
+inject allocation failures, comparing error ordering and full state images
+(normalizing mode addresses only), including invalid layouts, rates and matrices.
+The registry and underlying byte allocations remain: a typed pointer retains the
+backing object, but does not make pointer fields inside an opaque byte allocation
+GC-scanned. This is not a global ownership/GC-safety proof, nor a migration of the
+outer decode/control interfaces or extension end-cursor representation.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

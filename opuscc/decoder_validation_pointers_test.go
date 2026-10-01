@@ -94,6 +94,40 @@ func TestMSDecoderCreatePointers(t *testing.T) {
 	}
 }
 
+func TestProjectionDecoderCreatePointers(t *testing.T) {
+	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
+		tls := libc.NewTLS()
+		matrix := [18]byte{0, 0, 0xff, 0x7f, 0, 0x80, 0xff, 0xff, 1, 0, 0xfe, 0xff}
+		before := matrix
+		entropyInitGrowStack(12)
+		runtime.GC()
+		st, err := Opus_opus_projection_decoder_create_typed(tls, rate, 3, 2, 1, &matrix[0], 18)
+		if err != nil || st == nil || matrix != before {
+			t.Fatal(st, err)
+		}
+		runtime.GC()
+		m := get_dec_demixing_matrix(nil, st)
+		data := unsafe.Slice(Opus_mapping_matrix_get_data(nil, m), 9)
+		if m.Frows != 3 || m.Fcols != 3 || data[1] != 32767 || data[2] != -32768 || get_multistream_decoder(nil, st).Flayout.Fmapping[2] != 2 {
+			t.Fatal("created matrix/state")
+		}
+		libc.XfreePointer(tls, unsafe.Pointer(st))
+		tls.Close()
+	}
+	for _, args := range [][4]int32{{48000, 3, 2, 17}, {44100, 3, 2, 18}, {48000, 256, 1, 0}} {
+		st, err := Opus_opus_projection_decoder_create_typed(nil, args[0], args[1], args[2], 0, nil, args[3])
+		if st != nil || err == nil || err.(*OpusError).Code != -7 {
+			t.Fatal("allocation precedes init arguments", args, st, err)
+		}
+	}
+	tls := libc.NewTLS()
+	defer tls.Close()
+	st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, nil, 17)
+	if st != nil || err == nil || err.(*OpusError).Code != -1 {
+		t.Fatal("size failure", st, err)
+	}
+}
+
 func TestCustomDecoderSizePointers(t *testing.T) {
 	mode := OpusT_OpusCustomMode{Foverlap: 120, FnbEBands: 21}
 	before := mode

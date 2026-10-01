@@ -274,6 +274,44 @@ func TestMSDecoderCreateAgainstC(t *testing.T) {
 	}
 }
 
+func TestProjectionDecoderCreateAgainstC(t *testing.T) {
+	for _, shape := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {3, 2, 1}, {5, 3, 2}, {3, 1, 0}, {0, 1, 0}, {256, 1, 0}, {1, 0, 0}, {1, 1, 2}, {255, 255, 0}} {
+		channels, streams, coupled := shape[0], shape[1], shape[2]
+		count := channels * (streams + coupled)
+		matrix := make([]byte, count*2)
+		for i := range matrix {
+			matrix[i] = byte(i * 37)
+		}
+		for _, rate := range []int32{8000, 12000, 16000, 24000, 48000, 44100} {
+			for _, fail := range []bool{false, true} {
+				for _, delta := range []int32{-1, 0, 1} {
+					var tls *libc.TLS
+					if !fail {
+						tls = libc.NewTLS()
+					}
+					st, err := opuscc.Opus_opus_projection_decoder_create_typed(tls, rate, channels, streams, coupled, unsafe.SliceData(matrix), count*2+delta)
+					code := factoryErrorCode(err)
+					var image []byte
+					if st != nil {
+						image = slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(st)), int(opuscc.Opus_opus_projection_decoder_get_size(nil, channels, streams, coupled))))
+						msOffset := int((unsafe.Sizeof(*st)+7)&^uintptr(7)) + int(st.Fdemixing_matrix_size_in_bytes)
+						normalizeMSModes(image[msOffset:], streams, coupled)
+					}
+					native := make([]byte, len(image))
+					want := nativeProjectionCreateImage(native, rate, channels, streams, coupled, matrix, count*2+delta, fail)
+					if code != want || !slices.Equal(image, native) {
+						t.Fatal(shape, rate, fail, delta, code, want, "factory image")
+					}
+					if tls != nil {
+						libc.XfreePointer(tls, unsafe.Pointer(st))
+						tls.Close()
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestOpusDecoderInitAgainstC(t *testing.T) {
 	for _, ch := range []int32{1, 2} {
 		size := int(opuscc.Opus_opus_decoder_get_size(nil, ch))

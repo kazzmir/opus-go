@@ -5308,32 +5308,27 @@ func Opus_opus_projection_decoder_init(tls *libc.TLS, st *OpusT_OpusProjectionDe
 	return Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st), Fs, channels, streams, coupled, &mapping[0])
 }
 
-func projection_decoder_init_legacy(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix uintptr, matrixBytes OpusT_opus_int32) int32 {
-	return Opus_opus_projection_decoder_init(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(matrix)), matrixBytes)
-}
-
-func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, demixing_matrix uintptr, demixing_matrix_size OpusT_opus_int32) (uintptr, error) {
-	var ret, size1 int32
-	var st, v1 uintptr
-	_, _, _, _ = ret, size1, st, v1
-	/* Allocate space for the projection decoder. */
-	size1 = Opus_opus_projection_decoder_get_size(tls, channels, streams, coupled_streams)
-	if !(size1 != 0) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
+func Opus_opus_projection_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes OpusT_opus_int32) (*OpusT_OpusProjectionDecoder, error) {
+	// Projection creation checks size/allocation before initialization arguments.
+	size := Opus_opus_projection_decoder_get_size(tls, channels, streams, coupled)
+	if size == 0 {
+		return nil, opusErrorFromCode(-7)
 	}
-	v1 = libc.Xmalloc(tls, uint64(uint32(size1)))
-	st = v1
-	if !(st != 0) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
+	st := (*OpusT_OpusProjectionDecoder)(libc.XmallocPointer(tls, uint64(uint32(size))))
+	if st == nil {
+		return nil, opusErrorFromCode(-7)
 	}
-	/* Initialize projection decoder with provided settings. */
-	ret = projection_decoder_init_legacy(tls, st, Fs, channels, streams, coupled_streams, demixing_matrix, demixing_matrix_size)
-	if ret != OPUS_OK {
-		libc.Xfree(tls, st)
-		st = uintptr(uint32(0))
-		return uintptr(uint32(0)), opusErrorFromCode(ret)
+	if ret := Opus_opus_projection_decoder_init(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes); ret != OPUS_OK {
+		libc.XfreePointer(tls, unsafe.Pointer(st))
+		return nil, opusErrorFromCode(ret)
 	}
 	return st, nil
+}
+
+// Legacy exported creation ABI for the remaining integer-address projection APIs.
+func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix uintptr, matrixBytes OpusT_opus_int32) (uintptr, error) {
+	st, err := Opus_opus_projection_decoder_create_typed(tls, Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(matrix)), matrixBytes)
+	return uintptr(unsafe.Pointer(st)), err
 }
 
 func Opus_opus_projection_decode(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {

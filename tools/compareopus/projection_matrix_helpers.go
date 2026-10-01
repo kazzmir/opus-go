@@ -3,6 +3,11 @@
 package main
 
 /*
+#include <stdlib.h>
+static _Thread_local int projection_factory_fail;
+static void *projection_factory_alloc(size_t size){return projection_factory_fail?NULL:calloc(1,size);}
+#define OVERRIDE_OPUS_ALLOC 1
+#define opus_alloc projection_factory_alloc
 #define VAR_ARRAYS 1
 #define opus_multistream_decoder_init comparison_channels_init
 #define opus_multistream_decoder_get_size comparison_channels_get_size
@@ -16,6 +21,10 @@ package main
 #define opus_projection_decoder_destroy comparison_projection_destroy
 #include "../../../opus/src/opus_projection_decoder.c"
 extern void comparison_normalize_ms_modes(void *,int,int);
+static int native_projection_create_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,unsigned char *matrix,int bytes,int fail) {
+ int error=99;projection_factory_fail=fail;OpusProjectionDecoder *st=comparison_projection_create(rate,channels,streams,coupled,matrix,bytes,&error);projection_factory_fail=0;
+ if(st){comparison_normalize_ms_modes(get_multistream_decoder(st),streams,coupled);memcpy(data,st,size);comparison_projection_destroy(st);}return error;
+}
 static int native_projection_init_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,unsigned char *matrix,int bytes,int offset) {
  OpusProjectionDecoder *st=malloc(size);memcpy(st,data,size);if(offset>=0)matrix=(unsigned char*)st+offset;
  int result=comparison_projection_init(st,rate,channels,streams,coupled,matrix,bytes);if(result==OPUS_OK)comparison_normalize_ms_modes(get_multistream_decoder(st),streams,coupled);
@@ -35,6 +44,14 @@ static size_t native_projection_matrix(void *base,int *fields) {
 */
 import "C"
 import "unsafe"
+
+func nativeProjectionCreateImage(data []byte, rate, channels, streams, coupled int32, matrix []byte, bytes int32, fail bool) int32 {
+	f := C.int(0)
+	if fail {
+		f = 1
+	}
+	return int32(C.native_projection_create_image((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(rate), C.int(channels), C.int(streams), C.int(coupled), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(matrix))), C.int(bytes), f))
+}
 
 func nativeProjectionInitImage(data []byte, rate, channels, streams, coupled int32, matrix []byte, bytes, offset int32) int32 {
 	return int32(C.native_projection_init_image((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(rate), C.int(channels), C.int(streams), C.int(coupled), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(matrix))), C.int(bytes), C.int(offset)))
