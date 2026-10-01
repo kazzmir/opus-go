@@ -322,6 +322,21 @@ Radix-3 reuses the grouped fixtures and compares epi3 selection, half/scalar
 rounding, guards and stack-growth/GC calls with exact native output bits.
 Radix-5 uses the same grouped cases to verify ya/yb selection, parenthesized
 float32 sums/products, five-way stores and impulse/guard behavior.
+Resampler states now retain typed coefficient pointers; initialization/reset uses
+barrier-aware struct stores. Native rate-pair comparisons retain coefficient IDs and
+check pointer-sized layout, while heap-owner tests drop the original coefficient
+slice and compare driver output/history after GC and stack growth.
+NLSF codebooks retain all eight typed table pointers. Decoder and encoder states
+retain typed codebook references, with direct decode/parameter/index traversal and
+sample-rate assignments. Grouped tests check C layouts, both codebook orders,
+heap-only owner chains and reset/replacement, alongside the existing native full-state
+comparisons. Poisoned reset fixtures skip GC pointer slots and use real sentinels.
+CELT window, allocation-vector and cap-table fields are typed; native fixtures compare
+mode/cache layout and table payloads, and heap-owner cases exercise caps and MDCT.
+Band/log and pulse-cache index/bit fields, opaque byte-backed allocations and outer
+integer APIs remain legacy. ARM64 exposed a quant-partition fixture stack-lifetime
+failure; its crossing objects are now pinned without changing expected outputs.
+This is fixture ownership repair, not a migration of the outer quantizer.
 MDCT lookups retain typed FFT-state and trig-table pointers; FFT states in turn
 retain typed bit-reversal and twiddle pointers. Grouped FFT tests compare both C
 layouts and force GC/stack growth with a heap lookup as the only table owner.

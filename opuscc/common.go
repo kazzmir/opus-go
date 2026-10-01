@@ -1600,9 +1600,9 @@ type OpusT_OpusCustomMode = struct {
 	FnbShortMdcts   int32
 	FshortMdctSize  int32
 	FnbAllocVectors int32
-	FallocVectors   uintptr
+	FallocVectors   *byte
 	FlogN           uintptr
-	Fwindow         uintptr
+	Fwindow         *float32
 	Fmdct           OpusT_mdct_lookup
 	Fcache          OpusT_PulseCache
 }
@@ -1667,26 +1667,10 @@ type OpusT_PulseCache = struct {
 	Fsize  int32
 	Findex uintptr
 	Fbits  uintptr
-	Fcaps  uintptr
+	Fcaps  *byte
 }
 
-type OpusCustomMode = struct {
-	FFs             OpusT_opus_int32
-	Foverlap        int32
-	FnbEBands       int32
-	FeffEBands      int32
-	Fpreemph        [4]OpusT_opus_val16
-	FeBands         uintptr
-	FmaxLM          int32
-	FnbShortMdcts   int32
-	FshortMdctSize  int32
-	FnbAllocVectors int32
-	FallocVectors   uintptr
-	FlogN           uintptr
-	Fwindow         uintptr
-	Fmdct           OpusT_mdct_lookup
-	Fcache          OpusT_PulseCache
-}
+type OpusCustomMode = OpusT_OpusCustomMode
 
 type OpusT_silk_EncControlStruct = struct {
 	FnChannelsAPI              OpusT_opus_int32
@@ -3109,7 +3093,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_GET_MODE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), uintptr(unsafe.Pointer(&celt_mode)))) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+1811, __ccgo_ts+57, int32(632))
 	}
-	window = (*OpusT_OpusCustomMode)(unsafe.Pointer(celt_mode)).Fwindow
+	window = uintptr(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(celt_mode)).Fwindow))
 	/* 5 ms redundant frame for SILK->CELT */
 	if redundancy != 0 && !(celt_to_silk != 0) {
 		if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_RESET_STATE), 0) == int32(OPUS_OK)) {

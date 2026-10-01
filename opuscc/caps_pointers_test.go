@@ -1,6 +1,52 @@
 package opuscc
 
-import "testing"
+import (
+	"runtime"
+	"slices"
+	"testing"
+	"unsafe"
+)
+
+func TestModeTablePointers(t *testing.T) {
+	makeMode := func() *OpusT_OpusCustomMode {
+		m := mode48000_960_120
+		window := slices.Clone(window120[:])
+		vectors := slices.Clone(band_allocation[:])
+		caps := slices.Clone(cache_caps50[:])
+		m.Fwindow = &window[0]
+		m.FallocVectors = &vectors[0]
+		m.Fcache.Fcaps = &caps[0]
+		return &m
+	}
+	m := makeMode()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if !slices.Equal(unsafe.Slice(m.FallocVectors, len(band_allocation)), band_allocation[:]) || !slices.Equal(unsafe.Slice(m.Fwindow, 120), window120[:]) {
+		t.Fatal("owned mode tables")
+	}
+	for lm := int32(0); lm <= 3; lm++ {
+		for channels := int32(1); channels <= 2; channels++ {
+			g, c := [23]int32{}, [23]int32{}
+			g[0] = 77
+			g[22] = 88
+			c = g
+			Opus_init_caps(nil, &eband5ms[0], m.Fcache.Fcaps, &g[1], 21, lm, channels)
+			Opus_init_caps(nil, &eband5ms[0], &cache_caps50[0], &c[1], 21, lm, channels)
+			if g != c {
+				t.Fatal("owned caps")
+			}
+		}
+	}
+	var input [240]float32
+	input[17] = 1
+	var g, c [120]float32
+	st := m.Fmdct.Fkfft[3]
+	Opus_clt_mdct_forward_c(nil, &m.Fmdct, st.Fbitrev, st.Ftwiddles, &input[0], &g[0], m.Fwindow, 120, 3, 1, 0)
+	Opus_clt_mdct_forward_c(nil, &mode48000_960_120.Fmdct, st.Fbitrev, st.Ftwiddles, &input[0], &c[0], &window120[0], 120, 3, 1, 0)
+	if g != c {
+		t.Fatal("owned window transform")
+	}
+}
 
 func TestCapsPointers(t *testing.T) {
 	bands := [4]int16{0, 1, 3, 7}

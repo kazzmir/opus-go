@@ -207,8 +207,8 @@ func Opus_comb_filter(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1 floa
 }
 
 // The surrounding synthesis/concealment buffers remain integer-addressed.
-func comb_filter_legacy(tls *libc.TLS, y, x uintptr, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window uintptr, overlap, arch int32) {
-	Opus_comb_filter(tls, (*float32)(unsafe.Pointer(y)), (*float32)(unsafe.Pointer(x)), T0, T1, N, g0, g1, tapset0, tapset1, (*float32)(unsafe.Pointer(window)), overlap, arch)
+func comb_filter_legacy(tls *libc.TLS, y, x uintptr, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32) {
+	Opus_comb_filter(tls, (*float32)(unsafe.Pointer(y)), (*float32)(unsafe.Pointer(x)), T0, T1, N, g0, g1, tapset0, tapset1, window, overlap, arch)
 }
 
 var gains = [3][3]OpusT_opus_val16{

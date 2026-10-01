@@ -18,6 +18,24 @@ func TestDecoderDestroyAgainstC(t *testing.T) {
 	}
 }
 
+func TestModeTablesAgainstC(t *testing.T) {
+	m, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	window := make([]float32, m.Foverlap)
+	vectors := make([]byte, m.FnbAllocVectors*m.FnbEBands)
+	caps := make([]byte, (m.FmaxLM+1)*2*m.FnbEBands)
+	layout := nativeModeTables(window, vectors, caps)
+	want := [5]uint64{uint64(unsafe.Sizeof(*m)), uint64(unsafe.Offsetof(m.FallocVectors)), uint64(unsafe.Offsetof(m.Fwindow)), uint64(unsafe.Sizeof(m.Fcache)), uint64(unsafe.Offsetof(m.Fcache.Fcaps))}
+	if layout != want {
+		t.Fatal(layout, want)
+	}
+	if !sameFloatBits(window, unsafe.Slice(m.Fwindow, len(window))) || !slices.Equal(vectors, unsafe.Slice(m.FallocVectors, len(vectors))) || !slices.Equal(caps, unsafe.Slice(m.Fcache.Fcaps, len(caps))) {
+		t.Fatal("mode table payloads")
+	}
+}
+
 func TestCustomDecoderSizeAgainstC(t *testing.T) {
 	for _, overlap := range []int32{0, 60, 120, 240} {
 		for _, bands := range []int32{0, 1, 21, 25} {

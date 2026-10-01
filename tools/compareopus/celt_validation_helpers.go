@@ -42,6 +42,10 @@ static int native_plc_pitch(float *left,float *right,int channels) {float *data[
 static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
 #undef opus_custom_mode_create
 #undef opus_custom_mode_destroy
+static void native_mode_tables(float *window,unsigned char *vectors,unsigned char *caps,size_t *layout) {
+ CELTMode *m=comparison_mode_create(48000,960,NULL);memcpy(window,m->window,m->overlap*sizeof(float));memcpy(vectors,m->allocVectors,m->nbAllocVectors*m->nbEBands);memcpy(caps,m->cache.caps,(m->maxLM+1)*2*m->nbEBands);
+ layout[0]=sizeof(CELTMode);layout[1]=offsetof(CELTMode,allocVectors);layout[2]=offsetof(CELTMode,window);layout[3]=sizeof(PulseCache);layout[4]=offsetof(PulseCache,caps);
+}
 static int native_celt_state(unsigned char *data,size_t size,int op,int channels,int rate,int overlap,int bands,int eff) {
  CELTMode mode={0};mode.overlap=overlap;mode.nbEBands=bands;mode.effEBands=eff;CELTDecoder *st=size?malloc(size):NULL;if(size)memcpy(st,data,size);
  int result;if(setjmp(celt_validation_jump))result=-99;else if(op==0){st->mode=&mode;result=comparison_custom_ctl(st,OPUS_RESET_STATE);}else if(op==1)result=comparison_custom_init(st,&mode,channels);else result=comparison_celt_init(st,rate,channels);
@@ -65,6 +69,16 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeModeTables(window []float32, vectors, caps []byte) [5]uint64 {
+	var v [5]C.size_t
+	C.native_mode_tables((*C.float)(unsafe.Pointer(unsafe.SliceData(window))), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(vectors))), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(caps))), &v[0])
+	var out [5]uint64
+	for i := range out {
+		out[i] = uint64(v[i])
+	}
+	return out
+}
 
 func nativePLCPitchSearch(left, right []float32, channels int32) int32 {
 	return int32(C.native_plc_pitch((*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), C.int(channels)))

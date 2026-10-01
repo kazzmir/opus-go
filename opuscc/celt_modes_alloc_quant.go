@@ -1241,7 +1241,7 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 				break
 			}
 			N = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
-			bitsj = C * N * int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors + uintptr(mid*len1+j)))) << LM >> int32(2)
+			bitsj = C * N * int32(*(*uint8)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors), uintptr(mid*len1+j)))) << LM >> int32(2)
 			if bitsj > 0 {
 				if 0 > bitsj+*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) {
 					v5 = 0
@@ -1283,11 +1283,11 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 			break
 		}
 		N1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
-		bits1j = C * N1 * int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors + uintptr(lo*len1+j)))) << LM >> int32(2)
+		bits1j = C * N1 * int32(*(*uint8)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors), uintptr(lo*len1+j)))) << LM >> int32(2)
 		if hi >= (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbAllocVectors {
 			v5 = *(*int32)(unsafe.Pointer(cap1 + uintptr(j)*4))
 		} else {
-			v5 = C * N1 * int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors + uintptr(hi*len1+j)))) << LM >> int32(2)
+			v5 = C * N1 * int32(*(*uint8)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors), uintptr(hi*len1+j)))) << LM >> int32(2)
 		}
 		bits2j = v5
 		if bits1j > 0 {
