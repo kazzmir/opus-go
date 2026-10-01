@@ -77,7 +77,7 @@ func TestDecoderCreatePointers(t *testing.T) {
 			if st.FFs != rate || st.Fchannels != channels {
 				t.Fatal("creation lifetime")
 			}
-			libc.XfreePointer(tls, unsafe.Pointer(st))
+			Opus_opus_decoder_destroy_typed(tls, st)
 			tls.Close()
 		}
 	}
@@ -139,7 +139,7 @@ func TestMSDecoderCreatePointers(t *testing.T) {
 			t.Fatal(st, err)
 		}
 		runtime.GC()
-		libc.XfreePointer(tls, unsafe.Pointer(st))
+		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		tls.Close()
 	}
 	for _, test := range []struct{ rate, channels, streams, coupled, code int32 }{{48000, 0, 1, 0, -1}, {48000, 1, 0, 0, -1}, {48000, 1, 1, 2, -1}, {44100, 1, 1, 0, -7}, {48000, 1, 1, 0, -7}} {
@@ -204,7 +204,7 @@ func TestProjectionDecoderCreatePointers(t *testing.T) {
 		if m.Frows != 3 || m.Fcols != 3 || data[1] != 32767 || data[2] != -32768 || get_multistream_decoder(nil, st).Flayout.Fmapping[2] != 2 {
 			t.Fatal("created matrix/state")
 		}
-		libc.XfreePointer(tls, unsafe.Pointer(st))
+		Opus_opus_projection_decoder_destroy_typed(tls, st)
 		tls.Close()
 	}
 	for _, args := range [][4]int32{{48000, 3, 2, 17}, {44100, 3, 2, 18}, {48000, 256, 1, 0}} {

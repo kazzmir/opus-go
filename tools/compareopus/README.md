@@ -474,8 +474,20 @@ The coarse-energy encoding leaf uses typed arrays/encoder and fixed predictor
 scratch; actual quant_bands.c fixtures compare badness, error/reconstructed energy
 store aliases, all LM/coding/LFE choices, budget branches, band-20 probability
 clipping and full finalized entropy buffers. Float32 rounding and C store order
-are preserved. Outer quantizer/coarse drivers and band-context fields still cross
-explicit legacy adapters; these checks are not a global GC-safety proof.
+are preserved. The outer coarse-energy driver now uses typed mode, arrays, delayed history and
+encoder snapshots, plus Go candidate-energy/error and saved-byte scratch. Actual
+quant_bands.c cases compare one-/two-pass and forced/automatic intra behavior,
+low budgets, pre-existing prefix/tail bits, tiny buffers, LFE, loss bias and output/
+delayed-history aliases. Full-band cases initialize every C candidate-error slot;
+partial-band intra copies can expose indeterminate C scratch and are not a defined
+native oracle. Go scratch is zero-initialized. Outer quantizers and band-context
+fields still cross legacy adapters; these checks are not a global GC-safety proof.
+Typed single-stream, multistream and projection destroy entries pair with the typed
+factories. Each releases only its allocation base. Native free spies verify exactly
+one base free, including nil; Go weak-reference tests keep TLS live while verifying
+that destruction releases the registry owner. Legacy destroy ABIs retain integer
+registry-key frees without reconstructing heap pointers. These APIs do not change
+the C no-use-after-destroy contract or make opaque byte allocations GC-scanned.
 Decoder reset/init fixtures compare complete state images and guards using actual
 celt_decoder.c, opus_decoder.c, SILK init_decoder.c and dec_API.c scalar builds;
 only mode-pointer addresses are normalized. CELT reset uses offsetof(rng), retains

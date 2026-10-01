@@ -23,6 +23,24 @@ func TestAmp2Log2LocalUnion(t *testing.T) {
 	}
 }
 
+func TestQuantCoarseDriverPointers(t *testing.T) {
+	mode := OpusT_OpusCustomMode{FnbEBands: 3}
+	energy := [8]float32{77, 1.3, -.8, 2.1, .4, 1.8, -1.2, 88}
+	old := [8]float32{77, .1, -.5, 1.4, .3, 1.1, -.9, 88}
+	errors := [8]float32{77, 0, 0, 0, 0, 0, 0, 88}
+	buf := [32]byte{}
+	var enc OpusT_ec_enc
+	Opus_ec_enc_init(nil, &enc, &buf[0], 32)
+	delay := float32(1)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_quant_coarse_energy(nil, &mode, 0, 3, 3, &energy[1], &old[1], 120, &errors[1], &enc, 2, 0, 16, 0, &delay, 1, 20, 0)
+	if old[0] != 77 || old[7] != 88 || errors[0] != 77 || errors[7] != 88 || enc.Fbuf != &buf[0] {
+		t.Fatal("guards/encoder ownership")
+	}
+	Opus_ec_enc_done(nil, &enc)
+}
+
 func TestQuantCoarseImplPointers(t *testing.T) {
 	energy := [4]float32{77, 1.3, -.8, 88}
 	old := [4]float32{77, .1, -.5, 88}
@@ -97,13 +115,6 @@ func TestQuantCoarseEnergyLocalQI(t *testing.T) {
 func TestQuantCoarseEnergyWrapperCReference(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	pseudostack := libc.Xmalloc(tls, 16)
-	scratch := libc.Xmalloc(tls, GLOBAL_STACK_SIZE)
-	*(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)) = OpusT_opus_ccgo_pseudostack_state{
-		Fscratch_ptr:  scratch,
-		Fglobal_stack: scratch,
-	}
-	libc.Xpthread_setspecific(tls, 0x6f707573, pseudostack)
 
 	mode := OpusT_OpusCustomMode{FFs: 48000, FnbEBands: 3}
 
@@ -222,10 +233,10 @@ func TestQuantCoarseEnergyWrapperCReference(t *testing.T) {
 		var encoder OpusT_ec_enc
 		Opus_ec_enc_init(tls, &encoder, unsafe.SliceData(buffer), 32)
 		delayedIntra := s.delayedIntra
-		Opus_quant_coarse_energy(tls, uintptr(unsafe.Pointer(&mode)), 0, 3, 3,
-			uintptr(unsafe.Pointer(&eBands[0])), uintptr(unsafe.Pointer(&oldEBands[0])),
-			s.budget, uintptr(unsafe.Pointer(&errors[0])), uintptr(unsafe.Pointer(&encoder)),
-			2, s.LM, s.nbAvailable, s.forceIntra, uintptr(unsafe.Pointer(&delayedIntra)),
+		Opus_quant_coarse_energy(tls, &mode, 0, 3, 3,
+			&eBands[0], &oldEBands[0],
+			s.budget, &errors[0], &encoder,
+			2, s.LM, s.nbAvailable, s.forceIntra, &delayedIntra,
 			s.twoPass, s.lossRate, s.lfe)
 		Opus_ec_enc_done(tls, &encoder)
 
