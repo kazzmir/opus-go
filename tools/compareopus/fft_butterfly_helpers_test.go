@@ -11,6 +11,27 @@ import (
 	"unsafe"
 )
 
+func TestFFTTableOwnershipAgainstC(t *testing.T) {
+	state, bitrev, tw := nativeFFTFixture(16, -1)
+	state.Fbitrev = &bitrev[0]
+	state.Ftwiddles = &tw[0]
+	expected := [4]uint64{uint64(unsafe.Sizeof(state)), uint64(unsafe.Offsetof(state.Fbitrev)), uint64(unsafe.Offsetof(state.Ftwiddles)), uint64(unsafe.Offsetof(state.Farch_fft))}
+	if nativeFFTLayout() != expected {
+		t.Fatal(nativeFFTLayout(), expected)
+	}
+	in := make([]opuscc.OpusT_kiss_fft_cpx, 16)
+	for i := range in {
+		in[i].Fr = float32(i%5 - 2)
+		in[i].Fi = float32(i%3 - 1)
+	}
+	g, c := make([]opuscc.OpusT_kiss_fft_cpx, 16), make([]opuscc.OpusT_kiss_fft_cpx, 16)
+	opuscc.Opus_opus_fft_c(nil, &state, state.Fbitrev, state.Ftwiddles, &in[0], &g[0])
+	nativeFFTTransform(&state, unsafe.Slice(state.Fbitrev, 16), unsafe.Slice(state.Ftwiddles, 16), in, c, 1)
+	if !slices.Equal(g, c) {
+		t.Fatal(g, c)
+	}
+}
+
 func TestMDCTBackwardAgainstC(t *testing.T) { compareMDCTTransforms(t, 1) }
 func TestMDCTForwardAgainstC(t *testing.T)  { compareMDCTTransforms(t, 0) }
 func compareMDCTTransforms(t *testing.T, op int32) {
@@ -28,11 +49,22 @@ func compareMDCTTransforms(t *testing.T, op int32) {
 				return shift
 			}())
 			l := opuscc.OpusT_mdct_lookup{Fn: n, Fmaxshift: shift, Ftrig: &trig[0]}
+			state.Fbitrev = &bitrev[0]
+			state.Ftwiddles = &tw[0]
 			l.Fkfft[shift] = &state
 			for _, overlap := range []int32{0, 4, min(120, (effective/2)&^3)} {
-				for _, stride := range []int32{1, 2, 3} {
+				for _, stride := range []int32{-2, 0, 1, 2, 3, 8} {
 					for trial := 0; trial < 3; trial++ {
-						count := (effective/2-1)*stride + 1
+						last := (effective/2 - 1) * stride
+						count := max(last, -last) + 1
+						inputBase, outputBase := int32(0), int32(0)
+						if stride < 0 {
+							if op == 0 {
+								outputBase = count - 1
+							} else {
+								inputBase = count - 1
+							}
+						}
 						input := make([]float32, max(count, effective/2+overlap))
 						for i := range input {
 							input[i] = float32((i*17+trial*3)%51-25) * .03125
@@ -57,11 +89,11 @@ func compareMDCTTransforms(t *testing.T, op int32) {
 						c := slices.Clone(g)
 						ci := slices.Clone(input)
 						if op == 0 {
-							opuscc.Opus_clt_mdct_forward_c(nil, &l, &bitrev[0], &tw[0], &input[0], &g[1], unsafe.SliceData(window), overlap, shift, stride, 0)
+							opuscc.Opus_clt_mdct_forward_c(nil, &l, state.Fbitrev, state.Ftwiddles, &input[inputBase], &g[1+outputBase], unsafe.SliceData(window), overlap, shift, stride, 0)
 						} else {
-							opuscc.Opus_clt_mdct_backward_c(nil, &l, &bitrev[0], &tw[0], &input[0], &g[1], unsafe.SliceData(window), overlap, shift, stride, 0)
+							opuscc.Opus_clt_mdct_backward_c(nil, &l, state.Fbitrev, state.Ftwiddles, &input[inputBase], &g[1+outputBase], unsafe.SliceData(window), overlap, shift, stride, 0)
 						}
-						nativeMDCTTransform(&l, bitrev, tw, trig, ci, c[1:len(c)-1], window, overlap, shift, stride, op)
+						nativeMDCTTransform(&l, bitrev, tw, trig, ci[inputBase:], c[1+outputBase:len(c)-1], window, overlap, shift, stride, op)
 						if !sameFloatBits(g, c) || !sameFloatBits(input, ci) {
 							for i := range g {
 								if math.Float32bits(g[i]) != math.Float32bits(c[i]) {

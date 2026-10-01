@@ -322,6 +322,17 @@ Radix-3 reuses the grouped fixtures and compares epi3 selection, half/scalar
 rounding, guards and stack-growth/GC calls with exact native output bits.
 Radix-5 uses the same grouped cases to verify ya/yb selection, parenthesized
 float32 sums/products, five-way stores and impulse/guard behavior.
+MDCT lookups retain typed FFT-state and trig-table pointers; FFT states in turn
+retain typed bit-reversal and twiddle pointers. Grouped FFT tests compare both C
+layouts and force GC/stack growth with a heap lookup as the only table owner.
+Forward/inverse MDCT cases use actual mdct.c plus scalar kiss_fft.c and compare
+input/output bits and guards across shifts 0–3, overlap 0/4/120, signed/zero/strided
+spectra, standard FFT sizes and odd N/4. Forward folding and rotation use Go scratch,
+not TLS pseudostack storage. Inverse de-shuffling preserves both-end capture and
+the double-processed odd middle pair before TDAC. Go also checks forward fold-before-
+output aliases; native cases keep restrict-qualified buffers distinct. The obsolete
+FFT integer adapter is removed; the outer synthesis MDCT boundary remains legacy.
+Architecture headers and opaque decoder allocations are still not globally GC-safe.
 FFT driver cases share the butterfly tests and use native-generated factors,
 bit-reversal and twiddles for sizes 4–480, including shared-table shifts -1–2.
 Forward FFT cases add native bit-reversal/scaling, separate buffers and both

@@ -8,6 +8,72 @@ import (
 	"unsafe"
 )
 
+func TestFFTTablePointers(t *testing.T) {
+	makeLookup := func() *OpusT_mdct_lookup {
+		bitrev := []int16{0, 1, 2, 3}
+		tw := []OpusT_kiss_twiddle_cpx{{Fr: 1}, {Fi: -1}, {Fr: -1}, {Fi: 1}}
+		trig := make([]float32, 8)
+		for i := range trig {
+			trig[i] = float32(math.Cos(2 * math.Pi * (float64(i) + .125) / 16))
+		}
+		st := &OpusT_kiss_fft_state{Fnfft: 4, Fscale: .25, Fshift: -1, Ffactors: [16]int16{4, 1}, Fbitrev: &bitrev[0], Ftwiddles: &tw[0]}
+		return &OpusT_mdct_lookup{Fn: 16, Fkfft: [4]*OpusT_kiss_fft_state{st}, Ftrig: &trig[0]}
+	}
+	l := makeLookup()
+	entropyInitGrowStack(12)
+	for i := 0; i < 3; i++ {
+		runtime.GC()
+	}
+	st := l.Fkfft[0]
+	if unsafe.Slice(st.Fbitrev, 4)[3] != 3 || unsafe.Slice(st.Ftwiddles, 4)[3].Fi != 1 {
+		t.Fatal("table backing lifetime")
+	}
+	input := [4]OpusT_kiss_fft_cpx{{Fr: 1}}
+	out := [6]OpusT_kiss_fft_cpx{}
+	out[0].Fr = 77
+	out[5].Fr = 88
+	Opus_opus_fft_c(nil, st, st.Fbitrev, st.Ftwiddles, &input[0], &out[1])
+	for _, v := range out[1:5] {
+		if v != (OpusT_kiss_fft_cpx{Fr: .25}) {
+			t.Fatal(out)
+		}
+	}
+	if out[0].Fr != 77 || out[5].Fr != 88 {
+		t.Fatal("FFT guards")
+	}
+	pcm := [12]float32{}
+	spectrum := [8]float32{}
+	Opus_clt_mdct_forward_c(nil, l, st.Fbitrev, st.Ftwiddles, &pcm[0], &spectrum[0], nil, 0, 0, 1, 0)
+	Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &spectrum[0], &pcm[0], nil, 0, 0, 1, 0)
+	var reversed [17]float32
+	reversed[0] = 77
+	reversed[16] = 88
+	pcm[3] = 1
+	Opus_clt_mdct_forward_c(nil, l, st.Fbitrev, st.Ftwiddles, &pcm[0], &spectrum[0], nil, 0, 0, 1, 0)
+	Opus_clt_mdct_forward_c(nil, l, st.Fbitrev, st.Ftwiddles, &pcm[0], &reversed[15], nil, 0, 0, -2, 0)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i := 0; i < 8; i++ {
+		if reversed[15-2*i] != spectrum[i] {
+			t.Fatal("negative stride")
+		}
+	}
+	if reversed[0] != 77 || reversed[16] != 88 {
+		t.Fatal("reverse guards")
+	}
+	var expected, back [8]float32
+	Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &spectrum[0], &expected[0], nil, 0, 0, 1, 0)
+	Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &reversed[15], &back[0], nil, 0, 0, -2, 0)
+	if back != expected {
+		t.Fatal("negative input stride")
+	}
+	var collapsed float32
+	Opus_clt_mdct_forward_c(nil, l, st.Fbitrev, st.Ftwiddles, &pcm[0], &collapsed, nil, 0, 0, 0, 0)
+	if collapsed != spectrum[1] {
+		t.Fatal("zero stride store order", collapsed, spectrum)
+	}
+}
+
 func TestMDCTBackwardPointers(t *testing.T) {
 	l := &mode48000_960_120.Fmdct
 	st := l.Fkfft[3]

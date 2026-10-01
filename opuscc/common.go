@@ -932,8 +932,8 @@ type OpusT_kiss_fft_state = struct {
 	Fscale    OpusT_celt_coef
 	Fshift    int32
 	Ffactors  [16]OpusT_opus_int16
-	Fbitrev   uintptr
-	Ftwiddles uintptr
+	Fbitrev   *int16
+	Ftwiddles *OpusT_kiss_twiddle_cpx
 	Farch_fft uintptr
 }
 

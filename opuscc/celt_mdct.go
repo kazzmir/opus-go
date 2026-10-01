@@ -13,6 +13,15 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
+// Keep signed strides and zero-stride store order without integer addresses.
+func mdctStridedSlice(p *float32, n, stride int32) ([]float32, int32) {
+	last := (n - 1) * stride
+	first := min(int32(0), last)
+	end := max(int32(0), last)
+	base := (*float32)(unsafe.Add(unsafe.Pointer(p), int64(first)*4))
+	return unsafe.Slice(base, end-first+1), -first
+}
+
 func Opus_clt_mdct_forward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in, out, window *float32, overlap, shift, stride, arch int32) {
 	_ = arch
 	st := l.Fkfft[shift]
@@ -26,7 +35,7 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 	N2, N4 := N>>1, N>>2
 	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
 	input := unsafe.Slice(in, N2+overlap)
-	output := unsafe.Slice(out, (N2-1)*stride+1)
+	output, outputBase := mdctStridedSlice(out, N2, stride)
 	win := unsafe.Slice(window, overlap)
 	rev := unsafe.Slice(bitrev, N4)
 	f := make([]float32, N2)
@@ -70,8 +79,8 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 		v := f2[i]
 		yr := float32(v.Fi*t1) - float32(v.Fr*t0)
 		yi := float32(v.Fr*t1) + float32(v.Fi*t0)
-		output[2*i*stride] = yr
-		output[(N2-1-2*i)*stride] = yi
+		output[outputBase+2*i*stride] = yr
+		output[outputBase+(N2-1-2*i)*stride] = yi
 	}
 }
 
@@ -85,13 +94,13 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16
 	}
 	N2, N4 := N>>1, N>>2
 	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
-	input := unsafe.Slice(in, (N2-1)*stride+1)
+	input, inputBase := mdctStridedSlice(in, N2, stride)
 	output := unsafe.Slice(out, N2+(overlap>>1))
 	win := unsafe.Slice(window, overlap)
 	rev := unsafe.Slice(bitrev, N4)
 	base := overlap >> 1
 	for i := int32(0); i < N4; i++ {
-		x1, x2 := input[2*i*stride], input[(N2-1-2*i)*stride]
+		x1, x2 := input[inputBase+2*i*stride], input[inputBase+(N2-1-2*i)*stride]
 		yr := float32(x2*trig[i]) + float32(x1*trig[N4+i])
 		yi := float32(x1*trig[i]) - float32(x2*trig[N4+i])
 		r := int32(rev[i])
@@ -128,7 +137,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16
 func mdct_backward_legacy(tls *libc.TLS, l, in, out, window uintptr, overlap, shift, stride, arch int32) {
 	lookup := (*OpusT_mdct_lookup)(unsafe.Pointer(l))
 	st := lookup.Fkfft[shift]
-	Opus_clt_mdct_backward_c(tls, lookup, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), (*float32)(unsafe.Pointer(in)), (*float32)(unsafe.Pointer(out)), (*float32)(unsafe.Pointer(window)), overlap, shift, stride, arch)
+	Opus_clt_mdct_backward_c(tls, lookup, st.Fbitrev, st.Ftwiddles, (*float32)(unsafe.Pointer(in)), (*float32)(unsafe.Pointer(out)), (*float32)(unsafe.Pointer(window)), overlap, shift, stride, arch)
 }
 
 const MINI_MAXFACTORS = 32

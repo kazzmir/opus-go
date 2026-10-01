@@ -5938,8 +5938,8 @@ var fft_state48000_960_0 = OpusT_kiss_fft_state{
 		8: int16(4),
 		9: int16(1),
 	},
-	Fbitrev:   uintptr(unsafe.Pointer(&fft_bitrev480)),
-	Ftwiddles: uintptr(unsafe.Pointer(&fft_twiddles48000_960)),
+	Fbitrev:   &fft_bitrev480[0],
+	Ftwiddles: &fft_twiddles48000_960[0],
 }
 var fft_state48000_960_1 = OpusT_kiss_fft_state{
 	Fnfft:  int32(240),
@@ -5955,8 +5955,8 @@ var fft_state48000_960_1 = OpusT_kiss_fft_state{
 		6: int16(4),
 		7: int16(1),
 	},
-	Fbitrev:   uintptr(unsafe.Pointer(&fft_bitrev240)),
-	Ftwiddles: uintptr(unsafe.Pointer(&fft_twiddles48000_960)),
+	Fbitrev:   &fft_bitrev240[0],
+	Ftwiddles: &fft_twiddles48000_960[0],
 }
 var fft_state48000_960_2 = OpusT_kiss_fft_state{
 	Fnfft:  int32(120),
@@ -5972,8 +5972,8 @@ var fft_state48000_960_2 = OpusT_kiss_fft_state{
 		6: int16(4),
 		7: int16(1),
 	},
-	Fbitrev:   uintptr(unsafe.Pointer(&fft_bitrev120)),
-	Ftwiddles: uintptr(unsafe.Pointer(&fft_twiddles48000_960)),
+	Fbitrev:   &fft_bitrev120[0],
+	Ftwiddles: &fft_twiddles48000_960[0],
 }
 var fft_state48000_960_3 = OpusT_kiss_fft_state{
 	Fnfft:  int32(60),
@@ -5987,8 +5987,8 @@ var fft_state48000_960_3 = OpusT_kiss_fft_state{
 		4: int16(4),
 		5: int16(1),
 	},
-	Fbitrev:   uintptr(unsafe.Pointer(&fft_bitrev60)),
-	Ftwiddles: uintptr(unsafe.Pointer(&fft_twiddles48000_960)),
+	Fbitrev:   &fft_bitrev60[0],
+	Ftwiddles: &fft_twiddles48000_960[0],
 }
 var mdct_twiddles960 = [1800]OpusT_celt_coef{
 	0:    float32(0.99999992),
