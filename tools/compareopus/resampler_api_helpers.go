@@ -9,6 +9,7 @@ package main
 #include "../../../opus/silk/resampler.c"
 #define silk_decoder_set_fs compare_decoder_set_fs
 #include "../../../opus/silk/decoder_set_fs.c"
+static void native_resampler_layout(size_t *v){v[0]=sizeof(silk_resampler_state_struct);v[1]=offsetof(silk_resampler_state_struct,Coefs);}
 static void native_decoder_fs_blank(silk_decoder_state *s) {memset(s,0xa5,sizeof(*s));}
 static const unsigned char *native_fs_contour(int id) {switch(id) {case 1:return silk_pitch_contour_NB_iCDF;case 2:return silk_pitch_contour_10_ms_NB_iCDF;case 3:return silk_pitch_contour_iCDF;case 4:return silk_pitch_contour_10_ms_iCDF;default:return NULL;}}
 static const unsigned char *native_fs_lag(int id) {switch(id) {case 1:return silk_uniform4_iCDF;case 2:return silk_uniform6_iCDF;case 3:return silk_uniform8_iCDF;default:return NULL;}}
@@ -51,6 +52,12 @@ import (
 
 var resamplerCoefPointers = []*int16{nil, &opuscc.Opus_silk_Resampler_3_4_COEFS[0], &opuscc.Opus_silk_Resampler_2_3_COEFS[0], &opuscc.Opus_silk_Resampler_1_2_COEFS[0], &opuscc.Opus_silk_Resampler_1_3_COEFS[0], &opuscc.Opus_silk_Resampler_1_4_COEFS[0], &opuscc.Opus_silk_Resampler_1_6_COEFS[0]}
 
+func nativeResamplerLayout() [2]uint64 {
+	var v [2]C.size_t
+	C.native_resampler_layout(&v[0])
+	return [2]uint64{uint64(v[0]), uint64(v[1])}
+}
+
 func resamplerStateFromC(c *C.silk_resampler_state_struct) opuscc.OpusT_silk_resampler_state_struct {
 	var g opuscc.OpusT_silk_resampler_state_struct
 	for i := range g.FsIIR {
@@ -68,7 +75,7 @@ func resamplerStateFromC(c *C.silk_resampler_state_struct) opuscc.OpusT_silk_res
 	g.FFs_in_kHz = int32(c.Fs_in_kHz)
 	g.FFs_out_kHz = int32(c.Fs_out_kHz)
 	g.FinputDelay = int32(c.inputDelay)
-	g.FCoefs = uintptr(unsafe.Pointer(resamplerCoefPointers[int(C.native_resampler_coef_id(c))]))
+	g.FCoefs = resamplerCoefPointers[int(C.native_resampler_coef_id(c))]
 	return g
 }
 
@@ -90,7 +97,7 @@ func resamplerStateToC(g *opuscc.OpusT_silk_resampler_state_struct) C.silk_resam
 	c.Fs_out_kHz = C.int(g.FFs_out_kHz)
 	c.inputDelay = C.int(g.FinputDelay)
 	for id, p := range resamplerCoefPointers {
-		if g.FCoefs == uintptr(unsafe.Pointer(p)) {
+		if g.FCoefs == p {
 			c.Coefs = C.native_resampler_coefs(C.int(id))
 			break
 		}

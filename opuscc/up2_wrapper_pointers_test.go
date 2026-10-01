@@ -6,7 +6,8 @@ import (
 )
 
 func TestUp2WrapperPointers(t *testing.T) {
-	state := OpusT_silk_resampler_state_struct{FsIIR: [6]int32{1, -2, 3, -4, 5, -6}, FCoefs: 123, FinputDelay: 7}
+	coef := int16(123)
+	state := OpusT_silk_resampler_state_struct{FsIIR: [6]int32{1, -2, 3, -4, 5, -6}, FCoefs: &coef, FinputDelay: 7}
 	state.FdelayBuf[95] = -123
 	state.FsFIR.Fi32[35] = 456
 	before := state

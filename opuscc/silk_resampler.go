@@ -51,32 +51,32 @@ func Opus_silk_resampler_init(tls *libc.TLS, state *OpusT_silk_resampler_state_s
 		}
 	case outRate < inRate:
 		state.Fresampler_function = USE_silk_resampler_private_down_FIR
-		// Coefficient addresses are permanent globals; the legacy state layout stays unchanged.
+		// Typed coefficient stores retain tables; pointer-sized C layout is unchanged.
 		switch {
 		case outRate*4 == inRate*3:
 			state.FFIR_Fracs = 3
 			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR0
-			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_3_4_COEFS[0]))
+			state.FCoefs = &Opus_silk_Resampler_3_4_COEFS[0]
 		case outRate*3 == inRate*2:
 			state.FFIR_Fracs = 2
 			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR0
-			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_2_3_COEFS[0]))
+			state.FCoefs = &Opus_silk_Resampler_2_3_COEFS[0]
 		case outRate*2 == inRate:
 			state.FFIR_Fracs = 1
 			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR1
-			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_2_COEFS[0]))
+			state.FCoefs = &Opus_silk_Resampler_1_2_COEFS[0]
 		case outRate*3 == inRate:
 			state.FFIR_Fracs = 1
 			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR2
-			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_3_COEFS[0]))
+			state.FCoefs = &Opus_silk_Resampler_1_3_COEFS[0]
 		case outRate*4 == inRate:
 			state.FFIR_Fracs = 1
 			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR2
-			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_4_COEFS[0]))
+			state.FCoefs = &Opus_silk_Resampler_1_4_COEFS[0]
 		case outRate*6 == inRate:
 			state.FFIR_Fracs = 1
 			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR2
-			state.FCoefs = uintptr(unsafe.Pointer(&Opus_silk_Resampler_1_6_COEFS[0]))
+			state.FCoefs = &Opus_silk_Resampler_1_6_COEFS[0]
 		default:
 			Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, 163)
 			return -1
@@ -124,8 +124,7 @@ func Opus_silk_resampler(tls *libc.TLS, state *OpusT_silk_resampler_state_struct
 			Opus_silk_resampler_private_IIR_FIR(tls, state, nextOut, nextIn, remaining)
 		}
 	case USE_silk_resampler_private_down_FIR:
-		// The legacy field is populated with permanent coefficient tables by init.
-		coefs := (*int16)(unsafe.Pointer(state.FCoefs))
+		coefs := state.FCoefs
 		Opus_silk_resampler_private_down_FIR(tls, state, coefs, out, &state.FdelayBuf[0], state.FFs_in_kHz)
 		if remaining > 0 {
 			Opus_silk_resampler_private_down_FIR(tls, state, coefs, nextOut, nextIn, remaining)
@@ -340,7 +339,7 @@ func silk_resampler_private_down_FIR_INTERPOL(tls *libc.TLS, out *int16, buf *in
 //	/* Resample with a 2nd order AR filter followed by FIR interpolation */
 //
 // Coefficients are explicit so the driver need not recover a Go allocation
-// from the legacy state's FCoefs uintptr field.
+// directly, independently of the state's coefficient ownership.
 func Opus_silk_resampler_private_down_FIR(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, coefs, out, in *int16, inLen int32) {
 	order := state.FFIR_Order
 	buf := make([]int32, state.FbatchSize+order)

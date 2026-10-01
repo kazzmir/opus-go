@@ -8,6 +8,14 @@ import (
 	"unsafe"
 )
 
+func TestResamplerCoefficientLayoutAgainstC(t *testing.T) {
+	var s opuscc.OpusT_silk_resampler_state_struct
+	want := [2]uint64{uint64(unsafe.Sizeof(s)), uint64(unsafe.Offsetof(s.FCoefs))}
+	if nativeResamplerLayout() != want {
+		t.Fatal(nativeResamplerLayout(), want)
+	}
+}
+
 func TestResamplerInitAgainstC(t *testing.T) {
 	for _, enc := range []int32{0, 1} {
 		for _, in := range []int32{8000, 12000, 16000, 24000, 48000} {
@@ -16,7 +24,9 @@ func TestResamplerInitAgainstC(t *testing.T) {
 					continue
 				}
 				var g opuscc.OpusT_silk_resampler_state_struct
-				raw := unsafe.Slice((*byte)(unsafe.Pointer(&g)), int(unsafe.Sizeof(g)))
+				coef := int16(123)
+				g.FCoefs = &coef
+				raw := unsafe.Slice((*byte)(unsafe.Pointer(&g)), int(unsafe.Offsetof(g.FCoefs)))
 				for i := range raw {
 					raw[i] = 0xa5
 				}

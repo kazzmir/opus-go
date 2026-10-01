@@ -1,9 +1,47 @@
 package opuscc
 
 import (
+	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 )
+
+func TestResamplerCoefficientPointers(t *testing.T) {
+	makeState := func() *OpusT_silk_resampler_state_struct {
+		s := new(OpusT_silk_resampler_state_struct)
+		Opus_silk_resampler_init(nil, s, 16000, 8000, 0)
+		coefs := slices.Clone(Opus_silk_Resampler_1_2_COEFS[:])
+		s.FCoefs = &coefs[0]
+		return s
+	}
+	s := makeState()
+	var ref OpusT_silk_resampler_state_struct
+	Opus_silk_resampler_init(nil, &ref, 16000, 8000, 0)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	input := [160]int16{}
+	for i := range input {
+		input[i] = int16(i*791 + 81)
+	}
+	g, c := [82]int16{}, [82]int16{}
+	g[0] = 77
+	g[81] = 88
+	c = g
+	Opus_silk_resampler(nil, s, &g[1], &input[0], 160)
+	Opus_silk_resampler(nil, &ref, &c[1], &input[0], 160)
+	if g != c {
+		t.Fatal("owned table output")
+	}
+	s.FCoefs = ref.FCoefs
+	if *s != ref {
+		t.Fatal("owned table state")
+	}
+	Opus_silk_resampler_init(nil, s, 8000, 16000, 0)
+	if s.FCoefs != nil {
+		t.Fatal("reinit retained old coefficients")
+	}
+}
 
 func TestResamplerInitPointers(t *testing.T) {
 	for _, enc := range []int32{0, 1} {
@@ -19,7 +57,10 @@ func TestResamplerInitPointers(t *testing.T) {
 				}
 				owner.before = 123
 				owner.after = 456
-				raw := unsafe.Slice((*byte)(unsafe.Pointer(&owner.state)), int(unsafe.Sizeof(owner.state)))
+				// Do not place arbitrary integer patterns in a GC pointer slot.
+				coef := int16(12)
+				owner.state.FCoefs = &coef
+				raw := unsafe.Slice((*byte)(unsafe.Pointer(&owner.state)), int(unsafe.Offsetof(owner.state.FCoefs)))
 				for i := range raw {
 					raw[i] = 0xa5
 				}

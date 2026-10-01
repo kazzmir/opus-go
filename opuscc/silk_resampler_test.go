@@ -33,7 +33,7 @@ func TestDownFIRResamplerFieldAccesses(t *testing.T) {
 		FinvRatio_Q16: 65536,
 		FFIR_Order:    RESAMPLER_DOWN_ORDER_FIR1,
 		FFIR_Fracs:    1,
-		FCoefs:        uintptr(unsafe.Pointer(&coefs[0])),
+		FCoefs:        &coefs[0],
 	}
 	input := []int16{1300, -2400, 3600, -4700}
 	output := make([]int16, len(input))

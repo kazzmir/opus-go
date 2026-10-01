@@ -1881,7 +1881,7 @@ type OpusT_silk_resampler_state_struct = struct {
 	FFs_in_kHz          int32
 	FFs_out_kHz         int32
 	FinputDelay         int32
-	FCoefs              uintptr
+	FCoefs              *int16
 }
 
 type _silk_resampler_state_struct = OpusT_silk_resampler_state_struct
