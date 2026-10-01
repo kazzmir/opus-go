@@ -44,10 +44,10 @@ func Opus_silk_decoder_set_fs(tls *libc.TLS, st *OpusT_silk_decoder_state, fsKHz
 			st.Fltp_mem_length = int32(int16(LTP_MEM_LENGTH_MS)) * int32(int16(fsKHz))
 			if fsKHz == 8 || fsKHz == 12 {
 				st.FLPC_order = MIN_LPC_ORDER
-				st.FpsNLSF_CB = uintptr(unsafe.Pointer(&Opus_silk_NLSF_CB_NB_MB))
+				st.FpsNLSF_CB = &Opus_silk_NLSF_CB_NB_MB
 			} else {
 				st.FLPC_order = MAX_LPC_ORDER
-				st.FpsNLSF_CB = uintptr(unsafe.Pointer(&Opus_silk_NLSF_CB_WB))
+				st.FpsNLSF_CB = &Opus_silk_NLSF_CB_WB
 			}
 			switch fsKHz {
 			case 16:

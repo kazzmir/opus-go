@@ -2017,7 +2017,7 @@ type OpusT_silk_encoder_state = struct {
 	FprefillFlag                   int32
 	Fpitch_lag_low_bits_iCDF       uintptr
 	Fpitch_contour_iCDF            uintptr
-	FpsNLSF_CB                     uintptr
+	FpsNLSF_CB                     *OpusT_silk_NLSF_CB_struct
 	Finput_quality_bands_Q15       [4]int32
 	Finput_tilt_Q15                int32
 	FSNR_dB_Q7                     int32
@@ -2100,7 +2100,7 @@ type OpusT_silk_decoder_state = struct {
 	FLBRR_flag               int32
 	FLBRR_flags              [3]int32
 	Fresampler_state         OpusT_silk_resampler_state_struct
-	FpsNLSF_CB               uintptr
+	FpsNLSF_CB               *OpusT_silk_NLSF_CB_struct
 	Findices                 OpusT_SideInfoIndices
 	FsCNG                    OpusT_silk_CNG_struct
 	FlossCnt                 int32

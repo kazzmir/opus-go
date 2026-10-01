@@ -3,7 +3,57 @@ package opuscc
 import (
 	"runtime"
 	"testing"
+	"unsafe"
 )
+
+func seedDecoderNumericFixture(s *OpusT_silk_decoder_state, value byte) {
+	*s = OpusT_silk_decoder_state{}
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(s)), int(unsafe.Sizeof(*s)))
+	ptrSize := int(unsafe.Sizeof(s.FpsNLSF_CB))
+	coefs := int(unsafe.Offsetof(s.Fresampler_state)) + int(unsafe.Offsetof(s.Fresampler_state.FCoefs))
+	cb := int(unsafe.Offsetof(s.FpsNLSF_CB))
+	for i := range raw {
+		if (i >= coefs && i < coefs+ptrSize) || (i >= cb && i < cb+ptrSize) {
+			continue
+		}
+		raw[i] = value
+	}
+	s.FpsNLSF_CB = &Opus_silk_NLSF_CB_WB
+	s.Fresampler_state.FCoefs = &Opus_silk_Resampler_1_2_COEFS[0]
+}
+
+func TestSilkCodebookReferencePointers(t *testing.T) {
+	makeDecoder := func() *OpusT_silk_decoder_state {
+		return &OpusT_silk_decoder_state{FpsNLSF_CB: cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_NB_MB)}
+	}
+	makeEncoder := func() *OpusT_silk_encoder_state {
+		return &OpusT_silk_encoder_state{FpsNLSF_CB: cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB)}
+	}
+	dec, enc := makeDecoder(), makeEncoder()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	indices := [17]int8{3}
+	g, c := [16]int16{}, [16]int16{}
+	Opus_silk_NLSF_decode(nil, &g[0], &indices[0], dec.FpsNLSF_CB)
+	Opus_silk_NLSF_decode(nil, &c[0], &indices[0], &Opus_silk_NLSF_CB_NB_MB)
+	if g != c {
+		t.Fatal("decoder-owned codebook")
+	}
+	Opus_silk_NLSF_decode(nil, &g[0], &indices[0], enc.FpsNLSF_CB)
+	Opus_silk_NLSF_decode(nil, &c[0], &indices[0], &Opus_silk_NLSF_CB_WB)
+	if g != c {
+		t.Fatal("encoder-owned codebook")
+	}
+	dec.Fnb_subfr = 4
+	Opus_silk_decoder_set_fs(nil, dec, 16, 16000)
+	if dec.FpsNLSF_CB != &Opus_silk_NLSF_CB_WB {
+		t.Fatal("set_fs codebook")
+	}
+	Opus_silk_reset_decoder(nil, dec)
+	if dec.FpsNLSF_CB != nil || dec.Fresampler_state.FCoefs != nil {
+		t.Fatal("reset table ownership")
+	}
+}
 
 func TestDecoderSetFSPointers(t *testing.T) {
 	wrapped := struct {
@@ -74,7 +124,7 @@ func TestDecoderResetPointers(t *testing.T) {
 		s.Farch = 99
 		s.Ffs_kHz = 16
 		s.FLPC_order = 16
-		s.FpsNLSF_CB = 1234
+		s.FpsNLSF_CB = &Opus_silk_NLSF_CB_WB
 		s.FsCNG.Frand_seed = 99
 		s.FsPLC.FpitchL_Q8 = 777
 		for i := 0; i < 2; i++ {

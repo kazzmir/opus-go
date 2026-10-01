@@ -72,7 +72,7 @@ func TestDecodeIndicesAgainstC(t *testing.T) {
 					cd := gd
 					opuscc.Opus_silk_decode_indices(nil, &g, &gd, frame, lbrr, cond)
 					nativeSilkIndices(&c, &cd, data, frame, lbrr, cond)
-					g.FpsNLSF_CB = 0
+					g.FpsNLSF_CB = nil
 					gd.Fbuf = nil
 					cd.Fbuf = nil
 					if g != c || gd != cd {
@@ -114,7 +114,7 @@ func TestDecodeParametersAgainstC(t *testing.T) {
 						cc := gc
 						opuscc.Opus_silk_decode_parameters(nil, &g, &gc, cond)
 						nativeSilkParameters(&c, &cc, cond)
-						g.FpsNLSF_CB = 0
+						g.FpsNLSF_CB = nil
 						if g != c || gc != cc {
 							t.Fatal(fs, sub, signal, cond, trial, "state/control")
 						}
@@ -125,14 +125,31 @@ func TestDecodeParametersAgainstC(t *testing.T) {
 	}
 }
 
+func TestSilkCodebookReferenceLayoutAgainstC(t *testing.T) {
+	var d opuscc.OpusT_silk_decoder_state
+	var e opuscc.OpusT_silk_encoder_state
+	want := [4]uint64{uint64(unsafe.Sizeof(d)), uint64(unsafe.Offsetof(d.FpsNLSF_CB)), uint64(unsafe.Sizeof(e)), uint64(unsafe.Offsetof(e.FpsNLSF_CB))}
+	if nativeSilkCBReferenceLayout() != want {
+		t.Fatal(nativeSilkCBReferenceLayout(), want)
+	}
+}
+
 func TestDecoderResetAgainstC(t *testing.T) {
 	for _, init := range []bool{false, true} {
 		var g opuscc.OpusT_silk_decoder_state
-		// All fields are numeric, fixed arrays, or legacy uintptr values.
+		// Poison numeric storage only; keep GC pointer slots valid.
 		bytes := unsafe.Slice((*byte)(unsafe.Pointer(&g)), int(unsafe.Sizeof(g)))
+		ptrSize := int(unsafe.Sizeof(g.FpsNLSF_CB))
+		coefs := int(unsafe.Offsetof(g.Fresampler_state)) + int(unsafe.Offsetof(g.Fresampler_state.FCoefs))
+		cb := int(unsafe.Offsetof(g.FpsNLSF_CB))
 		for i := range bytes {
+			if (i >= coefs && i < coefs+ptrSize) || (i >= cb && i < cb+ptrSize) {
+				continue
+			}
 			bytes[i] = 0xa5
 		}
+		g.FpsNLSF_CB = &opuscc.Opus_silk_NLSF_CB_WB
+		g.Fresampler_state.FCoefs = &opuscc.Opus_silk_Resampler_1_2_COEFS[0]
 		var result int32
 		if init {
 			result = opuscc.Opus_silk_init_decoder(nil, &g)
