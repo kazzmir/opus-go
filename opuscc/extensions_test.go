@@ -86,6 +86,51 @@ func TestExtensionRepeatPointers(t *testing.T) {
 	}
 }
 
+func TestExtensionNextPointers(t *testing.T) {
+	owned := func() OpusT_opus_extension_data {
+		packet := []byte{65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}
+		guard := struct {
+			before uint64
+			st     OpusT_OpusExtensionIterator
+			after  uint64
+		}{before: 77, after: 88}
+		Opus_opus_extension_iterator_init(nil, &guard.st, &packet[0], int32(len(packet)), 3)
+		var ext, first OpusT_opus_extension_data
+		for i := 0; i < 6; i++ {
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if Opus_opus_extension_iterator_next(nil, &guard.st, &ext) != 1 {
+				t.Fatal("next", i)
+			}
+			if ext.Fframe != int32(i/2) || ext.Fid != []int32{32, 3}[i%2] {
+				t.Fatal("order", ext)
+			}
+			if i == 0 {
+				first = ext
+			}
+		}
+		if Opus_opus_extension_iterator_next(nil, &guard.st, nil) != 0 || guard.before != 77 || guard.after != 88 {
+			t.Fatal("finish/guards")
+		}
+		return first
+	}()
+	runtime.GC()
+	entropyInitGrowStack(12)
+	if owned.Flen1 != 2 || *owned.Fdata != 11 || *(*byte)(unsafe.Add(unsafe.Pointer(owned.Fdata), 1)) != 12 {
+		t.Fatal("payload ownership")
+	}
+	packet := []byte{7, 44, 3, 9}
+	var st OpusT_OpusExtensionIterator
+	Opus_opus_extension_iterator_init(nil, &st, &packet[0], 4, 3)
+	ext := owned
+	if Opus_opus_extension_iterator_next(nil, &st, nil) != 1 || Opus_opus_extension_iterator_next(nil, &st, &ext) != OPUS_INVALID_PACKET || ext != owned || st.Fcurr_len != -1 || st.Fcurr_frame != 9 {
+		t.Fatal("separator failure")
+	}
+	if Opus_opus_extension_iterator_next(nil, &st, &ext) != OPUS_INVALID_PACKET || ext != owned {
+		t.Fatal("sticky failure")
+	}
+}
+
 func TestWriteExtensionPointers(t *testing.T) {
 	out := [8]byte{77, 77, 77, 77, 77, 77, 77, 88}
 	payload := [2]byte{11, 12}
@@ -205,14 +250,14 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 	Opus_opus_extension_iterator_init(tls, &iterator, &packet[0], length, 3)
 	for frame := int32(0); frame < 3; frame++ {
 		var extension OpusT_opus_extension_data
-		if got := Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iterator)), uintptr(unsafe.Pointer(&extension))); got != 1 {
+		if got := Opus_opus_extension_iterator_next(tls, &iterator, &extension); got != 1 {
 			t.Fatalf("frame %d iterator result: got %d, want 1; length=%d packet=% x", frame, got, length, packet[:length])
 		}
 		if extension.Fid != 3 || extension.Fframe != frame || extension.Flen1 != 1 || *(*byte)(unsafe.Pointer(extension.Fdata)) != 'x' {
 			t.Fatalf("frame %d extension: %+v", frame, extension)
 		}
 	}
-	if got := Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iterator)), 0); got != 0 {
+	if got := Opus_opus_extension_iterator_next(tls, &iterator, nil); got != 0 {
 		t.Fatalf("iterator exhaustion: got %d, want 0", got)
 	}
 
