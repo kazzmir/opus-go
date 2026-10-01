@@ -368,9 +368,29 @@ Whole-extension skipping reuses those fixtures to compare ID/header consumption,
 empty/negative lengths, all ID bytes and failure cursor/header behavior.
 Payload writing shares extension fixtures and compares actual C lacing for
 short/long IDs, 255-byte boundaries, final payloads, sizing-only calls, capacity
-failures and untouched buffers. Iterator/generator adapters remain explicitly legacy.
+failures and untouched buffers. The generator API remains explicitly legacy.
 Whole-extension writing additionally compares ID-byte narrowing and partial writes
 before payload errors, using the same extension fixtures and actual static C helper.
+Iterator initialization, repeat/next and find use typed state/output arguments and
+GC-visible packet pointers. The same grouped fixtures compare every cursor, frame,
+length and output against actual extensions.c, including captured assertions,
+repeat L=0 handling, trailing short payloads, dynamic frame limits, nil outputs,
+malformed packets and unchanged failed/not-found outputs. Random next/find fixtures
+supplement structured cases; Go tests force GC/stack growth and retain returned
+nonempty payloads after discarding the iterator.
+Packet-extension count/count_ext/parse/parse_ext use typed input/output pointers,
+direct clears, barrier-aware extension stores and fixed prefix-sum scratch. Grouped
+actual-C comparisons cover random/structured packets, partial counts/errors,
+capacity failures with unchanged capacity, frame-order output gaps, nil/assertion
+ordering and capacity/count/output aliases. Count ignores malformed tails as C does;
+parse reports errors after committing prior outputs. Capacity is read live, and
+frame prefix sums are snapshotted before any output writes.
+C-style end cursors still have an unresolved boundary for exactly sized Go
+allocations: advancing one past an allocation fails checkptr (observed on 386).
+Focused fixtures keep logical EOF inside guarded backing storage and verify guards;
+this is not a fix for that general cursor-representation limitation. These passes
+do not establish global GC safety for iterator endpoints, the generator or outer
+decoder boundaries.
 CELT FIR comparisons compile the actual celt_lpc.c scalar helper beside existing
 LPC fixtures: reversed coefficients/history, 4-lane/tail arithmetic, odd orders,
 signed zeros, subnormals, guards and partial overlap are checked bitwise.
@@ -448,6 +468,21 @@ only normalized), invalid/partial writes, guards and aliased mappings/matrices.
 Projection coefficient and identity-map scratch is Go-owned, and the complete
 initialization chain no longer needs TLS scratch. Creation/decode/control adapters
 and broader allocation ownership remain legacy.
+Typed registered allocation (`libcshim.XmallocPointer`/`XfreePointer`) derives
+aligned pointers with unsafe.Add from the original Go backing slice, rather than
+reconstructing them from integer addresses. Alignment, zero/oversized/nil-TLS
+behavior, registry/free compatibility and backing lifetime are checked under
+checkptr on amd64/386/ARM64. The three decoder factories have `_typed` entry points
+with typed returns and mapping/matrix inputs; old exported integer-address APIs
+remain explicit adapters. Creation calls typed initialization directly, and the
+three unused initialization adapters were removed. Grouped native fixtures call
+actual C factories with an allocator matching the Go shim's zeroed storage and
+inject allocation failures, comparing error ordering and full state images
+(normalizing mode addresses only), including invalid layouts, rates and matrices.
+The registry and underlying byte allocations remain: a typed pointer retains the
+backing object, but does not make pointer fields inside an opaque byte allocation
+GC-scanned. This is not a global ownership/GC-safety proof, nor a migration of the
+outer decode/control interfaces or extension end-cursor representation.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

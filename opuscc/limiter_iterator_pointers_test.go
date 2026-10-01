@@ -36,16 +36,15 @@ func TestLimiterPointers(t *testing.T) {
 }
 
 func TestIteratorPointers(t *testing.T) {
-	// Integer address sentinels are never dereferenced; internal uintptr
-	// fields are deliberately outside this argument-only migration.
+	var packet [20]byte
 	iter := OpusT_OpusExtensionIterator{
-		Fdata: 100, Fcurr_data: 101, Frepeat_data: 102, Flast_long: 103, Fsrc_data: 104,
+		Fdata: &packet[0], Fcurr_data: &packet[1], Frepeat_data: &packet[2], Flast_long: &packet[3], Fsrc_data: &packet[4],
 		Flen1: 20, Fcurr_len: 19, Frepeat_len: 18, Fsrc_len: 17, Ftrailing_short_len: 16,
 		Fnb_frames: 8, Fframe_max: 7, Fcurr_frame: 6, Frepeat_frame: 5, Frepeat_l: 1,
 	}
 	want := iter
-	want.Fcurr_data, want.Frepeat_data = 100, 100
-	want.Flast_long = 0
+	want.Fcurr_data, want.Frepeat_data = &packet[0], &packet[0]
+	want.Flast_long = nil
 	want.Fcurr_len = 20
 	want.Fcurr_frame, want.Frepeat_frame, want.Ftrailing_short_len = 0, 0, 0
 	Opus_opus_extension_iterator_reset(nil, &iter)

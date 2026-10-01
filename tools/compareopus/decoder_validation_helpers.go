@@ -4,6 +4,11 @@ package main
 
 /*
 #include <setjmp.h>
+#include <stdlib.h>
+static _Thread_local int validation_factory_fail;
+static void *validation_factory_alloc(size_t size){return validation_factory_fail?NULL:calloc(1,size);}
+#define OVERRIDE_OPUS_ALLOC 1
+#define opus_alloc validation_factory_alloc
 static _Thread_local jmp_buf validation_jump;
 void comparison_validator_fatal(const char *str,const char *file,int line) {longjmp(validation_jump,1);}
 #define celt_fatal comparison_validator_fatal
@@ -51,6 +56,10 @@ void comparison_validator_fatal(const char *str,const char *file,int line) {long
 #include "../../../opus/silk/init_decoder.c"
 #include "../../../opus/silk/dec_API.c"
 void validation_normalize_decoder_mode(void *decoder) {OpusDecoder *st=decoder;memset((char*)st+st->celt_dec_offset,0,sizeof(void*));}
+static int native_opus_create_image(unsigned char *data,size_t size,int rate,int channels,int fail) {
+ int error=99;validation_factory_fail=fail;OpusDecoder *st=validation_decoder_create(rate,channels,&error);validation_factory_fail=0;
+ if(st){validation_normalize_decoder_mode(st);memcpy(data,st,size);validation_decoder_destroy(st);}return error;
+}
 static int native_opus_init_image(unsigned char *data,size_t size,int rate,int channels) {
  OpusDecoder *st=malloc(size);memcpy(st,data,size);int result=validation_decoder_init(st,rate,channels);
  if(result==OPUS_OK)memset((char*)st+st->celt_dec_offset,0,sizeof(void*));memcpy(data,st,size);free(st);return result;
@@ -66,6 +75,14 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeOpusCreateImage(data []byte, rate, channels int32, fail bool) int32 {
+	f := C.int(0)
+	if fail {
+		f = 1
+	}
+	return int32(C.native_opus_create_image((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(rate), C.int(channels), f))
+}
 
 func nativeOpusInitImage(data []byte, rate, channels int32) int32 {
 	return int32(C.native_opus_init_image((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(rate), C.int(channels)))

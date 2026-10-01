@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	libc "github.com/kazzmir/opus-go/libcshim"
 	"runtime"
 	"slices"
 	"testing"
@@ -15,6 +16,116 @@ func validationPanics(f func()) (panicked bool) {
 	}()
 	f()
 	return false
+}
+
+func TestDecoderAllocationPointers(t *testing.T) {
+	tls := libc.NewTLS()
+	p := libc.XmallocPointer(tls, uint64(Opus_opus_decoder_get_size(nil, 2)))
+	st := (*OpusT_OpusDecoder)(p)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_decoder_init(nil, st, 48000, 2) != 0 || st.Fchannels != 2 || st.FFs != 48000 {
+		t.Fatal("typed allocated initialization")
+	}
+	libc.XfreePointer(tls, p)
+	tls.Close()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if st.Fchannels != 2 || st.FFs != 48000 {
+		t.Fatal("typed allocation ownership")
+	}
+}
+
+func TestDecoderCreatePointers(t *testing.T) {
+	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
+		for _, channels := range []int32{1, 2} {
+			tls := libc.NewTLS()
+			st, err := Opus_opus_decoder_create_typed(tls, rate, channels)
+			if err != nil || st == nil || st.FFs != rate || st.Fchannels != channels {
+				t.Fatal(rate, channels, st, err)
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if st.FFs != rate || st.Fchannels != channels {
+				t.Fatal("creation lifetime")
+			}
+			libc.XfreePointer(tls, unsafe.Pointer(st))
+			tls.Close()
+		}
+	}
+	for _, args := range [][2]int32{{44100, 1}, {48000, 0}, {48000, 3}, {48000, 1}} {
+		st, err := Opus_opus_decoder_create_typed(nil, args[0], args[1])
+		want := int32(-1)
+		if args == [2]int32{48000, 1} {
+			want = -7
+		}
+		if st != nil || err == nil || err.(*OpusError).Code != want {
+			t.Fatal("error ordering", args, st, err)
+		}
+	}
+}
+
+func TestMSDecoderCreatePointers(t *testing.T) {
+	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
+		tls := libc.NewTLS()
+		mapping := [3]byte{0, 1, 2}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		st, err := Opus_opus_multistream_decoder_create_typed(tls, rate, 3, 2, 1, &mapping[0])
+		if err != nil || st == nil || st.Flayout.Fmapping[2] != 2 || st.Flayout.Fnb_streams != 2 {
+			t.Fatal(st, err)
+		}
+		runtime.GC()
+		libc.XfreePointer(tls, unsafe.Pointer(st))
+		tls.Close()
+	}
+	for _, test := range []struct{ rate, channels, streams, coupled, code int32 }{{48000, 0, 1, 0, -1}, {48000, 1, 0, 0, -1}, {48000, 1, 1, 2, -1}, {44100, 1, 1, 0, -7}, {48000, 1, 1, 0, -7}} {
+		st, err := Opus_opus_multistream_decoder_create_typed(nil, test.rate, test.channels, test.streams, test.coupled, nil)
+		if st != nil || err == nil || err.(*OpusError).Code != test.code {
+			t.Fatal(test, st, err)
+		}
+	}
+	tls := libc.NewTLS()
+	defer tls.Close()
+	mapping := [1]byte{1}
+	st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 1, 1, 0, &mapping[0])
+	if st != nil || err == nil || err.(*OpusError).Code != -1 {
+		t.Fatal("failed layout", st, err)
+	}
+}
+
+func TestProjectionDecoderCreatePointers(t *testing.T) {
+	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
+		tls := libc.NewTLS()
+		matrix := [18]byte{0, 0, 0xff, 0x7f, 0, 0x80, 0xff, 0xff, 1, 0, 0xfe, 0xff}
+		before := matrix
+		entropyInitGrowStack(12)
+		runtime.GC()
+		st, err := Opus_opus_projection_decoder_create_typed(tls, rate, 3, 2, 1, &matrix[0], 18)
+		if err != nil || st == nil || matrix != before {
+			t.Fatal(st, err)
+		}
+		runtime.GC()
+		m := get_dec_demixing_matrix(nil, st)
+		data := unsafe.Slice(Opus_mapping_matrix_get_data(nil, m), 9)
+		if m.Frows != 3 || m.Fcols != 3 || data[1] != 32767 || data[2] != -32768 || get_multistream_decoder(nil, st).Flayout.Fmapping[2] != 2 {
+			t.Fatal("created matrix/state")
+		}
+		libc.XfreePointer(tls, unsafe.Pointer(st))
+		tls.Close()
+	}
+	for _, args := range [][4]int32{{48000, 3, 2, 17}, {44100, 3, 2, 18}, {48000, 256, 1, 0}} {
+		st, err := Opus_opus_projection_decoder_create_typed(nil, args[0], args[1], args[2], 0, nil, args[3])
+		if st != nil || err == nil || err.(*OpusError).Code != -7 {
+			t.Fatal("allocation precedes init arguments", args, st, err)
+		}
+	}
+	tls := libc.NewTLS()
+	defer tls.Close()
+	st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, nil, 17)
+	if st != nil || err == nil || err.(*OpusError).Code != -1 {
+		t.Fatal("size failure", st, err)
+	}
 }
 
 func TestCustomDecoderSizePointers(t *testing.T) {

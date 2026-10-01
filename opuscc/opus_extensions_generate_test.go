@@ -47,7 +47,7 @@ func TestPacketExtensionsGenerateCReference(t *testing.T) {
 				for j := range bytes {
 					bytes[j] = byte(seed + int32(j)*17)
 				}
-				extensions[i] = OpusT_opus_extension_data{Fid: id, Fframe: frame, Flen1: length, Fdata: p}
+				extensions[i] = OpusT_opus_extension_data{Fid: id, Fframe: frame, Flen1: length, Fdata: (*byte)(unsafe.Pointer(p))}
 			}
 			out := libc.Xmalloc(tls, uint64(capacity+16))
 			defer libc.Xfree(tls, out)

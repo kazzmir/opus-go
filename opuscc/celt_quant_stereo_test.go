@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -22,6 +23,15 @@ func TestQuantBandStereoOneSampleFieldAccesses(t *testing.T) {
 	x := OpusT_celt_norm(-0.75)
 	y := OpusT_celt_norm(0.5)
 	lowband := OpusT_celt_norm(0)
+	// This fixture still crosses the legacy quantizer uintptr boundary.
+	// Retain/pin its objects rather than exposing movable stack addresses.
+	var pins runtime.Pinner
+	defer pins.Unpin()
+	pins.Pin(&encoder)
+	pins.Pin(&context)
+	pins.Pin(&x)
+	pins.Pin(&y)
+	pins.Pin(&lowband)
 
 	if got, want := quant_band_stereo(tls, uintptr(unsafe.Pointer(&context)), uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)), 1, 0, 1, 0, 0, uintptr(unsafe.Pointer(&lowband)), 0, 3), uint32(1); got != want {
 		t.Fatalf("coded dimensions: got %d, want %d", got, want)

@@ -993,11 +993,11 @@ type OpusRepacketizer = struct {
 }
 
 type OpusT_OpusExtensionIterator = struct {
-	Fdata               uintptr
-	Fcurr_data          uintptr
-	Frepeat_data        uintptr
-	Flast_long          uintptr
-	Fsrc_data           uintptr
+	Fdata               *byte
+	Fcurr_data          *byte
+	Frepeat_data        *byte
+	Flast_long          *byte
+	Fsrc_data           *byte
 	Flen1               OpusT_opus_int32
 	Fcurr_len           OpusT_opus_int32
 	Frepeat_len         OpusT_opus_int32
@@ -1013,7 +1013,7 @@ type OpusT_OpusExtensionIterator = struct {
 type OpusT_opus_extension_data = struct {
 	Fid    int32
 	Fframe int32
-	Fdata  uintptr
+	Fdata  *byte
 	Flen1  OpusT_opus_int32
 }
 
@@ -2279,30 +2279,25 @@ func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_
 	return OPUS_OK
 }
 
-// Creation and multistream drivers still pass their backing allocations as integers.
-func opus_decoder_init_legacy(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels int32) int32 {
-	return Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), Fs, channels)
-}
-
-func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (uintptr, error) {
-	var ret int32
-	var st, v1 uintptr
-	_, _, _ = ret, st, v1
-	if Fs != int32(48000) && Fs != int32(24000) && Fs != int32(16000) && Fs != int32(12000) && Fs != int32(8000) || channels != int32(1) && channels != int32(2) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(1))
+func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (*OpusT_OpusDecoder, error) {
+	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
+		return nil, opusErrorFromCode(-1)
 	}
-	v1 = libc.Xmalloc(tls, uint64(uint32(Opus_opus_decoder_get_size(tls, channels))))
-	st = v1
-	if st == uintptr(uint32(0)) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
+	st := (*OpusT_OpusDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_decoder_get_size(tls, channels)))))
+	if st == nil {
+		return nil, opusErrorFromCode(-7)
 	}
-	ret = opus_decoder_init_legacy(tls, st, Fs, channels)
-	if ret != OPUS_OK {
-		libc.Xfree(tls, st)
-		st = uintptr(uint32(0))
-		return uintptr(uint32(0)), opusErrorFromCode(ret)
+	if ret := Opus_opus_decoder_init(tls, st, Fs, channels); ret != OPUS_OK {
+		libc.XfreePointer(tls, unsafe.Pointer(st))
+		return nil, opusErrorFromCode(ret)
 	}
 	return st, nil
+}
+
+// Legacy exported creation ABI for the remaining integer-address decode/control callers.
+func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (uintptr, error) {
+	st, err := Opus_opus_decoder_create_typed(tls, Fs, channels)
+	return uintptr(unsafe.Pointer(st)), err
 }
 
 func smooth_fade(tls *libc.TLS, in1, in2, out *OpusT_opus_res, overlap, channels int32, window *OpusT_celt_coef, Fs OpusT_opus_int32) {
@@ -3279,7 +3274,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	if count < 0 {
 		return count
 	}
-	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iter)), padding, padding_len, count)
+	Opus_opus_extension_iterator_init(tls, &iter, (*byte)(unsafe.Pointer(padding)), padding_len, count)
 	data = data + uintptr(offset)
 	if decode_fec != 0 {
 		/* If no FEC can be present, run the PLC (recursive call) */
@@ -4291,29 +4286,25 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, 
 	return OPUS_OK
 }
 
-func multistream_decoder_init_legacy(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping uintptr) int32 {
-	return Opus_opus_multistream_decoder_init(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(mapping)))
-}
-
-func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, mapping uintptr) (uintptr, error) {
-	var ret int32
-	var st, v1 uintptr
-	_, _, _ = ret, st, v1
-	if channels > int32(255) || channels < int32(1) || coupled_streams > streams || streams < int32(1) || coupled_streams < 0 || streams > int32(255)-coupled_streams {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(1))
+func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte) (*OpusT_OpusMSDecoder, error) {
+	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
+		return nil, opusErrorFromCode(-1)
 	}
-	v1 = libc.Xmalloc(tls, uint64(uint32(Opus_opus_multistream_decoder_get_size(tls, streams, coupled_streams))))
-	st = v1
-	if st == uintptr(uint32(0)) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
+	st := (*OpusT_OpusMSDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_multistream_decoder_get_size(tls, streams, coupled)))))
+	if st == nil {
+		return nil, opusErrorFromCode(-7)
 	}
-	ret = multistream_decoder_init_legacy(tls, st, Fs, channels, streams, coupled_streams, mapping)
-	if ret != OPUS_OK {
-		libc.Xfree(tls, st)
-		st = uintptr(uint32(0))
-		return uintptr(uint32(0)), opusErrorFromCode(ret)
+	if ret := Opus_opus_multistream_decoder_init(tls, st, Fs, channels, streams, coupled, mapping); ret != OPUS_OK {
+		libc.XfreePointer(tls, unsafe.Pointer(st))
+		return nil, opusErrorFromCode(ret)
 	}
 	return st, nil
+}
+
+// Legacy exported creation ABI for integer-address outer decode/control callers.
+func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping uintptr) (uintptr, error) {
+	st, err := Opus_opus_multistream_decoder_create_typed(tls, Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(mapping)))
+	return uintptr(unsafe.Pointer(st)), err
 }
 
 func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams, Fs int32) int32 {
@@ -5317,32 +5308,27 @@ func Opus_opus_projection_decoder_init(tls *libc.TLS, st *OpusT_OpusProjectionDe
 	return Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st), Fs, channels, streams, coupled, &mapping[0])
 }
 
-func projection_decoder_init_legacy(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix uintptr, matrixBytes OpusT_opus_int32) int32 {
-	return Opus_opus_projection_decoder_init(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(matrix)), matrixBytes)
-}
-
-func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32, streams int32, coupled_streams int32, demixing_matrix uintptr, demixing_matrix_size OpusT_opus_int32) (uintptr, error) {
-	var ret, size1 int32
-	var st, v1 uintptr
-	_, _, _, _ = ret, size1, st, v1
-	/* Allocate space for the projection decoder. */
-	size1 = Opus_opus_projection_decoder_get_size(tls, channels, streams, coupled_streams)
-	if !(size1 != 0) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
+func Opus_opus_projection_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes OpusT_opus_int32) (*OpusT_OpusProjectionDecoder, error) {
+	// Projection creation checks size/allocation before initialization arguments.
+	size := Opus_opus_projection_decoder_get_size(tls, channels, streams, coupled)
+	if size == 0 {
+		return nil, opusErrorFromCode(-7)
 	}
-	v1 = libc.Xmalloc(tls, uint64(uint32(size1)))
-	st = v1
-	if !(st != 0) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
+	st := (*OpusT_OpusProjectionDecoder)(libc.XmallocPointer(tls, uint64(uint32(size))))
+	if st == nil {
+		return nil, opusErrorFromCode(-7)
 	}
-	/* Initialize projection decoder with provided settings. */
-	ret = projection_decoder_init_legacy(tls, st, Fs, channels, streams, coupled_streams, demixing_matrix, demixing_matrix_size)
-	if ret != OPUS_OK {
-		libc.Xfree(tls, st)
-		st = uintptr(uint32(0))
-		return uintptr(uint32(0)), opusErrorFromCode(ret)
+	if ret := Opus_opus_projection_decoder_init(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes); ret != OPUS_OK {
+		libc.XfreePointer(tls, unsafe.Pointer(st))
+		return nil, opusErrorFromCode(ret)
 	}
 	return st, nil
+}
+
+// Legacy exported creation ABI for the remaining integer-address projection APIs.
+func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix uintptr, matrixBytes OpusT_opus_int32) (uintptr, error) {
+	st, err := Opus_opus_projection_decoder_create_typed(tls, Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(matrix)), matrixBytes)
+	return uintptr(unsafe.Pointer(st)), err
 }
 
 func Opus_opus_projection_decode(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
@@ -5444,16 +5430,6 @@ func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSiz
 	return length
 }
 
-// Explicit remaining iterator boundary; iterator-owned packet addresses are still integers.
-func skip_extension_payload_legacy(tls *libc.TLS, pdata uintptr, length int32, header uintptr, idByte, trailingShort int32) int32 {
-	data := (*byte)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(pdata))))
-	result := skip_extension_payload(tls, &data, length, (*int32)(unsafe.Pointer(header)), idByte, trailingShort)
-	if result >= 0 {
-		*(*uintptr)(unsafe.Pointer(pdata)) = uintptr(unsafe.Pointer(data))
-	}
-	return result
-}
-
 // C documentation
 //
 //	/* Given an extension, advance data to the next extension and return the
@@ -5481,51 +5457,36 @@ func skip_extension(tls *libc.TLS, pdata **byte, length int32, header *int32) in
 	return result
 }
 
-func skip_extension_legacy(tls *libc.TLS, pdata uintptr, length int32, header uintptr) int32 {
-	data := (*byte)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(pdata))))
-	result := skip_extension(tls, &data, length, (*int32)(unsafe.Pointer(header)))
-	if result >= 0 {
-		*(*uintptr)(unsafe.Pointer(pdata)) = uintptr(unsafe.Pointer(data))
+func Opus_opus_extension_iterator_init(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, data *byte, length, frames int32) {
+	if length < 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+2445, __ccgo_ts+2472, 122)
 	}
-	return result
+	if data == nil && length != 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+2492, __ccgo_ts+2472, 123)
+	}
+	if frames < 0 || frames > 48 {
+		Opus_celt_fatal(tls, __ccgo_ts+2535, __ccgo_ts+2472, 124)
+	}
+	iter.Fdata = data
+	iter.Fcurr_data = data
+	iter.Frepeat_data = data
+	iter.Fsrc_data = nil
+	iter.Flast_long = nil
+	iter.Flen1 = length
+	iter.Fcurr_len = length
+	iter.Fsrc_len = 0
+	iter.Frepeat_len = 0
+	iter.Ftrailing_short_len = 0
+	iter.Fnb_frames = frames
+	iter.Fframe_max = frames
+	iter.Fcurr_frame = 0
+	iter.Frepeat_frame = 0
+	iter.Frepeat_l = 0
 }
 
-func Opus_opus_extension_iterator_init(tls *libc.TLS, iter uintptr, data uintptr, len1 OpusT_opus_int32, nb_frames OpusT_opus_int32) {
-	var v1, v2 uintptr
-	var v4 OpusT_opus_int32
-	var v6 int32
-	_, _, _, _ = v1, v2, v4, v6
-	if !(len1 >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2445, __ccgo_ts+2472, int32(122))
-	}
-	if !(data != uintptr(uint32(0)) || len1 == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+2492, __ccgo_ts+2472, int32(123))
-	}
-	if !(nb_frames >= 0 && nb_frames <= int32(48)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2535, __ccgo_ts+2472, int32(124))
-	}
-	v2 = data
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fdata = v2
-	v1 = v2
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data = v1
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_data = v1
-	v1 = uintptr(uint32(0))
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_data = v1
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flast_long = v1
-	v4 = len1
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flen1 = v4
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = v4
-	v4 = int32(0)
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len = v4
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_len = v4
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len = 0
-	v6 = nb_frames
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fnb_frames = v6
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fframe_max = v6
-	v6 = int32(0)
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame = v6
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame = v6
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_l = uint8(0)
+func extensionPointerDifference(a, b *byte) int64 {
+	// Only compare addresses; never reconstruct a pointer from this difference.
+	return int64(uintptr(unsafe.Pointer(a))) - int64(uintptr(unsafe.Pointer(b)))
 }
 
 // C documentation
@@ -5535,7 +5496,7 @@ func Opus_opus_extension_iterator_init(tls *libc.TLS, iter uintptr, data uintptr
 func Opus_opus_extension_iterator_reset(tls *libc.TLS, iter *OpusT_OpusExtensionIterator) {
 	iter.Fcurr_data = iter.Fdata
 	iter.Frepeat_data = iter.Fdata
-	iter.Flast_long = 0
+	iter.Flast_long = nil
 	iter.Fcurr_len = iter.Flen1
 	iter.Fcurr_frame = 0
 	iter.Frepeat_frame = 0
@@ -5557,74 +5518,56 @@ func Opus_opus_extension_iterator_set_frame_max(tls *libc.TLS, iter *OpusT_OpusE
 //	/* Return the next repeated extension.
 //	   The return value is non-zero if one is found, negative on error, or 0 if we
 //	    have finished repeating extensions. */
-func opus_extension_iterator_next_repeat(tls *libc.TLS, iter uintptr, ext uintptr) (r int32) {
-	var curr_data0 uintptr
-	var repeat_id_byte int32
-	var header_size OpusT_opus_int32
-	_, _, _ = curr_data0, header_size, repeat_id_byte
-	if !((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2587, __ccgo_ts+2472, int32(160))
+func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, ext *OpusT_opus_extension_data) int32 {
+	var header int32
+	if iter.Frepeat_frame <= 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+2587, __ccgo_ts+2472, 160)
 	}
-	for {
-		if !((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame < (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fnb_frames) {
-			break
-		}
-		for (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len > 0 {
-			repeat_id_byte = int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_data)))
-			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len = skip_extension_legacy(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fsrc_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len, uintptr(unsafe.Pointer(&header_size)))
-			/* We skipped this extension earlier, so it should not fail now. */
-			if !((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len >= int32(0)) {
-				Opus_celt_fatal(tls, __ccgo_ts+2628, __ccgo_ts+2472, int32(169))
+	for ; iter.Frepeat_frame < iter.Fnb_frames; iter.Frepeat_frame++ {
+		for iter.Fsrc_len > 0 {
+			idByte := int32(*iter.Fsrc_data)
+			iter.Fsrc_len = skip_extension(tls, &iter.Fsrc_data, iter.Fsrc_len, &header)
+			// This source was already skipped successfully when the repeat was recorded.
+			if iter.Fsrc_len < 0 {
+				Opus_celt_fatal(tls, __ccgo_ts+2628, __ccgo_ts+2472, 169)
 			}
-			/* Don't repeat padding or frame separators with a 0 increment. */
-			if repeat_id_byte <= int32(3) {
+			if idByte <= 3 {
 				continue
 			}
-			/* If the "Repeat These Extensions" extension had L == 0 and this
-			   is the last repeated long extension, then force decoding the
-			   payload with L = 0. */
-			if int32((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_l) == 0 && (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame+int32(1) >= (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fnb_frames && (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_data == (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flast_long {
-				repeat_id_byte = repeat_id_byte & ^int32(1)
+			if iter.Frepeat_l == 0 && iter.Frepeat_frame+1 >= iter.Fnb_frames && iter.Fsrc_data == iter.Flast_long {
+				idByte &= ^int32(1)
 			}
-			curr_data0 = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data
-			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension_payload_legacy(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fcurr_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, uintptr(unsafe.Pointer(&header_size)), repeat_id_byte, (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len)
-			if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len < 0 {
-				return -int32(4)
+			start := iter.Fcurr_data
+			iter.Fcurr_len = skip_extension_payload(tls, &iter.Fcurr_data, iter.Fcurr_len, &header, idByte, iter.Ftrailing_short_len)
+			if iter.Fcurr_len < 0 {
+				return OPUS_INVALID_PACKET
 			}
-			if !(int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data)-int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fdata) == int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flen1-(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len)) {
-				Opus_celt_fatal(tls, __ccgo_ts+2665, __ccgo_ts+2472, int32(187))
+			if extensionPointerDifference(iter.Fcurr_data, iter.Fdata) != int64(iter.Flen1-iter.Fcurr_len) {
+				Opus_celt_fatal(tls, __ccgo_ts+2665, __ccgo_ts+2472, 187)
 			}
-			/* If we were asked to stop at frame_max, skip extensions for later
-			   frames. */
-			if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame >= (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fframe_max {
+			if iter.Frepeat_frame >= iter.Fframe_max {
 				continue
 			}
-			if ext != uintptr(uint32(0)) {
-				(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid = repeat_id_byte >> int32(1)
-				(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fframe = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame
-				(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata = curr_data0 + uintptr(header_size)
-				(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 = int32(int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data) - int64(curr_data0) - int64(header_size))
+			if ext != nil {
+				ext.Fid = idByte >> 1
+				ext.Fframe = iter.Frepeat_frame
+				ext.Fdata = (*byte)(unsafe.Add(unsafe.Pointer(start), header))
+				ext.Flen1 = int32(extensionPointerDifference(iter.Fcurr_data, start) - int64(header))
 			}
-			return int32(1)
+			return 1
 		}
-		/* We finished repeating the extensions for this frame. */
-		(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_data = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_data
-		(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_len
-		(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame + 1
+		iter.Fsrc_data = iter.Frepeat_data
+		iter.Fsrc_len = iter.Frepeat_len
 	}
-	/* We finished repeating extensions. */
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_data = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flast_long = uintptr(uint32(0))
-	/* If L == 0, advance the frame number to handle the case where we did
-	   not consume all of the data with an L == 0 long extension. */
-	if int32((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_l) == 0 {
-		(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame + 1
-		/* Ignore additional padding if this was already the last frame. */
-		if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame >= (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fnb_frames {
-			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = 0
+	iter.Frepeat_data = iter.Fcurr_data
+	iter.Flast_long = nil
+	if iter.Frepeat_l == 0 {
+		iter.Fcurr_frame++
+		if iter.Fcurr_frame >= iter.Fnb_frames {
+			iter.Fcurr_len = 0
 		}
 	}
-	(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame = 0
+	iter.Frepeat_frame = 0
 	return 0
 }
 
@@ -5634,127 +5577,105 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter uintptr, ext uintpt
 //	    indicators, but including the repeated extensions) in bitstream order.
 //	   Due to the extension repetition mechanism, extensions are not necessarily
 //	    returned in frame order. */
-func Opus_opus_extension_iterator_next(tls *libc.TLS, iter uintptr, ext uintptr) (r int32) {
-	var L, id, ret, ret1 int32
-	var curr_data0 uintptr
-	var header_size OpusT_opus_int32
-	_, _, _, _, _, _ = L, curr_data0, header_size, id, ret, ret1
-	if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len < 0 {
-		return -int32(4)
+func Opus_opus_extension_iterator_next(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, ext *OpusT_opus_extension_data) int32 {
+	var header int32
+	if iter.Fcurr_len < 0 {
+		return OPUS_INVALID_PACKET
 	}
-	if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame > 0 {
-		/* We are in the process of repeating some extensions. */
-		ret = opus_extension_iterator_next_repeat(tls, iter, ext)
-		if ret != 0 {
+	if iter.Frepeat_frame > 0 {
+		if ret := opus_extension_iterator_next_repeat(tls, iter, ext); ret != 0 {
 			return ret
 		}
 	}
-	/* Checking this here allows opus_extension_iterator_set_frame_max() to be
-	   called at any point. */
-	if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame >= (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fframe_max {
+	// Frame limits can change between calls, including during a repeat.
+	if iter.Fcurr_frame >= iter.Fframe_max {
 		return 0
 	}
-	for (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len > 0 {
-		curr_data0 = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data
-		id = int32(*(*uint8)(unsafe.Pointer(curr_data0))) >> int32(1)
-		L = int32(*(*uint8)(unsafe.Pointer(curr_data0))) & int32(1)
-		(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = skip_extension_legacy(tls, iter+unsafe.Offsetof(OpusT_OpusExtensionIterator{}.Fcurr_data), (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len, uintptr(unsafe.Pointer(&header_size)))
-		if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len < 0 {
-			return -int32(4)
+	for iter.Fcurr_len > 0 {
+		start := iter.Fcurr_data
+		id := int32(*start) >> 1
+		l := int32(*start) & 1
+		iter.Fcurr_len = skip_extension(tls, &iter.Fcurr_data, iter.Fcurr_len, &header)
+		if iter.Fcurr_len < 0 {
+			return OPUS_INVALID_PACKET
 		}
-		if !(int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data)-int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fdata) == int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flen1-(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len)) {
-			Opus_celt_fatal(tls, __ccgo_ts+2665, __ccgo_ts+2472, int32(255))
+		if extensionPointerDifference(iter.Fcurr_data, iter.Fdata) != int64(iter.Flen1-iter.Fcurr_len) {
+			Opus_celt_fatal(tls, __ccgo_ts+2665, __ccgo_ts+2472, 255)
 		}
-		if id == int32(1) {
-			if L == 0 {
-				(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame + 1
+		if id == 1 {
+			if l == 0 {
+				iter.Fcurr_frame++
 			} else {
-				/* A frame increment of 0 is a no-op. */
-				if !(*(*uint8)(unsafe.Pointer(curr_data0 + 1)) != 0) {
+				increment := *(*byte)(unsafe.Add(unsafe.Pointer(start), 1))
+				if increment == 0 {
 					continue
 				}
-				(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame += int32(*(*uint8)(unsafe.Pointer(curr_data0 + 1)))
+				iter.Fcurr_frame += int32(increment)
 			}
-			if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame >= (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fnb_frames {
-				(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = -int32(1)
-				return -int32(4)
+			if iter.Fcurr_frame >= iter.Fnb_frames {
+				iter.Fcurr_len = -1
+				return OPUS_INVALID_PACKET
 			}
-			/* If we were asked to stop at frame_max, skip extensions for later
-			   frames. */
-			if (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame >= (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fframe_max {
-				(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_len = 0
+			if iter.Fcurr_frame >= iter.Fframe_max {
+				iter.Fcurr_len = 0
 			}
-			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_data = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data
-			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flast_long = uintptr(uint32(0))
-			(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len = 0
-		} else {
-			if id == int32(2) {
-				(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_l = uint8(L)
-				(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_frame = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame + int32(1)
-				(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_len = int32(int64(curr_data0) - int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_data))
-				(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_data = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_data
-				(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fsrc_len = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Frepeat_len
-				ret1 = opus_extension_iterator_next_repeat(tls, iter, ext)
-				if ret1 != 0 {
-					return ret1
-				}
+			iter.Frepeat_data = iter.Fcurr_data
+			iter.Flast_long = nil
+			iter.Ftrailing_short_len = 0
+		} else if id == 2 {
+			iter.Frepeat_l = byte(l)
+			iter.Frepeat_frame = iter.Fcurr_frame + 1
+			iter.Frepeat_len = int32(extensionPointerDifference(start, iter.Frepeat_data))
+			iter.Fsrc_data = iter.Frepeat_data
+			iter.Fsrc_len = iter.Frepeat_len
+			if ret := opus_extension_iterator_next_repeat(tls, iter, ext); ret != 0 {
+				return ret
+			}
+		} else if id > 2 {
+			if id >= 32 {
+				iter.Flast_long = iter.Fcurr_data
+				iter.Ftrailing_short_len = 0
 			} else {
-				if id > int32(2) {
-					/* Update the location of the last long extension.
-					   This lets us know when we need to modify the last L flag if we
-					    repeat these extensions with L=0. */
-					if id >= int32(32) {
-						(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Flast_long = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data
-						(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len = 0
-					} else {
-						(*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Ftrailing_short_len += L
-					}
-					if ext != uintptr(uint32(0)) {
-						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fid = id
-						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fframe = (*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_frame
-						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Fdata = curr_data0 + uintptr(header_size)
-						(*OpusT_opus_extension_data)(unsafe.Pointer(ext)).Flen1 = int32(int64((*OpusT_OpusExtensionIterator)(unsafe.Pointer(iter)).Fcurr_data) - int64(curr_data0) - int64(header_size))
-					}
-					return int32(1)
-				}
+				iter.Ftrailing_short_len += l
 			}
+			if ext != nil {
+				ext.Fid = id
+				ext.Fframe = iter.Fcurr_frame
+				ext.Fdata = (*byte)(unsafe.Add(unsafe.Pointer(start), header))
+				ext.Flen1 = int32(extensionPointerDifference(iter.Fcurr_data, start) - int64(header))
+			}
+			return 1
 		}
 	}
 	return 0
 }
 
-func Opus_opus_extension_iterator_find(tls *libc.TLS, iter uintptr, ext uintptr, id int32) (r int32) {
-	var ret int32
-	var curr_ext OpusT_opus_extension_data
-	_, _ = curr_ext, ret
+func Opus_opus_extension_iterator_find(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, ext *OpusT_opus_extension_data, id int32) int32 {
+	var current OpusT_opus_extension_data
 	for {
-		ret = Opus_opus_extension_iterator_next(tls, iter, uintptr(unsafe.Pointer(&curr_ext)))
+		ret := Opus_opus_extension_iterator_next(tls, iter, &current)
 		if ret <= 0 {
 			return ret
 		}
-		if curr_ext.Fid == id {
-			*(*OpusT_opus_extension_data)(unsafe.Pointer(ext)) = curr_ext
+		// Do not touch the output until a matching extension has been found.
+		if current.Fid == id {
+			*ext = current
 			return ret
 		}
 	}
-	return r
 }
 
 // C documentation
 //
 //	/* Count the number of extensions, excluding real padding, separators, and
 //	    repeat indicators, but including the repeated extensions. */
-func Opus_opus_packet_extensions_count(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, nb_frames int32) (r OpusT_opus_int32) {
-	var count int32
+func Opus_opus_packet_extensions_count(tls *libc.TLS, data *byte, length, frames int32) int32 {
 	var iter OpusT_OpusExtensionIterator
-	_, _ = count, iter
-	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iter)), data, len1, nb_frames)
-	count = 0
-	for {
-		if !(Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iter)), uintptr(uint32(0))) > 0) {
-			break
-		}
-		count = count + 1
+	Opus_opus_extension_iterator_init(tls, &iter, data, length, frames)
+	var count int32
+	// As in C, malformed trailing data terminates counting rather than returning an error.
+	for Opus_opus_extension_iterator_next(tls, &iter, nil) > 0 {
+		count++
 	}
 	return count
 }
@@ -5763,20 +5684,17 @@ func Opus_opus_packet_extensions_count(tls *libc.TLS, data uintptr, len1 OpusT_o
 //
 //	/* Count the number of extensions for each frame, excluding real padding and
 //	    separators and repeat indicators, but including the repeated extensions. */
-func Opus_opus_packet_extensions_count_ext(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, nb_frame_exts uintptr, nb_frames int32) (r OpusT_opus_int32) {
-	var count int32
-	var ext OpusT_opus_extension_data
+func Opus_opus_packet_extensions_count_ext(tls *libc.TLS, data *byte, length int32, frameCounts *int32, frames int32) int32 {
 	var iter OpusT_OpusExtensionIterator
-	_, _, _ = count, ext, iter
-	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iter)), data, len1, nb_frames)
-	libc.Xmemset(tls, nb_frame_exts, 0, uint64(uint32(nb_frames))*uint64(4))
-	count = 0
-	for {
-		if !(Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iter)), uintptr(unsafe.Pointer(&ext))) > 0) {
-			break
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(nb_frame_exts + uintptr(ext.Fframe)*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(nb_frame_exts + uintptr(ext.Fframe)*4)) + 1
-		count = count + 1
+	var ext OpusT_opus_extension_data
+	Opus_opus_extension_iterator_init(tls, &iter, data, length, frames)
+	counts := unsafe.Slice(frameCounts, frames)
+	// Clear before reading extensions, including when counts aliases packet bytes.
+	clear(counts)
+	var count int32
+	for Opus_opus_extension_iterator_next(tls, &iter, &ext) > 0 {
+		counts[ext.Fframe]++
+		count++
 	}
 	return count
 }
@@ -5788,32 +5706,30 @@ func Opus_opus_packet_extensions_count_ext(tls *libc.TLS, data uintptr, len1 Opu
 //	    order.
 //	   Due to the extension repetition mechanism, extensions are not necessarily
 //	    returned in frame order. */
-func Opus_opus_packet_extensions_parse(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions uintptr, nb_frames int32) (r OpusT_opus_int32) {
-	var count, ret int32
-	var ext OpusT_opus_extension_data
+func Opus_opus_packet_extensions_parse(tls *libc.TLS, data *byte, length int32, extensions *OpusT_opus_extension_data, nbExtensions *int32, frames int32) int32 {
+	if nbExtensions == nil {
+		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, 365)
+	}
+	if extensions == nil && *nbExtensions != 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, 366)
+	}
 	var iter OpusT_OpusExtensionIterator
-	_, _, _, _ = count, ext, iter, ret
-	if !(nb_extensions != uintptr(uint32(0))) {
-		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, int32(365))
-	}
-	if !(extensions != uintptr(uint32(0)) || *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, int32(366))
-	}
-	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iter)), data, len1, nb_frames)
-	count = 0
+	var ext OpusT_opus_extension_data
+	Opus_opus_extension_iterator_init(tls, &iter, data, length, frames)
+	var count int32
 	for {
-		ret = Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iter)), uintptr(unsafe.Pointer(&ext)))
+		ret := Opus_opus_extension_iterator_next(tls, &iter, &ext)
 		if ret <= 0 {
-			break
+			*nbExtensions = count
+			return ret
 		}
-		if count == *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) {
-			return -int32(2)
+		// Read capacity each time: it may alias an output field. A full buffer leaves it unchanged.
+		if count == *nbExtensions {
+			return -2
 		}
-		*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(count)*unsafe.Sizeof(OpusT_opus_extension_data{}))) = ext
-		count = count + 1
+		*(*OpusT_opus_extension_data)(unsafe.Add(unsafe.Pointer(extensions), uintptr(count)*unsafe.Sizeof(ext))) = ext
+		count++
 	}
-	*(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) = count
-	return ret
 }
 
 // C documentation
@@ -5823,56 +5739,47 @@ func Opus_opus_packet_extensions_parse(tls *libc.TLS, data uintptr, len1 OpusT_o
 //	    order.
 //	   nb_frame_exts must be filled with the output of
 //	    opus_packet_extensions_count_ext(). */
-func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions uintptr, nb_frame_exts uintptr, nb_frames int32) (r OpusT_opus_int32) {
-	var count, prev_total, ret, total int32
-	var idx, v3 OpusT_opus_int32
-	var ext OpusT_opus_extension_data
+func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data *byte, length int32, extensions *OpusT_opus_extension_data, nbExtensions, frameCounts *int32, frames int32) int32 {
+	if nbExtensions == nil {
+		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, 395)
+	}
+	if extensions == nil && *nbExtensions != 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, 396)
+	}
+	if frames > 48 {
+		Opus_celt_fatal(tls, __ccgo_ts+2842, __ccgo_ts+2472, 397)
+	}
+	// Snapshot prefix sums before iterator initialization or any output writes.
+	// Negative frame counts reach the iterator's assertion after an empty prefix loop, as in C.
+	counts := unsafe.Slice(frameCounts, max(frames, 0))
+	var cumulative [49]int32
+	var total int32
+	for i := int32(0); i < frames; i++ {
+		cumulative[i] = total
+		total += counts[i]
+	}
+	cumulative[max(frames, 0)] = total
 	var iter OpusT_OpusExtensionIterator
-	var nb_frames_cum [49]OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _ = count, ext, idx, iter, prev_total, ret, total, v3, nb_frames_cum
-	if !(nb_extensions != uintptr(uint32(0))) {
-		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, int32(395))
-	}
-	if !(extensions != uintptr(uint32(0)) || *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, int32(396))
-	}
-	if !(nb_frames <= int32(48)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2842, __ccgo_ts+2472, int32(397))
-	}
-	/* Convert the frame extension count array to a cumulative sum. */
-	prev_total = 0
-	count = 0
+	var ext OpusT_opus_extension_data
+	Opus_opus_extension_iterator_init(tls, &iter, data, length, frames)
+	var count int32
 	for {
-		if !(count < nb_frames) {
-			break
-		}
-		total = *(*OpusT_opus_int32)(unsafe.Pointer(nb_frame_exts + uintptr(count)*4)) + prev_total
-		nb_frames_cum[count] = prev_total
-		prev_total = total
-		count = count + 1
-	}
-	nb_frames_cum[count] = prev_total
-	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iter)), data, len1, nb_frames)
-	count = 0
-	for {
-		ret = Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iter)), uintptr(unsafe.Pointer(&ext)))
+		ret := Opus_opus_extension_iterator_next(tls, &iter, &ext)
 		if ret <= 0 {
-			break
+			*nbExtensions = count
+			return ret
 		}
-		v3 = nb_frames_cum[ext.Fframe]
-		nb_frames_cum[ext.Fframe]++
-		idx = v3
-		if idx >= *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) {
-			return -int32(2)
+		idx := cumulative[ext.Fframe]
+		cumulative[ext.Fframe]++
+		if idx >= *nbExtensions {
+			return -2
 		}
-		if !(idx < nb_frames_cum[ext.Fframe+int32(1)]) {
-			Opus_celt_fatal(tls, __ccgo_ts+2876, __ccgo_ts+2472, int32(416))
+		if idx >= cumulative[ext.Fframe+1] {
+			Opus_celt_fatal(tls, __ccgo_ts+2876, __ccgo_ts+2472, 416)
 		}
-		*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(idx)*unsafe.Sizeof(OpusT_opus_extension_data{}))) = ext
-		count = count + 1
+		*(*OpusT_opus_extension_data)(unsafe.Add(unsafe.Pointer(extensions), uintptr(idx)*unsafe.Sizeof(ext))) = ext
+		count++
 	}
-	*(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) = count
-	return ret
 }
 
 func write_extension_payload(tls *libc.TLS, data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
