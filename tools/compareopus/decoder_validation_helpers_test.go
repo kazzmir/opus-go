@@ -49,6 +49,44 @@ func TestMSValidationAgainstC(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderInitAgainstC(t *testing.T) {
+	for _, ch := range []int32{1, 2} {
+		size := int(opuscc.Opus_opus_decoder_get_size(nil, ch))
+		if size != int(nativeOpusSize(ch)) {
+			t.Fatal("size", ch, size, nativeOpusSize(ch))
+		}
+		var silkSize int32
+		opuscc.Opus_silk_Get_Decoder_Size(nil, &silkSize)
+		offset := int((unsafe.Sizeof(opuscc.OpusT_OpusDecoder{})+7)&^uintptr(7)) + int((uint32(silkSize)+7)&^uint32(7))
+		for _, rate := range []int32{-1, 0, 8000, 12000, 16000, 24000, 44100, 48000, 96000} {
+			for _, channels := range []int32{ch, 0, 3} {
+				backing := make([]uint64, (size+7)/8+2)
+				st := (*opuscc.OpusT_OpusDecoder)(unsafe.Pointer(&backing[0]))
+				g := unsafe.Slice((*byte)(unsafe.Pointer(st)), size+16)
+				for i := range g {
+					g[i] = 0xa5
+				}
+				clear(g[offset : offset+int(unsafe.Sizeof(uintptr(0)))])
+				c := slices.Clone(g)
+				code := opuscc.Opus_opus_decoder_init(nil, st, rate, channels)
+				native := nativeOpusInitImage(c, rate, channels)
+				normalized := slices.Clone(g)
+				if code == 0 {
+					clear(normalized[offset : offset+int(unsafe.Sizeof(uintptr(0)))])
+				}
+				if code != native || !slices.Equal(normalized, c) {
+					for i := range c {
+						if c[i] != normalized[i] {
+							t.Fatalf("ch=%d rate=%d channels=%d byte=%d Go=%02x C=%02x code=%d/%d", ch, rate, channels, i, normalized[i], c[i], code, native)
+						}
+					}
+					t.Fatal("result", code, native)
+				}
+			}
+		}
+	}
+}
+
 func TestCeltDecoderInitAgainstC(t *testing.T) {
 	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	for _, channels := range []int32{0, 1, 2} {

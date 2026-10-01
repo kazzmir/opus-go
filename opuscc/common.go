@@ -2239,58 +2239,49 @@ func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) (r int32) {
 	return v1 + silkDecSizeBytes + celtDecSizeBytes
 }
 
-func Opus_opus_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels int32) (r int32) {
-	var alignment uint32
-	var celt_dec, silk_dec uintptr
-	var ret, v1 int32
-	var silkDecSizeBytes int32
-	_, _, _, _, _, _ = alignment, celt_dec, ret, silk_dec, silkDecSizeBytes, v1
-	if Fs != int32(48000) && Fs != int32(24000) && Fs != int32(16000) && Fs != int32(12000) && Fs != int32(8000) || channels != int32(1) && channels != int32(2) {
-		return -int32(1)
+func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32) int32 {
+	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
+		return OPUS_BAD_ARG
 	}
-	libc.Xmemset(tls, st, 0, uint64(uint32(Opus_opus_decoder_get_size(tls, channels)))*uint64(1))
-	/* Initialize SILK decoder */
-	ret = Opus_silk_Get_Decoder_Size(tls, &silkDecSizeBytes)
+	var silkSize int32
+	ret := Opus_silk_Get_Decoder_Size(tls, &silkSize)
 	if ret != 0 {
-		return -int32(3)
+		return -3
 	}
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	silkDecSizeBytes = int32((uint32(silkDecSizeBytes) + alignment - uint32(1)) / alignment * alignment)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(100)) + alignment - uint32(1)) / alignment * alignment)
-	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
-	decoder.Fsilk_dec_offset = v1
-	decoder.Fcelt_dec_offset = decoder.Fsilk_dec_offset + silkDecSizeBytes
-	silk_dec = st + uintptr(decoder.Fsilk_dec_offset)
-	celt_dec = st + uintptr(decoder.Fcelt_dec_offset)
-	v1 = channels
-	decoder.Fchannels = v1
-	decoder.Fstream_channels = v1
-	decoder.Fcomplexity = 0
-	decoder.FFs = Fs
-	decoder.FDecControl.FAPI_sampleRate = decoder.FFs
-	decoder.FDecControl.FnChannelsAPI = decoder.Fchannels
-	/* Reset decoder */
-	ret = Opus_silk_InitDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(silk_dec)))
-	if ret != 0 {
-		return -int32(3)
+	align := func(n int32) int32 { return int32((uint32(n) + 7) &^ uint32(7)) }
+	silkOffset := align(int32(unsafe.Sizeof(*st)))
+	celtOffset := silkOffset + align(silkSize)
+	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), celtOffset))
+	// This is the sole typed pointer slot in the composite decoder layout.
+	// Clear it through its typed slot before clearing the surrounding numeric storage.
+	celt.Fmode = nil
+	clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
+	st.Fsilk_dec_offset = silkOffset
+	st.Fcelt_dec_offset = celtOffset
+	st.Fchannels = channels
+	st.Fstream_channels = channels
+	st.Fcomplexity = 0
+	st.FFs = Fs
+	st.FDecControl.FAPI_sampleRate = st.FFs
+	st.FDecControl.FnChannelsAPI = st.Fchannels
+	silk := (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
+	if Opus_silk_InitDecoder(tls, silk) != 0 {
+		return -3
 	}
-	/* Initialize CELT decoder */
-	ret = Opus_celt_decoder_init(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), Fs, channels)
-	if ret != OPUS_OK {
-		return -int32(3)
+	if Opus_celt_decoder_init(tls, celt, Fs, channels) != OPUS_OK {
+		return -3
 	}
-	_ = int32(0) == int32(0)
-	// Pin the single vararg slot: the CTL API takes uintptr, which would
-	// not follow a Go stack local if the callee grows the goroutine stack.
-	va := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
-	defer libc.Xfree(tls, va)
-	Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_SET_SIGNALLING_REQUEST), libc.VaList(va, int32(0)))
-	decoder.Fprev_mode = 0
-	decoder.Fframe_size = Fs / int32(400)
-	v1 = 0
-	decoder.Farch = v1
+	// CELT_SET_SIGNALLING has no validation or other side effects; avoid legacy varargs/TLS allocation.
+	celt.Fsignalling = 0
+	st.Fprev_mode = 0
+	st.Fframe_size = Fs / 400
+	st.Farch = 0
 	return OPUS_OK
+}
+
+// Creation and multistream drivers still pass their backing allocations as integers.
+func opus_decoder_init_legacy(tls *libc.TLS, st uintptr, Fs OpusT_opus_int32, channels int32) int32 {
+	return Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), Fs, channels)
 }
 
 func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (uintptr, error) {
@@ -2305,7 +2296,7 @@ func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32
 	if st == uintptr(uint32(0)) {
 		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
 	}
-	ret = Opus_opus_decoder_init(tls, st, Fs, channels)
+	ret = opus_decoder_init_legacy(tls, st, Fs, channels)
 	if ret != OPUS_OK {
 		libc.Xfree(tls, st)
 		st = uintptr(uint32(0))
@@ -4302,7 +4293,7 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus
 		if !(i1 < layout.Fnb_coupled_streams) {
 			break
 		}
-		ret = Opus_opus_decoder_init(tls, ptr, Fs, int32(2))
+		ret = opus_decoder_init_legacy(tls, ptr, Fs, int32(2))
 		if ret != OPUS_OK {
 			return ret
 		}
@@ -4315,7 +4306,7 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st uintptr, Fs OpusT_opus
 		if !(i1 < layout.Fnb_streams) {
 			break
 		}
-		ret = Opus_opus_decoder_init(tls, ptr, Fs, int32(1))
+		ret = opus_decoder_init_legacy(tls, ptr, Fs, int32(1))
 		if ret != OPUS_OK {
 			return ret
 		}

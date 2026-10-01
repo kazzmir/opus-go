@@ -81,6 +81,51 @@ func celtStateTestBuffer(mode *OpusT_OpusCustomMode, channels int32) (*celtState
 	return storage, image, size
 }
 
+func TestOpusDecoderInitPointers(t *testing.T) {
+	for _, ch := range []int32{1, 2} {
+		for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
+			size := int(Opus_opus_decoder_get_size(nil, ch))
+			backing := make([]uint64, (size+7)/8+3)
+			backing[0] = 0x123456789abcdef0
+			st := (*OpusT_OpusDecoder)(unsafe.Pointer(&backing[1]))
+			image := unsafe.Slice((*byte)(unsafe.Pointer(st)), size+16)
+			for i := size; i < len(image); i++ {
+				image[i] = 0xa5
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if Opus_opus_decoder_init(nil, st, rate, ch) != 0 {
+				t.Fatal("init")
+			}
+			celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), st.Fcelt_dec_offset))
+			if st.Fchannels != ch || st.FFs != rate || st.Fframe_size != rate/400 || st.FDecControl.FAPI_sampleRate != rate || celt.Fmode == nil || celt.Fsignalling != 0 || celt.Fdownsample != Opus_resampling_factor(nil, rate) {
+				t.Fatal("initialized fields")
+			}
+			st.Fframe_size = 77
+			celt.Frng = 88
+			runtime.GC()
+			if Opus_opus_decoder_init(nil, st, rate, ch) != 0 || celt.Frng != 0 || st.Fframe_size != rate/400 {
+				t.Fatal("reinit")
+			}
+			if backing[0] != 0x123456789abcdef0 {
+				t.Fatal("prefix guard")
+			}
+			for _, b := range image[size:] {
+				if b != 0xa5 {
+					t.Fatal("tail guard")
+				}
+			}
+			before := slices.Clone(image)
+			if Opus_opus_decoder_init(nil, st, 44100, ch) != OPUS_BAD_ARG || !slices.Equal(before, image) {
+				t.Fatal("invalid rate changed state")
+			}
+		}
+	}
+	if Opus_opus_decoder_init(nil, nil, 44100, 2) != OPUS_BAD_ARG || Opus_opus_decoder_init(nil, nil, 48000, 0) != OPUS_BAD_ARG {
+		t.Fatal("validation before access")
+	}
+}
+
 func TestCeltDecoderInitPointers(t *testing.T) {
 	mode, _ := Opus_opus_custom_mode_create(nil, 48000, 960)
 	for _, rate := range []int32{48000, 24000, 16000, 12000, 8000} {

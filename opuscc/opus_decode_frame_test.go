@@ -13,7 +13,7 @@ func TestOpusDecodeFrameFieldAccesses(t *testing.T) {
 	setupResamplerPseudostack(tls)
 
 	memory := libc.Xmalloc(tls, uint64(Opus_opus_decoder_get_size(tls, 1)))
-	if got := Opus_opus_decoder_init(tls, memory, 24000, 1); got != OPUS_OK {
+	if got := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), 24000, 1); got != OPUS_OK {
 		t.Fatalf("decoder initialization: got %d", got)
 	}
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(memory))

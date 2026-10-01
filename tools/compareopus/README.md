@@ -429,6 +429,15 @@ PVQ search/quantization reuse renamed vq.c: exact pulses, energy, fallback/sign 
 reconstruction, collapse masks, entropy state and finalized bytes, including tiny
 encoder capacities. Search/pulse scratch is Go-owned; outer partition/synthesis
 adapters and mode pointer fields remain legacy.
+Decoder reset/init fixtures compare complete state images and guards using actual
+celt_decoder.c, opus_decoder.c, SILK init_decoder.c and dec_API.c scalar builds;
+only mode-pointer addresses are normalized. CELT reset uses offsetof(rng), retains
+configuration, clears its complete flexible tail and seeds both log histories.
+Custom/rate-aware CELT initialization retains typed mode ownership, zero-channel
+behavior, unchanged argument failures and initialized state before unsupported-rate
+assertions (captured in C). Typed Opus initialization removes its TLS vararg scratch;
+Go-owned buffers, reinitialization, stack growth and GC are exercised. Creation,
+multistream/control and decode boundaries still have explicit legacy adapters.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

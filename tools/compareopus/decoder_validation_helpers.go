@@ -11,6 +11,14 @@ void comparison_validator_fatal(const char *str,const char *file,int line) {long
 #define OPUS_BUILD 1
 #define ENABLE_ASSERTIONS 1
 #define OPUS_DISABLE_INTRINSICS 1
+#define celt_decoder_init comparison_celt_init
+#define silk_init_decoder validation_silk_state_init
+#define silk_reset_decoder validation_silk_state_reset
+#define silk_Get_Decoder_Size validation_silk_api_size
+#define silk_InitDecoder validation_silk_api_init
+#define silk_ResetDecoder validation_silk_api_reset
+#define silk_Decode validation_silk_api_decode
+#define silk_LoadOSCEModels validation_silk_api_models
 #define opus_decoder_get_size validation_decoder_get_size
 #define opus_decoder_init validation_decoder_init
 #define opus_decoder_create validation_decoder_create
@@ -40,6 +48,12 @@ void comparison_validator_fatal(const char *str,const char *file,int line) {long
 #define opus_decoder_dred_decode24 validation_dred_decode24
 #define opus_decoder_dred_decode_float validation_dred_decode_float
 #include "../../../opus/src/opus_decoder.c"
+#include "../../../opus/silk/init_decoder.c"
+#include "../../../opus/silk/dec_API.c"
+static int native_opus_init_image(unsigned char *data,size_t size,int rate,int channels) {
+ OpusDecoder *st=malloc(size);memcpy(st,data,size);int result=validation_decoder_init(st,rate,channels);
+ if(result==OPUS_OK)memset((char*)st+st->celt_dec_offset,0,sizeof(void*));memcpy(data,st,size);free(st);return result;
+}
 static int native_opus_validation(const int *v) {
  OpusDecoder st={0};st.channels=v[0];st.Fs=v[1];st.DecControl.API_sampleRate=v[2];st.DecControl.internalSampleRate=v[3];st.DecControl.nChannelsAPI=v[4];st.DecControl.nChannelsInternal=v[5];st.DecControl.payloadSize_ms=v[6];st.arch=v[7];st.stream_channels=v[8];
  if(setjmp(validation_jump)) return 1;
@@ -51,6 +65,13 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeOpusInitImage(data []byte, rate, channels int32) int32 {
+	return int32(C.native_opus_init_image((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(rate), C.int(channels)))
+}
+func nativeOpusSize(channels int32) int32 {
+	return int32(C.validation_decoder_get_size(C.int(channels)))
+}
 
 func nativeOpusValidation(st *opuscc.OpusT_OpusDecoder) bool {
 	dc := st.FDecControl
