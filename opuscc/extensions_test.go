@@ -8,6 +8,40 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestExtensionIteratorInitPointers(t *testing.T) {
+	owned := func() OpusT_OpusExtensionIterator {
+		packet := [3]byte{7, 99, 0}
+		var st OpusT_OpusExtensionIterator
+		Opus_opus_extension_iterator_init(nil, &st, &packet[0], 3, 48)
+		return st
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *owned.Fdata != 7 || owned.Fcurr_data != owned.Fdata || owned.Frepeat_data != owned.Fdata || owned.Fsrc_data != nil || owned.Flast_long != nil || owned.Fcurr_len != 3 || owned.Fframe_max != 48 {
+		t.Fatal("state/ownership")
+	}
+	guarded := struct {
+		before uint64
+		state  OpusT_OpusExtensionIterator
+		after  uint64
+	}{before: 77, after: 88}
+	Opus_opus_extension_iterator_init(nil, &guarded.state, nil, 0, 0)
+	if guarded.before != 77 || guarded.after != 88 || guarded.state != (OpusT_OpusExtensionIterator{}) {
+		t.Fatal("empty/guards")
+	}
+	for _, args := range [][2]int32{{-1, 1}, {1, 1}, {0, -1}, {0, 49}} {
+		before := owned
+		panicked := false
+		func() {
+			defer func() { panicked = recover() != nil }()
+			Opus_opus_extension_iterator_init(nil, &owned, nil, args[0], args[1])
+		}()
+		if !panicked || owned != before {
+			t.Fatal("assert/partial write", args)
+		}
+	}
+}
+
 func TestWriteExtensionPointers(t *testing.T) {
 	out := [8]byte{77, 77, 77, 77, 77, 77, 77, 88}
 	payload := [2]byte{11, 12}
@@ -124,7 +158,7 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 	}
 
 	var iterator OpusT_OpusExtensionIterator
-	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iterator)), uintptr(unsafe.Pointer(&packet[0])), length, 3)
+	Opus_opus_extension_iterator_init(tls, &iterator, &packet[0], length, 3)
 	for frame := int32(0); frame < 3; frame++ {
 		var extension OpusT_opus_extension_data
 		if got := Opus_opus_extension_iterator_next(tls, uintptr(unsafe.Pointer(&iterator)), uintptr(unsafe.Pointer(&extension))); got != 1 {
@@ -138,7 +172,7 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 		t.Fatalf("iterator exhaustion: got %d, want 0", got)
 	}
 
-	Opus_opus_extension_iterator_init(tls, uintptr(unsafe.Pointer(&iterator)), uintptr(unsafe.Pointer(&packet[0])), length, 3)
+	Opus_opus_extension_iterator_init(tls, &iterator, &packet[0], length, 3)
 	var found OpusT_opus_extension_data
 	if got := Opus_opus_extension_iterator_find(tls, uintptr(unsafe.Pointer(&iterator)), uintptr(unsafe.Pointer(&found)), 3); got != 1 {
 		t.Fatalf("find result: got %d, want 1", got)

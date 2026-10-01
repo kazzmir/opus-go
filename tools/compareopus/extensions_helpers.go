@@ -3,6 +3,11 @@
 package main
 
 /*
+#include <setjmp.h>
+static _Thread_local jmp_buf extension_jump;
+void comparison_extension_fatal(const char *str,const char *file,int line){longjmp(extension_jump,1);}
+#define celt_fatal comparison_extension_fatal
+#define ENABLE_ASSERTIONS 1
 #define OPUS_BUILD 1
 #define VAR_ARRAYS 1
 #define opus_extension_iterator_init comparison_extensions_init
@@ -16,6 +21,15 @@ package main
 #define opus_packet_extensions_parse_ext comparison_extensions_parse_ext
 #define opus_packet_extensions_generate comparison_extensions_generate
 #include "../../../opus/src/extensions.c"
+static const unsigned char *extension_pointer(const unsigned char *base,int offset){return offset<0?NULL:base+offset;}
+static int extension_offset(const unsigned char *base,const unsigned char *pointer){return pointer==NULL?-1:(int)(pointer-base);}
+static int native_extension_iterator(const unsigned char *base,int length,int frames,int *v) {
+ OpusExtensionIterator st={0};st.data=extension_pointer(base,v[0]);st.curr_data=extension_pointer(base,v[1]);st.repeat_data=extension_pointer(base,v[2]);st.last_long=extension_pointer(base,v[3]);st.src_data=extension_pointer(base,v[4]);
+ st.len=v[5];st.curr_len=v[6];st.repeat_len=v[7];st.src_len=v[8];st.trailing_short_len=v[9];st.nb_frames=v[10];st.frame_max=v[11];st.curr_frame=v[12];st.repeat_frame=v[13];st.repeat_l=v[14];
+ int result=0;if(setjmp(extension_jump))result=-99;else opus_extension_iterator_init(&st,base,length,frames);
+ v[0]=extension_offset(base,st.data);v[1]=extension_offset(base,st.curr_data);v[2]=extension_offset(base,st.repeat_data);v[3]=extension_offset(base,st.last_long);v[4]=extension_offset(base,st.src_data);
+ v[5]=st.len;v[6]=st.curr_len;v[7]=st.repeat_len;v[8]=st.src_len;v[9]=st.trailing_short_len;v[10]=st.nb_frames;v[11]=st.frame_max;v[12]=st.curr_frame;v[13]=st.repeat_frame;v[14]=st.repeat_l;return result;
+}
 static int native_write_extension(unsigned char *data,int capacity,int pos,int id,int length,const unsigned char *payload,int last) {
  opus_extension_data ext={0};ext.id=id;ext.len=length;ext.data=payload;return write_extension(data,capacity,pos,&ext,last);
 }
@@ -30,6 +44,10 @@ static int native_skip_payload(const unsigned char *base,int len,int id,int trai
 */
 import "C"
 import "unsafe"
+
+func nativeExtensionIterator(data []byte, length, frames int32, v *[19]int32) int32 {
+	return int32(C.native_extension_iterator((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(length), C.int(frames), (*C.int)(unsafe.Pointer(&v[0]))))
+}
 
 func nativeWriteExtension(data []byte, capacity, pos, id, length int32, payload []byte, last int32) int32 {
 	return int32(C.native_write_extension((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(capacity), C.int(pos), C.int(id), C.int(length), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(payload))), C.int(last)))

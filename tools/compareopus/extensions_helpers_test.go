@@ -9,6 +9,40 @@ import (
 	"unsafe"
 )
 
+func extensionTestOffset(base, p *byte) int32 {
+	if p == nil {
+		return -1
+	}
+	return int32(uintptr(unsafe.Pointer(p)) - uintptr(unsafe.Pointer(base)))
+}
+func extensionTestState(st *opuscc.OpusT_OpusExtensionIterator) [19]int32 {
+	return [19]int32{extensionTestOffset(st.Fdata, st.Fdata), extensionTestOffset(st.Fdata, st.Fcurr_data), extensionTestOffset(st.Fdata, st.Frepeat_data), extensionTestOffset(st.Fdata, st.Flast_long), extensionTestOffset(st.Fdata, st.Fsrc_data), st.Flen1, st.Fcurr_len, st.Frepeat_len, st.Fsrc_len, st.Ftrailing_short_len, st.Fnb_frames, st.Fframe_max, st.Fcurr_frame, st.Frepeat_frame, int32(st.Frepeat_l)}
+}
+func TestExtensionIteratorInitAgainstC(t *testing.T) {
+	for _, data := range [][]byte{nil, {7, 99, 0, 1, 2, 3, 4, 5}} {
+		for _, length := range []int32{-1, 0, 1, int32(len(data))} {
+			for _, frames := range []int32{-1, 0, 1, 3, 48, 49} {
+				base := unsafe.SliceData(data)
+				st := opuscc.OpusT_OpusExtensionIterator{Fdata: base, Fcurr_data: base, Frepeat_data: base, Fsrc_data: base, Flast_long: base, Flen1: 9, Fcurr_len: 8, Frepeat_len: 7, Fsrc_len: 6, Ftrailing_short_len: 5, Fnb_frames: 4, Fframe_max: 3, Fcurr_frame: 2, Frepeat_frame: 1, Frepeat_l: 9}
+				v := extensionTestState(&st)
+				result := int32(0)
+				func() {
+					defer func() {
+						if recover() != nil {
+							result = -99
+						}
+					}()
+					opuscc.Opus_opus_extension_iterator_init(nil, &st, base, length, frames)
+				}()
+				native := nativeExtensionIterator(data, length, frames, &v)
+				if result != native || extensionTestState(&st) != v {
+					t.Fatal(length, frames, result, native, extensionTestState(&st), v)
+				}
+			}
+		}
+	}
+}
+
 func TestWriteExtensionAgainstC(t *testing.T) {
 	for _, id := range []int32{3, 31, 32, 127} {
 		for _, length := range []int32{-1, 0, 1, 2, 254, 255, 256, 510, 511} {
