@@ -1,6 +1,34 @@
 package opuscc
 
-import "testing"
+import (
+	"runtime"
+	"slices"
+	"testing"
+)
+
+func TestCombFilterTransitionPointers(t *testing.T) {
+	Opus_comb_filter(nil, nil, nil, 0, 0, 0, 0, 0, -1, -1, nil, 0, 0)
+	src := make([]float32, 64)
+	for i := range src {
+		src[i] = float32(i%17-8) * 0.125
+	}
+	before := slices.Clone(src)
+	dst := [18]float32{}
+	dst[0] = 77
+	dst[17] = 88
+	win := [8]float32{0, .1, .2, .3, .4, .5, .6, .7}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_comb_filter(nil, &dst[1], &src[32], 15, 20, 16, .25, .5, 0, 1, &win[0], 8, 0)
+	if !slices.Equal(src, before) || dst[0] != 77 || dst[17] != 88 {
+		t.Fatal("input/guards")
+	}
+	copyBuf := [5]float32{1, 2, 3, 4, 5}
+	Opus_comb_filter(nil, &copyBuf[1], &copyBuf[0], 0, 0, 4, 0, 0, -1, -1, nil, 0, 0)
+	if copyBuf != [5]float32{1, 1, 2, 3, 4} {
+		t.Fatal("memmove")
+	}
+}
 
 func TestCombFilterPointers(t *testing.T) {
 	for _, period := range []int{15, 32} {
