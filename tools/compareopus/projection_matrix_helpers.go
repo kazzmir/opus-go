@@ -4,6 +4,8 @@ package main
 
 /*
 #define VAR_ARRAYS 1
+#define opus_multistream_decoder_init comparison_channels_init
+#define opus_multistream_decoder_get_size comparison_channels_get_size
 #define opus_projection_decoder_get_size comparison_projection_size
 #define opus_projection_decoder_init comparison_projection_init
 #define opus_projection_decoder_create comparison_projection_create
@@ -13,6 +15,12 @@ package main
 #define opus_projection_decoder_ctl comparison_projection_ctl
 #define opus_projection_decoder_destroy comparison_projection_destroy
 #include "../../../opus/src/opus_projection_decoder.c"
+extern void comparison_normalize_ms_modes(void *,int,int);
+static int native_projection_init_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,unsigned char *matrix,int bytes,int offset) {
+ OpusProjectionDecoder *st=malloc(size);memcpy(st,data,size);if(offset>=0)matrix=(unsigned char*)st+offset;
+ int result=comparison_projection_init(st,rate,channels,streams,coupled,matrix,bytes);if(result==OPUS_OK)comparison_normalize_ms_modes(get_multistream_decoder(st),streams,coupled);
+ memcpy(data,st,size);free(st);return result;
+}
 static void native_projection_output(void *dst,int ds,int dc,const float *src,int ss,int n,void *matrix,int op) {
  if(op==0) opus_projection_copy_channel_out_float(dst,ds,dc,src,ss,n,matrix);
  else if(op==1) opus_projection_copy_channel_out_short(dst,ds,dc,src,ss,n,matrix);
@@ -27,6 +35,13 @@ static size_t native_projection_matrix(void *base,int *fields) {
 */
 import "C"
 import "unsafe"
+
+func nativeProjectionInitImage(data []byte, rate, channels, streams, coupled int32, matrix []byte, bytes, offset int32) int32 {
+	return int32(C.native_projection_init_image((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(rate), C.int(channels), C.int(streams), C.int(coupled), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(matrix))), C.int(bytes), C.int(offset)))
+}
+func nativeProjectionSize(channels, streams, coupled int32) int32 {
+	return int32(C.comparison_projection_size(C.int(channels), C.int(streams), C.int(coupled)))
+}
 
 func nativeProjectionOutput(dst unsafe.Pointer, ds, dc int32, src []float32, ss, n int32, matrix unsafe.Pointer, op int32) {
 	C.native_projection_output(dst, C.int(ds), C.int(dc), (*C.float)(unsafe.Pointer(unsafe.SliceData(src))), C.int(ss), C.int(n), matrix, C.int(op))

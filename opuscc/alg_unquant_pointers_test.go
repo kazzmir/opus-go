@@ -1,9 +1,60 @@
 package opuscc
 
 import (
+	"math"
+	"runtime"
 	"slices"
 	"testing"
 )
+
+func TestAlgQuantPointers(t *testing.T) {
+	for spread := int32(0); spread < 4; spread++ {
+		buffer := [32]byte{}
+		var enc OpusT_ec_enc
+		Opus_ec_enc_init(nil, &enc, &buffer[0], 32)
+		x := [18]float32{}
+		x[0] = 77
+		x[17] = 88
+		for i := 1; i < 17; i++ {
+			x[i] = float32(i-8) * .1
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		mask := Opus_alg_quant(nil, &x[1], 16, 4, spread, 2, &enc, .75, 1, 0)
+		Opus_ec_enc_done(nil, &enc)
+		if x[0] != 77 || x[17] != 88 {
+			t.Fatal("guards")
+		}
+		var dec OpusT_ec_dec
+		Opus_ec_dec_init(nil, &dec, &buffer[0], 32)
+		var out [16]float32
+		dm := Opus_alg_unquant(nil, &out[0], 16, 4, spread, 2, &dec, .75)
+		if mask != dm {
+			t.Fatal("collapse mask", mask, dm)
+		}
+		for i := range out {
+			if math.Float32bits(out[i]) != math.Float32bits(x[i+1]) {
+				t.Fatal("round trip", spread, i, out[i], x[i+1])
+			}
+		}
+	}
+}
+
+func TestPVQSearchPointers(t *testing.T) {
+	x := [4]float32{77, -.25, .5, 88}
+	p := [4]int32{77, 0, 0, 88}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	yy := Opus_op_pvq_search_c(nil, &x[1], &p[1], 5, 2, 0)
+	if p != [4]int32{77, -2, 3, 88} || x != [4]float32{77, .25, .5, 88} || yy != 13 {
+		t.Fatal("pulse search", x, p, yy)
+	}
+	zero := [2]float32{}
+	pulses := [2]int32{}
+	if got := Opus_op_pvq_search_c(nil, &zero[0], &pulses[0], 16, 2, 0); got != 256 || pulses != [2]int32{16, 0} || zero != [2]float32{1, 0} {
+		t.Fatal("silence fallback", got, pulses, zero)
+	}
+}
 
 func TestAlgUnquantPointers(t *testing.T) {
 	for _, n := range []int32{2, 8, 32, 128} {

@@ -5,6 +5,8 @@ package main
 /*
 #define VAR_ARRAYS 1
 #define ENABLE_ASSERTIONS 1
+#define opus_decoder_init validation_decoder_init
+#define opus_decoder_get_size validation_decoder_get_size
 #define opus_multistream_decoder_get_size comparison_channels_get_size
 #define opus_multistream_decoder_init comparison_channels_init
 #define opus_multistream_decoder_create comparison_channels_create
@@ -16,6 +18,14 @@ package main
 #define opus_multistream_decoder_ctl comparison_channels_ctl
 #define opus_multistream_decoder_destroy comparison_channels_destroy
 #include "../../../opus/src/opus_multistream_decoder.c"
+extern void validation_normalize_decoder_mode(void *);
+void comparison_normalize_ms_modes(void *base,int streams,int coupled) {char *ptr=(char*)base+align(sizeof(OpusMSDecoder));for(int i=0;i<streams;i++){validation_normalize_decoder_mode(ptr);ptr+=align(validation_decoder_get_size(i<coupled?2:1));}}
+static int native_ms_init_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,const unsigned char *mapping,int mapping_offset) {
+ OpusMSDecoder *st=malloc(size);memcpy(st,data,size);if(mapping_offset>=0)mapping=(unsigned char*)st+mapping_offset;
+ int result=comparison_channels_init(st,rate,channels,streams,coupled,mapping);
+ if(result==OPUS_OK){char *ptr=(char*)st+align(sizeof(*st));for(int i=0;i<streams;i++){validation_normalize_decoder_mode(ptr);ptr+=align(validation_decoder_get_size(i<coupled?2:1));}}
+ memcpy(data,st,size);free(st);return result;
+}
 static int native_ms_packet_validate(const unsigned char *data,int length,int streams,int Fs) {return opus_multistream_packet_validate(data,length,streams,Fs);}
 static int native_ms_validate(void *state) {OpusMSDecoder *st=state;validate_ms_decoder(st);return validate_layout(&st->layout);}
 static void native_channel_output(void *dst,int ds,int dc,const float *src,int ss,int n,int op) {
@@ -28,6 +38,13 @@ import "C"
 
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
+
+func nativeMSInitImage(data []byte, rate, channels, streams, coupled int32, mapping []byte, mappingOffset int32) int32 {
+	return int32(C.native_ms_init_image((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(rate), C.int(channels), C.int(streams), C.int(coupled), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(mapping))), C.int(mappingOffset)))
+}
+func nativeMSSize(streams, coupled int32) int32 {
+	return int32(C.comparison_channels_get_size(C.int(streams), C.int(coupled)))
+}
 
 func nativeMSPacketValidation(data *byte, length, streams, Fs int32) int32 {
 	return int32(C.native_ms_packet_validate((*C.uchar)(unsafe.Pointer(data)), C.int(length), C.int(streams), C.int(Fs)))

@@ -29,7 +29,7 @@ func TestOpusDecoderInitCReference(t *testing.T) {
 					memory[i] = 0xa5
 				}
 				valid := tc.frame != 0 && (ch == 1 || ch == 2)
-				ret := Opus_opus_decoder_init(tls, p, tc.fs, ch)
+				ret := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(p)), tc.fs, ch)
 				if !valid {
 					if ret != -1 {
 						t.Fatalf("return = %d, want -1", ret)
@@ -64,7 +64,7 @@ func TestOpusDecoderInitCReference(t *testing.T) {
 						d.Fdecode_gain = 123
 						d.Fprev_mode = 1002
 						celt.Fsignalling = 1
-						ret = Opus_opus_decoder_init(tls, p, tc.fs, ch)
+						ret = Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(p)), tc.fs, ch)
 					}
 				}
 			})

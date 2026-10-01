@@ -421,6 +421,33 @@ CELT PLC pitch search now owns a fixed Go low-pass buffer and calls the fully
 typed pitch chain. The actual static C driver is linked to scalar pitch fixtures;
 silence, periodic/random mono/stereo data, input guards and shared channels are covered.
 The surrounding concealment state/scratch boundary remains legacy.
+Custom-mode lookup compares the actual static modes.c path over rates/frame sizes;
+Go-only tests retain int32 shift wrapping without treating C signed-overflow UB as
+an oracle. Comb transitions use renamed scalar celt.c for tapsets, gain changes,
+history, zero-length/memmove paths, unchanged filters and overlapping buffers.
+PVQ search/quantization reuse renamed vq.c: exact pulses, energy, fallback/sign bits,
+reconstruction, collapse masks, entropy state and finalized bytes, including tiny
+encoder capacities. Search/pulse scratch is Go-owned; outer partition/synthesis
+adapters and mode pointer fields remain legacy.
+Decoder reset/init fixtures compare complete state images and guards using actual
+celt_decoder.c, opus_decoder.c, SILK init_decoder.c and dec_API.c scalar builds;
+only mode-pointer addresses are normalized. CELT reset uses offsetof(rng), retains
+configuration, clears its complete flexible tail and seeds both log histories.
+Custom/rate-aware CELT initialization retains typed mode ownership, zero-channel
+behavior, unchanged argument failures and initialized state before unsupported-rate
+assertions (captured in C). Typed Opus initialization removes its TLS vararg scratch;
+Go-owned buffers, reinitialization, stack growth and GC are exercised. Creation,
+multistream/control and decode boundaries still have explicit legacy adapters.
+SILK parameter/index decoding reuses decoder-reset fixtures and actual
+silk/decode_parameters.c and decode_indices.c for all rates/subframe counts,
+voicing, interpolation/reset/loss cases, coding modes and entropy fields. Typed
+state/control/entropy arguments, direct LTP tables and copy/clear operations keep
+local scratch visible; codebook and table address fields remain legacy.
+Multistream/projection init fixtures compare complete state images (mode addresses
+only normalized), invalid/partial writes, guards and aliased mappings/matrices.
+Projection coefficient and identity-map scratch is Go-owned, and the complete
+initialization chain no longer needs TLS scratch. Creation/decode/control adapters
+and broader allocation ownership remain legacy.
 Float-to-PCM conversion, VAD initialization,
 Laroia weights, sum-of-squares, bandwidth expansion (16/32-bit), 2:1 downsampling,
 analysis filter bank, high-quality 2× upsampling, mono/stereo biquads, low-pass

@@ -1706,7 +1706,7 @@ const VERY_SMALL1 = 1e-30
 const qext_bytes = 0
 
 type OpusT_OpusCustomDecoder = struct {
-	Fmode                  uintptr
+	Fmode                  *OpusT_OpusCustomMode
 	Foverlap               int32
 	Fchannels              int32
 	Fstream_channels       int32
@@ -1794,7 +1794,7 @@ var log2_y_norm_coeff8 = [8]float32{
     @brief Decoder state
 */
 type OpusCustomDecoder = struct {
-	Fmode                  uintptr
+	Fmode                  *OpusT_OpusCustomMode
 	Foverlap               int32
 	Fchannels              int32
 	Fstream_channels       int32

@@ -14,27 +14,15 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
-func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frame_size int32) (uintptr, error) {
-	var i, j int32
-	_, _ = i, j
-	i = 0
-	for {
-		if !(i < int32(TOTAL_MODES)) {
-			break
-		}
-		j = 0
-		for {
-			if !(j < int32(4)) {
-				break
+func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frameSize int32) (*OpusT_OpusCustomMode, error) {
+	for _, mode := range static_mode_list {
+		for j := uint(0); j < 4; j++ {
+			if Fs == mode.FFs && frameSize<<j == mode.FshortMdctSize*mode.FnbShortMdcts {
+				return mode, nil
 			}
-			if Fs == (*OpusT_OpusCustomMode)(unsafe.Pointer(static_mode_list[i])).FFs && frame_size<<j == (*OpusT_OpusCustomMode)(unsafe.Pointer(static_mode_list[i])).FshortMdctSize*(*OpusT_OpusCustomMode)(unsafe.Pointer(static_mode_list[i])).FnbShortMdcts {
-				return static_mode_list[i], nil
-			}
-			j = j + 1
 		}
-		i = i + 1
 	}
-	return uintptr(uint32(0)), opusErrorFromCode(-int32(1))
+	return nil, opusErrorFromCode(OPUS_BAD_ARG)
 }
 
 const EPSILON1 = 1e-15
@@ -247,424 +235,97 @@ func extract_collapse_mask(tls *libc.TLS, iy *int32, N int32, B int32) (r uint32
 	return mask
 }
 
-func Opus_op_pvq_search_c(tls *libc.TLS, X uintptr, iy uintptr, K int32, N int32, arch int32) (r OpusT_opus_val16) {
-	var Rxy, Ryy, best_den, rcp, tmp, yy, v55 OpusT_opus_val16
-	var _saved_stack, signx, st, y, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
-	var best_id, i, j, pulsesLeft, v53 int32
-	var best_num, sum, xy OpusT_opus_val32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = Rxy, Ryy, _saved_stack, best_den, best_id, best_num, i, j, pulsesLeft, rcp, signx, st, sum, tmp, xy, y, yy, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v53, v55, v7, v9
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
+func Opus_op_pvq_search_c(tls *libc.TLS, X *float32, iy *int32, K, N, arch int32) float32 {
+	x := unsafe.Slice(X, N)
+	pulses := unsafe.Slice(iy, N)
+	y := make([]float32, N)
+	signs := make([]int32, N)
+	for j := range x {
+		signs[j] = libc.BoolInt32(x[j] < 0)
+		x[j] = float32(math.Abs(float64(x[j])))
+		pulses[j] = 0
+		y[j] = 0
+	}
+	var xy, yy float32
+	left := K
+	if K > N>>1 {
+		var sum float32
+		for _, v := range x {
+			sum += v
 		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	_ = arch
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
+		if !(sum > float32(1e-15) && sum < 64) {
+			x[0] = 1
+			clear(x[1:])
+			sum = 1
 		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(N))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+4855, int32(217))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(N)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	y = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N))*(uint64(4)/uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(N))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+4855, int32(218))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(N)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	signx = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N))*(uint64(4)/uint64(1)))
-	/* Get rid of the sign */
-	sum = float32(0)
-	j = 0
-	for {
-		*(*int32)(unsafe.Pointer(signx + uintptr(j)*4)) = libc.BoolInt32(*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)) < float32(0))
-		/* OPT: Make sure the compiler doesn't use a branch on ABS16(). */
-		*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)) = float32(libc.Xfabs(tls, float64(*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)))))
-		*(*int32)(unsafe.Pointer(iy + uintptr(j)*4)) = 0
-		*(*OpusT_celt_norm)(unsafe.Pointer(y + uintptr(j)*4)) = float32(0)
-		j = j + 1
-		v53 = j
-		if !(v53 < N) {
-			break
+		rcp := float32((float32(K) + float32(.8)) * float32(1/sum))
+		for j := range x {
+			pulses[j] = int32(math.Floor(float64(float32(rcp * x[j]))))
+			y[j] = float32(pulses[j])
+			yy += float32(y[j] * y[j])
+			xy += float32(x[j] * y[j])
+			y[j] *= 2
+			left -= pulses[j]
 		}
 	}
-	v55 = float32(0)
-	yy = v55
-	xy = v55
-	pulsesLeft = K
-	/* Do a pre-search by projecting on the pyramid */
-	if K > N>>int32(1) {
-		j = 0
-		for {
-			sum = sum + *(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4))
-			j = j + 1
-			v53 = j
-			if !(v53 < N) {
-				break
+	// Retain the non-debug C fallback and its two separate energy additions.
+	if left > N+3 {
+		tmp := float32(left)
+		yy += float32(tmp * tmp)
+		yy += float32(tmp * y[0])
+		pulses[0] += left
+		left = 0
+	}
+	for i := int32(0); i < left; i++ {
+		yy += 1
+		rxy := xy + x[0]
+		bestNum := float32(rxy * rxy)
+		bestDen := yy + y[0]
+		best := 0
+		for j := 1; j < len(x); j++ {
+			rxy = xy + x[j]
+			rxy = float32(rxy * rxy)
+			ryy := yy + y[j]
+			if float32(bestDen*rxy) > float32(ryy*bestNum) {
+				bestDen = ryy
+				bestNum = rxy
+				best = j
 			}
 		}
-		/* If X is too small, just replace it with a pulse at 0 */
-		/* Prevents infinities and NaNs from causing too many pulses
-		   to be allocated. 64 is an approximation of infinity here. */
-		if !(sum > float32(1e-15) && sum < float32(64)) {
-			*(*OpusT_celt_norm)(unsafe.Pointer(X)) = float32(1)
-			j = int32(1)
-			for {
-				*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)) = float32(0)
-				j = j + 1
-				v53 = j
-				if !(v53 < N) {
-					break
-				}
-			}
-			sum = float32(1)
-		}
-		/* Using K+e with e < 1 guarantees we cannot get more than K pulses. */
-		rcp = float32((float32(K) + float32(0.8)) * (float32(1) / sum))
-		j = 0
-		for {
-			*(*int32)(unsafe.Pointer(iy + uintptr(j)*4)) = int32(libc.Xfloor(tls, float64(rcp**(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)))))
-			*(*OpusT_celt_norm)(unsafe.Pointer(y + uintptr(j)*4)) = float32(*(*int32)(unsafe.Pointer(iy + uintptr(j)*4)))
-			yy = yy + OpusT_opus_val16(*(*OpusT_celt_norm)(unsafe.Pointer(y + uintptr(j)*4))**(*OpusT_celt_norm)(unsafe.Pointer(y + uintptr(j)*4)))
-			xy = xy + OpusT_opus_val32(*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4))**(*OpusT_celt_norm)(unsafe.Pointer(y + uintptr(j)*4)))
-			*(*OpusT_celt_norm)(unsafe.Pointer(y + uintptr(j)*4)) *= float32(2)
-			pulsesLeft = pulsesLeft - *(*int32)(unsafe.Pointer(iy + uintptr(j)*4))
-			j = j + 1
-			v53 = j
-			if !(v53 < N) {
-				break
-			}
-		}
+		xy += x[best]
+		yy += y[best]
+		y[best] += 2
+		pulses[best]++
 	}
-	_ = pulsesLeft >= int32(0)
-	/* This should never happen, but just in case it does (e.g. on silence)
-	   we fill the first bin with pulses. */
-	if pulsesLeft > N+int32(3) {
-		tmp = float32(pulsesLeft)
-		yy = yy + OpusT_opus_val16(tmp*tmp)
-		yy = yy + OpusT_opus_val16(tmp**(*OpusT_celt_norm)(unsafe.Pointer(y)))
-		*(*int32)(unsafe.Pointer(iy)) += pulsesLeft
-		pulsesLeft = 0
+	for j := range x {
+		pulses[j] = (pulses[j] ^ (-signs[j])) + signs[j]
 	}
-	i = 0
-	for {
-		if !(i < pulsesLeft) {
-			break
-		}
-		best_id = 0
-		/* The squared magnitude term gets added anyway, so we might as well
-		   add it outside the loop */
-		yy = yy + float32(int32(1))
-		/* Calculations for position 0 are out of the loop, in part to reduce
-		   mispredicted branches (since the if condition is usually false)
-		   in the loop. */
-		/* Temporary sums of the new pulse(s) */
-		Rxy = xy + *(*OpusT_celt_norm)(unsafe.Pointer(X))
-		/* We're multiplying y[j] by two so we don't have to do it here */
-		Ryy = yy + *(*OpusT_celt_norm)(unsafe.Pointer(y))
-		/* Approximate score: we maximise Rxy/sqrt(Ryy) (we're guaranteed that
-		   Rxy is positive because the sign is pre-computed) */
-		Rxy = OpusT_opus_val16(Rxy * Rxy)
-		best_den = Ryy
-		best_num = Rxy
-		j = int32(1)
-		for {
-			/* Temporary sums of the new pulse(s) */
-			Rxy = xy + *(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4))
-			/* We're multiplying y[j] by two so we don't have to do it here */
-			Ryy = yy + *(*OpusT_celt_norm)(unsafe.Pointer(y + uintptr(j)*4))
-			/* Approximate score: we maximise Rxy/sqrt(Ryy) (we're guaranteed that
-			   Rxy is positive because the sign is pre-computed) */
-			Rxy = OpusT_opus_val16(Rxy * Rxy)
-			/* The idea is to check for num/den >= best_num/best_den, but that way
-			   we can do it without any division */
-			/* OPT: It's not clear whether a cmov is faster than a branch here
-			   since the condition is more often false than true and using
-			   a cmov introduces data dependencies across iterations. The optimal
-			   choice may be architecture-dependent. */
-			if libc.BoolInt64(!!(OpusT_opus_val32(best_den*Rxy) > OpusT_opus_val32(Ryy*best_num))) != 0 {
-				best_den = Ryy
-				best_num = Rxy
-				best_id = j
-			}
-			j = j + 1
-			v53 = j
-			if !(v53 < N) {
-				break
-			}
-		}
-		/* Updating the sums of the new pulse(s) */
-		xy = xy + *(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(best_id)*4))
-		/* We're multiplying y[j] by two so we don't have to do it here */
-		yy = yy + *(*OpusT_celt_norm)(unsafe.Pointer(y + uintptr(best_id)*4))
-		/* Only now that we've made the final choice, update y/iy */
-		/* Multiplying y[j] by 2 so we don't have to do it everywhere else */
-		*(*OpusT_celt_norm)(unsafe.Pointer(y + uintptr(best_id)*4)) += float32(2)
-		*(*int32)(unsafe.Pointer(iy + uintptr(best_id)*4)) = *(*int32)(unsafe.Pointer(iy + uintptr(best_id)*4)) + 1
-		i = i + 1
-	}
-	/* Put the original sign back */
-	j = 0
-	for {
-		/*iy[j] = signx[j] ? -iy[j] : iy[j];*/
-		/* OPT: The is more likely to be compiled without a branch than the code above
-		   but has the same performance otherwise. */
-		*(*int32)(unsafe.Pointer(iy + uintptr(j)*4)) = *(*int32)(unsafe.Pointer(iy + uintptr(j)*4)) ^ -*(*int32)(unsafe.Pointer(signx + uintptr(j)*4)) + *(*int32)(unsafe.Pointer(signx + uintptr(j)*4))
-		j = j + 1
-		v53 = j
-		if !(v53 < N) {
-			break
-		}
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	return yy
 }
 
-func Opus_alg_quant(tls *libc.TLS, X uintptr, N int32, K int32, spread int32, B int32, enc uintptr, gain OpusT_opus_val32, resynth int32, arch int32) (r uint32) {
-	var _saved_stack, iy, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
-	var collapse_mask uint32
-	var yy OpusT_opus_val32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, collapse_mask, iy, st, yy, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, enc *OpusT_ec_enc, gain OpusT_opus_val32, resynth, arch int32) uint32 {
+	if K <= 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+4868, __ccgo_ts+4855, 562)
 	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	if !(K > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+4868, __ccgo_ts+4855, int32(562))
+	if N <= 1 {
+		Opus_celt_fatal(tls, __ccgo_ts+4927, __ccgo_ts+4855, 563)
 	}
-	if !(N > int32(1)) {
-		Opus_celt_fatal(tls, __ccgo_ts+4927, __ccgo_ts+4855, int32(563))
-	}
-	/* Covers vectorization by up to 4. */
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(N+int32(3)))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+4855, int32(566))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(N+int32(3))) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	iy = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N+int32(3)))*(uint64(4)/uint64(1)))
-	Opus_exp_rotation(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, int32(1), B, K, spread)
-	yy = Opus_op_pvq_search_c(tls, X, iy, K, N, arch)
-	collapse_mask = extract_collapse_mask(tls, (*int32)(unsafe.Pointer(iy)), N, B)
-	Opus_encode_pulses(tls, (*int32)(unsafe.Pointer(iy)), N, K, (*OpusT_ec_enc)(unsafe.Pointer(enc)))
+	// Preserve C's three padding words for up-to-four-lane pulse search.
+	pulses := make([]int32, N+3)
+	Opus_exp_rotation(tls, X, N, 1, B, K, spread)
+	yy := Opus_op_pvq_search_c(tls, X, &pulses[0], K, N, arch)
+	mask := extract_collapse_mask(tls, &pulses[0], N, B)
+	Opus_encode_pulses(tls, &pulses[0], N, K, enc)
 	if resynth != 0 {
-		normalise_residual(tls, (*int32)(unsafe.Pointer(iy)), (*OpusT_celt_norm)(unsafe.Pointer(X)), N, yy, gain, 0)
+		normalise_residual(tls, &pulses[0], X, N, yy, gain, 0)
+		Opus_exp_rotation(tls, X, N, -1, B, K, spread)
 	}
-	if resynth != 0 {
-		Opus_exp_rotation(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, -int32(1), B, K, spread)
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-	return collapse_mask
+	return mask
+}
+
+// The partition driver still owns integer-addressed band/context buffers.
+func alg_quant_legacy(tls *libc.TLS, X uintptr, N, K, spread, B int32, enc uintptr, gain float32, resynth, arch int32) uint32 {
+	return Opus_alg_quant(tls, (*float32)(unsafe.Pointer(X)), N, K, spread, B, (*OpusT_ec_enc)(unsafe.Pointer(enc)), gain, resynth, arch)
 }
 
 // C documentation
@@ -2919,7 +2580,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 			K = v2
 			/* Finally do the actual quantization */
 			if encode != 0 {
-				cm = Opus_alg_quant(tls, X, N, K, spread, B, ec, gain, ctx.Fresynth, ctx.Farch)
+				cm = alg_quant_legacy(tls, X, N, K, spread, B, ec, gain, ctx.Fresynth, ctx.Farch)
 			} else {
 				cm = Opus_alg_unquant(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, K, spread, B, (*OpusT_ec_dec)(unsafe.Pointer(ec)), gain)
 			}

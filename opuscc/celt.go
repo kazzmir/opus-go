@@ -168,71 +168,47 @@ func comb_filter_const_c(tls *libc.TLS, y *OpusT_opus_val32, xHistory *OpusT_opu
 	}
 }
 
-func Opus_comb_filter(tls *libc.TLS, y uintptr, x uintptr, T0 int32, T1 int32, N int32, g0 OpusT_opus_val16, g1 OpusT_opus_val16, tapset0 int32, tapset1 int32, window uintptr, overlap int32, arch int32) {
-	var f, g00, g01, g02, g10, g11, g12 OpusT_celt_coef
-	var i, v1 int32
-	var x0, x1, x2, x3, x4 OpusT_opus_val32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _ = f, g00, g01, g02, g10, g11, g12, i, x0, x1, x2, x3, x4, v1
-	if g0 == float32(0) && g1 == float32(0) {
-		/* OPT: Happens to work without the OPUS_MOVE(), but only because the current encoder already copies x to y */
+func Opus_comb_filter(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32) {
+	if g0 == 0 && g1 == 0 {
 		if x != y {
-			libc.Xmemmove(tls, y, x, uint64(uint32(N))*uint64(4)+uint64(0*((int64(y)-int64(x))/4)))
+			copy(unsafe.Slice(y, N), unsafe.Slice(x, N))
 		}
 		return
 	}
-	/* When the gain is zero, T0 and/or T1 is set to zero. We need
-	   to have then be at least 2 to avoid processing garbage data. */
-	if T0 > int32(COMBFILTER_MINPERIOD) {
-		v1 = T0
-	} else {
-		v1 = int32(COMBFILTER_MINPERIOD)
-	}
-	T0 = v1
-	if T1 > int32(COMBFILTER_MINPERIOD) {
-		v1 = T1
-	} else {
-		v1 = int32(COMBFILTER_MINPERIOD)
-	}
-	T1 = v1
-	g00 = OpusT_opus_val16(g0 * *(*OpusT_opus_val16)(unsafe.Pointer(uintptr(unsafe.Pointer(&gains)) + uintptr(tapset0)*12)))
-	g01 = OpusT_opus_val16(g0 * *(*OpusT_opus_val16)(unsafe.Pointer(uintptr(unsafe.Pointer(&gains)) + uintptr(tapset0)*12 + 1*4)))
-	g02 = OpusT_opus_val16(g0 * *(*OpusT_opus_val16)(unsafe.Pointer(uintptr(unsafe.Pointer(&gains)) + uintptr(tapset0)*12 + 2*4)))
-	g10 = OpusT_opus_val16(g1 * *(*OpusT_opus_val16)(unsafe.Pointer(uintptr(unsafe.Pointer(&gains)) + uintptr(tapset1)*12)))
-	g11 = OpusT_opus_val16(g1 * *(*OpusT_opus_val16)(unsafe.Pointer(uintptr(unsafe.Pointer(&gains)) + uintptr(tapset1)*12 + 1*4)))
-	g12 = OpusT_opus_val16(g1 * *(*OpusT_opus_val16)(unsafe.Pointer(uintptr(unsafe.Pointer(&gains)) + uintptr(tapset1)*12 + 2*4)))
-	x1 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(-T1+int32(1))*4))
-	x2 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(-T1)*4))
-	x3 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(-T1-int32(1))*4))
-	x4 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(-T1-int32(2))*4))
-	/* If the filter didn't change, we don't need the overlap */
+	T0 = max(T0, COMBFILTER_MINPERIOD)
+	T1 = max(T1, COMBFILTER_MINPERIOD)
+	g00, g01, g02 := float32(g0*gains[tapset0][0]), float32(g0*gains[tapset0][1]), float32(g0*gains[tapset0][2])
+	g10, g11, g12 := float32(g1*gains[tapset1][0]), float32(g1*gains[tapset1][1]), float32(g1*gains[tapset1][2])
 	if g0 == g1 && T0 == T1 && tapset0 == tapset1 {
 		overlap = 0
 	}
-	i = 0
-	for {
-		if !(i < overlap) {
-			break
-		}
-		x0 = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(i-T1+int32(2))*4))
-		f = OpusT_celt_coef(*(*OpusT_celt_coef)(unsafe.Pointer(window + uintptr(i)*4)) * *(*OpusT_celt_coef)(unsafe.Pointer(window + uintptr(i)*4)))
-		*(*OpusT_opus_val32)(unsafe.Pointer(y + uintptr(i)*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(i)*4)) + float32(float32((float32(1)-f)*g00)**(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(i-T0)*4))) + float32(float32((float32(1)-f)*g01)*(*(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(i-T0+int32(1))*4))+*(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(i-T0-int32(1))*4)))) + float32(float32((float32(1)-f)*g02)*(*(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(i-T0+int32(2))*4))+*(*OpusT_opus_val32)(unsafe.Pointer(x + uintptr(i-T0-int32(2))*4)))) + OpusT_celt_coef(OpusT_celt_coef(f*g10)*x2) + OpusT_celt_coef(OpusT_celt_coef(f*g11)*(x1+x3)) + OpusT_celt_coef(OpusT_celt_coef(f*g12)*(x0+x4))
-		*(*OpusT_opus_val32)(unsafe.Pointer(y + uintptr(i)*4)) = *(*OpusT_opus_val32)(unsafe.Pointer(y + uintptr(i)*4))
-		x4 = x3
-		x3 = x2
-		x2 = x1
-		x1 = x0
-		i = i + 1
+	history := T1 + 2
+	if overlap > 0 {
+		history = max(history, T0+2)
 	}
-	if g1 == float32(0) {
-		/* OPT: Happens to work without the OPUS_MOVE(), but only because the current encoder already copies x to y */
+	// The preceding history and current samples belong to the same allocation.
+	src := unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(x), -int(history)*4)), history+N)
+	dst := unsafe.Slice(y, N)
+	x1, x2, x3, x4 := src[history-T1+1], src[history-T1], src[history-T1-1], src[history-T1-2]
+	win := unsafe.Slice(window, overlap)
+	for i := int32(0); i < overlap; i++ {
+		x0 := src[history+i-T1+2]
+		f := float32(win[i] * win[i])
+		dst[i] = src[history+i] + float32(float32((1-f)*g00)*src[history+i-T0]) + float32(float32((1-f)*g01)*(src[history+i-T0+1]+src[history+i-T0-1])) + float32(float32((1-f)*g02)*(src[history+i-T0+2]+src[history+i-T0-2])) + float32(float32(f*g10)*x2) + float32(float32(f*g11)*(x1+x3)) + float32(float32(f*g12)*(x0+x4))
+		x4, x3, x2, x1 = x3, x2, x1, x0
+	}
+	if g1 == 0 {
 		if x != y {
-			libc.Xmemmove(tls, y+uintptr(overlap)*4, x+uintptr(overlap)*4, uint64(uint32(N-overlap))*uint64(4)+uint64(0*((int64(y+uintptr(overlap)*4)-int64(x+uintptr(overlap)*4))/4)))
+			copy(dst[overlap:], src[history+overlap:])
 		}
 		return
 	}
-	/* Compute the part with the constant filter. */
-	_ = arch
-	comb_filter_const_c(tls, (*OpusT_opus_val32)(unsafe.Pointer(y+uintptr(i)*4)), (*OpusT_opus_val32)(unsafe.Pointer(x+uintptr(i)*4-uintptr(T1+2)*4)), T1, N-i, g10, g11, g12)
+	comb_filter_const_c(tls, (*float32)(unsafe.Add(unsafe.Pointer(y), int(overlap)*4)), (*float32)(unsafe.Add(unsafe.Pointer(x), int(overlap-T1-2)*4)), T1, N-overlap, g10, g11, g12)
+}
+
+// The surrounding synthesis/concealment buffers remain integer-addressed.
+func comb_filter_legacy(tls *libc.TLS, y, x uintptr, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window uintptr, overlap, arch int32) {
+	Opus_comb_filter(tls, (*float32)(unsafe.Pointer(y)), (*float32)(unsafe.Pointer(x)), T0, T1, N, g0, g1, tapset0, tapset1, (*float32)(unsafe.Pointer(window)), overlap, arch)
 }
 
 var gains = [3][3]OpusT_opus_val16{

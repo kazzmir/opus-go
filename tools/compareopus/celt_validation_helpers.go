@@ -25,10 +25,28 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #define opus_custom_decode24 comparison_custom_decode24
 #define opus_custom_decode_float comparison_custom_decode_float
 #define opus_custom_decoder_ctl comparison_custom_ctl
+#define resampling_factor comparison_celt_resampling
 #define pitch_downsample compare_pitch_downsample
 #define pitch_search compare_pitch_search
 #include "../../../opus/celt/celt_decoder.c"
 static int native_plc_pitch(float *left,float *right,int channels) {float *data[2]={left,right};return celt_plc_pitch_search(NULL,data,channels,0);}
+#define comb_filter comparison_celt_comb_filter
+#define init_caps comparison_celt_init_caps
+#define tf_select_table comparison_celt_tf_select_table
+#define opus_strerror comparison_celt_strerror
+#define opus_get_version_string comparison_celt_version
+#include "../../../opus/celt/celt.c"
+#define opus_custom_mode_create comparison_mode_create
+#define opus_custom_mode_destroy comparison_mode_destroy
+#include "../../../opus/celt/modes.c"
+static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
+#undef opus_custom_mode_create
+#undef opus_custom_mode_destroy
+static int native_celt_state(unsigned char *data,size_t size,int op,int channels,int rate,int overlap,int bands,int eff) {
+ CELTMode mode={0};mode.overlap=overlap;mode.nbEBands=bands;mode.effEBands=eff;CELTDecoder *st=size?malloc(size):NULL;if(size)memcpy(st,data,size);
+ int result;if(setjmp(celt_validation_jump))result=-99;else if(op==0){st->mode=&mode;result=comparison_custom_ctl(st,OPUS_RESET_STATE);}else if(op==1)result=comparison_custom_init(st,&mode,channels);else result=comparison_celt_init(st,rate,channels);
+ if(size){st->mode=NULL;memcpy(data,st,size);free(st);}return result;
+}
 static void native_tf(unsigned *s,unsigned char *data,int start,int end,int transient,int *out,int LM) {
  ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=s[3];dec.nbits_total=s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=s[9];dec.error=s[10];
  tf_decode(start,end,transient,out,LM,&dec);
@@ -50,6 +68,20 @@ import (
 
 func nativePLCPitchSearch(left, right []float32, channels int32) int32 {
 	return int32(C.native_plc_pitch((*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), C.int(channels)))
+}
+
+func nativeCeltState(data []byte, op, channels, rate, overlap, bands, eff int32) int32 {
+	return int32(C.native_celt_state((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(op), C.int(channels), C.int(rate), C.int(overlap), C.int(bands), C.int(eff)))
+}
+
+func nativeCustomMode(rate, frame int32) (int32, [7]int32) {
+	var v [7]C.int
+	code := C.native_mode_lookup(C.int(rate), C.int(frame), &v[0])
+	var out [7]int32
+	for i := range v {
+		out[i] = int32(v[i])
+	}
+	return int32(code), out
 }
 
 func nativeTFDecode(dec *opuscc.OpusT_ec_dec, data []byte, start, end, transient int32, out []int32, LM int32) {

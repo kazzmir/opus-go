@@ -14,13 +14,27 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
+func celt_decoder_reset(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
+	mode := st.Fmode
+	size := opus_custom_decoder_get_size(tls, mode, st.Fchannels)
+	start := unsafe.Offsetof(st.Frng)
+	oldBand := unsafe.Add(unsafe.Pointer(&st.F_decode_mem[0]), int((DEC_PITCH_BUF_SIZE+st.Foverlap)*st.Fchannels)*4)
+	oldLog := unsafe.Slice((*float32)(unsafe.Add(oldBand, int(2*mode.FnbEBands)*4)), 2*mode.FnbEBands)
+	oldLog2 := unsafe.Slice((*float32)(unsafe.Add(oldBand, int(4*mode.FnbEBands)*4)), 2*mode.FnbEBands)
+	clear(unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(st), start)), int(size)-int(start)))
+	for i := range oldLog {
+		oldLog2[i] = -28
+		oldLog[i] = -28
+	}
+	st.Fskip_plc = 1
+	st.Flast_frame_type = FRAME_NONE
+}
+
 func Opus_opus_custom_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
 	var ap OpusT_va_list
-	var decode_buffer_size, i int32
-	var oldBandE, oldLogE, oldLogE2, value1, value10, value12, value5, value6, value7, value8 uintptr
+	var value1, value10, value12, value5, value6, value7, value8 uintptr
 	var value, value11, value2, value3, value4, value9 OpusT_opus_int32
-	var v2 OpusT_celt_glog
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = ap, decode_buffer_size, i, oldBandE, oldLogE, oldLogE2, value, value1, value10, value11, value12, value2, value3, value4, value5, value6, value7, value8, value9, v2
+	_, _, _, _, _, _, _, _, _, _, _, _, _, _ = ap, value, value1, value10, value11, value12, value2, value3, value4, value5, value6, value7, value8, value9
 	ap = va
 	switch request {
 	case int32(OPUS_SET_COMPLEXITY_REQUEST):
@@ -67,23 +81,7 @@ func Opus_opus_custom_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va u
 		}
 		*(*OpusT_opus_int32)(unsafe.Pointer(value6)) = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap / (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fdownsample
 	case int32(OPUS_RESET_STATE):
-		decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
-		oldBandE = st + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr((decode_buffer_size+(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Foverlap)*(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fchannels)*4
-		oldLogE = oldBandE + uintptr(int32(2)*(*OpusT_OpusCustomMode)(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode)).FnbEBands)*4
-		oldLogE2 = oldLogE + uintptr(int32(2)*(*OpusT_OpusCustomMode)(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode)).FnbEBands)*4
-		libc.Xmemset(tls, st+48, 0, uint64(int64(opus_custom_decoder_get_size(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode)), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fchannels))-(int64(st+48)-int64(st)))*uint64(1))
-		i = 0
-		for {
-			if !(i < int32(2)*(*OpusT_OpusCustomMode)(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode)).FnbEBands) {
-				break
-			}
-			v2 = -float32(28)
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldLogE2 + uintptr(i)*4)) = v2
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(i)*4)) = v2
-			i = i + 1
-		}
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fskip_plc = int32(1)
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Flast_frame_type = FRAME_NONE
+		celt_decoder_reset(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)))
 	case int32(OPUS_GET_PITCH_REQUEST):
 		value7 = libc.VaUintptr(&ap)
 		if value7 == uintptr(uint32(0)) {
@@ -95,7 +93,7 @@ func Opus_opus_custom_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va u
 		if value8 == uintptr(0) {
 			goto bad_arg
 		}
-		*(*uintptr)(unsafe.Pointer(value8)) = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode
+		*(*uintptr)(unsafe.Pointer(value8)) = uintptr(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fmode))
 	case int32(CELT_SET_SIGNALLING_REQUEST):
 		value9 = libc.VaInt32(&ap)
 		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)).Fsignalling = value9
@@ -7892,6 +7890,4 @@ var mode48000_960_120 = OpusT_OpusCustomMode{
 		Fcaps:  uintptr(unsafe.Pointer(&cache_caps50)),
 	},
 }
-var static_mode_list = [1]uintptr{
-	0: uintptr(unsafe.Pointer(&mode48000_960_120)),
-}
+var static_mode_list = [1]*OpusT_OpusCustomMode{&mode48000_960_120}

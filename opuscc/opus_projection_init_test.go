@@ -4,12 +4,50 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestProjectionDecoderInitPointers(t *testing.T) {
+	size := int(Opus_opus_projection_decoder_get_size(nil, 3, 2, 1))
+	backing := make([]uint64, (size+7)/8+2)
+	st := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(&backing[0]))
+	image := unsafe.Slice((*byte)(unsafe.Pointer(st)), size+16)
+	for i := size; i < len(image); i++ {
+		image[i] = 0xa5
+	}
+	matrix := [18]byte{0, 0, 0xff, 0x7f, 0, 0x80, 0xff, 0xff, 1, 0, 0xfe, 0xff}
+	before := matrix
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_projection_decoder_init(nil, st, 48000, 3, 2, 1, &matrix[0], 18) != 0 || matrix != before {
+		t.Fatal("init/input")
+	}
+	data := unsafe.Slice(Opus_mapping_matrix_get_data(nil, get_dec_demixing_matrix(nil, st)), 9)
+	if !slices.Equal(data[:6], []int16{0, 32767, -32768, -1, 1, -2}) {
+		t.Fatal("coefficients", data)
+	}
+	if get_multistream_decoder(nil, st).Flayout.Fmapping[2] != 2 {
+		t.Fatal("identity layout")
+	}
+	for _, b := range image[size:] {
+		if b != 0xa5 {
+			t.Fatal("guard")
+		}
+	}
+	unchanged := slices.Clone(image)
+	if Opus_opus_projection_decoder_init(nil, st, 48000, 3, 2, 1, nil, 17) != OPUS_BAD_ARG || !slices.Equal(unchanged, image) {
+		t.Fatal("size failure")
+	}
+	if Opus_opus_projection_decoder_init(nil, nil, 48000, 3, 2, 1, nil, 17) != OPUS_BAD_ARG {
+		t.Fatal("validation before access")
+	}
+}
 
 func TestProjectionDecoderInitCReference(t *testing.T) {
 	f, err := os.Open("testdata/projection_init_ref.txt")
@@ -51,7 +89,7 @@ func TestProjectionDecoderInitCReference(t *testing.T) {
 				bytes[2*i] = byte(v)
 				bytes[2*i+1] = byte(v >> 8)
 			}
-			if ret := Opus_opus_projection_decoder_init(tls, st, fs, ch, streams, coupled, matrix, 2*count+delta); ret != wantRet {
+			if ret := Opus_opus_projection_decoder_init(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), fs, ch, streams, coupled, (*byte)(unsafe.Pointer(matrix)), 2*count+delta); ret != wantRet {
 				t.Fatalf("return %d, want %d", ret, wantRet)
 			}
 			if wantRet != 0 {
