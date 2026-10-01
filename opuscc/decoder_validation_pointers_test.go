@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 	"unsafe"
+	"weak"
 )
 
 func validationPanics(f func()) (panicked bool) {
@@ -34,6 +35,33 @@ func TestDecoderAllocationPointers(t *testing.T) {
 	if st.Fchannels != 2 || st.FFs != 48000 {
 		t.Fatal("typed allocation ownership")
 	}
+}
+
+func TestDecoderDestroyPointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	release := func() weak.Pointer[OpusT_OpusDecoder] {
+		st, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := weak.Make(st)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus_opus_decoder_destroy_typed(tls, st)
+		return w
+	}
+	w := release()
+	for i := 0; i < 10; i++ {
+		runtime.GC()
+	}
+	if w.Value() != nil {
+		t.Fatal("destroy left allocation registered")
+	}
+	runtime.KeepAlive(tls)
+	Opus_opus_decoder_destroy_typed(tls, nil)
+	Opus_opus_decoder_destroy_typed(nil, nil)
+	Opus_opus_decoder_destroy_typed(nil, &OpusT_OpusDecoder{})
 }
 
 func TestDecoderCreatePointers(t *testing.T) {

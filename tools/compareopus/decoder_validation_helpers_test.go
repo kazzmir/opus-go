@@ -10,6 +10,14 @@ import (
 	"unsafe"
 )
 
+func TestDecoderDestroyAgainstC(t *testing.T) {
+	for _, null := range []bool{false, true} {
+		if !nativeOpusDestroy(null) {
+			t.Fatal("decoder destruction must free only its base", null)
+		}
+	}
+}
+
 func TestCustomDecoderSizeAgainstC(t *testing.T) {
 	for _, overlap := range []int32{0, 60, 120, 240} {
 		for _, bands := range []int32{0, 1, 21, 25} {

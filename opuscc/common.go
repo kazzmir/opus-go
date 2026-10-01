@@ -3841,8 +3841,13 @@ bad_arg:
 	return -int32(1)
 }
 
+// The legacy ABI frees an address key without reconstructing a Go pointer.
 func Opus_opus_decoder_destroy(tls *libc.TLS, st uintptr) {
 	libc.Xfree(tls, st)
+}
+
+func Opus_opus_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusDecoder) {
+	libc.XfreePointer(tls, unsafe.Pointer(st))
 }
 
 func Opus_opus_packet_get_bandwidth(tls *libc.TLS, data *byte) (r int32) {
