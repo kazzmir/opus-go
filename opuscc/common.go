@@ -1926,14 +1926,14 @@ type OpusT_silk_NLSF_CB_struct = struct {
 	Forder               OpusT_opus_int16
 	FquantStepSize_Q16   OpusT_opus_int16
 	FinvQuantStepSize_Q6 OpusT_opus_int16
-	FCB1_NLSF_Q8         uintptr
-	FCB1_Wght_Q9         uintptr
-	FCB1_iCDF            uintptr
-	Fpred_Q8             uintptr
-	Fec_sel              uintptr
-	Fec_iCDF             uintptr
-	Fec_Rates_Q5         uintptr
-	FdeltaMin_Q15        uintptr
+	FCB1_NLSF_Q8         *byte
+	FCB1_Wght_Q9         *int16
+	FCB1_iCDF            *byte
+	Fpred_Q8             *byte
+	Fec_sel              *byte
+	Fec_iCDF             *byte
+	Fec_Rates_Q5         *byte
+	FdeltaMin_Q15        *int16
 }
 
 type OpusT_stereo_enc_state = struct {

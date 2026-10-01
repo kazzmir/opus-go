@@ -311,8 +311,8 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 	}
 	// Codebook/table fields remain legacy; retain typed bases while traversing their tables.
 	cb := (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB))
-	first := (*byte)(unsafe.Pointer(cb.FCB1_iCDF))
-	residual := (*byte)(unsafe.Pointer(cb.Fec_iCDF))
+	first := cb.FCB1_iCDF
+	residual := cb.Fec_iCDF
 	indices.FNLSFIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, (*byte)(unsafe.Add(unsafe.Pointer(first), int32(indices.FsignalType>>1)*int32(cb.FnVectors))), 8))
 	var ecIX [MAX_LPC_ORDER]int16
 	var pred [MAX_LPC_ORDER]byte
