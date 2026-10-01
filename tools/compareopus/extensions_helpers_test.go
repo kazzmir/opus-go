@@ -163,6 +163,76 @@ func TestExtensionParseAgainstC(t *testing.T) {
 	}
 }
 
+func TestExtensionParseExtAgainstC(t *testing.T) {
+	for pi, data := range extensionCollectionPackets() {
+		for _, frames := range []int32{0, 1, 3, 48} {
+			counts := make([]int32, frames)
+			total := opuscc.Opus_opus_packet_extensions_count_ext(nil, unsafe.SliceData(data), int32(len(data)), unsafe.SliceData(counts), frames)
+			for _, capacity := range []int32{0, 1, total, total + 1} {
+				out := make([]opuscc.OpusT_opus_extension_data, total+3)
+				for i := range out {
+					out[i] = opuscc.OpusT_opus_extension_data{Fid: 91, Fframe: 92, Flen1: 93}
+				}
+				words := extensionOutputWords(unsafe.SliceData(data), out)
+				g, c := capacity, capacity
+				before := slices.Clone(counts)
+				got := opuscc.Opus_opus_packet_extensions_parse_ext(nil, unsafe.SliceData(data), int32(len(data)), &out[0], &g, unsafe.SliceData(counts), frames)
+				native := nativeExtensionParse(data, int32(len(data)), frames, words, &c, false, false, 0, counts)
+				if got != native || g != c || !slices.Equal(extensionOutputWords(unsafe.SliceData(data), out), words) || !slices.Equal(counts, before) {
+					t.Fatal(pi, frames, capacity, got, native, g, c)
+				}
+			}
+		}
+	}
+	data := []byte{7, 11, 5, 22, 33, 9, 44}
+	for alias := int32(1); alias <= 2; alias++ {
+		gcounts, ccounts := []int32{2, 1, 1}, []int32{2, 1, 1}
+		if alias == 2 {
+			gcounts[0] = 5
+			ccounts[0] = 5
+		}
+		out := make([]opuscc.OpusT_opus_extension_data, 10)
+		out[0].Fframe = 4
+		words := extensionOutputWords(&data[0], out)
+		g, c := int32(4), int32(4)
+		gp := &out[0].Fframe
+		if alias == 2 {
+			gp = &gcounts[0]
+		}
+		got := opuscc.Opus_opus_packet_extensions_parse_ext(nil, &data[0], 7, &out[0], gp, &gcounts[0], 3)
+		g = *gp
+		native := nativeExtensionParse(data, 7, 3, words, &c, false, false, alias, ccounts)
+		if got != native || g != c || !slices.Equal(gcounts, ccounts) || !slices.Equal(extensionOutputWords(&data[0], out), words) {
+			t.Fatal("alias", alias, got, native, g, c, gcounts, ccounts)
+		}
+	}
+	for _, test := range []struct {
+		data                     []byte
+		length, frames, capacity int32
+		no, nc                   bool
+	}{{nil, 0, 0, 0, true, false}, {data, 7, 3, 0, true, false}, {data, 7, 3, 1, true, false}, {data, 7, 3, 10, false, false}, {nil, -1, 1, 2, false, false}, {nil, 1, 1, 2, false, false}, {nil, 0, -1, 2, false, false}, {nil, 0, 49, 2, false, false}, {nil, -1, 49, 2, true, true}} {
+		g, c := test.capacity, test.capacity
+		counts := make([]int32, max(test.frames, 0))
+		out := make([]opuscc.OpusT_opus_extension_data, 12)
+		words := extensionOutputWords(unsafe.SliceData(test.data), out)
+		p := &out[0]
+		n := &g
+		if test.no {
+			p = nil
+		}
+		if test.nc {
+			n = nil
+		}
+		got := extensionCollectionResult(func() int32 {
+			return opuscc.Opus_opus_packet_extensions_parse_ext(nil, unsafe.SliceData(test.data), test.length, p, n, unsafe.SliceData(counts), test.frames)
+		})
+		native := nativeExtensionParse(test.data, test.length, test.frames, words, &c, test.no, test.nc, 0, counts)
+		if got != native || g != c || !slices.Equal(extensionOutputWords(unsafe.SliceData(test.data), out), words) {
+			t.Fatal("assert/nil", test, got, native, g, c)
+		}
+	}
+}
+
 func TestExtensionFindAgainstC(t *testing.T) {
 	fixtures := [][]byte{nil, {0}, {1}, {2}, {3, 0}, {3, 255}, {4}, {5}, {6}, {7}, {7, 44}, {65, 255}, {65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}, {6, 6, 6, 4}, {7, 11, 2, 7, 22}}
 	rng := rand.New(rand.NewSource(51173))

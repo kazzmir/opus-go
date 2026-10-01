@@ -368,8 +368,7 @@ Whole-extension skipping reuses those fixtures to compare ID/header consumption,
 empty/negative lengths, all ID bytes and failure cursor/header behavior.
 Payload writing shares extension fixtures and compares actual C lacing for
 short/long IDs, 255-byte boundaries, final payloads, sizing-only calls, capacity
-failures and untouched buffers. Generator and packet-extension collection APIs
-remain explicitly legacy.
+failures and untouched buffers. The generator API remains explicitly legacy.
 Whole-extension writing additionally compares ID-byte narrowing and partial writes
 before payload errors, using the same extension fixtures and actual static C helper.
 Iterator initialization, repeat/next and find use typed state/output arguments and
@@ -378,8 +377,20 @@ length and output against actual extensions.c, including captured assertions,
 repeat L=0 handling, trailing short payloads, dynamic frame limits, nil outputs,
 malformed packets and unchanged failed/not-found outputs. Random next/find fixtures
 supplement structured cases; Go tests force GC/stack growth and retain returned
-nonempty payloads after discarding the iterator. This does not establish global
-GC safety for remaining collection/generator or outer decoder boundaries.
+nonempty payloads after discarding the iterator.
+Packet-extension count/count_ext/parse/parse_ext use typed input/output pointers,
+direct clears, barrier-aware extension stores and fixed prefix-sum scratch. Grouped
+actual-C comparisons cover random/structured packets, partial counts/errors,
+capacity failures with unchanged capacity, frame-order output gaps, nil/assertion
+ordering and capacity/count/output aliases. Count ignores malformed tails as C does;
+parse reports errors after committing prior outputs. Capacity is read live, and
+frame prefix sums are snapshotted before any output writes.
+C-style end cursors still have an unresolved boundary for exactly sized Go
+allocations: advancing one past an allocation fails checkptr (observed on 386).
+Focused fixtures keep logical EOF inside guarded backing storage and verify guards;
+this is not a fix for that general cursor-representation limitation. These passes
+do not establish global GC safety for iterator endpoints, the generator or outer
+decoder boundaries.
 CELT FIR comparisons compile the actual celt_lpc.c scalar helper beside existing
 LPC fixtures: reversed coefficients/history, 4-lane/tail arithmetic, odd orders,
 signed zeros, subnormals, guards and partial overlap are checked bitwise.

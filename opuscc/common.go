@@ -5753,56 +5753,47 @@ func Opus_opus_packet_extensions_parse(tls *libc.TLS, data *byte, length int32, 
 //	    order.
 //	   nb_frame_exts must be filled with the output of
 //	    opus_packet_extensions_count_ext(). */
-func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions uintptr, nb_frame_exts uintptr, nb_frames int32) (r OpusT_opus_int32) {
-	var count, prev_total, ret, total int32
-	var idx, v3 OpusT_opus_int32
-	var ext OpusT_opus_extension_data
+func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data *byte, length int32, extensions *OpusT_opus_extension_data, nbExtensions, frameCounts *int32, frames int32) int32 {
+	if nbExtensions == nil {
+		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, 395)
+	}
+	if extensions == nil && *nbExtensions != 0 {
+		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, 396)
+	}
+	if frames > 48 {
+		Opus_celt_fatal(tls, __ccgo_ts+2842, __ccgo_ts+2472, 397)
+	}
+	// Snapshot prefix sums before iterator initialization or any output writes.
+	// Negative frame counts reach the iterator's assertion after an empty prefix loop, as in C.
+	counts := unsafe.Slice(frameCounts, max(frames, 0))
+	var cumulative [49]int32
+	var total int32
+	for i := int32(0); i < frames; i++ {
+		cumulative[i] = total
+		total += counts[i]
+	}
+	cumulative[max(frames, 0)] = total
 	var iter OpusT_OpusExtensionIterator
-	var nb_frames_cum [49]OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _ = count, ext, idx, iter, prev_total, ret, total, v3, nb_frames_cum
-	if !(nb_extensions != uintptr(uint32(0))) {
-		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, int32(395))
-	}
-	if !(extensions != uintptr(uint32(0)) || *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, int32(396))
-	}
-	if !(nb_frames <= int32(48)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2842, __ccgo_ts+2472, int32(397))
-	}
-	/* Convert the frame extension count array to a cumulative sum. */
-	prev_total = 0
-	count = 0
+	var ext OpusT_opus_extension_data
+	Opus_opus_extension_iterator_init(tls, &iter, data, length, frames)
+	var count int32
 	for {
-		if !(count < nb_frames) {
-			break
-		}
-		total = *(*OpusT_opus_int32)(unsafe.Pointer(nb_frame_exts + uintptr(count)*4)) + prev_total
-		nb_frames_cum[count] = prev_total
-		prev_total = total
-		count = count + 1
-	}
-	nb_frames_cum[count] = prev_total
-	Opus_opus_extension_iterator_init(tls, &iter, (*byte)(unsafe.Pointer(data)), len1, nb_frames)
-	count = 0
-	for {
-		ret = Opus_opus_extension_iterator_next(tls, &iter, &ext)
+		ret := Opus_opus_extension_iterator_next(tls, &iter, &ext)
 		if ret <= 0 {
-			break
+			*nbExtensions = count
+			return ret
 		}
-		v3 = nb_frames_cum[ext.Fframe]
-		nb_frames_cum[ext.Fframe]++
-		idx = v3
-		if idx >= *(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) {
-			return -int32(2)
+		idx := cumulative[ext.Fframe]
+		cumulative[ext.Fframe]++
+		if idx >= *nbExtensions {
+			return -2
 		}
-		if !(idx < nb_frames_cum[ext.Fframe+int32(1)]) {
-			Opus_celt_fatal(tls, __ccgo_ts+2876, __ccgo_ts+2472, int32(416))
+		if idx >= cumulative[ext.Fframe+1] {
+			Opus_celt_fatal(tls, __ccgo_ts+2876, __ccgo_ts+2472, 416)
 		}
-		*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(idx)*unsafe.Sizeof(OpusT_opus_extension_data{}))) = ext
-		count = count + 1
+		*(*OpusT_opus_extension_data)(unsafe.Add(unsafe.Pointer(extensions), uintptr(idx)*unsafe.Sizeof(ext))) = ext
+		count++
 	}
-	*(*OpusT_opus_int32)(unsafe.Pointer(nb_extensions)) = count
-	return ret
 }
 
 func write_extension_payload(tls *libc.TLS, data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {

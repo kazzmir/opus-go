@@ -281,6 +281,47 @@ func TestExtensionParsePointers(t *testing.T) {
 	}
 }
 
+func TestExtensionParseExtPointers(t *testing.T) {
+	owned := func() [4]OpusT_opus_extension_data {
+		packet := [32]byte{7, 11, 5, 22, 33, 9, 44}
+		counts := [3]int32{2, 1, 1}
+		guard := struct {
+			before uint64
+			out    [4]OpusT_opus_extension_data
+			after  uint64
+		}{before: 77, after: 88}
+		capacity := int32(4)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_packet_extensions_parse_ext(nil, &packet[0], 7, &guard.out[0], &capacity, &counts[0], 3) != 0 || capacity != 4 || guard.before != 77 || guard.after != 88 || counts != [3]int32{2, 1, 1} {
+			t.Fatal("parse/guards/counts")
+		}
+		return guard.out
+	}()
+	runtime.GC()
+	entropyInitGrowStack(12)
+	for i, want := range []byte{11, 44, 22, 33} {
+		if *owned[i].Fdata != want || owned[i].Fframe != []int32{0, 0, 1, 2}[i] {
+			t.Fatal("order/ownership", i, owned)
+		}
+	}
+	packet := [32]byte{7, 11, 5, 22, 33, 9, 44}
+	counts := [3]int32{2, 1, 1}
+	out := [4]OpusT_opus_extension_data{{Fid: 77}, {Fid: 88}, {Fid: 99}}
+	capacity := int32(2)
+	if Opus_opus_packet_extensions_parse_ext(nil, &packet[0], 7, &out[0], &capacity, &counts[0], 3) != -2 || capacity != 2 || out[0].Fid != 3 || out[1].Fid != 88 || out[2].Fid != 99 {
+		t.Fatal("partial gap", out, capacity)
+	}
+	capacity = 0
+	bad := [3]int32{}
+	if Opus_opus_packet_extensions_parse_ext(nil, &packet[0], 7, nil, &capacity, &bad[0], 3) != -2 {
+		t.Fatal("capacity before bucket assertion")
+	}
+	if Opus_opus_packet_extensions_parse_ext(nil, nil, 0, nil, &capacity, nil, 0) != 0 {
+		t.Fatal("empty")
+	}
+}
+
 func TestWriteExtensionPointers(t *testing.T) {
 	out := [8]byte{77, 77, 77, 77, 77, 77, 77, 88}
 	payload := [2]byte{11, 12}
@@ -439,7 +480,7 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 	}
 	ordered := make([]OpusT_opus_extension_data, 3)
 	count = int32(len(ordered))
-	if got := Opus_opus_packet_extensions_parse_ext(tls, uintptr(unsafe.Pointer(&packet[0])), length, uintptr(unsafe.Pointer(&ordered[0])), uintptr(unsafe.Pointer(&count)), uintptr(unsafe.Pointer(&frameCounts[0])), 3); got != 0 {
+	if got := Opus_opus_packet_extensions_parse_ext(tls, &packet[0], length, &ordered[0], &count, &frameCounts[0], 3); got != 0 {
 		t.Fatalf("frame-ordered parse result: got %d, want 0", got)
 	}
 	if count != 3 || ordered[0].Fframe != 0 || ordered[1].Fframe != 1 || ordered[2].Fframe != 2 {
