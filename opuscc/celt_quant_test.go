@@ -18,6 +18,17 @@ func TestQuantBandN1Pointers(t *testing.T) {
 	if quant_band_n1(nil, &ctx, &encoder, &x, &x, &low) != 1 || x != 1 || low != 1 || ctx.Fremaining_bits != 0 {
 		t.Fatal("alias/budget/store order", x, low, ctx.Fremaining_bits)
 	}
+	// Entropy output can legally alias the integer encode field through bytes.
+	ctx = band_ctx{Fencode: 1, Fresynth: 1, Fremaining_bits: 16}
+	Opus_ec_enc_init(nil, &encoder, (*byte)(unsafe.Pointer(&ctx.Fencode)), 4)
+	encoder.Fnend_bits = 32
+	encoder.Fend_window = 0
+	x = -.5
+	y := float32(-.25)
+	quant_band_n1(nil, &ctx, &encoder, &x, &y, nil)
+	if ctx.Fencode != 0 || encoder.Fnend_bits != 2 || encoder.Fend_window != 3 || ctx.Fremaining_bits != 0 {
+		t.Fatal("cached encode across aliasing byte stores", ctx, encoder)
+	}
 	ctx = band_ctx{Fencode: 1, Fremaining_bits: 0}
 	if quant_band_n1(nil, &ctx, nil, nil, nil, nil) != 1 {
 		t.Fatal("unused nil inputs")

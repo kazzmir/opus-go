@@ -2270,6 +2270,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 }
 
 func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband *OpusT_celt_norm) uint32 {
+	encode := ctx.Fencode // C caches this before either channel can emit bytes.
 	x := X
 	channels := 1
 	if Y != nil {
@@ -2278,7 +2279,7 @@ func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband
 	for c := 0; c < channels; c++ {
 		sign := int32(0)
 		if ctx.Fremaining_bits >= 1<<BITRES {
-			if ctx.Fencode != 0 {
+			if encode != 0 {
 				sign = libc.BoolInt32(*x < 0)
 				Opus_ec_enc_bits(tls, ec, uint32(sign), 1)
 			} else {

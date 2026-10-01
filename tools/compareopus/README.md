@@ -449,6 +449,22 @@ PVQ search/quantization reuse renamed vq.c: exact pulses, energy, fallback/sign 
 reconstruction, collapse masks, entropy state and finalized bytes, including tiny
 encoder capacities. Search/pulse scratch is Go-owned; outer partition/synthesis
 adapters and mode pointer fields remain legacy.
+One-bin quantization uses typed context/entropy/sample pointers and preserves
+cached encode mode, mono/stereo aliases, lowband store order and insufficient-bit
+behavior. Grouped bands fixtures compare sign bits, all entropy fields and finalized
+buffers (including tiny/zero capacities) with actual bands.c.
+Anti-collapse and spreading use explicit typed band tables and buffer/output
+pointers. Anti-collapse preserves the float32 exp2 Horner/bit reconstruction, seed
+order, mono decoder's second-channel history and normalization. Its actual bands.c
+reference enables FLOAT_APPROX as the generated build does and binds scalar
+normalization rather than linked-library SIMD. Spreading fixtures compare decisions,
+recursive/HF state, shared output pointers, early exits and captured assertions.
+The coarse-energy encoding leaf uses typed arrays/encoder and fixed predictor
+scratch; actual quant_bands.c fixtures compare badness, error/reconstructed energy
+store aliases, all LM/coding/LFE choices, budget branches, band-20 probability
+clipping and full finalized entropy buffers. Float32 rounding and C store order
+are preserved. Outer quantizer/coarse drivers and band-context fields still cross
+explicit legacy adapters; these checks are not a global GC-safety proof.
 Decoder reset/init fixtures compare complete state images and guards using actual
 celt_decoder.c, opus_decoder.c, SILK init_decoder.c and dec_API.c scalar builds;
 only mode-pointer addresses are normalized. CELT reset uses offsetof(rng), retains

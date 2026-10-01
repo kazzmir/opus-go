@@ -1430,153 +1430,91 @@ func loss_distortion(tls *libc.TLS, eBands *OpusT_celt_glog, oldEBands *OpusT_ce
 	return dist
 }
 
-func quant_coarse_energy_impl(tls *libc.TLS, m uintptr, start int32, end int32, eBands uintptr, oldEBands uintptr, budget OpusT_opus_int32, tell OpusT_opus_int32, prob_model uintptr, error1 uintptr, enc uintptr, C int32, LM int32, intra int32, max_decay OpusT_celt_glog, lfe int32) (r int32) {
-	var badness, bits_left, c, i, pi, qi, qi0, v2, v7, v9 int32
-	var beta, coef OpusT_opus_val16
-	var decay_bound, oldE, x OpusT_celt_glog
-	var f, q, tmp OpusT_opus_val32
-	var prev [2]OpusT_opus_val32
-	var v4 float32
-	var v6 uintptr
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = badness, beta, bits_left, c, coef, decay_bound, f, i, oldE, pi, prev, q, qi, qi0, tmp, x, v2, v4, v6, v7, v9
-	badness = 0
-	prev = [2]OpusT_opus_val32{}
-	if tell+int32(3) <= budget {
-		Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), intra, uint32(3))
+func quant_coarse_energy_impl(tls *libc.TLS, nbBands, start, end int32, eBands, oldEBands *float32, budget, tell int32, probModel *byte, errors *float32, enc *OpusT_ec_enc, C, LM, intra int32, maxDecay float32, lfe int32) int32 {
+	var prev [2]float32
+	var badness int32
+	if tell+3 <= budget {
+		Opus_ec_enc_bit_logp(tls, enc, intra, 3)
 	}
+	var coef, beta float32
 	if intra != 0 {
-		coef = float32(0)
 		beta = beta_intra
 	} else {
 		beta = beta_coef[LM]
 		coef = pred_coef[LM]
 	}
-	/* Encode at a fixed coarse resolution */
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
-		c = 0
-		for {
-			x = *(*OpusT_celt_glog)(unsafe.Pointer(eBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
-			if -float32(9) > *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) {
-				v4 = -float32(9)
-			} else {
-				v4 = *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
+	if start >= end {
+		return 0
+	}
+	energy := unsafe.Slice(eBands, nbBands*max(C, 1))
+	old := unsafe.Slice(oldEBands, nbBands*max(C, 1))
+	err := unsafe.Slice(errors, nbBands*max(C, 1))
+	for i := start; i < end; i++ {
+		for c := int32(0); c < max(C, 1); c++ {
+			index := i + c*nbBands
+			x := energy[index]
+			oldE := old[index]
+			if -9 > oldE {
+				oldE = -9
 			}
-			oldE = v4
-			f = x - OpusT_celt_glog(coef*oldE) - prev[c]
-			/* Rounding to nearest integer here is really important! */
-			qi = int32(libc.Xfloor(tls, float64(float32(0.5)+f)))
-			if -float32(28) > *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) {
-				v4 = -float32(28)
-			} else {
-				v4 = *(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4))
+			f := x - float32(coef*oldE) - prev[c]
+			qi := int32(math.Floor(float64(float32(.5) + f)))
+			bound := old[index]
+			if -28 > bound {
+				bound = -28
 			}
-			decay_bound = v4 - max_decay
-			/* Prevent the energy from going down too quickly (e.g. for bands
-			   that have just one bin) */
-			if qi < 0 && x < decay_bound {
-				qi += int32(decay_bound - x)
+			bound -= maxDecay
+			if qi < 0 && x < bound {
+				qi += int32(bound - x)
 				if qi > 0 {
 					qi = 0
 				}
 			}
-			qi0 = qi
-			/* If we don't have enough bits to encode all the energy, just assume
-			   something safe. */
-			v6 = enc
-			v2 = (*OpusT_ec_ctx)(unsafe.Pointer(v6)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v6)).Frng))
-			tell = v2
-			bits_left = budget - tell - int32(3)*C*(end-i)
-			if i != start && bits_left < int32(30) {
-				if bits_left < int32(24) {
-					if int32(1) < qi {
-						v2 = int32(1)
-					} else {
-						v2 = qi
-					}
-					qi = v2
+			qi0 := qi
+			tell = enc.Fnbits_total - int32(bits.Len32(enc.Frng))
+			left := budget - tell - 3*C*(end-i)
+			if i != start && left < 30 {
+				if left < 24 && 1 < qi {
+					qi = 1
 				}
-				if bits_left < int32(16) {
-					if -int32(1) > qi {
-						v2 = -int32(1)
-					} else {
-						v2 = qi
-					}
-					qi = v2
+				if left < 16 && -1 > qi {
+					qi = -1
 				}
 			}
-			if lfe != 0 && i >= int32(2) {
-				if qi < 0 {
-					v2 = qi
-				} else {
-					v2 = 0
-				}
-				qi = v2
+			if lfe != 0 && i >= 2 && qi > 0 {
+				qi = 0
 			}
-			if budget-tell >= int32(15) {
-				if i < int32(20) {
-					v2 = i
-				} else {
-					v2 = int32(20)
-				}
-				pi = int32(2) * v2
-				Opus_ec_laplace_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), &qi, uint32(int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi))))<<int32(7)), int32(*(*uint8)(unsafe.Pointer(prob_model + uintptr(pi+int32(1)))))<<int32(6))
+			if budget-tell >= 15 {
+				pi := 2 * min(i, int32(20))
+				fs := *(*byte)(unsafe.Add(unsafe.Pointer(probModel), pi))
+				decay := *(*byte)(unsafe.Add(unsafe.Pointer(probModel), pi+1))
+				Opus_ec_laplace_encode(tls, enc, &qi, uint32(fs)<<7, int32(decay)<<6)
+			} else if budget-tell >= 2 {
+				qi = max(-1, min(qi, 1))
+				Opus_ec_enc_icdf(tls, enc, 2*qi^-libc.BoolInt32(qi < 0), &small_energy_icdf[0], 2)
+			} else if budget-tell >= 1 {
+				qi = min(0, qi)
+				Opus_ec_enc_bit_logp(tls, enc, -qi, 1)
 			} else {
-				if budget-tell >= int32(2) {
-					if qi < int32(1) {
-						v7 = qi
-					} else {
-						v7 = int32(1)
-					}
-					if -int32(1) > v7 {
-						v2 = -int32(1)
-					} else {
-						if qi < int32(1) {
-							v9 = qi
-						} else {
-							v9 = int32(1)
-						}
-						v2 = v9
-					}
-					qi = v2
-					Opus_ec_enc_icdf(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), int32(2)*qi^-libc.BoolInt32(qi < 0), &small_energy_icdf[0], uint32(2))
-				} else {
-					if budget-tell >= int32(1) {
-						if 0 < qi {
-							v2 = 0
-						} else {
-							v2 = qi
-						}
-						qi = v2
-						Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(enc)), -qi, uint32(1))
-					} else {
-						qi = -int32(1)
-					}
-				}
+				qi = -1
 			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(error1 + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = f - float32(qi)
-			badness = badness + libc.Xabs(tls, qi0-qi)
-			q = float32(qi)
-			tmp = OpusT_opus_val16(coef*oldE) + prev[c] + q
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldEBands + uintptr(i+c*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands)*4)) = tmp
-			prev[c] = prev[c] + q - OpusT_opus_val16(beta*q)
-			c = c + 1
-			v2 = c
-			if !(v2 < C) {
-				break
-			}
+			// Preserve error-before-energy stores when outputs alias.
+			err[index] = f - float32(qi)
+			badness += libc.Xabs(tls, qi0-qi)
+			q := float32(qi)
+			old[index] = float32(coef*oldE) + prev[c] + q
+			prev[c] = prev[c] + q - float32(beta*q)
 		}
-		i = i + 1
 	}
 	if lfe != 0 {
-		v2 = 0
-	} else {
-		v2 = badness
+		return 0
 	}
-	return v2
+	return badness
+}
+
+func quant_coarse_energy_impl_legacy(tls *libc.TLS, m uintptr, start, end int32, energy, old uintptr, budget, tell int32, prob, errors, enc uintptr, C, LM, intra int32, maxDecay float32, lfe int32) int32 {
+	mode := (*OpusT_OpusCustomMode)(unsafe.Pointer(m))
+	return quant_coarse_energy_impl(tls, mode.FnbEBands, start, end, (*float32)(unsafe.Pointer(energy)), (*float32)(unsafe.Pointer(old)), budget, tell, (*byte)(unsafe.Pointer(prob)), (*float32)(unsafe.Pointer(errors)), (*OpusT_ec_enc)(unsafe.Pointer(enc)), C, LM, intra, maxDecay, lfe)
 }
 
 func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, effEnd int32, eBands uintptr, oldEBands uintptr, budget OpusT_opus_uint32, error1 uintptr, enc uintptr, C int32, LM int32, nbAvailableBytes int32, force_intra int32, delayedIntra uintptr, two_pass int32, loss_rate int32, lfe int32) {
@@ -1759,7 +1697,7 @@ func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, 
 	error_intra = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v26)).Fglobal_stack - uintptr(uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*(uint64(4)/uint64(1)))
 	libc.Xmemcpy(tls, oldEBands_intra, oldEBands, uint64(uint32(C*(*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands))*uint64(4)+uint64(0*((int64(oldEBands_intra)-int64(oldEBands))/4)))
 	if two_pass != 0 || intra != 0 {
-		badness1 = quant_coarse_energy_impl(tls, m, start, end, eBands, oldEBands_intra, int32(budget), int32(tell), uintptr(unsafe.Pointer(&e_prob_model))+uintptr(LM)*84+1*42, error_intra, enc, C, LM, int32(1), max_decay, lfe)
+		badness1 = quant_coarse_energy_impl_legacy(tls, m, start, end, eBands, oldEBands_intra, int32(budget), int32(tell), uintptr(unsafe.Pointer(&e_prob_model))+uintptr(LM)*84+1*42, error_intra, enc, C, LM, int32(1), max_decay, lfe)
 	}
 	if !(intra != 0) {
 		tell_intra = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(enc))))
@@ -1843,7 +1781,7 @@ func Opus_quant_coarse_energy(tls *libc.TLS, m uintptr, start int32, end int32, 
 		/* Copy bits from intra bit-stream */
 		libc.Xmemcpy(tls, intra_bits, intra_buf, uint64(nintra_bytes-nstart_bytes)*uint64(1)+uint64(0*(int64(intra_bits)-int64(intra_buf))))
 		*(*OpusT_ec_enc)(unsafe.Pointer(enc)) = enc_start_state
-		badness2 = quant_coarse_energy_impl(tls, m, start, end, eBands, oldEBands, int32(budget), int32(tell), uintptr(unsafe.Pointer(&e_prob_model))+uintptr(LM)*84+uintptr(intra)*42, error1, enc, C, LM, 0, max_decay, lfe)
+		badness2 = quant_coarse_energy_impl_legacy(tls, m, start, end, eBands, oldEBands, int32(budget), int32(tell), uintptr(unsafe.Pointer(&e_prob_model))+uintptr(LM)*84+uintptr(intra)*42, error1, enc, C, LM, 0, max_decay, lfe)
 		if two_pass != 0 && (badness1 < badness2 || badness1 == badness2 && int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(enc))))+intra_bias > tell_intra) {
 			*(*OpusT_ec_enc)(unsafe.Pointer(enc)) = enc_intra_state
 			/* Copy intra bits to bit-stream */

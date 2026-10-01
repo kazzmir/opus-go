@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -22,6 +23,24 @@ func TestAmp2Log2LocalUnion(t *testing.T) {
 	}
 }
 
+func TestQuantCoarseImplPointers(t *testing.T) {
+	energy := [4]float32{77, 1.3, -.8, 88}
+	old := [4]float32{77, .1, -.5, 88}
+	errors := [4]float32{77, 0, 0, 88}
+	buf := [16]byte{}
+	var enc OpusT_ec_enc
+	Opus_ec_enc_init(nil, &enc, &buf[0], 16)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	quant_coarse_energy_impl(nil, 2, 0, 2, &energy[1], &old[1], 120, 0, &e_prob_model[0][0][0], &errors[1], &enc, 1, 0, 0, 16, 0)
+	if old[0] != 77 || old[3] != 88 || errors[0] != 77 || errors[3] != 88 || enc.Fbuf != &buf[0] {
+		t.Fatal("guards/ownership")
+	}
+	if quant_coarse_energy_impl(nil, 0, 0, 0, nil, nil, 0, 0, nil, nil, nil, 1, 0, 0, 16, 0) != 0 {
+		t.Fatal("empty unused inputs")
+	}
+}
+
 func TestQuantCoarseEnergyLocalQI(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
@@ -36,16 +55,16 @@ func TestQuantCoarseEnergyLocalQI(t *testing.T) {
 
 	badness := quant_coarse_energy_impl(
 		tls,
-		uintptr(unsafe.Pointer(&mode)),
+		mode.FnbEBands,
 		0,
 		3,
-		uintptr(unsafe.Pointer(&eBands[0])),
-		uintptr(unsafe.Pointer(&oldEBands[0])),
+		&eBands[0],
+		&oldEBands[0],
 		120,
 		0,
-		uintptr(unsafe.Pointer(&e_prob_model[0][0][0])),
-		uintptr(unsafe.Pointer(&errors[0])),
-		uintptr(unsafe.Pointer(&encoder)),
+		&e_prob_model[0][0][0],
+		&errors[0],
+		&encoder,
 		2,
 		0,
 		0,
