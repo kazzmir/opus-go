@@ -66,6 +66,14 @@ func TestMSValidationAgainstC(t *testing.T) {
 	}
 }
 
+func TestProjectionDecoderDestroyAgainstC(t *testing.T) {
+	for _, null := range []bool{false, true} {
+		if !nativeProjectionDestroy(null) {
+			t.Fatal("projection must free only its base", null)
+		}
+	}
+}
+
 func TestProjectionDecoderInitAgainstC(t *testing.T) {
 	for _, shape := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {3, 2, 1}, {5, 3, 2}, {3, 1, 0}, {0, 1, 0}, {1, 0, 0}, {1, 0, 1}, {256, 1, 0}, {255, 255, 0}} {
 		channels, streams, coupled := shape[0], shape[1], shape[2]

@@ -6,6 +6,11 @@ package main
 #include <stdlib.h>
 static _Thread_local int projection_factory_fail;
 static void *projection_factory_alloc(size_t size){return projection_factory_fail?NULL:calloc(1,size);}
+static _Thread_local int projection_free_calls,projection_free_matches;
+static _Thread_local void *projection_free_expected;
+static void projection_factory_free(void *p){projection_free_calls++;projection_free_matches=p==projection_free_expected;free(p);}
+#define OVERRIDE_OPUS_FREE 1
+#define opus_free projection_factory_free
 #define OVERRIDE_OPUS_ALLOC 1
 #define opus_alloc projection_factory_alloc
 #define VAR_ARRAYS 1
@@ -21,6 +26,7 @@ static void *projection_factory_alloc(size_t size){return projection_factory_fai
 #define opus_projection_decoder_destroy comparison_projection_destroy
 #include "../../../opus/src/opus_projection_decoder.c"
 extern void comparison_normalize_ms_modes(void *,int,int);
+static int native_projection_destroy(int null) {void *p=null?NULL:malloc(sizeof(OpusProjectionDecoder));projection_free_calls=0;projection_free_expected=p;comparison_projection_destroy(p);return projection_free_calls==1&&projection_free_matches;}
 static int native_projection_create_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,unsigned char *matrix,int bytes,int fail) {
  int error=99;projection_factory_fail=fail;OpusProjectionDecoder *st=comparison_projection_create(rate,channels,streams,coupled,matrix,bytes,&error);projection_factory_fail=0;
  if(st){comparison_normalize_ms_modes(get_multistream_decoder(st),streams,coupled);memcpy(data,st,size);comparison_projection_destroy(st);}return error;
@@ -44,6 +50,14 @@ static size_t native_projection_matrix(void *base,int *fields) {
 */
 import "C"
 import "unsafe"
+
+func nativeProjectionDestroy(null bool) bool {
+	var n C.int
+	if null {
+		n = 1
+	}
+	return C.native_projection_destroy(n) != 0
+}
 
 func nativeProjectionCreateImage(data []byte, rate, channels, streams, coupled int32, matrix []byte, bytes int32, fail bool) int32 {
 	f := C.int(0)

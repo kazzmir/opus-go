@@ -5368,6 +5368,11 @@ func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {
 	libc.Xfree(tls, st)
 }
 
+func Opus_opus_projection_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) {
+	// Demixing coefficients and multistream decoders are interiors, not owners.
+	libc.XfreePointer(tls, unsafe.Pointer(st))
+}
+
 var trim_icdf6 = [11]uint8{
 	0: uint8(126),
 	1: uint8(124),

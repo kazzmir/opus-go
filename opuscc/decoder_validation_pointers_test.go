@@ -157,6 +157,36 @@ func TestMSDecoderCreatePointers(t *testing.T) {
 	}
 }
 
+func TestProjectionDecoderDestroyPointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	release := func() weak.Pointer[OpusT_OpusProjectionDecoder] {
+		matrix := [18]byte{}
+		st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], 18)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := weak.Make(st)
+		if unsafe.Pointer(get_dec_demixing_matrix(nil, st)) == unsafe.Pointer(st) || unsafe.Pointer(get_multistream_decoder(nil, st)) == unsafe.Pointer(st) {
+			t.Fatal("expected interiors")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus_opus_projection_decoder_destroy_typed(tls, st)
+		return w
+	}
+	w := release()
+	for i := 0; i < 10; i++ {
+		runtime.GC()
+	}
+	if w.Value() != nil {
+		t.Fatal("projection base retained")
+	}
+	runtime.KeepAlive(tls)
+	Opus_opus_projection_decoder_destroy_typed(tls, nil)
+	Opus_opus_projection_decoder_destroy_typed(nil, nil)
+}
+
 func TestProjectionDecoderCreatePointers(t *testing.T) {
 	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
 		tls := libc.NewTLS()
