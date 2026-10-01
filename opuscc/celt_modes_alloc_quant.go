@@ -62,6 +62,10 @@ func modePulses2Bits(cache *byte, pulses int32) int32 {
 	return int32(modePulseByte(cache, pulses)) + 1
 }
 
+func modeBand(m *OpusT_OpusCustomMode, band int32) int16 {
+	return *(*int16)(unsafe.Add(unsafe.Pointer(m.FeBands), uintptr(band)*2))
+}
+
 func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frameSize int32) (*OpusT_OpusCustomMode, error) {
 	for _, mode := range static_mode_list {
 		for j := uint(0); j < 4; j++ {
@@ -669,18 +673,18 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 		/*Figure out how many left-over bits we would be adding to this band.
 		  This can include bits we've stolen back from higher, skipped bands.*/
 		left = total - psum
-		v13 = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))
+		v13 = uint32(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))
 		_ = v13 > uint32(0)
 		v14 = uint32(left) / v13
 		percoeff = int32(v14)
-		left = left - (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))*percoeff
-		if left-(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2)))) > 0 {
-			v7 = left - (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))
+		left = left - (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))*percoeff
+		if left-(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start))) > 0 {
+			v7 = left - (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))
 		} else {
 			v7 = 0
 		}
 		rem = v7
-		band_width = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
+		band_width = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
 		band_bits = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) + percoeff*band_width + rem
 		/*Only code a skip decision if we're above the threshold for this band.
 		  Otherwise it is force-skipped.
@@ -768,17 +772,17 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 	}
 	/* Allocate the remaining bits */
 	left = total - psum
-	v13 = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))
+	v13 = uint32(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))
 	_ = v13 > uint32(0)
 	v14 = uint32(left) / v13
 	percoeff = int32(v14)
-	left = left - (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))*percoeff
+	left = left - (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))*percoeff
 	j = start
 	for {
 		if !(j < codedBands) {
 			break
 		}
-		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) += percoeff * (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))))
+		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) += percoeff * (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)))
 		j = j + 1
 	}
 	j = start
@@ -786,10 +790,10 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 		if !(j < codedBands) {
 			break
 		}
-		if left < int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))) {
+		if left < int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1)))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)) {
 			v7 = left
 		} else {
-			v7 = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
+			v7 = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
 		}
 		tmp2 = v7
 		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) += tmp2
@@ -806,7 +810,7 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 		if !(*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) >= int32(0)) {
 			Opus_celt_fatal(tls, __ccgo_ts+5170, __ccgo_ts+5155, int32(445))
 		}
-		N0 = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
+		N0 = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
 		N = N0 << LM
 		bit = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) + balance
 		if N > int32(1) {
@@ -1260,17 +1264,17 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 			break
 		}
 		/* Below this threshold, we're sure not to allocate any PVQ bits */
-		if C<<int32(BITRES) > int32(3)*(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))))<<LM<<int32(BITRES)>>int32(4) {
+		if C<<int32(BITRES) > int32(3)*(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1)))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)))<<LM<<int32(BITRES)>>int32(4) {
 			v5 = C << int32(BITRES)
 		} else {
-			v5 = int32(3) * (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))) << LM << int32(BITRES) >> int32(4)
+			v5 = int32(3) * (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))) << LM << int32(BITRES) >> int32(4)
 		}
 		*(*int32)(unsafe.Pointer(thresh + uintptr(j)*4)) = v5
 		/* Tilt of the allocation curve */
-		*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) = C * (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))) * (alloc_trim - int32(5) - LM) * (end - j - int32(1)) * (int32(1) << (LM + int32(BITRES))) >> int32(6)
+		*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) = C * (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))) * (alloc_trim - int32(5) - LM) * (end - j - int32(1)) * (int32(1) << (LM + int32(BITRES))) >> int32(6)
 		/* Giving less resolution to single-coefficient bands because they get
 		   more benefit from having one coarse value per coefficient*/
-		if (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))))<<LM == int32(1) {
+		if (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1)))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)))<<LM == int32(1) {
 			*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) -= C << int32(BITRES)
 		}
 		j = j + 1
@@ -1288,7 +1292,7 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 			if !(v5 > start) {
 				break
 			}
-			N = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
+			N = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
 			bitsj = C * N * int32(*(*uint8)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors), uintptr(mid*len1+j)))) << LM >> int32(2)
 			if bitsj > 0 {
 				if 0 > bitsj+*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) {
@@ -1330,7 +1334,7 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 		if !(j < end) {
 			break
 		}
-		N1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
+		N1 = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
 		bits1j = C * N1 * int32(*(*uint8)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors), uintptr(lo*len1+j)))) << LM >> int32(2)
 		if hi >= (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbAllocVectors {
 			v5 = *(*int32)(unsafe.Pointer(cap1 + uintptr(j)*4))
@@ -1728,7 +1732,7 @@ func Opus_anti_collapse(tls *libc.TLS, bands *int16, nbBands int32, X *float32, 
 
 func anti_collapse_legacy(tls *libc.TLS, m, X, masks uintptr, LM, C, size, start, end int32, logE, p1, p2, pulses uintptr, seed uint32, encode, arch int32) {
 	mode := (*OpusT_OpusCustomMode)(unsafe.Pointer(m))
-	Opus_anti_collapse(tls, (*int16)(unsafe.Pointer(mode.FeBands)), mode.FnbEBands, (*float32)(unsafe.Pointer(X)), (*byte)(unsafe.Pointer(masks)), LM, C, size, start, end, (*float32)(unsafe.Pointer(logE)), (*float32)(unsafe.Pointer(p1)), (*float32)(unsafe.Pointer(p2)), (*int32)(unsafe.Pointer(pulses)), seed, encode, arch)
+	Opus_anti_collapse(tls, mode.FeBands, mode.FnbEBands, (*float32)(unsafe.Pointer(X)), (*byte)(unsafe.Pointer(masks)), LM, C, size, start, end, (*float32)(unsafe.Pointer(logE)), (*float32)(unsafe.Pointer(p1)), (*float32)(unsafe.Pointer(p2)), (*int32)(unsafe.Pointer(pulses)), seed, encode, arch)
 }
 
 // C documentation
@@ -2895,7 +2899,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 	var dist0, dist1, xy, v229, v232 OpusT_opus_val32
 	var ec_save, ec_save2 OpusT_ec_ctx
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B, C, M, N1, X, X_save, X_save2, Y, Y_save, Y_save2, _lowband_scratch, _norm, _saved_stack, b, bytes_buf, bytes_save, cm, cm2, ctx_save, ctx_save2, curr_balance, dist0, dist1, eBands, ec_save, ec_save2, effective_lowband, fold_end, fold_i, fold_start, i, i1, j, last, lowband_offset, lowband_scratch, nend_bytes, norm, norm2, norm_offset, norm_save2, nstart_bytes, remaining_bits, resynth, resynth_alloc, save_bytes, st, tell, tf_change, theta_rdo, update_lowband, x_cm, xy, y_cm, v1, v11, v13, v15, v17, v183, v19, v196, v2, v201, v203, v204, v205, v207, v21, v217, v229, v23, v232, v25, v4, v6, v7, v9
-	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands
+	eBands = uintptr(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands))
 	update_lowband = int32(1)
 	if Y_ != uintptr(uint32(0)) {
 		v1 = int32(2)
@@ -3577,7 +3581,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 			lowband_offset = i1
 		}
 		if i1 == start+int32(1) {
-			special_hybrid_folding(tls, (*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands)), (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
+			special_hybrid_folding(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands, (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
 		}
 		tf_change = *(*int32)(unsafe.Pointer(tf_res + uintptr(i1)*4))
 		ctx.Ftf_change = tf_change
@@ -3738,7 +3742,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					libc.Xmemcpy(tls, X, X_save, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(X)-int64(X_save))/4)))
 					libc.Xmemcpy(tls, Y, Y_save, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(Y)-int64(Y_save))/4)))
 					if i1 == start+int32(1) {
-						special_hybrid_folding(tls, (*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands)), (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
+						special_hybrid_folding(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands, (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
 					}
 					/* Encode and round up. */
 					ctx.Ftheta_round = int32(1)

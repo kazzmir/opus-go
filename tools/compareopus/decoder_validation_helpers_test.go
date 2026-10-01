@@ -96,6 +96,19 @@ func TestModePulseBitsTableAgainstC(t *testing.T) {
 	}
 }
 
+func TestModeBandTableAgainstC(t *testing.T) {
+	m, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := make([]int16, m.FnbEBands+1)
+	layout := nativeModeRemainingTable(3, unsafe.Pointer(&data[0]))
+	want := [3]uint64{uint64(unsafe.Sizeof(*m)), uint64(unsafe.Offsetof(m.FeBands)), uint64(len(data) * 2)}
+	if layout != want || !slices.Equal(data, unsafe.Slice(m.FeBands, len(data))) {
+		t.Fatal("band layout/payload", layout, want)
+	}
+}
+
 func TestCustomDecoderSizeAgainstC(t *testing.T) {
 	for _, overlap := range []int32{0, 60, 120, 240} {
 		for _, bands := range []int32{0, 1, 21, 25} {

@@ -331,10 +331,17 @@ retain typed codebook references, with direct decode/parameter/index traversal a
 sample-rate assignments. Grouped tests check C layouts, both codebook orders,
 heap-only owner chains and reset/replacement, alongside the existing native full-state
 comparisons. Poisoned reset fixtures skip GC pointer slots and use real sentinels.
-CELT window, allocation-vector and cap-table fields are typed; native fixtures compare
-mode/cache layout and table payloads, and heap-owner cases exercise caps and MDCT.
-Band/log and pulse-cache index/bit fields, opaque byte-backed allocations and outer
-integer APIs remain legacy. ARM64 exposed a quant-partition fixture stack-lifetime
+CELT band, log-band, window, allocation-vector and pulse-cache index/bit/cap
+fields are typed. Native fixtures compare mode/cache sizes, offsets and every table
+payload; heap-mode owners retain cloned tables through GC and stack growth.
+Band/log/index access preserves signed int16 loads. The quant-partition rate searches
+use typed byte caches, retaining the C six-step search, tie order, zero-pulse behavior,
+cache reloads and remaining-budget updates. Actual rate.h comparisons cover every
+valid LM -1 through 3 cache row, budgets -2 through 400 and every valid pulse count;
+a guarded backwards index checks signed offset -1 without exercising C's invalid
+sentinel rows. Grouped owner cases also exercise caps and MDCT.
+Opaque byte-backed allocations, architecture FFT headers, outer integer APIs and
+some outer band-table locals remain legacy. ARM64 exposed a quant-partition fixture stack-lifetime
 failure; its crossing objects are now pinned without changing expected outputs.
 This is fixture ownership repair, not a migration of the outer quantizer.
 MDCT lookups retain typed FFT-state and trig-table pointers; FFT states in turn

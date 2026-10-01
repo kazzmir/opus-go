@@ -7559,7 +7559,7 @@ var mode48000_960_120 = OpusT_OpusCustomMode{
 		2: float32(1),
 		3: float32(1),
 	},
-	FeBands:         uintptr(unsafe.Pointer(&eband5ms)),
+	FeBands:         &eband5ms[0],
 	FmaxLM:          int32(3),
 	FnbShortMdcts:   int32(8),
 	FshortMdctSize:  int32(120),

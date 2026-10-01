@@ -146,6 +146,58 @@ func TestModePulseBitsPointers(t *testing.T) {
 	runtime.KeepAlive(m)
 }
 
+func TestModeBandPointers(t *testing.T) {
+	makeMode := func() *OpusT_OpusCustomMode {
+		m := mode48000_960_120
+		bands := slices.Clone(eband5ms[:])
+		log := slices.Clone(logN400[:])
+		index := slices.Clone(cache_index50[:])
+		bits := slices.Clone(cache_bits50[:])
+		caps := slices.Clone(cache_caps50[:])
+		window := slices.Clone(window120[:])
+		vectors := slices.Clone(band_allocation[:])
+		m.FeBands = &bands[0]
+		m.FlogN = &log[0]
+		m.Fcache.Findex = &index[0]
+		m.Fcache.Fbits = &bits[0]
+		m.Fcache.Fcaps = &caps[0]
+		m.Fwindow = &window[0]
+		m.FallocVectors = &vectors[0]
+		return &m
+	}
+	m := makeMode()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i, want := range eband5ms {
+		if modeBand(m, int32(i)) != want {
+			t.Fatal("owned band", i)
+		}
+	}
+	if !slices.Equal(unsafe.Slice(m.FlogN, len(logN400)), logN400[:]) || !slices.Equal(unsafe.Slice(m.Fcache.Findex, len(cache_index50)), cache_index50[:]) || !slices.Equal(unsafe.Slice(m.Fcache.Fbits, len(cache_bits50)), cache_bits50[:]) || !slices.Equal(unsafe.Slice(m.Fwindow, len(window120)), window120[:]) || !slices.Equal(unsafe.Slice(m.FallocVectors, len(band_allocation)), band_allocation[:]) {
+		t.Fatal("complete mode table owners")
+	}
+	for lm := int32(0); lm <= 3; lm++ {
+		for channels := int32(1); channels <= 2; channels++ {
+			g, c := [23]int32{77}, [23]int32{77}
+			g[22] = 88
+			c[22] = 88
+			Opus_init_caps(nil, m.FeBands, m.Fcache.Fcaps, &g[1], 21, lm, channels)
+			Opus_init_caps(nil, &eband5ms[0], &cache_caps50[0], &c[1], 21, lm, channels)
+			if g != c {
+				t.Fatal("owned bands/caps", lm, channels)
+			}
+		}
+	}
+	signed := []int16{-32768, -1, 0, 32767}
+	m.FeBands = &signed[0]
+	for i, want := range signed {
+		if modeBand(m, int32(i)) != want {
+			t.Fatal("signed band", i)
+		}
+	}
+	runtime.KeepAlive(m)
+}
+
 func TestCapsPointers(t *testing.T) {
 	bands := [4]int16{0, 1, 3, 7}
 	var cache [24]uint8

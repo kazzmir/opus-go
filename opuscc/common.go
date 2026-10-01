@@ -1595,7 +1595,7 @@ type OpusT_OpusCustomMode = struct {
 	FnbEBands       int32
 	FeffEBands      int32
 	Fpreemph        [4]OpusT_opus_val16
-	FeBands         uintptr
+	FeBands         *int16
 	FmaxLM          int32
 	FnbShortMdcts   int32
 	FshortMdctSize  int32
