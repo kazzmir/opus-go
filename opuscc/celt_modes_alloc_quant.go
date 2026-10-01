@@ -14,6 +14,11 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
+// modeLogN keeps the table address typed, including in remaining legacy callers.
+func modeLogN(m *OpusT_OpusCustomMode, band int32) int16 {
+	return *(*int16)(unsafe.Add(unsafe.Pointer(m.FlogN), uintptr(band)*2))
+}
+
 func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frameSize int32) (*OpusT_OpusCustomMode, error) {
 	for _, mode := range static_mode_list {
 		for j := uint(0); j < 4; j++ {
@@ -776,7 +781,7 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 				v7 = 0
 			}
 			den = C*N + v7
-			NClogN = den * (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FlogN + uintptr(j)*2))) + logM)
+			NClogN = den * (int32(modeLogN((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)) + logM)
 			/* Offset for the number of fine bits by log2(N)/2 + FINE_OFFSET
 			   compared to their "fair share" of total/N */
 			offset = NClogN>>int32(1) - den*int32(FINE_OFFSET)
@@ -2035,7 +2040,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 	ec = (*band_ctx)(unsafe.Pointer(ctx)).Fec
 	bandE = (*band_ctx)(unsafe.Pointer(ctx)).FbandE
 	/* Decide on the resolution to give to the split parameter theta */
-	pulse_cap = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FlogN + uintptr(i)*2))) + LM*(int32(1)<<int32(BITRES))
+	pulse_cap = int32(modeLogN((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), i)) + LM*(int32(1)<<int32(BITRES))
 	if stereo != 0 && N == int32(2) {
 		v1 = int32(QTHETA_OFFSET_TWOPHASE)
 	} else {

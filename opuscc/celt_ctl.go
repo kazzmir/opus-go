@@ -7565,7 +7565,7 @@ var mode48000_960_120 = OpusT_OpusCustomMode{
 	FshortMdctSize:  int32(120),
 	FnbAllocVectors: int32(11),
 	FallocVectors:   &band_allocation[0],
-	FlogN:           uintptr(unsafe.Pointer(&logN400)),
+	FlogN:           &logN400[0],
 	Fwindow:         &window120[0],
 	Fmdct: OpusT_mdct_lookup{
 		Fn:        int32(1920),

@@ -62,7 +62,7 @@ func TestQuantAllBandsCReference(t *testing.T) {
 		FnbEBands:  3,
 		FeffEBands: 3,
 		FeBands:    uintptr(unsafe.Pointer(&eBandsTab[0])),
-		FlogN:      uintptr(unsafe.Pointer(&logNTab[0])),
+		FlogN:      &logNTab[0],
 	}
 	mode[0].Fcache.Findex = uintptr(unsafe.Pointer(&cacheIndex[0]))
 	mode[0].Fcache.Fbits = uintptr(unsafe.Pointer(&cacheBits[0]))

@@ -1601,7 +1601,7 @@ type OpusT_OpusCustomMode = struct {
 	FshortMdctSize  int32
 	FnbAllocVectors int32
 	FallocVectors   *byte
-	FlogN           uintptr
+	FlogN           *int16
 	Fwindow         *float32
 	Fmdct           OpusT_mdct_lookup
 	Fcache          OpusT_PulseCache

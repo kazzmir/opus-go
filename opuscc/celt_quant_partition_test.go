@@ -53,7 +53,7 @@ func TestQuantPartitionLocalSplitState(t *testing.T) {
 	mode := OpusT_OpusCustomMode{FnbEBands: 1}
 	mode.Fcache.Findex = uintptr(unsafe.Pointer(&cacheIndex[0]))
 	mode.Fcache.Fbits = uintptr(unsafe.Pointer(&cacheBits[0]))
-	mode.FlogN = uintptr(unsafe.Pointer(&logN[0]))
+	mode.FlogN = &logN[0]
 	buffer := make([]byte, 16)
 	var encoder OpusT_ec_enc
 	Opus_ec_enc_init(tls, &encoder, unsafe.SliceData(buffer), uint32(len(buffer)))
