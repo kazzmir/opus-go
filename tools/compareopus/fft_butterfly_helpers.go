@@ -24,6 +24,10 @@ static int native_mdct_fixture(int n,int shifts,float *trig,int *sizes,size_t *l
  memcpy(trig,l.trig,(n-((n/2)>>shifts))*sizeof(float));for(int i=0;i<=shifts;i++)sizes[i]=l.kfft[i]->nfft;
  layout[0]=sizeof(l);layout[1]=offsetof(mdct_lookup,kfft);layout[2]=offsetof(mdct_lookup,trig);compare_mdct_clear(&l,0);return 1;
 }
+static void native_mdct_transform(int n,int shift,int fftshift,float scale,const short *factors,const short *bitrev,const void *tw,const float *trig,float *in,float *out,const float *window,int overlap,int stride,int op) {
+ kiss_fft_state st={0};st.nfft=n>>2>>shift;st.shift=fftshift;st.scale=scale;memcpy(st.factors,factors,sizeof(st.factors));st.bitrev=bitrev;st.twiddles=tw;mdct_lookup l={0};l.n=n;l.maxshift=shift;l.kfft[shift]=&st;l.trig=trig;
+ if(op==0)compare_mdct_forward(&l,in,out,window,overlap,shift,stride,0);else compare_mdct_backward(&l,in,out,window,overlap,shift,stride,0);
+}
 static int native_fft_fixture(int n,int shift,short *factors,short *bitrev,void *tw,float *scale) {
  int total=n<<(shift>0?shift:0);
  kiss_fft_state *base=compare_bfly_alloc(total,NULL,NULL,0);
@@ -64,6 +68,11 @@ func nativeMDCTLookup(n, shifts int32) ([]float32, []int32, [3]uint64) {
 		panic("MDCT fixture allocation")
 	}
 	return trig, sizes, [3]uint64{uint64(layout[0]), uint64(layout[1]), uint64(layout[2])}
+}
+
+func nativeMDCTTransform(l *opuscc.OpusT_mdct_lookup, bitrev []int16, tw []opuscc.OpusT_kiss_twiddle_cpx, trig, in, out, window []float32, overlap, shift, stride, op int32) {
+	st := l.Fkfft[shift]
+	C.native_mdct_transform(C.int(l.Fn), C.int(shift), C.int(st.Fshift), C.float(st.Fscale), (*C.short)(unsafe.Pointer(&st.Ffactors[0])), (*C.short)(unsafe.Pointer(unsafe.SliceData(bitrev))), unsafe.Pointer(unsafe.SliceData(tw)), (*C.float)(unsafe.Pointer(unsafe.SliceData(trig))), (*C.float)(unsafe.Pointer(unsafe.SliceData(in))), (*C.float)(unsafe.Pointer(unsafe.SliceData(out))), (*C.float)(unsafe.Pointer(unsafe.SliceData(window))), C.int(overlap), C.int(stride), C.int(op))
 }
 
 func nativeFFTFixture(n, shift int32) (opuscc.OpusT_kiss_fft_state, []int16, []opuscc.OpusT_kiss_twiddle_cpx) {

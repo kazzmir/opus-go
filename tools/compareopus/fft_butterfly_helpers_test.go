@@ -11,6 +11,69 @@ import (
 	"unsafe"
 )
 
+func TestMDCTForwardAgainstC(t *testing.T) { compareMDCTTransforms(t, 0) }
+func compareMDCTTransforms(t *testing.T, op int32) {
+	for _, n := range []int32{20, 32, 1920} {
+		for shift := int32(0); shift <= 3; shift++ {
+			effective := n >> shift
+			if effective%4 != 0 || effective < 16 {
+				continue
+			}
+			trig, _, _ := nativeMDCTLookup(n, shift)
+			state, bitrev, tw := nativeFFTFixture(effective/4, func() int32 {
+				if shift == 0 {
+					return -1
+				}
+				return shift
+			}())
+			l := opuscc.OpusT_mdct_lookup{Fn: n, Fmaxshift: shift, Ftrig: &trig[0]}
+			l.Fkfft[shift] = &state
+			for _, overlap := range []int32{0, 4, min(120, (effective/2)&^3)} {
+				for _, stride := range []int32{1, 2, 3} {
+					for trial := 0; trial < 3; trial++ {
+						count := (effective/2-1)*stride + 1
+						input := make([]float32, max(count, effective/2+overlap))
+						for i := range input {
+							input[i] = float32((i*17+trial*3)%51-25) * .03125
+						}
+						if trial == 0 {
+							clear(input)
+						}
+						window := make([]float32, overlap)
+						for i := range window {
+							window[i] = float32(math.Sin(float64(i+1) * .5 / float64(overlap) * math.Pi))
+						}
+						outLen := count
+						if op != 0 {
+							outLen = effective/2 + overlap/2
+						}
+						g := make([]float32, outLen+2)
+						for i := range g {
+							g[i] = .375
+						}
+						g[0] = 77
+						g[len(g)-1] = 88
+						c := slices.Clone(g)
+						ci := slices.Clone(input)
+						if op == 0 {
+							opuscc.Opus_clt_mdct_forward_c(nil, &l, &bitrev[0], &tw[0], &input[0], &g[1], unsafe.SliceData(window), overlap, shift, stride, 0)
+						}
+						nativeMDCTTransform(&l, bitrev, tw, trig, ci, c[1:len(c)-1], window, overlap, shift, stride, op)
+						if !sameFloatBits(g, c) || !sameFloatBits(input, ci) {
+							for i := range g {
+								if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+									t.Fatal(op, n, shift, overlap, stride, trial, i, g[i], c[i])
+								}
+							}
+							t.Fatal("input mutation")
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestMDCTLookupAgainstC(t *testing.T) {
 	for _, n := range []int32{32, 240, 1920} {
 		for shifts := int32(0); shifts <= 3; shifts++ {

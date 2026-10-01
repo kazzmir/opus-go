@@ -8,6 +8,35 @@ import (
 	"unsafe"
 )
 
+func TestMDCTForwardPointers(t *testing.T) {
+	l := &mode48000_960_120.Fmdct
+	st := l.Fkfft[3]
+	input := [240]float32{}
+	output := [241]float32{}
+	output[0] = 77
+	output[240] = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_clt_mdct_forward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &output[1], &window120[0], 120, 3, 2, 0)
+	if output[0] != 77 || output[240] != 88 {
+		t.Fatal("guards")
+	}
+	for _, v := range output[1:240] {
+		if v != 0 {
+			t.Fatal("zero spectrum")
+		}
+	}
+	for i := range input {
+		input[i] = float32(i%13) - 6
+	}
+	var expected [120]float32
+	Opus_clt_mdct_forward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &expected[0], &window120[0], 120, 3, 1, 0)
+	Opus_clt_mdct_forward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &input[0], &window120[0], 120, 3, 1, 0)
+	if !slices.Equal(input[:120], expected[:]) {
+		t.Fatal("fold-before-output alias")
+	}
+}
+
 func TestMDCTLookupPointers(t *testing.T) {
 	makeLookup := func() *OpusT_mdct_lookup {
 		trig := make([]float32, 12)
