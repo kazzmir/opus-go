@@ -215,12 +215,6 @@ func Opus_opus_fft_impl(tls *libc.TLS, state *OpusT_kiss_fft_state, twiddles *Op
 	}
 }
 
-// Legacy MDCT and outer-transform boundary; only permanent mode tables cross here.
-func opus_fft_impl_legacy(tls *libc.TLS, st, fout uintptr) {
-	state := (*OpusT_kiss_fft_state)(unsafe.Pointer(st))
-	Opus_opus_fft_impl(tls, state, (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(state.Ftwiddles)), (*OpusT_kiss_fft_cpx)(unsafe.Pointer(fout)))
-}
-
 func Opus_opus_fft_c(tls *libc.TLS, st *OpusT_kiss_fft_state, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, fin, fout *OpusT_kiss_fft_cpx) {
 	if fin == fout {
 		Opus_celt_fatal(tls, __ccgo_ts+3512, __ccgo_ts+3493, 626)

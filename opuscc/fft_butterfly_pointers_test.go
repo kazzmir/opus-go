@@ -8,6 +8,27 @@ import (
 	"unsafe"
 )
 
+func TestMDCTBackwardPointers(t *testing.T) {
+	l := &mode48000_960_120.Fmdct
+	st := l.Fkfft[3]
+	input := [239]float32{}
+	output := [182]float32{}
+	output[0] = 77
+	output[181] = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_clt_mdct_backward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &output[1], &window120[0], 120, 3, 2, 0)
+	if output[0] != 77 || output[181] != 88 {
+		t.Fatal("guards")
+	}
+	for _, v := range output[1:181] {
+		if v != 0 {
+			t.Fatal("zero synthesis")
+		}
+	}
+	Opus_clt_mdct_backward_c(nil, l, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), &input[0], &output[1], nil, 0, 3, 2, 0)
+}
+
 func TestMDCTForwardPointers(t *testing.T) {
 	l := &mode48000_960_120.Fmdct
 	st := l.Fkfft[3]

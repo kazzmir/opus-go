@@ -11,7 +11,8 @@ import (
 	"unsafe"
 )
 
-func TestMDCTForwardAgainstC(t *testing.T) { compareMDCTTransforms(t, 0) }
+func TestMDCTBackwardAgainstC(t *testing.T) { compareMDCTTransforms(t, 1) }
+func TestMDCTForwardAgainstC(t *testing.T)  { compareMDCTTransforms(t, 0) }
 func compareMDCTTransforms(t *testing.T, op int32) {
 	for _, n := range []int32{20, 32, 1920} {
 		for shift := int32(0); shift <= 3; shift++ {
@@ -57,6 +58,8 @@ func compareMDCTTransforms(t *testing.T, op int32) {
 						ci := slices.Clone(input)
 						if op == 0 {
 							opuscc.Opus_clt_mdct_forward_c(nil, &l, &bitrev[0], &tw[0], &input[0], &g[1], unsafe.SliceData(window), overlap, shift, stride, 0)
+						} else {
+							opuscc.Opus_clt_mdct_backward_c(nil, &l, &bitrev[0], &tw[0], &input[0], &g[1], unsafe.SliceData(window), overlap, shift, stride, 0)
 						}
 						nativeMDCTTransform(&l, bitrev, tw, trig, ci, c[1:len(c)-1], window, overlap, shift, stride, op)
 						if !sameFloatBits(g, c) || !sameFloatBits(input, ci) {

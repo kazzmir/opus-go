@@ -75,112 +75,60 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 	}
 }
 
-func Opus_clt_mdct_backward_c(tls *libc.TLS, l uintptr, in uintptr, out uintptr, window uintptr, overlap int32, shift int32, stride int32, arch int32) {
-	var N, N2, N4, i, rev int32
-	var bitrev, t, t1, trig, wp1, wp2, xp1, xp11, xp2, yp, yp0, yp1, yp11, v3 uintptr
-	var im, re, t0, t11, x11, x21, yi, yi1, yr, yr1 float32
-	var x1, x2 OpusT_opus_val32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N2, N4, bitrev, i, im, re, rev, t, t0, t1, t11, trig, wp1, wp2, x1, x11, x2, x21, xp1, xp11, xp2, yi, yi1, yp, yp0, yp1, yp11, yr, yr1, v3
+func Opus_clt_mdct_backward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in, out, window *float32, overlap, shift, stride, arch int32) {
 	_ = arch
-	N = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fn
-	trig = uintptr(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Ftrig))
-	i = 0
-	for {
-		if !(i < shift) {
-			break
-		}
-		N = N >> int32(1)
-		trig = trig + uintptr(N)*4
-		i = i + 1
+	N := l.Fn
+	offset := int32(0)
+	for i := int32(0); i < shift; i++ {
+		N >>= 1
+		offset += N
 	}
-	N2 = N >> int32(1)
-	N4 = N >> int32(2)
-	/* Pre-rotate */
-	/* Temp pointers to make it really clear to the compiler what we're doing */
-	xp1 = in
-	xp2 = in + uintptr(stride*(N2-int32(1)))*4
-	yp = out + uintptr(overlap>>int32(1))*4
-	t = trig
-	bitrev = (*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift].Fbitrev
-	i = 0
-	for {
-		if !(i < N4) {
-			break
-		}
-		v3 = bitrev
-		bitrev += 2
-		rev = int32(*(*OpusT_opus_int16)(unsafe.Pointer(v3)))
-		x1 = *(*float32)(unsafe.Pointer(xp1))
-		x2 = *(*float32)(unsafe.Pointer(xp2))
-		yr = OpusT_opus_val32(x2**(*float32)(unsafe.Pointer(t + uintptr(i)*4))) + OpusT_opus_val32(x1**(*float32)(unsafe.Pointer(t + uintptr(N4+i)*4)))
-		yi = OpusT_opus_val32(x1**(*float32)(unsafe.Pointer(t + uintptr(i)*4))) - OpusT_opus_val32(x2**(*float32)(unsafe.Pointer(t + uintptr(N4+i)*4)))
-		/* We swap real and imag because we use an FFT instead of an IFFT. */
-		*(*float32)(unsafe.Pointer(yp + uintptr(int32(2)*rev+int32(1))*4)) = yr
-		*(*float32)(unsafe.Pointer(yp + uintptr(int32(2)*rev)*4)) = yi
-		/* Storing the pre-rotation directly in the bitrev order. */
-		xp1 = xp1 + uintptr(int32(2)*stride)*4
-		xp2 = xp2 - uintptr(int32(2)*stride)*4
-		i = i + 1
+	N2, N4 := N>>1, N>>2
+	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
+	input := unsafe.Slice(in, (N2-1)*stride+1)
+	output := unsafe.Slice(out, N2+(overlap>>1))
+	win := unsafe.Slice(window, overlap)
+	rev := unsafe.Slice(bitrev, N4)
+	base := overlap >> 1
+	for i := int32(0); i < N4; i++ {
+		x1, x2 := input[2*i*stride], input[(N2-1-2*i)*stride]
+		yr := float32(x2*trig[i]) + float32(x1*trig[N4+i])
+		yi := float32(x1*trig[i]) - float32(x2*trig[N4+i])
+		r := int32(rev[i])
+		output[base+2*r+1] = yr
+		output[base+2*r] = yi
 	}
-	opus_fft_impl_legacy(tls, uintptr(unsafe.Pointer((*OpusT_mdct_lookup)(unsafe.Pointer(l)).Fkfft[shift])), out+uintptr(overlap>>int32(1))*4)
-	/* Post-rotate and de-shuffle from both ends of the buffer at once to make
-	   it in-place. */
-	yp0 = out + uintptr(overlap>>int32(1))*4
-	yp1 = out + uintptr(overlap>>int32(1))*4 + uintptr(N2)*4 - uintptr(2)*4
-	t1 = trig
-	/* Loop to (N4+1)>>1 to handle odd N4. When N4 is odd, the
-	   middle pair will be computed twice. */
-	i = 0
-	for {
-		if !(i < (N4+int32(1))>>int32(1)) {
-			break
-		}
-		/* We swap real and imag because we're using an FFT instead of an IFFT. */
-		re = *(*float32)(unsafe.Pointer(yp0 + 1*4))
-		im = *(*float32)(unsafe.Pointer(yp0))
-		t0 = *(*float32)(unsafe.Pointer(t1 + uintptr(i)*4))
-		t11 = *(*float32)(unsafe.Pointer(t1 + uintptr(N4+i)*4))
-		/* We'd scale up by 2 here, but instead it's done when mixing the windows */
-		yr1 = float32(re*t0) + float32(im*t11)
-		yi1 = float32(re*t11) - float32(im*t0)
-		/* We swap real and imag because we're using an FFT instead of an IFFT. */
-		re = *(*float32)(unsafe.Pointer(yp1 + 1*4))
-		im = *(*float32)(unsafe.Pointer(yp1))
-		*(*float32)(unsafe.Pointer(yp0)) = yr1
-		*(*float32)(unsafe.Pointer(yp1 + 1*4)) = yi1
-		t0 = *(*float32)(unsafe.Pointer(t1 + uintptr(N4-i-int32(1))*4))
-		t11 = *(*float32)(unsafe.Pointer(t1 + uintptr(N2-i-int32(1))*4))
-		/* We'd scale up by 2 here, but instead it's done when mixing the windows */
-		yr1 = float32(re*t0) + float32(im*t11)
-		yi1 = float32(re*t11) - float32(im*t0)
-		*(*float32)(unsafe.Pointer(yp1)) = yr1
-		*(*float32)(unsafe.Pointer(yp0 + 1*4)) = yi1
-		yp0 = yp0 + uintptr(2)*4
-		yp1 = yp1 - uintptr(2)*4
-		i = i + 1
+	Opus_opus_fft_impl(tls, l.Fkfft[shift], twiddles, (*OpusT_kiss_fft_cpx)(unsafe.Pointer(&output[base])))
+	// Capture both ends before storing: odd N4 computes the middle pair twice.
+	p0, p1 := base, base+N2-2
+	for i := int32(0); i < (N4+1)>>1; i++ {
+		re, im := output[p0+1], output[p0]
+		t0, t1 := trig[i], trig[N4+i]
+		yr := float32(re*t0) + float32(im*t1)
+		yi := float32(re*t1) - float32(im*t0)
+		re, im = output[p1+1], output[p1]
+		output[p0] = yr
+		output[p1+1] = yi
+		t0, t1 = trig[N4-i-1], trig[N2-i-1]
+		yr = float32(re*t0) + float32(im*t1)
+		yi = float32(re*t1) - float32(im*t0)
+		output[p1] = yr
+		output[p0+1] = yi
+		p0 += 2
+		p1 -= 2
 	}
-	/* Mirror on both sides for TDAC */
-	xp11 = out + uintptr(overlap)*4 - uintptr(1)*4
-	yp11 = out
-	wp1 = window
-	wp2 = window + uintptr(overlap)*4 - uintptr(1)*4
-	i = 0
-	for {
-		if !(i < overlap/int32(2)) {
-			break
-		}
-		x11 = *(*float32)(unsafe.Pointer(xp11))
-		x21 = *(*float32)(unsafe.Pointer(yp11))
-		v3 = yp11
-		yp11 += 4
-		*(*float32)(unsafe.Pointer(v3)) = float32(x21**(*OpusT_celt_coef)(unsafe.Pointer(wp2))) - float32(x11**(*OpusT_celt_coef)(unsafe.Pointer(wp1)))
-		v3 = xp11
-		xp11 -= 4
-		*(*float32)(unsafe.Pointer(v3)) = float32(x21**(*OpusT_celt_coef)(unsafe.Pointer(wp1))) + float32(x11**(*OpusT_celt_coef)(unsafe.Pointer(wp2)))
-		wp1 += 4
-		wp2 -= 4
-		i = i + 1
+	for i := int32(0); i < overlap/2; i++ {
+		j := overlap - 1 - i
+		x1, x2 := output[j], output[i]
+		output[i] = float32(x2*win[j]) - float32(x1*win[i])
+		output[j] = float32(x2*win[i]) + float32(x1*win[j])
 	}
+}
+
+func mdct_backward_legacy(tls *libc.TLS, l, in, out, window uintptr, overlap, shift, stride, arch int32) {
+	lookup := (*OpusT_mdct_lookup)(unsafe.Pointer(l))
+	st := lookup.Fkfft[shift]
+	Opus_clt_mdct_backward_c(tls, lookup, (*int16)(unsafe.Pointer(st.Fbitrev)), (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(st.Ftwiddles)), (*float32)(unsafe.Pointer(in)), (*float32)(unsafe.Pointer(out)), (*float32)(unsafe.Pointer(window)), overlap, shift, stride, arch)
 }
 
 const MINI_MAXFACTORS = 32

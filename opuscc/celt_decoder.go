@@ -434,7 +434,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 			if !(b < B) {
 				break
 			}
-			Opus_clt_mdct_backward_c(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq2+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+			mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq2+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
 			b = b + 1
 		}
 		b = 0
@@ -442,7 +442,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 			if !(b < B) {
 				break
 			}
-			Opus_clt_mdct_backward_c(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+			mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
 			b = b + 1
 		}
 	} else {
@@ -464,7 +464,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 				if !(b < B) {
 					break
 				}
-				Opus_clt_mdct_backward_c(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+				mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
 				b = b + 1
 			}
 		} else {
@@ -477,7 +477,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 					if !(b < B) {
 						break
 					}
-					Opus_clt_mdct_backward_c(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(c)*uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+					mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(c)*uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
 					b = b + 1
 				}
 				c = c + 1
