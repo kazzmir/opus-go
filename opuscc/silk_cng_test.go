@@ -20,7 +20,7 @@ func TestCNGDecoderPointers(t *testing.T) {
 	}
 	entropyInitGrowStack(12)
 	runtime.GC()
-	Opus_silk_CNG(nil, dec, 0, 0, 0)
+	Opus_silk_CNG(nil, dec, nil, 0, 0)
 	if dec.FsCNG.Ffs_kHz != 16 || dec.FsCNG.Frand_seed != 3176576 {
 		t.Fatal("typed decoder reset")
 	}
@@ -31,6 +31,38 @@ func TestCNGDecoderPointers(t *testing.T) {
 	}
 	if dec.FsCNG.FCNG_synth_state[10] != 77 {
 		t.Fatal("history tail")
+	}
+}
+
+func TestCNGControlPointers(t *testing.T) {
+	dec := new(OpusT_silk_decoder_state)
+	dec.Ffs_kHz = 16
+	dec.FsCNG.Ffs_kHz = 16
+	dec.FLPC_order = 10
+	dec.Fnb_subfr = 4
+	dec.Fsubfr_length = 2
+	dec.FsCNG.FCNG_smth_Gain_Q16 = 300000
+	control := &OpusT_silk_decoder_control{FGains_Q16: [4]int32{800000, 500000, 1100000, 400000}}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_silk_CNG(nil, dec, control, 0, 0)
+	if dec.FsCNG.FCNG_smth_Gain_Q16 != 400222 || control.FGains_Q16[2] != 1100000 {
+		t.Fatal("control owner/update", dec.FsCNG.FCNG_smth_Gain_Q16)
+	}
+	// The control may alias the CNG excitation: shift/copy precedes smoothing.
+	dec.Fnb_subfr = 2
+	gainOffset := int32(unsafe.Offsetof(OpusT_silk_decoder_control{}.FGains_Q16) / 4)
+	dec.Fsubfr_length = gainOffset + 4
+	control = (*OpusT_silk_decoder_control)(unsafe.Pointer(&dec.FsCNG.FCNG_exc_buf_Q14[0]))
+	control.FGains_Q16 = [4]int32{100000, 200000, 300000, 400000}
+	for i := range dec.Fexc_Q14 {
+		dec.Fexc_Q14[i] = 90000 + int32(i)*10
+	}
+	Opus_silk_CNG(nil, dec, control, 0, 0)
+	for i := int32(0); i < 4; i++ {
+		if control.FGains_Q16[i] != dec.Fexc_Q14[dec.Fsubfr_length+gainOffset+i] {
+			t.Fatal("shift/copy alias stores", control.FGains_Q16)
+		}
 	}
 }
 
@@ -61,7 +93,7 @@ func TestCNGUpdatesSmoothedGain(t *testing.T) {
 	Opus_silk_CNG(
 		tls,
 		&dec,
-		uintptr(unsafe.Pointer(&control)),
+		&control,
 		uintptr(unsafe.Pointer(&frame[0])),
 		int32(len(frame)),
 	)
@@ -148,7 +180,7 @@ func TestCNGLossPathFieldAccesses(t *testing.T) {
 	}
 	frame := []int16{150, -230, 310, -390, 470, -550, 630, -710}
 
-	Opus_silk_CNG(tls, &dec, 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
+	Opus_silk_CNG(tls, &dec, nil, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
 
 	wantFrame := [8]int16{150, -229, 311, -390, 471, -549, 630, -709}
 	for i, want := range wantFrame {
@@ -198,7 +230,7 @@ func TestCNGLossPathHighGainLocalArrays(t *testing.T) {
 	}
 	frame := []int16{150, -230, 310, -390, 470, -550, 630, -710}
 
-	Opus_silk_CNG(tls, &dec, 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
+	Opus_silk_CNG(tls, &dec, nil, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
 
 	/* expected values from the C reference implementation (silk/CNG.c) */
 	wantFrame := [8]int16{162, -257, 358, -464, 585, -725, 882, -1038}

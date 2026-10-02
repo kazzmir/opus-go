@@ -193,9 +193,8 @@ func TestWholeCNGAgainstC(t *testing.T) {
 						}
 						var pins runtime.Pinner
 						pins.Pin(&g)
-						pins.Pin(&control)
 						pins.Pin(unsafe.SliceData(frame))
-						opuscc.Opus_silk_CNG(tls, &g, uintptr(unsafe.Pointer(&control)), uintptr(unsafe.Pointer(&frame[1])), int32(length))
+						opuscc.Opus_silk_CNG(tls, &g, &control, uintptr(unsafe.Pointer(&frame[1])), int32(length))
 						nativeWholeCNG(&c, &cc, cf[1:len(cf)-1])
 						pins.Unpin()
 						tls.Close()
