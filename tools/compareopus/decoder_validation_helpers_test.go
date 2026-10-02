@@ -535,6 +535,144 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestProjectionCtlAgainstC(t *testing.T) {
+	requests := []int32{opuscc.OPUS_GET_BANDWIDTH_REQUEST, opuscc.OPUS_GET_SAMPLE_RATE_REQUEST, opuscc.OPUS_GET_GAIN_REQUEST, opuscc.OPUS_GET_LAST_PACKET_DURATION_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, opuscc.OPUS_SET_GAIN_REQUEST, opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PITCH_REQUEST, 123456}
+	for _, streams := range []int32{1, 3} {
+		for _, coupled := range []int32{0, streams} {
+			for _, request := range requests {
+				for _, value := range []int32{-32769, -1, 0, 1, 2, 3, 10, 11, 32767, 32768} {
+					for _, alias := range []int32{-2, -1} {
+						channels := streams + coupled
+						matrix := make([]byte, 2*channels*channels)
+						for i := int32(0); i < channels; i++ {
+							matrix[2*(i*channels+i)] = 255
+							matrix[2*(i*channels+i)+1] = 127
+						}
+						g := make([]byte, int(opuscc.Opus_opus_projection_decoder_get_size(nil, channels, streams, coupled))+16)
+						st := (*opuscc.OpusT_OpusProjectionDecoder)(unsafe.Pointer(&g[0]))
+						if opuscc.Opus_opus_projection_decoder_init(nil, st, 48000, channels, streams, coupled, unsafe.SliceData(matrix), int32(len(matrix))) != 0 {
+							t.Fatal("projection fixture")
+						}
+						msOff := nativeProjectionMultistream(unsafe.Pointer(st))
+						normalizeMSModes(g[msOff:], streams, coupled)
+						c := slices.Clone(g)
+						ret, out := opuscc.CompareProjectionCtl(g, request, value, alias)
+						cr, co := nativeProjectionCtl(c, request, value, alias)
+						if ret != cr || out != co || !slices.Equal(g, c) {
+							t.Fatal("projection CTL", streams, coupled, request, value, alias, ret, cr, out, co)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestMSCtlAgainstC(t *testing.T) {
+	requests := []int32{opuscc.OPUS_GET_BANDWIDTH_REQUEST, opuscc.OPUS_GET_SAMPLE_RATE_REQUEST, opuscc.OPUS_GET_GAIN_REQUEST, opuscc.OPUS_GET_LAST_PACKET_DURATION_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, opuscc.OPUS_SET_GAIN_REQUEST, opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PITCH_REQUEST, opuscc.OPUS_GET_IGNORE_EXTENSIONS_REQUEST, 123456}
+	for _, streams := range []int32{1, 2, 3} {
+		for coupled := int32(0); coupled <= streams; coupled++ {
+			for _, request := range requests {
+				for _, value := range []int32{-32769, -32768, -1, 0, 1, 2, 3, 10, 11, 32767, 32768} {
+					for _, alias := range []int32{-2, -1, int32(unsafe.Offsetof(opuscc.OpusT_OpusMSDecoder{}.Flayout) + unsafe.Offsetof(opuscc.OpusT_ChannelLayout{}.Fnb_streams))} {
+						channels := streams + coupled
+						mapping := make([]byte, channels)
+						for i := range mapping {
+							mapping[i] = byte(i)
+						}
+						g := make([]byte, int(opuscc.Opus_opus_multistream_decoder_get_size(nil, streams, coupled))+16)
+						st := (*opuscc.OpusT_OpusMSDecoder)(unsafe.Pointer(&g[0]))
+						opuscc.Opus_opus_multistream_decoder_init(nil, st, 48000, channels, streams, coupled, unsafe.SliceData(mapping))
+						offset := int((unsafe.Sizeof(*st) + 7) &^ uintptr(7))
+						for i := int32(0); i < streams; i++ {
+							dec := (*opuscc.OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
+							dec.FrangeFinal = uint32(0x12345678 + i*37)
+							dec.Fdecode_gain = i * 17
+							dec.Fbandwidth = 1105
+							(*opuscc.OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(dec), dec.Fcelt_dec_offset)).Fmode = nil
+							ch := int32(1)
+							if i < coupled {
+								ch = 2
+							}
+							offset += int((uint32(opuscc.Opus_opus_decoder_get_size(nil, ch)) + 7) &^ uint32(7))
+						}
+						c := slices.Clone(g)
+						ret, out := opuscc.CompareMSCtl(g, request, value, alias)
+						cr, co := nativeMSCtl(c, request, value, alias)
+						if ret != cr || out != co || !slices.Equal(g, c) {
+							t.Fatal("MS CTL", streams, coupled, request, value, alias, ret, cr, out, co)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestOpusCtlAgainstC(t *testing.T) {
+	requests := []int32{opuscc.OPUS_GET_BANDWIDTH_REQUEST, opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_GET_SAMPLE_RATE_REQUEST, opuscc.OPUS_GET_PITCH_REQUEST, opuscc.OPUS_GET_GAIN_REQUEST, opuscc.OPUS_SET_GAIN_REQUEST, opuscc.OPUS_GET_LAST_PACKET_DURATION_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_SET_IGNORE_EXTENSIONS_REQUEST, opuscc.OPUS_GET_IGNORE_EXTENSIONS_REQUEST, 123456}
+	for _, ch := range []int32{1, 2} {
+		for _, prev := range []int32{opuscc.MODE_SILK_ONLY, opuscc.MODE_CELT_ONLY} {
+			for _, request := range requests {
+				for _, value := range []int32{-32769, -32768, -1, 0, 1, 10, 11, 32767, 32768} {
+					for _, alias := range []int32{-2, -1, int32(unsafe.Offsetof(opuscc.OpusT_OpusDecoder{}.Fdecode_gain))} {
+						size := int(opuscc.Opus_opus_decoder_get_size(nil, ch))
+						g := make([]byte, size+16)
+						st := (*opuscc.OpusT_OpusDecoder)(unsafe.Pointer(&g[0]))
+						opuscc.Opus_opus_decoder_init(nil, st, 48000, ch)
+						st.Fprev_mode = prev
+						st.Fdecode_gain = -99
+						st.FDecControl.FprevPitchLag = 55
+						st.Fbandwidth = 1105
+						st.FrangeFinal = 0xfedcba98
+						st.Flast_packet_duration = 960
+						celt := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), st.Fcelt_dec_offset))
+						celt.Fpostfilter_period = 37
+						celt.Fmode = nil
+						c := slices.Clone(g)
+						ret, out := opuscc.CompareOpusCtl(g, request, value, alias)
+						cr, co := nativeOpusCtl(c, request, value, alias)
+						if ret != cr || out != co || !slices.Equal(g, c) {
+							t.Fatal("Opus CTL", ch, prev, request, value, alias, ret, cr, out, co)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestCustomCtlAgainstC(t *testing.T) {
+	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	requests := []int32{opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.CELT_SET_START_BAND_REQUEST, opuscc.CELT_SET_END_BAND_REQUEST, opuscc.CELT_SET_CHANNELS_REQUEST, opuscc.CELT_GET_AND_CLEAR_ERROR_REQUEST, opuscc.OPUS_GET_LOOKAHEAD_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_GET_PITCH_REQUEST, opuscc.CELT_GET_MODE_REQUEST, opuscc.CELT_SET_SIGNALLING_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, 123456}
+	for _, request := range requests {
+		for _, value := range []int32{-32769, -1, 0, 1, 2, 10, 11, 20, 21, 32768} {
+			// CELT's C state parameter is restrict-qualified; state/output aliases
+			// are checked in Go, not submitted to this C oracle.
+			for _, alias := range []int32{-2, -1} {
+				// Pointer-output mode aliasing uses the mode slot, never a numeric slot.
+				actualAlias := alias
+				if request == opuscc.CELT_GET_MODE_REQUEST && alias >= 0 {
+					actualAlias = int32(unsafe.Offsetof(opuscc.OpusT_OpusCustomDecoder{}.Fmode))
+				}
+				g := make([]byte, opuscc.CompareCustomDecoderSize(mode, 1)+16)
+				st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&g[0]))
+				opuscc.CompareCustomDecoderInit(st, mode, 1)
+				st.Ferror1 = 123
+				st.Fpostfilter_period = 37
+				st.Frng = 0x89abcdef
+				st.Fmode = nil
+				c := slices.Clone(g)
+				ret, out := opuscc.CompareCustomCtl(g, request, value, actualAlias)
+				cr, co := nativeCustomCtl(c, request, value, actualAlias)
+				if ret != cr || out != co || !slices.Equal(g, c) {
+					t.Fatal("custom CTL", request, value, actualAlias, ret, cr, out, co)
+				}
+			}
+		}
+	}
+}
+
 func TestCeltResetAgainstC(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		for _, bands := range []int32{0, 1, 21, 32} {

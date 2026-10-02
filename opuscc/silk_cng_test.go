@@ -1,11 +1,167 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestCNGDecoderPointers(t *testing.T) {
+	dec := new(OpusT_silk_decoder_state)
+	dec.Ffs_kHz = 16
+	dec.FLPC_order = 10
+	dec.Fnb_subfr = 4
+	dec.Fsubfr_length = 2
+	dec.FprevSignalType = TYPE_UNVOICED
+	for i := range dec.FsCNG.FCNG_synth_state {
+		dec.FsCNG.FCNG_synth_state[i] = 77
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_silk_CNG(nil, dec, nil, nil, 0)
+	if dec.FsCNG.Ffs_kHz != 16 || dec.FsCNG.Frand_seed != 3176576 {
+		t.Fatal("typed decoder reset")
+	}
+	for i := 0; i < 10; i++ {
+		if dec.FsCNG.FCNG_synth_state[i] != 0 {
+			t.Fatal("history clear", i)
+		}
+	}
+	if dec.FsCNG.FCNG_synth_state[10] != 77 {
+		t.Fatal("history tail")
+	}
+}
+
+func TestCNGControlPointers(t *testing.T) {
+	dec := new(OpusT_silk_decoder_state)
+	dec.Ffs_kHz = 16
+	dec.FsCNG.Ffs_kHz = 16
+	dec.FLPC_order = 10
+	dec.Fnb_subfr = 4
+	dec.Fsubfr_length = 2
+	dec.FsCNG.FCNG_smth_Gain_Q16 = 300000
+	control := &OpusT_silk_decoder_control{FGains_Q16: [4]int32{800000, 500000, 1100000, 400000}}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_silk_CNG(nil, dec, control, nil, 0)
+	if dec.FsCNG.FCNG_smth_Gain_Q16 != 400222 || control.FGains_Q16[2] != 1100000 {
+		t.Fatal("control owner/update", dec.FsCNG.FCNG_smth_Gain_Q16)
+	}
+	// The control may alias the CNG excitation: shift/copy precedes smoothing.
+	dec.Fnb_subfr = 2
+	gainOffset := int32(unsafe.Offsetof(OpusT_silk_decoder_control{}.FGains_Q16) / 4)
+	dec.Fsubfr_length = gainOffset + 4
+	control = (*OpusT_silk_decoder_control)(unsafe.Pointer(&dec.FsCNG.FCNG_exc_buf_Q14[0]))
+	control.FGains_Q16 = [4]int32{100000, 200000, 300000, 400000}
+	for i := range dec.Fexc_Q14 {
+		dec.Fexc_Q14[i] = 90000 + int32(i)*10
+	}
+	Opus_silk_CNG(nil, dec, control, nil, 0)
+	for i := int32(0); i < 4; i++ {
+		if control.FGains_Q16[i] != dec.Fexc_Q14[dec.Fsubfr_length+gainOffset+i] {
+			t.Fatal("shift/copy alias stores", control.FGains_Q16)
+		}
+	}
+}
+
+func TestCNGFramePointers(t *testing.T) {
+	dec := &OpusT_silk_decoder_state{Ffs_kHz: 16, FLPC_order: 10, FprevSignalType: TYPE_UNVOICED}
+	frame := []int16{32767, -32768, 23}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_silk_CNG(nil, dec, nil, &frame[0], 3)
+	if frame[0] != 32767 || frame[1] != -32768 || frame[2] != 23 {
+		t.Fatal("non-loss frame stores", frame)
+	}
+	Opus_silk_CNG(nil, dec, nil, nil, 3)
+	Opus_silk_CNG(nil, dec, nil, nil, -7)
+}
+
+func TestCNGScratchPointers(t *testing.T) {
+	for _, order := range []int32{10, 16} {
+		for _, length := range []int32{0, 1, 8, 80, 320} {
+			for _, gain := range []int32{0, 1100000, 11950000} {
+				dec := new(OpusT_silk_decoder_state)
+				dec.Ffs_kHz = 16
+				dec.FLPC_order = order
+				dec.FlossCnt = 1
+				dec.FsCNG.Ffs_kHz = 16
+				dec.FsCNG.Frand_seed = 24681357
+				dec.FsCNG.FCNG_smth_Gain_Q16 = gain
+				dec.FsPLC.FrandScale_Q14 = 12000
+				dec.FsPLC.FprevGain_Q16[1] = 900000
+				for i := int32(0); i < order; i++ {
+					dec.FsCNG.FCNG_smth_NLSF_Q15[i] = int16((i + 1) * 32767 / (order + 1))
+				}
+				for i := range dec.FsCNG.FCNG_exc_buf_Q14 {
+					dec.FsCNG.FCNG_exc_buf_Q14[i] = int32(i*37 - 7000)
+				}
+				frame := make([]int16, length+2)
+				frame[0] = 123
+				frame[length+1] = 456
+				entropyInitGrowStack(12)
+				runtime.GC()
+				Opus_silk_CNG(nil, dec, nil, &frame[1], length)
+				if frame[0] != 123 || frame[length+1] != 456 {
+					t.Fatal("scratch guards", order, length, gain)
+				}
+				if length == 0 && dec.FsCNG.Frand_seed != 24681357 {
+					t.Fatal("zero-length seed")
+				}
+				if length > 0 && dec.FsCNG.Frand_seed == 24681357 {
+					t.Fatal("seed progression")
+				}
+				tls := libc.NewTLS()
+				libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+				Opus_silk_CNG(tls, dec, nil, nil, 0)
+				if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+					t.Fatal("touched TLS scratch")
+				}
+				tls.Close()
+			}
+		}
+	}
+}
+
+func TestCNGSaturationPointers(t *testing.T) {
+	hitSaturation := false
+	for _, order := range []int32{10, 16} {
+		for _, sign := range []int32{-1, 1} {
+			dec := &OpusT_silk_decoder_state{Ffs_kHz: 16, FLPC_order: order, FlossCnt: 1}
+			dec.FsCNG.Ffs_kHz = 16
+			dec.FsCNG.FCNG_smth_Gain_Q16 = 11950000
+			dec.FsCNG.Frand_seed = 24681357
+			for i := int32(0); i < order; i++ {
+				dec.FsCNG.FCNG_smth_NLSF_Q15[i] = int16((i + 1) * 32767 / (order + 1))
+			}
+			for i := range dec.FsCNG.FCNG_exc_buf_Q14 {
+				dec.FsCNG.FCNG_exc_buf_Q14[i] = sign * 2147483647
+			}
+			for i := range dec.FsCNG.FCNG_synth_state {
+				dec.FsCNG.FCNG_synth_state[i] = sign * (1 << 28)
+			}
+			frame := make([]int16, 82)
+			frame[0] = 123
+			frame[81] = 456
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_silk_CNG(nil, dec, nil, &frame[1], 80)
+			if frame[0] != 123 || frame[81] != 456 {
+				t.Fatal("saturation guards")
+			}
+			for _, sample := range dec.FsCNG.FCNG_synth_state {
+				if sample == 2147483647 || sample == -2147483648 {
+					hitSaturation = true
+				}
+			}
+		}
+	}
+	if !hitSaturation {
+		t.Fatal("fixtures did not reach synthesis saturation")
+	}
+}
 
 func TestCNGUpdatesSmoothedGain(t *testing.T) {
 	tls := libc.NewTLS()
@@ -33,9 +189,9 @@ func TestCNGUpdatesSmoothedGain(t *testing.T) {
 
 	Opus_silk_CNG(
 		tls,
-		uintptr(unsafe.Pointer(&dec)),
-		uintptr(unsafe.Pointer(&control)),
-		uintptr(unsafe.Pointer(&frame[0])),
+		&dec,
+		&control,
+		&frame[0],
 		int32(len(frame)),
 	)
 
@@ -94,13 +250,8 @@ func TestCNGResetFieldAccesses(t *testing.T) {
 func TestCNGLossPathFieldAccesses(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	pseudostack := libc.Xmalloc(tls, 16)
-	scratch := libc.Xmalloc(tls, GLOBAL_STACK_SIZE)
-	*(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)) = OpusT_opus_ccgo_pseudostack_state{
-		Fscratch_ptr:  scratch,
-		Fglobal_stack: scratch,
-	}
-	libc.Xpthread_setspecific(tls, 0x6f707573, pseudostack)
+	entropyInitGrowStack(12)
+	runtime.GC()
 
 	dec := OpusT_silk_decoder_state{
 		Ffs_kHz:    16,
@@ -121,7 +272,7 @@ func TestCNGLossPathFieldAccesses(t *testing.T) {
 	}
 	frame := []int16{150, -230, 310, -390, 470, -550, 630, -710}
 
-	Opus_silk_CNG(tls, uintptr(unsafe.Pointer(&dec)), 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
+	Opus_silk_CNG(tls, &dec, nil, &frame[0], int32(len(frame)))
 
 	wantFrame := [8]int16{150, -229, 311, -390, 471, -549, 630, -709}
 	for i, want := range wantFrame {
@@ -141,13 +292,8 @@ func TestCNGLossPathFieldAccesses(t *testing.T) {
 func TestCNGLossPathHighGainLocalArrays(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	pseudostack := libc.Xmalloc(tls, 16)
-	scratch := libc.Xmalloc(tls, GLOBAL_STACK_SIZE)
-	*(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)) = OpusT_opus_ccgo_pseudostack_state{
-		Fscratch_ptr:  scratch,
-		Fglobal_stack: scratch,
-	}
-	libc.Xpthread_setspecific(tls, 0x6f707573, pseudostack)
+	entropyInitGrowStack(12)
+	runtime.GC()
 
 	/* loss path with a smoothed gain above 1<<23 (takes the high-gain SQRT_APPROX
 	   branch, exercising the lz and frac_Q7 locals) and LPC_order 16 (exercising
@@ -171,7 +317,7 @@ func TestCNGLossPathHighGainLocalArrays(t *testing.T) {
 	}
 	frame := []int16{150, -230, 310, -390, 470, -550, 630, -710}
 
-	Opus_silk_CNG(tls, uintptr(unsafe.Pointer(&dec)), 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
+	Opus_silk_CNG(tls, &dec, nil, &frame[0], int32(len(frame)))
 
 	/* expected values from the C reference implementation (silk/CNG.c) */
 	wantFrame := [8]int16{162, -257, 358, -464, 585, -725, 882, -1038}

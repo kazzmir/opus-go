@@ -395,6 +395,251 @@ func TestCustomDecoderInitPointers(t *testing.T) {
 	}
 }
 
+type projectionCtlTestStorage struct {
+	State   OpusT_OpusProjectionDecoder
+	Padding [4]byte
+	MS      msCtlTestStorage
+}
+
+func TestProjectionCtlPointers(t *testing.T) {
+	s := new(projectionCtlTestStorage)
+	s.MS.State.Flayout.Fnb_streams = 1
+	s.MS.State.Flayout.Fnb_channels = 1
+	s.MS.Decoder = *newOpusCtlTestStorage()
+	heapMode := new(OpusT_OpusCustomMode)
+	*heapMode = mode48000_960_120
+	s.MS.Decoder.Celt.State.Fmode = heapMode
+	heapMode = nil
+	var child *OpusT_OpusDecoder
+	var out int32
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Decoder: &child}) != 0 || child != &s.MS.Decoder.State {
+		t.Fatal("projection interior")
+	}
+	if Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_SET_GAIN_REQUEST, OpusDecoderCtlArgs{Value: -19}) != 0 {
+		t.Fatal("projection setter")
+	}
+	Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_GET_GAIN_REQUEST, OpusDecoderCtlArgs{I32: &out})
+	if out != -19 {
+		t.Fatal("projection getter")
+	}
+	Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_RESET_STATE, OpusDecoderCtlArgs{})
+	if s.MS.Decoder.State.Fframe_size != 120 {
+		t.Fatal("projection reset")
+	}
+	if Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{}) != -1 {
+		t.Fatal("projection nil output")
+	}
+	s = nil
+	runtime.GC()
+	if child.FFs != 48000 {
+		t.Fatal("projection output owner")
+	}
+	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(child), child.Fcelt_dec_offset))
+	var retained *OpusT_OpusCustomMode
+	Opus_opus_custom_decoder_ctl_typed(nil, celt, CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &retained})
+	if retained == nil || retained.FnbEBands != 21 {
+		t.Fatal("nested mode owner through child output")
+	}
+}
+
+type msCtlTestStorage struct {
+	State OpusT_OpusMSDecoder
+	// C aligns the 268-byte header to eight on 386 as well as amd64/ARM64.
+	Padding [4]byte
+	Decoder opusCtlTestStorage
+}
+
+func TestMSCtlPointers(t *testing.T) {
+	// Exact-sized standard composites exercise every stream and final cursor on 386.
+	for _, coupled := range []int32{0, 1, 3} {
+		size := Opus_opus_multistream_decoder_get_size(nil, 3, coupled)
+		backing := make([]byte, size)
+		st := (*OpusT_OpusMSDecoder)(unsafe.Pointer(unsafe.SliceData(backing)))
+		mapping := []byte{0, 1, 2, 3, 4, 5}
+		Opus_opus_multistream_decoder_init(nil, st, 48000, 3+coupled, 3, coupled, &mapping[0])
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for i := int32(0); i < 3; i++ {
+			var child *OpusT_OpusDecoder
+			if Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Value: i, Decoder: &child}) != 0 {
+				t.Fatal("composite stream")
+			}
+			child.FrangeFinal = uint32(i + 1)
+		}
+		var rangeOut uint32
+		Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &rangeOut})
+		if rangeOut != 0 {
+			t.Fatal("all-stream XOR")
+		}
+		if Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_SET_GAIN_REQUEST, OpusDecoderCtlArgs{Value: -12}) != 0 {
+			t.Fatal("all-stream setter")
+		}
+		Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_RESET_STATE, OpusDecoderCtlArgs{})
+	}
+	s := new(msCtlTestStorage)
+	s.State.Flayout.Fnb_streams = 1
+	s.State.Flayout.Fnb_channels = 1
+	s.Decoder = *newOpusCtlTestStorage()
+	heapMode := new(OpusT_OpusCustomMode)
+	*heapMode = mode48000_960_120
+	s.Decoder.Celt.State.Fmode = heapMode
+	heapMode = nil
+	var child *OpusT_OpusDecoder
+	var rng uint32
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Decoder: &child}) != 0 || child != &s.Decoder.State {
+		t.Fatal("state interior")
+	}
+	s.Decoder.State.FrangeFinal = 0x12345678
+	Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &rng})
+	if rng != 0x12345678 {
+		t.Fatal("range XOR")
+	}
+	Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &s.Decoder.State.FrangeFinal})
+	if s.Decoder.State.FrangeFinal != 0 {
+		t.Fatal("clear before query")
+	}
+	if Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Value: -1}) != -1 {
+		t.Fatal("stream ID error")
+	}
+	if Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_GET_PITCH_REQUEST, OpusDecoderCtlArgs{}) != -5 {
+		t.Fatal("MS unsupported request")
+	}
+	Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_RESET_STATE, OpusDecoderCtlArgs{})
+	if s.Decoder.State.Fframe_size != 120 {
+		t.Fatal("MS reset")
+	}
+	// Clearing an aliased stream count must precede the live loop condition.
+	Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: (*uint32)(unsafe.Pointer(&s.State.Flayout.Fnb_streams))})
+	if s.State.Flayout.Fnb_streams != 0 {
+		t.Fatal("live loop count")
+	}
+	s = nil
+	runtime.GC()
+	if child.FFs != 48000 {
+		t.Fatal("state output owner")
+	}
+	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(child), child.Fcelt_dec_offset))
+	var retained *OpusT_OpusCustomMode
+	Opus_opus_custom_decoder_ctl_typed(nil, celt, CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &retained})
+	if retained == nil || retained.FnbEBands != 21 {
+		t.Fatal("nested mode owner through child output")
+	}
+}
+
+type opusCtlTestStorage struct {
+	State OpusT_OpusDecoder
+	Silk  OpusT_silk_decoder
+	Celt  celtStateTestStorage
+}
+
+func newOpusCtlTestStorage() *opusCtlTestStorage {
+	s := new(opusCtlTestStorage)
+	s.State.Fsilk_dec_offset = int32(unsafe.Offsetof(s.Silk))
+	s.State.Fcelt_dec_offset = int32(unsafe.Offsetof(s.Celt))
+	s.State.FFs = 48000
+	s.State.Fchannels = 1
+	s.State.Fstream_channels = 1
+	s.State.Fcomplexity = 10
+	Opus_silk_InitDecoder(nil, &s.Silk)
+	opus_custom_decoder_init(nil, &s.Celt.State, &mode48000_960_120, 1)
+	return s
+}
+func TestOpusCtlPointers(t *testing.T) {
+	s := newOpusCtlTestStorage()
+	var out int32
+	var rng uint32
+	a := OpusDecoderCtlArgs{I32: &out, U32: &rng}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for _, v := range []int32{-32769, -32768, 0, 32767, 32768} {
+		r := Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_SET_GAIN_REQUEST, OpusDecoderCtlArgs{Value: v})
+		if (r == 0) != (v >= -32768 && v <= 32767) {
+			t.Fatal("gain", v, r)
+		}
+	}
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_GAIN_REQUEST, a)
+	if out != 32767 {
+		t.Fatal("gain output")
+	}
+	s.State.Fprev_mode = MODE_CELT_ONLY
+	s.Celt.State.Fpostfilter_period = 99
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_PITCH_REQUEST, a)
+	if out != 99 {
+		t.Fatal("CELT pitch")
+	}
+	s.State.Fprev_mode = MODE_SILK_ONLY
+	s.State.FDecControl.FprevPitchLag = 66
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_PITCH_REQUEST, a)
+	if out != 66 {
+		t.Fatal("SILK pitch")
+	}
+	s.State.FrangeFinal = 0xfedcba98
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, a)
+	if rng != 0xfedcba98 {
+		t.Fatal("range output")
+	}
+	if Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_GAIN_REQUEST, OpusDecoderCtlArgs{}) != -1 {
+		t.Fatal("nil output")
+	}
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_RESET_STATE, a)
+	if s.State.Fstream_channels != 1 || s.State.Fframe_size != 120 || s.State.FrangeFinal != 0 || s.Celt.State.Fskip_plc != 1 {
+		t.Fatal("aggregate reset")
+	}
+	if Opus_opus_decoder_ctl_typed(nil, &s.State, 123456, OpusDecoderCtlArgs{}) != -5 {
+		t.Fatal("unknown request")
+	}
+}
+
+func TestCustomCtlPointers(t *testing.T) {
+	mode := new(OpusT_OpusCustomMode)
+	*mode = mode48000_960_120
+	storage, _, _ := celtStateTestBuffer(mode, 1)
+	st := &storage.State
+	opus_custom_decoder_init(nil, st, mode, 1)
+	var out int32
+	var rng uint32
+	var got *OpusT_OpusCustomMode
+	args := OpusDecoderCtlArgs{I32: &out, U32: &rng, Mode: &got}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_custom_decoder_ctl_typed(nil, st, CELT_GET_MODE_REQUEST, args) != 0 || got != mode {
+		t.Fatal("mode output")
+	}
+	st.Fmode = nil
+	mode = nil
+	runtime.GC()
+	if got.FnbEBands != 21 {
+		t.Fatal("mode output owner")
+	}
+	st.Fmode = got
+	for _, v := range []int32{-1, 0, 10, 11} {
+		r := Opus_opus_custom_decoder_ctl_typed(nil, st, OPUS_SET_COMPLEXITY_REQUEST, OpusDecoderCtlArgs{Value: v})
+		if (r == 0) != (v >= 0 && v <= 10) {
+			t.Fatal("complexity", v, r)
+		}
+	}
+	st.Ferror1 = 123
+	if Opus_opus_custom_decoder_ctl_typed(nil, st, CELT_GET_AND_CLEAR_ERROR_REQUEST, OpusDecoderCtlArgs{I32: &st.Ferror1}) != 0 || st.Ferror1 != 0 {
+		t.Fatal("clear output alias")
+	}
+	st.Frng = 0x89abcdef
+	Opus_opus_custom_decoder_ctl_typed(nil, st, OPUS_GET_FINAL_RANGE_REQUEST, args)
+	if rng != 0x89abcdef {
+		t.Fatal("range output")
+	}
+	if Opus_opus_custom_decoder_ctl_typed(nil, nil, OPUS_GET_PITCH_REQUEST, OpusDecoderCtlArgs{}) != -1 || Opus_opus_custom_decoder_ctl_typed(nil, nil, 123456, OpusDecoderCtlArgs{}) != -5 {
+		t.Fatal("nil/error order")
+	}
+	Opus_opus_custom_decoder_ctl_typed(nil, st, OPUS_RESET_STATE, args)
+	if st.Fskip_plc != 1 || st.Fmode != got {
+		t.Fatal("typed reset")
+	}
+}
+
 func TestCeltResetPointers(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		mode := &OpusT_OpusCustomMode{Foverlap: 120, FnbEBands: 21}

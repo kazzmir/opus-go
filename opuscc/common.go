@@ -3706,123 +3706,9 @@ func Opus_opus_decode_float(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_
 	return Opus_opus_decode_native(tls, st, data, len1, pcm, frame_size, decode_fec, 0, uintptr(uint32(0)), 0, uintptr(uint32(0)), 0)
 }
 
-func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
-	// Forwarded CTLs take a single vararg. Keep its storage stable across
-	// uintptr-taking calls, even if the goroutine stack grows.
-	ctlArg := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
-	defer libc.Xfree(tls, ctlArg)
-	var ap OpusT_va_list
-	var celt_dec, silk_dec, value, value10, value12, value2, value3, value4, value5, value6, value8 uintptr
-	var ret int32
-	var value1, value11, value7, value9 OpusT_opus_int32
-	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = ap, celt_dec, ret, silk_dec, value, value1, value10, value11, value12, value2, value3, value4, value5, value6, value7, value8, value9
-	ret = OPUS_OK
-	silk_dec = st + uintptr(decoder.Fsilk_dec_offset)
-	celt_dec = st + uintptr(decoder.Fcelt_dec_offset)
-	ap = va
-	switch request {
-	case int32(OPUS_GET_BANDWIDTH_REQUEST):
-		value = libc.VaUintptr(&ap)
-		if !(value != 0) {
-			goto bad_arg
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(value)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fbandwidth
-	case int32(OPUS_SET_COMPLEXITY_REQUEST):
-		value1 = libc.VaInt32(&ap)
-		if value1 < 0 || value1 > int32(10) {
-			goto bad_arg
-		}
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fcomplexity = value1
-		_ = value1 == int32(0)
-		Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_SET_COMPLEXITY_REQUEST), libc.VaList(ctlArg, value1))
-	case int32(OPUS_GET_COMPLEXITY_REQUEST):
-		value2 = libc.VaUintptr(&ap)
-		if !(value2 != 0) {
-			goto bad_arg
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(value2)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fcomplexity
-	case int32(OPUS_GET_FINAL_RANGE_REQUEST):
-		value3 = libc.VaUintptr(&ap)
-		if !(value3 != 0) {
-			goto bad_arg
-		}
-		*(*OpusT_opus_uint32)(unsafe.Pointer(value3)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FrangeFinal
-	case int32(OPUS_RESET_STATE):
-		libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.Fstream_channels)), 0, uint64(unsafe.Sizeof(OpusT_OpusDecoder{})-unsafe.Offsetof(decoder.Fstream_channels)))
-		Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_RESET_STATE), 0)
-		Opus_silk_ResetDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(silk_dec)))
-		decoder.Fstream_channels = decoder.Fchannels
-		decoder.Fframe_size = decoder.FFs / int32(400)
-	case int32(OPUS_GET_SAMPLE_RATE_REQUEST):
-		value4 = libc.VaUintptr(&ap)
-		if !(value4 != 0) {
-			goto bad_arg
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(value4)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FFs
-	case int32(OPUS_GET_PITCH_REQUEST):
-		value5 = libc.VaUintptr(&ap)
-		if !(value5 != 0) {
-			goto bad_arg
-		}
-		if (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fprev_mode == int32(MODE_CELT_ONLY) {
-			ret = Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_PITCH_REQUEST), libc.VaList(ctlArg, value5))
-		} else {
-			*(*OpusT_opus_int32)(unsafe.Pointer(value5)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).FDecControl.FprevPitchLag
-		}
-	case int32(OPUS_GET_GAIN_REQUEST):
-		value6 = libc.VaUintptr(&ap)
-		if !(value6 != 0) {
-			goto bad_arg
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(value6)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fdecode_gain
-	case int32(OPUS_SET_GAIN_REQUEST):
-		value7 = libc.VaInt32(&ap)
-		if value7 < -int32(32768) || value7 > int32(32767) {
-			goto bad_arg
-		}
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fdecode_gain = value7
-	case int32(OPUS_GET_LAST_PACKET_DURATION_REQUEST):
-		value8 = libc.VaUintptr(&ap)
-		if !(value8 != 0) {
-			goto bad_arg
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(value8)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Flast_packet_duration
-	case int32(OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST):
-		value9 = libc.VaInt32(&ap)
-		if value9 < 0 || value9 > int32(1) {
-			goto bad_arg
-		}
-		_ = value9 == int32(0)
-		ret = Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST), libc.VaList(ctlArg, value9))
-	case int32(OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST):
-		value10 = libc.VaUintptr(&ap)
-		if !(value10 != 0) {
-			goto bad_arg
-		}
-		ret = Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST), libc.VaList(ctlArg, value10))
-	case int32(OPUS_SET_IGNORE_EXTENSIONS_REQUEST):
-		value11 = libc.VaInt32(&ap)
-		if value11 < 0 || value11 > int32(1) {
-			goto bad_arg
-		}
-		(*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fignore_extensions = value11
-	case int32(OPUS_GET_IGNORE_EXTENSIONS_REQUEST):
-		value12 = libc.VaUintptr(&ap)
-		if !(value12 != 0) {
-			goto bad_arg
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(value12)) = (*OpusT_OpusDecoder)(unsafe.Pointer(st)).Fignore_extensions
-	default:
-		/*fprintf(stderr, "unknown opus_decoder_ctl() request: %d", request);*/
-		ret = -int32(5)
-		break
-	}
-	_ = ap
-	return ret
-bad_arg:
-	_ = ap
-	return -int32(1)
+// Legacy varargs boundary; forwarding stays typed and allocates no TLS scratch.
+func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {
+	return Opus_opus_decoder_ctl_typed(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), request, opusCtlLegacyArgs(request, va))
 }
 
 // The legacy ABI frees an address key without reconstructing a Go pointer.
@@ -4259,7 +4145,7 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, 
 	if Opus_validate_layout(tls, layout) == 0 {
 		return OPUS_BAD_ARG
 	}
-	ptr := unsafe.Add(unsafe.Pointer(st), (unsafe.Sizeof(*st)+7)&^uintptr(7))
+	offset := int((unsafe.Sizeof(*st) + 7) &^ uintptr(7))
 	coupledSize := Opus_opus_decoder_get_size(tls, 2)
 	monoSize := Opus_opus_decoder_get_size(tls, 1)
 	for i := int32(0); i < layout.Fnb_streams; i++ {
@@ -4267,10 +4153,12 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, 
 		if i < layout.Fnb_coupled_streams {
 			ch, size = 2, coupledSize
 		}
+		ptr := unsafe.Add(unsafe.Pointer(st), offset)
 		if ret := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(ptr), Fs, ch); ret != OPUS_OK {
 			return ret
 		}
-		ptr = unsafe.Add(ptr, int((uint32(size)+7)&^uint32(7)))
+		// Do not materialize an unused end pointer on an exactly-sized allocation.
+		offset += int((uint32(size) + 7) &^ uint32(7))
 	}
 	return OPUS_OK
 }
@@ -4760,155 +4648,9 @@ func Opus_opus_multistream_decode_float(tls *libc.TLS, st uintptr, data uintptr,
 	return Opus_opus_multistream_decode_native(tls, st, data, len1, pcm, __ccgo_fp(opus_copy_channel_out_float_legacy), frame_size, decode_fec, 0, uintptr(uint32(0)))
 }
 
-func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, request int32, ap OpusT_va_list) (r int32) {
-	// Both the forwarded vararg and range output cross uintptr-taking CTLs.
-	// Pin their named storage so stack growth cannot invalidate the pointers.
-	type ctlScratch struct {
-		tmp OpusT_opus_uint32
-		va  uintptr
-	}
-	storage := libc.Xmalloc(tls, uint64(unsafe.Sizeof(ctlScratch{})))
-	defer libc.Xfree(tls, storage)
-	scratch := (*ctlScratch)(unsafe.Pointer(storage))
-	var alignment uint32
-	var coupled_size, mono_size, ret, s, s1, s2, s3, v1 int32
-	var dec, dec1, dec2, dec3, ptr, value, value1, value2 uintptr
-	var stream_id, value3 OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = alignment, coupled_size, dec, dec1, dec2, dec3, mono_size, ptr, ret, s, s1, s2, s3, stream_id, value, value1, value2, value3, v1
-	ret = OPUS_OK
-	coupled_size = Opus_opus_decoder_get_size(tls, int32(2))
-	mono_size = Opus_opus_decoder_get_size(tls, int32(1))
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(268)) + alignment - uint32(1)) / alignment * alignment)
-	ptr = st + uintptr(v1)
-	switch request {
-	case int32(OPUS_GET_BANDWIDTH_REQUEST):
-		fallthrough
-	case int32(OPUS_GET_SAMPLE_RATE_REQUEST):
-		fallthrough
-	case int32(OPUS_GET_GAIN_REQUEST):
-		fallthrough
-	case int32(OPUS_GET_LAST_PACKET_DURATION_REQUEST):
-		fallthrough
-	case int32(OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST):
-		fallthrough
-	case int32(OPUS_GET_COMPLEXITY_REQUEST):
-		/* For int32* GET params, just query the first stream */
-		value = libc.VaUintptr(&ap)
-		dec = ptr
-		ret = Opus_opus_decoder_ctl(tls, dec, request, libc.VaList(uintptr(unsafe.Pointer(&scratch.va)), value))
-	case int32(OPUS_GET_FINAL_RANGE_REQUEST):
-		value1 = libc.VaUintptr(&ap)
-		if !(value1 != 0) {
-			goto bad_arg
-		}
-		*(*OpusT_opus_uint32)(unsafe.Pointer(value1)) = uint32(0)
-		s = 0
-		for {
-			if !(s < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_streams) {
-				break
-			}
-			dec1 = ptr
-			if s < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_coupled_streams {
-				alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-				v1 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
-				ptr = ptr + uintptr(v1)
-			} else {
-				alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-				v1 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
-				ptr = ptr + uintptr(v1)
-			}
-			ret = Opus_opus_decoder_ctl(tls, dec1, request, libc.VaList(uintptr(unsafe.Pointer(&scratch.va)), uintptr(unsafe.Pointer(&scratch.tmp))))
-			if ret != OPUS_OK {
-				break
-			}
-			*(*OpusT_opus_uint32)(unsafe.Pointer(value1)) ^= scratch.tmp
-			s = s + 1
-		}
-	case int32(OPUS_RESET_STATE):
-		s1 = 0
-		for {
-			if !(s1 < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_streams) {
-				break
-			}
-			dec2 = ptr
-			if s1 < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_coupled_streams {
-				alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-				v1 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
-				ptr = ptr + uintptr(v1)
-			} else {
-				alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-				v1 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
-				ptr = ptr + uintptr(v1)
-			}
-			ret = Opus_opus_decoder_ctl(tls, dec2, int32(OPUS_RESET_STATE), 0)
-			if ret != OPUS_OK {
-				break
-			}
-			s1 = s1 + 1
-		}
-	case int32(OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST):
-		stream_id = libc.VaInt32(&ap)
-		if stream_id < 0 || stream_id >= (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_streams {
-			goto bad_arg
-		}
-		value2 = libc.VaUintptr(&ap)
-		if !(value2 != 0) {
-			goto bad_arg
-		}
-		s2 = 0
-		for {
-			if !(s2 < stream_id) {
-				break
-			}
-			if s2 < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_coupled_streams {
-				alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-				v1 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
-				ptr = ptr + uintptr(v1)
-			} else {
-				alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-				v1 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
-				ptr = ptr + uintptr(v1)
-			}
-			s2 = s2 + 1
-		}
-		*(*uintptr)(unsafe.Pointer(value2)) = ptr
-	case int32(OPUS_SET_GAIN_REQUEST):
-		fallthrough
-	case int32(OPUS_SET_COMPLEXITY_REQUEST):
-		fallthrough
-	case int32(OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST):
-		/* This works for int32 params */
-		value3 = libc.VaInt32(&ap)
-		s3 = 0
-		for {
-			if !(s3 < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_streams) {
-				break
-			}
-			dec3 = ptr
-			if s3 < (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)).Flayout.Fnb_coupled_streams {
-				alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-				v1 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
-				ptr = ptr + uintptr(v1)
-			} else {
-				alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-				v1 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
-				ptr = ptr + uintptr(v1)
-			}
-			ret = Opus_opus_decoder_ctl(tls, dec3, request, libc.VaList(uintptr(unsafe.Pointer(&scratch.va)), value3))
-			if ret != OPUS_OK {
-				break
-			}
-			s3 = s3 + 1
-		}
-	default:
-		ret = -int32(5)
-		break
-	}
-	return ret
-bad_arg:
-	return -int32(1)
-	return r
+func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, request int32, ap OpusT_va_list) int32 {
+	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st))
+	return Opus_opus_multistream_decoder_ctl_typed(tls, decoder, request, msCtlLegacyArgs(decoder, request, ap))
 }
 
 func Opus_opus_multistream_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
@@ -5337,15 +5079,10 @@ func Opus_opus_projection_decode_float(tls *libc.TLS, st uintptr, data uintptr, 
 	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder_legacy(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_float_legacy), frame_size, decode_fec, 0, uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
 }
 
-func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
-	var ap OpusT_va_list
-	var ret int32
-	_, _ = ap, ret
-	ret = OPUS_OK
-	ap = va
-	ret = Opus_opus_multistream_decoder_ctl_va_list(tls, get_multistream_decoder_legacy(tls, st), request, ap)
-	_ = ap
-	return ret
+func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {
+	decoder := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))
+	ms := get_multistream_decoder(tls, decoder)
+	return Opus_opus_projection_decoder_ctl_typed(tls, decoder, request, msCtlLegacyArgs(ms, request, va))
 }
 
 func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {

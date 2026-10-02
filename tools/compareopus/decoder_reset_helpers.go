@@ -52,10 +52,19 @@ static int native_api_reset(int init,int *meta) {
  for(int i=0;i<DECODER_NUM_CHANNELS;i++) {s.channel_state[i].arch=0; if(memcmp(&s.channel_state[i],&ref,sizeof(ref))) meta[4]=0;}
  return ret;
 }
+#define silk_CNG compare_whole_cng
+#define silk_CNG_Reset compare_whole_cng_reset
+#define silk_CNG_exc compare_whole_cng_exc
+#include "../../../opus/silk/CNG.c"
+static void native_whole_cng(void *state,void *control,short *frame,int length) {silk_CNG(state,control,frame,length);}
 */
 import "C"
 import "github.com/kazzmir/opus-go/opuscc"
 import "unsafe"
+
+func nativeWholeCNG(st *opuscc.OpusT_silk_decoder_state, control *opuscc.OpusT_silk_decoder_control, frame []int16) {
+	C.native_whole_cng(unsafe.Pointer(st), unsafe.Pointer(control), (*C.short)(unsafe.Pointer(unsafe.SliceData(frame))), C.int(len(frame)))
+}
 
 func nativeSilkIndices(st *opuscc.OpusT_silk_decoder_state, e *opuscc.OpusT_ec_dec, data []byte, frame, lbrr, cond int32) {
 	s := [11]C.uint{C.uint(e.Fstorage), C.uint(e.Fend_offs), C.uint(e.Fend_window), C.uint(e.Fnend_bits), C.uint(e.Fnbits_total), C.uint(e.Foffs), C.uint(e.Frng), C.uint(e.Fval), C.uint(e.Fext), C.uint(e.Frem), C.uint(e.Ferror1)}

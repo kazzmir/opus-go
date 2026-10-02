@@ -35,16 +35,16 @@ static unsigned native_stereo_band(unsigned *s,unsigned char *buf,float *x,float
  unsigned mask=quant_band_stereo(&ctx,x,y,cfg[0],cfg[3],cfg[1],NULL,cfg[2],low,NULL,cfg[7]);meta[0]=ctx.remaining_bits;meta[1]=ctx.seed;
  s[0]=ec.storage;s[1]=ec.end_offs;s[2]=ec.end_window;s[3]=ec.nend_bits;s[4]=ec.nbits_total;s[5]=ec.offs;s[6]=ec.rng;s[7]=ec.val;s[8]=ec.ext;s[9]=ec.rem;s[10]=ec.error;return mask;
 }
-static unsigned native_mono_band(unsigned *s,unsigned char *buf,float *x,float *low,const int *cfg,int *meta) {
+static unsigned native_mono_band(unsigned *s,unsigned char *buf,float *x,float *low,const int *cfg,int *meta,int partition) {
  ec_ctx ec={0};ec.buf=buf;ec.storage=s[0];ec.end_offs=s[1];ec.end_window=s[2];ec.nend_bits=s[3];ec.nbits_total=s[4];ec.offs=s[5];ec.rng=s[6];ec.val=s[7];ec.ext=s[8];ec.rem=s[9];ec.error=s[10];struct band_ctx ctx={0};ctx.m=opus_custom_mode_create(48000,960,NULL);ctx.ec=&ec;ctx.resynth=cfg[4];ctx.tf_change=cfg[5];ctx.remaining_bits=cfg[6];ctx.seed=123456;
- unsigned mask=quant_band(&ctx,x,cfg[0],cfg[3],cfg[1],NULL,cfg[2],low,1,NULL,cfg[7]);meta[0]=ctx.remaining_bits;meta[1]=ctx.seed;
+ unsigned mask=partition?quant_partition(&ctx,x,cfg[0],cfg[3],cfg[1],low,cfg[2],1,cfg[7]):quant_band(&ctx,x,cfg[0],cfg[3],cfg[1],NULL,cfg[2],low,1,NULL,cfg[7]);meta[0]=ctx.remaining_bits;meta[1]=ctx.seed;
  s[0]=ec.storage;s[1]=ec.end_offs;s[2]=ec.end_window;s[3]=ec.nend_bits;s[4]=ec.nbits_total;s[5]=ec.offs;s[6]=ec.rng;s[7]=ec.val;s[8]=ec.ext;s[9]=ec.rem;s[10]=ec.error;return mask;
 }
-static void native_theta(unsigned *s,unsigned char *buf,const int *cfg,int *out) {
+static void native_theta(unsigned *s,unsigned char *buf,const int *cfg,int *out,float *x,float *y,int encode) {
  ec_ctx ec={0};ec.buf=buf;ec.storage=s[0];ec.end_offs=s[1];ec.end_window=s[2];ec.nend_bits=s[3];ec.nbits_total=s[4];ec.offs=s[5];ec.rng=s[6];ec.val=s[7];ec.ext=s[8];ec.rem=s[9];ec.error=s[10];
- opus_int16 log[1]={cfg[8]};CELTMode m={0};m.nbEBands=1;m.logN=log;struct band_ctx ctx={0};ctx.m=&m;ctx.ec=&ec;ctx.intensity=cfg[7];ctx.remaining_bits=cfg[9];ctx.disable_inv=cfg[10];struct split_ctx split={0};int b=cfg[5],fill=cfg[6];int *bp=&b,*fp=&fill;
+ opus_int16 log[1]={cfg[8]};CELTMode m={0};m.nbEBands=1;m.logN=log;struct band_ctx ctx={0};float energy[2]={.8f,1.2f};ctx.m=&m;ctx.ec=&ec;ctx.bandE=energy;ctx.encode=encode;ctx.intensity=cfg[7];ctx.remaining_bits=cfg[9];ctx.disable_inv=cfg[10];struct split_ctx split={0};int b=cfg[5],fill=cfg[6];int *bp=&b,*fp=&fill;
  if(cfg[11]==1)fp=bp;else if(cfg[11]==2){ctx.remaining_bits=b;bp=&ctx.remaining_bits;}else if(cfg[11]==3){split.itheta=b;split.qalloc=fill;bp=&split.itheta;fp=&split.qalloc;}
- compute_theta(&ctx,&split,NULL,NULL,cfg[0],bp,cfg[1],cfg[2],cfg[3],cfg[4],fp);
+ compute_theta(&ctx,&split,x,y,cfg[0],bp,cfg[1],cfg[2],cfg[3],cfg[4],fp);
  out[0]=split.inv;out[1]=split.imid;out[2]=split.iside;out[3]=split.delta;out[4]=split.itheta;out[5]=split.qalloc;out[6]=*bp;out[7]=*fp;out[8]=ctx.remaining_bits;
  s[0]=ec.storage;s[1]=ec.end_offs;s[2]=ec.end_window;s[3]=ec.nend_bits;s[4]=ec.nbits_total;s[5]=ec.offs;s[6]=ec.rng;s[7]=ec.val;s[8]=ec.ext;s[9]=ec.rem;s[10]=ec.error;
 }
@@ -101,13 +101,21 @@ func nativeStereoBand(e *opuscc.OpusT_ec_ctx, buf []byte, x, y, low []float32, c
 }
 
 func nativeMonoBand(e *opuscc.OpusT_ec_ctx, buf []byte, x, low []float32, cfg [8]int32) (uint32, [2]uint32) {
+	return nativeMonoOrPartition(e, buf, x, low, cfg, false)
+}
+
+func nativeMonoOrPartition(e *opuscc.OpusT_ec_ctx, buf []byte, x, low []float32, cfg [8]int32, partition bool) (uint32, [2]uint32) {
 	s := [11]C.uint{C.uint(e.Fstorage), C.uint(e.Fend_offs), C.uint(e.Fend_window), C.uint(e.Fnend_bits), C.uint(e.Fnbits_total), C.uint(e.Foffs), C.uint(e.Frng), C.uint(e.Fval), C.uint(e.Fext), C.uint(e.Frem), C.uint(e.Ferror1)}
 	var c [8]C.int
 	for i := range c {
 		c[i] = C.int(cfg[i])
 	}
 	var meta [2]C.int
-	mask := C.native_mono_band(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf))), (*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.float)(unsafe.Pointer(unsafe.SliceData(low))), &c[0], &meta[0])
+	var part C.int
+	if partition {
+		part = 1
+	}
+	mask := C.native_mono_band(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf))), (*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.float)(unsafe.Pointer(unsafe.SliceData(low))), &c[0], &meta[0], part)
 	e.Fstorage = uint32(s[0])
 	e.Fend_offs = uint32(s[1])
 	e.Fend_window = uint32(s[2])
@@ -123,13 +131,21 @@ func nativeMonoBand(e *opuscc.OpusT_ec_ctx, buf []byte, x, low []float32, cfg [8
 }
 
 func nativeTheta(e *opuscc.OpusT_ec_ctx, buf []byte, cfg [12]int32) [9]int32 {
+	return nativeThetaSpectrum(e, buf, nil, nil, cfg, false)
+}
+
+func nativeThetaSpectrum(e *opuscc.OpusT_ec_ctx, buf []byte, x, y []float32, cfg [12]int32, encode bool) [9]int32 {
 	s := [11]C.uint{C.uint(e.Fstorage), C.uint(e.Fend_offs), C.uint(e.Fend_window), C.uint(e.Fnend_bits), C.uint(e.Fnbits_total), C.uint(e.Foffs), C.uint(e.Frng), C.uint(e.Fval), C.uint(e.Fext), C.uint(e.Frem), C.uint(e.Ferror1)}
 	var c [12]C.int
 	for i := range c {
 		c[i] = C.int(cfg[i])
 	}
 	var out [9]C.int
-	C.native_theta(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf))), &c[0], &out[0])
+	var en C.int
+	if encode {
+		en = 1
+	}
+	C.native_theta(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf))), &c[0], &out[0], (*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.float)(unsafe.Pointer(unsafe.SliceData(y))), en)
 	e.Fstorage = uint32(s[0])
 	e.Fend_offs = uint32(s[1])
 	e.Fend_window = uint32(s[2])

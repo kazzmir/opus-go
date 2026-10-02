@@ -111,6 +111,70 @@ func TestStereoBandAgainstC(t *testing.T) {
 	}
 }
 
+func TestThetaSpectrumAgainstC(t *testing.T) {
+	for _, N := range []int32{2, 4, 16} {
+		for _, budget := range []int32{0, 16, 64, 160} {
+			for _, stereo := range []int32{0, 1} {
+				for _, intensity := range []int32{0, 1} {
+					cfg := [12]int32{N, 1, 1, 0, stereo, budget, 15, intensity, 24, 300, 0, 0}
+					gb, cb := make([]byte, 64), make([]byte, 64)
+					var ge opuscc.OpusT_ec_ctx
+					opuscc.Opus_ec_enc_init(nil, &ge, &gb[0], 64)
+					ce := ge
+					ce.Fbuf = &cb[0]
+					x, y, cx, cy := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+					for i := range x {
+						x[i] = float32(i+1) / 17
+						y[i] = -float32(i+2) / 19
+						cx[i] = x[i]
+						cy[i] = y[i]
+					}
+					g := opuscc.CompareThetaSpectrum(&ge, &x[1], &y[1], cfg, true)
+					c := nativeThetaSpectrum(&ce, cb, cx[1:len(cx)-1], cy[1:len(cy)-1], cfg, true)
+					ge.Fbuf = nil
+					ce.Fbuf = nil
+					if g != c || ge != ce || !sameFloatBits(x, cx) || !sameFloatBits(y, cy) || !slices.Equal(gb, cb) {
+						t.Fatal(cfg, g, c, x, cx, y, cy, ge, ce)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestPartitionSpectrumAgainstC(t *testing.T) {
+	for LM := int32(1); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, budget := range []int32{0, 8, 24, 80, 400} {
+			for _, fold := range []bool{false, true} {
+				cfg := [8]int32{N, 1, LM, budget, 1, 0, 600, 1}
+				data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+				var ge opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ge, &data[0], 8)
+				ce := ge
+				x, cx, low, clow := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+				for i := range x {
+					x[i] = float32(i+1) / 17
+					cx[i] = x[i]
+					low[i] = float32(i+2) / 19
+					clow[i] = low[i]
+				}
+				var lp *float32
+				var nl []float32
+				if fold {
+					lp = &low[1]
+					nl = clow[1 : len(clow)-1]
+				}
+				gm, gs := opuscc.ComparePartition(&ge, &x[1], lp, cfg)
+				cm, cs := nativeMonoOrPartition(&ce, data, cx[1:len(cx)-1], nl, cfg, true)
+				if gm != cm || gs != cs || ge != ce || !sameFloatBits(x, cx) || !sameFloatBits(low, clow) {
+					t.Fatal(cfg, fold, gm, cm, gs, cs, x, cx, ge, ce)
+				}
+			}
+		}
+	}
+}
+
 func TestQuantN1AgainstC(t *testing.T) {
 	for encode := int32(0); encode <= 1; encode++ {
 		for resynth := int32(0); resynth <= 1; resynth++ {

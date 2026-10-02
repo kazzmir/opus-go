@@ -360,14 +360,59 @@ contexts, and the outer driver uses GC-scanned Go context storage instead of a f
 80-byte TLS allocation. Decoder native fixtures compare masks, remaining budget,
 seed, complete entropy state, spectra, folding output and guards across LM 0–3,
 time/frequency changes, budgets and intensity choices.
-Focused checkptr exercises theta with unused nil spectra and the drivers' unused
-nil one-bin inputs; active spectral native comparisons run on the host. Spectral
-arguments and the outer pseudostack remain legacy; these tests do not establish
-global safety.
+Theta, recursive partition, mono and stereo spectra/folding/scratch arguments are
+now typed throughout the internal band chain. Splits derive interior pointers with
+unsafe.Add; direct indexing, copy and clear replace integer-address stores and
+memory shims while preserving sequential fold and N=2 stereo store order. The PVQ
+integer adapter and obsolete one-bin adapter are removed. The outer band driver
+retains explicit mono/stereo legacy spectral adapters and its pseudostack.
+Focused checkptr now exercises active spectra, recursive splitting, pulses, zero-fill,
+noise/folding, time/frequency changes, optional scratch/output buffers and aliasing,
+with stack growth/GC and guards on amd64, 386 and ARM64/QEMU. Actual bands.c encoder
+theta fixtures compare split outputs, entropy state/bytes and input/output spectra;
+decoder partition fixtures cover recursive budgets and optional folding alongside
+the mono/stereo references. Native comparisons run on the host, not ARM64/macOS.
+Remaining outer integer boundaries, opaque allocations and pseudostack ownership
+mean these tests still do not establish global safety.
+Decoder CTL dispatch now has typed CELT custom, Opus, multistream and projection
+entries, using OpusDecoderCtlArgs for integer values and GC-visible scalar, range,
+mode and decoder output slots. Legacy vararg entries delegate; internal forwarding
+uses no TLS vararg/range scratch. Mode/decoder outputs use Go pointer stores and
+write barriers. Typed aligned traversal preserves live layout reads, range-clear
+before XOR, child-call order/early returns and first-stream getters. Numeric cursor
+offsets avoid unused one-past pointers, including a dependent multistream-init fix
+found by exact-sized composite checkptr tests; extension iterator EOF remains a
+separate unresolved boundary.
+Actual decoder C sources compare all supported requests, invalid/unknown requests,
+boundary values, nil outputs, reset images, SILK/CELT pitch modes, one/three streams
+and coupled layouts, decoder-output offsets and numeric output/layout aliases.
+CELT custom CTL's C state parameter is restrict-qualified: its state/output aliases
+are tested for Go store order, not claimed as valid C-oracle inputs. Focused checkptr
+and GC/stack-growth tests cover the active forwarding chain and pointer-output sole
+owners (including a heap mode retained through a returned component decoder) on
+amd64, 386 and ARM64/QEMU. Native comparisons are host-only; raw vararg boundaries
+and unscanned opaque byte-backed decoder storage still prevent a global safety claim.
+
+SILK CNG now takes typed decoder/control/PCM pointers, shifts excitation with copy,
+and clears only the active LPC history. Its length+16 synthesis buffer is Go-owned;
+no TLS scratch allocation, restore, integer reconstruction or pinning remains in
+this leaf. The fixed coefficient array and per-MAC int32 narrowing, approximate
+integer square root, shifts, rounding, saturation, seed and final-history store
+order match actual silk/CNG.c fixtures (including control/excitation and PCM/history
+aliases). Native fixtures cover orders 10/16, rates 8/12/16, two/four subframes,
+reset/no-reset, signal types, zero/short/full frames, loss counts, gain branches and
+extreme signed samples. Focused checkptr includes active loss synthesis, nil TLS,
+GC/stack growth and guards on amd64, 386 and ARM64/QEMU; original loss-path expected
+outputs are unchanged. Earlier rounds checked non-loss paths only while TLS scratch
+was still legacy. The enclosing SILK frame/PLC APIs and their pseudostack remain
+legacy; this is not a global decoder safety claim.
+
 Opaque byte-backed allocations, architecture FFT headers, outer integer APIs and
-some outer band-table locals remain legacy. ARM64 exposed a quant-partition fixture stack-lifetime
-failure; its crossing objects are now pinned without changing expected outputs.
-This is fixture ownership repair, not a migration of the outer quantizer.
+some outer band-table locals remain legacy. Earlier ARM64 quant-partition and stereo
+fixture lifetime failures required pinning. With the internal spectral chain typed,
+those pins and unused pseudostack setup are removed: the unchanged expected outputs
+now pass with forced GC/stack growth and checkptr on all three tested architectures.
+This does not migrate the outer quantizer.
 MDCT lookups retain typed FFT-state and trig-table pointers; FFT states in turn
 retain typed bit-reversal and twiddle pointers. Grouped FFT tests compare both C
 layouts and force GC/stack growth with a heap lookup as the only table owner.

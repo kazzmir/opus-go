@@ -221,7 +221,7 @@ func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pO
 	/************************************************/
 	/* Comfort noise generation / estimation        */
 	/************************************************/
-	Opus_silk_CNG(tls, psDec, psDecCtrl, pOut, L)
+	Opus_silk_CNG(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(pOut)), L)
 	/****************************************************************/
 	/* Ensure smooth connection of extrapolated and good frames     */
 	/****************************************************************/

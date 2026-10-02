@@ -137,7 +137,7 @@ func TestThetaOutputPointers(t *testing.T) {
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		compute_theta(nil, &ctx, &split, 0, 0, 2, bp, 1, 1, 0, 1, fp)
+		compute_theta(nil, &ctx, &split, nil, nil, 2, bp, 1, 1, 0, 1, fp)
 		if split.Fimid != 32767 || split.Fiside != 0 || split.Fdelta != -16384 || split.Fitheta != 0 || split.Fqalloc != 0 || split.Finv != 0 {
 			t.Fatal(alias, split)
 		}
@@ -154,7 +154,7 @@ func TestQuantBandContextPointers(t *testing.T) {
 	saved := *ctx
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if mask := quant_band(nil, ctx, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1); mask != 1 || *ctx != saved {
+	if mask := quant_band(nil, ctx, nil, 1, 0, 1, nil, 0, nil, 1, nil, 1); mask != 1 || *ctx != saved {
 		t.Fatal("typed mono context / unused nil spectra", mask, ctx)
 	}
 }
@@ -164,8 +164,140 @@ func TestQuantStereoContextPointers(t *testing.T) {
 	saved := *ctx
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if mask := quant_band_stereo(nil, ctx, 0, 0, 1, 0, 1, 0, 0, 0, 0, 3); mask != 1 || *ctx != saved {
+	if mask := quant_band_stereo(nil, ctx, nil, nil, 1, 0, 1, nil, 0, nil, nil, 3); mask != 1 || *ctx != saved {
 		t.Fatal("typed stereo context / unused nil spectra", mask, ctx)
+	}
+}
+
+func TestThetaSpectrumPointers(t *testing.T) {
+	buffer := make([]byte, 32)
+	var ec OpusT_ec_ctx
+	Opus_ec_enc_init(nil, &ec, &buffer[0], 32)
+	log := [1]int16{24}
+	m := OpusT_OpusCustomMode{FnbEBands: 1, FlogN: &log[0]}
+	energy := [2]float32{.8, 1.2}
+	ctx := band_ctx{Fm: &m, Fec: &ec, FbandE: &energy[0], Fencode: 1, Fremaining_bits: 300}
+	x, y := []float32{77, .3, -.4, 88}, []float32{99, .2, .1, 66}
+	rx, ry := slices.Clone(x), slices.Clone(y)
+	intensity_stereo(nil, &m, &rx[1], &ry[1], &energy[0], 0, 2)
+	var split split_ctx
+	b, fill := int32(0), int32(3)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	compute_theta(nil, &ctx, &split, &x[1], &y[1], 2, &b, 1, 1, 0, 1, &fill)
+	if !slices.Equal(x, rx) || !slices.Equal(y, ry) || split.Fitheta != 0 || b != 0 || fill != 1 {
+		t.Fatal("typed theta spectra", split, x, y)
+	}
+}
+
+func TestPartitionSpectrumPointers(t *testing.T) {
+	for LM := int32(1); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, budget := range []int32{0, 24, 400} {
+			for _, fold := range []bool{false, true} {
+				data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 8)
+				ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fremaining_bits: 600, Fseed: 123456}
+				x := make([]float32, N+2)
+				x[0] = 77
+				x[N+1] = 88
+				low := make([]float32, N+2)
+				for i := range low {
+					low[i] = float32(i+1) / 17
+				}
+				var lp *float32
+				if fold {
+					lp = &low[1]
+				}
+				before := slices.Clone(low)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				mask := quant_partition(nil, &ctx, &x[1], N, budget, 1, lp, LM, 1, 1)
+				if x[0] != 77 || x[N+1] != 88 || !slices.Equal(low, before) || mask > 1 {
+					t.Fatal("partition guards/mask", LM, budget, mask)
+				}
+			}
+		}
+	}
+	// Sequential fold stores must retain overlapping-read behavior.
+	data := []byte{0}
+	var ec OpusT_ec_ctx
+	Opus_ec_dec_init(nil, &ec, &data[0], 1)
+	ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fseed: 123456}
+	shared := []float32{.2, .3, .4, .5, .6}
+	quant_partition(nil, &ctx, &shared[1], 4, 0, 1, &shared[0], 2, 1, 1)
+	if shared[0] != .2 {
+		t.Fatal("overlapping fold guard")
+	}
+}
+
+func TestMonoSpectrumPointers(t *testing.T) {
+	for LM := int32(1); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, B := range []int32{1, N} {
+			for _, tf := range []int32{-1, 0, 1} {
+				if tf > 0 && B < 2 {
+					continue
+				}
+				for _, budget := range []int32{0, 24, 400} {
+					data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+					var ec OpusT_ec_ctx
+					Opus_ec_dec_init(nil, &ec, &data[0], 8)
+					ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fremaining_bits: 600, Fseed: 123456, Ftf_change: tf}
+					x, low, out, scratch := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+					for i := range x {
+						x[i] = float32(i+1) / 17
+						low[i] = float32(i+2) / 19
+						out[i] = 77
+						scratch[i] = 88
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					quant_band(nil, &ctx, &x[1], N, budget, B, &low[1], LM, &out[1], 1, &scratch[1], (1<<B)-1)
+					if out[0] != 77 || out[N+1] != 77 || scratch[0] != 88 || scratch[N+1] != 88 {
+						t.Fatal("mono buffer guards", LM, B, tf, budget)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestStereoSpectrumPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, budget := range []int32{0, 24, 400} {
+			for _, intensity := range []int32{0, 21} {
+				data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 8)
+				ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fremaining_bits: 600, Fseed: 123456, Fintensity: intensity}
+				x, y, out := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+				for i := range x {
+					x[i] = float32(i+1) / 17
+					y[i] = -float32(i+2) / 19
+					out[i] = 77
+				}
+				firstX, lastX, firstY, lastY := x[0], x[N+1], y[0], y[N+1]
+				entropyInitGrowStack(12)
+				runtime.GC()
+				quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, 1, nil, LM, &out[1], nil, 3)
+				if x[0] != firstX || x[N+1] != lastX || y[0] != firstY || y[N+1] != lastY || out[0] != 77 || out[N+1] != 77 {
+					t.Fatal("stereo guards", LM, budget, intensity)
+				}
+			}
+		}
+	}
+	// One-bin X/Y/lowband aliasing keeps the sequential C store order.
+	var ec OpusT_ec_ctx
+	buffer := make([]byte, 16)
+	Opus_ec_enc_init(nil, &ec, &buffer[0], 16)
+	ctx := band_ctx{Fec: &ec, Fencode: 1, Fresynth: 1, Fremaining_bits: 8}
+	x := float32(-.5)
+	quant_band_stereo(nil, &ctx, &x, &x, 1, 0, 1, nil, 0, &x, nil, 3)
+	if x != 1 || ctx.Fremaining_bits != 0 {
+		t.Fatal("stereo alias order", x, ctx)
 	}
 }
 

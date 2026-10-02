@@ -23,17 +23,10 @@ func TestQuantBandStereoOneSampleFieldAccesses(t *testing.T) {
 	x := OpusT_celt_norm(-0.75)
 	y := OpusT_celt_norm(0.5)
 	lowband := OpusT_celt_norm(0)
-	// This fixture still crosses the legacy quantizer uintptr boundary.
-	// Retain/pin its objects rather than exposing movable stack addresses.
-	var pins runtime.Pinner
-	defer pins.Unpin()
-	pins.Pin(&encoder)
-	pins.Pin(&context)
-	pins.Pin(&x)
-	pins.Pin(&y)
-	pins.Pin(&lowband)
+	entropyInitGrowStack(12)
+	runtime.GC()
 
-	if got, want := quant_band_stereo(tls, &context, uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)), 1, 0, 1, 0, 0, uintptr(unsafe.Pointer(&lowband)), 0, 3), uint32(1); got != want {
+	if got, want := quant_band_stereo(tls, &context, &x, &y, 1, 0, 1, nil, 0, &lowband, nil, 3), uint32(1); got != want {
 		t.Fatalf("coded dimensions: got %d, want %d", got, want)
 	}
 
@@ -54,7 +47,6 @@ func TestQuantBandStereoOneSampleFieldAccesses(t *testing.T) {
 func TestQuantBandStereoLocalSplitState(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	setupResamplerPseudostack(tls)
 
 	cacheIndex := [2]int16{0, 0}
 	cacheBits := [2]byte{1, 0}
@@ -79,7 +71,7 @@ func TestQuantBandStereoLocalSplitState(t *testing.T) {
 	x := [2]OpusT_celt_norm{0.3, -0.7}
 	y := [2]OpusT_celt_norm{-0.4, 0.9}
 
-	mask := quant_band_stereo(tls, &context, uintptr(unsafe.Pointer(&x[0])), uintptr(unsafe.Pointer(&y[0])), 2, 16, 1, 0, 0, 0, 0, 3)
+	mask := quant_band_stereo(tls, &context, &x[0], &y[0], 2, 16, 1, nil, 0, nil, nil, 3)
 	Opus_ec_enc_done(tls, &encoder)
 
 	t.Logf("mask=%d x=%v y=%v bits=%d seed=%d encoded=% x", mask, x, y, context.Fremaining_bits, context.Fseed, buffer[:encoder.Foffs])
