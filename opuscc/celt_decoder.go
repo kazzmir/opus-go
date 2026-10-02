@@ -286,194 +286,56 @@ func celtSynthesisOutputCopy(destination, source *float32, N int32) {
 	copy(unsafe.Slice(destination, N), unsafe.Slice(source, N))
 }
 func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_syn **float32, oldBandE *float32, start int32, effEnd int32, C int32, CC int32, isTransient int32, LM int32, downsample int32, silence int32, arch int32) {
-	modeView := mode
-	bandBoundaries := modeView.FeBands
-	outputs := unsafe.Slice(out_syn, max(CC, 1))
-	var freq2, freq21 *float32
-	var B, M, N, NB, b, c, i, nbEBands, overlap, shift, v33 int32
-	var _saved_stack, freq, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B, M, N, NB, _saved_stack, b, c, freq, freq2, freq21, i, nbEBands, overlap, shift, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v33, v5, v7, v9
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	overlap, nbEBands, N = celtSynthesisGeometry(mode, LM)
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(N))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3767, int32(432))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(N)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	freq = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N))*(uint64(4)/uint64(1))) /**< Interleaved signal MDCTs */
-	M = int32(1) << LM
+	bandBoundaries := mode.FeBands
+	overlap, nbEBands, N := celtSynthesisGeometry(mode, LM)
+	// Reuse one N-sample interleaved spectrum, matching the C scratch extent.
+	freq := make([]float32, N)
+	freqHead := unsafe.SliceData(freq)
+	M := int32(1) << LM
+	B, NB, shift := int32(1), mode.FshortMdctSize<<LM, mode.FmaxLM-LM
 	if isTransient != 0 {
-		B = M
-		NB = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize
-		shift = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FmaxLM
-	} else {
-		B = int32(1)
-		NB = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize << LM
-		shift = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FmaxLM - LM
+		B, NB, shift = M, mode.FshortMdctSize, mode.FmaxLM
 	}
-	if CC == int32(2) && C == int32(1) {
-		Opus_denormalise_bands(tls, bandBoundaries, modeView.FshortMdctSize, X, (*float32)(unsafe.Pointer(freq)), oldBandE, start, effEnd, M, downsample, silence)
-		/* Store a temporary copy in the output buffer because the IMDCT destroys its input. */
-		freq2 = celtNormAdd(outputs[1], overlap/2)
-		celtSynthesisOutputCopy(freq2, (*float32)(unsafe.Pointer(freq)), N)
-		b = 0
-		for {
-			if !(b < B) {
-				break
-			}
-			celtSynthesisIMDCT(tls, mode, celtNormAdd(freq2, b), celtNormAdd(outputs[0], NB*b), overlap, shift, B, arch)
-			b = b + 1
+	outputs := unsafe.Slice(out_syn, max(CC, 1))
+	if CC == 2 && C == 1 {
+		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
+		// Copy before either transform, and finish all left blocks before right blocks.
+		temp := celtNormAdd(outputs[1], overlap/2)
+		celtSynthesisOutputCopy(temp, freqHead, N)
+		for b := int32(0); b < B; b++ {
+			celtSynthesisIMDCT(tls, mode, celtNormAdd(temp, b), celtNormAdd(outputs[0], NB*b), overlap, shift, B, arch)
 		}
-		b = 0
-		for {
-			if !(b < B) {
-				break
-			}
-			celtSynthesisIMDCT(tls, mode, (*float32)(unsafe.Pointer(freq+uintptr(b)*4)), celtNormAdd(outputs[1], NB*b), overlap, shift, B, arch)
-			b = b + 1
+		for b := int32(0); b < B; b++ {
+			celtSynthesisIMDCT(tls, mode, celtNormAdd(freqHead, b), celtNormAdd(outputs[1], NB*b), overlap, shift, B, arch)
+		}
+	} else if CC == 1 && C == 2 {
+		temp := celtNormAdd(outputs[0], overlap/2)
+		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
+		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, celtNormAdd(X, N), temp, celtNormAdd(oldBandE, nbEBands), start, effEnd, M, downsample, silence)
+		other := unsafe.Slice(temp, N)
+		// Round both halves independently (including on FMA-capable architectures).
+		for i := range freq {
+			freq[i] = float32(float32(.5)*freq[i]) + float32(float32(.5)*other[i])
+		}
+		for b := int32(0); b < B; b++ {
+			celtSynthesisIMDCT(tls, mode, celtNormAdd(freqHead, b), celtNormAdd(outputs[0], NB*b), overlap, shift, B, arch)
 		}
 	} else {
-		if CC == int32(1) && C == int32(2) {
-			freq21 = celtNormAdd(outputs[0], overlap/2)
-			Opus_denormalise_bands(tls, bandBoundaries, modeView.FshortMdctSize, X, (*float32)(unsafe.Pointer(freq)), oldBandE, start, effEnd, M, downsample, silence)
-			/* Use the output buffer as temp array before downmixing. */
-			Opus_denormalise_bands(tls, bandBoundaries, modeView.FshortMdctSize, celtNormAdd(X, N), freq21, celtNormAdd(oldBandE, nbEBands), start, effEnd, M, downsample, silence)
-			i = 0
-			for {
-				if !(i < N) {
-					break
-				}
-				*(*OpusT_celt_sig)(unsafe.Pointer(freq + uintptr(i)*4)) = float32(float32(0.5)**(*OpusT_celt_sig)(unsafe.Pointer(freq + uintptr(i)*4))) + float32(float32(0.5)*unsafe.Slice(freq21, N)[i])
-				i = i + 1
-			}
-			b = 0
-			for {
-				if !(b < B) {
-					break
-				}
-				celtSynthesisIMDCT(tls, mode, (*float32)(unsafe.Pointer(freq+uintptr(b)*4)), celtNormAdd(outputs[0], NB*b), overlap, shift, B, arch)
-				b = b + 1
-			}
-		} else {
-			/* Normal case (mono or stereo) */
-			c = 0
-			for {
-				Opus_denormalise_bands(tls, bandBoundaries, modeView.FshortMdctSize, celtNormAdd(X, c*N), (*float32)(unsafe.Pointer(freq)), celtNormAdd(oldBandE, c*nbEBands), start, effEnd, M, downsample, silence)
-				b = 0
-				for {
-					if !(b < B) {
-						break
-					}
-					celtSynthesisIMDCT(tls, mode, (*float32)(unsafe.Pointer(freq+uintptr(b)*4)), celtNormAdd(outputs[c], NB*b), overlap, shift, B, arch)
-					b = b + 1
-				}
-				c = c + 1
-				v33 = c
-				if !(v33 < CC) {
-					break
-				}
+		// The C do-while visits channel zero even when CC is zero.
+		for c := int32(0); c < max(CC, 1); c++ {
+			Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, celtNormAdd(X, c*N), freqHead, celtNormAdd(oldBandE, c*nbEBands), start, effEnd, M, downsample, silence)
+			for b := int32(0); b < B; b++ {
+				celtSynthesisIMDCT(tls, mode, celtNormAdd(freqHead, b), celtNormAdd(outputs[c], NB*b), overlap, shift, B, arch)
 			}
 		}
 	}
-	/* Saturate IMDCT output so that we can't overflow in the pitch postfilter
-	   or in the */
-	c = 0
-	for {
-		i = 0
-		for {
-			if !(i < N) {
-				break
-			}
-			*celtNormAdd(outputs[c], i) = *celtNormAdd(outputs[c], i)
-			i = i + 1
-		}
-		c = c + 1
-		v33 = c
-		if !(v33 < CC) {
-			break
+	// SATURATE(x,SIG_SAT) is the identity in the floating-point C build.
+	for c := int32(0); c < max(CC, 1); c++ {
+		out := unsafe.Slice(outputs[c], N)
+		for i := range out {
+			out[i] = out[i]
 		}
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
 func tf_decode(tls *libc.TLS, start, end, isTransient int32, tfRes *int32, LM int32, dec *OpusT_ec_dec) {

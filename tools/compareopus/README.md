@@ -387,7 +387,35 @@ short/zero frames and memory/output store order on amd64, 386 and ARM64/QEMU; na
 comparisons remain host-only. The initial typed-buffer round checked only the
 scratch-free stereo path while the generic scratch was still legacy. Input/output
 aliases violate C restrict contracts, so Go store-order tests do not claim C parity
-for those aliases. This does not migrate outer CELT synthesis/decode ownership.
+for those aliases. That stage did not migrate CELT synthesis/decode ownership.
+
+CELT synthesis now retains typed mode, spectrum/band-energy and output channel
+pointers and uses a Go-owned N-sample interleaved frequency buffer, with no TLS
+pseudostack allocation/restoration or integer MDCT addressing internally. Mode
+and transform table owners, output-buffer staging, channel-zero do-while behavior,
+transient block order, independently rounded downmix halves and the floating-point
+SATURATE identity are preserved. Decoder/PLC callers still enter through an
+explicit integer-address adapter; its ordinary mono/stereo heads are made typed
+before allocation, with uintptr escape annotation for direct legacy arguments.
+
+Actual celt_decoder.c synthesis fixtures use the existing renamed scalar bands.c
+and MDCT/FFT implementations rather than the linked library's SIMD transforms.
+They compare spectra/energy immutability, full output/TDAC images and guards for
+LM 0–3, mono/stereo/upmix/downmix and channel-zero visits, transient/non-transient
+blocks, factors 1/2/3/4/6, silence and full/partial/empty band ranges. Normal stereo
+shared/partially overlapping output heads are also valid native fixtures because
+each MDCT invocation has a separate output restrict scope. Upmix staging/output
+alias order is Go-only: it violates the MDCT restrict contract and is not claimed
+as C parity. Native comparisons remain host-only.
+
+Grouped synthesis tests own cloned mode/MDCT/FFT tables and channel/spectral
+buffers through typed pointers only, with GC and stack growth and exact-sized
+output-head arrays. Focused checkptr on amd64/386 and ARM64/QEMU now covers the
+complete active synthesis path, nil TLS, an untouched sentinel TLS slot, TDAC
+history and output aliases. Early rounds checked geometry/MDCT, denormalization
+and staging helpers while full synthesis still depended on legacy scratch. Outer
+CELT decoding, concealment and opaque decoder allocation scanning remain legacy;
+this is not a global GC-safety proof or direct macOS CI validation.
 
 Decoder CTL dispatch now has typed CELT custom, Opus, multistream and projection
 entries, using OpusDecoderCtlArgs for integer values and GC-visible scalar, range,
@@ -437,7 +465,8 @@ spectra, standard FFT sizes and odd N/4. Forward folding and rotation use Go scr
 not TLS pseudostack storage. Inverse de-shuffling preserves both-end capture and
 the double-processed odd middle pair before TDAC. Go also checks forward fold-before-
 output aliases; native cases keep restrict-qualified buffers distinct. The obsolete
-FFT integer adapter is removed; the outer synthesis MDCT boundary remains legacy.
+FFT integer adapter is removed. Synthesis now uses the typed MDCT chain;
+other outer decode/concealment MDCT boundaries remain legacy.
 Architecture headers and opaque decoder allocations are still not globally GC-safe.
 FFT driver cases share the butterfly tests and use native-generated factors,
 bit-reversal and twiddles for sizes 4–480, including shared-table shifts -1–2.
@@ -571,8 +600,9 @@ an oracle. Comb transitions use renamed scalar celt.c for tapsets, gain changes,
 history, zero-length/memmove paths, unchanged filters and overlapping buffers.
 PVQ search/quantization reuse renamed vq.c: exact pulses, energy, fallback/sign bits,
 reconstruction, collapse masks, entropy state and finalized bytes, including tiny
-encoder capacities. Search/pulse scratch is Go-owned; outer partition/synthesis
-adapters and mode pointer fields remain legacy.
+encoder capacities. Search/pulse scratch is Go-owned. Subsequent migrations
+converted the partition/synthesis internal pointer chains and mode table fields;
+outer decode/concealment adapters remain legacy.
 One-bin quantization uses typed context/entropy/sample pointers and preserves
 cached encode mode, mono/stereo aliases, lowband store order and insufficient-bit
 behavior. Grouped bands fixtures compare sign bits, all entropy fields and finalized
