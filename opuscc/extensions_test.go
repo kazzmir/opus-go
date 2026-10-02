@@ -432,7 +432,7 @@ func TestRepeatedExtensionIterator(t *testing.T) {
 		{Fid: 3, Fframe: 2, Fdata: &payload[0], Flen1: 1},
 	}
 	packet := make([]byte, 32)
-	length := Opus_opus_packet_extensions_generate(tls, uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&extensions[0])), int32(len(extensions)), 3, 1)
+	length := Opus_opus_packet_extensions_generate(tls, &packet[0], int32(len(packet)), &extensions[0], int32(len(extensions)), 3, 1)
 	if length <= 0 {
 		t.Fatalf("generated extension packet length: got %d", length)
 	}

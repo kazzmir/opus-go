@@ -5569,9 +5569,51 @@ func write_extension_payload(tls *libc.TLS, data *byte, capacity, pos, id, lengt
 	return pos + length
 }
 
-func write_extension_payload_legacy(tls *libc.TLS, data uintptr, capacity, pos int32, ext uintptr, last int32) int32 {
-	e := (*OpusT_opus_extension_data)(unsafe.Pointer(ext))
-	return write_extension_payload(tls, (*byte)(unsafe.Pointer(data)), capacity, pos, e.Fid, e.Flen1, (*byte)(unsafe.Pointer(e.Fdata)), last)
+func write_extension_payload_record(tls *libc.TLS, data *byte, capacity, pos int32, e *OpusT_opus_extension_data, last int32) int32 {
+	if e.Fid < 3 || e.Fid > 127 {
+		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 425)
+	}
+	if e.Fid < 32 {
+		if e.Flen1 < 0 || e.Flen1 > 1 {
+			return -1
+		}
+		if e.Flen1 > 0 {
+			if capacity-pos < e.Flen1 {
+				return -2
+			}
+			if data != nil {
+				unsafe.Slice(data, capacity)[pos] = *e.Fdata
+			}
+			pos++
+		}
+		return pos
+	}
+	if e.Flen1 < 0 {
+		return -1
+	}
+	lengthBytes := int32(1) + e.Flen1/255
+	if last != 0 {
+		lengthBytes = 0
+	}
+	if capacity-pos < lengthBytes+e.Flen1 {
+		return -2
+	}
+	if last == 0 {
+		for j := int32(0); j < e.Flen1/255; j++ {
+			if data != nil {
+				unsafe.Slice(data, capacity)[pos] = 255
+			}
+			pos++
+		}
+		if data != nil {
+			unsafe.Slice(data, capacity)[pos] = byte(e.Flen1 % 255)
+		}
+		pos++
+	}
+	if data != nil {
+		copy(unsafe.Slice(data, capacity)[pos:pos+e.Flen1], unsafe.Slice(e.Fdata, e.Flen1))
+	}
+	return pos + e.Flen1
 }
 
 func write_extension(tls *libc.TLS, data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
@@ -5591,12 +5633,25 @@ func write_extension(tls *libc.TLS, data *byte, capacity, pos, id, length int32,
 	return write_extension_payload(tls, data, capacity, pos+1, id, length, payload, last)
 }
 
-func write_extension_legacy(tls *libc.TLS, data uintptr, capacity, pos int32, ext uintptr, last int32) int32 {
-	e := (*OpusT_opus_extension_data)(unsafe.Pointer(ext))
-	return write_extension(tls, (*byte)(unsafe.Pointer(data)), capacity, pos, e.Fid, e.Flen1, (*byte)(unsafe.Pointer(e.Fdata)), last)
+func write_extension_record(tls *libc.TLS, data *byte, capacity, pos int32, e *OpusT_opus_extension_data, last int32) int32 {
+	if capacity-pos < 1 {
+		return -2
+	}
+	if e.Fid < 3 || e.Fid > 127 {
+		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 465)
+	}
+	if data != nil {
+		L := e.Flen1
+		if e.Fid >= 32 {
+			L = libc.BoolInt32(last == 0)
+		}
+		unsafe.Slice(data, capacity)[pos] = byte(e.Fid<<1 + L)
+	}
+	// The header can alias numeric descriptor bytes; reload before payload validation.
+	return write_extension_payload_record(tls, data, capacity, pos+1, e, last)
 }
 
-func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 OpusT_opus_int32, extensions uintptr, nb_extensions OpusT_opus_int32, nb_frames int32, pad int32) (r OpusT_opus_int32) {
+func Opus_opus_packet_extensions_generate(tls *libc.TLS, data *byte, len1 OpusT_opus_int32, extensions *OpusT_opus_extension_data, nb_extensions OpusT_opus_int32, nb_frames int32, pad int32) (r OpusT_opus_int32) {
 	var curr_frame, diff, f, g, g1, j, j1, last, nb_repeated, repeat_count, v3 int32
 	var frame_min_idx, frame_repeat_idx [48]OpusT_opus_int32
 	var i, last_long_idx, padding, pos, written OpusT_opus_int32
@@ -5611,6 +5666,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 	if nb_frames > int32(48) {
 		return -int32(1)
 	}
+	exts := unsafe.Slice(extensions, max(nb_extensions, 0))
 	/* Do a little work up-front to make this O(nb_extensions) instead of
 	   O(nb_extensions*nb_frames) so long as the extensions are in frame
 	   order (without requiring that they be in frame order). */
@@ -5627,11 +5683,11 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 		if !(i < nb_extensions) {
 			break
 		}
-		f = (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fframe
+		f = exts[i].Fframe
 		if f < 0 || f >= nb_frames {
 			return -int32(1)
 		}
-		if (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fid < int32(3) || (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fid > int32(127) {
+		if exts[i].Fid < int32(3) || exts[i].Fid > int32(127) {
 			return -int32(1)
 		}
 		if frame_min_idx[f] < i {
@@ -5669,7 +5725,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 				if !(i < frame_max_idx[f]) {
 					break
 				}
-				if (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fframe == f {
+				if exts[i].Fframe == f {
 					/* Test if we can repeat this extension in future frames. */
 					g = f + int32(1)
 					for {
@@ -5679,13 +5735,13 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 						if frame_repeat_idx[g] >= frame_max_idx[g] {
 							break
 						}
-						if !((*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(frame_repeat_idx[g])*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fframe == g) {
+						if !(exts[frame_repeat_idx[g]].Fframe == g) {
 							Opus_celt_fatal(tls, __ccgo_ts+2978, __ccgo_ts+2472, int32(518))
 						}
-						if (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(frame_repeat_idx[g])*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fid != (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fid {
+						if exts[frame_repeat_idx[g]].Fid != exts[i].Fid {
 							break
 						}
-						if (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(frame_repeat_idx[g])*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fid < int32(32) && (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(frame_repeat_idx[g])*unsafe.Sizeof(OpusT_opus_extension_data{})))).Flen1 != (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Flen1 {
+						if exts[frame_repeat_idx[g]].Fid < int32(32) && exts[frame_repeat_idx[g]].Flen1 != exts[i].Flen1 {
 							break
 						}
 						g = g + 1
@@ -5696,7 +5752,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 					/* We can! */
 					/* If this is a long extension, save the index of the last
 					   instance, so we can modify its L flag. */
-					if (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fid >= int32(32) {
+					if exts[i].Fid >= int32(32) {
 						last_long_idx = frame_repeat_idx[nb_frames-int32(1)]
 					}
 					/* Using the repeat mechanism almost always makes the
@@ -5721,7 +5777,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 						}
 						j = frame_repeat_idx[g] + int32(1)
 						for {
-							if !(j < frame_max_idx[g] && (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(j)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fframe != g) {
+							if !(j < frame_max_idx[g] && exts[j].Fframe != g) {
 								break
 							}
 							j = j + 1
@@ -5742,7 +5798,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 			if !(i < frame_max_idx[f]) {
 				break
 			}
-			if (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fframe == f {
+			if exts[i].Fframe == f {
 				/* Insert separator when needed. */
 				if f != curr_frame {
 					diff = f - curr_frame
@@ -5750,23 +5806,23 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 						return -int32(2)
 					}
 					if diff == int32(1) {
-						if data != 0 {
-							*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8(0x02)
+						if data != nil {
+							unsafe.Slice(data, len1)[pos] = 0x02
 						}
-						pos = pos + 1
+						pos++
 					} else {
-						if data != 0 {
-							*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8(0x03)
+						if data != nil {
+							unsafe.Slice(data, len1)[pos] = 0x03
 						}
-						pos = pos + 1
-						if data != 0 {
-							*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8(diff)
+						pos++
+						if data != nil {
+							unsafe.Slice(data, len1)[pos] = byte(diff)
 						}
-						pos = pos + 1
+						pos++
 					}
 					curr_frame = f
 				}
-				pos = write_extension_legacy(tls, data, len1, pos, extensions+uintptr(i)*unsafe.Sizeof(OpusT_opus_extension_data{}), libc.BoolInt32(written == nb_extensions-int32(1)))
+				pos = write_extension_record(tls, data, len1, pos, &exts[i], libc.BoolInt32(written == nb_extensions-int32(1)))
 				if pos < 0 {
 					return pos
 				}
@@ -5778,8 +5834,8 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 					if len1-pos < int32(1) {
 						return -int32(2)
 					}
-					if data != 0 {
-						*(*uint8)(unsafe.Pointer(data + uintptr(pos))) = uint8(int32(0x04) + libc.BoolInt32(!(last != 0)))
+					if data != nil {
+						unsafe.Slice(data, len1)[pos] = uint8(int32(0x04) + libc.BoolInt32(!(last != 0)))
 					}
 					pos = pos + 1
 					g1 = f + int32(1)
@@ -5792,8 +5848,8 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 							if !(j1 < frame_repeat_idx[g1]) {
 								break
 							}
-							if (*(*OpusT_opus_extension_data)(unsafe.Pointer(extensions + uintptr(j1)*unsafe.Sizeof(OpusT_opus_extension_data{})))).Fframe == g1 {
-								pos = write_extension_payload_legacy(tls, data, len1, pos, extensions+uintptr(j1)*unsafe.Sizeof(OpusT_opus_extension_data{}), libc.BoolInt32(last != 0 && j1 == last_long_idx))
+							if exts[j1].Fframe == g1 {
+								pos = write_extension_payload_record(tls, data, len1, pos, &exts[j1], libc.BoolInt32(last != 0 && j1 == last_long_idx))
 								if pos < 0 {
 									return pos
 								}
@@ -5821,15 +5877,11 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data uintptr, len1 Opus
 	   an L=1 case still fits. */
 	if pad != 0 && pos < len1 {
 		padding = len1 - pos
-		if data != 0 {
-			libc.Xmemmove(tls, data+uintptr(padding), data, uint64(uint32(pos))*uint64(1)+uint64(0*(int64(data+uintptr(padding))-int64(data))))
-			i = 0
-			for {
-				if !(i < padding) {
-					break
-				}
-				*(*uint8)(unsafe.Pointer(data + uintptr(i))) = uint8(0x01)
-				i = i + 1
+		if data != nil {
+			out := unsafe.Slice(data, len1)
+			copy(out[padding:padding+pos], out[:pos])
+			for i := int32(0); i < padding; i++ {
+				out[i] = 0x01
 			}
 		}
 		pos = pos + padding

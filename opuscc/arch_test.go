@@ -48,14 +48,13 @@ func TestArchPacketFramePointers(t *testing.T) {
 func TestArchDeemphasisPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	setupResamplerPseudostack(tls)
 	left, right := [2]float32{32768, 65536}, [2]float32{-32768, -65536}
-	input := [2]uintptr{uintptr(unsafe.Pointer(&left)), uintptr(unsafe.Pointer(&right))}
+	input := [2]*float32{&left[0], &right[0]}
 	var coef [4]float32
 	for _, accum := range []int32{0, 1} {
 		var output [4]float32
 		var mem [2]float32
-		deemphasis(tls, uintptr(unsafe.Pointer(&input)), uintptr(unsafe.Pointer(&output)), 2, 2, 1, uintptr(unsafe.Pointer(&coef)), uintptr(unsafe.Pointer(&mem)), accum)
+		deemphasis(tls, &input[0], &output[0], 2, 2, 1, &coef[0], &mem[0], accum)
 		if output != [4]float32{1, -1, 2, -2} {
 			t.Fatalf("accum %d: output = %v", accum, output)
 		}

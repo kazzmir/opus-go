@@ -5,6 +5,7 @@ package main
 import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 	"github.com/kazzmir/opus-go/opuscc"
+	"math"
 	"slices"
 	"testing"
 	"unsafe"
@@ -531,6 +532,334 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	for _, ch := range []int32{-1, 0, 1, 2, 3} {
 		if g, c := opuscc.CompareCustomDecoderInit(nil, nil, ch), nativeCeltState(nil, 1, ch, 48000, 120, 21, 21); g != c {
 			t.Fatal("nil/invalid", ch, g, c)
+		}
+	}
+}
+
+func TestAllocationDriverAgainstC(t *testing.T) {
+	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	bands := unsafe.Slice(m.FeBands, 22)
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, start := range []int32{0, 3, 18} {
+				for _, budget := range []int32{0, 8, 100, 512, 4096, 12000} {
+					for _, trim := range []int32{0, 5, 10} {
+						for _, encode := range []int32{0, 1} {
+							for _, boost := range []bool{false, true} {
+								if boost && budget < 512 {
+									continue
+								}
+								var a [7][23]int32
+								for k := range a {
+									a[k][0], a[k][22] = 77, 88
+								}
+								for j := 0; j < 21; j++ {
+									a[3][j+1] = int32(bands[j+1]-bands[j]) * channels << LM << 6
+								}
+								if boost {
+									a[0][min(start+3, 20)+1] = 64
+								}
+								b := a
+								cfg := [12]int32{start, 21, trim, budget, 0, 0, 0, channels, LM, encode, 20, 20}
+								s, cs := [3]int32{77, 21, 1}, [3]int32{77, 21, 1}
+								data := make([]byte, 256)
+								for i := range data {
+									data[i] = byte(i*17 + 31)
+								}
+								cb := slices.Clone(data)
+								var g opuscc.OpusT_ec_ctx
+								if encode != 0 {
+									opuscc.Opus_ec_enc_init(nil, &g, &data[0], 256)
+								} else {
+									opuscc.Opus_ec_dec_init(nil, &g, &data[0], 256)
+								}
+								c := g
+								c.Fbuf = &cb[0]
+								tls := libc.NewTLS()
+								ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
+								scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
+								*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
+								libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
+								r := opuscc.CompareAllocationDriver(tls, m, &a, &s, &cfg, &g)
+								cr := nativeAllocationDriver(&c, cb, &b, &cs, &cfg)
+								tls.Close()
+								g.Fbuf = nil
+								c.Fbuf = nil
+								if r != cr || a != b || s != cs || g != c || !slices.Equal(data, cb) {
+									t.Fatal("allocation driver", channels, LM, start, budget, trim, encode, boost, r, cr, s, cs, a, b, g, c)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestAllocationInterpAliasAgainstC(t *testing.T) {
+	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	bands := unsafe.Slice(m.FeBands, 22)
+	for _, alias := range []int32{1, 2, 3, 4, 5} {
+		for _, encode := range []int32{0, 1} {
+			var a [7][23]int32
+			for k := range a {
+				a[k][0], a[k][22] = 77, 88
+			}
+			for j := 0; j < 21; j++ {
+				width := int32(bands[j+1] - bands[j])
+				a[1][j+1] = width * 32
+				a[2][j+1] = max(16, width*8)
+				a[3][j+1] = width * 256
+			}
+			b := a
+			cfg := [12]int32{0, 21, 0, 4096, 8, 40, 8, 2, 1, encode, 20, 20}
+			s, cs := [3]int32{77, 21, 1}, [3]int32{77, 21, 1}
+			data := make([]byte, 256)
+			for i := range data {
+				data[i] = byte(i*17 + 31)
+			}
+			cb := slices.Clone(data)
+			var g opuscc.OpusT_ec_ctx
+			if encode != 0 {
+				opuscc.Opus_ec_enc_init(nil, &g, &data[0], 256)
+			} else {
+				opuscc.Opus_ec_dec_init(nil, &g, &data[0], 256)
+			}
+			c := g
+			c.Fbuf = &cb[0]
+			r := opuscc.CompareAllocationInterpAlias(m, &a, &s, &cfg, &g, alias)
+			cr := nativeAllocationInterpAlias(&c, cb, &b, &cs, &cfg, alias)
+			g.Fbuf = nil
+			c.Fbuf = nil
+			if r != cr || a != b || s != cs || g != c || !slices.Equal(data, cb) {
+				t.Fatal("interp alias", alias, encode, r, cr, s, cs, a, b)
+			}
+		}
+	}
+}
+
+func TestAllocationInterpAgainstC(t *testing.T) {
+	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	bands := unsafe.Slice(m.FeBands, 22)
+	for _, C := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, start := range []int32{0, 3, 18} {
+				for _, budget := range []int32{0, 8, 100, 512, 4096, 12000} {
+					for _, encode := range []int32{0, 1} {
+						for _, reserved := range []bool{false, true} {
+							if reserved && (budget < 100 || C == 1) {
+								continue
+							}
+							var a [7][23]int32
+							for k := range a {
+								a[k][0], a[k][22] = 77, 88
+							}
+							for j := 0; j < 21; j++ {
+								width := int32(bands[j+1] - bands[j])
+								a[1][j+1] = width * C << LM << 3
+								a[2][j+1] = max(C<<3, width<<LM<<2)
+								a[3][j+1] = width * C << LM << 6
+							}
+							b := a
+							cfg := [12]int32{start, 21, start, budget, 0, 0, 0, C, LM, encode, 20, 20}
+							if budget >= 8 {
+								cfg[4] = 8
+							}
+							if reserved {
+								cfg[5] = 40
+								cfg[6] = 8
+							}
+							s, cs := [3]int32{77, 21, 1}, [3]int32{77, 21, 1}
+							data := make([]byte, 256)
+							for i := range data {
+								data[i] = byte(i*17 + 31)
+							}
+							cb := slices.Clone(data)
+							var g opuscc.OpusT_ec_ctx
+							if encode != 0 {
+								opuscc.Opus_ec_enc_init(nil, &g, &data[0], 256)
+							} else {
+								opuscc.Opus_ec_dec_init(nil, &g, &data[0], 256)
+							}
+							c := g
+							c.Fbuf = &cb[0]
+							r := opuscc.CompareAllocationInterp(m, &a, &s, &cfg, &g)
+							cr := nativeAllocationInterp(&c, cb, &b, &cs, &cfg)
+							g.Fbuf = nil
+							c.Fbuf = nil
+							if r != cr || a != b || s != cs || g != c || !slices.Equal(data, cb) {
+								t.Fatal("allocation interp", C, LM, start, budget, encode, reserved, r, cr, s, cs, a, b, g, c)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestPrefilterFoldRoundingAgainstC(t *testing.T) {
+	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	data := make([]byte, opuscc.CompareCustomDecoderSize(mode, 1))
+	st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&data[0]))
+	st.Fchannels = 1
+	st.Foverlap = 3
+	history := unsafe.Slice(&st.F_decode_mem[0], 2048+3)
+	copy(history[2048-120:], []float32{-2422, -2249, -2076})
+	nativePrefilterFold(data, 120)
+	if bits := math.Float32bits(history[2048-120]); bits != 0xc086cced {
+		t.Fatalf("C fold product rounding: %08x want c086cced", bits)
+	}
+}
+
+func TestPrefilterFoldAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{0, 1, 2} {
+		for _, N := range []int32{0, 120, 240, 480, 960} {
+			for _, overlap := range []int32{0, 1, 2, 3, 119, 120} {
+				for _, periods := range [][2]int32{{0, 0}, {15, 15}, {31, 128}, {1024, 1024}} {
+					for _, gains := range [][2]float32{{0, 0}, {.25, .5}, {-.25, .75}} {
+						for _, taps := range [][2]int32{{0, 0}, {1, 2}, {2, 1}} {
+							size := int(opuscc.CompareCustomDecoderSize(mode, max(channels, 1)))
+							data := make([]byte, size+16)
+							st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&data[0]))
+							st.Fchannels = channels
+							st.Foverlap = overlap
+							st.Fpostfilter_period_old, st.Fpostfilter_period = periods[0], periods[1]
+							st.Fpostfilter_gain_old, st.Fpostfilter_gain = gains[0], gains[1]
+							st.Fpostfilter_tapset_old, st.Fpostfilter_tapset = taps[0], taps[1]
+							history := unsafe.Slice(&st.F_decode_mem[0], (2048+overlap)*max(channels, 1))
+							for i := range history {
+								history[i] = float32(i%29-14) * 173
+							}
+							for i := size; i < len(data); i++ {
+								data[i] = 165
+							}
+							c := slices.Clone(data)
+							opuscc.ComparePrefilterFold(nil, data, N)
+							nativePrefilterFold(c, N)
+							if !slices.Equal(data, c) {
+								for i := range data {
+									if data[i] != c[i] {
+										t.Fatal("prefilter", channels, N, overlap, periods, gains, taps, i, data[i], c[i])
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestCeltSynthesisOutputAliasAgainstC(t *testing.T) {
+	// Normal stereo calls access the two (possibly overlapping) outputs in
+	// separate MDCT invocations; neither output aliases a live spectral input.
+	for LM := int32(0); LM <= 3; LM++ {
+		N := int32(120) << LM
+		for _, transient := range []int32{0, 1} {
+			for _, offset := range []int32{0, 17, 60} {
+				x, e := make([]float32, 2*N), make([]float32, 42)
+				for i := range x {
+					x[i] = float32(i%19-9) / 32
+				}
+				for i := range e {
+					e[i] = float32(i%5 - 3)
+				}
+				g := make([]float32, N+60+offset+2)
+				for i := range g {
+					g[i] = float32(i%11-5) / 31
+				}
+				g[0], g[len(g)-1] = 77, 88
+				c := slices.Clone(g)
+				opuscc.CompareCeltSynthesis(nil, &x[0], &e[0], &g[1], &g[1+offset], 0, 21, 2, 2, transient, LM, 1, 0)
+				nativeCeltSynthesis(x, e, c[1:], c[1+offset:], 0, 21, 2, 2, transient, LM, 1, 0)
+				for i := range g {
+					if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+						t.Fatal("synthesis output alias", LM, transient, offset, i, g[i], c[i])
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestCeltSynthesisAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		N := int32(120) << LM
+		for _, channels := range [][2]int32{{1, 1}, {2, 2}, {1, 2}, {2, 1}, {0, 0}, {0, 1}} {
+			for _, transient := range []int32{0, 1} {
+				for _, downsample := range []int32{1, 2, 3, 4, 6} {
+					for _, silence := range []int32{0, 1} {
+						for _, rangeBands := range [][2]int32{{0, 21}, {0, 20}, {1, 19}, {5, 7}, {21, 21}} {
+							x := make([]float32, N*max(channels[0], channels[1], 1)+2)
+							energy := make([]float32, 21*max(channels[0], channels[1], 1)+2)
+							for i := range x {
+								x[i] = float32(i%19-9) / 32
+							}
+							for i := range energy {
+								energy[i] = []float32{-28, -9, .25, 8, 32}[i%5]
+							}
+							cx, ce := slices.Clone(x), slices.Clone(energy)
+							gl, gr := make([]float32, N+62), make([]float32, N+62)
+							for i := range gl {
+								gl[i] = float32(i%11-5) / 31
+								gr[i] = float32(i%13-6) / 37
+							}
+							gl[0], gl[len(gl)-1], gr[0], gr[len(gr)-1] = 77, 88, 99, 111
+							cl, cr := slices.Clone(gl), slices.Clone(gr)
+							opuscc.CompareCeltSynthesis(nil, &x[1], &energy[1], &gl[1], &gr[1], rangeBands[0], rangeBands[1], channels[0], channels[1], transient, LM, downsample, silence)
+							nativeCeltSynthesis(cx[1:], ce[1:], cl[1:], cr[1:], rangeBands[0], rangeBands[1], channels[0], channels[1], transient, LM, downsample, silence)
+							for _, pair := range [][2][]float32{{x, cx}, {energy, ce}, {gl, cl}, {gr, cr}} {
+								for i := range pair[0] {
+									if math.Float32bits(pair[0][i]) != math.Float32bits(pair[1][i]) {
+										t.Fatal("synthesis", LM, channels, transient, downsample, silence, rangeBands, i, pair[0][i], pair[1][i])
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestDeemphasisDriverAgainstC(t *testing.T) {
+	for _, N := range []int32{0, 1, 2, 8, 120, 960} {
+		for _, channels := range []int32{0, 1, 2} {
+			for _, downsample := range []int32{1, 2, 3, 4, 6} {
+				for _, accum := range []int32{0, 1} {
+					for _, coef := range []float32{0, .85, -.25, 1} {
+						left, right := make([]float32, N), make([]float32, N)
+						for i := range left {
+							left[i] = float32(i%17-8) * 1700
+							right[i] = float32(i%13-6) * 2300
+						}
+						g := make([]float32, (N/downsample)*max(channels, 1)+2)
+						for i := range g {
+							g[i] = float32(i+77) / 31
+						}
+						c := slices.Clone(g)
+						gm, cm := [2]float32{.25, -.5}, [2]float32{.25, -.5}
+						opuscc.CompareDeemphasis(nil, unsafe.SliceData(left), unsafe.SliceData(right), &g[1], N, channels, downsample, &coef, &gm[0], accum)
+						nativeDeemphasis(left, right, c[1:], N, channels, downsample, coef, &cm, accum)
+						for i := range g {
+							if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+								t.Fatal("deemphasis", N, channels, downsample, accum, coef, i, g[i], c[i])
+							}
+						}
+						if gm != cm {
+							t.Fatal("deemphasis memory", N, channels, downsample, accum, coef, gm, cm)
+						}
+					}
+				}
+			}
 		}
 	}
 }

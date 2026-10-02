@@ -374,6 +374,104 @@ decoder partition fixtures cover recursive budgets and optional folding alongsid
 the mono/stereo references. Native comparisons run on the host, not ARM64/macOS.
 Remaining outer integer boundaries, opaque allocations and pseudostack ownership
 mean these tests still do not establish global safety.
+Deemphasis now takes typed channel heads, PCM, coefficient and memory pointers.
+The generic path uses Go-owned N-sample scratch instead of TLS pseudostack storage;
+no unused output cursor is formed when decimation produces zero samples. The common
+stereo path remains unchanged, and generic accumulation/non-accumulation retain
+separate sum orders and explicit float32 product rounding. Celt decoder callers
+still cross an explicit legacy channel-address adapter. Native celt_decoder.c
+fixtures compare C=0/1/2 (including the C do-while channel-zero visit), N=0–960,
+factors 1/2/3/4/6, accumulation, coefficient choices, output guards and histories.
+Focused checkptr exercises active generic/fast paths, GC/stack growth, nil TLS,
+short/zero frames and memory/output store order on amd64, 386 and ARM64/QEMU; native
+comparisons remain host-only. The initial typed-buffer round checked only the
+scratch-free stereo path while the generic scratch was still legacy. Input/output
+aliases violate C restrict contracts, so Go store-order tests do not claim C parity
+for those aliases. That stage did not migrate CELT synthesis/decode ownership.
+
+CELT synthesis now retains typed mode, spectrum/band-energy and output channel
+pointers and uses a Go-owned N-sample interleaved frequency buffer, with no TLS
+pseudostack allocation/restoration or integer MDCT addressing internally. Mode
+and transform table owners, output-buffer staging, channel-zero do-while behavior,
+transient block order, independently rounded downmix halves and the floating-point
+SATURATE identity are preserved. Decoder/PLC callers still enter through an
+explicit integer-address adapter; its ordinary mono/stereo heads are made typed
+before allocation, with uintptr escape annotation for direct legacy arguments.
+
+Actual celt_decoder.c synthesis fixtures use the existing renamed scalar bands.c
+and MDCT/FFT implementations rather than the linked library's SIMD transforms.
+They compare spectra/energy immutability, full output/TDAC images and guards for
+LM 0–3, mono/stereo/upmix/downmix and channel-zero visits, transient/non-transient
+blocks, factors 1/2/3/4/6, silence and full/partial/empty band ranges. Normal stereo
+shared/partially overlapping output heads are also valid native fixtures because
+each MDCT invocation has a separate output restrict scope. Upmix staging/output
+alias order is Go-only: it violates the MDCT restrict contract and is not claimed
+as C parity. Native comparisons remain host-only.
+
+Grouped synthesis tests own cloned mode/MDCT/FFT tables and channel/spectral
+buffers through typed pointers only, with GC and stack growth and exact-sized
+output-head arrays. Focused checkptr on amd64/386 and ARM64/QEMU now covers the
+complete active synthesis path, nil TLS, an untouched sentinel TLS slot, TDAC
+history and output aliases. Early rounds checked geometry/MDCT, denormalization
+and staging helpers while full synthesis still depended on legacy scratch. Outer
+CELT decoding, concealment and opaque decoder allocation scanning remain legacy;
+this is not a global GC-safety proof or direct macOS CI validation.
+
+The CELT concealment prefilter/fold now takes a typed decoder/mode, retains
+scanned history interiors, calls the typed comb filter and folds through typed
+window/scratch pointers. One Go-owned overlap-length buffer replaces all TLS
+pseudostack allocation/restoration and is reused after each channel's fold. Live
+per-channel controls, channel-zero do-while visits, odd-overlap truncation and
+filter-before-fold order are preserved. Zero overlap consumes no audio cursor,
+including exact-sized mono histories with N=0; ordinary outer decode/PLC callers
+still use an explicit legacy adapter.
+
+The typed fold initially permitted a new ARM FMA, changing the existing PLC
+frame golden (7bc10321 instead of f3e48462). Independent float32 product rounding
+restored the original golden. The overlap-three regression is 0xc086cced versus
+the fused one-ULP alternative and is checked against actual static C prefilter
+output as well as Go. No goldens/tolerances were changed.
+
+Actual celt_decoder.c prefilter fixtures link the renamed scalar celt.c comb path
+and compare full normalized decoder/history/guard images over C=0/1/2,
+N=0/120/240/480/960, overlap 0/1/2/3/119/120, periods from 0 to 1024, zero/positive/
+negative gains and tapset transitions. Grouped Go tests retain heap modes via sole
+history interiors, exercise active prefilter/TDAC with nil TLS and forced GC/stack
+growth, check exact-sized zero-overlap history and an untouched sentinel TLS slot.
+Window/scratch alias-order fixtures are Go-only, not valid enclosing C restrict
+inputs. Earlier rounds checked state/history/folding helpers while full prefilter
+still used legacy scratch; focused checkptr now covers the complete active path
+on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
+allocation scanning and extension EOF remain unresolved. Host native comparisons
+and QEMU do not establish direct macOS CI or global decoder GC safety.
+
+CELT allocation interpolation now takes typed mode/entropy, four band inputs,
+three band outputs and balance/intensity/dual-stereo output pointers. The unused
+TLS save/restore is removed, the interpolation integer adapter is gone, and the
+complete leaf accepts nil TLS. Six-step bisection, int32 multiply/shift wrapping,
+unsigned celt_udiv, backward skip decisions, entropy flags, reservation refunds,
+N=1/N=2 fine-energy cases, caps/rebalancing, assertions and sequential alias stores
+are preserved. Views remain live: no snapshots of aliased band/scalar values.
+
+The outer allocation driver now holds typed mode/entropy owners and calls the
+leaf directly with typed interiors; its ABI still has a uintptr escape wrapper.
+Vector accesses use typed mode-owned backing and the separately cached band
+stride. Its band/scalar arguments and four TLS scratch arrays remain legacy, so
+focused checkptr does not claim the full driver is safe.
+
+Actual rate.c interpolation/driver fixtures compare returned coded bands, all
+arrays/guards/scalars, eleven entropy fields and full byte buffers for C=1/2,
+LM=0–3, multiple starts, budgets, encode/decode and stereo reservations. Driver
+fixtures add trim 0/5/10 and dynalloc boosts. Leaf fixtures also cover input/output
+aliases, shared intensity/dual outputs, balance/energy aliases, fine/priority
+aliases and intensity/pulse aliases. Heap-owner/GC/stack-growth tests check mode
+bands/logN/vectors, entropy backing and active interpolation with exact-sized
+one-band outputs, nil unused entropy and an untouched TLS sentinel. Focused
+checkptr passes on amd64/386 and ARM64/QEMU; native fixtures remain host-only.
+Early rounds checked typed ownership/input helpers while output addressing was
+still legacy. Outer quantization/decode/PLC boundaries, opaque allocation scans
+and extension EOF are not made globally safe by this batch.
+
 Decoder CTL dispatch now has typed CELT custom, Opus, multistream and projection
 entries, using OpusDecoderCtlArgs for integer values and GC-visible scalar, range,
 mode and decoder output slots. Legacy vararg entries delegate; internal forwarding
@@ -422,7 +520,8 @@ spectra, standard FFT sizes and odd N/4. Forward folding and rotation use Go scr
 not TLS pseudostack storage. Inverse de-shuffling preserves both-end capture and
 the double-processed odd middle pair before TDAC. Go also checks forward fold-before-
 output aliases; native cases keep restrict-qualified buffers distinct. The obsolete
-FFT integer adapter is removed; the outer synthesis MDCT boundary remains legacy.
+FFT integer adapter is removed. Synthesis now uses the typed MDCT chain;
+other outer decode/concealment MDCT boundaries remain legacy.
 Architecture headers and opaque decoder allocations are still not globally GC-safe.
 FFT driver cases share the butterfly tests and use native-generated factors,
 bit-reversal and twiddles for sizes 4–480, including shared-table shifts -1–2.
@@ -470,7 +569,14 @@ Whole-extension skipping reuses those fixtures to compare ID/header consumption,
 empty/negative lengths, all ID bytes and failure cursor/header behavior.
 Payload writing shares extension fixtures and compares actual C lacing for
 short/long IDs, 255-byte boundaries, final payloads, sizing-only calls, capacity
-failures and untouched buffers. The generator API remains explicitly legacy.
+failures and untouched buffers. Packet generation now takes typed descriptor and
+output pointers, uses fixed 48-frame scratch and typed record helpers, reloads
+numeric descriptor fields after output stores, and pads with overlap-safe copy.
+The integer generator writer adapters are removed. Actual extensions.c fixtures
+cover repeats/interleaved frame order, short/long IDs and lacing, capacity/errors,
+NULL-output sizing, padding, guards and numeric descriptor/header aliases. Original
+generation goldens now run on Go-owned descriptors/payload/output storage under
+checkptr on amd64, 386 and ARM64/QEMU.
 Whole-extension writing additionally compares ID-byte narrowing and partial writes
 before payload errors, using the same extension fixtures and actual static C helper.
 Iterator initialization, repeat/next and find use typed state/output arguments and
@@ -491,7 +597,7 @@ C-style end cursors still have an unresolved boundary for exactly sized Go
 allocations: advancing one past an allocation fails checkptr (observed on 386).
 Focused fixtures keep logical EOF inside guarded backing storage and verify guards;
 this is not a fix for that general cursor-representation limitation. These passes
-do not establish global GC safety for iterator endpoints, the generator or outer
+do not establish global GC safety for iterator endpoints or outer
 decoder boundaries.
 CELT FIR comparisons compile the actual celt_lpc.c scalar helper beside existing
 LPC fixtures: reversed coefficients/history, 4-lane/tail arithmetic, odd orders,
@@ -549,8 +655,9 @@ an oracle. Comb transitions use renamed scalar celt.c for tapsets, gain changes,
 history, zero-length/memmove paths, unchanged filters and overlapping buffers.
 PVQ search/quantization reuse renamed vq.c: exact pulses, energy, fallback/sign bits,
 reconstruction, collapse masks, entropy state and finalized bytes, including tiny
-encoder capacities. Search/pulse scratch is Go-owned; outer partition/synthesis
-adapters and mode pointer fields remain legacy.
+encoder capacities. Search/pulse scratch is Go-owned. Subsequent migrations
+converted the partition/synthesis internal pointer chains and mode table fields;
+outer decode/concealment adapters remain legacy.
 One-bin quantization uses typed context/entropy/sample pointers and preserves
 cached encode mode, mono/stereo aliases, lowband store order and insufficient-bit
 behavior. Grouped bands fixtures compare sign bits, all entropy fields and finalized
