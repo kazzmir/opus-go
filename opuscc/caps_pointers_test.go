@@ -240,6 +240,34 @@ func TestBandContextModePointers(t *testing.T) {
 	runtime.KeepAlive(ctx)
 }
 
+func TestBandContextEnergyPointers(t *testing.T) {
+	makeContext := func() *band_ctx {
+		energy := []float32{.25, 1, 0, 2, .5, 3}
+		mode := OpusT_OpusCustomMode{FnbEBands: 3}
+		return &band_ctx{Fm: &mode, FbandE: &energy[0], Fi: 1}
+	}
+	ctx := makeContext()
+	saved := *ctx
+	ctx.FbandE = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	*ctx = saved
+	want := [6]float32{.25, 1, 0, 2, .5, 3}
+	for i, w := range want {
+		if bandContextEnergy(ctx, int32(i)) != w {
+			t.Fatal("owned energy", i)
+		}
+	}
+	x, y := [2]float32{.3, -.4}, [2]float32{-.2, .1}
+	rx, ry := x, y
+	intensity_stereo(nil, ctx.Fm, &x[0], &y[0], ctx.FbandE, ctx.Fi, 2)
+	intensity_stereo(nil, ctx.Fm, &rx[0], &ry[0], &want[0], ctx.Fi, 2)
+	if x != rx || y != ry {
+		t.Fatal("owned intensity energy")
+	}
+	runtime.KeepAlive(ctx)
+}
+
 func TestCapsPointers(t *testing.T) {
 	bands := [4]int16{0, 1, 3, 7}
 	var cache [24]uint8

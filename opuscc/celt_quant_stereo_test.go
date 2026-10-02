@@ -73,7 +73,7 @@ func TestQuantBandStereoLocalSplitState(t *testing.T) {
 		Fresynth:        1,
 		Fec:             &encoder,
 		Fremaining_bits: 48,
-		FbandE:          uintptr(unsafe.Pointer(&bandE[0])),
+		FbandE:          &bandE[0],
 		Fseed:           13579,
 	}
 	x := [2]OpusT_celt_norm{0.3, -0.7}

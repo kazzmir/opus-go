@@ -2050,12 +2050,16 @@ type band_ctx = struct {
 	Ftf_change         int32
 	Fec                *OpusT_ec_ctx
 	Fremaining_bits    OpusT_opus_int32
-	FbandE             uintptr
+	FbandE             *OpusT_celt_ener
 	Fseed              OpusT_opus_uint32
 	Farch              int32
 	Ftheta_round       int32
 	Fdisable_inv       int32
 	Favoid_split_noise int32
+}
+
+func bandContextEnergy(ctx *band_ctx, index int32) float32 {
+	return *(*float32)(unsafe.Add(unsafe.Pointer(ctx.FbandE), int(index)*4))
 }
 
 type split_ctx = struct {
@@ -2072,7 +2076,7 @@ type split_ctx = struct {
 //
 //go:uintptrescapes
 func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintptr, N int32, b uintptr, B int32, B0 int32, LM int32, stereo int32, fill uintptr) {
-	var bandE uintptr
+	var bandE *OpusT_celt_ener
 	var ec *OpusT_ec_ctx
 	var m *OpusT_OpusCustomMode
 	var bias, delta, down, encode, fl, fl1, fm, fs, fs1, ft, ft1, i, imid, intensity, inv, iside, itheta, itheta_q30, j, offset, p0, pulse_cap, qalloc, qn, unquantized, x, x0, v1, v5, v6, v7 int32
@@ -2254,7 +2258,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 		itheta = int32(v3)
 		if encode != 0 && stereo != 0 {
 			if itheta == 0 {
-				intensity_stereo(tls, m, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), (*OpusT_celt_ener)(unsafe.Pointer(bandE)), i, N)
+				intensity_stereo(tls, m, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), bandE, i, N)
 			} else {
 				stereo_split(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), N)
 			}
@@ -2275,7 +2279,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 						j = j + 1
 					}
 				}
-				intensity_stereo(tls, m, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), (*OpusT_celt_ener)(unsafe.Pointer(bandE)), i, N)
+				intensity_stereo(tls, m, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), bandE, i, N)
 			}
 			if *(*int32)(unsafe.Pointer(b)) > int32(2)<<int32(BITRES) && (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits > int32(2)<<int32(BITRES) {
 				if encode != 0 {
@@ -2733,8 +2737,8 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 	}
 	orig_fill = fill
 	if encode != 0 {
-		if *(*OpusT_celt_ener)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).FbandE + uintptr((*band_ctx)(unsafe.Pointer(ctx)).Fi)*4)) < float32(1e-10) || *(*OpusT_celt_ener)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).FbandE + uintptr((*band_ctx)(unsafe.Pointer(ctx)).Fm.FnbEBands+(*band_ctx)(unsafe.Pointer(ctx)).Fi)*4)) < float32(1e-10) {
-			if *(*OpusT_celt_ener)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).FbandE + uintptr((*band_ctx)(unsafe.Pointer(ctx)).Fi)*4)) > *(*OpusT_celt_ener)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).FbandE + uintptr((*band_ctx)(unsafe.Pointer(ctx)).Fm.FnbEBands+(*band_ctx)(unsafe.Pointer(ctx)).Fi)*4)) {
+		if bandContextEnergy(bandContext, bandContext.Fi) < float32(1e-10) || bandContextEnergy(bandContext, bandContext.Fm.FnbEBands+bandContext.Fi) < float32(1e-10) {
+			if bandContextEnergy(bandContext, bandContext.Fi) > bandContextEnergy(bandContext, bandContext.Fm.FnbEBands+bandContext.Fi) {
 				libc.Xmemcpy(tls, Y, X, uint64(uint32(N))*uint64(4)+uint64(0*((int64(Y)-int64(X))/4)))
 			} else {
 				libc.Xmemcpy(tls, X, Y, uint64(uint32(N))*uint64(4)+uint64(0*((int64(X)-int64(Y))/4)))
@@ -3413,7 +3417,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 	v25 = st
 	norm_save2 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v25)).Fglobal_stack - uintptr(uint64(uint32(resynth_alloc))*(uint64(4)/uint64(1)))
 	lowband_offset = 0
-	ctx.FbandE = bandE
+	ctx.FbandE = (*OpusT_celt_ener)(unsafe.Pointer(bandE))
 	ctx.Fec = (*OpusT_ec_ctx)(unsafe.Pointer(ec))
 	ctx.Fencode = encode
 	ctx.Fintensity = intensity
