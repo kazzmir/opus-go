@@ -345,7 +345,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 		}
 		if absolute {
 			indices.FlagIndex = int16(int32(int16(Opus_ec_dec_icdf(tls, dec, &Opus_silk_pitch_lag_iCDF[0], 8))) * (decoder.Ffs_kHz >> 1))
-			indices.FlagIndex += int16(Opus_ec_dec_icdf(tls, dec, (*byte)(unsafe.Pointer(decoder.Fpitch_lag_low_bits_iCDF)), 8))
+			indices.FlagIndex += int16(Opus_ec_dec_icdf(tls, dec, decoder.Fpitch_lag_low_bits_iCDF, 8))
 		}
 		decoder.Fec_prevLagIndex = indices.FlagIndex
 		indices.FcontourIndex = int8(Opus_ec_dec_icdf(tls, dec, (*byte)(unsafe.Pointer(decoder.Fpitch_contour_iCDF)), 8))

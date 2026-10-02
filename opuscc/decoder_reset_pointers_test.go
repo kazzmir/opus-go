@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 )
@@ -12,14 +13,61 @@ func seedDecoderNumericFixture(s *OpusT_silk_decoder_state, value byte) {
 	ptrSize := int(unsafe.Sizeof(s.FpsNLSF_CB))
 	coefs := int(unsafe.Offsetof(s.Fresampler_state)) + int(unsafe.Offsetof(s.Fresampler_state.FCoefs))
 	cb := int(unsafe.Offsetof(s.FpsNLSF_CB))
+	lag := int(unsafe.Offsetof(s.Fpitch_lag_low_bits_iCDF))
 	for i := range raw {
-		if (i >= coefs && i < coefs+ptrSize) || (i >= cb && i < cb+ptrSize) {
+		if (i >= coefs && i < coefs+ptrSize) || (i >= cb && i < cb+ptrSize) || (i >= lag && i < lag+ptrSize) {
 			continue
 		}
 		raw[i] = value
 	}
 	s.FpsNLSF_CB = &Opus_silk_NLSF_CB_WB
+	s.Fpitch_lag_low_bits_iCDF = &Opus_silk_uniform8_iCDF[0]
 	s.Fresampler_state.FCoefs = &Opus_silk_Resampler_1_2_COEFS[0]
+}
+
+func TestPitchLagTablePointers(t *testing.T) {
+	for _, source := range [][]byte{Opus_silk_uniform4_iCDF[:], Opus_silk_uniform6_iCDF[:], Opus_silk_uniform8_iCDF[:]} {
+		makeDecoder := func() *OpusT_silk_decoder_state {
+			owned := slices.Clone(source)
+			return &OpusT_silk_decoder_state{Fpitch_lag_low_bits_iCDF: &owned[0]}
+		}
+		makeEncoder := func() *OpusT_silk_encoder_state {
+			owned := slices.Clone(source)
+			return &OpusT_silk_encoder_state{Fpitch_lag_low_bits_iCDF: &owned[0]}
+		}
+		dec, enc := makeDecoder(), makeEncoder()
+		entropyInitGrowStack(12)
+		runtime.GC()
+		data := [32]byte{17, 255, 88, 1, 192, 0, 77}
+		var gd, ge, reference OpusT_ec_dec
+		Opus_ec_dec_init(nil, &gd, &data[0], 32)
+		ge = gd
+		reference = gd
+		for i := 0; i < 100; i++ {
+			want := Opus_ec_dec_icdf(nil, &reference, &source[0], 8)
+			if Opus_ec_dec_icdf(nil, &gd, dec.Fpitch_lag_low_bits_iCDF, 8) != want || Opus_ec_dec_icdf(nil, &ge, enc.Fpitch_lag_low_bits_iCDF, 8) != want || gd != reference || ge != reference {
+				t.Fatal("owned lag table", len(source), i)
+			}
+		}
+		Opus_silk_reset_decoder(nil, dec)
+		if dec.Fpitch_lag_low_bits_iCDF != nil {
+			t.Fatal("lag reset")
+		}
+	}
+	st := OpusT_silk_decoder_state{Fnb_subfr: 4}
+	for _, fs := range []int32{8, 12, 16, 8} {
+		Opus_silk_decoder_set_fs(nil, &st, fs, 16000)
+		want := &Opus_silk_uniform4_iCDF[0]
+		if fs == 12 {
+			want = &Opus_silk_uniform6_iCDF[0]
+		}
+		if fs == 16 {
+			want = &Opus_silk_uniform8_iCDF[0]
+		}
+		if st.Fpitch_lag_low_bits_iCDF != want {
+			t.Fatal("lag selection", fs)
+		}
+	}
 }
 
 func TestSilkCodebookReferencePointers(t *testing.T) {

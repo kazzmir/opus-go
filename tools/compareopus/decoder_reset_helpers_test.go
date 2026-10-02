@@ -134,6 +134,15 @@ func TestSilkCodebookReferenceLayoutAgainstC(t *testing.T) {
 	}
 }
 
+func TestPitchLagReferenceLayoutAgainstC(t *testing.T) {
+	var d opuscc.OpusT_silk_decoder_state
+	var e opuscc.OpusT_silk_encoder_state
+	want := [4]uint64{uint64(unsafe.Sizeof(d)), uint64(unsafe.Offsetof(d.Fpitch_lag_low_bits_iCDF)), uint64(unsafe.Sizeof(e)), uint64(unsafe.Offsetof(e.Fpitch_lag_low_bits_iCDF))}
+	if nativeSilkPitchReferenceLayout(false) != want {
+		t.Fatal(nativeSilkPitchReferenceLayout(false), want)
+	}
+}
+
 func TestDecoderResetAgainstC(t *testing.T) {
 	for _, init := range []bool{false, true} {
 		var g opuscc.OpusT_silk_decoder_state
@@ -142,13 +151,15 @@ func TestDecoderResetAgainstC(t *testing.T) {
 		ptrSize := int(unsafe.Sizeof(g.FpsNLSF_CB))
 		coefs := int(unsafe.Offsetof(g.Fresampler_state)) + int(unsafe.Offsetof(g.Fresampler_state.FCoefs))
 		cb := int(unsafe.Offsetof(g.FpsNLSF_CB))
+		lag := int(unsafe.Offsetof(g.Fpitch_lag_low_bits_iCDF))
 		for i := range bytes {
-			if (i >= coefs && i < coefs+ptrSize) || (i >= cb && i < cb+ptrSize) {
+			if (i >= coefs && i < coefs+ptrSize) || (i >= cb && i < cb+ptrSize) || (i >= lag && i < lag+ptrSize) {
 				continue
 			}
 			bytes[i] = 0xa5
 		}
 		g.FpsNLSF_CB = &opuscc.Opus_silk_NLSF_CB_WB
+		g.Fpitch_lag_low_bits_iCDF = &opuscc.Opus_silk_uniform8_iCDF[0]
 		g.Fresampler_state.FCoefs = &opuscc.Opus_silk_Resampler_1_2_COEFS[0]
 		var result int32
 		if init {

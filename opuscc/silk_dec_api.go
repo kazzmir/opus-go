@@ -51,11 +51,11 @@ func Opus_silk_decoder_set_fs(tls *libc.TLS, st *OpusT_silk_decoder_state, fsKHz
 			}
 			switch fsKHz {
 			case 16:
-				st.Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform8_iCDF))
+				st.Fpitch_lag_low_bits_iCDF = &Opus_silk_uniform8_iCDF[0]
 			case 12:
-				st.Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform6_iCDF))
+				st.Fpitch_lag_low_bits_iCDF = &Opus_silk_uniform6_iCDF[0]
 			case 8:
-				st.Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform4_iCDF))
+				st.Fpitch_lag_low_bits_iCDF = &Opus_silk_uniform4_iCDF[0]
 			}
 			st.Ffirst_frame_after_reset = 1
 			st.FlagPrev = 100
