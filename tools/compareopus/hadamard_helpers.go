@@ -30,6 +30,14 @@ static void scalar_anti_renormalise(float *x,int n,float gain,int arch) {
  float energy=EPSILON+celt_inner_prod_c(x,x,n);float g=celt_rsqrt(energy)*gain;for(int i=0;i<n;i++)x[i]=g*x[i];
 }
 static void native_band_ctx_layout(size_t *v) {v[0]=sizeof(struct band_ctx);v[1]=offsetof(struct band_ctx,m);v[2]=offsetof(struct band_ctx,ec);v[3]=offsetof(struct band_ctx,bandE);}
+static void native_theta(unsigned *s,unsigned char *buf,const int *cfg,int *out) {
+ ec_ctx ec={0};ec.buf=buf;ec.storage=s[0];ec.end_offs=s[1];ec.end_window=s[2];ec.nend_bits=s[3];ec.nbits_total=s[4];ec.offs=s[5];ec.rng=s[6];ec.val=s[7];ec.ext=s[8];ec.rem=s[9];ec.error=s[10];
+ opus_int16 log[1]={cfg[8]};CELTMode m={0};m.nbEBands=1;m.logN=log;struct band_ctx ctx={0};ctx.m=&m;ctx.ec=&ec;ctx.intensity=cfg[7];ctx.remaining_bits=cfg[9];ctx.disable_inv=cfg[10];struct split_ctx split={0};int b=cfg[5],fill=cfg[6];int *bp=&b,*fp=&fill;
+ if(cfg[11]==1)fp=bp;else if(cfg[11]==2){ctx.remaining_bits=b;bp=&ctx.remaining_bits;}else if(cfg[11]==3){split.itheta=b;split.qalloc=fill;bp=&split.itheta;fp=&split.qalloc;}
+ compute_theta(&ctx,&split,NULL,NULL,cfg[0],bp,cfg[1],cfg[2],cfg[3],cfg[4],fp);
+ out[0]=split.inv;out[1]=split.imid;out[2]=split.iside;out[3]=split.delta;out[4]=split.itheta;out[5]=split.qalloc;out[6]=*bp;out[7]=*fp;out[8]=ctx.remaining_bits;
+ s[0]=ec.storage;s[1]=ec.end_offs;s[2]=ec.end_window;s[3]=ec.nend_bits;s[4]=ec.nbits_total;s[5]=ec.offs;s[6]=ec.rng;s[7]=ec.val;s[8]=ec.ext;s[9]=ec.rem;s[10]=ec.error;
+}
 static unsigned native_quant_n1(unsigned *s,unsigned char *buf,float *v,int encode,int resynth,int *remaining,int y,int low,int done) {
  ec_ctx ec={0};ec.buf=buf;ec.storage=s[0];ec.end_offs=s[1];ec.end_window=s[2];ec.nend_bits=s[3];ec.nbits_total=s[4];ec.offs=s[5];ec.rng=s[6];ec.val=s[7];ec.ext=s[8];ec.rem=s[9];ec.error=s[10];
  struct band_ctx ctx={0};ctx.encode=encode;ctx.resynth=resynth;ctx.remaining_bits=*remaining;ctx.ec=&ec;
@@ -58,6 +66,32 @@ func nativeBandContextLayout() [4]uint64 {
 	var v [4]C.size_t
 	C.native_band_ctx_layout(&v[0])
 	return [4]uint64{uint64(v[0]), uint64(v[1]), uint64(v[2]), uint64(v[3])}
+}
+
+func nativeTheta(e *opuscc.OpusT_ec_ctx, buf []byte, cfg [12]int32) [9]int32 {
+	s := [11]C.uint{C.uint(e.Fstorage), C.uint(e.Fend_offs), C.uint(e.Fend_window), C.uint(e.Fnend_bits), C.uint(e.Fnbits_total), C.uint(e.Foffs), C.uint(e.Frng), C.uint(e.Fval), C.uint(e.Fext), C.uint(e.Frem), C.uint(e.Ferror1)}
+	var c [12]C.int
+	for i := range c {
+		c[i] = C.int(cfg[i])
+	}
+	var out [9]C.int
+	C.native_theta(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf))), &c[0], &out[0])
+	e.Fstorage = uint32(s[0])
+	e.Fend_offs = uint32(s[1])
+	e.Fend_window = uint32(s[2])
+	e.Fnend_bits = int32(s[3])
+	e.Fnbits_total = int32(s[4])
+	e.Foffs = uint32(s[5])
+	e.Frng = uint32(s[6])
+	e.Fval = uint32(s[7])
+	e.Fext = uint32(s[8])
+	e.Frem = int32(s[9])
+	e.Ferror1 = int32(s[10])
+	var result [9]int32
+	for i := range result {
+		result[i] = int32(out[i])
+	}
+	return result
 }
 
 func nativeQuantN1(e *opuscc.OpusT_ec_ctx, buf []byte, v []float32, encode, resynth int32, remaining *int32, y, low int32) uint32 {

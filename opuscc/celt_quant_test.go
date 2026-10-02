@@ -112,6 +112,43 @@ func TestBandContextEntropyPointers(t *testing.T) {
 	runtime.KeepAlive(ctx)
 }
 
+func TestThetaOutputPointers(t *testing.T) {
+	for alias := 0; alias < 4; alias++ {
+		data := [8]byte{17, 255, 88, 1, 192, 0, 77, 43}
+		var ec OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &ec, &data[0], 8)
+		log := [1]int16{24}
+		m := OpusT_OpusCustomMode{FnbEBands: 1, FlogN: &log[0]}
+		ctx := band_ctx{Fm: &m, Fec: &ec, Fintensity: 0, Fremaining_bits: 300}
+		var split split_ctx
+		b, fill := int32(16), int32(15)
+		bp, fp := &b, &fill
+		switch alias {
+		case 1:
+			fp = bp
+		case 2:
+			ctx.Fremaining_bits = b
+			bp = &ctx.Fremaining_bits
+		case 3:
+			split.Fitheta = b
+			split.Fqalloc = fill
+			bp = &split.Fitheta
+			fp = &split.Fqalloc
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		compute_theta(nil, &ctx, &split, 0, 0, 2, bp, 1, 1, 0, 1, fp)
+		if split.Fimid != 32767 || split.Fiside != 0 || split.Fdelta != -16384 || split.Fitheta != 0 || split.Fqalloc != 0 || split.Finv != 0 {
+			t.Fatal(alias, split)
+		}
+		wantB := [4]int32{16, 0, 16, 0}
+		wantFill := [4]int32{1, 0, 1, 0}
+		if *bp != wantB[alias] || *fp != wantFill[alias] {
+			t.Fatal("aliased output order", alias, *bp, *fp)
+		}
+	}
+}
+
 func TestSpreadingPointers(t *testing.T) {
 	bands := [3]int16{0, 1, 10}
 	x := [12]float32{77}

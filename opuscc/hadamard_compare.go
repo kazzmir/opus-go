@@ -9,6 +9,29 @@ func CompareBandContextLayout() [4]uint64 {
 	return [4]uint64{uint64(unsafe.Sizeof(ctx)), uint64(unsafe.Offsetof(ctx.Fm)), uint64(unsafe.Offsetof(ctx.Fec)), uint64(unsafe.Offsetof(ctx.FbandE))}
 }
 
+func CompareTheta(ec *OpusT_ec_ctx, cfg [12]int32) [9]int32 {
+	log := [1]int16{int16(cfg[8])}
+	m := OpusT_OpusCustomMode{FnbEBands: 1, FlogN: &log[0]}
+	ctx := band_ctx{Fm: &m, Fec: ec, Fintensity: cfg[7], Fremaining_bits: cfg[9], Fdisable_inv: cfg[10]}
+	var split split_ctx
+	b, fill := cfg[5], cfg[6]
+	bp, fp := &b, &fill
+	switch cfg[11] {
+	case 1:
+		fp = bp
+	case 2:
+		ctx.Fremaining_bits = b
+		bp = &ctx.Fremaining_bits
+	case 3:
+		split.Fitheta = b
+		split.Fqalloc = fill
+		bp = &split.Fitheta
+		fp = &split.Fqalloc
+	}
+	compute_theta(nil, &ctx, &split, 0, 0, cfg[0], bp, cfg[1], cfg[2], cfg[3], cfg[4], fp)
+	return [9]int32{split.Finv, split.Fimid, split.Fiside, split.Fdelta, split.Fitheta, split.Fqalloc, *bp, *fp, ctx.Fremaining_bits}
+}
+
 func CompareQuantN1(encode, resynth int32, remaining *int32, ec *OpusT_ec_ctx, x, y, low *float32) uint32 {
 	ctx := band_ctx{Fencode: encode, Fresynth: resynth, Fremaining_bits: *remaining, Fec: ec}
 	mask := quant_band_n1(nil, &ctx, ctx.Fec, x, y, low)

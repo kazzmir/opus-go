@@ -16,6 +16,33 @@ func TestBandContextLayoutAgainstC(t *testing.T) {
 	}
 }
 
+func TestThetaAgainstC(t *testing.T) {
+	for _, N := range []int32{2, 4, 16} {
+		for _, B := range []int32{1, 2} {
+			for _, LM := range []int32{-1, 0, 3} {
+				for _, stereo := range []int32{0, 1} {
+					for _, budget := range []int32{0, 16, 64, 160} {
+						for _, intensity := range []int32{0, 1} {
+							for alias := int32(0); alias < 4; alias++ {
+								cfg := [12]int32{N, B, B, LM, stereo, budget, 15, intensity, 24, 300, alias % 2, alias}
+								data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+								var ge opuscc.OpusT_ec_ctx
+								opuscc.Opus_ec_dec_init(nil, &ge, &data[0], uint32(len(data)))
+								ce := ge
+								g := opuscc.CompareTheta(&ge, cfg)
+								c := nativeTheta(&ce, data, cfg)
+								if g != c || ge != ce {
+									t.Fatal(cfg, g, c, ge, ce)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestQuantN1AgainstC(t *testing.T) {
 	for encode := int32(0); encode <= 1; encode++ {
 		for resynth := int32(0); resynth <= 1; resynth++ {
