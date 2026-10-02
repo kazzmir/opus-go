@@ -445,6 +445,33 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
+CELT allocation interpolation now takes typed mode/entropy, four band inputs,
+three band outputs and balance/intensity/dual-stereo output pointers. The unused
+TLS save/restore is removed, the interpolation integer adapter is gone, and the
+complete leaf accepts nil TLS. Six-step bisection, int32 multiply/shift wrapping,
+unsigned celt_udiv, backward skip decisions, entropy flags, reservation refunds,
+N=1/N=2 fine-energy cases, caps/rebalancing, assertions and sequential alias stores
+are preserved. Views remain live: no snapshots of aliased band/scalar values.
+
+The outer allocation driver now holds typed mode/entropy owners and calls the
+leaf directly with typed interiors; its ABI still has a uintptr escape wrapper.
+Vector accesses use typed mode-owned backing and the separately cached band
+stride. Its band/scalar arguments and four TLS scratch arrays remain legacy, so
+focused checkptr does not claim the full driver is safe.
+
+Actual rate.c interpolation/driver fixtures compare returned coded bands, all
+arrays/guards/scalars, eleven entropy fields and full byte buffers for C=1/2,
+LM=0–3, multiple starts, budgets, encode/decode and stereo reservations. Driver
+fixtures add trim 0/5/10 and dynalloc boosts. Leaf fixtures also cover input/output
+aliases, shared intensity/dual outputs, balance/energy aliases, fine/priority
+aliases and intensity/pulse aliases. Heap-owner/GC/stack-growth tests check mode
+bands/logN/vectors, entropy backing and active interpolation with exact-sized
+one-band outputs, nil unused entropy and an untouched TLS sentinel. Focused
+checkptr passes on amd64/386 and ARM64/QEMU; native fixtures remain host-only.
+Early rounds checked typed ownership/input helpers while output addressing was
+still legacy. Outer quantization/decode/PLC boundaries, opaque allocation scans
+and extension EOF are not made globally safe by this batch.
+
 Decoder CTL dispatch now has typed CELT custom, Opus, multistream and projection
 entries, using OpusDecoderCtlArgs for integer values and GC-visible scalar, range,
 mode and decoder output slots. Legacy vararg entries delegate; internal forwarding

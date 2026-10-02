@@ -536,6 +536,67 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestAllocationDriverAgainstC(t *testing.T) {
+	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	bands := unsafe.Slice(m.FeBands, 22)
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, start := range []int32{0, 3, 18} {
+				for _, budget := range []int32{0, 8, 100, 512, 4096, 12000} {
+					for _, trim := range []int32{0, 5, 10} {
+						for _, encode := range []int32{0, 1} {
+							for _, boost := range []bool{false, true} {
+								if boost && budget < 512 {
+									continue
+								}
+								var a [7][23]int32
+								for k := range a {
+									a[k][0], a[k][22] = 77, 88
+								}
+								for j := 0; j < 21; j++ {
+									a[3][j+1] = int32(bands[j+1]-bands[j]) * channels << LM << 6
+								}
+								if boost {
+									a[0][min(start+3, 20)+1] = 64
+								}
+								b := a
+								cfg := [12]int32{start, 21, trim, budget, 0, 0, 0, channels, LM, encode, 20, 20}
+								s, cs := [3]int32{77, 21, 1}, [3]int32{77, 21, 1}
+								data := make([]byte, 256)
+								for i := range data {
+									data[i] = byte(i*17 + 31)
+								}
+								cb := slices.Clone(data)
+								var g opuscc.OpusT_ec_ctx
+								if encode != 0 {
+									opuscc.Opus_ec_enc_init(nil, &g, &data[0], 256)
+								} else {
+									opuscc.Opus_ec_dec_init(nil, &g, &data[0], 256)
+								}
+								c := g
+								c.Fbuf = &cb[0]
+								tls := libc.NewTLS()
+								ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
+								scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
+								*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
+								libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
+								r := opuscc.CompareAllocationDriver(tls, m, &a, &s, &cfg, &g)
+								cr := nativeAllocationDriver(&c, cb, &b, &cs, &cfg)
+								tls.Close()
+								g.Fbuf = nil
+								c.Fbuf = nil
+								if r != cr || a != b || s != cs || g != c || !slices.Equal(data, cb) {
+									t.Fatal("allocation driver", channels, LM, start, budget, trim, encode, boost, r, cr, s, cs, a, b, g, c)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestAllocationInterpAliasAgainstC(t *testing.T) {
 	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	bands := unsafe.Slice(m.FeBands, 22)

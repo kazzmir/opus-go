@@ -5,6 +5,15 @@ package opuscc
 import "unsafe"
 import libc "github.com/kazzmir/opus-go/libcshim"
 
+func CompareAllocationDriver(tls *libc.TLS, mode *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, cfg *[12]int32, ec *OpusT_ec_ctx) (result int32) {
+	defer func() {
+		if recover() != nil {
+			result = -99
+		}
+	}()
+	return clt_compute_allocation(tls, mode, cfg[0], cfg[1], uintptr(unsafe.Pointer(&a[0][1])), uintptr(unsafe.Pointer(&a[3][1])), cfg[2], uintptr(unsafe.Pointer(&s[1])), uintptr(unsafe.Pointer(&s[2])), cfg[3], uintptr(unsafe.Pointer(&s[0])), uintptr(unsafe.Pointer(&a[4][1])), uintptr(unsafe.Pointer(&a[5][1])), uintptr(unsafe.Pointer(&a[6][1])), cfg[7], cfg[8], ec, cfg[9], cfg[10], cfg[11])
+}
+
 func CompareAllocationInterp(mode *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, cfg *[12]int32, ec *OpusT_ec_ctx) int32 {
 	return CompareAllocationInterpAlias(mode, a, s, cfg, ec, 0)
 }

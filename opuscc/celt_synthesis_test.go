@@ -32,6 +32,29 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestAllocationDriverTablesPointers(t *testing.T) {
+	m := func() *OpusT_OpusCustomMode {
+		mode := newSynthesisTestMode()
+		vectors := slices.Clone(unsafe.Slice(mode.FallocVectors, mode.FnbAllocVectors*mode.FnbEBands))
+		mode.FallocVectors = unsafe.SliceData(vectors)
+		return mode
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for vector := int32(0); vector < m.FnbAllocVectors; vector++ {
+		for band := int32(0); band < m.FnbEBands; band++ {
+			if got := allocationVector(m, m.FnbEBands, vector, band); got != band_allocation[vector*m.FnbEBands+band] {
+				t.Fatal("driver vector owner", vector, band, got)
+			}
+		}
+	}
+	// The driver snapshots its stride separately from the live table pointer.
+	m.FnbEBands = 1
+	if got := allocationVector(m, 21, 3, 17); got != band_allocation[3*21+17] {
+		t.Fatal("cached vector stride", got)
+	}
+}
+
 func TestAllocationOutputsPointers(t *testing.T) {
 	m := newSynthesisTestMode()
 	for _, C := range []int32{1, 2} {
