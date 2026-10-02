@@ -445,6 +445,71 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
+SILK PLC dispatch now holds typed decoder, control and PCM pointers. The public
+Opus_silk_PLC uintptr ABI is an explicit escape adapter that converts all three
+arguments before forwarding. The rate mismatch/reset helper uses typed state;
+reset/fs update precede dispatch, nonzero (including negative) loss flags select
+concealment, lossCnt increments only after concealment returns, and nonloss
+updates never consume PCM (nil and numeric aliases are valid on that branch).
+The concealment entry now retains typed decoder/control/PCM and PLC-state
+owners. LTP coefficients use a live fixed-array pointer and random excitation a
+live 128-word decoder-owned view. Five-tap attenuation retains int16 gain
+narrowing; random mixing retains per-MAC int32 narrowing and wrapping shifts.
+The LPC history/PCM phase is a typed standalone kernel: copy the 16-word state,
+check order >=10, perform the first ten MACs plus remaining order taps, narrow
+each MAC, saturate the prediction shift and excitation sum, scale/round/saturate
+PCM, then save history after all PCM stores. Modeled frame/order reads remain
+live. The redundant nested SAT16 is collapsed without changing its value;
+SMULWW still narrows before RSHIFT_ROUND (the max-int32 product fixture yields
+-256, not a clamp of the wide product).
+
+Whitening samples and Q14 prediction/history now use typed slices and numeric
+indices, including reverse-order five-tap loads. The int16 whitening buffer has
+ltp_mem_length samples; the int32 synthesis buffer has ltp_mem_length +
+frame_length words. Both are Go-owned. There is no concealment TLS allocation,
+cursor addressing or save/restore. Previous-LPC reset uses clear and coefficient
+snapshots use copy. Whitening still runs before any PCM stores, the five MACs
+narrow individually, subframe attenuation/pitch drift remain ordered, and LPC
+uses the same live synthesis tail. The obsolete private uintptr concealment
+adapter is removed; only the public Opus_silk_PLC ABI adapter remains.
+
+Focused checkptr now covers complete active typed concealment/dispatch with
+nil TLS, forced GC/stack growth, heap codebooks, PCM/guards, reset/type/loss
+matrices and an untouched TLS sentinel. Original voiced/unvoiced C-reference
+goldens now enter the typed driver without fixture pseudostack setup and pass
+unchanged. Opaque byte-backed decoder allocations, outer SILK frame/API/core,
+CELT concealment and other legacy boundaries are not made globally GC-safe.
+
+Actual PLC.c dispatcher fixtures compare the full decoder/control structs and
+PCM/guards: rates 8/12/16, 2/4 subframes, orders 10/16 on update, all signal types,
+matching/mismatching rates, prior loss counts 0/1/3, flags 1/-1/7, first-frame
+reset, and voiced/unvoiced concealment. Native byte-image fixture states leave
+embedded codebook/coefficient pointers nil; they do not import Go pointers via
+raw stores. Native loss fixtures now call Go with nil TLS, and actual PLC.c
+fixtures also check valid int16 decoder-history/PCM aliases (whitening precedes
+output). Native comparisons remain host-only. Focused tests cover rate ownership,
+full nonloss/loss dispatch with GC/stack growth, nil/unused PCM and Go-only invalid-
+control reset/store ordering. A sole typed PLC interior retains a scanned decoder
+and heap codebook through forced GC. Round one checked the rate helper while
+control remained integer-addressed; the first dispatcher rounds checked full
+nonloss dispatch, not active concealment. The coefficient/random/PCM/history rounds
+also check active typed LPC buffers with nil TLS, GC/stack growth, lengths
+0/1/10/16/17/80/320, orders 10/16, guard words, saturation and copy-before-order-
+assertion behavior. Decoder-backed coefficient/random interiors retain heap
+codebooks through weak-owner tests. Go-only PCM/state alias fixtures verify
+history save after PCM; they do not claim C effective-type alias parity.
+Macro-based native leaf fixtures add coefficient decay, random mixing, narrowed
+PCM scaling, and the full LPC kernel/working history (zero/extreme coefficients,
+several gains, all listed lengths). Actual PLC.c lost-dispatch fixtures remain
+the complete native integration reference. The following whitening/Q14/scratch
+rounds check typed whitening and five-tap helpers first, then Go synthesis storage,
+and finally the whole active path after the int16 scratch migration. Whitening
+fixtures cover lengths 160/240/320, orders 10/16, multiple consumed offsets,
+untouched prefixes and guards. Go-only failure fixtures retain rate reset/bandwidth
+expansion, do not increment lossCnt and do not touch PCM/control when rewhitening
+asserts. All rounds retain the original baselines/goldens and cross-architecture
+checks; QEMU is not direct macOS CI.
+
 CELT allocation interpolation now takes typed mode/entropy, four band inputs,
 three band outputs and balance/intensity/dual-stereo output pointers. The unused
 TLS save/restore is removed, the interpolation integer adapter is gone, and the
@@ -453,24 +518,35 @@ unsigned celt_udiv, backward skip decisions, entropy flags, reservation refunds,
 N=1/N=2 fine-energy cases, caps/rebalancing, assertions and sequential alias stores
 are preserved. Views remain live: no snapshots of aliased band/scalar values.
 
-The outer allocation driver now holds typed mode/entropy owners and calls the
-leaf directly with typed interiors; its ABI still has a uintptr escape wrapper.
-Vector accesses use typed mode-owned backing and the separately cached band
-stride. Its band/scalar arguments and four TLS scratch arrays remain legacy, so
-focused checkptr does not claim the full driver is safe.
+The allocation driver now takes typed mode/entropy, offset/cap inputs, scalar
+outputs and pulse/energy/priority arrays. All four mode-band-length scratch arrays
+(bits1, bits2, threshold, trim) are Go-owned; there is no TLS initialization,
+allocation, cursor arithmetic or stack restoration in the core driver. The
+public Opus_clt_compute_allocation ABI still has an explicit uintptr escape
+wrapper, converting every pointer argument before allocation/stack growth.
+Vector accesses retain typed mode-owned backing and the separately cached band
+stride. Reservation/refund order, negative-total clamping, do-while vector search,
+per-multiply int32 wrapping, threshold/tilt shifts, single-coefficient correction,
+positive-only tilt application, dynalloc skip start and interpolation store order
+are preserved. Wide-trim wrapping fixtures are Go-only, not C signed-overflow
+parity claims.
 
 Actual rate.c interpolation/driver fixtures compare returned coded bands, all
 arrays/guards/scalars, eleven entropy fields and full byte buffers for C=1/2,
 LM=0–3, multiple starts, budgets, encode/decode and stereo reservations. Driver
 fixtures add trim 0/5/10 and dynalloc boosts. Leaf fixtures also cover input/output
 aliases, shared intensity/dual outputs, balance/energy aliases, fine/priority
-aliases and intensity/pulse aliases. Heap-owner/GC/stack-growth tests check mode
-bands/logN/vectors, entropy backing and active interpolation with exact-sized
-one-band outputs, nil unused entropy and an untouched TLS sentinel. Focused
-checkptr passes on amd64/386 and ARM64/QEMU; native fixtures remain host-only.
-Early rounds checked typed ownership/input helpers while output addressing was
-still legacy. Outer quantization/decode/PLC boundaries, opaque allocation scans
-and extension EOF are not made globally safe by this batch.
+aliases and intensity/pulse aliases. Driver alias fixtures additionally cover
+cap/pulse and cap/fine-energy sharing; native driver fixtures now use nil TLS.
+Heap-owner/GC/stack-growth tests check mode bands/logN/vectors, entropy backing,
+live inputs, curve scratch and the full active driver/interpolation chain. They
+cover exact-sized one-band outputs, negative total, nil unused entropy, shared
+scalar outputs and an untouched TLS sentinel. Focused checkptr passes on
+amd64/386 and ARM64/QEMU; native fixtures remain host-only. The first three
+scratch-migration rounds checked helpers/leaf paths while the driver still had
+TLS scratch; the final round checks the complete active typed driver. Outer
+quantization/decode/PLC boundaries, opaque allocation scans and extension EOF
+are not made globally safe by this batch.
 
 Decoder CTL dispatch now has typed CELT custom, Opus, multistream and projection
 entries, using OpusDecoderCtlArgs for integer values and GC-visible scalar, range,

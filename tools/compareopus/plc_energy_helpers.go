@@ -10,6 +10,19 @@ package main
 #define silk_PLC comparison_PLC
 #define silk_PLC_glue_frames comparison_PLC_glue_frames
 #include "PLC.c"
+static int plc_prediction(const int *h,int index,const short *b) {int p=2;for(int j=0;j<LTP_ORDER;j++)p=silk_SMLAWB(p,h[index-j],b[j]);return p;}
+static void plc_lpc(int *state,int *history,const short *a,short *pcm,int length,int order,int gain) {
+ memcpy(history,state,MAX_LPC_ORDER*sizeof(int));
+ for(int i=0;i<length;i++){int prediction=order>>1;for(int j=0;j<order;j++)prediction=silk_SMLAWB(prediction,history[MAX_LPC_ORDER+i-j-1],a[j]);history[MAX_LPC_ORDER+i]=silk_ADD_SAT32(history[MAX_LPC_ORDER+i],silk_LSHIFT_SAT32(prediction,4));pcm[i]=(short)silk_SAT16(silk_SAT16(silk_RSHIFT_ROUND(silk_SMULWW(history[MAX_LPC_ORDER+i],gain),8)));}
+ memcpy(state,history+length,MAX_LPC_ORDER*sizeof(int));
+}
+static short plc_pcm(int sample,int gain) {return (short)silk_SAT16(silk_SAT16(silk_RSHIFT_ROUND(silk_SMULWW(sample,gain),8)));}
+static int plc_noise(int prediction,const int *random,int index,short scale) {return silk_LSHIFT32(silk_SMLAWB(prediction,random[index],scale),2);}
+static void plc_decay(short *b,int gain) {for(int j=0;j<LTP_ORDER;j++)b[j]=silk_RSHIFT(silk_SMULBB(gain,b[j]),15);}
+static int plc_dispatch(unsigned char *d,int ds,unsigned char *c,int cs,short *pcm,int lost,int arch,int alias) {
+ if(ds!=sizeof(silk_decoder_state)||cs!=sizeof(silk_decoder_control))return -98;
+ silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_PLC(&dec,&ctrl,alias?dec.outBuf:pcm,lost,arch);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
+}
 static void plc_update(int *p,int *d,int *c) {
  silk_decoder_state dec={0};silk_decoder_control ctrl={0};
  dec.fs_kHz=d[0];dec.subfr_length=d[1];dec.nb_subfr=d[2];dec.LPC_order=d[3];dec.indices.signalType=d[4];dec.prevSignalType=d[5];dec.frame_length=d[6];dec.lossCnt=d[7];
@@ -34,6 +47,37 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePLCLTPPrediction(history []int32, index int32, b *[5]int16) int32 {
+	return int32(C.plc_prediction((*C.int)(unsafe.Pointer(unsafe.SliceData(history))), C.int(index), (*C.short)(unsafe.Pointer(b))))
+}
+
+func nativePLCLPC(state *[16]int32, history []int32, a *[16]int16, pcm []int16, order, gain int32) {
+	C.plc_lpc((*C.int)(unsafe.Pointer(state)), (*C.int)(unsafe.Pointer(unsafe.SliceData(history))), (*C.short)(unsafe.Pointer(a)), (*C.short)(unsafe.Pointer(unsafe.SliceData(pcm))), C.int(len(pcm)), C.int(order), C.int(gain))
+}
+
+func nativePLCPCM(sample, gain int32) int16 { return int16(C.plc_pcm(C.int(sample), C.int(gain))) }
+
+func nativePLCNoise(prediction int32, random []int32, index int32, scale int16) int32 {
+	return int32(C.plc_noise(C.int(prediction), (*C.int)(unsafe.Pointer(unsafe.SliceData(random))), C.int(index), C.short(scale)))
+}
+
+func nativePLCDecay(b *[5]int16, gain int32) { C.plc_decay((*C.short)(unsafe.Pointer(b)), C.int(gain)) }
+
+// Fixtures leave all embedded codebook/coefficient pointers nil. Byte images
+// are numeric-only: this is not a write-barrier-safe Go pointer import path.
+func nativePLCDispatch(dec *opuscc.OpusT_silk_decoder_state, control *opuscc.OpusT_silk_decoder_control, frame []int16, lost, arch int32) int32 {
+	return nativePLCDispatchAlias(dec, control, frame, lost, arch, 0)
+}
+func nativePLCDispatchAlias(dec *opuscc.OpusT_silk_decoder_state, control *opuscc.OpusT_silk_decoder_control, frame []int16, lost, arch, alias int32) int32 {
+	d, c := make([]byte, int(unsafe.Sizeof(*dec))), make([]byte, int(unsafe.Sizeof(*control)))
+	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)))
+	copy(c, unsafe.Slice((*byte)(unsafe.Pointer(control)), len(c)))
+	r := int32(C.plc_dispatch((*C.uchar)(unsafe.Pointer(&d[0])), C.int(len(d)), (*C.uchar)(unsafe.Pointer(&c[0])), C.int(len(c)), (*C.short)(unsafe.Pointer(unsafe.SliceData(frame))), C.int(lost), C.int(arch), C.int(alias)))
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(control)), len(c)), c)
+	return r
+}
 
 func nativePLCUpdate(dec *opuscc.OpusT_silk_decoder_state, ctrl *opuscc.OpusT_silk_decoder_control) {
 	plc := &dec.FsPLC
