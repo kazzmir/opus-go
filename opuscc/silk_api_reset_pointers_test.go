@@ -2,7 +2,6 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 )
 
 func TestSilkAPIResetPointers(t *testing.T) {
@@ -14,10 +13,11 @@ func TestSilkAPIResetPointers(t *testing.T) {
 		}
 		owner.before = 123
 		owner.after = 456
-		raw := unsafe.Slice((*byte)(unsafe.Pointer(&owner.state)), int(unsafe.Sizeof(owner.state)))
-		for i := range raw {
-			raw[i] = 0xa5
+		for i := range owner.state.Fchannel_state {
+			seedDecoderNumericFixture(&owner.state.Fchannel_state[i], 0xa5)
 		}
+		owner.state.FsStereo.Fpred_prev_Q13 = [2]int16{123, 456}
+		owner.state.Fprev_decode_only_middle = 123
 		owner.state.FnChannelsAPI = 2
 		owner.state.FnChannelsInternal = 1
 		var want OpusT_silk_decoder

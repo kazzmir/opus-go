@@ -17,7 +17,7 @@ func TestQuantBandStereoOneSampleFieldAccesses(t *testing.T) {
 	context := band_ctx{
 		Fencode:         1,
 		Fresynth:        1,
-		Fec:             uintptr(unsafe.Pointer(&encoder)),
+		Fec:             &encoder,
 		Fremaining_bits: 16,
 	}
 	x := OpusT_celt_norm(-0.75)
@@ -33,7 +33,7 @@ func TestQuantBandStereoOneSampleFieldAccesses(t *testing.T) {
 	pins.Pin(&y)
 	pins.Pin(&lowband)
 
-	if got, want := quant_band_stereo(tls, uintptr(unsafe.Pointer(&context)), uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)), 1, 0, 1, 0, 0, uintptr(unsafe.Pointer(&lowband)), 0, 3), uint32(1); got != want {
+	if got, want := quant_band_stereo(tls, &context, uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)), 1, 0, 1, 0, 0, uintptr(unsafe.Pointer(&lowband)), 0, 3), uint32(1); got != want {
 		t.Fatalf("coded dimensions: got %d, want %d", got, want)
 	}
 
@@ -60,26 +60,26 @@ func TestQuantBandStereoLocalSplitState(t *testing.T) {
 	cacheBits := [2]byte{1, 0}
 	logN := [1]int16{8}
 	mode := OpusT_OpusCustomMode{FnbEBands: 1}
-	mode.Fcache.Findex = uintptr(unsafe.Pointer(&cacheIndex[0]))
-	mode.Fcache.Fbits = uintptr(unsafe.Pointer(&cacheBits[0]))
-	mode.FlogN = uintptr(unsafe.Pointer(&logN[0]))
+	mode.Fcache.Findex = &cacheIndex[0]
+	mode.Fcache.Fbits = &cacheBits[0]
+	mode.FlogN = &logN[0]
 	bandE := [2]OpusT_celt_ener{0.8, 1.2}
 	buffer := make([]byte, 16)
 	var encoder OpusT_ec_enc
 	Opus_ec_enc_init(tls, &encoder, unsafe.SliceData(buffer), uint32(len(buffer)))
 	context := band_ctx{
-		Fm:              uintptr(unsafe.Pointer(&mode)),
+		Fm:              &mode,
 		Fencode:         1,
 		Fresynth:        1,
-		Fec:             uintptr(unsafe.Pointer(&encoder)),
+		Fec:             &encoder,
 		Fremaining_bits: 48,
-		FbandE:          uintptr(unsafe.Pointer(&bandE[0])),
+		FbandE:          &bandE[0],
 		Fseed:           13579,
 	}
 	x := [2]OpusT_celt_norm{0.3, -0.7}
 	y := [2]OpusT_celt_norm{-0.4, 0.9}
 
-	mask := quant_band_stereo(tls, uintptr(unsafe.Pointer(&context)), uintptr(unsafe.Pointer(&x[0])), uintptr(unsafe.Pointer(&y[0])), 2, 16, 1, 0, 0, 0, 0, 3)
+	mask := quant_band_stereo(tls, &context, uintptr(unsafe.Pointer(&x[0])), uintptr(unsafe.Pointer(&y[0])), 2, 16, 1, 0, 0, 0, 0, 3)
 	Opus_ec_enc_done(tls, &encoder)
 
 	t.Logf("mask=%d x=%v y=%v bits=%d seed=%d encoded=% x", mask, x, y, context.Fremaining_bits, context.Fseed, buffer[:encoder.Foffs])

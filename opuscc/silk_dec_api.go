@@ -29,33 +29,33 @@ func Opus_silk_decoder_set_fs(tls *libc.TLS, st *OpusT_silk_decoder_state, fsKHz
 	if st.Ffs_kHz != fsKHz || frameLength != st.Fframe_length {
 		if fsKHz == 8 {
 			if st.Fnb_subfr == MAX_NB_SUBFR {
-				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_NB_iCDF))
+				st.Fpitch_contour_iCDF = &Opus_silk_pitch_contour_NB_iCDF[0]
 			} else {
-				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_10_ms_NB_iCDF))
+				st.Fpitch_contour_iCDF = &Opus_silk_pitch_contour_10_ms_NB_iCDF[0]
 			}
 		} else {
 			if st.Fnb_subfr == MAX_NB_SUBFR {
-				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_iCDF))
+				st.Fpitch_contour_iCDF = &Opus_silk_pitch_contour_iCDF[0]
 			} else {
-				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_10_ms_iCDF))
+				st.Fpitch_contour_iCDF = &Opus_silk_pitch_contour_10_ms_iCDF[0]
 			}
 		}
 		if st.Ffs_kHz != fsKHz {
 			st.Fltp_mem_length = int32(int16(LTP_MEM_LENGTH_MS)) * int32(int16(fsKHz))
 			if fsKHz == 8 || fsKHz == 12 {
 				st.FLPC_order = MIN_LPC_ORDER
-				st.FpsNLSF_CB = uintptr(unsafe.Pointer(&Opus_silk_NLSF_CB_NB_MB))
+				st.FpsNLSF_CB = &Opus_silk_NLSF_CB_NB_MB
 			} else {
 				st.FLPC_order = MAX_LPC_ORDER
-				st.FpsNLSF_CB = uintptr(unsafe.Pointer(&Opus_silk_NLSF_CB_WB))
+				st.FpsNLSF_CB = &Opus_silk_NLSF_CB_WB
 			}
 			switch fsKHz {
 			case 16:
-				st.Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform8_iCDF))
+				st.Fpitch_lag_low_bits_iCDF = &Opus_silk_uniform8_iCDF[0]
 			case 12:
-				st.Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform6_iCDF))
+				st.Fpitch_lag_low_bits_iCDF = &Opus_silk_uniform6_iCDF[0]
 			case 8:
-				st.Fpitch_lag_low_bits_iCDF = uintptr(unsafe.Pointer(&Opus_silk_uniform4_iCDF))
+				st.Fpitch_lag_low_bits_iCDF = &Opus_silk_uniform4_iCDF[0]
 			}
 			st.Ffirst_frame_after_reset = 1
 			st.FlagPrev = 100

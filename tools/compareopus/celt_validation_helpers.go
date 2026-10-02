@@ -42,6 +42,22 @@ static int native_plc_pitch(float *left,float *right,int channels) {float *data[
 static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
 #undef opus_custom_mode_create
 #undef opus_custom_mode_destroy
+static void native_mode_pulse_rate(int band,int LM,int bits,int pulses,int *v) {CELTMode *m=comparison_mode_create(48000,960,NULL);v[0]=bits2pulses(m,band,LM,bits);v[1]=pulses2bits(m,band,LM,pulses);}
+static void native_mode_remaining_table(int op,void *out,size_t *v) {
+ CELTMode *m=comparison_mode_create(48000,960,NULL);const void *p;
+ v[0]=sizeof(CELTMode);
+ switch(op) {
+ case 0:p=m->logN;v[1]=offsetof(CELTMode,logN);v[2]=m->nbEBands*sizeof(opus_int16);break;
+ case 1:p=m->cache.index;v[0]=sizeof(PulseCache);v[1]=offsetof(PulseCache,index);v[2]=(m->maxLM+2)*m->nbEBands*sizeof(opus_int16);break;
+ case 2:p=m->cache.bits;v[0]=sizeof(PulseCache);v[1]=offsetof(PulseCache,bits);v[2]=m->cache.size;break;
+ default:p=m->eBands;v[1]=offsetof(CELTMode,eBands);v[2]=(m->nbEBands+1)*sizeof(opus_int16);break;
+ }
+ memcpy(out,p,v[2]);
+}
+static void native_mode_tables(float *window,unsigned char *vectors,unsigned char *caps,size_t *layout) {
+ CELTMode *m=comparison_mode_create(48000,960,NULL);memcpy(window,m->window,m->overlap*sizeof(float));memcpy(vectors,m->allocVectors,m->nbAllocVectors*m->nbEBands);memcpy(caps,m->cache.caps,(m->maxLM+1)*2*m->nbEBands);
+ layout[0]=sizeof(CELTMode);layout[1]=offsetof(CELTMode,allocVectors);layout[2]=offsetof(CELTMode,window);layout[3]=sizeof(PulseCache);layout[4]=offsetof(PulseCache,caps);
+}
 static int native_celt_state(unsigned char *data,size_t size,int op,int channels,int rate,int overlap,int bands,int eff) {
  CELTMode mode={0};mode.overlap=overlap;mode.nbEBands=bands;mode.effEBands=eff;CELTDecoder *st=size?malloc(size):NULL;if(size)memcpy(st,data,size);
  int result;if(setjmp(celt_validation_jump))result=-99;else if(op==0){st->mode=&mode;result=comparison_custom_ctl(st,OPUS_RESET_STATE);}else if(op==1)result=comparison_custom_init(st,&mode,channels);else result=comparison_celt_init(st,rate,channels);
@@ -65,6 +81,28 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeModePulseRate(band, LM, bits, pulses int32) (int32, int32) {
+	var v [2]C.int
+	C.native_mode_pulse_rate(C.int(band), C.int(LM), C.int(bits), C.int(pulses), &v[0])
+	return int32(v[0]), int32(v[1])
+}
+
+func nativeModeRemainingTable(op int, data unsafe.Pointer) [3]uint64 {
+	var v [3]C.size_t
+	C.native_mode_remaining_table(C.int(op), data, &v[0])
+	return [3]uint64{uint64(v[0]), uint64(v[1]), uint64(v[2])}
+}
+
+func nativeModeTables(window []float32, vectors, caps []byte) [5]uint64 {
+	var v [5]C.size_t
+	C.native_mode_tables((*C.float)(unsafe.Pointer(unsafe.SliceData(window))), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(vectors))), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(caps))), &v[0])
+	var out [5]uint64
+	for i := range out {
+		out[i] = uint64(v[i])
+	}
+	return out
+}
 
 func nativePLCPitchSearch(left, right []float32, channels int32) int32 {
 	return int32(C.native_plc_pitch((*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), C.int(channels)))

@@ -14,6 +14,58 @@ import (
 var _ reflect.Type
 var _ unsafe.Pointer
 
+// modeLogN keeps the table address typed, including in remaining legacy callers.
+func modeLogN(m *OpusT_OpusCustomMode, band int32) int16 {
+	return *(*int16)(unsafe.Add(unsafe.Pointer(m.FlogN), uintptr(band)*2))
+}
+
+func modePulseIndex(m *OpusT_OpusCustomMode, index int32) int16 {
+	return *(*int16)(unsafe.Add(unsafe.Pointer(m.Fcache.Findex), uintptr(index)*2))
+}
+
+func modePulseCache(m *OpusT_OpusCustomMode, index int32) *byte {
+	bits := m.Fcache.Fbits
+	offset := modePulseIndex(m, index)
+	return (*byte)(unsafe.Add(unsafe.Pointer(bits), int(offset)))
+}
+
+func modePulseByte(cache *byte, index int32) byte {
+	return *(*byte)(unsafe.Add(unsafe.Pointer(cache), int(index)))
+}
+
+// These are the scalar rate.h searches, with C int32 wrapping and tie order.
+func modeBits2Pulses(cache *byte, bits int32) int32 {
+	lo, hi := int32(0), int32(*cache)
+	bits--
+	for i := 0; i < LOG_MAX_PSEUDO; i++ {
+		mid := (lo + hi + 1) >> 1
+		if int32(modePulseByte(cache, mid)) >= bits {
+			hi = mid
+		} else {
+			lo = mid
+		}
+	}
+	lowBits := int32(-1)
+	if lo != 0 {
+		lowBits = int32(modePulseByte(cache, lo))
+	}
+	if bits-lowBits <= int32(modePulseByte(cache, hi))-bits {
+		return lo
+	}
+	return hi
+}
+
+func modePulses2Bits(cache *byte, pulses int32) int32 {
+	if pulses == 0 {
+		return 0
+	}
+	return int32(modePulseByte(cache, pulses)) + 1
+}
+
+func modeBand(m *OpusT_OpusCustomMode, band int32) int16 {
+	return *(*int16)(unsafe.Add(unsafe.Pointer(m.FeBands), uintptr(band)*2))
+}
+
 func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frameSize int32) (*OpusT_OpusCustomMode, error) {
 	for _, mode := range static_mode_list {
 		for j := uint(0); j < 4; j++ {
@@ -324,8 +376,8 @@ func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, en
 }
 
 // The partition driver still owns integer-addressed band/context buffers.
-func alg_quant_legacy(tls *libc.TLS, X uintptr, N, K, spread, B int32, enc uintptr, gain float32, resynth, arch int32) uint32 {
-	return Opus_alg_quant(tls, (*float32)(unsafe.Pointer(X)), N, K, spread, B, (*OpusT_ec_enc)(unsafe.Pointer(enc)), gain, resynth, arch)
+func alg_quant_legacy(tls *libc.TLS, X uintptr, N, K, spread, B int32, enc *OpusT_ec_ctx, gain float32, resynth, arch int32) uint32 {
+	return Opus_alg_quant(tls, (*float32)(unsafe.Pointer(X)), N, K, spread, B, enc, gain, resynth, arch)
 }
 
 // C documentation
@@ -621,18 +673,18 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 		/*Figure out how many left-over bits we would be adding to this band.
 		  This can include bits we've stolen back from higher, skipped bands.*/
 		left = total - psum
-		v13 = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))
+		v13 = uint32(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))
 		_ = v13 > uint32(0)
 		v14 = uint32(left) / v13
 		percoeff = int32(v14)
-		left = left - (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))*percoeff
-		if left-(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2)))) > 0 {
-			v7 = left - (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))
+		left = left - (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))*percoeff
+		if left-(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start))) > 0 {
+			v7 = left - (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))
 		} else {
 			v7 = 0
 		}
 		rem = v7
-		band_width = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
+		band_width = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
 		band_bits = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) + percoeff*band_width + rem
 		/*Only code a skip decision if we're above the threshold for this band.
 		  Otherwise it is force-skipped.
@@ -720,17 +772,17 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 	}
 	/* Allocate the remaining bits */
 	left = total - psum
-	v13 = uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))
+	v13 = uint32(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))
 	_ = v13 > uint32(0)
 	v14 = uint32(left) / v13
 	percoeff = int32(v14)
-	left = left - (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(codedBands)*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(start)*2))))*percoeff
+	left = left - (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))*percoeff
 	j = start
 	for {
 		if !(j < codedBands) {
 			break
 		}
-		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) += percoeff * (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))))
+		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) += percoeff * (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)))
 		j = j + 1
 	}
 	j = start
@@ -738,10 +790,10 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 		if !(j < codedBands) {
 			break
 		}
-		if left < int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))) {
+		if left < int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1)))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)) {
 			v7 = left
 		} else {
-			v7 = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
+			v7 = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
 		}
 		tmp2 = v7
 		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) += tmp2
@@ -758,7 +810,7 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 		if !(*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) >= int32(0)) {
 			Opus_celt_fatal(tls, __ccgo_ts+5170, __ccgo_ts+5155, int32(445))
 		}
-		N0 = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
+		N0 = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
 		N = N0 << LM
 		bit = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) + balance
 		if N > int32(1) {
@@ -776,7 +828,7 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 				v7 = 0
 			}
 			den = C*N + v7
-			NClogN = den * (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FlogN + uintptr(j)*2))) + logM)
+			NClogN = den * (int32(modeLogN((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)) + logM)
 			/* Offset for the number of fine bits by log2(N)/2 + FINE_OFFSET
 			   compared to their "fair share" of total/N */
 			offset = NClogN>>int32(1) - den*int32(FINE_OFFSET)
@@ -1212,17 +1264,17 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 			break
 		}
 		/* Below this threshold, we're sure not to allocate any PVQ bits */
-		if C<<int32(BITRES) > int32(3)*(int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))))<<LM<<int32(BITRES)>>int32(4) {
+		if C<<int32(BITRES) > int32(3)*(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1)))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)))<<LM<<int32(BITRES)>>int32(4) {
 			v5 = C << int32(BITRES)
 		} else {
-			v5 = int32(3) * (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))) << LM << int32(BITRES) >> int32(4)
+			v5 = int32(3) * (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))) << LM << int32(BITRES) >> int32(4)
 		}
 		*(*int32)(unsafe.Pointer(thresh + uintptr(j)*4)) = v5
 		/* Tilt of the allocation curve */
-		*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) = C * (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))) * (alloc_trim - int32(5) - LM) * (end - j - int32(1)) * (int32(1) << (LM + int32(BITRES))) >> int32(6)
+		*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) = C * (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))) * (alloc_trim - int32(5) - LM) * (end - j - int32(1)) * (int32(1) << (LM + int32(BITRES))) >> int32(6)
 		/* Giving less resolution to single-coefficient bands because they get
 		   more benefit from having one coarse value per coefficient*/
-		if (int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2)))-int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2))))<<LM == int32(1) {
+		if (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1)))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)))<<LM == int32(1) {
 			*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) -= C << int32(BITRES)
 		}
 		j = j + 1
@@ -1240,8 +1292,8 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 			if !(v5 > start) {
 				break
 			}
-			N = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
-			bitsj = C * N * int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors + uintptr(mid*len1+j)))) << LM >> int32(2)
+			N = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
+			bitsj = C * N * int32(*(*uint8)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors), uintptr(mid*len1+j)))) << LM >> int32(2)
 			if bitsj > 0 {
 				if 0 > bitsj+*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) {
 					v5 = 0
@@ -1282,12 +1334,12 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 		if !(j < end) {
 			break
 		}
-		N1 = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands + uintptr(j)*2)))
-		bits1j = C * N1 * int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors + uintptr(lo*len1+j)))) << LM >> int32(2)
+		N1 = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
+		bits1j = C * N1 * int32(*(*uint8)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors), uintptr(lo*len1+j)))) << LM >> int32(2)
 		if hi >= (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbAllocVectors {
 			v5 = *(*int32)(unsafe.Pointer(cap1 + uintptr(j)*4))
 		} else {
-			v5 = C * N1 * int32(*(*uint8)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors + uintptr(hi*len1+j)))) << LM >> int32(2)
+			v5 = C * N1 * int32(*(*uint8)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FallocVectors), uintptr(hi*len1+j)))) << LM >> int32(2)
 		}
 		bits2j = v5
 		if bits1j > 0 {
@@ -1680,7 +1732,7 @@ func Opus_anti_collapse(tls *libc.TLS, bands *int16, nbBands int32, X *float32, 
 
 func anti_collapse_legacy(tls *libc.TLS, m, X, masks uintptr, LM, C, size, start, end int32, logE, p1, p2, pulses uintptr, seed uint32, encode, arch int32) {
 	mode := (*OpusT_OpusCustomMode)(unsafe.Pointer(m))
-	Opus_anti_collapse(tls, (*int16)(unsafe.Pointer(mode.FeBands)), mode.FnbEBands, (*float32)(unsafe.Pointer(X)), (*byte)(unsafe.Pointer(masks)), LM, C, size, start, end, (*float32)(unsafe.Pointer(logE)), (*float32)(unsafe.Pointer(p1)), (*float32)(unsafe.Pointer(p2)), (*int32)(unsafe.Pointer(pulses)), seed, encode, arch)
+	Opus_anti_collapse(tls, mode.FeBands, mode.FnbEBands, (*float32)(unsafe.Pointer(X)), (*byte)(unsafe.Pointer(masks)), LM, C, size, start, end, (*float32)(unsafe.Pointer(logE)), (*float32)(unsafe.Pointer(p1)), (*float32)(unsafe.Pointer(p2)), (*int32)(unsafe.Pointer(pulses)), seed, encode, arch)
 }
 
 // C documentation
@@ -1991,19 +2043,23 @@ var exp2_table8 = [8]OpusT_opus_int16{
 type band_ctx = struct {
 	Fencode            int32
 	Fresynth           int32
-	Fm                 uintptr
+	Fm                 *OpusT_OpusCustomMode
 	Fi                 int32
 	Fintensity         int32
 	Fspread            int32
 	Ftf_change         int32
-	Fec                uintptr
+	Fec                *OpusT_ec_ctx
 	Fremaining_bits    OpusT_opus_int32
-	FbandE             uintptr
+	FbandE             *OpusT_celt_ener
 	Fseed              OpusT_opus_uint32
 	Farch              int32
 	Ftheta_round       int32
 	Fdisable_inv       int32
 	Favoid_split_noise int32
+}
+
+func bandContextEnergy(ctx *band_ctx, index int32) float32 {
+	return *(*float32)(unsafe.Add(unsafe.Pointer(ctx.FbandE), int(index)*4))
 }
 
 type split_ctx = struct {
@@ -2015,12 +2071,12 @@ type split_ctx = struct {
 	Fqalloc int32
 }
 
-// sctx, b, and fill can point to Go locals in the band quantizers. They must
-// remain at stable addresses while nested entropy calls can grow the stack.
-//
-//go:uintptrescapes
-func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintptr, N int32, b uintptr, B int32, B0 int32, LM int32, stereo int32, fill uintptr) {
-	var bandE, ec, m uintptr
+// Context and local outputs remain visible across nested entropy calls.
+// Spectral buffers still cross the surrounding legacy boundary.
+func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X uintptr, Y uintptr, N int32, b *int32, B int32, B0 int32, LM int32, stereo int32, fill *int32) {
+	var bandE *OpusT_celt_ener
+	var ec *OpusT_ec_ctx
+	var m *OpusT_OpusCustomMode
 	var bias, delta, down, encode, fl, fl1, fm, fs, fs1, ft, ft1, i, imid, intensity, inv, iside, itheta, itheta_q30, j, offset, p0, pulse_cap, qalloc, qn, unquantized, x, x0, v1, v5, v6, v7 int32
 	var tell OpusT_opus_int32
 	var v2, v3 OpusT_opus_uint32
@@ -2028,21 +2084,21 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 	itheta = 0
 	itheta_q30 = 0
 	inv = 0
-	encode = (*band_ctx)(unsafe.Pointer(ctx)).Fencode
-	m = (*band_ctx)(unsafe.Pointer(ctx)).Fm
-	i = (*band_ctx)(unsafe.Pointer(ctx)).Fi
-	intensity = (*band_ctx)(unsafe.Pointer(ctx)).Fintensity
-	ec = (*band_ctx)(unsafe.Pointer(ctx)).Fec
-	bandE = (*band_ctx)(unsafe.Pointer(ctx)).FbandE
+	encode = ctx.Fencode
+	m = ctx.Fm
+	i = ctx.Fi
+	intensity = ctx.Fintensity
+	ec = ctx.Fec
+	bandE = ctx.FbandE
 	/* Decide on the resolution to give to the split parameter theta */
-	pulse_cap = int32(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FlogN + uintptr(i)*2))) + LM*(int32(1)<<int32(BITRES))
+	pulse_cap = int32(modeLogN(m, i)) + LM*(int32(1)<<int32(BITRES))
 	if stereo != 0 && N == int32(2) {
 		v1 = int32(QTHETA_OFFSET_TWOPHASE)
 	} else {
 		v1 = int32(QTHETA_OFFSET)
 	}
 	offset = pulse_cap>>int32(1) - v1
-	qn = compute_qn(tls, N, *(*int32)(unsafe.Pointer(b)), offset, pulse_cap, stereo)
+	qn = compute_qn(tls, N, *b, offset, pulse_cap, stereo)
 	if stereo != 0 && i >= intensity {
 		qn = int32(1)
 	}
@@ -2051,15 +2107,15 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 		   side and mid. With just that parameter, we can re-scale both
 		   mid and side because we know that 1) they have unit norm and
 		   2) they are orthogonal. */
-		itheta_q30 = Opus_stereo_itheta(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), stereo, N, (*band_ctx)(unsafe.Pointer(ctx)).Farch)
+		itheta_q30 = Opus_stereo_itheta(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), stereo, N, ctx.Farch)
 		itheta = itheta_q30 >> int32(16)
 	}
 	tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))))
 	if qn != int32(1) {
 		if encode != 0 {
-			if !(stereo != 0) || (*band_ctx)(unsafe.Pointer(ctx)).Ftheta_round == 0 {
+			if !(stereo != 0) || ctx.Ftheta_round == 0 {
 				itheta = (itheta*qn + int32(8192)) >> int32(14)
-				if !(stereo != 0) && (*band_ctx)(unsafe.Pointer(ctx)).Favoid_split_noise != 0 && itheta > 0 && itheta < qn {
+				if !(stereo != 0) && ctx.Favoid_split_noise != 0 && itheta > 0 && itheta < qn {
 					v2 = uint32(qn)
 					_ = v2 > uint32(0)
 					v3 = uint32(itheta*int32(16384)) / v2
@@ -2070,10 +2126,10 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 					imid = int32(Opus_bitexact_cos(tls, int16(unquantized)))
 					iside = int32(Opus_bitexact_cos(tls, int16(int32(16384)-unquantized)))
 					delta = (int32(16384) + int32(int16((N-int32(1))<<int32(7)))*int32(int16(Opus_bitexact_log2tan(tls, iside, imid)))) >> int32(15)
-					if delta > *(*int32)(unsafe.Pointer(b)) {
+					if delta > *b {
 						itheta = qn
 					} else {
-						if delta < -*(*int32)(unsafe.Pointer(b)) {
+						if delta < -*b {
 							itheta = 0
 						}
 					}
@@ -2102,7 +2158,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 					v5 = v7
 				}
 				down = v5
-				if (*band_ctx)(unsafe.Pointer(ctx)).Ftheta_round < 0 {
+				if ctx.Ftheta_round < 0 {
 					itheta = down
 				} else {
 					itheta = down + int32(1)
@@ -2200,7 +2256,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 		itheta = int32(v3)
 		if encode != 0 && stereo != 0 {
 			if itheta == 0 {
-				intensity_stereo(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), (*OpusT_celt_ener)(unsafe.Pointer(bandE)), i, N)
+				intensity_stereo(tls, m, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), bandE, i, N)
 			} else {
 				stereo_split(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), N)
 			}
@@ -2210,7 +2266,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 	} else {
 		if stereo != 0 {
 			if encode != 0 {
-				inv = libc.BoolInt32(itheta > int32(8192) && !((*band_ctx)(unsafe.Pointer(ctx)).Fdisable_inv != 0))
+				inv = libc.BoolInt32(itheta > int32(8192) && !(ctx.Fdisable_inv != 0))
 				if inv != 0 {
 					j = 0
 					for {
@@ -2221,9 +2277,9 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 						j = j + 1
 					}
 				}
-				intensity_stereo(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), (*OpusT_celt_ener)(unsafe.Pointer(bandE)), i, N)
+				intensity_stereo(tls, m, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), bandE, i, N)
 			}
-			if *(*int32)(unsafe.Pointer(b)) > int32(2)<<int32(BITRES) && (*band_ctx)(unsafe.Pointer(ctx)).Fremaining_bits > int32(2)<<int32(BITRES) {
+			if *b > int32(2)<<int32(BITRES) && ctx.Fremaining_bits > int32(2)<<int32(BITRES) {
 				if encode != 0 {
 					Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), inv, uint32(2))
 				} else {
@@ -2233,7 +2289,7 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 				inv = 0
 			}
 			/* inv flag override to avoid problems with downmixing. */
-			if (*band_ctx)(unsafe.Pointer(ctx)).Fdisable_inv != 0 {
+			if ctx.Fdisable_inv != 0 {
 				inv = 0
 			}
 			itheta = 0
@@ -2241,17 +2297,17 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 		}
 	}
 	qalloc = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))) - uint32(tell))
-	*(*int32)(unsafe.Pointer(b)) -= qalloc
+	*b -= qalloc
 	if itheta == 0 {
 		imid = int32(32767)
 		iside = 0
-		*(*int32)(unsafe.Pointer(fill)) &= int32(1)<<B - int32(1)
+		*fill &= int32(1)<<B - int32(1)
 		delta = -int32(16384)
 	} else {
 		if itheta == int32(16384) {
 			imid = 0
 			iside = int32(32767)
-			*(*int32)(unsafe.Pointer(fill)) &= (int32(1)<<B - int32(1)) << B
+			*fill &= (int32(1)<<B - int32(1)) << B
 			delta = int32(16384)
 		} else {
 			imid = int32(Opus_bitexact_cos(tls, int16(itheta)))
@@ -2261,12 +2317,12 @@ func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintpt
 			delta = (int32(16384) + int32(int16((N-int32(1))<<int32(7)))*int32(int16(Opus_bitexact_log2tan(tls, iside, imid)))) >> int32(15)
 		}
 	}
-	(*split_ctx)(unsafe.Pointer(sctx)).Finv = inv
-	(*split_ctx)(unsafe.Pointer(sctx)).Fimid = imid
-	(*split_ctx)(unsafe.Pointer(sctx)).Fiside = iside
-	(*split_ctx)(unsafe.Pointer(sctx)).Fdelta = delta
-	(*split_ctx)(unsafe.Pointer(sctx)).Fitheta = itheta
-	(*split_ctx)(unsafe.Pointer(sctx)).Fqalloc = qalloc
+	sctx.Finv = inv
+	sctx.Fimid = imid
+	sctx.Fiside = iside
+	sctx.Fdelta = delta
+	sctx.Fitheta = itheta
+	sctx.Fqalloc = qalloc
 }
 
 func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband *OpusT_celt_norm) uint32 {
@@ -2302,9 +2358,8 @@ func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband
 	return 1
 }
 
-func quant_band_n1_legacy(tls *libc.TLS, ctx, X, Y, lowband uintptr) uint32 {
-	context := (*band_ctx)(unsafe.Pointer(ctx))
-	return quant_band_n1(tls, context, (*OpusT_ec_ctx)(unsafe.Pointer(context.Fec)), (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(lowband)))
+func quant_band_n1_legacy(tls *libc.TLS, context *band_ctx, X, Y, lowband uintptr) uint32 {
+	return quant_band_n1(tls, context, context.Fec, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(lowband)))
 }
 
 // C documentation
@@ -2317,7 +2372,10 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 	b := _b
 	fill := _fill
 	var B0, K, curr_bits, delta, encode, hi, i1, i2, imid, iside, itheta, j, lo, mbits, mid, q, qalloc, sbits, spread, v1, v2, v3, v4 int32
-	var Y, cache, cache1, cache2, ec, m2, next_lowband2, v5 uintptr
+	var Y, next_lowband2, v5 uintptr
+	var ec *OpusT_ec_ctx
+	var m2 *OpusT_OpusCustomMode
+	var cache, cache1, cache2 *byte
 	var cm, cm_mask uint32
 	var mid1, side OpusT_opus_val32
 	var rebalance OpusT_opus_int32
@@ -2337,8 +2395,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 	spread = ctx.Fspread
 	ec = ctx.Fec
 	/* If we need 1.5 more bit than we can produce, split the band in two. */
-	cache2 = (*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).Fcache.Findex + uintptr((LM2+int32(1))*(*OpusT_OpusCustomMode)(unsafe.Pointer(m2)).FnbEBands+i2)*2)))
-	if LM2 != -int32(1) && b > int32(*(*uint8)(unsafe.Pointer(cache2 + uintptr(*(*uint8)(unsafe.Pointer(cache2))))))+int32(12) && N > int32(2) {
+	cache2 = modePulseCache(m2, (LM2+int32(1))*m2.FnbEBands+i2)
+	if LM2 != -int32(1) && b > int32(modePulseByte(cache2, int32(*cache2)))+int32(12) && N > int32(2) {
 		next_lowband2 = uintptr(uint32(0))
 		N = N >> int32(1)
 		Y = X + uintptr(N)*4
@@ -2347,7 +2405,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 			fill = fill&int32(1) | fill<<int32(1)
 		}
 		B = (B + int32(1)) >> int32(1)
-		compute_theta(tls, uintptr(unsafe.Pointer(ctx)), uintptr(unsafe.Pointer(&sctx)), X, Y, N, uintptr(unsafe.Pointer(&b)), B, B0, LM2, 0, uintptr(unsafe.Pointer(&fill)))
+		compute_theta(tls, ctx, &sctx, X, Y, N, &b, B, B0, LM2, 0, &fill)
 		imid = sctx.Fimid
 		iside = sctx.Fiside
 		delta = sctx.Fdelta
@@ -2408,71 +2466,18 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 			cm = cm | quant_partition(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), fill)
 		}
 	} else {
-		/* This is the basic no-split case */
-		v5 = m2
-		v1 = LM2
-		v2 = b
-		v1 = v1 + 1
-		cache = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Findex + uintptr(v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2)*2)))
-		lo = 0
-		hi = int32(*(*uint8)(unsafe.Pointer(cache)))
-		v2 = v2 - 1
-		i1 = int32(0)
-		for {
-			if !(i1 < int32(LOG_MAX_PSEUDO)) {
-				break
-			}
-			mid = (lo + hi + int32(1)) >> int32(1)
-			if int32(*(*uint8)(unsafe.Pointer(cache + uintptr(mid)))) >= v2 {
-				hi = mid
-			} else {
-				lo = mid
-			}
-			i1 = i1 + 1
-		}
-		if lo == 0 {
-			v3 = -int32(1)
-		} else {
-			v3 = int32(*(*uint8)(unsafe.Pointer(cache + uintptr(lo))))
-		}
-		if v2-v3 <= int32(*(*uint8)(unsafe.Pointer(cache + uintptr(hi))))-v2 {
-			v4 = lo
-			goto _11
-		} else {
-			v4 = hi
-			goto _11
-		}
-	_11:
-		q = v4
-		v5 = m2
-		v1 = LM2
-		v2 = q
-		v1 = v1 + 1
-		cache1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Findex + uintptr(v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2)*2)))
-		if v2 == 0 {
-			v4 = 0
-		} else {
-			v4 = int32(*(*uint8)(unsafe.Pointer(cache1 + uintptr(v2)))) + int32(1)
-		}
-		v3 = v4
-		curr_bits = v3
+		/* This is the basic no-split case. Reload the cache for each C helper. */
+		cache = modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)
+		q = modeBits2Pulses(cache, b)
+		cache1 = modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)
+		curr_bits = modePulses2Bits(cache1, q)
 		ctx.Fremaining_bits -= curr_bits
 		/* Ensures we can never bust the budget */
 		for ctx.Fremaining_bits < 0 && q > 0 {
 			ctx.Fremaining_bits += curr_bits
 			q = q - 1
-			v5 = m2
-			v1 = LM2
-			v2 = q
-			v1 = v1 + 1
-			cache1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Fbits + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).Fcache.Findex + uintptr(v1*(*OpusT_OpusCustomMode)(unsafe.Pointer(v5)).FnbEBands+i2)*2)))
-			if v2 == 0 {
-				v4 = 0
-			} else {
-				v4 = int32(*(*uint8)(unsafe.Pointer(cache1 + uintptr(v2)))) + int32(1)
-			}
-			v3 = v4
-			curr_bits = v3
+			cache1 = modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)
+			curr_bits = modePulses2Bits(cache1, q)
 			ctx.Fremaining_bits -= curr_bits
 		}
 		if q != 0 {
@@ -2543,7 +2548,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 // C documentation
 //
 //	/* This function is responsible for encoding and decoding a band for the mono case. */
-func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32, lowband uintptr, LM int32, lowband_out uintptr, gain OpusT_opus_val32, lowband_scratch uintptr, fill int32) (r uint32) {
+func quant_band(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, b int32, B int32, lowband uintptr, LM int32, lowband_out uintptr, gain OpusT_opus_val32, lowband_scratch uintptr, fill int32) (r uint32) {
 	var B0, N0, N_B, N_B0, encode, j, k, longBlocks, recombine, tf_change, time_divide int32
 	var cm uint32
 	var n1 OpusT_opus_val16
@@ -2555,8 +2560,8 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 	time_divide = 0
 	recombine = 0
 	cm = uint32(0)
-	encode = (*band_ctx)(unsafe.Pointer(ctx)).Fencode
-	tf_change = (*band_ctx)(unsafe.Pointer(ctx)).Ftf_change
+	encode = ctx.Fencode
+	tf_change = ctx.Ftf_change
 	longBlocks = libc.BoolInt32(B0 == int32(1))
 	v1 = uint32(B)
 	_ = v1 > uint32(0)
@@ -2615,9 +2620,9 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 			deinterleave_hadamard(tls, (*OpusT_celt_norm)(unsafe.Pointer(lowband)), N_B>>recombine, B0<<recombine, longBlocks)
 		}
 	}
-	cm = quant_partition(tls, (*band_ctx)(unsafe.Pointer(ctx)), X, N, b, B, lowband, LM, gain, fill)
+	cm = quant_partition(tls, ctx, X, N, b, B, lowband, LM, gain, fill)
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
-	if (*band_ctx)(unsafe.Pointer(ctx)).Fresynth != 0 {
+	if ctx.Fresynth != 0 {
 		/* Undo the sample reorganization going from time order to frequency order */
 		if B0 > int32(1) {
 			interleave_hadamard(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N_B>>recombine, B0<<recombine, longBlocks)
@@ -2702,12 +2707,13 @@ var bit_deinterleave_table = [16]uint8{
 // C documentation
 //
 //	/* This function is responsible for encoding and decoding a band for the stereo case. */
-func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32, _b int32, B int32, lowband uintptr, LM int32, lowband_out uintptr, lowband_scratch uintptr, _fill int32) (r uint32) {
+func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X uintptr, Y uintptr, N int32, _b int32, B int32, lowband uintptr, LM int32, lowband_out uintptr, lowband_scratch uintptr, _fill int32) (r uint32) {
 	b := _b
 	fill := _fill
 	var c, delta, encode, imid, inv, iside, itheta, j, mbits, orig_fill, qalloc, sbits, sign, v3, v4, v5 int32
 	var cm uint32
-	var ec, x2, y2, v1 uintptr
+	var x2, y2, v1 uintptr
+	var ec *OpusT_ec_ctx
 	var mid, side OpusT_opus_val32
 	var rebalance OpusT_opus_int32
 	var tmp OpusT_celt_norm
@@ -2719,24 +2725,24 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 	mid = float32(0)
 	side = float32(0)
 	cm = uint32(0)
-	bandContext := (*band_ctx)(unsafe.Pointer(ctx))
+	bandContext := ctx
 	encode = bandContext.Fencode
 	ec = bandContext.Fec
 	/* Special case for one sample */
 	if N == int32(1) {
-		return quant_band_n1_legacy(tls, ctx, X, Y, lowband_out)
+		return quant_band_n1_legacy(tls, bandContext, X, Y, lowband_out)
 	}
 	orig_fill = fill
 	if encode != 0 {
-		if *(*OpusT_celt_ener)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).FbandE + uintptr((*band_ctx)(unsafe.Pointer(ctx)).Fi)*4)) < float32(1e-10) || *(*OpusT_celt_ener)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).FbandE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).Fm)).FnbEBands+(*band_ctx)(unsafe.Pointer(ctx)).Fi)*4)) < float32(1e-10) {
-			if *(*OpusT_celt_ener)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).FbandE + uintptr((*band_ctx)(unsafe.Pointer(ctx)).Fi)*4)) > *(*OpusT_celt_ener)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).FbandE + uintptr((*OpusT_OpusCustomMode)(unsafe.Pointer((*band_ctx)(unsafe.Pointer(ctx)).Fm)).FnbEBands+(*band_ctx)(unsafe.Pointer(ctx)).Fi)*4)) {
+		if bandContextEnergy(bandContext, bandContext.Fi) < float32(1e-10) || bandContextEnergy(bandContext, bandContext.Fm.FnbEBands+bandContext.Fi) < float32(1e-10) {
+			if bandContextEnergy(bandContext, bandContext.Fi) > bandContextEnergy(bandContext, bandContext.Fm.FnbEBands+bandContext.Fi) {
 				libc.Xmemcpy(tls, Y, X, uint64(uint32(N))*uint64(4)+uint64(0*((int64(Y)-int64(X))/4)))
 			} else {
 				libc.Xmemcpy(tls, X, Y, uint64(uint32(N))*uint64(4)+uint64(0*((int64(X)-int64(Y))/4)))
 			}
 		}
 	}
-	compute_theta(tls, ctx, uintptr(unsafe.Pointer(&sctx)), X, Y, N, uintptr(unsafe.Pointer(&b)), B, B, LM, int32(1), uintptr(unsafe.Pointer(&fill)))
+	compute_theta(tls, bandContext, &sctx, X, Y, N, &b, B, B, LM, int32(1), &fill)
 	inv = sctx.Finv
 	imid = sctx.Fimid
 	iside = sctx.Fiside
@@ -2784,7 +2790,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 		sign = int32(1) - int32(2)*sign
 		/* We use orig_fill here because we want to fold the side, but if
 		   itheta==16384, we'll have cleared the low bits of fill. */
-		cm = quant_band(tls, ctx, x2, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, orig_fill)
+		cm = quant_band(tls, bandContext, x2, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, orig_fill)
 		/* We don't split N=2 bands, so cm is either 1 or 0 (for a fold-collapse),
 		   and there's no need to worry about mixing with the other channel. */
 		*(*OpusT_celt_norm)(unsafe.Pointer(y2)) = OpusT_celt_norm(float32(-sign) * *(*OpusT_celt_norm)(unsafe.Pointer(x2 + 1*4)))
@@ -2824,25 +2830,25 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 		if mbits >= sbits {
 			/* In stereo mode, we do not apply a scaling to the mid because we need the normalized
 			   mid for folding later. */
-			cm = quant_band(tls, ctx, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
+			cm = quant_band(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
 			rebalance = mbits - (rebalance - bandContext.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != 0 {
 				sbits = sbits + (rebalance - int32(3)<<int32(BITRES))
 			}
 			/* For a stereo split, the high bits of fill are always zero, so no
 			   folding will be done to the side. */
-			cm = cm | quant_band(tls, ctx, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
+			cm = cm | quant_band(tls, bandContext, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
 		} else {
 			/* For a stereo split, the high bits of fill are always zero, so no
 			   folding will be done to the side. */
-			cm = quant_band(tls, ctx, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
+			cm = quant_band(tls, bandContext, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
 			rebalance = sbits - (rebalance - bandContext.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != int32(16384) {
 				mbits = mbits + (rebalance - int32(3)<<int32(BITRES))
 			}
 			/* In stereo mode, we do not apply a scaling to the mid because we need the normalized
 			   mid for folding later. */
-			cm = cm | quant_band(tls, ctx, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
+			cm = cm | quant_band(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
 		}
 	}
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
@@ -2887,8 +2893,8 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 	   a Go stack local whose address is laundered
 	   through uintptr would be left behind by a goroutine stack growth in
 	   the PVQ recursion. */
-	ctx := (*band_ctx)(unsafe.Pointer(libc.Xmalloc(tls, 80)))
-	defer libc.Xfree(tls, uintptr(unsafe.Pointer(ctx)))
+	// Go storage scans the context's mode, codec and energy references.
+	ctx := new(band_ctx)
 	// Channel weights now stay Go-visible across calls and stack growth.
 	w := new([2]OpusT_opus_val16)
 	var B, C, M, N1, b, effective_lowband, fold_end, fold_i, fold_start, i, i1, j, last, lowband_offset, nend_bytes, norm_offset, nstart_bytes, resynth, resynth_alloc, save_bytes, tf_change, theta_rdo, update_lowband, v1, v183, v196, v201, v203, v207, v6 int32
@@ -2899,7 +2905,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 	var dist0, dist1, xy, v229, v232 OpusT_opus_val32
 	var ec_save, ec_save2 OpusT_ec_ctx
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B, C, M, N1, X, X_save, X_save2, Y, Y_save, Y_save2, _lowband_scratch, _norm, _saved_stack, b, bytes_buf, bytes_save, cm, cm2, ctx_save, ctx_save2, curr_balance, dist0, dist1, eBands, ec_save, ec_save2, effective_lowband, fold_end, fold_i, fold_start, i, i1, j, last, lowband_offset, lowband_scratch, nend_bytes, norm, norm2, norm_offset, norm_save2, nstart_bytes, remaining_bits, resynth, resynth_alloc, save_bytes, st, tell, tf_change, theta_rdo, update_lowband, x_cm, xy, y_cm, v1, v11, v13, v15, v17, v183, v19, v196, v2, v201, v203, v204, v205, v207, v21, v217, v229, v23, v232, v25, v4, v6, v7, v9
-	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands
+	eBands = uintptr(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands))
 	update_lowband = int32(1)
 	if Y_ != uintptr(uint32(0)) {
 		v1 = int32(2)
@@ -3408,11 +3414,11 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 	v25 = st
 	norm_save2 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v25)).Fglobal_stack - uintptr(uint64(uint32(resynth_alloc))*(uint64(4)/uint64(1)))
 	lowband_offset = 0
-	ctx.FbandE = bandE
-	ctx.Fec = ec
+	ctx.FbandE = (*OpusT_celt_ener)(unsafe.Pointer(bandE))
+	ctx.Fec = (*OpusT_ec_ctx)(unsafe.Pointer(ec))
 	ctx.Fencode = encode
 	ctx.Fintensity = intensity
-	ctx.Fm = m
+	ctx.Fm = (*OpusT_OpusCustomMode)(unsafe.Pointer(m))
 	ctx.Fseed = *(*OpusT_opus_uint32)(unsafe.Pointer(seed))
 	ctx.Fspread = spread
 	ctx.Farch = arch
@@ -3581,7 +3587,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 			lowband_offset = i1
 		}
 		if i1 == start+int32(1) {
-			special_hybrid_folding(tls, (*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands)), (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
+			special_hybrid_folding(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands, (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
 		}
 		tf_change = *(*int32)(unsafe.Pointer(tf_res + uintptr(i1)*4))
 		ctx.Ftf_change = tf_change
@@ -3664,7 +3670,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 			} else {
 				v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 			}
-			x_cm = quant_band(tls, uintptr(unsafe.Pointer(ctx)), X, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm))
+			x_cm = quant_band(tls, ctx, X, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm))
 			if effective_lowband != -int32(1) {
 				v2 = norm2 + uintptr(effective_lowband)*4
 			} else {
@@ -3675,7 +3681,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 			} else {
 				v4 = norm2 + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 			}
-			y_cm = quant_band(tls, uintptr(unsafe.Pointer(ctx)), Y, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(y_cm))
+			y_cm = quant_band(tls, ctx, Y, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(y_cm))
 		} else {
 			if Y != uintptr(uint32(0)) {
 				if theta_rdo != 0 && i1 < intensity {
@@ -3698,7 +3704,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					} else {
 						v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 					}
-					x_cm = quant_band_stereo(tls, uintptr(unsafe.Pointer(ctx)), X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
+					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
 					_ = arch
 					xy = float32(0)
 					i = int32(0)
@@ -3742,7 +3748,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					libc.Xmemcpy(tls, X, X_save, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(X)-int64(X_save))/4)))
 					libc.Xmemcpy(tls, Y, Y_save, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(Y)-int64(Y_save))/4)))
 					if i1 == start+int32(1) {
-						special_hybrid_folding(tls, (*OpusT_opus_int16)(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands)), (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
+						special_hybrid_folding(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands, (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
 					}
 					/* Encode and round up. */
 					ctx.Ftheta_round = int32(1)
@@ -3756,7 +3762,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					} else {
 						v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 					}
-					x_cm = quant_band_stereo(tls, uintptr(unsafe.Pointer(ctx)), X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
+					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
 					_ = arch
 					xy = float32(0)
 					i = int32(0)
@@ -3803,7 +3809,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					} else {
 						v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 					}
-					x_cm = quant_band_stereo(tls, uintptr(unsafe.Pointer(ctx)), X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(x_cm|y_cm))
+					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(x_cm|y_cm))
 				}
 			} else {
 				if effective_lowband != -int32(1) {
@@ -3816,7 +3822,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 				} else {
 					v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 				}
-				x_cm = quant_band(tls, uintptr(unsafe.Pointer(ctx)), X, N1, b, B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm|y_cm))
+				x_cm = quant_band(tls, ctx, X, N1, b, B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm|y_cm))
 			}
 			y_cm = x_cm
 		}

@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -13,10 +14,18 @@ func TestQuantPartitionRemainingBitsField(t *testing.T) {
 	cacheIndex := [1]int16{0}
 	cacheBits := [1]byte{0}
 	mode := OpusT_OpusCustomMode{FnbEBands: 1}
-	mode.Fcache.Findex = uintptr(unsafe.Pointer(&cacheIndex[0]))
-	mode.Fcache.Fbits = uintptr(unsafe.Pointer(&cacheBits[0]))
-	context := band_ctx{Fm: uintptr(unsafe.Pointer(&mode)), Fi: 0, Fresynth: 1, Fremaining_bits: 23, Fseed: 123456}
+	mode.Fcache.Findex = &cacheIndex[0]
+	mode.Fcache.Fbits = &cacheBits[0]
+	context := band_ctx{Fm: &mode, Fi: 0, Fresynth: 1, Fremaining_bits: 23, Fseed: 123456}
 	x := [2]OpusT_celt_norm{0.3, -0.4}
+	// These objects still cross legacy uintptr quantizer boundaries.
+	var pins runtime.Pinner
+	defer pins.Unpin()
+	pins.Pin(&cacheIndex)
+	pins.Pin(&cacheBits)
+	pins.Pin(&mode)
+	pins.Pin(&context)
+	pins.Pin(&x)
 
 	if got, want := quant_partition(tls, &context, uintptr(unsafe.Pointer(&x[0])), 2, 1, 1, 0, -1, 1, 1), uint32(1); got != want {
 		t.Fatalf("collapse mask: got %d, want %d", got, want)
@@ -42,21 +51,30 @@ func TestQuantPartitionLocalSplitState(t *testing.T) {
 	cacheBits := [2]byte{1, 0}
 	logN := [1]int16{8}
 	mode := OpusT_OpusCustomMode{FnbEBands: 1}
-	mode.Fcache.Findex = uintptr(unsafe.Pointer(&cacheIndex[0]))
-	mode.Fcache.Fbits = uintptr(unsafe.Pointer(&cacheBits[0]))
-	mode.FlogN = uintptr(unsafe.Pointer(&logN[0]))
+	mode.Fcache.Findex = &cacheIndex[0]
+	mode.Fcache.Fbits = &cacheBits[0]
+	mode.FlogN = &logN[0]
 	buffer := make([]byte, 16)
 	var encoder OpusT_ec_enc
 	Opus_ec_enc_init(tls, &encoder, unsafe.SliceData(buffer), uint32(len(buffer)))
 	context := band_ctx{
-		Fm:              uintptr(unsafe.Pointer(&mode)),
+		Fm:              &mode,
 		Fencode:         1,
 		Fresynth:        1,
-		Fec:             uintptr(unsafe.Pointer(&encoder)),
+		Fec:             &encoder,
 		Fremaining_bits: 80,
 		Fseed:           987654,
 	}
 	x := [4]OpusT_celt_norm{0.2, -0.4, 0.6, -0.8}
+	var pins runtime.Pinner
+	defer pins.Unpin()
+	pins.Pin(&cacheIndex)
+	pins.Pin(&cacheBits)
+	pins.Pin(&logN)
+	pins.Pin(&mode)
+	pins.Pin(&context)
+	pins.Pin(&encoder)
+	pins.Pin(&x)
 
 	mask := quant_partition(tls, &context, uintptr(unsafe.Pointer(&x[0])), 4, 30, 1, 0, 0, 1, 3)
 	Opus_ec_enc_done(tls, &encoder)

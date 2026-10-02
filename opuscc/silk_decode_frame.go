@@ -250,7 +250,7 @@ func Opus_silk_decode_frame(tls *libc.TLS, psDec uintptr, psRangeDec uintptr, pO
 func Opus_silk_decode_parameters(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, condCoding int32) {
 	var nlsf, nlsf0 [MAX_LPC_ORDER]int16
 	Opus_silk_gains_dequant(tls, &control.FGains_Q16[0], &decoder.Findices.FGainsIndices[0], &decoder.FLastGainIndex, libc.BoolInt32(condCoding == CODE_CONDITIONALLY), decoder.Fnb_subfr)
-	Opus_silk_NLSF_decode(tls, &nlsf[0], &decoder.Findices.FNLSFIndices[0], (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB)))
+	Opus_silk_NLSF_decode(tls, &nlsf[0], &decoder.Findices.FNLSFIndices[0], decoder.FpsNLSF_CB)
 	Opus_silk_NLSF2A(tls, &control.FPredCoef_Q12[1][0], &nlsf[0], decoder.FLPC_order, decoder.Farch)
 	if decoder.Ffirst_frame_after_reset == 1 {
 		decoder.Findices.FNLSFInterpCoef_Q2 = 4
@@ -310,9 +310,9 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 		indices.FGainsIndices[i] = int8(Opus_ec_dec_icdf(tls, dec, &Opus_silk_delta_gain_iCDF[0], 8))
 	}
 	// Codebook/table fields remain legacy; retain typed bases while traversing their tables.
-	cb := (*OpusT_silk_NLSF_CB_struct)(unsafe.Pointer(decoder.FpsNLSF_CB))
-	first := (*byte)(unsafe.Pointer(cb.FCB1_iCDF))
-	residual := (*byte)(unsafe.Pointer(cb.Fec_iCDF))
+	cb := decoder.FpsNLSF_CB
+	first := cb.FCB1_iCDF
+	residual := cb.Fec_iCDF
 	indices.FNLSFIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, (*byte)(unsafe.Add(unsafe.Pointer(first), int32(indices.FsignalType>>1)*int32(cb.FnVectors))), 8))
 	var ecIX [MAX_LPC_ORDER]int16
 	var pred [MAX_LPC_ORDER]byte
@@ -345,10 +345,10 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 		}
 		if absolute {
 			indices.FlagIndex = int16(int32(int16(Opus_ec_dec_icdf(tls, dec, &Opus_silk_pitch_lag_iCDF[0], 8))) * (decoder.Ffs_kHz >> 1))
-			indices.FlagIndex += int16(Opus_ec_dec_icdf(tls, dec, (*byte)(unsafe.Pointer(decoder.Fpitch_lag_low_bits_iCDF)), 8))
+			indices.FlagIndex += int16(Opus_ec_dec_icdf(tls, dec, decoder.Fpitch_lag_low_bits_iCDF, 8))
 		}
 		decoder.Fec_prevLagIndex = indices.FlagIndex
-		indices.FcontourIndex = int8(Opus_ec_dec_icdf(tls, dec, (*byte)(unsafe.Pointer(decoder.Fpitch_contour_iCDF)), 8))
+		indices.FcontourIndex = int8(Opus_ec_dec_icdf(tls, dec, decoder.Fpitch_contour_iCDF, 8))
 		indices.FPERIndex = int8(Opus_ec_dec_icdf(tls, dec, &Opus_silk_LTP_per_index_iCDF[0], 8))
 		for k := int32(0); k < decoder.Fnb_subfr; k++ {
 			indices.FLTPIndex[k] = int8(Opus_ec_dec_icdf(tls, dec, (*byte)(unsafe.Pointer(Opus_silk_LTP_gain_iCDF_ptrs[indices.FPERIndex])), 8))

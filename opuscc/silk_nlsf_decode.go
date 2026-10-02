@@ -20,14 +20,14 @@ func Opus_silk_NLSF_decode(tls *libc.TLS, pNLSF_Q15 *OpusT_opus_int16, NLSFIndic
 	var res_Q10 [16]OpusT_opus_int16
 	Opus_silk_NLSF_unpack(tls, &ec_ix[0], &pred_Q8[0], cb, int32(indices[0]))
 	silk_NLSF_residual_dequant(tls, &res_Q10[0], &indices[1], &pred_Q8[0], int32(cb.FquantStepSize_Q16), cb.Forder)
-	elements := unsafe.Slice((*uint8)(unsafe.Pointer(cb.FCB1_NLSF_Q8)), int(cb.FnVectors)*order)
-	weights := unsafe.Slice((*int16)(unsafe.Pointer(cb.FCB1_Wght_Q9)), int(cb.FnVectors)*order)
+	elements := unsafe.Slice(cb.FCB1_NLSF_Q8, int(cb.FnVectors)*order)
+	weights := unsafe.Slice(cb.FCB1_Wght_Q9, int(cb.FnVectors)*order)
 	base := int(indices[0]) * order
 	for i := range output {
 		value := (int32(res_Q10[i])<<14)/int32(weights[base+i]) + (int32(elements[base+i]) << 7)
 		output[i] = int16(min(max(value, 0), 32767))
 	}
-	Opus_silk_NLSF_stabilize(tls, pNLSF_Q15, (*OpusT_opus_int16)(unsafe.Pointer(cb.FdeltaMin_Q15)), int32(cb.Forder))
+	Opus_silk_NLSF_stabilize(tls, pNLSF_Q15, cb.FdeltaMin_Q15, int32(cb.Forder))
 }
 
 const NB_ATT = 2

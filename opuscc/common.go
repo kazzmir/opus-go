@@ -1595,14 +1595,14 @@ type OpusT_OpusCustomMode = struct {
 	FnbEBands       int32
 	FeffEBands      int32
 	Fpreemph        [4]OpusT_opus_val16
-	FeBands         uintptr
+	FeBands         *int16
 	FmaxLM          int32
 	FnbShortMdcts   int32
 	FshortMdctSize  int32
 	FnbAllocVectors int32
-	FallocVectors   uintptr
-	FlogN           uintptr
-	Fwindow         uintptr
+	FallocVectors   *byte
+	FlogN           *int16
+	Fwindow         *float32
 	Fmdct           OpusT_mdct_lookup
 	Fcache          OpusT_PulseCache
 }
@@ -1665,28 +1665,12 @@ type OpusT_mdct_lookup = struct {
 
 type OpusT_PulseCache = struct {
 	Fsize  int32
-	Findex uintptr
-	Fbits  uintptr
-	Fcaps  uintptr
+	Findex *int16
+	Fbits  *byte
+	Fcaps  *byte
 }
 
-type OpusCustomMode = struct {
-	FFs             OpusT_opus_int32
-	Foverlap        int32
-	FnbEBands       int32
-	FeffEBands      int32
-	Fpreemph        [4]OpusT_opus_val16
-	FeBands         uintptr
-	FmaxLM          int32
-	FnbShortMdcts   int32
-	FshortMdctSize  int32
-	FnbAllocVectors int32
-	FallocVectors   uintptr
-	FlogN           uintptr
-	Fwindow         uintptr
-	Fmdct           OpusT_mdct_lookup
-	Fcache          OpusT_PulseCache
-}
+type OpusCustomMode = OpusT_OpusCustomMode
 
 type OpusT_silk_EncControlStruct = struct {
 	FnChannelsAPI              OpusT_opus_int32
@@ -1881,7 +1865,7 @@ type OpusT_silk_resampler_state_struct = struct {
 	FFs_in_kHz          int32
 	FFs_out_kHz         int32
 	FinputDelay         int32
-	FCoefs              uintptr
+	FCoefs              *int16
 }
 
 type _silk_resampler_state_struct = OpusT_silk_resampler_state_struct
@@ -1926,14 +1910,14 @@ type OpusT_silk_NLSF_CB_struct = struct {
 	Forder               OpusT_opus_int16
 	FquantStepSize_Q16   OpusT_opus_int16
 	FinvQuantStepSize_Q6 OpusT_opus_int16
-	FCB1_NLSF_Q8         uintptr
-	FCB1_Wght_Q9         uintptr
-	FCB1_iCDF            uintptr
-	Fpred_Q8             uintptr
-	Fec_sel              uintptr
-	Fec_iCDF             uintptr
-	Fec_Rates_Q5         uintptr
-	FdeltaMin_Q15        uintptr
+	FCB1_NLSF_Q8         *byte
+	FCB1_Wght_Q9         *int16
+	FCB1_iCDF            *byte
+	Fpred_Q8             *byte
+	Fec_sel              *byte
+	Fec_iCDF             *byte
+	Fec_Rates_Q5         *byte
+	FdeltaMin_Q15        *int16
 }
 
 type OpusT_stereo_enc_state = struct {
@@ -2015,9 +1999,9 @@ type OpusT_silk_encoder_state = struct {
 	Fwarping_Q16                   int32
 	FuseCBR                        int32
 	FprefillFlag                   int32
-	Fpitch_lag_low_bits_iCDF       uintptr
-	Fpitch_contour_iCDF            uintptr
-	FpsNLSF_CB                     uintptr
+	Fpitch_lag_low_bits_iCDF       *byte
+	Fpitch_contour_iCDF            *byte
+	FpsNLSF_CB                     *OpusT_silk_NLSF_CB_struct
 	Finput_quality_bands_Q15       [4]int32
 	Finput_tilt_Q15                int32
 	FSNR_dB_Q7                     int32
@@ -2090,8 +2074,8 @@ type OpusT_silk_decoder_state = struct {
 	FLPC_order               int32
 	FprevNLSF_Q15            [16]OpusT_opus_int16
 	Ffirst_frame_after_reset int32
-	Fpitch_lag_low_bits_iCDF uintptr
-	Fpitch_contour_iCDF      uintptr
+	Fpitch_lag_low_bits_iCDF *byte
+	Fpitch_contour_iCDF      *byte
 	FnFramesDecoded          int32
 	FnFramesPerPacket        int32
 	Fec_prevSignalType       int32
@@ -2100,7 +2084,7 @@ type OpusT_silk_decoder_state = struct {
 	FLBRR_flag               int32
 	FLBRR_flags              [3]int32
 	Fresampler_state         OpusT_silk_resampler_state_struct
-	FpsNLSF_CB               uintptr
+	FpsNLSF_CB               *OpusT_silk_NLSF_CB_struct
 	Findices                 OpusT_SideInfoIndices
 	FsCNG                    OpusT_silk_CNG_struct
 	FlossCnt                 int32
@@ -3109,7 +3093,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_GET_MODE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), uintptr(unsafe.Pointer(&celt_mode)))) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+1811, __ccgo_ts+57, int32(632))
 	}
-	window = (*OpusT_OpusCustomMode)(unsafe.Pointer(celt_mode)).Fwindow
+	window = uintptr(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(celt_mode)).Fwindow))
 	/* 5 ms redundant frame for SILK->CELT */
 	if redundancy != 0 && !(celt_to_silk != 0) {
 		if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_RESET_STATE), 0) == int32(OPUS_OK)) {

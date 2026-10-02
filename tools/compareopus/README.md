@@ -322,6 +322,52 @@ Radix-3 reuses the grouped fixtures and compares epi3 selection, half/scalar
 rounding, guards and stack-growth/GC calls with exact native output bits.
 Radix-5 uses the same grouped cases to verify ya/yb selection, parenthesized
 float32 sums/products, five-way stores and impulse/guard behavior.
+Resampler states now retain typed coefficient pointers; initialization/reset uses
+barrier-aware struct stores. Native rate-pair comparisons retain coefficient IDs and
+check pointer-sized layout, while heap-owner tests drop the original coefficient
+slice and compare driver output/history after GC and stack growth.
+NLSF codebooks retain all eight typed table pointers. Decoder and encoder states
+retain typed codebook references, with direct decode/parameter/index traversal and
+sample-rate assignments. Grouped tests check C layouts, both codebook orders,
+heap-only owner chains and reset/replacement, alongside the existing native full-state
+comparisons. Decoder/encoder pitch-lag and contour table fields are also typed;
+heap-only owner tests cover the three lag and four contour tables, repeated entropy
+reads, rate/subframe selection and reset. Native full-state indices/parameters and
+sample-rate fixtures retain the original table selection and state updates, with
+C size/offset checks for both state layouts. Poisoned reset fixtures skip every
+converted GC pointer slot and use real sentinels.
+CELT band, log-band, window, allocation-vector and pulse-cache index/bit/cap
+fields are typed. Native fixtures compare mode/cache sizes, offsets and every table
+payload; heap-mode owners retain cloned tables through GC and stack growth.
+Band/log/index access preserves signed int16 loads. The quant-partition rate searches
+use typed byte caches, retaining the C six-step search, tie order, zero-pulse behavior,
+cache reloads and remaining-budget updates. Actual rate.h comparisons cover every
+valid LM -1 through 3 cache row, budgets -2 through 400 and every valid pulse count;
+a guarded backwards index checks signed offset -1 without exercising C's invalid
+sentinel rows. Grouped owner cases also exercise caps and MDCT.
+CELT band contexts retain typed mode, band-energy and shared entropy-codec pointers, including
+through copied/restored context snapshots. Theta/partition/stereo locals keep these
+references typed; the PVQ adapter's codec argument no longer crosses an integer
+boundary. Heap-context tests retain mode tables and encoder/decoder packet buffers
+through GC/stack growth, exercising one-bin signs, lowband stores and complete codec
+state/bytes for zero, tiny and normal encoder capacities. Native bands.c checks
+context layout and the one-bin reference fixtures use the context-owned codec.
+Theta now takes typed context, split-output, budget and fill pointers, preserving
+sequential output stores even when budget/fill alias one another, remaining_bits,
+or split fields. Actual bands.c decoder fixtures cover uniform/triangular/intensity
+branches, budgets, LM and these output aliases. Mono/stereo band drivers take typed
+contexts, and the outer driver uses GC-scanned Go context storage instead of a fixed
+80-byte TLS allocation. Decoder native fixtures compare masks, remaining budget,
+seed, complete entropy state, spectra, folding output and guards across LM 0–3,
+time/frequency changes, budgets and intensity choices.
+Focused checkptr exercises theta with unused nil spectra and the drivers' unused
+nil one-bin inputs; active spectral native comparisons run on the host. Spectral
+arguments and the outer pseudostack remain legacy; these tests do not establish
+global safety.
+Opaque byte-backed allocations, architecture FFT headers, outer integer APIs and
+some outer band-table locals remain legacy. ARM64 exposed a quant-partition fixture stack-lifetime
+failure; its crossing objects are now pinned without changing expected outputs.
+This is fixture ownership repair, not a migration of the outer quantizer.
 MDCT lookups retain typed FFT-state and trig-table pointers; FFT states in turn
 retain typed bit-reversal and twiddle pointers. Grouped FFT tests compare both C
 layouts and force GC/stack growth with a heap lookup as the only table owner.

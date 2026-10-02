@@ -9,6 +9,9 @@ package main
 #include "../../../opus/silk/resampler.c"
 #define silk_decoder_set_fs compare_decoder_set_fs
 #include "../../../opus/silk/decoder_set_fs.c"
+static void native_silk_pitch_refs_layout(int contour,size_t *v){v[0]=sizeof(silk_decoder_state);v[1]=contour?offsetof(silk_decoder_state,pitch_contour_iCDF):offsetof(silk_decoder_state,pitch_lag_low_bits_iCDF);v[2]=sizeof(silk_encoder_state);v[3]=contour?offsetof(silk_encoder_state,pitch_contour_iCDF):offsetof(silk_encoder_state,pitch_lag_low_bits_iCDF);}
+static void native_silk_cb_refs_layout(size_t *v){v[0]=sizeof(silk_decoder_state);v[1]=offsetof(silk_decoder_state,psNLSF_CB);v[2]=sizeof(silk_encoder_state);v[3]=offsetof(silk_encoder_state,psNLSF_CB);}
+static void native_resampler_layout(size_t *v){v[0]=sizeof(silk_resampler_state_struct);v[1]=offsetof(silk_resampler_state_struct,Coefs);}
 static void native_decoder_fs_blank(silk_decoder_state *s) {memset(s,0xa5,sizeof(*s));}
 static const unsigned char *native_fs_contour(int id) {switch(id) {case 1:return silk_pitch_contour_NB_iCDF;case 2:return silk_pitch_contour_10_ms_NB_iCDF;case 3:return silk_pitch_contour_iCDF;case 4:return silk_pitch_contour_10_ms_iCDF;default:return NULL;}}
 static const unsigned char *native_fs_lag(int id) {switch(id) {case 1:return silk_uniform4_iCDF;case 2:return silk_uniform6_iCDF;case 3:return silk_uniform8_iCDF;default:return NULL;}}
@@ -51,6 +54,28 @@ import (
 
 var resamplerCoefPointers = []*int16{nil, &opuscc.Opus_silk_Resampler_3_4_COEFS[0], &opuscc.Opus_silk_Resampler_2_3_COEFS[0], &opuscc.Opus_silk_Resampler_1_2_COEFS[0], &opuscc.Opus_silk_Resampler_1_3_COEFS[0], &opuscc.Opus_silk_Resampler_1_4_COEFS[0], &opuscc.Opus_silk_Resampler_1_6_COEFS[0]}
 
+func nativeSilkPitchReferenceLayout(contour bool) [4]uint64 {
+	var v [4]C.size_t
+	var c C.int
+	if contour {
+		c = 1
+	}
+	C.native_silk_pitch_refs_layout(c, &v[0])
+	return [4]uint64{uint64(v[0]), uint64(v[1]), uint64(v[2]), uint64(v[3])}
+}
+
+func nativeSilkCBReferenceLayout() [4]uint64 {
+	var v [4]C.size_t
+	C.native_silk_cb_refs_layout(&v[0])
+	return [4]uint64{uint64(v[0]), uint64(v[1]), uint64(v[2]), uint64(v[3])}
+}
+
+func nativeResamplerLayout() [2]uint64 {
+	var v [2]C.size_t
+	C.native_resampler_layout(&v[0])
+	return [2]uint64{uint64(v[0]), uint64(v[1])}
+}
+
 func resamplerStateFromC(c *C.silk_resampler_state_struct) opuscc.OpusT_silk_resampler_state_struct {
 	var g opuscc.OpusT_silk_resampler_state_struct
 	for i := range g.FsIIR {
@@ -68,7 +93,7 @@ func resamplerStateFromC(c *C.silk_resampler_state_struct) opuscc.OpusT_silk_res
 	g.FFs_in_kHz = int32(c.Fs_in_kHz)
 	g.FFs_out_kHz = int32(c.Fs_out_kHz)
 	g.FinputDelay = int32(c.inputDelay)
-	g.FCoefs = uintptr(unsafe.Pointer(resamplerCoefPointers[int(C.native_resampler_coef_id(c))]))
+	g.FCoefs = resamplerCoefPointers[int(C.native_resampler_coef_id(c))]
 	return g
 }
 
@@ -90,7 +115,7 @@ func resamplerStateToC(g *opuscc.OpusT_silk_resampler_state_struct) C.silk_resam
 	c.Fs_out_kHz = C.int(g.FFs_out_kHz)
 	c.inputDelay = C.int(g.FinputDelay)
 	for id, p := range resamplerCoefPointers {
-		if g.FCoefs == uintptr(unsafe.Pointer(p)) {
+		if g.FCoefs == p {
 			c.Coefs = C.native_resampler_coefs(C.int(id))
 			break
 		}
@@ -105,17 +130,27 @@ func nativeResamplerDriver(g *opuscc.OpusT_silk_resampler_state_struct, out, in 
 	return int32(ret)
 }
 
-var fsContourTables = []uintptr{0, uintptr(unsafe.Pointer(&opuscc.Opus_silk_pitch_contour_NB_iCDF)), uintptr(unsafe.Pointer(&opuscc.Opus_silk_pitch_contour_10_ms_NB_iCDF)), uintptr(unsafe.Pointer(&opuscc.Opus_silk_pitch_contour_iCDF)), uintptr(unsafe.Pointer(&opuscc.Opus_silk_pitch_contour_10_ms_iCDF))}
-var fsLagTables = []uintptr{0, uintptr(unsafe.Pointer(&opuscc.Opus_silk_uniform4_iCDF)), uintptr(unsafe.Pointer(&opuscc.Opus_silk_uniform6_iCDF)), uintptr(unsafe.Pointer(&opuscc.Opus_silk_uniform8_iCDF))}
-var fsCodebooks = []uintptr{0, uintptr(unsafe.Pointer(&opuscc.Opus_silk_NLSF_CB_NB_MB)), uintptr(unsafe.Pointer(&opuscc.Opus_silk_NLSF_CB_WB))}
+var fsContourTables = []*byte{nil, &opuscc.Opus_silk_pitch_contour_NB_iCDF[0], &opuscc.Opus_silk_pitch_contour_10_ms_NB_iCDF[0], &opuscc.Opus_silk_pitch_contour_iCDF[0], &opuscc.Opus_silk_pitch_contour_10_ms_iCDF[0]}
+var fsLagTables = []*byte{nil, &opuscc.Opus_silk_uniform4_iCDF[0], &opuscc.Opus_silk_uniform6_iCDF[0], &opuscc.Opus_silk_uniform8_iCDF[0]}
 
-func fsTableID(table []uintptr, p uintptr) C.int {
+func fsByteTableID(table []*byte, p *byte) C.int {
 	for i, v := range table {
 		if v == p {
 			return C.int(i)
 		}
 	}
-	panic("unknown decoder table")
+	panic("unknown decoder byte table")
+}
+
+var fsCodebooks = []*opuscc.OpusT_silk_NLSF_CB_struct{nil, &opuscc.Opus_silk_NLSF_CB_NB_MB, &opuscc.Opus_silk_NLSF_CB_WB}
+
+func fsCodebookID(p *opuscc.OpusT_silk_NLSF_CB_struct) C.int {
+	for i, v := range fsCodebooks {
+		if v == p {
+			return C.int(i)
+		}
+	}
+	panic("unknown decoder codebook")
 }
 
 func nativeDecoderSetFS(g *opuscc.OpusT_silk_decoder_state, rate, api int32) (int32, bool) {
@@ -135,7 +170,7 @@ func nativeDecoderSetFS(g *opuscc.OpusT_silk_decoder_state, rate, api int32) (in
 	c.resampler_state = resamplerStateToC(&g.Fresampler_state)
 	copy(unsafe.Slice((*int16)(unsafe.Pointer(&c.outBuf[0])), len(g.FoutBuf)), g.FoutBuf[:])
 	copy(unsafe.Slice((*int32)(unsafe.Pointer(&c.sLPC_Q14_buf[0])), len(g.FsLPC_Q14_buf)), g.FsLPC_Q14_buf[:])
-	C.native_fs_set_tables(&c, fsTableID(fsContourTables, g.Fpitch_contour_iCDF), fsTableID(fsLagTables, g.Fpitch_lag_low_bits_iCDF), fsTableID(fsCodebooks, g.FpsNLSF_CB))
+	C.native_fs_set_tables(&c, fsByteTableID(fsContourTables, g.Fpitch_contour_iCDF), fsByteTableID(fsLagTables, g.Fpitch_lag_low_bits_iCDF), fsCodebookID(g.FpsNLSF_CB))
 	before := c
 	ret := C.compare_decoder_set_fs(&c, C.int(rate), C.opus_int32(api))
 	unchanged := C.native_fs_remainder(c, &before) != 0

@@ -7559,14 +7559,14 @@ var mode48000_960_120 = OpusT_OpusCustomMode{
 		2: float32(1),
 		3: float32(1),
 	},
-	FeBands:         uintptr(unsafe.Pointer(&eband5ms)),
+	FeBands:         &eband5ms[0],
 	FmaxLM:          int32(3),
 	FnbShortMdcts:   int32(8),
 	FshortMdctSize:  int32(120),
 	FnbAllocVectors: int32(11),
-	FallocVectors:   uintptr(unsafe.Pointer(&band_allocation)),
-	FlogN:           uintptr(unsafe.Pointer(&logN400)),
-	Fwindow:         uintptr(unsafe.Pointer(&window120)),
+	FallocVectors:   &band_allocation[0],
+	FlogN:           &logN400[0],
+	Fwindow:         &window120[0],
 	Fmdct: OpusT_mdct_lookup{
 		Fn:        int32(1920),
 		Fmaxshift: int32(3),
@@ -7577,9 +7577,9 @@ var mode48000_960_120 = OpusT_OpusCustomMode{
 	},
 	Fcache: OpusT_PulseCache{
 		Fsize:  int32(392),
-		Findex: uintptr(unsafe.Pointer(&cache_index50)),
-		Fbits:  uintptr(unsafe.Pointer(&cache_bits50)),
-		Fcaps:  uintptr(unsafe.Pointer(&cache_caps50)),
+		Findex: &cache_index50[0],
+		Fbits:  &cache_bits50[0],
+		Fcaps:  &cache_caps50[0],
 	},
 }
 var static_mode_list = [1]*OpusT_OpusCustomMode{&mode48000_960_120}

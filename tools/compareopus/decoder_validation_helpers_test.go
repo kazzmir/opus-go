@@ -18,6 +18,97 @@ func TestDecoderDestroyAgainstC(t *testing.T) {
 	}
 }
 
+func TestModeTablesAgainstC(t *testing.T) {
+	m, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	window := make([]float32, m.Foverlap)
+	vectors := make([]byte, m.FnbAllocVectors*m.FnbEBands)
+	caps := make([]byte, (m.FmaxLM+1)*2*m.FnbEBands)
+	layout := nativeModeTables(window, vectors, caps)
+	want := [5]uint64{uint64(unsafe.Sizeof(*m)), uint64(unsafe.Offsetof(m.FallocVectors)), uint64(unsafe.Offsetof(m.Fwindow)), uint64(unsafe.Sizeof(m.Fcache)), uint64(unsafe.Offsetof(m.Fcache.Fcaps))}
+	if layout != want {
+		t.Fatal(layout, want)
+	}
+	if !sameFloatBits(window, unsafe.Slice(m.Fwindow, len(window))) || !slices.Equal(vectors, unsafe.Slice(m.FallocVectors, len(vectors))) || !slices.Equal(caps, unsafe.Slice(m.Fcache.Fcaps, len(caps))) {
+		t.Fatal("mode table payloads")
+	}
+}
+
+func TestModeLogTableAgainstC(t *testing.T) {
+	m, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := make([]int16, m.FnbEBands)
+	layout := nativeModeRemainingTable(0, unsafe.Pointer(&data[0]))
+	want := [3]uint64{uint64(unsafe.Sizeof(*m)), uint64(unsafe.Offsetof(m.FlogN)), uint64(len(data) * 2)}
+	if layout != want || !slices.Equal(data, unsafe.Slice(m.FlogN, len(data))) {
+		t.Fatal("logN layout/payload", layout, want)
+	}
+}
+
+func TestModePulseIndexTableAgainstC(t *testing.T) {
+	m, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := make([]int16, (m.FmaxLM+2)*m.FnbEBands)
+	layout := nativeModeRemainingTable(1, unsafe.Pointer(&data[0]))
+	want := [3]uint64{uint64(unsafe.Sizeof(m.Fcache)), uint64(unsafe.Offsetof(m.Fcache.Findex)), uint64(len(data) * 2)}
+	if layout != want || !slices.Equal(data, unsafe.Slice(m.Fcache.Findex, len(data))) {
+		t.Fatal("pulse index layout/payload", layout, want)
+	}
+}
+
+func TestModePulseBitsTableAgainstC(t *testing.T) {
+	m, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := make([]byte, m.Fcache.Fsize)
+	layout := nativeModeRemainingTable(2, unsafe.Pointer(&data[0]))
+	want := [3]uint64{uint64(unsafe.Sizeof(m.Fcache)), uint64(unsafe.Offsetof(m.Fcache.Fbits)), uint64(len(data))}
+	if layout != want || !slices.Equal(data, unsafe.Slice(m.Fcache.Fbits, len(data))) {
+		t.Fatal("pulse bits layout/payload", layout, want)
+	}
+	index := unsafe.Slice(m.Fcache.Findex, int((m.FmaxLM+2)*m.FnbEBands))
+	for LM := int32(-1); LM <= m.FmaxLM; LM++ {
+		for band := int32(0); band < m.FnbEBands; band++ {
+			offset := index[(LM+1)*m.FnbEBands+band]
+			if offset < 0 {
+				continue
+			}
+			max := int32(data[offset])
+			for bits := int32(-2); bits <= 400; bits++ {
+				pulse := bits % (max + 1)
+				if pulse < 0 {
+					pulse = 0
+				}
+				gq, gb := opuscc.CompareModePulseRate(m, band, LM, bits, pulse)
+				cq, cb := nativeModePulseRate(band, LM, bits, pulse)
+				if gq != cq || gb != cb {
+					t.Fatal(band, LM, bits, pulse, gq, cq, gb, cb)
+				}
+			}
+		}
+	}
+}
+
+func TestModeBandTableAgainstC(t *testing.T) {
+	m, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := make([]int16, m.FnbEBands+1)
+	layout := nativeModeRemainingTable(3, unsafe.Pointer(&data[0]))
+	want := [3]uint64{uint64(unsafe.Sizeof(*m)), uint64(unsafe.Offsetof(m.FeBands)), uint64(len(data) * 2)}
+	if layout != want || !slices.Equal(data, unsafe.Slice(m.FeBands, len(data))) {
+		t.Fatal("band layout/payload", layout, want)
+	}
+}
+
 func TestCustomDecoderSizeAgainstC(t *testing.T) {
 	for _, overlap := range []int32{0, 60, 120, 240} {
 		for _, bands := range []int32{0, 1, 21, 25} {

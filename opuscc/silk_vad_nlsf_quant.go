@@ -616,8 +616,8 @@ func Opus_silk_NLSF_unpack(tls *libc.TLS, ec_ix *OpusT_opus_int16, pred_Q8 *Opus
 	order := int(cb.Forder)
 	indices, prediction := unsafe.Slice(ec_ix, order), unsafe.Slice(pred_Q8, order)
 	// Codebook pointer fields remain legacy boundaries; the views are typed.
-	selectors := unsafe.Slice((*uint8)(unsafe.Pointer(cb.Fec_sel)), int(cb.FnVectors)*order/2)
-	predictors := unsafe.Slice((*uint8)(unsafe.Pointer(cb.Fpred_Q8)), 2*(order-1))
+	selectors := unsafe.Slice(cb.Fec_sel, int(cb.FnVectors)*order/2)
+	predictors := unsafe.Slice(cb.Fpred_Q8, 2*(order-1))
 	base := int(CB1_index) * order / 2
 	for i := 0; i < order; i += 2 {
 		entry := selectors[base+i/2]

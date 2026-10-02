@@ -17,7 +17,8 @@ func TestUp2WrapperAgainstC(t *testing.T) {
 		for i := range g.FsIIR {
 			g.FsIIR[i] = int32(rng.Uint32())
 		}
-		g.FCoefs = 123
+		coef := int16(123)
+		g.FCoefs = &coef
 		g.FdelayBuf[95] = -456
 		g.FsFIR.Fi32[35] = 789
 		before := g

@@ -2,6 +2,11 @@
 
 package opuscc
 
+func CompareModePulseRate(m *OpusT_OpusCustomMode, band, LM, bits, pulses int32) (int32, int32) {
+	cache := modePulseCache(m, (LM+1)*m.FnbEBands+band)
+	return modeBits2Pulses(cache, bits), modePulses2Bits(cache, pulses)
+}
+
 func CompareCustomDecoderInit(st *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, channels int32) int32 {
 	return opus_custom_decoder_init(nil, st, mode, channels)
 }
