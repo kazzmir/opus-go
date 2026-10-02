@@ -154,7 +154,7 @@ func TestQuantBandContextPointers(t *testing.T) {
 	saved := *ctx
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if mask := quant_band(nil, ctx, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1); mask != 1 || *ctx != saved {
+	if mask := quant_band(nil, ctx, nil, 1, 0, 1, nil, 0, nil, 1, nil, 1); mask != 1 || *ctx != saved {
 		t.Fatal("typed mono context / unused nil spectra", mask, ctx)
 	}
 }
@@ -229,6 +229,38 @@ func TestPartitionSpectrumPointers(t *testing.T) {
 	quant_partition(nil, &ctx, &shared[1], 4, 0, 1, &shared[0], 2, 1, 1)
 	if shared[0] != .2 {
 		t.Fatal("overlapping fold guard")
+	}
+}
+
+func TestMonoSpectrumPointers(t *testing.T) {
+	for LM := int32(1); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, B := range []int32{1, N} {
+			for _, tf := range []int32{-1, 0, 1} {
+				if tf > 0 && B < 2 {
+					continue
+				}
+				for _, budget := range []int32{0, 24, 400} {
+					data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+					var ec OpusT_ec_ctx
+					Opus_ec_dec_init(nil, &ec, &data[0], 8)
+					ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fremaining_bits: 600, Fseed: 123456, Ftf_change: tf}
+					x, low, out, scratch := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+					for i := range x {
+						x[i] = float32(i+1) / 17
+						low[i] = float32(i+2) / 19
+						out[i] = 77
+						scratch[i] = 88
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					quant_band(nil, &ctx, &x[1], N, budget, B, &low[1], LM, &out[1], 1, &scratch[1], (1<<B)-1)
+					if out[0] != 77 || out[N+1] != 77 || scratch[0] != 88 || scratch[N+1] != 88 {
+						t.Fatal("mono buffer guards", LM, B, tf, budget)
+					}
+				}
+			}
+		}
 	}
 }
 
