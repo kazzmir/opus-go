@@ -30,6 +30,53 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestSynthesisOutputPointers(t *testing.T) {
+	m := newSynthesisTestMode()
+	for LM := int32(0); LM <= 3; LM++ {
+		overlap, _, N := celtSynthesisGeometry(m, LM)
+		outputs := func() []*float32 {
+			l, r := make([]float32, N+overlap/2+2), make([]float32, N+overlap/2+2)
+			for i := range l {
+				l[i] = float32(i%11-5) / 31
+				r[i] = float32(i%13-6) / 37
+			}
+			l[0], l[len(l)-1], r[0], r[len(r)-1] = 77, 88, 99, 111
+			return []*float32{unsafe.SliceData(l), unsafe.SliceData(r)}
+		}()
+		entropyInitGrowStack(12)
+		runtime.GC()
+		in := make([]float32, N)
+		for i := range in {
+			in[i] = float32(i%19-9) / 32
+		}
+		for _, transient := range []bool{false, true} {
+			g0, g1 := unsafe.Slice(outputs[0], N+overlap/2+2), unsafe.Slice(outputs[1], N+overlap/2+2)
+			w0, w1 := slices.Clone(g0), slices.Clone(g1)
+			shift := m.FmaxLM - LM
+			B, NB := int32(1), N
+			if transient {
+				shift = m.FmaxLM
+				B = 1 << LM
+				NB = m.FshortMdctSize
+			}
+			temp := celtNormAdd(outputs[1], 1+overlap/2)
+			celtSynthesisOutputCopy(temp, &in[0], N)
+			copy(w1[1+overlap/2:], in)
+			for b := int32(0); b < B; b++ {
+				celtSynthesisIMDCT(nil, m, celtNormAdd(temp, b), celtNormAdd(outputs[0], 1+NB*b), overlap, shift, B, 0)
+				celtSynthesisIMDCT(nil, m, &w1[1+overlap/2+b], &w0[1+NB*b], overlap, shift, B, 0)
+			}
+			for b := int32(0); b < B; b++ {
+				celtSynthesisIMDCT(nil, m, &in[b], celtNormAdd(outputs[1], 1+NB*b), overlap, shift, B, 0)
+				celtSynthesisIMDCT(nil, m, &in[b], &w1[1+NB*b], overlap, shift, B, 0)
+			}
+			if !slices.Equal(g0, w0) || !slices.Equal(g1, w1) || g0[0] != 77 || g0[len(g0)-1] != 88 || g1[0] != 99 || g1[len(g1)-1] != 111 {
+				t.Fatal("output owners/staging", LM, transient)
+			}
+		}
+	}
+}
+
 // Until the synthesis scratch/output migrations, exercise the typed input chain
 // through the exact denormalizer called by synthesis; full native tests use TLS.
 func TestSynthesisSpectrumPointers(t *testing.T) {
