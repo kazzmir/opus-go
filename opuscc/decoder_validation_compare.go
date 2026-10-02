@@ -5,13 +5,30 @@ package opuscc
 import "unsafe"
 import libc "github.com/kazzmir/opus-go/libcshim"
 
-func CompareAllocationInterp(mode *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, cfg *[12]int32, ec *OpusT_ec_ctx) (result int32) {
+func CompareAllocationInterp(mode *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, cfg *[12]int32, ec *OpusT_ec_ctx) int32 {
+	return CompareAllocationInterpAlias(mode, a, s, cfg, ec, 0)
+}
+func CompareAllocationInterpAlias(mode *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, cfg *[12]int32, ec *OpusT_ec_ctx, alias int32) (result int32) {
 	defer func() {
 		if recover() != nil {
 			result = -99
 		}
 	}()
-	return interp_bits2pulses(nil, mode, cfg[0], cfg[1], cfg[2], &a[0][1], &a[1][1], &a[2][1], &a[3][1], cfg[3], uintptr(unsafe.Pointer(&s[0])), cfg[4], uintptr(unsafe.Pointer(&s[1])), cfg[5], uintptr(unsafe.Pointer(&s[2])), cfg[6], uintptr(unsafe.Pointer(&a[4][1])), uintptr(unsafe.Pointer(&a[5][1])), uintptr(unsafe.Pointer(&a[6][1])), cfg[7], cfg[8], ec, cfg[9], cfg[10], cfg[11])
+	balance, intensity, dual := &s[0], &s[1], &s[2]
+	bits, fine, priority := &a[4][1], &a[5][1], &a[6][1]
+	switch alias {
+	case 1:
+		bits = &a[0][1]
+	case 2:
+		dual = intensity
+	case 3:
+		balance = &a[5][cfg[1]]
+	case 4:
+		priority = fine
+	case 5:
+		intensity = &a[4][1]
+	}
+	return interp_bits2pulses(nil, mode, cfg[0], cfg[1], cfg[2], &a[0][1], &a[1][1], &a[2][1], &a[3][1], cfg[3], balance, cfg[4], intensity, cfg[5], dual, cfg[6], bits, fine, priority, cfg[7], cfg[8], ec, cfg[9], cfg[10], cfg[11])
 }
 
 func ComparePrefilterFold(tls *libc.TLS, data []byte, N int32) {

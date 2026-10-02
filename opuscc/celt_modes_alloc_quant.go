@@ -562,12 +562,13 @@ var LOG2_FRAC_TABLE = [24]uint8{
 
 //go:uintptrescapes
 func interp_bits2pulses_legacy(tls *libc.TLS, m uintptr, start, end, skipStart int32, bits1, bits2, thresh, cap1 uintptr, total int32, balance uintptr, skipRsv int32, intensity uintptr, intensityRsv int32, dual uintptr, dualRsv int32, bits, ebits, priority uintptr, C, LM int32, ec uintptr, encode, prev, bandwidth int32) int32 {
-	return interp_bits2pulses(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, skipStart, (*int32)(unsafe.Pointer(bits1)), (*int32)(unsafe.Pointer(bits2)), (*int32)(unsafe.Pointer(thresh)), (*int32)(unsafe.Pointer(cap1)), total, balance, skipRsv, intensity, intensityRsv, dual, dualRsv, bits, ebits, priority, C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), encode, prev, bandwidth)
+	return interp_bits2pulses(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, skipStart, (*int32)(unsafe.Pointer(bits1)), (*int32)(unsafe.Pointer(bits2)), (*int32)(unsafe.Pointer(thresh)), (*int32)(unsafe.Pointer(cap1)), total, (*int32)(unsafe.Pointer(balance)), skipRsv, (*int32)(unsafe.Pointer(intensity)), intensityRsv, (*int32)(unsafe.Pointer(dual)), dualRsv, (*int32)(unsafe.Pointer(bits)), (*int32)(unsafe.Pointer(ebits)), (*int32)(unsafe.Pointer(priority)), C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), encode, prev, bandwidth)
 }
 func allocationInterpBit(a1, a2 []int32, j, mid int32) int32 { return a1[j] + mid*a2[j]>>ALLOC_STEPS }
-func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, skip_start int32, bits1 *int32, bits2 *int32, thresh *int32, cap1 *int32, total OpusT_opus_int32, _balance uintptr, skip_rsv int32, intensity uintptr, intensity_rsv int32, dual_stereo uintptr, dual_stereo_rsv int32, bits uintptr, ebits uintptr, fine_priority uintptr, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
-	var N, N0, NClogN, alloc_floor, band_bits, band_width, codedBands, den, depth_threshold, done, extra_bits, extra_fine, hi, i, j, lo, logM, mid, offset, rem, stereo, tmp, tmp1, tmp2, v7, v8 int32
-	var balance, bit, excess, left, percoeff, psum OpusT_opus_int32
+func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, skip_start int32, bits1 *int32, bits2 *int32, thresh *int32, cap1 *int32, total OpusT_opus_int32, _balance *int32, skip_rsv int32, intensity *int32, intensity_rsv int32, dual_stereo *int32, dual_stereo_rsv int32, bits *int32, ebits *int32, fine_priority *int32, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
+	var alloc_floor, band_bits, band_width, codedBands, depth_threshold, done, hi, i, j, lo, logM, mid, rem, stereo, tmp, tmp1, v7, v8 int32
+	var left, percoeff, psum int32
+	pulse, fine, priority := unsafe.Slice(bits, end), unsafe.Slice(ebits, end), unsafe.Slice(fine_priority, end)
 	var v13, v14 OpusT_opus_uint32
 	a1, a2, thresholds, caps := unsafe.Slice(bits1, end), unsafe.Slice(bits2, end), unsafe.Slice(thresh, end), unsafe.Slice(cap1, end)
 	codedBands = -1
@@ -632,7 +633,7 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 		/* Don't allocate more than we can actually use */
 		v7 = min(tmp1, caps[j])
 		tmp1 = v7
-		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) = tmp1
+		pulse[j] = tmp1
 		psum = psum + tmp1
 	}
 	/* Decide which bands to skip, working backwards from the end. */
@@ -665,7 +666,7 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 		}
 		rem = v7
 		band_width = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
-		band_bits = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) + percoeff*band_width + rem
+		band_bits = pulse[j] + percoeff*band_width + rem
 		/*Only code a skip decision if we're above the threshold for this band.
 		  Otherwise it is force-skipped.
 		  This ensures that we have enough bits to code the skip flag.*/
@@ -699,7 +700,7 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 			band_bits = band_bits - int32(1)<<int32(BITRES)
 		}
 		/*Reclaim the bits originally allocated to this band.*/
-		psum = psum - (*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) + intensity_rsv)
+		psum = psum - (pulse[j] + intensity_rsv)
 		if intensity_rsv > 0 {
 			intensity_rsv = int32(LOG2_FRAC_TABLE[j-start])
 		}
@@ -707,194 +708,110 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 		if band_bits >= alloc_floor {
 			/*If we have enough for a fine energy bit per channel, use it.*/
 			psum = psum + alloc_floor
-			*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) = alloc_floor
+			pulse[j] = alloc_floor
 		} else {
 			/*Otherwise this band gets nothing at all.*/
-			*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) = 0
+			pulse[j] = 0
 		}
 		codedBands = codedBands - 1
 	}
 	if !(codedBands > start) {
 		Opus_celt_fatal(tls, __ccgo_ts+5118, __ccgo_ts+5155, int32(394))
 	}
-	/* Code the intensity and dual stereo parameters. */
+	// Scalar stores and array accesses remain live: callers may alias them.
 	if intensity_rsv > 0 {
 		if encode != 0 {
-			if *(*int32)(unsafe.Pointer(intensity)) < codedBands {
-				v7 = *(*int32)(unsafe.Pointer(intensity))
-			} else {
-				v7 = codedBands
-			}
-			*(*int32)(unsafe.Pointer(intensity)) = v7
-			Opus_ec_enc_uint(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(*(*int32)(unsafe.Pointer(intensity))-start), uint32(codedBands+int32(1)-start))
+			*intensity = min(*intensity, codedBands)
+			Opus_ec_enc_uint(tls, ec, uint32(*intensity-start), uint32(codedBands+1-start))
 		} else {
-			*(*int32)(unsafe.Pointer(intensity)) = int32(uint32(start) + Opus_ec_dec_uint(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(codedBands+int32(1)-start)))
+			*intensity = int32(uint32(start) + Opus_ec_dec_uint(tls, ec, uint32(codedBands+1-start)))
 		}
 	} else {
-		*(*int32)(unsafe.Pointer(intensity)) = 0
+		*intensity = 0
 	}
-	if *(*int32)(unsafe.Pointer(intensity)) <= start {
-		total = total + dual_stereo_rsv
+	if *intensity <= start {
+		total += dual_stereo_rsv
 		dual_stereo_rsv = 0
 	}
 	if dual_stereo_rsv > 0 {
 		if encode != 0 {
-			Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), *(*int32)(unsafe.Pointer(dual_stereo)), uint32(1))
+			Opus_ec_enc_bit_logp(tls, ec, *dual_stereo, 1)
 		} else {
-			*(*int32)(unsafe.Pointer(dual_stereo)) = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1))
+			*dual_stereo = Opus_ec_dec_bit_logp(tls, ec, 1)
 		}
 	} else {
-		*(*int32)(unsafe.Pointer(dual_stereo)) = 0
+		*dual_stereo = 0
 	}
-	/* Allocate the remaining bits */
 	left = total - psum
-	v13 = uint32(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))
-	_ = v13 > uint32(0)
-	v14 = uint32(left) / v13
-	percoeff = int32(v14)
-	left = left - (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))*percoeff
-	j = start
-	for {
-		if !(j < codedBands) {
-			break
-		}
-		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) += percoeff * (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)))
-		j = j + 1
+	percoeff = int32(uint32(left) / uint32(int32(modeBand(m, codedBands))-int32(modeBand(m, start))))
+	left -= (int32(modeBand(m, codedBands)) - int32(modeBand(m, start))) * percoeff
+	for j = start; j < codedBands; j++ {
+		pulse[j] += percoeff * (int32(modeBand(m, j+1)) - int32(modeBand(m, j)))
 	}
-	j = start
-	for {
-		if !(j < codedBands) {
-			break
-		}
-		if left < int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1)))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)) {
-			v7 = left
-		} else {
-			v7 = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
-		}
-		tmp2 = v7
-		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) += tmp2
-		left = left - tmp2
-		j = j + 1
+	for j = start; j < codedBands; j++ {
+		tmp := min(left, int32(modeBand(m, j+1))-int32(modeBand(m, j)))
+		pulse[j] += tmp
+		left -= tmp
 	}
-	/*for (j=0;j<end;j++)printf("%d ", bits[j]);printf("\n");*/
-	balance = 0
-	j = start
-	for {
-		if !(j < codedBands) {
-			break
+	balance := int32(0)
+	for j = start; j < codedBands; j++ {
+		if pulse[j] < 0 {
+			Opus_celt_fatal(tls, __ccgo_ts+5170, __ccgo_ts+5155, 445)
 		}
-		if !(*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) >= int32(0)) {
-			Opus_celt_fatal(tls, __ccgo_ts+5170, __ccgo_ts+5155, int32(445))
-		}
-		N0 = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
-		N = N0 << LM
-		bit = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) + balance
-		if N > int32(1) {
-			v7 = max(bit-caps[j], 0)
-			excess = v7
-			*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) = bit - excess
-			/* Compensate for the extra DoF in stereo */
-			if C == int32(2) && N > int32(2) && !(*(*int32)(unsafe.Pointer(dual_stereo)) != 0) && j < *(*int32)(unsafe.Pointer(intensity)) {
-				v7 = int32(1)
-			} else {
-				v7 = 0
+		N := (int32(modeBand(m, j+1)) - int32(modeBand(m, j))) << LM
+		bit := pulse[j] + balance
+		var excess int32
+		if N > 1 {
+			excess = max(bit-caps[j], 0)
+			pulse[j] = bit - excess
+			den := C*N + libc.BoolInt32(C == 2 && N > 2 && *dual_stereo == 0 && j < *intensity)
+			NClogN := den * (int32(modeLogN(m, j)) + logM)
+			offset := (NClogN >> 1) - den*FINE_OFFSET
+			if N == 2 {
+				offset += den << BITRES >> 2
 			}
-			den = C*N + v7
-			NClogN = den * (int32(modeLogN((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)) + logM)
-			/* Offset for the number of fine bits by log2(N)/2 + FINE_OFFSET
-			   compared to their "fair share" of total/N */
-			offset = NClogN>>int32(1) - den*int32(FINE_OFFSET)
-			/* N=2 is the only point that doesn't match the curve */
-			if N == int32(2) {
-				offset = offset + den<<int32(BITRES)>>int32(2)
+			if pulse[j]+offset < den*2<<BITRES {
+				offset += NClogN >> 2
+			} else if pulse[j]+offset < den*3<<BITRES {
+				offset += NClogN >> 3
 			}
-			/* Changing the offset for allocating the second and third
-			   fine energy bit */
-			if *(*int32)(unsafe.Pointer(bits + uintptr(j)*4))+offset < den*int32(2)<<int32(BITRES) {
-				offset = offset + NClogN>>int32(2)
-			} else {
-				if *(*int32)(unsafe.Pointer(bits + uintptr(j)*4))+offset < den*int32(3)<<int32(BITRES) {
-					offset = offset + NClogN>>int32(3)
-				}
+			fine[j] = max(int32(0), pulse[j]+offset+(den<<(BITRES-1)))
+			fine[j] = int32(uint32(fine[j]) / uint32(den) >> BITRES)
+			if C*fine[j] > pulse[j]>>BITRES {
+				fine[j] = pulse[j] >> stereo >> BITRES
 			}
-			/* Divide with rounding */
-			if 0 > *(*int32)(unsafe.Pointer(bits + uintptr(j)*4))+offset+den<<(int32(BITRES)-int32(1)) {
-				v7 = 0
-			} else {
-				v7 = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) + offset + den<<(int32(BITRES)-int32(1))
-			}
-			*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) = v7
-			v13 = uint32(den)
-			_ = v13 > uint32(0)
-			v14 = uint32(*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4))) / v13
-			*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) = int32(v14 >> int32(BITRES))
-			/* Make sure not to bust */
-			if C**(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) > *(*int32)(unsafe.Pointer(bits + uintptr(j)*4))>>int32(BITRES) {
-				*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) >> stereo >> int32(BITRES)
-			}
-			/* More than that is useless because that's about as far as PVQ can go */
-			if *(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) < int32(MAX_FINE_BITS) {
-				v7 = *(*int32)(unsafe.Pointer(ebits + uintptr(j)*4))
-			} else {
-				v7 = int32(MAX_FINE_BITS)
-			}
-			*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) = v7
-			/* If we rounded down or capped this band, make it a candidate for the
-			   final fine energy pass */
-			*(*int32)(unsafe.Pointer(fine_priority + uintptr(j)*4)) = libc.BoolInt32(*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4))*(den<<int32(BITRES)) >= *(*int32)(unsafe.Pointer(bits + uintptr(j)*4))+offset)
-			/* Remove the allocated fine bits; the rest are assigned to PVQ */
-			*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) -= C * *(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) << int32(BITRES)
+			fine[j] = min(fine[j], int32(MAX_FINE_BITS))
+			priority[j] = libc.BoolInt32(fine[j]*(den<<BITRES) >= pulse[j]+offset)
+			pulse[j] -= C * fine[j] << BITRES
 		} else {
-			/* For N=1, all bits go to fine energy except for a single sign bit */
-			if 0 > bit-C<<int32(BITRES) {
-				v7 = 0
-			} else {
-				v7 = bit - C<<int32(BITRES)
-			}
-			excess = v7
-			*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) = bit - excess
-			*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) = 0
-			*(*int32)(unsafe.Pointer(fine_priority + uintptr(j)*4)) = int32(1)
+			excess = max(int32(0), bit-(C<<BITRES))
+			pulse[j] = bit - excess
+			fine[j] = 0
+			priority[j] = 1
 		}
-		/* Fine energy can't take advantage of the re-balancing in
-		   quant_all_bands().
-		  Instead, do the re-balancing here.*/
 		if excess > 0 {
-			if excess>>(stereo+int32(BITRES)) < int32(MAX_FINE_BITS)-*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) {
-				v7 = excess >> (stereo + int32(BITRES))
-			} else {
-				v7 = int32(MAX_FINE_BITS) - *(*int32)(unsafe.Pointer(ebits + uintptr(j)*4))
-			}
-			extra_fine = v7
-			*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) += extra_fine
-			extra_bits = extra_fine * C << int32(BITRES)
-			*(*int32)(unsafe.Pointer(fine_priority + uintptr(j)*4)) = libc.BoolInt32(extra_bits >= excess-balance)
-			excess = excess - extra_bits
+			extraFine := min(excess>>(stereo+BITRES), int32(MAX_FINE_BITS)-fine[j])
+			fine[j] += extraFine
+			extraBits := extraFine * C << BITRES
+			priority[j] = libc.BoolInt32(extraBits >= excess-balance)
+			excess -= extraBits
 		}
 		balance = excess
-		if !(*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) >= int32(0)) {
-			Opus_celt_fatal(tls, __ccgo_ts+5170, __ccgo_ts+5155, int32(516))
+		if pulse[j] < 0 {
+			Opus_celt_fatal(tls, __ccgo_ts+5170, __ccgo_ts+5155, 516)
 		}
-		if !(*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) >= int32(0)) {
-			Opus_celt_fatal(tls, __ccgo_ts+5201, __ccgo_ts+5155, int32(517))
+		if fine[j] < 0 {
+			Opus_celt_fatal(tls, __ccgo_ts+5201, __ccgo_ts+5155, 517)
 		}
-		j = j + 1
 	}
-	/* Save any remaining bits over the cap for the rebalancing in
-	   quant_all_bands(). */
-	*(*OpusT_opus_int32)(unsafe.Pointer(_balance)) = balance
-	/* The skipped bands use all their bits for fine energy. */
-	for {
-		if !(j < end) {
-			break
+	*_balance = balance
+	for ; j < end; j++ {
+		fine[j] = pulse[j] >> stereo >> BITRES
+		if C*fine[j]<<BITRES != pulse[j] {
+			Opus_celt_fatal(tls, __ccgo_ts+5233, __ccgo_ts+5155, 527)
 		}
-		*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) >> stereo >> int32(BITRES)
-		if !(C**(*int32)(unsafe.Pointer(ebits + uintptr(j)*4))<<int32(BITRES) == *(*int32)(unsafe.Pointer(bits + uintptr(j)*4))) {
-			Opus_celt_fatal(tls, __ccgo_ts+5233, __ccgo_ts+5155, int32(527))
-		}
-		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) = 0
-		*(*int32)(unsafe.Pointer(fine_priority + uintptr(j)*4)) = libc.BoolInt32(*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) < int32(1))
-		j = j + 1
+		pulse[j] = 0
+		priority[j] = libc.BoolInt32(fine[j] < 1)
 	}
 	return codedBands
 }

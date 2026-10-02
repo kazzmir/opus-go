@@ -45,8 +45,8 @@ static int native_plc_pitch(float *left,float *right,int channels) {float *data[
 #define clt_compute_allocation comparison_rate_allocation
 #define LOG2_FRAC_TABLE comparison_rate_log2
 #include "../../../opus/celt/rate.c"
-static int native_allocation_interp(unsigned *s,unsigned char *buf,int *a,int *outputs,const int *cfg) {
- ec_ctx e={0};e.buf=buf;e.storage=s[0];e.end_offs=s[1];e.end_window=s[2];e.nend_bits=s[3];e.nbits_total=s[4];e.offs=s[5];e.rng=s[6];e.val=s[7];e.ext=s[8];e.rem=s[9];e.error=s[10];int r;if(setjmp(celt_validation_jump))r=-99;else r=interp_bits2pulses(comparison_mode_create(48000,960,NULL),cfg[0],cfg[1],cfg[2],a+1,a+24,a+47,a+70,cfg[3],outputs,cfg[4],outputs+1,cfg[5],outputs+2,cfg[6],a+93,a+116,a+139,cfg[7],cfg[8],&e,cfg[9],cfg[10],cfg[11]);s[0]=e.storage;s[1]=e.end_offs;s[2]=e.end_window;s[3]=e.nend_bits;s[4]=e.nbits_total;s[5]=e.offs;s[6]=e.rng;s[7]=e.val;s[8]=e.ext;s[9]=e.rem;s[10]=e.error;return r;
+static int native_allocation_interp(unsigned *s,unsigned char *buf,int *a,int *outputs,const int *cfg,int alias) {
+ ec_ctx e={0};e.buf=buf;e.storage=s[0];e.end_offs=s[1];e.end_window=s[2];e.nend_bits=s[3];e.nbits_total=s[4];e.offs=s[5];e.rng=s[6];e.val=s[7];e.ext=s[8];e.rem=s[9];e.error=s[10];int *balance=outputs,*intensity=outputs+1,*dual=outputs+2,*bits=a+93,*fine=a+116,*priority=a+139;switch(alias){case 1:bits=a+1;break;case 2:dual=intensity;break;case 3:balance=a+115+cfg[1];break;case 4:priority=fine;break;case 5:intensity=bits;break;}int r;if(setjmp(celt_validation_jump))r=-99;else r=interp_bits2pulses(comparison_mode_create(48000,960,NULL),cfg[0],cfg[1],cfg[2],a+1,a+24,a+47,a+70,cfg[3],balance,cfg[4],intensity,cfg[5],dual,cfg[6],bits,fine,priority,cfg[7],cfg[8],&e,cfg[9],cfg[10],cfg[11]);s[0]=e.storage;s[1]=e.end_offs;s[2]=e.end_window;s[3]=e.nend_bits;s[4]=e.nbits_total;s[5]=e.offs;s[6]=e.rng;s[7]=e.val;s[8]=e.ext;s[9]=e.rem;s[10]=e.error;return r;
 }
 static void native_prefilter_fold(unsigned char *data,size_t size,int N) {CELTDecoder *st=malloc(size);memcpy(st,data,size);st->mode=comparison_mode_create(48000,960,NULL);prefilter_and_fold(st,N);st->mode=NULL;memcpy(data,st,size);free(st);}
 static void native_celt_synthesis(float *x,float *energy,float *left,float *right,int start,int end,int C,int CC,int transient,int LM,int downsample,int silence) {float *out[2]={left,right};const CELTMode *mode=comparison_mode_create(48000,960,NULL);comparison_celt_synthesis(mode,x,out,energy,start,end,C,CC,transient,LM,downsample,silence,0);}
@@ -104,8 +104,11 @@ import (
 )
 
 func nativeAllocationInterp(dec *opuscc.OpusT_ec_ctx, data []byte, a *[7][23]int32, outputs *[3]int32, cfg *[12]int32) int32 {
+	return nativeAllocationInterpAlias(dec, data, a, outputs, cfg, 0)
+}
+func nativeAllocationInterpAlias(dec *opuscc.OpusT_ec_ctx, data []byte, a *[7][23]int32, outputs *[3]int32, cfg *[12]int32, alias int32) int32 {
 	s := [11]C.uint{C.uint(dec.Fstorage), C.uint(dec.Fend_offs), C.uint(dec.Fend_window), C.uint(dec.Fnend_bits), C.uint(dec.Fnbits_total), C.uint(dec.Foffs), C.uint(dec.Frng), C.uint(dec.Fval), C.uint(dec.Fext), C.uint(dec.Frem), C.uint(dec.Ferror1)}
-	r := C.native_allocation_interp(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), (*C.int)(unsafe.Pointer(a)), (*C.int)(unsafe.Pointer(outputs)), (*C.int)(unsafe.Pointer(cfg)))
+	r := C.native_allocation_interp(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), (*C.int)(unsafe.Pointer(a)), (*C.int)(unsafe.Pointer(outputs)), (*C.int)(unsafe.Pointer(cfg)), C.int(alias))
 	dec.Fstorage = uint32(s[0])
 	dec.Fend_offs = uint32(s[1])
 	dec.Fend_window = uint32(s[2])

@@ -32,6 +32,71 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestAllocationOutputsPointers(t *testing.T) {
+	m := newSynthesisTestMode()
+	for _, C := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, budget := range []int32{0, 8, 100, 512, 4096, 12000} {
+				for _, encode := range []int32{0, 1} {
+					a := new([7][23]int32)
+					for k := range a {
+						a[k][0], a[k][22] = 77, 88
+					}
+					for j := int32(0); j < 21; j++ {
+						width := int32(modeBand(m, j+1) - modeBand(m, j))
+						a[1][j+1] = width * C << LM << 3
+						a[2][j+1] = max(C<<3, width<<LM<<2)
+						a[3][j+1] = width * C << LM << 6
+					}
+					b := *a
+					s, w := [3]int32{77, 21, 1}, [3]int32{77, 21, 1}
+					g := func() *OpusT_ec_ctx {
+						data := make([]byte, 256)
+						for i := range data {
+							data[i] = byte(i*17 + 31)
+						}
+						ctx := new(OpusT_ec_ctx)
+						if encode != 0 {
+							Opus_ec_enc_init(nil, ctx, &data[0], 256)
+						} else {
+							Opus_ec_dec_init(nil, ctx, &data[0], 256)
+						}
+						return ctx
+					}()
+					e := *g
+					buf := slices.Clone(unsafe.Slice(e.Fbuf, 256))
+					e.Fbuf = &buf[0]
+					entropyInitGrowStack(12)
+					runtime.GC()
+					r := interp_bits2pulses(nil, m, 0, 21, 0, &a[0][1], &a[1][1], &a[2][1], &a[3][1], budget, &s[0], 0, &s[1], 0, &s[2], 0, &a[4][1], &a[5][1], &a[6][1], C, LM, g, encode, 20, 20)
+					wr := interp_bits2pulses(nil, &mode48000_960_120, 0, 21, 0, &b[0][1], &b[1][1], &b[2][1], &b[3][1], budget, &w[0], 0, &w[1], 0, &w[2], 0, &b[4][1], &b[5][1], &b[6][1], C, LM, &e, encode, 20, 20)
+					gc := *g
+					gc.Fbuf = nil
+					e.Fbuf = nil
+					if r != wr || *a != b || s != w || gc != e || !slices.Equal(unsafe.Slice(g.Fbuf, 256), buf) {
+						t.Fatal("allocation owners", C, LM, budget, encode, r, wr)
+					}
+					for k := range a {
+						if a[k][0] != 77 || a[k][22] != 88 {
+							t.Fatal("allocation guard", k)
+						}
+					}
+				}
+			}
+		}
+	}
+	// Unused entropy may be nil. Scalar outputs may alias (last dual store wins).
+	var arrays [7][1]int32
+	var shared, balance int32
+	tls := libc.NewTLS()
+	defer tls.Close()
+	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+	r := interp_bits2pulses(tls, m, 0, 1, 0, &arrays[0][0], &arrays[1][0], &arrays[2][0], &arrays[3][0], 0, &balance, 0, &shared, 0, &shared, 0, &arrays[4][0], &arrays[5][0], &arrays[6][0], 1, 0, nil, 0, 0, 0)
+	if r != 1 || balance != 0 || shared != 0 || arrays[6][0] != 1 || libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+		t.Fatal("allocation nil entropy/scalar alias/TLS", r, balance, shared, arrays)
+	}
+}
+
 func TestAllocationBandInputPointers(t *testing.T) {
 	views := func() [2][]int32 {
 		a, b := make([]int32, 21), make([]int32, 21)

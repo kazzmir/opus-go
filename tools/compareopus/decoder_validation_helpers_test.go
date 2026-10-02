@@ -536,6 +536,48 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestAllocationInterpAliasAgainstC(t *testing.T) {
+	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	bands := unsafe.Slice(m.FeBands, 22)
+	for _, alias := range []int32{1, 2, 3, 4, 5} {
+		for _, encode := range []int32{0, 1} {
+			var a [7][23]int32
+			for k := range a {
+				a[k][0], a[k][22] = 77, 88
+			}
+			for j := 0; j < 21; j++ {
+				width := int32(bands[j+1] - bands[j])
+				a[1][j+1] = width * 32
+				a[2][j+1] = max(16, width*8)
+				a[3][j+1] = width * 256
+			}
+			b := a
+			cfg := [12]int32{0, 21, 0, 4096, 8, 40, 8, 2, 1, encode, 20, 20}
+			s, cs := [3]int32{77, 21, 1}, [3]int32{77, 21, 1}
+			data := make([]byte, 256)
+			for i := range data {
+				data[i] = byte(i*17 + 31)
+			}
+			cb := slices.Clone(data)
+			var g opuscc.OpusT_ec_ctx
+			if encode != 0 {
+				opuscc.Opus_ec_enc_init(nil, &g, &data[0], 256)
+			} else {
+				opuscc.Opus_ec_dec_init(nil, &g, &data[0], 256)
+			}
+			c := g
+			c.Fbuf = &cb[0]
+			r := opuscc.CompareAllocationInterpAlias(m, &a, &s, &cfg, &g, alias)
+			cr := nativeAllocationInterpAlias(&c, cb, &b, &cs, &cfg, alias)
+			g.Fbuf = nil
+			c.Fbuf = nil
+			if r != cr || a != b || s != cs || g != c || !slices.Equal(data, cb) {
+				t.Fatal("interp alias", alias, encode, r, cr, s, cs, a, b)
+			}
+		}
+	}
+}
+
 func TestAllocationInterpAgainstC(t *testing.T) {
 	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	bands := unsafe.Slice(m.FeBands, 22)
