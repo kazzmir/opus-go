@@ -3,9 +3,64 @@
 package main
 
 import (
+	libc "github.com/kazzmir/opus-go/libcshim"
 	"github.com/kazzmir/opus-go/opuscc"
+	"slices"
 	"testing"
+	"unsafe"
 )
+
+func TestPLCDispatchLossAgainstC(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, nb := range []int32{2, 4} {
+			for _, signal := range []int32{1, 2} {
+				for _, lossCnt := range []int32{0, 1, 3} {
+					for _, lost := range []int32{1, -1, 7} {
+						for _, reset := range []bool{false, true} {
+							order := int32(10)
+							if rate == 16 {
+								order = 16
+							}
+							g := opuscc.OpusT_silk_decoder_state{Ffs_kHz: rate, Fframe_length: rate * 5 * nb, Fsubfr_length: rate * 5, Fnb_subfr: nb, Fltp_mem_length: rate * 20, FLPC_order: order, FprevSignalType: signal, FlossCnt: lossCnt}
+							g.FsPLC = opuscc.OpusT_silk_PLC_struct{Ffs_kHz: rate, FpitchL_Q8: rate * 5 << 8, FLTPCoef_Q14: [5]int16{300, -150, 1200, -100, 75}, FprevLPC_Q12: [16]int16{120, -80, 60, -45, 30, -20, 15, -10, 8, -5}, FprevGain_Q16: [2]int32{65536, 65536}, FprevLTP_scale_Q14: 13000, FrandScale_Q14: 11000, Frand_seed: 12345, Fsubfr_length: rate * 5, Fnb_subfr: nb}
+							if reset {
+								g.FsPLC.Ffs_kHz = 0
+								g.Ffirst_frame_after_reset = 1
+							}
+							for i := range g.Fexc_Q14 {
+								g.Fexc_Q14[i] = int32((i*71)%3000000 - 1500000)
+							}
+							for i := range g.FoutBuf {
+								g.FoutBuf[i] = int16((i*37)%1000 - 500)
+							}
+							control := opuscc.OpusT_silk_decoder_control{FGains_Q16: [4]int32{77, 88, 99, 111}, FpitchL: [4]int32{7, 8, 9, 10}}
+							c, cc := g, control
+							frame := make([]int16, int(g.Fframe_length)+2)
+							for i := range frame {
+								frame[i] = int16(i*13 + 77)
+							}
+							cf := slices.Clone(frame)
+							tls := libc.NewTLS()
+							ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
+							scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
+							*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
+							libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
+							opuscc.ComparePLCDispatch(tls, &g, &control, &frame[1], lost, 0)
+							r := nativePLCDispatch(&c, &cc, cf[1:len(cf)-1], lost, 0)
+							tls.Close()
+							if r != 0 || g != c || control != cc || !slices.Equal(frame, cf) {
+								t.Fatal("PLC lost dispatch", rate, nb, signal, lossCnt, lost, reset, r, g.FsPLC, c.FsPLC, control.FpitchL, cc.FpitchL, frame[:9], cf[:9])
+							}
+							if g.FlossCnt != lossCnt+1 {
+								t.Fatal("increment after conceal", g.FlossCnt)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
 
 func TestPLCDispatchUpdateAgainstC(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {

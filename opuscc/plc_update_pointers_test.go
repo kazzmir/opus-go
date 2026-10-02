@@ -3,7 +3,35 @@ package opuscc
 import (
 	"runtime"
 	"testing"
+	"unsafe"
 )
+
+func TestPLCDispatchFramePointers(t *testing.T) {
+	d := OpusT_silk_decoder_state{Ffs_kHz: 16, Fframe_length: 320, Fsubfr_length: 80, Fnb_subfr: 4, FLPC_order: 16}
+	d.Findices.FsignalType = TYPE_UNVOICED
+	c := OpusT_silk_decoder_control{FGains_Q16: [4]int32{1, 2, 3, 4}}
+	frame := make([]int16, 322)
+	for i := range frame {
+		frame[i] = int16(i*17 - 300)
+	}
+	before := append([]int16(nil), frame...)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	silk_PLC(nil, &d, &c, &frame[1], 0, 0)
+	for i := range frame {
+		if frame[i] != before[i] {
+			t.Fatal("nonloss touched PCM", i)
+		}
+	}
+	// Frame aliases are unconsumed on nonloss: even a numeric state/control
+	// interior must not be read or written, and nil is equally valid.
+	wd, wc := d, c
+	silk_PLC(nil, &d, &c, (*int16)(unsafe.Pointer(&c.FpitchL[0])), 0, 0)
+	silk_PLC(nil, &wd, &wc, nil, 0, 0)
+	if d != wd || c != wc {
+		t.Fatal("unused frame alias")
+	}
+}
 
 func TestPLCDispatchControlPointers(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
@@ -24,7 +52,7 @@ func TestPLCDispatchControlPointers(t *testing.T) {
 					silk_PLC_update(nil, &w, &wc)
 					entropyInitGrowStack(12)
 					runtime.GC()
-					silk_PLC(nil, d, c, 0, 0, -37)
+					silk_PLC(nil, d, c, nil, 0, -37)
 					if *d != w || *c != wc || d.FlossCnt != 3 {
 						t.Fatal("typed PLC update", rate, nb, order, signal)
 					}
@@ -37,7 +65,7 @@ func TestPLCDispatchControlPointers(t *testing.T) {
 	d := OpusT_silk_decoder_state{Ffs_kHz: 16, Fframe_length: 320, Fnb_subfr: 4, Fsubfr_length: 80, FLPC_order: 16}
 	d.Findices.FsignalType = TYPE_UNVOICED
 	panicked := false
-	func() { defer func() { panicked = recover() != nil }(); silk_PLC(nil, &d, nil, 0, 0, 0) }()
+	func() { defer func() { panicked = recover() != nil }(); silk_PLC(nil, &d, nil, nil, 0, 0) }()
 	if !panicked || d.FsPLC.Ffs_kHz != 16 || d.FsPLC.FpitchL_Q8 != 16*18*256 || d.FsPLC.FprevGain_Q16 != [2]int32{65536, 65536} || d.FprevSignalType != TYPE_UNVOICED {
 		t.Fatal("reset/update-before-control order", panicked, d.FsPLC)
 	}

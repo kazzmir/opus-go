@@ -24,7 +24,7 @@ func Opus_silk_PLC_Reset(tls *libc.TLS, decoder *OpusT_silk_decoder_state) {
 
 //go:uintptrescapes
 func Opus_silk_PLC(tls *libc.TLS, psDec, psDecCtrl, frame uintptr, lost, arch int32) {
-	silk_PLC(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), frame, lost, arch)
+	silk_PLC(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(frame)), lost, arch)
 }
 func silkPLCRate(tls *libc.TLS, decoder *OpusT_silk_decoder_state) {
 	if decoder.Ffs_kHz != decoder.FsPLC.Ffs_kHz {
@@ -32,13 +32,13 @@ func silkPLCRate(tls *libc.TLS, decoder *OpusT_silk_decoder_state) {
 		decoder.FsPLC.Ffs_kHz = decoder.Ffs_kHz
 	}
 }
-func silk_PLC(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, frame uintptr, lost, arch int32) {
+func silk_PLC(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, frame *int16, lost, arch int32) {
 	silkPLCRate(tls, decoder)
 	if lost != 0 {
 		/****************************/
 		/* Generate Signal          */
 		/****************************/
-		silk_PLC_conceal(tls, uintptr(unsafe.Pointer(decoder)), uintptr(unsafe.Pointer(control)), frame, arch)
+		silk_PLC_conceal(tls, uintptr(unsafe.Pointer(decoder)), uintptr(unsafe.Pointer(control)), uintptr(unsafe.Pointer(frame)), arch)
 		decoder.FlossCnt = decoder.FlossCnt + 1
 	} else {
 		/****************************/
