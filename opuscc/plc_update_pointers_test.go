@@ -7,6 +7,38 @@ import (
 	"weak"
 )
 
+func TestPLCSynthesisScratchPointers(t *testing.T) {
+	for _, shape := range [][2]int32{{160, 80}, {160, 160}, {240, 120}, {240, 240}, {320, 160}, {320, 320}, {320, 0}} {
+		d := &OpusT_silk_decoder_state{Fltp_mem_length: shape[0], Fframe_length: shape[1], FLPC_order: 16}
+		buffer := silkPLCSynthesisBuffer(d)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(buffer) != int(shape[0]+shape[1]) {
+			t.Fatal("synthesis geometry", shape, len(buffer))
+		}
+		for _, v := range buffer {
+			if v != 0 {
+				t.Fatal("owned scratch not zero")
+			}
+		}
+		for i := range buffer {
+			buffer[i] = int32(i * 1003)
+		}
+		index := int32(len(buffer) - 1)
+		coefficients := [5]int16{0, 0, 16384, 0, 0}
+		if p := silkPLCLTPPrediction(buffer, index, &coefficients); p != 2+(buffer[index-2]>>2) {
+			t.Fatal("owned scratch prediction", shape, p)
+		}
+		frame := make([]int16, shape[1])
+		silkPLCLPC(nil, d, buffer[shape[0]-16:], new([16]int16), unsafe.SliceData(frame), 1024)
+		for i := range d.FsLPC_Q14_buf {
+			if d.FsLPC_Q14_buf[i] != buffer[int(shape[0]+shape[1])-16+i] {
+				t.Fatal("owned scratch history", shape, i)
+			}
+		}
+	}
+}
+
 func TestPLCLTPHistoryPointers(t *testing.T) {
 	h := []int32{-2147483648, 2147483647, -1, 0, 100000003, 12345, -54321, 2147483647}
 	b := &[5]int16{-32768, 32767, -1, 16384, 12345}
