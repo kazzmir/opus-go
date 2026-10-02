@@ -411,6 +411,20 @@ func TestExtensionIteratorInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestExtensionGeneratorAliasAgainstC(t *testing.T) {
+	for _, id := range []int32{3, 31, 32, 40, 112, 127} {
+		ext := opuscc.OpusT_opus_extension_data{Fid: id}
+		p := (*byte)(unsafe.Pointer(&ext.Fid))
+		g := unsafe.Slice(p, 4)
+		c := make([]byte, 4)
+		r := opuscc.CompareExtensionGenerate(p, 1, &ext, 1, 1, 0)
+		cr := nativeExtensionGeneratorAlias(c, id)
+		if r != cr || !slices.Equal(g, c) {
+			t.Fatal("descriptor alias", id, r, cr, g, c)
+		}
+	}
+}
+
 func TestExtensionGenerateAgainstC(t *testing.T) {
 	payload := make([]byte, 5000)
 	for i := range payload {
