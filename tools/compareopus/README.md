@@ -453,24 +453,35 @@ unsigned celt_udiv, backward skip decisions, entropy flags, reservation refunds,
 N=1/N=2 fine-energy cases, caps/rebalancing, assertions and sequential alias stores
 are preserved. Views remain live: no snapshots of aliased band/scalar values.
 
-The outer allocation driver now holds typed mode/entropy owners and calls the
-leaf directly with typed interiors; its ABI still has a uintptr escape wrapper.
-Vector accesses use typed mode-owned backing and the separately cached band
-stride. Its band/scalar arguments and four TLS scratch arrays remain legacy, so
-focused checkptr does not claim the full driver is safe.
+The allocation driver now takes typed mode/entropy, offset/cap inputs, scalar
+outputs and pulse/energy/priority arrays. All four mode-band-length scratch arrays
+(bits1, bits2, threshold, trim) are Go-owned; there is no TLS initialization,
+allocation, cursor arithmetic or stack restoration in the core driver. The
+public Opus_clt_compute_allocation ABI still has an explicit uintptr escape
+wrapper, converting every pointer argument before allocation/stack growth.
+Vector accesses retain typed mode-owned backing and the separately cached band
+stride. Reservation/refund order, negative-total clamping, do-while vector search,
+per-multiply int32 wrapping, threshold/tilt shifts, single-coefficient correction,
+positive-only tilt application, dynalloc skip start and interpolation store order
+are preserved. Wide-trim wrapping fixtures are Go-only, not C signed-overflow
+parity claims.
 
 Actual rate.c interpolation/driver fixtures compare returned coded bands, all
 arrays/guards/scalars, eleven entropy fields and full byte buffers for C=1/2,
 LM=0–3, multiple starts, budgets, encode/decode and stereo reservations. Driver
 fixtures add trim 0/5/10 and dynalloc boosts. Leaf fixtures also cover input/output
 aliases, shared intensity/dual outputs, balance/energy aliases, fine/priority
-aliases and intensity/pulse aliases. Heap-owner/GC/stack-growth tests check mode
-bands/logN/vectors, entropy backing and active interpolation with exact-sized
-one-band outputs, nil unused entropy and an untouched TLS sentinel. Focused
-checkptr passes on amd64/386 and ARM64/QEMU; native fixtures remain host-only.
-Early rounds checked typed ownership/input helpers while output addressing was
-still legacy. Outer quantization/decode/PLC boundaries, opaque allocation scans
-and extension EOF are not made globally safe by this batch.
+aliases and intensity/pulse aliases. Driver alias fixtures additionally cover
+cap/pulse and cap/fine-energy sharing; native driver fixtures now use nil TLS.
+Heap-owner/GC/stack-growth tests check mode bands/logN/vectors, entropy backing,
+live inputs, curve scratch and the full active driver/interpolation chain. They
+cover exact-sized one-band outputs, negative total, nil unused entropy, shared
+scalar outputs and an untouched TLS sentinel. Focused checkptr passes on
+amd64/386 and ARM64/QEMU; native fixtures remain host-only. The first three
+scratch-migration rounds checked helpers/leaf paths while the driver still had
+TLS scratch; the final round checks the complete active typed driver. Outer
+quantization/decode/PLC boundaries, opaque allocation scans and extension EOF
+are not made globally safe by this batch.
 
 Decoder CTL dispatch now has typed CELT custom, Opus, multistream and projection
 entries, using OpusDecoderCtlArgs for integer values and GC-visible scalar, range,

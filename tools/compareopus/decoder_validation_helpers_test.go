@@ -536,6 +536,23 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestAllocationDriverErrorAgainstC(t *testing.T) {
+	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	for _, channels := range []int32{1, 2} {
+		for _, start := range []int32{0, 3} {
+			a, b := [7][23]int32{}, [7][23]int32{}
+			s, cs := [3]int32{77, 88, 99}, [3]int32{77, 88, 99}
+			cfg := [12]int32{start, start, 5, 0, 0, 0, 0, channels, 0, 0, 20, 20}
+			g, c := opuscc.OpusT_ec_ctx{}, opuscc.OpusT_ec_ctx{}
+			r := opuscc.CompareAllocationDriver(nil, m, &a, &s, &cfg, &g)
+			cr := nativeAllocationDriver(&c, nil, &b, &cs, &cfg)
+			if r != -99 || cr != -99 || a != b || s != cs || g != c {
+				t.Fatal("driver assertion order", channels, start, r, cr, a, b, s, cs, g, c)
+			}
+		}
+	}
+}
+
 func TestAllocationDriverAgainstC(t *testing.T) {
 	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	bands := unsafe.Slice(m.FeBands, 22)
@@ -579,14 +596,8 @@ func TestAllocationDriverAgainstC(t *testing.T) {
 									}
 									c := g
 									c.Fbuf = &cb[0]
-									tls := libc.NewTLS()
-									ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
-									scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
-									*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
-									libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
-									r := opuscc.CompareAllocationDriverAlias(tls, m, &a, &s, &cfg, &g, alias)
+									r := opuscc.CompareAllocationDriverAlias(nil, m, &a, &s, &cfg, &g, alias)
 									cr := nativeAllocationCall(&c, cb, &b, &cs, &cfg, alias, 1)
-									tls.Close()
 									g.Fbuf = nil
 									c.Fbuf = nil
 									if r != cr || a != b || s != cs || g != c || !slices.Equal(data, cb) {

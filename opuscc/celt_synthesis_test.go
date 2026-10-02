@@ -32,6 +32,145 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestAllocationDriverAliasPointers(t *testing.T) {
+	mode := newSynthesisTestMode()
+	run := func(m *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, e *OpusT_ec_ctx, trim, encode, alias int32) int32 {
+		balance, intensity, dual := &s[0], &s[1], &s[2]
+		bits, fine, priority := &a[4][1], &a[5][1], &a[6][1]
+		switch alias {
+		case 1:
+			bits = &a[0][1]
+		case 2:
+			dual = intensity
+		case 3:
+			balance = &a[5][21]
+		case 4:
+			priority = fine
+		case 5:
+			intensity = bits
+		case 6:
+			bits = &a[3][1]
+		case 7:
+			fine = &a[3][1]
+		}
+		return clt_compute_allocation(nil, m, 0, 21, &a[0][1], &a[3][1], trim, intensity, dual, 4096, balance, bits, fine, priority, 2, 1, e, encode, 20, 20)
+	}
+	for alias := int32(1); alias <= 7; alias++ {
+		for _, trim := range []int32{0, 5, 10} {
+			for _, encode := range []int32{0, 1} {
+				a := new([7][23]int32)
+				for k := range a {
+					a[k][0], a[k][22] = 77, 88
+				}
+				for j := int32(0); j < 21; j++ {
+					a[3][j+1] = int32(modeBand(mode, j+1)-modeBand(mode, j)) * 256
+				}
+				b := *a
+				s, w := [3]int32{77, 21, 1}, [3]int32{77, 21, 1}
+				data := make([]byte, 256)
+				for i := range data {
+					data[i] = byte(i*17 + 31)
+				}
+				var g OpusT_ec_ctx
+				if encode != 0 {
+					Opus_ec_enc_init(nil, &g, &data[0], 256)
+				} else {
+					Opus_ec_dec_init(nil, &g, &data[0], 256)
+				}
+				e := g
+				buf := slices.Clone(data)
+				e.Fbuf = &buf[0]
+				entropyInitGrowStack(12)
+				runtime.GC()
+				r := run(mode, a, &s, &g, trim, encode, alias)
+				wr := run(&mode48000_960_120, &b, &w, &e, trim, encode, alias)
+				g.Fbuf = nil
+				e.Fbuf = nil
+				if r != wr || *a != b || s != w || g != e || !slices.Equal(data, buf) {
+					t.Fatal("driver alias", alias, trim, encode, r, wr, s, w)
+				}
+			}
+		}
+	}
+}
+
+func TestAllocationDriverScratchPointers(t *testing.T) {
+	m := func() *OpusT_OpusCustomMode {
+		mode := newSynthesisTestMode()
+		vectors := slices.Clone(unsafe.Slice(mode.FallocVectors, mode.FnbAllocVectors*mode.FnbEBands))
+		mode.FallocVectors = unsafe.SliceData(vectors)
+		logs := slices.Clone(unsafe.Slice(mode.FlogN, mode.FnbEBands))
+		mode.FlogN = unsafe.SliceData(logs)
+		return mode
+	}()
+	for _, C := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, start := range []int32{0, 18} {
+				for _, budget := range []int32{-8, 0, 8, 4096} {
+					for _, trim := range []int32{0, 10} {
+						for _, encode := range []int32{0, 1} {
+							a := new([7][23]int32)
+							for k := range a {
+								a[k][0], a[k][22] = 77, 88
+							}
+							for j := int32(0); j < 21; j++ {
+								a[3][j+1] = int32(modeBand(m, j+1)-modeBand(m, j)) * C << LM << 6
+							}
+							if budget >= 512 {
+								a[0][min(start+1, 20)+1] = 64
+							}
+							b := *a
+							s, w := [3]int32{77, 21, 1}, [3]int32{77, 21, 1}
+							g := func() *OpusT_ec_ctx {
+								data := make([]byte, 256)
+								for i := range data {
+									data[i] = byte(i*17 + 31)
+								}
+								ctx := new(OpusT_ec_ctx)
+								if encode != 0 {
+									Opus_ec_enc_init(nil, ctx, &data[0], 256)
+								} else {
+									Opus_ec_dec_init(nil, ctx, &data[0], 256)
+								}
+								return ctx
+							}()
+							e := *g
+							buf := slices.Clone(unsafe.Slice(e.Fbuf, 256))
+							e.Fbuf = &buf[0]
+							entropyInitGrowStack(12)
+							runtime.GC()
+							r := clt_compute_allocation(nil, m, start, 21, &a[0][1], &a[3][1], trim, &s[1], &s[2], budget, &s[0], &a[4][1], &a[5][1], &a[6][1], C, LM, g, encode, 20, 20)
+							wr := clt_compute_allocation(nil, &mode48000_960_120, start, 21, &b[0][1], &b[3][1], trim, &w[1], &w[2], budget, &w[0], &b[4][1], &b[5][1], &b[6][1], C, LM, &e, encode, 20, 20)
+							gc := *g
+							gc.Fbuf = nil
+							e.Fbuf = nil
+							if r != wr || *a != b || s != w || gc != e || !slices.Equal(unsafe.Slice(g.Fbuf, 256), buf) {
+								t.Fatal("allocation driver owners", C, LM, start, budget, trim, encode, r, wr)
+							}
+							for k := range a {
+								if a[k][0] != 77 || a[k][22] != 88 {
+									t.Fatal("driver guard", k)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	// Exact-sized mono buffers, negative total clamping, nil unused entropy and
+	// shared scalar outputs must not touch or materialize any TLS scratch.
+	var a [7][1]int32
+	var scalar, balance int32
+	tls := libc.NewTLS()
+	defer tls.Close()
+	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+	r := clt_compute_allocation(tls, m, 0, 1, &a[0][0], &a[3][0], 5, &scalar, &scalar, -8, &balance, &a[4][0], &a[5][0], &a[6][0], 1, 0, nil, 0, 0, 0)
+	if r != 1 || scalar != 0 || balance != 0 || a[6][0] != 1 || libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+		t.Fatal("driver exact/nil/sentinel", r, scalar, balance, a)
+	}
+}
+
 func TestAllocationDriverCurvePointers(t *testing.T) {
 	m := newSynthesisTestMode()
 	for _, C := range []int32{1, 2} {
