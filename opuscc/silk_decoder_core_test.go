@@ -9,6 +9,46 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeCoreControlPointers(t *testing.T) {
+	for _, loss := range []int32{0, 1, -1} {
+		for _, prev := range []int32{TYPE_UNVOICED, TYPE_VOICED} {
+			for _, signal := range []int8{0, TYPE_UNVOICED, TYPE_VOICED} {
+				for k := int32(0); k < 4; k++ {
+					d := &OpusT_silk_decoder_state{FlossCnt: loss, FprevSignalType: prev, FlagPrev: 77}
+					d.Findices.FsignalType = signal
+					control := new(OpusT_silk_decoder_control)
+					for i := range control.FLTPCoef_Q14 {
+						control.FLTPCoef_Q14[i] = int16(i*71 - 900)
+					}
+					control.FpitchL = [4]int32{101, 102, 103, 104}
+					want := *control
+					before := *d
+					active := loss != 0 && prev == TYPE_VOICED && signal != TYPE_VOICED && k < 2
+					if active {
+						clear(want.FLTPCoef_Q14[k*5 : k*5+5])
+						want.FLTPCoef_Q14[k*5+2] = 4096
+						want.FpitchL[k] = 77
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					if got := silkDecodeCoreTransition(d, control, k); got != active || *control != want || *d != before {
+						t.Fatal("transition control", loss, prev, signal, k, got)
+					}
+				}
+			}
+		}
+	}
+	for _, d := range []*OpusT_silk_decoder_state{{}, {FlossCnt: 1}, {FlossCnt: 1, FprevSignalType: TYPE_VOICED, Findices: OpusT_SideInfoIndices{FsignalType: TYPE_VOICED}}} {
+		if silkDecodeCoreTransition(d, nil, 0) {
+			t.Fatal("unused control")
+		}
+	}
+	d := &OpusT_silk_decoder_state{FlossCnt: 1, FprevSignalType: TYPE_VOICED}
+	if silkDecodeCoreTransition(d, nil, 2) {
+		t.Fatal("unused late control")
+	}
+}
+
 func TestDecodeCoreHistoryPointers(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
 		for _, length := range []int32{0, rate * 5} {

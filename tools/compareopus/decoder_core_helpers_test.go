@@ -10,6 +10,28 @@ import (
 	"unsafe"
 )
 
+func TestDecodeCoreTransitionAgainstC(t *testing.T) {
+	for _, loss := range []int32{0, 1, -1} {
+		for _, prev := range []int32{1, 2} {
+			for _, signal := range []int8{0, 1, 2} {
+				for k := int32(0); k < 4; k++ {
+					d := opuscc.OpusT_silk_decoder_state{FlossCnt: loss, FprevSignalType: prev, FlagPrev: 77}
+					d.Findices.FsignalType = signal
+					ctrl := opuscc.OpusT_silk_decoder_control{FpitchL: [4]int32{101, 102, 103, 104}}
+					for i := range ctrl.FLTPCoef_Q14 {
+						ctrl.FLTPCoef_Q14[i] = int16(i*71 - 900)
+					}
+					c, cc := d, ctrl
+					g := opuscc.CompareDecodeCoreTransition(&d, &ctrl, k)
+					n := nativeDecodeCoreTransition(&c, &cc, k)
+					if g != n || d != c || ctrl != cc {
+						t.Fatal("transition", loss, prev, signal, k, g, n)
+					}
+				}
+			}
+		}
+	}
+}
 func TestDecodeCoreHistoryAgainstC(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
 		d := opuscc.OpusT_silk_decoder_state{Fltp_mem_length: rate * 20, Fsubfr_length: rate * 5}
@@ -71,7 +93,7 @@ func TestDecodeCoreAgainstC(t *testing.T) {
 						scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
 						*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
 						libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
-						opuscc.CompareDecodeCore(tls, &d, uintptr(unsafe.Pointer(&ctrl)), uintptr(unsafe.Pointer(&out[1])), uintptr(unsafe.Pointer(&pulses[0])))
+						opuscc.CompareDecodeCore(tls, &d, &ctrl, uintptr(unsafe.Pointer(&out[1])), uintptr(unsafe.Pointer(&pulses[0])))
 						tls.Close()
 						r := nativeDecodeCore(&c, &cc, want[1:len(want)-1], pulses)
 						if r != 0 || d != c || ctrl != cc || !slices.Equal(out, want) || !slices.Equal(pulses, before) {

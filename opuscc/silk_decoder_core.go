@@ -32,6 +32,18 @@ func Opus_silk_init_decoder(tls *libc.TLS, dec *OpusT_silk_decoder_state) int32 
 	return Opus_silk_reset_decoder(tls, dec)
 }
 
+// Preserve the coefficient clear, center-tap store, then live lag load/store.
+func silkDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
+	if decoder.FlossCnt != 0 && decoder.FprevSignalType == TYPE_VOICED && decoder.Findices.FsignalType != TYPE_VOICED && k < MAX_NB_SUBFR/2 {
+		coefficients := control.FLTPCoef_Q14[k*LTP_ORDER : (k+1)*LTP_ORDER]
+		clear(coefficients)
+		coefficients[LTP_ORDER/2] = 4096
+		control.FpitchL[k] = decoder.FlagPrev
+		return true
+	}
+	return false
+}
+
 // Stage the already decoded first two subframes before rewhitening at k=2.
 func silkDecodeCoreHistory(decoder *OpusT_silk_decoder_state, frame *int16) {
 	count := 2 * decoder.Fsubfr_length
@@ -48,17 +60,17 @@ const silk_int16_MAX3 = 32767
 //
 //go:uintptrescapes
 func Opus_silk_decode_core(tls *libc.TLS, psDec, psDecCtrl, xq, pulses uintptr, arch int32) {
-	silk_decode_core(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), psDecCtrl, xq, pulses, arch)
+	silk_decode_core(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), xq, pulses, arch)
 }
 
 // Scratch and synthesis cursors remain legacy; decoder ownership is typed.
-func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl uintptr, xq uintptr, pulses uintptr, arch int32) {
+func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, xq uintptr, pulses uintptr, arch int32) {
 	var A_Q12, B_Q14, _saved_stack, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, res_Q14, sLPC_Q14, sLTP, sLTP_Q15, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, a32_nrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, err_Q32, gain_adj_Q16, inv_gain_Q31, offset_Q10, rand_seed, result, result1, v103, v106, v107, v110, v117, v118, v121 OpusT_opus_int32
 	var NLSF_interpolation_flag, a_headrm, b_headrm, b_headrm1, i, k, lag, lshift, lshift1, sLTP_buf_idx, signalType, start_idx, v104, v105, v109, v112, v113, v114, v115, v116, v119, v120, v124, v125, v129 int32
 	var A_Q12_tmp [MAX_LPC_ORDER]OpusT_opus_int16
 	decoder := psDec
-	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
+	control := psDecCtrl
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = A_Q12, B_Q14, Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, NLSF_interpolation_flag, _saved_stack, a32_nrm, a_headrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, b_headrm, b_headrm1, err_Q32, gain_adj_Q16, i, inv_gain_Q31, k, lag, lshift, lshift1, offset_Q10, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, rand_seed, res_Q14, result, result1, sLPC_Q14, sLTP, sLTP_Q15, sLTP_buf_idx, signalType, st, start_idx, v1, v103, v104, v105, v106, v107, v109, v11, v110, v112, v113, v114, v115, v116, v117, v118, v119, v120, v121, v124, v125, v129, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
 	lag = 0
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -543,11 +555,8 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 		_ = inv_gain_Q31 != int32(0)
 		decoder.Fprev_gain_Q16 = control.FGains_Q16[k]
 		/* Avoid abrupt transition from voiced PLC to unvoiced normal decoding */
-		if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt != 0 && (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType == int32(TYPE_VOICED) && int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType) != int32(TYPE_VOICED) && k < int32(MAX_NB_SUBFR)/int32(2) {
-			libc.Xmemset(tls, B_Q14, 0, uint64(uint32(LTP_ORDER))*uint64(2))
-			*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + uintptr(int32(LTP_ORDER)/int32(2))*2)) = int16(4096)
-			signalType = int32(TYPE_VOICED)
-			control.FpitchL[k] = decoder.FlagPrev
+		if silkDecodeCoreTransition(decoder, control, k) {
+			signalType = TYPE_VOICED
 		}
 		if signalType == int32(TYPE_VOICED) {
 			/* Voiced */

@@ -10,8 +10,11 @@ import (
 // Full core still consumes legacy TLS scratch and output/pulse cursors.
 //
 //go:uintptrescapes
-func CompareDecodeCore(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control uintptr, output, pulses uintptr) {
+func CompareDecodeCore(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, output, pulses uintptr) {
 	silk_decode_core(tls, decoder, control, output, pulses, 0)
+}
+func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
+	return silkDecodeCoreTransition(decoder, control, k)
 }
 func CompareDecodeCoreHistory(decoder *OpusT_silk_decoder_state, frame []int16) {
 	silkDecodeCoreHistory(decoder, unsafe.SliceData(frame))
