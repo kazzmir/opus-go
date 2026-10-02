@@ -10,6 +10,10 @@ package main
 #define silk_PLC comparison_PLC
 #define silk_PLC_glue_frames comparison_PLC_glue_frames
 #include "PLC.c"
+static int plc_dispatch(unsigned char *d,int ds,unsigned char *c,int cs,short *pcm,int lost,int arch) {
+ if(ds!=sizeof(silk_decoder_state)||cs!=sizeof(silk_decoder_control))return -98;
+ silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_PLC(&dec,&ctrl,pcm,lost,arch);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
+}
 static void plc_update(int *p,int *d,int *c) {
  silk_decoder_state dec={0};silk_decoder_control ctrl={0};
  dec.fs_kHz=d[0];dec.subfr_length=d[1];dec.nb_subfr=d[2];dec.LPC_order=d[3];dec.indices.signalType=d[4];dec.prevSignalType=d[5];dec.frame_length=d[6];dec.lossCnt=d[7];
@@ -34,6 +38,16 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePLCDispatch(dec *opuscc.OpusT_silk_decoder_state, control *opuscc.OpusT_silk_decoder_control, frame []int16, lost, arch int32) int32 {
+	d, c := make([]byte, int(unsafe.Sizeof(*dec))), make([]byte, int(unsafe.Sizeof(*control)))
+	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)))
+	copy(c, unsafe.Slice((*byte)(unsafe.Pointer(control)), len(c)))
+	r := int32(C.plc_dispatch((*C.uchar)(unsafe.Pointer(&d[0])), C.int(len(d)), (*C.uchar)(unsafe.Pointer(&c[0])), C.int(len(c)), (*C.short)(unsafe.Pointer(unsafe.SliceData(frame))), C.int(lost), C.int(arch)))
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(control)), len(c)), c)
+	return r
+}
 
 func nativePLCUpdate(dec *opuscc.OpusT_silk_decoder_state, ctrl *opuscc.OpusT_silk_decoder_control) {
 	plc := &dec.FsPLC

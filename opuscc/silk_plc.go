@@ -22,23 +22,29 @@ func Opus_silk_PLC_Reset(tls *libc.TLS, decoder *OpusT_silk_decoder_state) {
 	plc.Fnb_subfr = 2
 }
 
-func Opus_silk_PLC(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintptr, lost int32, arch int32) {
-	/* PLC control function */
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz != (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Ffs_kHz {
-		Opus_silk_PLC_Reset(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)))
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FsPLC.Ffs_kHz = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz
+//go:uintptrescapes
+func Opus_silk_PLC(tls *libc.TLS, psDec, psDecCtrl, frame uintptr, lost, arch int32) {
+	silk_PLC(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), psDecCtrl, frame, lost, arch)
+}
+func silkPLCRate(tls *libc.TLS, decoder *OpusT_silk_decoder_state) {
+	if decoder.Ffs_kHz != decoder.FsPLC.Ffs_kHz {
+		Opus_silk_PLC_Reset(tls, decoder)
+		decoder.FsPLC.Ffs_kHz = decoder.Ffs_kHz
 	}
+}
+func silk_PLC(tls *libc.TLS, decoder *OpusT_silk_decoder_state, psDecCtrl, frame uintptr, lost, arch int32) {
+	silkPLCRate(tls, decoder)
 	if lost != 0 {
 		/****************************/
 		/* Generate Signal          */
 		/****************************/
-		silk_PLC_conceal(tls, psDec, psDecCtrl, frame, arch)
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt + 1
+		silk_PLC_conceal(tls, uintptr(unsafe.Pointer(decoder)), psDecCtrl, frame, arch)
+		decoder.FlossCnt = decoder.FlossCnt + 1
 	} else {
 		/****************************/
 		/* Update state             */
 		/****************************/
-		silk_PLC_update(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)))
+		silk_PLC_update(tls, decoder, (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)))
 	}
 }
 

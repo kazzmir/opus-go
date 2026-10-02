@@ -1,6 +1,29 @@
 package opuscc
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
+
+func TestPLCDispatchStatePointers(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		d := func() *OpusT_silk_decoder_state {
+			return &OpusT_silk_decoder_state{Fframe_length: rate * 20, Ffs_kHz: rate, FpsNLSF_CB: cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB), FlossCnt: 7, FsPLC: OpusT_silk_PLC_struct{Ffs_kHz: 0, Frand_seed: 123}}
+		}()
+		entropyInitGrowStack(12)
+		runtime.GC()
+		silkPLCRate(nil, d)
+		want := d.FsPLC
+		if want.Ffs_kHz != rate || want.FpitchL_Q8 != rate*20*128 || want.FprevGain_Q16 != [2]int32{65536, 65536} || want.Fsubfr_length != 20 || want.Fnb_subfr != 2 || want.Frand_seed != 123 || d.FlossCnt != 7 || d.FpsNLSF_CB.Forder != 16 {
+			t.Fatal("PLC state owner/reset", rate, want)
+		}
+		d.FsPLC.FpitchL_Q8 = 77
+		silkPLCRate(nil, d)
+		if d.FsPLC.FpitchL_Q8 != 77 {
+			t.Fatal("matching rate reset")
+		}
+	}
+}
 
 func TestPLCUpdatePointers(t *testing.T) {
 	d := OpusT_silk_decoder_state{Ffs_kHz: 16, Fnb_subfr: 4, Fsubfr_length: 80, FLPC_order: 10}
