@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+	"unsafe"
 )
 
 func TestDeemphasisDriverPointers(t *testing.T) {
@@ -30,6 +31,93 @@ func TestDeemphasisDriverPointers(t *testing.T) {
 	}
 	var mem [2]float32
 	deemphasis(nil, &channels[0], nil, 0, 2, 1, &coef, &mem[0], 0)
+}
+
+func TestDeemphasisScratchPointers(t *testing.T) {
+	for _, N := range []int32{0, 1, 8, 120} {
+		for _, C := range []int32{0, 1, 2} {
+			for _, down := range []int32{1, 2, 3, 6} {
+				for _, accum := range []int32{0, 1} {
+					left, right := make([]float32, N), make([]float32, N)
+					for i := range left {
+						left[i] = float32(i%17-8) * 1700
+						right[i] = float32(i%13-6) * 2300
+					}
+					input := [2]*float32{unsafe.SliceData(left), unsafe.SliceData(right)}
+					out := make([]float32, (N/down)*max(C, 1)+2)
+					for i := range out {
+						out[i] = float32(i+77) / 31
+					}
+					want := append([]float32(nil), out...)
+					memory, wm := [2]float32{.25, -.5}, [2]float32{.25, -.5}
+					coef := float32(.85)
+					channels := [][]float32{left, right}
+					for c := int32(0); c < max(C, 1); c++ {
+						m := wm[c]
+						scratch := make([]float32, N)
+						for j := int32(0); j < N; j++ {
+							var tmp float32
+							if down > 1 || accum == 0 {
+								tmp = float32(float32(channels[c][j]+float32(1e-30)) + m)
+							} else {
+								tmp = float32(float32(channels[c][j]+m) + float32(1e-30))
+							}
+							m = float32(coef * tmp)
+							if down > 1 {
+								scratch[j] = tmp
+							} else {
+								scaled := float32(tmp * float32(1.0/32768))
+								if accum != 0 {
+									want[1+j*C+c] += scaled
+								} else {
+									want[1+j*C+c] = scaled
+								}
+							}
+						}
+						wm[c] = m
+						if down > 1 {
+							for j := int32(0); j < N/down; j++ {
+								scaled := float32(scratch[j*down] * float32(1.0/32768))
+								if accum != 0 {
+									want[1+j*C+c] += scaled
+								} else {
+									want[1+j*C+c] = scaled
+								}
+							}
+						}
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					deemphasis(nil, &input[0], &out[1], N, C, down, &coef, &memory[0], accum)
+					for i := range out {
+						if math.Float32bits(out[i]) != math.Float32bits(want[i]) {
+							t.Fatal("scratch output", N, C, down, accum, i, out[i], want[i])
+						}
+					}
+					if memory != wm {
+						t.Fatal("scratch memory", N, C, down, accum, memory, wm)
+					}
+				}
+			}
+		}
+	}
+	// N=0 ignores spectral/PCM buffers while preserving generic channel histories.
+	var input [2]*float32
+	coef := float32(.85)
+	memory := [2]float32{.25, -.5}
+	deemphasis(nil, &input[0], nil, 0, 2, 6, &coef, &memory[0], 1)
+	if memory != [2]float32{.25, -.5} {
+		t.Fatal("zero length")
+	}
+	// Memory can alias output; downsampled PCM stores follow the memory write.
+	left := []float32{32768, 0}
+	input[0] = &left[0]
+	out := []float32{.5, 77}
+	coef = .5
+	deemphasis(nil, &input[0], &out[0], 2, 1, 2, &coef, &out[0], 0)
+	if out[0] != float32(float32(32768+.5)*float32(1.0/32768)) || out[1] != 77 {
+		t.Fatal("memory/output store order", out)
+	}
 }
 
 func TestDeemphasisPointers(t *testing.T) {

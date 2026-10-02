@@ -167,88 +167,11 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 	}
 	var x, y *float32
 	var Nd, apply_downsampling, c, j, v29 int32
-	var _saved_stack, scratch, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var coef0 OpusT_opus_val16
 	var m, tmp, tmp1, tmp2 OpusT_celt_sig
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = Nd, _saved_stack, apply_downsampling, c, coef0, j, m, scratch, st, tmp, tmp1, tmp2, x, y, v1, v11, v13, v15, v17, v19, v21, v23, v29, v3, v5, v7, v9
+	// Match the C temporary's extent and per-channel reuse without a TLS address.
+	scratch := make([]float32, N)
 	apply_downsampling = 0
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(N))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3767, int32(335))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(N)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	scratch = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N))*(uint64(4)/uint64(1)))
 	coef0 = *coef
 	Nd = N / downsample
 	c = 0
@@ -256,7 +179,8 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 		m = unsafe.Slice(mem, max(C, 1))[c]
 		x = unsafe.Slice(in, max(C, 1))[c]
 		y = nil
-		if N > 0 {
+		// If Nd==0, C's channel cursor is never consumed; avoid forming one-past.
+		if N > 0 && (downsample <= 1 || Nd > 0) {
 			y = celtNormAdd(pcm, c)
 		}
 		if downsample > int32(1) {
@@ -268,7 +192,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 				}
 				tmp = unsafe.Slice(x, N)[j] + float32(1e-30) + m
 				m = OpusT_opus_val16(coef0 * tmp)
-				*(*OpusT_celt_sig)(unsafe.Pointer(scratch + uintptr(j)*4)) = tmp
+				scratch[j] = tmp
 				j = j + 1
 			}
 			apply_downsampling = int32(1)
@@ -307,7 +231,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					if !(j < Nd) {
 						break
 					}
-					*celtNormAdd(y, j*C) = *celtNormAdd(y, j*C) + float32(float32(1)/float32(32768)**(*OpusT_celt_sig)(unsafe.Pointer(scratch + uintptr(j*downsample)*4)))
+					*celtNormAdd(y, j*C) = *celtNormAdd(y, j*C) + float32(float32(1)/float32(32768)*scratch[j*downsample])
 					j = j + 1
 				}
 			} else {
@@ -316,7 +240,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					if !(j < Nd) {
 						break
 					}
-					*celtNormAdd(y, j*C) = float32(float32(1) / float32(32768) * *(*OpusT_celt_sig)(unsafe.Pointer(scratch + uintptr(j*downsample)*4)))
+					*celtNormAdd(y, j*C) = float32(float32(1) / float32(32768) * scratch[j*downsample])
 					j = j + 1
 				}
 			}
@@ -327,17 +251,6 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 			break
 		}
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
 func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, oldBandE uintptr, start int32, effEnd int32, C int32, CC int32, isTransient int32, LM int32, downsample int32, silence int32, arch int32) {

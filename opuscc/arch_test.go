@@ -48,7 +48,6 @@ func TestArchPacketFramePointers(t *testing.T) {
 func TestArchDeemphasisPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	setupResamplerPseudostack(tls)
 	left, right := [2]float32{32768, 65536}, [2]float32{-32768, -65536}
 	input := [2]*float32{&left[0], &right[0]}
 	var coef [4]float32

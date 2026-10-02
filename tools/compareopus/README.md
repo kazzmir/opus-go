@@ -374,6 +374,21 @@ decoder partition fixtures cover recursive budgets and optional folding alongsid
 the mono/stereo references. Native comparisons run on the host, not ARM64/macOS.
 Remaining outer integer boundaries, opaque allocations and pseudostack ownership
 mean these tests still do not establish global safety.
+Deemphasis now takes typed channel heads, PCM, coefficient and memory pointers.
+The generic path uses Go-owned N-sample scratch instead of TLS pseudostack storage;
+no unused output cursor is formed when decimation produces zero samples. The common
+stereo path remains unchanged, and generic accumulation/non-accumulation retain
+separate sum orders and explicit float32 product rounding. Celt decoder callers
+still cross an explicit legacy channel-address adapter. Native celt_decoder.c
+fixtures compare C=0/1/2 (including the C do-while channel-zero visit), N=0–960,
+factors 1/2/3/4/6, accumulation, coefficient choices, output guards and histories.
+Focused checkptr exercises active generic/fast paths, GC/stack growth, nil TLS,
+short/zero frames and memory/output store order on amd64, 386 and ARM64/QEMU; native
+comparisons remain host-only. The initial typed-buffer round checked only the
+scratch-free stereo path while the generic scratch was still legacy. Input/output
+aliases violate C restrict contracts, so Go store-order tests do not claim C parity
+for those aliases. This does not migrate outer CELT synthesis/decode ownership.
+
 Decoder CTL dispatch now has typed CELT custom, Opus, multistream and projection
 entries, using OpusDecoderCtlArgs for integer values and GC-visible scalar, range,
 mode and decoder output slots. Legacy vararg entries delegate; internal forwarding
@@ -470,7 +485,14 @@ Whole-extension skipping reuses those fixtures to compare ID/header consumption,
 empty/negative lengths, all ID bytes and failure cursor/header behavior.
 Payload writing shares extension fixtures and compares actual C lacing for
 short/long IDs, 255-byte boundaries, final payloads, sizing-only calls, capacity
-failures and untouched buffers. The generator API remains explicitly legacy.
+failures and untouched buffers. Packet generation now takes typed descriptor and
+output pointers, uses fixed 48-frame scratch and typed record helpers, reloads
+numeric descriptor fields after output stores, and pads with overlap-safe copy.
+The integer generator writer adapters are removed. Actual extensions.c fixtures
+cover repeats/interleaved frame order, short/long IDs and lacing, capacity/errors,
+NULL-output sizing, padding, guards and numeric descriptor/header aliases. Original
+generation goldens now run on Go-owned descriptors/payload/output storage under
+checkptr on amd64, 386 and ARM64/QEMU.
 Whole-extension writing additionally compares ID-byte narrowing and partial writes
 before payload errors, using the same extension fixtures and actual static C helper.
 Iterator initialization, repeat/next and find use typed state/output arguments and
@@ -491,7 +513,7 @@ C-style end cursors still have an unresolved boundary for exactly sized Go
 allocations: advancing one past an allocation fails checkptr (observed on 386).
 Focused fixtures keep logical EOF inside guarded backing storage and verify guards;
 this is not a fix for that general cursor-representation limitation. These passes
-do not establish global GC safety for iterator endpoints, the generator or outer
+do not establish global GC safety for iterator endpoints or outer
 decoder boundaries.
 CELT FIR comparisons compile the actual celt_lpc.c scalar helper beside existing
 LPC fixtures: reversed coefficients/history, 4-lane/tail arithmetic, odd orders,
