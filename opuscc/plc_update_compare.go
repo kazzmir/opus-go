@@ -10,6 +10,10 @@ func ComparePLCDispatch(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *O
 	silk_PLC(tls, dec, control, frame, lost, arch)
 }
 
+func ComparePLCLPC(decoder *OpusT_silk_decoder_state, history []int32, A *[MAX_LPC_ORDER]int16, frame *int16, gain int32) {
+	silkPLCLPC(nil, decoder, history, A, frame, gain)
+}
+
 func ComparePLCPCM(sample, gain int32) int16 { return silkPLCPCM(sample, gain) }
 
 func ComparePLCNoise(prediction int32, random []int32, index int32, scale int16) int32 {

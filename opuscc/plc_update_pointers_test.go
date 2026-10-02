@@ -7,6 +7,93 @@ import (
 	"weak"
 )
 
+func TestPLCLPCHistoryPointers(t *testing.T) {
+	for _, length := range []int32{0, 1, 10, 16, 17, 80, 320} {
+		for _, order := range []int32{10, 16} {
+			d := &OpusT_silk_decoder_state{Fframe_length: length, FLPC_order: order, FpsNLSF_CB: cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB)}
+			for i := range d.FsLPC_Q14_buf {
+				d.FsLPC_Q14_buf[i] = int32(i*1000003) - 8000000
+			}
+			a := new([MAX_LPC_ORDER]int16)
+			for i := range a {
+				a[i] = int16(i*137 - 700)
+			}
+			history := make([]int32, 18+length)
+			history[0], history[len(history)-1] = 77, 88
+			for i := int32(0); i < length; i++ {
+				history[17+i] = int32(int64(i) * 1000000003)
+			}
+			want := append([]int32(nil), history...)
+			copy(want[1:17], d.FsLPC_Q14_buf[:])
+			wf := make([]int16, length)
+			for i := int32(0); i < length; i++ {
+				pred := order >> 1
+				for j := int32(0); j < order; j++ {
+					pred = int32(int64(pred) + (int64(want[17+i-j-1]) * int64(a[j]) >> 16))
+				}
+				p := int64(int32(uint32(min(max(pred, -2147483648>>4), 2147483647>>4)) << 4))
+				want[17+i] = int32(min(max(int64(want[17+i])+p, int64(-2147483648)), int64(2147483647)))
+				wf[i] = int16(min(max(((int32(int64(want[17+i])*1024>>16)>>7)+1)>>1, -32768), 32767))
+			}
+			pcm := make([]int16, length+2)
+			pcm[0], pcm[len(pcm)-1] = 77, 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkPLCLPC(nil, d, history[1:len(history)-1], a, unsafe.SliceData(pcm[1:len(pcm)-1]), 1024)
+			for i := range history {
+				if history[i] != want[i] {
+					t.Fatal("LPC working history", length, order, i)
+				}
+			}
+			for i := range wf {
+				if pcm[i+1] != wf[i] {
+					t.Fatal("LPC PCM", length, order, i)
+				}
+			}
+			for i, v := range d.FsLPC_Q14_buf {
+				if v != want[1+int(length)+i] {
+					t.Fatal("history saved after PCM", length, order, i)
+				}
+			}
+			if pcm[0] != 77 || pcm[len(pcm)-1] != 88 || d.FpsNLSF_CB.Forder != 16 {
+				t.Fatal("history guard/owner")
+			}
+		}
+	}
+	d := OpusT_silk_decoder_state{FLPC_order: 8, Fframe_length: 1, FsLPC_Q14_buf: [16]int32{123}}
+	h := make([]int32, 17)
+	panicked := false
+	func() {
+		defer func() { panicked = recover() != nil }()
+		silkPLCLPC(nil, &d, h, new([16]int16), nil, 1024)
+	}()
+	if !panicked || h[0] != 123 || d.FsLPC_Q14_buf[0] != 123 {
+		t.Fatal("copy-before-LPC assertion order")
+	}
+	for _, f := range []struct{ x, p, w int32 }{{2147483647, 1, 2147483647}, {-2147483648, -1, -2147483648}, {0, 2147483647, 2147483632}, {0, -2147483648, -2147483648}} {
+		if got := silkPLCAddPrediction(f.x, f.p); got != f.w {
+			t.Fatal("saturating prediction", f, got)
+		}
+	}
+}
+
+// This alias is Go-only: short PCM into int32 state violates C effective types.
+func TestPLCLPCStatePCMOrderPointers(t *testing.T) {
+	d := OpusT_silk_decoder_state{FLPC_order: 16, Fframe_length: 16}
+	h := make([]int32, 32)
+	for i := 0; i < 16; i++ {
+		d.FsLPC_Q14_buf[i] = int32(i + 77)
+		h[16+i] = int32(i-8) << 16
+	}
+	silkPLCLPC(nil, &d, h, new([16]int16), (*int16)(unsafe.Pointer(&d.FsLPC_Q14_buf[0])), 1024)
+	for i := 0; i < 16; i++ {
+		want := (int32(i-8) << 16) + 128
+		if h[16+i] != want || d.FsLPC_Q14_buf[i] != want {
+			t.Fatal("PCM-before-history-save order", i, h[16+i], d.FsLPC_Q14_buf[i], want)
+		}
+	}
+}
+
 func TestPLCConcealPCMPointers(t *testing.T) {
 	pcm := make([]int16, 3)
 	pcm[0], pcm[2] = 77, 88

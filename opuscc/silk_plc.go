@@ -157,6 +157,30 @@ func silk_PLC_energy(tls *libc.TLS, energy1, shift1, energy2, shift2 *int32, exc
 func silk_PLC_conceal(tls *libc.TLS, psDec, psDecCtrl, frame uintptr, arch int32) {
 	silk_PLC_conceal_owned(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(frame)), arch)
 }
+func silkPLCAddPrediction(excitation, prediction int32) int32 {
+	prediction = min(max(prediction, -2147483648>>4), 2147483647>>4)
+	shifted := int32(uint32(prediction) << 4)
+	return int32(min(max(int64(excitation)+int64(shifted), int64(-2147483648)), int64(2147483647)))
+}
+func silkPLCLPC(tls *libc.TLS, decoder *OpusT_silk_decoder_state, history []int32, A *[MAX_LPC_ORDER]int16, frame *int16, gain int32) {
+	copy(history[:MAX_LPC_ORDER], decoder.FsLPC_Q14_buf[:])
+	if decoder.FLPC_order < 10 {
+		Opus_celt_fatal(tls, __ccgo_ts+6755, __ccgo_ts+6715, 373)
+	}
+	pcm := unsafe.Slice(frame, decoder.Fframe_length)
+	for i := int32(0); i < decoder.Fframe_length; i++ {
+		prediction := decoder.FLPC_order >> 1
+		for j := int32(0); j < 10; j++ {
+			prediction = int32(int64(prediction) + (int64(history[MAX_LPC_ORDER+i-j-1]) * int64(A[j]) >> 16))
+		}
+		for j := int32(10); j < decoder.FLPC_order; j++ {
+			prediction = int32(int64(prediction) + (int64(history[MAX_LPC_ORDER+i-j-1]) * int64(A[j]) >> 16))
+		}
+		history[MAX_LPC_ORDER+i] = silkPLCAddPrediction(history[MAX_LPC_ORDER+i], prediction)
+		silkPLCPCMStore(pcm, i, history[MAX_LPC_ORDER+i], gain)
+	}
+	copy(decoder.FsLPC_Q14_buf[:], history[decoder.Fframe_length:decoder.Fframe_length+MAX_LPC_ORDER])
+}
 func silkPLCPCMStore(pcm []int16, index, sample, gain int32) { pcm[index] = silkPLCPCM(sample, gain) }
 func silkPLCPCM(sample, gain int32) int16 {
 	scaled := int32(int64(sample) * int64(gain) >> 16)
@@ -183,9 +207,9 @@ func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDe
 	var psPLC *OpusT_silk_PLC_struct
 	var B_Q14 *[LTP_ORDER]int16
 	var rand_ptr []int32
-	var _saved_stack, pred_lag_ptr, sLPC_Q14_ptr, sLTP, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
-	var LPC_pred_Q10, LTP_pred_Q12, b32_inv, b32_nrm, down_scale_Q30, err_Q32, harm_Gain_Q15, invGain_Q30, inv_gain_Q30, rand_Gain_Q15, rand_seed, result, v84, v85, v86, v89 OpusT_opus_int32
-	var b_headrm, i, idx, j, k, lag, lshift, sLTP_buf_idx, v53, v54, v55, v57, v58, v59, v60, v62, v63, v64, v65, v67, v68 int32
+	var _saved_stack, pred_lag_ptr, sLTP, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var LTP_pred_Q12, b32_inv, b32_nrm, down_scale_Q30, err_Q32, harm_Gain_Q15, invGain_Q30, inv_gain_Q30, rand_Gain_Q15, rand_seed, result, v84, v85, v86, v89 OpusT_opus_int32
+	var b_headrm, i, idx, k, lag, lshift, sLTP_buf_idx, v53, v54, v55, v57, v58, v59, v60, v62 int32
 	var rand_scale_Q14, v79, v80, v81 OpusT_opus_int16
 	var energy1, energy2 OpusT_opus_int32
 	var shift1, shift2 int32
@@ -587,115 +611,10 @@ _102:
 		lag = ((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
 		k = k + 1
 	}
-	/***************************/
-	/* LPC synthesis filtering */
-	/***************************/
-	sLPC_Q14_ptr = sLTP_Q14 + uintptr(decoder.Fltp_mem_length-int32(MAX_LPC_ORDER))*4
-	/* Copy LPC state */
-	libc.Xmemcpy(tls, sLPC_Q14_ptr, uintptr(unsafe.Pointer(&decoder.FsLPC_Q14_buf[0])), uint64(uint32(MAX_LPC_ORDER))*uint64(4))
-	if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order >= int32(10)) {
-		Opus_celt_fatal(tls, __ccgo_ts+6755, __ccgo_ts+6715, int32(373))
-	} /* check that unrolling works */
-	pcm := unsafe.Slice(frame, decoder.Fframe_length)
-	i = 0
-	for {
-		if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length) {
-			break
-		}
-		/* partly unrolled */
-		/* Avoids introducing a bias because silk_SMLAWB() always rounds to -inf */
-		LPC_pred_Q10 = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order >> int32(1)
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(1))*4)))*int64(A_Q12[0])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(2))*4)))*int64(A_Q12[int32(1)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(3))*4)))*int64(A_Q12[int32(2)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(4))*4)))*int64(A_Q12[int32(3)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(5))*4)))*int64(A_Q12[int32(4)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(6))*4)))*int64(A_Q12[int32(5)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(7))*4)))*int64(A_Q12[int32(6)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(8))*4)))*int64(A_Q12[int32(7)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(9))*4)))*int64(A_Q12[int32(8)])>>int32(16))
-		LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-int32(10))*4)))*int64(A_Q12[int32(9)])>>int32(16))
-		j = int32(10)
-		for {
-			if !(j < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order) {
-				break
-			}
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i-j-int32(1))*4)))*int64(A_Q12[j])>>int32(16))
-			j = j + 1
-		}
-		/* Add prediction to LPC excitation */
-		if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-			v54 = int32(silk_int32_MAX) >> int32(4)
-		} else {
-			if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-				v55 = int32(-2147483648) >> int32(4)
-			} else {
-				v55 = LPC_pred_Q10
-			}
-			v54 = v55
-		}
-		if (uint32(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))+uint32(int32(uint32(v54)<<int32(4))))&uint32(0x80000000) == uint32(0) {
-			if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-				v58 = int32(silk_int32_MAX) >> int32(4)
-			} else {
-				if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-					v59 = int32(-2147483648) >> int32(4)
-				} else {
-					v59 = LPC_pred_Q10
-				}
-				v58 = v59
-			}
-			if uint32(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4))&int32(uint32(v58)<<int32(4)))&uint32(0x80000000) != uint32(0) {
-				v57 = int32(-2147483648)
-			} else {
-				if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-					v60 = int32(silk_int32_MAX) >> int32(4)
-				} else {
-					if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-						v62 = int32(-2147483648) >> int32(4)
-					} else {
-						v62 = LPC_pred_Q10
-					}
-					v60 = v62
-				}
-				v57 = *(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)) + int32(uint32(v60)<<int32(4))
-			}
-			v53 = v57
-		} else {
-			if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-				v64 = int32(silk_int32_MAX) >> int32(4)
-			} else {
-				if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-					v65 = int32(-2147483648) >> int32(4)
-				} else {
-					v65 = LPC_pred_Q10
-				}
-				v64 = v65
-			}
-			if uint32(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4))|int32(uint32(v64)<<int32(4)))&uint32(0x80000000) == uint32(0) {
-				v63 = int32(silk_int32_MAX)
-			} else {
-				if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-					v67 = int32(silk_int32_MAX) >> int32(4)
-				} else {
-					if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-						v68 = int32(-2147483648) >> int32(4)
-					} else {
-						v68 = LPC_pred_Q10
-					}
-					v67 = v68
-				}
-				v63 = *(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)) + int32(uint32(v67)<<int32(4))
-			}
-			v53 = v63
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)) = v53
-		// SMULWW narrows before RSHIFT_ROUND; the nested SAT16 is idempotent.
-		silkPLCPCMStore(pcm, i, *(*int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(MAX_LPC_ORDER+i)*4)), prevGain_Q10[1])
-		i = i + 1
-	}
-	/* Save LPC state */
-	libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.FsLPC_Q14_buf[0])), sLPC_Q14_ptr+uintptr(decoder.Fframe_length)*4, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
+	// Explicit legacy scratch boundary; the complete LPC history/PCM kernel below
+	// uses typed views, sequential narrowing/stores, and Go copy operations.
+	history := unsafe.Slice((*int32)(unsafe.Pointer(sLTP_Q14+uintptr(decoder.Fltp_mem_length-MAX_LPC_ORDER)*4)), MAX_LPC_ORDER+decoder.Fframe_length)
+	silkPLCLPC(tls, decoder, history, &A_Q12, frame, prevGain_Q10[1])
 	/**************************************/
 	/* Update states                      */
 	/**************************************/

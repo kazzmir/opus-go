@@ -451,11 +451,24 @@ arguments before forwarding. The rate mismatch/reset helper uses typed state;
 reset/fs update precede dispatch, nonzero (including negative) loss flags select
 concealment, lossCnt increments only after concealment returns, and nonloss
 updates never consume PCM (nil and numeric aliases are valid on that branch).
-The concealment entry now retains typed decoder/control and PLC-state owners.
-Its existing private uintptr ABI remains an escape adapter, and its PCM cursors,
-coefficient/history arithmetic and TLS synthesis scratch are still legacy. This
-is not a checkptr/GC-safety claim for the complete concealment path or opaque
-byte-backed decoder allocations.
+The concealment entry now retains typed decoder/control/PCM and PLC-state
+owners. LTP coefficients use a live fixed-array pointer and random excitation a
+live 128-word decoder-owned view. Five-tap attenuation retains int16 gain
+narrowing; random mixing retains per-MAC int32 narrowing and wrapping shifts.
+The LPC history/PCM phase is a typed standalone kernel: copy the 16-word state,
+check order >=10, perform the first ten MACs plus remaining order taps, narrow
+each MAC, saturate the prediction shift and excitation sum, scale/round/saturate
+PCM, then save history after all PCM stores. Modeled frame/order reads remain
+live. The redundant nested SAT16 is collapsed without changing its value;
+SMULWW still narrows before RSHIFT_ROUND (the max-int32 product fixture yields
+-256, not a clamp of the wide product).
+
+The private uintptr ABI remains an explicit escape adapter. The outer core
+still has integer-addressed LTP predictor/whitening cursors and two TLS synthesis
+scratch arrays; the typed LPC kernel receives an explicit converted scratch
+interior. Focused checkptr checks active helper buffers, not that conversion or
+the complete concealment path. Opaque byte-backed decoder allocations are not
+made scanned by these changes.
 
 Actual PLC.c dispatcher fixtures compare the full decoder/control structs and
 PCM/guards: rates 8/12/16, 2/4 subframes, orders 10/16 on update, all signal types,
@@ -468,8 +481,17 @@ full nonloss dispatch with GC/stack growth, nil/unused PCM and Go-only invalid-
 control reset/store ordering. A sole typed PLC interior retains a scanned decoder
 and heap codebook through forced GC. Round one checked the rate helper while
 control remained integer-addressed; later rounds check full nonloss dispatch,
-not active concealment. All four rounds retain the original baselines/goldens
-and cross-architecture checks; QEMU is not a direct macOS CI result.
+not active concealment. The following coefficient/random/PCM/history rounds
+also check active typed LPC buffers with nil TLS, GC/stack growth, lengths
+0/1/10/16/17/80/320, orders 10/16, guard words, saturation and copy-before-order-
+assertion behavior. Decoder-backed coefficient/random interiors retain heap
+codebooks through weak-owner tests. Go-only PCM/state alias fixtures verify
+history save after PCM; they do not claim C effective-type alias parity.
+Macro-based native leaf fixtures add coefficient decay, random mixing, narrowed
+PCM scaling, and the full LPC kernel/working history (zero/extreme coefficients,
+several gains, all listed lengths). Actual PLC.c lost-dispatch fixtures remain
+the complete native integration reference. All rounds retain the original
+baselines/goldens and cross-architecture checks; QEMU is not direct macOS CI.
 
 CELT allocation interpolation now takes typed mode/entropy, four band inputs,
 three band outputs and balance/intensity/dual-stereo output pointers. The unused

@@ -10,6 +10,11 @@ package main
 #define silk_PLC comparison_PLC
 #define silk_PLC_glue_frames comparison_PLC_glue_frames
 #include "PLC.c"
+static void plc_lpc(int *state,int *history,const short *a,short *pcm,int length,int order,int gain) {
+ memcpy(history,state,MAX_LPC_ORDER*sizeof(int));
+ for(int i=0;i<length;i++){int prediction=order>>1;for(int j=0;j<order;j++)prediction=silk_SMLAWB(prediction,history[MAX_LPC_ORDER+i-j-1],a[j]);history[MAX_LPC_ORDER+i]=silk_ADD_SAT32(history[MAX_LPC_ORDER+i],silk_LSHIFT_SAT32(prediction,4));pcm[i]=(short)silk_SAT16(silk_SAT16(silk_RSHIFT_ROUND(silk_SMULWW(history[MAX_LPC_ORDER+i],gain),8)));}
+ memcpy(state,history+length,MAX_LPC_ORDER*sizeof(int));
+}
 static short plc_pcm(int sample,int gain) {return (short)silk_SAT16(silk_SAT16(silk_RSHIFT_ROUND(silk_SMULWW(sample,gain),8)));}
 static int plc_noise(int prediction,const int *random,int index,short scale) {return silk_LSHIFT32(silk_SMLAWB(prediction,random[index],scale),2);}
 static void plc_decay(short *b,int gain) {for(int j=0;j<LTP_ORDER;j++)b[j]=silk_RSHIFT(silk_SMULBB(gain,b[j]),15);}
@@ -41,6 +46,10 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePLCLPC(state *[16]int32, history []int32, a *[16]int16, pcm []int16, order, gain int32) {
+	C.plc_lpc((*C.int)(unsafe.Pointer(state)), (*C.int)(unsafe.Pointer(unsafe.SliceData(history))), (*C.short)(unsafe.Pointer(a)), (*C.short)(unsafe.Pointer(unsafe.SliceData(pcm))), C.int(len(pcm)), C.int(order), C.int(gain))
+}
 
 func nativePLCPCM(sample, gain int32) int16 { return int16(C.plc_pcm(C.int(sample), C.int(gain))) }
 

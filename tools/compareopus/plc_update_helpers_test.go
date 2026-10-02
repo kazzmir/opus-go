@@ -10,6 +10,43 @@ import (
 	"unsafe"
 )
 
+func TestPLCLPCAgainstC(t *testing.T) {
+	for _, length := range []int32{0, 1, 10, 16, 17, 80, 320} {
+		for _, order := range []int32{10, 16} {
+			for _, gain := range []int32{0, 1024, 65536, 2147483647} {
+				for _, extreme := range []bool{false, true} {
+					d := opuscc.OpusT_silk_decoder_state{Fframe_length: length, FLPC_order: order}
+					for i := range d.FsLPC_Q14_buf {
+						d.FsLPC_Q14_buf[i] = int32(i*1000003) - 8000000
+					}
+					state := d.FsLPC_Q14_buf
+					var a [16]int16
+					for i := range a {
+						a[i] = int16(i*137 - 700)
+						if extreme {
+							a[i] = int16(i*12345 - 32768)
+						}
+					}
+					history := make([]int32, 18+length)
+					history[0], history[len(history)-1] = 77, 88
+					for i := int32(0); i < length; i++ {
+						history[17+i] = int32(int64(i) * 1000000003)
+					}
+					ch := slices.Clone(history)
+					pcm := make([]int16, length+2)
+					pcm[0], pcm[len(pcm)-1] = 77, 88
+					cp := slices.Clone(pcm)
+					opuscc.ComparePLCLPC(&d, history[1:len(history)-1], &a, unsafe.SliceData(pcm[1:len(pcm)-1]), gain)
+					nativePLCLPC(&state, ch[1:len(ch)-1], &a, cp[1:len(cp)-1], order, gain)
+					if d.FsLPC_Q14_buf != state || !slices.Equal(history, ch) || !slices.Equal(pcm, cp) {
+						t.Fatal("LPC history", length, order, gain, extreme, d.FsLPC_Q14_buf, state, pcm, cp)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestPLCPCMAgainstC(t *testing.T) {
 	for _, sample := range []int32{-2147483648, -8388609, -128, -1, 0, 127, 128, 8388608, 2147483647} {
 		for _, gain := range []int32{-2147483648, -65536, -1, 0, 1, 1024, 65536, 2147483647} {
