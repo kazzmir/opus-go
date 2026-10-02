@@ -8,7 +8,7 @@ import (
 )
 
 func ComparePLCDispatch(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, frame *int16, lost, arch int32) {
-	silk_PLC(tls, dec, uintptr(unsafe.Pointer(control)), uintptr(unsafe.Pointer(frame)), lost, arch)
+	silk_PLC(tls, dec, control, uintptr(unsafe.Pointer(frame)), lost, arch)
 }
 
 func ComparePLCUpdate(dec *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control) {
