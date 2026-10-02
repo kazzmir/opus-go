@@ -39,6 +39,8 @@ import (
 	"unsafe"
 )
 
+// Fixtures leave all embedded codebook/coefficient pointers nil. Byte images
+// are numeric-only: this is not a write-barrier-safe Go pointer import path.
 func nativePLCDispatch(dec *opuscc.OpusT_silk_decoder_state, control *opuscc.OpusT_silk_decoder_control, frame []int16, lost, arch int32) int32 {
 	d, c := make([]byte, int(unsafe.Sizeof(*dec))), make([]byte, int(unsafe.Sizeof(*control)))
 	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)))

@@ -38,7 +38,7 @@ func silk_PLC(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_s
 		/****************************/
 		/* Generate Signal          */
 		/****************************/
-		silk_PLC_conceal(tls, uintptr(unsafe.Pointer(decoder)), uintptr(unsafe.Pointer(control)), uintptr(unsafe.Pointer(frame)), arch)
+		silk_PLC_conceal_owned(tls, decoder, control, uintptr(unsafe.Pointer(frame)), arch)
 		decoder.FlossCnt = decoder.FlossCnt + 1
 	} else {
 		/****************************/
@@ -153,8 +153,20 @@ func silk_PLC_energy(tls *libc.TLS, energy1, shift1, energy2, shift2 *int32, exc
 	Opus_silk_sum_sqr_shift(tls, energy2, shift2, unsafe.SliceData(buffer[subfr_length:]), subfr_length)
 }
 
-func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintptr, arch int32) {
-	var B_Q14, _saved_stack, pred_lag_ptr, psPLC, rand_ptr, sLPC_Q14_ptr, sLTP, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+//go:uintptrescapes
+func silk_PLC_conceal(tls *libc.TLS, psDec, psDecCtrl, frame uintptr, arch int32) {
+	silk_PLC_conceal_owned(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), frame, arch)
+}
+func silkPLCConcealState(decoder *OpusT_silk_decoder_state) *OpusT_silk_PLC_struct {
+	return &decoder.FsPLC
+}
+
+// Frame and internal synthesis/history cursors still use the legacy ABI.
+//
+//go:uintptrescapes
+func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, frame uintptr, arch int32) {
+	var psPLC *OpusT_silk_PLC_struct
+	var B_Q14, _saved_stack, pred_lag_ptr, rand_ptr, sLPC_Q14_ptr, sLTP, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var LPC_pred_Q10, LTP_pred_Q12, b32_inv, b32_nrm, down_scale_Q30, err_Q32, harm_Gain_Q15, invGain_Q30, inv_gain_Q30, rand_Gain_Q15, rand_seed, result, v84, v85, v86, v89 OpusT_opus_int32
 	var b_headrm, i, idx, j, k, lag, lshift, sLTP_buf_idx, v53, v54, v55, v57, v58, v59, v60, v62, v63, v64, v65, v67, v68 int32
 	var rand_scale_Q14, v79, v80, v81 OpusT_opus_int16
@@ -162,10 +174,9 @@ func silk_PLC_conceal(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uin
 	var shift1, shift2 int32
 	var A_Q12 [MAX_LPC_ORDER]OpusT_opus_int16
 	var prevGain_Q10 [2]OpusT_opus_int32
-	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
-	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
-	plc := &decoder.FsPLC
-	psPLC = uintptr(unsafe.Pointer(plc))
+	decoder, control := psDec, psDecCtrl
+	plc := silkPLCConcealState(decoder)
+	psPLC = plc
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))

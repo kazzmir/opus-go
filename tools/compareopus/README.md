@@ -445,6 +445,32 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
+SILK PLC dispatch now holds typed decoder, control and PCM pointers. The public
+Opus_silk_PLC uintptr ABI is an explicit escape adapter that converts all three
+arguments before forwarding. The rate mismatch/reset helper uses typed state;
+reset/fs update precede dispatch, nonzero (including negative) loss flags select
+concealment, lossCnt increments only after concealment returns, and nonloss
+updates never consume PCM (nil and numeric aliases are valid on that branch).
+The concealment entry now retains typed decoder/control and PLC-state owners.
+Its existing private uintptr ABI remains an escape adapter, and its PCM cursors,
+coefficient/history arithmetic and TLS synthesis scratch are still legacy. This
+is not a checkptr/GC-safety claim for the complete concealment path or opaque
+byte-backed decoder allocations.
+
+Actual PLC.c dispatcher fixtures compare the full decoder/control structs and
+PCM/guards: rates 8/12/16, 2/4 subframes, orders 10/16 on update, all signal types,
+matching/mismatching rates, prior loss counts 0/1/3, flags 1/-1/7, first-frame
+reset, and voiced/unvoiced concealment. Native byte-image fixture states leave
+embedded codebook/coefficient pointers nil; they do not import Go pointers via
+raw stores. The loss fixtures still initialize Go's legacy TLS
+scratch and run natively only. Focused checkptr tests cover rate ownership and
+full nonloss dispatch with GC/stack growth, nil/unused PCM and Go-only invalid-
+control reset/store ordering. A sole typed PLC interior retains a scanned decoder
+and heap codebook through forced GC. Round one checked the rate helper while
+control remained integer-addressed; later rounds check full nonloss dispatch,
+not active concealment. All four rounds retain the original baselines/goldens
+and cross-architecture checks; QEMU is not a direct macOS CI result.
+
 CELT allocation interpolation now takes typed mode/entropy, four band inputs,
 three band outputs and balance/intensity/dual-stereo output pointers. The unused
 TLS save/restore is removed, the interpolation integer adapter is gone, and the

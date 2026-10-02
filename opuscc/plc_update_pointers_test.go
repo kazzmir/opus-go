@@ -4,7 +4,25 @@ import (
 	"runtime"
 	"testing"
 	"unsafe"
+	"weak"
 )
+
+func TestPLCConcealStateOwnersPointers(t *testing.T) {
+	plc, owner := func() (*OpusT_silk_PLC_struct, weak.Pointer[OpusT_silk_NLSF_CB_struct]) {
+		cb := cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB)
+		d := &OpusT_silk_decoder_state{FpsNLSF_CB: cb, FsPLC: OpusT_silk_PLC_struct{Frand_seed: 123, FprevGain_Q16: [2]int32{65536, 131072}}}
+		return silkPLCConcealState(d), weak.Make(cb)
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	runtime.GC()
+	cb := owner.Value()
+	if cb == nil || cb.Forder != 16 || plc.Frand_seed != 123 || plc.FprevGain_Q16 != [2]int32{65536, 131072} {
+		t.Fatal("sole PLC interior lost scanned decoder owner")
+	}
+	plc.FpitchL_Q8 = 77
+	runtime.KeepAlive(plc)
+}
 
 func TestPLCDispatchFramePointers(t *testing.T) {
 	d := OpusT_silk_decoder_state{Ffs_kHz: 16, Fframe_length: 320, Fsubfr_length: 80, Fnb_subfr: 4, FLPC_order: 16}
