@@ -824,14 +824,27 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start, end int32, off
 func allocationVector(mode *OpusT_OpusCustomMode, stride, vector, band int32) byte {
 	return unsafe.Slice(mode.FallocVectors, mode.FnbAllocVectors*stride)[vector*stride+band]
 }
+
+// Only [start,end) is initialized and consumed, like the C VAR_ARRAYS path.
+func allocationCurve(m *OpusT_OpusCustomMode, start, end, length, trim, C, LM int32) (threshold, tilt []int32) {
+	threshold, tilt = make([]int32, length), make([]int32, length)
+	for j := start; j < end; j++ {
+		width := int32(modeBand(m, j+1)) - int32(modeBand(m, j))
+		threshold[j] = max(C<<BITRES, 3*width<<LM<<BITRES>>4)
+		tilt[j] = C * width * (trim - 5 - LM) * (end - j - 1) * (int32(1) << (LM + BITRES)) >> 6
+		if width<<LM == 1 {
+			tilt[j] -= C << BITRES
+		}
+	}
+	return
+}
 func allocationInputs(offsets, cap *int32, end int32) ([]int32, []int32) {
 	return unsafe.Slice(offsets, end), unsafe.Slice(cap, end)
 }
 func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, offsets *int32, cap1 *int32, alloc_trim int32, intensity *int32, dual_stereo *int32, total OpusT_opus_int32, balance *int32, pulses *int32, ebits *int32, fine_priority *int32, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
 	off, caps := allocationInputs(offsets, cap1, end)
 	var N, N1, bits1j, bits2j, bitsj, codedBands, done, dual_stereo_rsv, hi, intensity_rsv, j, len1, lo, mid, psum, skip_rsv, skip_start, v5 int32
-	var _saved_stack, bits1, bits2, st, thresh, trim_offset, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v3, v9 uintptr
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N1, _saved_stack, bits1, bits1j, bits2, bits2j, bitsj, codedBands, done, dual_stereo_rsv, hi, intensity_rsv, j, len1, lo, mid, psum, skip_rsv, skip_start, st, thresh, trim_offset, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v3, v5, v9
+	var _saved_stack, bits1, bits2, st, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v3, v9 uintptr
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -1010,159 +1023,7 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 	}
 	v27 = st
 	bits2 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v27)).Fglobal_stack - uintptr(uint64(uint32(len1))*(uint64(4)/uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	if !(int64(int32(uint64(uint32(len1))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+5155, int32(572))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack += uintptr(uint64(uint32(len1)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v25 = libc.Xmalloc(tls, uint64(16))
-		st = v25
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v27 = st
-	thresh = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v27)).Fglobal_stack - uintptr(uint64(uint32(len1))*(uint64(4)/uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	if !(int64(int32(uint64(uint32(len1))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+5155, int32(573))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack += uintptr(uint64(uint32(len1)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v25 = libc.Xmalloc(tls, uint64(16))
-		st = v25
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v27 = st
-	trim_offset = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v27)).Fglobal_stack - uintptr(uint64(uint32(len1))*(uint64(4)/uint64(1)))
-	j = start
-	for {
-		if !(j < end) {
-			break
-		}
-		/* Below this threshold, we're sure not to allocate any PVQ bits */
-		if C<<int32(BITRES) > int32(3)*(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1)))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)))<<LM<<int32(BITRES)>>int32(4) {
-			v5 = C << int32(BITRES)
-		} else {
-			v5 = int32(3) * (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))) << LM << int32(BITRES) >> int32(4)
-		}
-		*(*int32)(unsafe.Pointer(thresh + uintptr(j)*4)) = v5
-		/* Tilt of the allocation curve */
-		*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) = C * (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))) * (alloc_trim - int32(5) - LM) * (end - j - int32(1)) * (int32(1) << (LM + int32(BITRES))) >> int32(6)
-		/* Giving less resolution to single-coefficient bands because they get
-		   more benefit from having one coarse value per coefficient*/
-		if (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1)))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)))<<LM == int32(1) {
-			*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) -= C << int32(BITRES)
-		}
-		j = j + 1
-	}
+	thresh, trim_offset := allocationCurve(m, start, end, len1, alloc_trim, C, LM)
 	lo = int32(1)
 	hi = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbAllocVectors - int32(1)
 	for cond := true; cond; cond = lo <= hi {
@@ -1179,15 +1040,11 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 			N = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
 			bitsj = C * N * int32(allocationVector(m, len1, mid, j)) << LM >> int32(2)
 			if bitsj > 0 {
-				if 0 > bitsj+*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) {
-					v5 = 0
-				} else {
-					v5 = bitsj + *(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4))
-				}
+				v5 = max(int32(0), bitsj+trim_offset[j])
 				bitsj = v5
 			}
 			bitsj += off[j]
-			if bitsj >= *(*int32)(unsafe.Pointer(thresh + uintptr(j)*4)) || done != 0 {
+			if bitsj >= thresh[j] || done != 0 {
 				done = int32(1)
 				/* Don't allocate more than we can actually use */
 				v5 = min(bitsj, caps[j])
@@ -1223,19 +1080,11 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 		}
 		bits2j = v5
 		if bits1j > 0 {
-			if 0 > bits1j+*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) {
-				v5 = 0
-			} else {
-				v5 = bits1j + *(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4))
-			}
+			v5 = max(int32(0), bits1j+trim_offset[j])
 			bits1j = v5
 		}
 		if bits2j > 0 {
-			if 0 > bits2j+*(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4)) {
-				v5 = 0
-			} else {
-				v5 = bits2j + *(*int32)(unsafe.Pointer(trim_offset + uintptr(j)*4))
-			}
+			v5 = max(int32(0), bits2j+trim_offset[j])
 			bits2j = v5
 		}
 		if lo > 0 {
@@ -1255,7 +1104,7 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 		*(*int32)(unsafe.Pointer(bits2 + uintptr(j)*4)) = bits2j
 		j = j + 1
 	}
-	codedBands = interp_bits2pulses(tls, m, start, end, skip_start, (*int32)(unsafe.Pointer(bits1)), (*int32)(unsafe.Pointer(bits2)), (*int32)(unsafe.Pointer(thresh)), cap1, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
+	codedBands = interp_bits2pulses(tls, m, start, end, skip_start, (*int32)(unsafe.Pointer(bits1)), (*int32)(unsafe.Pointer(bits2)), unsafe.SliceData(thresh), cap1, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))

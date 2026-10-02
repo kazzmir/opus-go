@@ -32,6 +32,36 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestAllocationDriverCurvePointers(t *testing.T) {
+	m := newSynthesisTestMode()
+	for _, C := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, start := range []int32{0, 3, 18} {
+				for _, trim := range []int32{0, 5, 10, 1 << 20, -1 << 20} {
+					threshold, tilt := allocationCurve(m, start, 21, 21, trim, C, LM)
+					entropyInitGrowStack(12)
+					runtime.GC()
+					for j := start; j < 21; j++ {
+						width := int32(eband5ms[j+1] - eband5ms[j])
+						wantThreshold := max(C<<BITRES, 3*width<<LM<<BITRES>>4)
+						wantTilt := int32(int64(C)*int64(width)*int64(trim-5-LM)*int64(21-j-1)*int64(int32(1)<<(LM+BITRES))) >> 6
+						if width<<LM == 1 {
+							wantTilt -= C << BITRES
+						}
+						if threshold[j] != wantThreshold || tilt[j] != wantTilt {
+							t.Fatal("allocation curve", C, LM, start, trim, j, threshold[j], tilt[j], wantThreshold, wantTilt)
+						}
+					}
+				}
+			}
+		}
+	}
+	a, b := allocationCurve(nil, 0, 0, 0, 0, 1, 0)
+	if len(a) != 0 || len(b) != 0 {
+		t.Fatal("empty curve")
+	}
+}
+
 func TestAllocationDriverInputsPointers(t *testing.T) {
 	off, caps := func() ([]int32, []int32) {
 		a, b := make([]int32, 21), make([]int32, 21)
