@@ -5,6 +5,15 @@ package opuscc
 import "unsafe"
 import libc "github.com/kazzmir/opus-go/libcshim"
 
+func CompareAllocationInterp(mode *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, cfg *[12]int32, ec *OpusT_ec_ctx) (result int32) {
+	defer func() {
+		if recover() != nil {
+			result = -99
+		}
+	}()
+	return interp_bits2pulses(nil, mode, cfg[0], cfg[1], cfg[2], uintptr(unsafe.Pointer(&a[0][1])), uintptr(unsafe.Pointer(&a[1][1])), uintptr(unsafe.Pointer(&a[2][1])), uintptr(unsafe.Pointer(&a[3][1])), cfg[3], uintptr(unsafe.Pointer(&s[0])), cfg[4], uintptr(unsafe.Pointer(&s[1])), cfg[5], uintptr(unsafe.Pointer(&s[2])), cfg[6], uintptr(unsafe.Pointer(&a[4][1])), uintptr(unsafe.Pointer(&a[5][1])), uintptr(unsafe.Pointer(&a[6][1])), cfg[7], cfg[8], ec, cfg[9], cfg[10], cfg[11])
+}
+
 func ComparePrefilterFold(tls *libc.TLS, data []byte, N int32) {
 	st := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
 	st.Fmode = &mode48000_960_120

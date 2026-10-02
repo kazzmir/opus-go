@@ -32,6 +32,30 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestAllocationModeEntropyPointers(t *testing.T) {
+	mode := newSynthesisTestMode()
+	logs := slices.Clone(unsafe.Slice(mode.FlogN, mode.FnbEBands))
+	mode.FlogN = unsafe.SliceData(logs)
+	ctx := func() *OpusT_ec_ctx {
+		b := make([]byte, 64)
+		e := new(OpusT_ec_ctx)
+		Opus_ec_enc_init(nil, e, &b[0], 64)
+		return e
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i := int32(0); i < 21; i++ {
+		if modeBand(mode, i) != eband5ms[i] || modeLogN(mode, i) != logN400[i] {
+			t.Fatal("allocation table owner", i)
+		}
+	}
+	Opus_ec_enc_uint(nil, ctx, 3, 7)
+	Opus_ec_enc_done(nil, ctx)
+	if ctx.Fbuf == nil || ctx.Ferror1 != 0 {
+		t.Fatal("allocation entropy owner")
+	}
+}
+
 func TestPrefilterScratchPointers(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		for _, overlap := range []int32{0, 1, 3, 119, 120} {

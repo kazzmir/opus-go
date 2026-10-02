@@ -560,24 +560,15 @@ var LOG2_FRAC_TABLE = [24]uint8{
 	23: uint8(37),
 }
 
-func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_start int32, bits1 uintptr, bits2 uintptr, thresh uintptr, cap1 uintptr, total OpusT_opus_int32, _balance uintptr, skip_rsv int32, intensity uintptr, intensity_rsv int32, dual_stereo uintptr, dual_stereo_rsv int32, bits uintptr, ebits uintptr, fine_priority uintptr, C int32, LM int32, ec uintptr, encode int32, prev int32, signalBandwidth int32) (r int32) {
+//go:uintptrescapes
+func interp_bits2pulses_legacy(tls *libc.TLS, m uintptr, start, end, skipStart int32, bits1, bits2, thresh, cap1 uintptr, total int32, balance uintptr, skipRsv int32, intensity uintptr, intensityRsv int32, dual uintptr, dualRsv int32, bits, ebits, priority uintptr, C, LM int32, ec uintptr, encode, prev, bandwidth int32) int32 {
+	return interp_bits2pulses(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, skipStart, bits1, bits2, thresh, cap1, total, balance, skipRsv, intensity, intensityRsv, dual, dualRsv, bits, ebits, priority, C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), encode, prev, bandwidth)
+}
+func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, skip_start int32, bits1 uintptr, bits2 uintptr, thresh uintptr, cap1 uintptr, total OpusT_opus_int32, _balance uintptr, skip_rsv int32, intensity uintptr, intensity_rsv int32, dual_stereo uintptr, dual_stereo_rsv int32, bits uintptr, ebits uintptr, fine_priority uintptr, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
 	var N, N0, NClogN, alloc_floor, band_bits, band_width, codedBands, den, depth_threshold, done, extra_bits, extra_fine, hi, i, j, lo, logM, mid, offset, rem, stereo, tmp, tmp1, tmp2, v7, v8 int32
-	var _saved_stack, st, v1, v3 uintptr
 	var balance, bit, excess, left, percoeff, psum OpusT_opus_int32
 	var v13, v14 OpusT_opus_uint32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = N, N0, NClogN, _saved_stack, alloc_floor, balance, band_bits, band_width, bit, codedBands, den, depth_threshold, done, excess, extra_bits, extra_fine, hi, i, j, left, lo, logM, mid, offset, percoeff, psum, rem, st, stereo, tmp, tmp1, tmp2, v1, v13, v14, v3, v7, v8
-	codedBands = -int32(1)
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
+	codedBands = -1
 	alloc_floor = C << int32(BITRES)
 	stereo = libc.BoolInt32(C > int32(1))
 	logM = LM << int32(BITRES)
@@ -920,17 +911,6 @@ func interp_bits2pulses(tls *libc.TLS, m uintptr, start int32, end int32, skip_s
 		*(*int32)(unsafe.Pointer(fine_priority + uintptr(j)*4)) = libc.BoolInt32(*(*int32)(unsafe.Pointer(ebits + uintptr(j)*4)) < int32(1))
 		j = j + 1
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	return codedBands
 }
 
@@ -1371,7 +1351,7 @@ func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start int32, end int3
 		*(*int32)(unsafe.Pointer(bits2 + uintptr(j)*4)) = bits2j
 		j = j + 1
 	}
-	codedBands = interp_bits2pulses(tls, m, start, end, skip_start, bits1, bits2, thresh, cap1, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
+	codedBands = interp_bits2pulses_legacy(tls, m, start, end, skip_start, bits1, bits2, thresh, cap1, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))

@@ -42,6 +42,12 @@ static int native_plc_pitch(float *left,float *right,int channels) {float *data[
 #define opus_custom_mode_create comparison_mode_create
 #define opus_custom_mode_destroy comparison_mode_destroy
 #include "../../../opus/celt/modes.c"
+#define clt_compute_allocation comparison_rate_allocation
+#define LOG2_FRAC_TABLE comparison_rate_log2
+#include "../../../opus/celt/rate.c"
+static int native_allocation_interp(unsigned *s,unsigned char *buf,int *a,int *outputs,const int *cfg) {
+ ec_ctx e={0};e.buf=buf;e.storage=s[0];e.end_offs=s[1];e.end_window=s[2];e.nend_bits=s[3];e.nbits_total=s[4];e.offs=s[5];e.rng=s[6];e.val=s[7];e.ext=s[8];e.rem=s[9];e.error=s[10];int r;if(setjmp(celt_validation_jump))r=-99;else r=interp_bits2pulses(comparison_mode_create(48000,960,NULL),cfg[0],cfg[1],cfg[2],a+1,a+24,a+47,a+70,cfg[3],outputs,cfg[4],outputs+1,cfg[5],outputs+2,cfg[6],a+93,a+116,a+139,cfg[7],cfg[8],&e,cfg[9],cfg[10],cfg[11]);s[0]=e.storage;s[1]=e.end_offs;s[2]=e.end_window;s[3]=e.nend_bits;s[4]=e.nbits_total;s[5]=e.offs;s[6]=e.rng;s[7]=e.val;s[8]=e.ext;s[9]=e.rem;s[10]=e.error;return r;
+}
 static void native_prefilter_fold(unsigned char *data,size_t size,int N) {CELTDecoder *st=malloc(size);memcpy(st,data,size);st->mode=comparison_mode_create(48000,960,NULL);prefilter_and_fold(st,N);st->mode=NULL;memcpy(data,st,size);free(st);}
 static void native_celt_synthesis(float *x,float *energy,float *left,float *right,int start,int end,int C,int CC,int transient,int LM,int downsample,int silence) {float *out[2]={left,right};const CELTMode *mode=comparison_mode_create(48000,960,NULL);comparison_celt_synthesis(mode,x,out,energy,start,end,C,CC,transient,LM,downsample,silence,0);}
 static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
@@ -96,6 +102,23 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeAllocationInterp(dec *opuscc.OpusT_ec_ctx, data []byte, a *[7][23]int32, outputs *[3]int32, cfg *[12]int32) int32 {
+	s := [11]C.uint{C.uint(dec.Fstorage), C.uint(dec.Fend_offs), C.uint(dec.Fend_window), C.uint(dec.Fnend_bits), C.uint(dec.Fnbits_total), C.uint(dec.Foffs), C.uint(dec.Frng), C.uint(dec.Fval), C.uint(dec.Fext), C.uint(dec.Frem), C.uint(dec.Ferror1)}
+	r := C.native_allocation_interp(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), (*C.int)(unsafe.Pointer(a)), (*C.int)(unsafe.Pointer(outputs)), (*C.int)(unsafe.Pointer(cfg)))
+	dec.Fstorage = uint32(s[0])
+	dec.Fend_offs = uint32(s[1])
+	dec.Fend_window = uint32(s[2])
+	dec.Fnend_bits = int32(s[3])
+	dec.Fnbits_total = int32(s[4])
+	dec.Foffs = uint32(s[5])
+	dec.Frng = uint32(s[6])
+	dec.Fval = uint32(s[7])
+	dec.Fext = uint32(s[8])
+	dec.Frem = int32(s[9])
+	dec.Ferror1 = int32(s[10])
+	return int32(r)
+}
 
 func nativePrefilterFold(data []byte, N int32) {
 	C.native_prefilter_fold((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(N))

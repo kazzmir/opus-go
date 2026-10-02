@@ -536,6 +536,66 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestAllocationInterpAgainstC(t *testing.T) {
+	m, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	bands := unsafe.Slice(m.FeBands, 22)
+	for _, C := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, start := range []int32{0, 3, 18} {
+				for _, budget := range []int32{0, 8, 100, 512, 4096, 12000} {
+					for _, encode := range []int32{0, 1} {
+						for _, reserved := range []bool{false, true} {
+							if reserved && (budget < 100 || C == 1) {
+								continue
+							}
+							var a [7][23]int32
+							for k := range a {
+								a[k][0], a[k][22] = 77, 88
+							}
+							for j := 0; j < 21; j++ {
+								width := int32(bands[j+1] - bands[j])
+								a[1][j+1] = width * C << LM << 3
+								a[2][j+1] = max(C<<3, width<<LM<<2)
+								a[3][j+1] = width * C << LM << 6
+							}
+							b := a
+							cfg := [12]int32{start, 21, start, budget, 0, 0, 0, C, LM, encode, 20, 20}
+							if budget >= 8 {
+								cfg[4] = 8
+							}
+							if reserved {
+								cfg[5] = 40
+								cfg[6] = 8
+							}
+							s, cs := [3]int32{77, 21, 1}, [3]int32{77, 21, 1}
+							data := make([]byte, 256)
+							for i := range data {
+								data[i] = byte(i*17 + 31)
+							}
+							cb := slices.Clone(data)
+							var g opuscc.OpusT_ec_ctx
+							if encode != 0 {
+								opuscc.Opus_ec_enc_init(nil, &g, &data[0], 256)
+							} else {
+								opuscc.Opus_ec_dec_init(nil, &g, &data[0], 256)
+							}
+							c := g
+							c.Fbuf = &cb[0]
+							r := opuscc.CompareAllocationInterp(m, &a, &s, &cfg, &g)
+							cr := nativeAllocationInterp(&c, cb, &b, &cs, &cfg)
+							g.Fbuf = nil
+							c.Fbuf = nil
+							if r != cr || a != b || s != cs || g != c || !slices.Equal(data, cb) {
+								t.Fatal("allocation interp", C, LM, start, budget, encode, reserved, r, cr, s, cs, a, b, g, c)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestPrefilterFoldRoundingAgainstC(t *testing.T) {
 	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	data := make([]byte, opuscc.CompareCustomDecoderSize(mode, 1))
