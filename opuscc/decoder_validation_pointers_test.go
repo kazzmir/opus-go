@@ -395,6 +395,52 @@ func TestCustomDecoderInitPointers(t *testing.T) {
 	}
 }
 
+func TestCustomCtlPointers(t *testing.T) {
+	mode := new(OpusT_OpusCustomMode)
+	*mode = mode48000_960_120
+	storage, _, _ := celtStateTestBuffer(mode, 1)
+	st := &storage.State
+	opus_custom_decoder_init(nil, st, mode, 1)
+	var out int32
+	var rng uint32
+	var got *OpusT_OpusCustomMode
+	args := OpusDecoderCtlArgs{I32: &out, U32: &rng, Mode: &got}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_custom_decoder_ctl_typed(nil, st, CELT_GET_MODE_REQUEST, args) != 0 || got != mode {
+		t.Fatal("mode output")
+	}
+	st.Fmode = nil
+	mode = nil
+	runtime.GC()
+	if got.FnbEBands != 21 {
+		t.Fatal("mode output owner")
+	}
+	st.Fmode = got
+	for _, v := range []int32{-1, 0, 10, 11} {
+		r := Opus_opus_custom_decoder_ctl_typed(nil, st, OPUS_SET_COMPLEXITY_REQUEST, OpusDecoderCtlArgs{Value: v})
+		if (r == 0) != (v >= 0 && v <= 10) {
+			t.Fatal("complexity", v, r)
+		}
+	}
+	st.Ferror1 = 123
+	if Opus_opus_custom_decoder_ctl_typed(nil, st, CELT_GET_AND_CLEAR_ERROR_REQUEST, OpusDecoderCtlArgs{I32: &st.Ferror1}) != 0 || st.Ferror1 != 0 {
+		t.Fatal("clear output alias")
+	}
+	st.Frng = 0x89abcdef
+	Opus_opus_custom_decoder_ctl_typed(nil, st, OPUS_GET_FINAL_RANGE_REQUEST, args)
+	if rng != 0x89abcdef {
+		t.Fatal("range output")
+	}
+	if Opus_opus_custom_decoder_ctl_typed(nil, nil, OPUS_GET_PITCH_REQUEST, OpusDecoderCtlArgs{}) != -1 || Opus_opus_custom_decoder_ctl_typed(nil, nil, 123456, OpusDecoderCtlArgs{}) != -5 {
+		t.Fatal("nil/error order")
+	}
+	Opus_opus_custom_decoder_ctl_typed(nil, st, OPUS_RESET_STATE, args)
+	if st.Fskip_plc != 1 || st.Fmode != got {
+		t.Fatal("typed reset")
+	}
+}
+
 func TestCeltResetPointers(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		mode := &OpusT_OpusCustomMode{Foverlap: 120, FnbEBands: 21}

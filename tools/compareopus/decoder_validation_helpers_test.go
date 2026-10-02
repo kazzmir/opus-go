@@ -535,6 +535,37 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestCustomCtlAgainstC(t *testing.T) {
+	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	requests := []int32{opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.CELT_SET_START_BAND_REQUEST, opuscc.CELT_SET_END_BAND_REQUEST, opuscc.CELT_SET_CHANNELS_REQUEST, opuscc.CELT_GET_AND_CLEAR_ERROR_REQUEST, opuscc.OPUS_GET_LOOKAHEAD_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_GET_PITCH_REQUEST, opuscc.CELT_GET_MODE_REQUEST, opuscc.CELT_SET_SIGNALLING_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, 123456}
+	for _, request := range requests {
+		for _, value := range []int32{-32769, -1, 0, 1, 2, 10, 11, 20, 21, 32768} {
+			// CELT's C state parameter is restrict-qualified; state/output aliases
+			// are checked in Go, not submitted to this C oracle.
+			for _, alias := range []int32{-2, -1} {
+				// Pointer-output mode aliasing uses the mode slot, never a numeric slot.
+				actualAlias := alias
+				if request == opuscc.CELT_GET_MODE_REQUEST && alias >= 0 {
+					actualAlias = int32(unsafe.Offsetof(opuscc.OpusT_OpusCustomDecoder{}.Fmode))
+				}
+				g := make([]byte, opuscc.CompareCustomDecoderSize(mode, 1)+16)
+				st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&g[0]))
+				opuscc.CompareCustomDecoderInit(st, mode, 1)
+				st.Ferror1 = 123
+				st.Fpostfilter_period = 37
+				st.Frng = 0x89abcdef
+				st.Fmode = nil
+				c := slices.Clone(g)
+				ret, out := opuscc.CompareCustomCtl(g, request, value, actualAlias)
+				cr, co := nativeCustomCtl(c, request, value, actualAlias)
+				if ret != cr || out != co || !slices.Equal(g, c) {
+					t.Fatal("custom CTL", request, value, actualAlias, ret, cr, out, co)
+				}
+			}
+		}
+	}
+}
+
 func TestCeltResetAgainstC(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		for _, bands := range []int32{0, 1, 21, 32} {

@@ -2,6 +2,37 @@
 
 package opuscc
 
+import "unsafe"
+
+func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) {
+	st := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+	st.Fmode = &mode48000_960_120
+	out := uint32(77)
+	var mode *OpusT_OpusCustomMode
+	a := OpusDecoderCtlArgs{Value: value}
+	if alias != -2 {
+		if alias >= 0 {
+			p := unsafe.Add(unsafe.Pointer(st), alias)
+			a.I32 = (*int32)(p)
+			a.U32 = (*uint32)(p)
+			a.Mode = (**OpusT_OpusCustomMode)(p)
+		} else {
+			a.I32 = (*int32)(unsafe.Pointer(&out))
+			a.U32 = &out
+			a.Mode = &mode
+		}
+	}
+	r := Opus_opus_custom_decoder_ctl_typed(nil, st, request, a)
+	if request == CELT_GET_MODE_REQUEST {
+		out = 0
+		if mode == st.Fmode {
+			out = 1
+		}
+	}
+	st.Fmode = nil
+	return r, out
+}
+
 func CompareModePulseRate(m *OpusT_OpusCustomMode, band, LM, bits, pulses int32) (int32, int32) {
 	cache := modePulseCache(m, (LM+1)*m.FnbEBands+band)
 	return modeBits2Pulses(cache, bits), modePulses2Bits(cache, pulses)

@@ -63,6 +63,16 @@ static int native_celt_state(unsigned char *data,size_t size,int op,int channels
  int result;if(setjmp(celt_validation_jump))result=-99;else if(op==0){st->mode=&mode;result=comparison_custom_ctl(st,OPUS_RESET_STATE);}else if(op==1)result=comparison_custom_init(st,&mode,channels);else result=comparison_celt_init(st,rate,channels);
  if(size){st->mode=NULL;memcpy(data,st,size);free(st);}return result;
 }
+static int native_custom_ctl(unsigned char *data,size_t size,int request,int value,int alias,unsigned *output) {
+ CELTDecoder *st=malloc(size);memcpy(st,data,size);st->mode=comparison_mode_create(48000,960,NULL);unsigned out=77;const CELTMode *mode=NULL;void *p=alias==-2?NULL:alias>=0?(void*)((char*)st+alias):(void*)&out;
+ int result;if(setjmp(celt_validation_jump))result=-99;else switch(request) {
+ case OPUS_SET_COMPLEXITY_REQUEST:case CELT_SET_START_BAND_REQUEST:case CELT_SET_END_BAND_REQUEST:case CELT_SET_CHANNELS_REQUEST:case CELT_SET_SIGNALLING_REQUEST:case OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:result=comparison_custom_ctl(st,request,value);break;
+ case CELT_GET_MODE_REQUEST:result=comparison_custom_ctl(st,request,alias==-2?NULL:alias>=0?(const CELTMode**)((char*)st+alias):&mode);out=mode==st->mode;break;
+ case OPUS_RESET_STATE:result=comparison_custom_ctl(st,request);break;
+ default:result=comparison_custom_ctl(st,request,p);break;
+ }
+ st->mode=NULL;memcpy(data,st,size);free(st);*output=out;return result;
+}
 static void native_tf(unsigned *s,unsigned char *data,int start,int end,int transient,int *out,int LM) {
  ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=s[3];dec.nbits_total=s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=s[9];dec.error=s[10];
  tf_decode(start,end,transient,out,LM,&dec);
@@ -81,6 +91,12 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeCustomCtl(data []byte, request, value, alias int32) (int32, uint32) {
+	var out C.uint
+	r := C.native_custom_ctl((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(request), C.int(value), C.int(alias), &out)
+	return int32(r), uint32(out)
+}
 
 func nativeModePulseRate(band, LM, bits, pulses int32) (int32, int32) {
 	var v [2]C.int
