@@ -536,6 +536,20 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestPrefilterFoldRoundingAgainstC(t *testing.T) {
+	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	data := make([]byte, opuscc.CompareCustomDecoderSize(mode, 1))
+	st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&data[0]))
+	st.Fchannels = 1
+	st.Foverlap = 3
+	history := unsafe.Slice(&st.F_decode_mem[0], 2048+3)
+	copy(history[2048-120:], []float32{-2422, -2249, -2076})
+	nativePrefilterFold(data, 120)
+	if bits := math.Float32bits(history[2048-120]); bits != 0xc086cced {
+		t.Fatalf("C fold product rounding: %08x want c086cced", bits)
+	}
+}
+
 func TestPrefilterFoldAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {

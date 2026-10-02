@@ -32,6 +32,75 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestPrefilterTDACRounding(t *testing.T) {
+	// The scalar C/original generated fold rounds products separately. A fused
+	// rewrite changed the ARM PLC golden; this overlap-three case differs by 1 ULP.
+	m := newSynthesisTestMode()
+	filtered := []float32{-2422, -2249, -2076}
+	var out float32
+	prefilterFoldTDAC(m, &out, &filtered[0], 3)
+	if bits := math.Float32bits(out); bits != 0xc086cced {
+		t.Fatalf("fold product rounding: %08x want c086cced", bits)
+	}
+}
+
+func TestPrefilterTDACPointers(t *testing.T) {
+	for _, overlap := range []int32{0, 1, 2, 3, 119, 120} {
+		m := newSynthesisTestMode()
+		filtered := make([]float32, overlap)
+		for i := range filtered {
+			filtered[i] = float32(i%29-14) * 173
+		}
+		g := make([]float32, overlap+2)
+		for i := range g {
+			g[i] = float32(i + 77)
+		}
+		want := slices.Clone(g)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		prefilterFoldTDAC(m, &g[1], unsafe.SliceData(filtered), overlap)
+		window := unsafe.Slice(m.Fwindow, 120)
+		for i := int32(0); i < overlap/2; i++ {
+			want[1+i] = float32(window[i]*filtered[overlap-1-i]) + float32(window[overlap-i-1]*filtered[i])
+		}
+		for i := range g {
+			if math.Float32bits(g[i]) != math.Float32bits(want[i]) {
+				t.Fatal("fold scratch", overlap, i, g[i], want[i])
+			}
+		}
+	}
+	// Sequential alias stores are Go-only tests; the enclosing C decoder restrict
+	// contract does not permit arbitrary history/window/scratch aliases.
+	for _, aliasWindow := range []bool{false, true} {
+		data := []float32{.1, .2, .3, .4, .5, .6, .7, .8, 77}
+		want := slices.Clone(data)
+		filtered := []float32{13, 11, 7, 5, 3, 2}
+		window := []float32{.1, .2, .3, .4, .5, .6}
+		m := OpusT_OpusCustomMode{Fwindow: &window[0]}
+		if aliasWindow {
+			m.Fwindow = &data[0]
+			for i := 0; i < 3; i++ {
+				want[1+i] = float32(want[i]*filtered[5-i]) + float32(want[5-i]*filtered[i])
+			}
+		} else {
+			for i := 0; i < 3; i++ {
+				want[1+i] = float32(window[i]*want[5-i]) + float32(window[5-i]*want[i])
+			}
+		}
+		p := &filtered[0]
+		if !aliasWindow {
+			p = &data[0]
+		}
+		prefilterFoldTDAC(&m, &data[1], p, 6)
+		if !slices.Equal(data, want) {
+			t.Fatal("fold sequential aliases", aliasWindow, data, want)
+		}
+	}
+	// No window/scratch/output access when there are no folded samples.
+	prefilterFoldTDAC(nil, nil, nil, 0)
+	prefilterFoldTDAC(nil, nil, nil, 1)
+}
+
 func TestPrefilterHistoryPointers(t *testing.T) {
 	for _, overlap := range []int32{0, 1, 3, 119, 120} {
 		for c := int32(0); c < 2; c++ {
