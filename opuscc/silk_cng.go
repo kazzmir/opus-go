@@ -57,7 +57,7 @@ func Opus_silk_CNG_Reset(tls *libc.TLS, dec *OpusT_silk_decoder_state) {
 // C documentation
 //
 //	/* Updates CNG estimate, and applies the CNG when packet was lost   */
-func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintptr, length int32) {
+func Opus_silk_CNG(tls *libc.TLS, dec *OpusT_silk_decoder_state, psDecCtrl uintptr, frame uintptr, length int32) {
 	var CNG_sig_Q14, _saved_stack, st, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v6, v9 uintptr
 	var LPC_pred_Q10, gain_Q10, gain_Q16, lzeros, max_Gain_Q16, y, v33, v34, v36, v37, v38, v41, v43 OpusT_opus_int32
 	var i, subfr, v40, v42, v52, v54, v58, v59, v60, v61, v62, v63, v64, v65, v66 int32
@@ -66,23 +66,11 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 	var frac_Q7 OpusT_opus_int32
 	var lz OpusT_opus_int32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = CNG_sig_Q14, LPC_pred_Q10, _saved_stack, gain_Q10, gain_Q16, i, lzeros, m, max_Gain_Q16, r, st, subfr, x, y, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v33, v34, v36, v37, v38, v40, v41, v42, v43, v52, v54, v58, v59, v6, v60, v61, v62, v63, v64, v65, v66, v9
-	dec := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
 	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
 	cng := &dec.FsCNG
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	if dec.Ffs_kHz != cng.Ffs_kHz {
 		/* Reset state */
-		Opus_silk_CNG_Reset(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)))
+		Opus_silk_CNG_Reset(tls, dec)
 		cng.Ffs_kHz = dec.Ffs_kHz
 	}
 	if dec.FlossCnt == 0 && dec.FprevSignalType == TYPE_NO_VOICE_ACTIVITY {
@@ -111,8 +99,8 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 			i = i + 1
 		}
 		/* Update CNG excitation buffer with excitation from this subframe */
-		libc.Xmemmove(tls, uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[dec.Fsubfr_length])), uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[0])), uint64(uint32((dec.Fnb_subfr-int32(1))*dec.Fsubfr_length))*uint64(4))
-		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&cng.FCNG_exc_buf_Q14[0])), uintptr(unsafe.Pointer(&dec.Fexc_Q14[subfr*dec.Fsubfr_length])), uint64(uint32(dec.Fsubfr_length))*uint64(4))
+		copy(cng.FCNG_exc_buf_Q14[dec.Fsubfr_length:dec.Fnb_subfr*dec.Fsubfr_length], cng.FCNG_exc_buf_Q14[:(dec.Fnb_subfr-1)*dec.Fsubfr_length])
+		copy(cng.FCNG_exc_buf_Q14[:dec.Fsubfr_length], dec.Fexc_Q14[subfr*dec.Fsubfr_length:(subfr+1)*dec.Fsubfr_length])
 		/* Smooth gains */
 		i = 0
 		for {
@@ -128,7 +116,8 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 		}
 	}
 	/* Add CNG when packet is lost or during DTX */
-	if dec.FlossCnt != 0 {
+	usedScratch := dec.FlossCnt != 0
+	if usedScratch {
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v1 = libc.Xmalloc(tls, uint64(16))
@@ -139,6 +128,7 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 		}
 		v3 = st
+		_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v6 = libc.Xmalloc(tls, uint64(16))
@@ -439,7 +429,7 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 		}
 		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&cng.FCNG_synth_state[0])), CNG_sig_Q14+uintptr(length)*4, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
 	} else {
-		libc.Xmemset(tls, uintptr(unsafe.Pointer(&cng.FCNG_synth_state[0])), 0, uint64(uint32(dec.FLPC_order))*uint64(4))
+		clear(cng.FCNG_synth_state[:dec.FLPC_order])
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -451,7 +441,9 @@ func Opus_silk_CNG(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, frame uintpt
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
+	if usedScratch {
+		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
+	}
 }
 
 const silk_int16_MAX2 = 0x7FFF

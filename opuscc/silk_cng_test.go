@@ -1,11 +1,38 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestCNGDecoderPointers(t *testing.T) {
+	dec := new(OpusT_silk_decoder_state)
+	dec.Ffs_kHz = 16
+	dec.FLPC_order = 10
+	dec.Fnb_subfr = 4
+	dec.Fsubfr_length = 2
+	dec.FprevSignalType = TYPE_UNVOICED
+	for i := range dec.FsCNG.FCNG_synth_state {
+		dec.FsCNG.FCNG_synth_state[i] = 77
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_silk_CNG(nil, dec, 0, 0, 0)
+	if dec.FsCNG.Ffs_kHz != 16 || dec.FsCNG.Frand_seed != 3176576 {
+		t.Fatal("typed decoder reset")
+	}
+	for i := 0; i < 10; i++ {
+		if dec.FsCNG.FCNG_synth_state[i] != 0 {
+			t.Fatal("history clear", i)
+		}
+	}
+	if dec.FsCNG.FCNG_synth_state[10] != 77 {
+		t.Fatal("history tail")
+	}
+}
 
 func TestCNGUpdatesSmoothedGain(t *testing.T) {
 	tls := libc.NewTLS()
@@ -33,7 +60,7 @@ func TestCNGUpdatesSmoothedGain(t *testing.T) {
 
 	Opus_silk_CNG(
 		tls,
-		uintptr(unsafe.Pointer(&dec)),
+		&dec,
 		uintptr(unsafe.Pointer(&control)),
 		uintptr(unsafe.Pointer(&frame[0])),
 		int32(len(frame)),
@@ -121,7 +148,7 @@ func TestCNGLossPathFieldAccesses(t *testing.T) {
 	}
 	frame := []int16{150, -230, 310, -390, 470, -550, 630, -710}
 
-	Opus_silk_CNG(tls, uintptr(unsafe.Pointer(&dec)), 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
+	Opus_silk_CNG(tls, &dec, 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
 
 	wantFrame := [8]int16{150, -229, 311, -390, 471, -549, 630, -709}
 	for i, want := range wantFrame {
@@ -171,7 +198,7 @@ func TestCNGLossPathHighGainLocalArrays(t *testing.T) {
 	}
 	frame := []int16{150, -230, 310, -390, 470, -550, 630, -710}
 
-	Opus_silk_CNG(tls, uintptr(unsafe.Pointer(&dec)), 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
+	Opus_silk_CNG(tls, &dec, 0, uintptr(unsafe.Pointer(&frame[0])), int32(len(frame)))
 
 	/* expected values from the C reference implementation (silk/CNG.c) */
 	wantFrame := [8]int16{162, -257, 358, -464, 585, -725, 882, -1038}
