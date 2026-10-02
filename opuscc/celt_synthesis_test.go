@@ -32,6 +32,47 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestPrefilterHistoryPointers(t *testing.T) {
+	for _, overlap := range []int32{0, 1, 3, 119, 120} {
+		for c := int32(0); c < 2; c++ {
+			history := func() *float32 {
+				storage, _, _ := celtStateTestBuffer(newSynthesisTestMode(), 2)
+				st := &storage.State
+				st.Foverlap = overlap
+				st.Fpostfilter_period_old = 31
+				st.Fpostfilter_period = 128
+				st.Fpostfilter_gain_old = .25
+				st.Fpostfilter_gain = .5
+				st.Fpostfilter_tapset_old = 1
+				st.Fpostfilter_tapset = 2
+				p := prefilterFoldHistory(st, overlap, c)
+				h := unsafe.Slice(p, DEC_PITCH_BUF_SIZE+overlap)
+				for i := range h {
+					h[i] = float32(i%29-14) * 173
+				}
+				return p
+			}()
+			entropyInitGrowStack(12)
+			runtime.GC()
+			st := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(history), -int64(unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem))-int64(c)*(DEC_PITCH_BUF_SIZE+int64(overlap))*4))
+			if st.Fmode == nil || unsafe.Slice(st.Fmode.Fwindow, 120)[119] != window120[119] || st.Foverlap != overlap {
+				t.Fatal("history retains scanned owner", overlap, c)
+			}
+			for _, N := range []int32{0, 120, 960} {
+				g, w := make([]float32, overlap+2), make([]float32, overlap+2)
+				g[0], g[len(g)-1] = 77, 88
+				copy(w, g)
+				input := celtNormAdd(history, DEC_PITCH_BUF_SIZE-N)
+				Opus_comb_filter(nil, &g[1], input, st.Fpostfilter_period_old, st.Fpostfilter_period, overlap, -st.Fpostfilter_gain_old, -st.Fpostfilter_gain, st.Fpostfilter_tapset_old, st.Fpostfilter_tapset, nil, 0, st.Farch)
+				Opus_comb_filter(nil, &w[1], input, 31, 128, overlap, -.25, -.5, 1, 2, nil, 0, 0)
+				if !slices.Equal(g, w) || g[0] != 77 || g[len(g)-1] != 88 {
+					t.Fatal("typed prefilter history", overlap, c, N)
+				}
+			}
+		}
+	}
+}
+
 func TestPrefilterStatePointers(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		m := newSynthesisTestMode()

@@ -390,11 +390,14 @@ func prefilter_and_fold_legacy(tls *libc.TLS, st uintptr, N int32) {
 func prefilterFoldState(st *OpusT_OpusCustomDecoder) (mode *OpusT_OpusCustomMode, overlap, channels int32) {
 	return st.Fmode, st.Foverlap, st.Fchannels
 }
+func prefilterFoldHistory(st *OpusT_OpusCustomDecoder, overlap, channel int32) *float32 {
+	return celtNormAdd(&st.F_decode_mem[0], channel*(DEC_PITCH_BUF_SIZE+overlap))
+}
 func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	var mode *OpusT_OpusCustomMode
 	var CC, c, decode_buffer_size, i, overlap, v29 int32
 	var _saved_stack, etmp, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
-	var decode_mem [2]uintptr
+	var decode_mem [2]*float32
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = CC, _saved_stack, c, decode_buffer_size, decode_mem, etmp, i, mode, overlap, st, v1, v11, v13, v15, v17, v19, v21, v23, v29, v3, v5, v7, v9
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -477,7 +480,7 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	etmp = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(overlap))*(uint64(4)/uint64(1)))
 	c = 0
 	for {
-		decode_mem[c] = uintptr(unsafe.Pointer(st1)) + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr(c*(decode_buffer_size+overlap))*4
+		decode_mem[c] = prefilterFoldHistory(st1, overlap, c)
 		c = c + 1
 		v29 = c
 		if !(v29 < CC) {
@@ -489,7 +492,7 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 		/* Apply the pre-filter to the MDCT overlap for the next frame because
 		   the post-filter will be re-applied in the decoder after the MDCT
 		   overlap. */
-		comb_filter_legacy(tls, etmp, decode_mem[c]+uintptr(decode_buffer_size)*4-uintptr(N)*4, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period_old, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period, overlap, -(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain_old, -(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset_old, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset, nil, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+		Opus_comb_filter(tls, (*float32)(unsafe.Pointer(etmp)), celtNormAdd(decode_mem[c], decode_buffer_size-N), st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch)
 		/* Simulate TDAC on the concealed audio so that it blends with the
 		   MDCT of the next frame. */
 		i = 0
@@ -497,7 +500,7 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 			if !(i < overlap/int32(2)) {
 				break
 			}
-			*(*OpusT_celt_sig)(unsafe.Pointer(decode_mem[c] + uintptr(decode_buffer_size-N+i)*4)) = OpusT_celt_coef(*(*OpusT_celt_coef)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow), uintptr(i)*4))**(*OpusT_opus_val32)(unsafe.Pointer(etmp + uintptr(overlap-int32(1)-i)*4))) + OpusT_celt_coef(*(*OpusT_celt_coef)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow), uintptr(overlap-i-int32(1))*4))**(*OpusT_opus_val32)(unsafe.Pointer(etmp + uintptr(i)*4)))
+			*celtNormAdd(decode_mem[c], decode_buffer_size-N+i) = OpusT_celt_coef(*(*OpusT_celt_coef)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow), uintptr(i)*4))**(*OpusT_opus_val32)(unsafe.Pointer(etmp + uintptr(overlap-int32(1)-i)*4))) + OpusT_celt_coef(*(*OpusT_celt_coef)(unsafe.Add(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow), uintptr(overlap-i-int32(1))*4))**(*OpusT_opus_val32)(unsafe.Pointer(etmp + uintptr(i)*4)))
 			i = i + 1
 		}
 		c = c + 1
