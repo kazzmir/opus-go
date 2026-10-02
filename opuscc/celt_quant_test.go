@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 )
@@ -35,6 +36,82 @@ func TestQuantBandN1Pointers(t *testing.T) {
 	}
 }
 
+func TestBandContextEntropyPointers(t *testing.T) {
+	makeEncoder := func(capacity int) *band_ctx {
+		buffer := make([]byte, capacity)
+		ec := new(OpusT_ec_ctx)
+		Opus_ec_enc_init(nil, ec, unsafe.SliceData(buffer), uint32(capacity))
+		return &band_ctx{Fencode: 1, Fresynth: 1, Fremaining_bits: 4096, Fec: ec}
+	}
+	compare := func(a, b *band_ctx) {
+		t.Helper()
+		g, c := *a.Fec, *b.Fec
+		if !slices.Equal(unsafe.Slice(g.Fbuf, int(g.Fstorage)), unsafe.Slice(c.Fbuf, int(c.Fstorage))) {
+			t.Fatal("owned packet bytes")
+		}
+		g.Fbuf = nil
+		c.Fbuf = nil
+		if g != c || a.Fremaining_bits != b.Fremaining_bits {
+			t.Fatal("owned entropy/context state", g, c)
+		}
+	}
+	var encoded []byte
+	for _, capacity := range []int{0, 1, 32} {
+		ctx, ref := makeEncoder(capacity), makeEncoder(capacity)
+		saved := *ctx
+		ctx.Fec = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		*ctx = saved
+		for i := 0; i < 20; i++ {
+			x, y, low := float32(-.5), float32(.25), float32(77)
+			if i%2 != 0 {
+				x, y = y, x
+			}
+			rx, ry, rl := x, y, low
+			gm := quant_band_n1(nil, ctx, ctx.Fec, &x, &y, &low)
+			cm := quant_band_n1(nil, ref, ref.Fec, &rx, &ry, &rl)
+			if gm != cm || x != rx || y != ry || low != rl {
+				t.Fatal("owned encoder sign/store")
+			}
+			compare(ctx, ref)
+		}
+		Opus_ec_enc_done(nil, ctx.Fec)
+		Opus_ec_enc_done(nil, ref.Fec)
+		compare(ctx, ref)
+		if capacity == 32 {
+			encoded = slices.Clone(unsafe.Slice(ctx.Fec.Fbuf, capacity))
+		}
+	}
+	makeDecoder := func(input []byte) *band_ctx {
+		owned := slices.Clone(input)
+		ec := new(OpusT_ec_ctx)
+		Opus_ec_dec_init(nil, ec, unsafe.SliceData(owned), uint32(len(owned)))
+		return &band_ctx{Fresynth: 1, Fremaining_bits: 4096, Fec: ec}
+	}
+	ctx, ref := makeDecoder(encoded), makeDecoder(encoded)
+	saved := *ctx
+	ctx.Fec = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	*ctx = saved
+	for i := 0; i < 20; i++ {
+		x, y, low := float32(77), float32(88), float32(99)
+		rx, ry, rl := x, y, low
+		gm := quant_band_n1(nil, ctx, ctx.Fec, &x, &y, &low)
+		cm := quant_band_n1(nil, ref, ref.Fec, &rx, &ry, &rl)
+		wantX, wantY := float32(-1), float32(1)
+		if i%2 != 0 {
+			wantX, wantY = wantY, wantX
+		}
+		if gm != cm || x != rx || y != ry || low != rl || x != wantX || y != wantY || low != x {
+			t.Fatal("owned decoder sign/store", i, x, y, low)
+		}
+		compare(ctx, ref)
+	}
+	runtime.KeepAlive(ctx)
+}
+
 func TestSpreadingPointers(t *testing.T) {
 	bands := [3]int16{0, 1, 10}
 	x := [12]float32{77}
@@ -64,7 +141,7 @@ func TestQuantBandN1FieldAccesses(t *testing.T) {
 	context := band_ctx{
 		Fencode:         1,
 		Fresynth:        1,
-		Fec:             uintptr(unsafe.Pointer(&encoder)),
+		Fec:             &encoder,
 		Fremaining_bits: 24,
 	}
 	x := OpusT_celt_norm(-0.375)

@@ -61,7 +61,7 @@ func TestQuantPartitionLocalSplitState(t *testing.T) {
 		Fm:              &mode,
 		Fencode:         1,
 		Fresynth:        1,
-		Fec:             uintptr(unsafe.Pointer(&encoder)),
+		Fec:             &encoder,
 		Fremaining_bits: 80,
 		Fseed:           987654,
 	}

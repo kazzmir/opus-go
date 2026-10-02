@@ -17,7 +17,7 @@ func TestQuantBandStereoOneSampleFieldAccesses(t *testing.T) {
 	context := band_ctx{
 		Fencode:         1,
 		Fresynth:        1,
-		Fec:             uintptr(unsafe.Pointer(&encoder)),
+		Fec:             &encoder,
 		Fremaining_bits: 16,
 	}
 	x := OpusT_celt_norm(-0.75)
@@ -71,7 +71,7 @@ func TestQuantBandStereoLocalSplitState(t *testing.T) {
 		Fm:              &mode,
 		Fencode:         1,
 		Fresynth:        1,
-		Fec:             uintptr(unsafe.Pointer(&encoder)),
+		Fec:             &encoder,
 		Fremaining_bits: 48,
 		FbandE:          uintptr(unsafe.Pointer(&bandE[0])),
 		Fseed:           13579,

@@ -330,7 +330,12 @@ NLSF codebooks retain all eight typed table pointers. Decoder and encoder states
 retain typed codebook references, with direct decode/parameter/index traversal and
 sample-rate assignments. Grouped tests check C layouts, both codebook orders,
 heap-only owner chains and reset/replacement, alongside the existing native full-state
-comparisons. Poisoned reset fixtures skip GC pointer slots and use real sentinels.
+comparisons. Decoder/encoder pitch-lag and contour table fields are also typed;
+heap-only owner tests cover the three lag and four contour tables, repeated entropy
+reads, rate/subframe selection and reset. Native full-state indices/parameters and
+sample-rate fixtures retain the original table selection and state updates, with
+C size/offset checks for both state layouts. Poisoned reset fixtures skip every
+converted GC pointer slot and use real sentinels.
 CELT band, log-band, window, allocation-vector and pulse-cache index/bit/cap
 fields are typed. Native fixtures compare mode/cache sizes, offsets and every table
 payload; heap-mode owners retain cloned tables through GC and stack growth.
@@ -340,6 +345,15 @@ cache reloads and remaining-budget updates. Actual rate.h comparisons cover ever
 valid LM -1 through 3 cache row, budgets -2 through 400 and every valid pulse count;
 a guarded backwards index checks signed offset -1 without exercising C's invalid
 sentinel rows. Grouped owner cases also exercise caps and MDCT.
+CELT band contexts retain typed mode and shared entropy-codec pointers, including
+through copied/restored context snapshots. Theta/partition/stereo locals keep these
+references typed; the PVQ adapter's codec argument no longer crosses an integer
+boundary. Heap-context tests retain mode tables and encoder/decoder packet buffers
+through GC/stack growth, exercising one-bin signs, lowband stores and complete codec
+state/bytes for zero, tiny and normal encoder capacities. Native bands.c checks
+context layout and the one-bin reference fixtures use the context-owned codec.
+Outer context/spectral arguments, band energies and pseudostack ownership remain
+legacy; these tests do not establish global safety.
 Opaque byte-backed allocations, architecture FFT headers, outer integer APIs and
 some outer band-table locals remain legacy. ARM64 exposed a quant-partition fixture stack-lifetime
 failure; its crossing objects are now pinned without changing expected outputs.

@@ -376,8 +376,8 @@ func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, en
 }
 
 // The partition driver still owns integer-addressed band/context buffers.
-func alg_quant_legacy(tls *libc.TLS, X uintptr, N, K, spread, B int32, enc uintptr, gain float32, resynth, arch int32) uint32 {
-	return Opus_alg_quant(tls, (*float32)(unsafe.Pointer(X)), N, K, spread, B, (*OpusT_ec_enc)(unsafe.Pointer(enc)), gain, resynth, arch)
+func alg_quant_legacy(tls *libc.TLS, X uintptr, N, K, spread, B int32, enc *OpusT_ec_ctx, gain float32, resynth, arch int32) uint32 {
+	return Opus_alg_quant(tls, (*float32)(unsafe.Pointer(X)), N, K, spread, B, enc, gain, resynth, arch)
 }
 
 // C documentation
@@ -2048,7 +2048,7 @@ type band_ctx = struct {
 	Fintensity         int32
 	Fspread            int32
 	Ftf_change         int32
-	Fec                uintptr
+	Fec                *OpusT_ec_ctx
 	Fremaining_bits    OpusT_opus_int32
 	FbandE             uintptr
 	Fseed              OpusT_opus_uint32
@@ -2072,7 +2072,8 @@ type split_ctx = struct {
 //
 //go:uintptrescapes
 func compute_theta(tls *libc.TLS, ctx uintptr, sctx uintptr, X uintptr, Y uintptr, N int32, b uintptr, B int32, B0 int32, LM int32, stereo int32, fill uintptr) {
-	var bandE, ec uintptr
+	var bandE uintptr
+	var ec *OpusT_ec_ctx
 	var m *OpusT_OpusCustomMode
 	var bias, delta, down, encode, fl, fl1, fm, fs, fs1, ft, ft1, i, imid, intensity, inv, iside, itheta, itheta_q30, j, offset, p0, pulse_cap, qalloc, qn, unquantized, x, x0, v1, v5, v6, v7 int32
 	var tell OpusT_opus_int32
@@ -2357,7 +2358,7 @@ func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband
 
 func quant_band_n1_legacy(tls *libc.TLS, ctx, X, Y, lowband uintptr) uint32 {
 	context := (*band_ctx)(unsafe.Pointer(ctx))
-	return quant_band_n1(tls, context, (*OpusT_ec_ctx)(unsafe.Pointer(context.Fec)), (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(lowband)))
+	return quant_band_n1(tls, context, context.Fec, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(lowband)))
 }
 
 // C documentation
@@ -2370,7 +2371,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 	b := _b
 	fill := _fill
 	var B0, K, curr_bits, delta, encode, hi, i1, i2, imid, iside, itheta, j, lo, mbits, mid, q, qalloc, sbits, spread, v1, v2, v3, v4 int32
-	var Y, ec, next_lowband2, v5 uintptr
+	var Y, next_lowband2, v5 uintptr
+	var ec *OpusT_ec_ctx
 	var m2 *OpusT_OpusCustomMode
 	var cache, cache1, cache2 *byte
 	var cm, cm_mask uint32
@@ -2709,7 +2711,8 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 	fill := _fill
 	var c, delta, encode, imid, inv, iside, itheta, j, mbits, orig_fill, qalloc, sbits, sign, v3, v4, v5 int32
 	var cm uint32
-	var ec, x2, y2, v1 uintptr
+	var x2, y2, v1 uintptr
+	var ec *OpusT_ec_ctx
 	var mid, side OpusT_opus_val32
 	var rebalance OpusT_opus_int32
 	var tmp OpusT_celt_norm
@@ -3411,7 +3414,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 	norm_save2 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v25)).Fglobal_stack - uintptr(uint64(uint32(resynth_alloc))*(uint64(4)/uint64(1)))
 	lowband_offset = 0
 	ctx.FbandE = bandE
-	ctx.Fec = ec
+	ctx.Fec = (*OpusT_ec_ctx)(unsafe.Pointer(ec))
 	ctx.Fencode = encode
 	ctx.Fintensity = intensity
 	ctx.Fm = (*OpusT_OpusCustomMode)(unsafe.Pointer(m))

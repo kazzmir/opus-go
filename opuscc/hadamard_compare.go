@@ -10,8 +10,8 @@ func CompareBandContextLayout() [4]uint64 {
 }
 
 func CompareQuantN1(encode, resynth int32, remaining *int32, ec *OpusT_ec_ctx, x, y, low *float32) uint32 {
-	ctx := band_ctx{Fencode: encode, Fresynth: resynth, Fremaining_bits: *remaining}
-	mask := quant_band_n1(nil, &ctx, ec, x, y, low)
+	ctx := band_ctx{Fencode: encode, Fresynth: resynth, Fremaining_bits: *remaining, Fec: ec}
+	mask := quant_band_n1(nil, &ctx, ctx.Fec, x, y, low)
 	*remaining = ctx.Fremaining_bits
 	return mask
 }
