@@ -1,20 +1,13 @@
-// Code generated for linux/amd64 by 'ccgo --package-name opuscc --prefix-external Opus_ --prefix-typename OpusT_ -o opuscc/libopus.go -I .. -I ../include -I ../src -I ../celt -I ../silk -include config_ccgo.h -DOPUS_BUILD -DOPUS_DISABLE_INTRINSICS -DNONTHREADSAFE_PSEUDOSTACK -UVAR_ARRAYS -UUSE_ALLOCA -U__SSE__ -U__SSE2__ -U__SSE3__ -U__SSSE3__ -U__AVX__ -U__AVX2__ -std=c99 -O2 -fno-builtin -ignore-asm-errors -ignore-vector-functions ../src/opus.c ../src/opus_decoder.c ../src/opus_multistream.c ../src/opus_multistream_decoder.c ../src/mapping_matrix.c ../src/opus_projection_decoder.c ../src/extensions.c ../celt/celt.c ../celt/celt_lpc.c ../celt/kiss_fft.c ../celt/mathops.c ../celt/entdec.c ../celt/cwrs.c ../celt/celt_decoder.c ../celt/pitch.c ../celt/entenc.c ../celt/quant_bands.c ../celt/modes.c ../celt/vq.c ../celt/rate.c ../celt/entcode.c ../celt/bands.c ../celt/mdct.c ../celt/mini_kfft.c ../celt/laplace.c ../silk/CNG.c ../silk/code_signs.c ../silk/init_decoder.c ../silk/decode_core.c ../silk/decode_frame.c ../silk/decode_parameters.c ../silk/decode_indices.c ../silk/decode_pulses.c ../silk/decoder_set_fs.c ../silk/dec_API.c ../silk/gain_quant.c ../silk/interpolate.c ../silk/LP_variable_cutoff.c ../silk/NLSF_decode.c ../silk/PLC.c ../silk/shell_coder.c ../silk/tables_gain.c ../silk/tables_LTP.c ../silk/tables_NLSF_CB_NB_MB.c ../silk/tables_NLSF_CB_WB.c ../silk/tables_other.c ../silk/tables_pitch_lag.c ../silk/tables_pulses_per_block.c ../silk/VAD.c ../silk/NLSF_VQ.c ../silk/NLSF_unpack.c ../silk/NLSF_del_dec_quant.c ../silk/stereo_MS_to_LR.c ../silk/ana_filt_bank_1.c ../silk/biquad_alt.c ../silk/bwexpander_32.c ../silk/bwexpander.c ../silk/debug.c ../silk/decode_pitch.c ../silk/inner_prod_aligned.c ../silk/lin2log.c ../silk/log2lin.c ../silk/LPC_analysis_filter.c ../silk/LPC_inv_pred_gain.c ../silk/LPC_fit.c ../silk/table_LSF_cos.c ../silk/NLSF2A.c ../silk/NLSF_stabilize.c ../silk/NLSF_VQ_weights_laroia.c ../silk/pitch_est_tables.c ../silk/resampler.c ../silk/resampler_down2_3.c ../silk/resampler_down2.c ../silk/resampler_private_AR2.c ../silk/resampler_private_down_FIR.c ../silk/resampler_private_IIR_FIR.c ../silk/resampler_private_up2_HQ.c ../silk/resampler_rom.c ../silk/sigm_Q15.c ../silk/sort.c ../silk/sum_sqr_shift.c ../silk/stereo_decode_pred.c', DO NOT EDIT.
-
 package opuscc
 
 import (
-	"reflect"
+	"math/bits"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
-var _ reflect.Type
-var _ unsafe.Pointer
-
-// C documentation
-//
-//	/* Generates excitation for CNG LPC synthesis */
+// Generates excitation for CNG LPC synthesis.
 func silk_CNG_exc(tls *libc.TLS, exc_Q14 *OpusT_opus_int32, exc_buf_Q14 *OpusT_opus_int32, length int32, rand_seed *OpusT_opus_int32) {
 	if length == 0 {
 		return
@@ -54,403 +47,117 @@ func Opus_silk_CNG_Reset(tls *libc.TLS, dec *OpusT_silk_decoder_state) {
 	cng.Frand_seed = int32(3176576)
 }
 
-// C documentation
-//
-//	/* Updates CNG estimate, and applies the CNG when packet was lost   */
+// cngSqrtApprox mirrors silk_SQRT_APPROX/CLZ_FRAC in silk/Inlines.h,
+// including the signed 16-bit multiplier used by SMLAWB.
+func cngSqrtApprox(x int32) int32 {
+	if x <= 0 {
+		return 0
+	}
+	lz := bits.LeadingZeros32(uint32(x))
+	frac := int32(bits.RotateLeft32(uint32(x), lz-24) & 0x7f)
+	y := int32(46214)
+	if lz&1 != 0 {
+		y = 32768
+	}
+	y >>= uint(lz >> 1)
+	return int32(int64(y) + (int64(y) * int64(int16(213*frac)) >> 16))
+}
+
+// Updates CNG estimates and adds comfort noise on lost packets. The excitation
+// and full 16-word synthesis history are Go-owned, not TLS pseudostack addresses.
 func Opus_silk_CNG(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, frame *int16, length int32) {
-	var CNG_sig_Q14, _saved_stack, st, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v6, v9 uintptr
-	var LPC_pred_Q10, gain_Q10, gain_Q16, lzeros, max_Gain_Q16, y, v33, v34, v36, v37, v38, v41, v43 OpusT_opus_int32
-	var i, subfr, v40, v42, v52, v54, v58, v59, v60, v61, v62, v63, v64, v65, v66 int32
-	var m, r, x OpusT_opus_uint32
-	var A_Q12 [MAX_LPC_ORDER]OpusT_opus_int16
-	var frac_Q7 OpusT_opus_int32
-	var lz OpusT_opus_int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = CNG_sig_Q14, LPC_pred_Q10, _saved_stack, gain_Q10, gain_Q16, i, lzeros, m, max_Gain_Q16, r, st, subfr, x, y, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v33, v34, v36, v37, v38, v40, v41, v42, v43, v52, v54, v58, v59, v6, v60, v61, v62, v63, v64, v65, v66, v9
 	cng := &dec.FsCNG
 	if dec.Ffs_kHz != cng.Ffs_kHz {
-		/* Reset state */
 		Opus_silk_CNG_Reset(tls, dec)
 		cng.Ffs_kHz = dec.Ffs_kHz
 	}
 	if dec.FlossCnt == 0 && dec.FprevSignalType == TYPE_NO_VOICE_ACTIVITY {
-		/* Update CNG parameters */
-		/* Smoothing of LSF's  */
-		i = 0
-		for {
-			if !(i < dec.FLPC_order) {
-				break
-			}
-			cng.FCNG_smth_NLSF_Q15[i] = OpusT_opus_int16(int32(cng.FCNG_smth_NLSF_Q15[i]) + int32(int64(int32(dec.FprevNLSF_Q15[i])-int32(cng.FCNG_smth_NLSF_Q15[i]))*int64(int16(int32(CNG_NLSF_SMTH_Q16)))>>int32(16)))
-			i = i + 1
+		for i := int32(0); i < dec.FLPC_order; i++ {
+			cng.FCNG_smth_NLSF_Q15[i] = int16(int32(cng.FCNG_smth_NLSF_Q15[i]) + int32(int64(int32(dec.FprevNLSF_Q15[i])-int32(cng.FCNG_smth_NLSF_Q15[i]))*int64(int16(CNG_NLSF_SMTH_Q16))>>16))
 		}
-		/* Find the subframe with the highest gain */
-		max_Gain_Q16 = 0
-		subfr = 0
-		i = 0
-		for {
-			if !(i < dec.Fnb_subfr) {
-				break
-			}
-			if control.FGains_Q16[i] > max_Gain_Q16 {
-				max_Gain_Q16 = control.FGains_Q16[i]
+		maxGain, subfr := int32(0), int32(0)
+		for i := int32(0); i < dec.Fnb_subfr; i++ {
+			if control.FGains_Q16[i] > maxGain {
+				maxGain = control.FGains_Q16[i]
 				subfr = i
 			}
-			i = i + 1
 		}
-		/* Update CNG excitation buffer with excitation from this subframe */
+		// Shift first, then copy, then read gains again: control may alias excitation.
 		copy(cng.FCNG_exc_buf_Q14[dec.Fsubfr_length:dec.Fnb_subfr*dec.Fsubfr_length], cng.FCNG_exc_buf_Q14[:(dec.Fnb_subfr-1)*dec.Fsubfr_length])
 		copy(cng.FCNG_exc_buf_Q14[:dec.Fsubfr_length], dec.Fexc_Q14[subfr*dec.Fsubfr_length:(subfr+1)*dec.Fsubfr_length])
-		/* Smooth gains */
-		i = 0
-		for {
-			if !(i < dec.Fnb_subfr) {
-				break
-			}
-			cng.FCNG_smth_Gain_Q16 += int32(int64(control.FGains_Q16[i]-cng.FCNG_smth_Gain_Q16) * int64(int16(int32(CNG_GAIN_SMTH_Q16))) >> int32(16))
-			/* If the smoothed gain is 3 dB greater than this subframe's gain, use this subframe's gain to adapt faster. */
-			if int32(int64(cng.FCNG_smth_Gain_Q16)*int64(int32(CNG_GAIN_SMTH_THRESHOLD_Q16))>>int32(16)) > control.FGains_Q16[i] {
+		for i := int32(0); i < dec.Fnb_subfr; i++ {
+			cng.FCNG_smth_Gain_Q16 += int32(int64(control.FGains_Q16[i]-cng.FCNG_smth_Gain_Q16) * int64(int16(CNG_GAIN_SMTH_Q16)) >> 16)
+			if int32(int64(cng.FCNG_smth_Gain_Q16)*int64(CNG_GAIN_SMTH_THRESHOLD_Q16)>>16) > control.FGains_Q16[i] {
 				cng.FCNG_smth_Gain_Q16 = control.FGains_Q16[i]
 			}
-			i = i + 1
 		}
 	}
-	/* Add CNG when packet is lost or during DTX */
-	usedScratch := dec.FlossCnt != 0
-	if usedScratch {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v6 = libc.Xmalloc(tls, uint64(16))
-			st = v6
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v9 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v9)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v11 = libc.Xmalloc(tls, uint64(16))
-			st = v11
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v13 = st
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v15 = libc.Xmalloc(tls, uint64(16))
-			st = v15
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v17 = st
-		if !(int64(int32(uint64(uint32(length+int32(MAX_LPC_ORDER)))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v13)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fglobal_stack)) {
-			Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+5763, int32(131))
-		}
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v19 = libc.Xmalloc(tls, uint64(16))
-			st = v19
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v21 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack += uintptr(uint64(uint32(length+int32(MAX_LPC_ORDER))) * (uint64(4) / uint64(1)))
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v23 = libc.Xmalloc(tls, uint64(16))
-			st = v23
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v25 = st
-		CNG_sig_Q14 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v25)).Fglobal_stack - uintptr(uint64(uint32(length+int32(MAX_LPC_ORDER)))*(uint64(4)/uint64(1)))
-		/* Generate CNG excitation */
-		gain_Q16 = int32(int64(dec.FsPLC.FrandScale_Q14) * int64(dec.FsPLC.FprevGain_Q16[1]) >> int32(16))
-		if gain_Q16 >= int32(1)<<int32(21) || cng.FCNG_smth_Gain_Q16 > int32(1)<<int32(23) {
-			gain_Q16 = gain_Q16 >> int32(16) * (gain_Q16 >> int32(16))
-			gain_Q16 = cng.FCNG_smth_Gain_Q16>>int32(16)*(cng.FCNG_smth_Gain_Q16>>int32(16)) - int32(uint32(gain_Q16)<<int32(5))
-			v33 = gain_Q16
-			if v33 <= int32(0) {
-				v34 = 0
-				goto _35
-			}
-			v36 = v33
-			v37 = v36
-			if v37 != 0 {
-				v40 = int32(32) - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, uint32(v37)))
-			} else {
-				v40 = int32(32)
-			}
-			v38 = v40
-			lzeros = v38
-			lz = lzeros
-			v41 = v36
-			v42 = int32(24) - lzeros
-			x = uint32(v41)
-			r = uint32(v42)
-			m = uint32(-v42)
-			if v42 == int32(0) {
-				v43 = v41
-				goto _44
-			} else {
-				if v42 < int32(0) {
-					v43 = int32(x<<m | x>>(uint32(32)-m))
-					goto _44
-				} else {
-					v43 = int32(x<<(uint32(32)-r) | x>>r)
-					goto _44
-				}
-			}
-		_44:
-			frac_Q7 = v43 & int32(0x7f)
-			if lz&int32(1) != 0 {
-				y = int32(32768)
-			} else {
-				y = int32(46214)
-			}
-			y = y >> (lz >> int32(1))
-			y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(frac_Q7))))>>int32(16))
-			v34 = y
-		_35:
-			gain_Q16 = int32(uint32(v34) << int32(16))
+	if dec.FlossCnt != 0 {
+		signal := make([]int32, int(length)+MAX_LPC_ORDER)
+		gain := int32(int64(dec.FsPLC.FrandScale_Q14) * int64(dec.FsPLC.FprevGain_Q16[1]) >> 16)
+		if gain >= 1<<21 || cng.FCNG_smth_Gain_Q16 > 1<<23 {
+			gain = (gain >> 16) * (gain >> 16)
+			gain = (cng.FCNG_smth_Gain_Q16>>16)*(cng.FCNG_smth_Gain_Q16>>16) - int32(uint32(gain)<<5)
+			gain = int32(uint32(cngSqrtApprox(gain)) << 16)
 		} else {
-			gain_Q16 = int32(int64(gain_Q16) * int64(gain_Q16) >> int32(16))
-			gain_Q16 = int32(int64(cng.FCNG_smth_Gain_Q16)*int64(cng.FCNG_smth_Gain_Q16)>>int32(16)) - int32(uint32(gain_Q16)<<int32(5))
-			v33 = gain_Q16
-			if v33 <= int32(0) {
-				v34 = 0
-				goto _47
-			}
-			v36 = v33
-			v37 = v36
-			if v37 != 0 {
-				v40 = int32(32) - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, uint32(v37)))
-			} else {
-				v40 = int32(32)
-			}
-			v38 = v40
-			lzeros = v38
-			lz = lzeros
-			v41 = v36
-			v42 = int32(24) - lzeros
-			x = uint32(v41)
-			r = uint32(v42)
-			m = uint32(-v42)
-			if v42 == int32(0) {
-				v43 = v41
-				goto _56
-			} else {
-				if v42 < int32(0) {
-					v43 = int32(x<<m | x>>(uint32(32)-m))
-					goto _56
-				} else {
-					v43 = int32(x<<(uint32(32)-r) | x>>r)
-					goto _56
-				}
-			}
-		_56:
-			frac_Q7 = v43 & int32(0x7f)
-			if lz&int32(1) != 0 {
-				y = int32(32768)
-			} else {
-				y = int32(46214)
-			}
-			y = y >> (lz >> int32(1))
-			y = int32(int64(y) + int64(y)*int64(int16(int32(int16(int32(213)))*int32(int16(frac_Q7))))>>int32(16))
-			v34 = y
-		_47:
-			gain_Q16 = int32(uint32(v34) << int32(8))
+			gain = int32(int64(gain) * int64(gain) >> 16)
+			gain = int32(int64(cng.FCNG_smth_Gain_Q16)*int64(cng.FCNG_smth_Gain_Q16)>>16) - int32(uint32(gain)<<5)
+			gain = int32(uint32(cngSqrtApprox(gain)) << 8)
 		}
-		gain_Q10 = gain_Q16 >> int32(6)
-		silk_CNG_exc(tls, (*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14+uintptr(MAX_LPC_ORDER)*4)), &cng.FCNG_exc_buf_Q14[0], length, &cng.Frand_seed)
-		/* Convert CNG NLSF to filter representation */
-		Opus_silk_NLSF2A(tls, &A_Q12[0], &cng.FCNG_smth_NLSF_Q15[0], dec.FLPC_order, dec.Farch)
-		/* Generate CNG signal, by synthesis filtering */
-		libc.Xmemcpy(tls, CNG_sig_Q14, uintptr(unsafe.Pointer(&cng.FCNG_synth_state[0])), uint64(uint32(MAX_LPC_ORDER))*uint64(4))
-		if !(dec.FLPC_order == int32(10) || dec.FLPC_order == int32(16)) {
-			Opus_celt_fatal(tls, __ccgo_ts+5777, __ccgo_ts+5763, int32(153))
+		gain >>= 6
+		silk_CNG_exc(tls, unsafe.SliceData(signal[MAX_LPC_ORDER:]), &cng.FCNG_exc_buf_Q14[0], length, &cng.Frand_seed)
+		var coefficients [MAX_LPC_ORDER]int16
+		Opus_silk_NLSF2A(tls, &coefficients[0], &cng.FCNG_smth_NLSF_Q15[0], dec.FLPC_order, dec.Farch)
+		copy(signal[:MAX_LPC_ORDER], cng.FCNG_synth_state[:])
+		if !(dec.FLPC_order == 10 || dec.FLPC_order == 16) {
+			Opus_celt_fatal(tls, __ccgo_ts+5777, __ccgo_ts+5763, 153)
 		}
-		i = 0
-		for {
-			if !(i < length) {
-				break
+		pcm := unsafe.Slice(frame, length)
+		for i := int32(0); i < length; i++ {
+			// SMLAWB narrows after every MAC and rounds products towards -infinity.
+			pred := dec.FLPC_order >> 1
+			for j := int32(0); j < 10; j++ {
+				pred = int32(int64(pred) + (int64(signal[MAX_LPC_ORDER+i-j-1]) * int64(coefficients[j]) >> 16))
 			}
-			/* Avoids introducing a bias because silk_SMLAWB() always rounds to -inf */
-			LPC_pred_Q10 = dec.FLPC_order >> int32(1)
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(1))*4)))*int64(A_Q12[0])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(2))*4)))*int64(A_Q12[int32(1)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(3))*4)))*int64(A_Q12[int32(2)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(4))*4)))*int64(A_Q12[int32(3)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(5))*4)))*int64(A_Q12[int32(4)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(6))*4)))*int64(A_Q12[int32(5)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(7))*4)))*int64(A_Q12[int32(6)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(8))*4)))*int64(A_Q12[int32(7)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(9))*4)))*int64(A_Q12[int32(8)])>>int32(16))
-			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(10))*4)))*int64(A_Q12[int32(9)])>>int32(16))
-			if dec.FLPC_order == int32(16) {
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(11))*4)))*int64(A_Q12[int32(10)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(12))*4)))*int64(A_Q12[int32(11)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(13))*4)))*int64(A_Q12[int32(12)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(14))*4)))*int64(A_Q12[int32(13)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(15))*4)))*int64(A_Q12[int32(14)])>>int32(16))
-				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i-int32(16))*4)))*int64(A_Q12[int32(15)])>>int32(16))
+			if dec.FLPC_order == 16 {
+				for j := int32(10); j < 16; j++ {
+					pred = int32(int64(pred) + (int64(signal[MAX_LPC_ORDER+i-j-1]) * int64(coefficients[j]) >> 16))
+				}
 			}
-			/* Update states */
-			if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-				v42 = int32(silk_int32_MAX) >> int32(4)
-			} else {
-				if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-					v52 = int32(-2147483648) >> int32(4)
-				} else {
-					v52 = LPC_pred_Q10
-				}
-				v42 = v52
+			// LSHIFT_SAT32 followed by ADD_SAT32, without signed-overflow assumptions.
+			if pred > 2147483647>>4 {
+				pred = 2147483647 >> 4
+			} else if pred < -2147483648>>4 {
+				pred = -2147483648 >> 4
 			}
-			if (uint32(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))+uint32(int32(uint32(v42)<<int32(4))))&uint32(0x80000000) == uint32(0) {
-				if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-					v58 = int32(silk_int32_MAX) >> int32(4)
-				} else {
-					if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-						v59 = int32(-2147483648) >> int32(4)
-					} else {
-						v59 = LPC_pred_Q10
-					}
-					v58 = v59
-				}
-				if uint32(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4))&int32(uint32(v58)<<int32(4)))&uint32(0x80000000) != uint32(0) {
-					v54 = int32(-2147483648)
-				} else {
-					if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-						v60 = int32(silk_int32_MAX) >> int32(4)
-					} else {
-						if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-							v61 = int32(-2147483648) >> int32(4)
-						} else {
-							v61 = LPC_pred_Q10
-						}
-						v60 = v61
-					}
-					v54 = *(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)) + int32(uint32(v60)<<int32(4))
-				}
-				v40 = v54
-			} else {
-				if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-					v63 = int32(silk_int32_MAX) >> int32(4)
-				} else {
-					if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-						v64 = int32(-2147483648) >> int32(4)
-					} else {
-						v64 = LPC_pred_Q10
-					}
-					v63 = v64
-				}
-				if uint32(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4))|int32(uint32(v63)<<int32(4)))&uint32(0x80000000) == uint32(0) {
-					v62 = int32(silk_int32_MAX)
-				} else {
-					if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
-						v65 = int32(silk_int32_MAX) >> int32(4)
-					} else {
-						if LPC_pred_Q10 < int32(-2147483648)>>int32(4) {
-							v66 = int32(-2147483648) >> int32(4)
-						} else {
-							v66 = LPC_pred_Q10
-						}
-						v65 = v66
-					}
-					v62 = *(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)) + int32(uint32(v65)<<int32(4))
-				}
-				v40 = v62
+			sample := int64(signal[MAX_LPC_ORDER+i]) + int64(int32(uint32(pred)<<4))
+			if sample > 2147483647 {
+				sample = 2147483647
+			} else if sample < -2147483648 {
+				sample = -2147483648
 			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)) = v40
-			/* Scale with Gain and add to input signal */
-			if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX1) {
-				v42 = int32(silk_int16_MAX1)
-			} else {
-				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-					v52 = int32(int16(-32768))
-				} else {
-					v52 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-				}
-				v42 = v52
+			signal[MAX_LPC_ORDER+i] = int32(sample)
+			// SMULWW narrows before RSHIFT_ROUND; both additions then saturate to int16.
+			scaled := int32(int64(signal[MAX_LPC_ORDER+i]) * int64(gain) >> 16)
+			scaled = ((scaled >> 7) + 1) >> 1
+			if scaled > 32767 {
+				scaled = 32767
+			} else if scaled < -32768 {
+				scaled = -32768
 			}
-			if int32(unsafe.Slice(frame, length)[i])+v42 > int32(silk_int16_MAX1) {
-				v40 = int32(silk_int16_MAX1)
-			} else {
-				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX1) {
-					v58 = int32(silk_int16_MAX1)
-				} else {
-					if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-						v59 = int32(int16(-32768))
-					} else {
-						v59 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-					}
-					v58 = v59
-				}
-				if int32(unsafe.Slice(frame, length)[i])+v58 < int32(int16(-32768)) {
-					v54 = int32(int16(-32768))
-				} else {
-					if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX1) {
-						v60 = int32(silk_int16_MAX1)
-					} else {
-						if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-							v61 = int32(int16(-32768))
-						} else {
-							v61 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-						}
-						v60 = v61
-					}
-					v54 = int32(unsafe.Slice(frame, length)[i]) + v60
-				}
-				v40 = v54
+			sum := int32(pcm[i]) + scaled
+			if sum > 32767 {
+				sum = 32767
+			} else if sum < -32768 {
+				sum = -32768
 			}
-			unsafe.Slice(frame, length)[i] = int16(v40)
-			i = i + 1
+			pcm[i] = int16(sum)
 		}
-		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&cng.FCNG_synth_state[0])), CNG_sig_Q14+uintptr(length)*4, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
+		// This store follows every PCM write, including overlapping history/PCM views.
+		copy(cng.FCNG_synth_state[:], signal[length:length+MAX_LPC_ORDER])
 	} else {
 		clear(cng.FCNG_synth_state[:dec.FLPC_order])
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	if usedScratch {
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	}
 }
 
 const silk_int16_MAX2 = 0x7FFF
-
-/*#define silk_enc_map(a)                ((a) > 0 ? 1 : 0)*/
-/*#define silk_dec_map(a)                ((a) > 0 ? 1 : -1)*/
-/* shifting avoids if-statement */
-
-// C documentation
-//
-//	/* Encodes signs of excitation */

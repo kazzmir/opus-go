@@ -3,7 +3,6 @@
 package main
 
 import (
-	libc "github.com/kazzmir/opus-go/libcshim"
 	"github.com/kazzmir/opus-go/opuscc"
 	"math/rand"
 	"slices"
@@ -154,17 +153,117 @@ func TestPitchContourReferenceLayoutAgainstC(t *testing.T) {
 	}
 }
 
+func TestWholeCNGBoundariesAgainstC(t *testing.T) {
+	for _, fs := range []int32{8, 12, 16} {
+		for _, loss := range []int32{0, 1} {
+			for _, signal := range []int32{0, 1, 2} {
+				for _, reset := range []bool{false, true} {
+					for _, alias := range []int{0, 1, 2} {
+						for _, gain := range []int32{0, 1100000, 11950000} {
+							order := int32(10)
+							if fs == 16 {
+								order = 16
+							}
+							g := opuscc.OpusT_silk_decoder_state{Ffs_kHz: fs, FLPC_order: order, Fnb_subfr: 4, Fsubfr_length: fs * 5, FlossCnt: loss, FprevSignalType: signal}
+							g.FsCNG.Ffs_kHz = fs
+							if reset {
+								g.FsCNG.Ffs_kHz = 0
+							}
+							g.FsCNG.FCNG_smth_Gain_Q16 = gain
+							g.FsCNG.Frand_seed = 24681357
+							g.FsPLC.FrandScale_Q14 = 1 << 14
+							g.FsPLC.FprevGain_Q16[1] = 1 << 23
+							for i := int32(0); i < order; i++ {
+								g.FprevNLSF_Q15[i] = int16((i + 1) * 32767 / (order + 1))
+								g.FsCNG.FCNG_smth_NLSF_Q15[i] = g.FprevNLSF_Q15[i]
+							}
+							for i := range g.Fexc_Q14 {
+								g.Fexc_Q14[i] = int32(i*101 - 17000)
+								g.FsCNG.FCNG_exc_buf_Q14[i] = int32(i*37 - 7000)
+							}
+							for i := range g.FsCNG.FCNG_synth_state {
+								g.FsCNG.FCNG_synth_state[i] = int32(i*19 - 149)
+							}
+							control := opuscc.OpusT_silk_decoder_control{FGains_Q16: [4]int32{800000, 500000, 1100000, 400000}}
+							if alias == 1 {
+								aliased := (*opuscc.OpusT_silk_decoder_control)(unsafe.Pointer(&g.FsCNG.FCNG_exc_buf_Q14[0]))
+								aliased.FGains_Q16 = control.FGains_Q16
+							}
+							c, cc := g, control
+							gc, ct := &control, &cc
+							if alias == 1 {
+								gc = (*opuscc.OpusT_silk_decoder_control)(unsafe.Pointer(&g.FsCNG.FCNG_exc_buf_Q14[0]))
+								ct = (*opuscc.OpusT_silk_decoder_control)(unsafe.Pointer(&c.FsCNG.FCNG_exc_buf_Q14[0]))
+							}
+							frame, cf := make([]int16, 80), make([]int16, 80)
+							for i := range frame {
+								if i&1 == 0 {
+									frame[i] = 32767
+								} else {
+									frame[i] = -32768
+								}
+								cf[i] = frame[i]
+							}
+							if alias == 2 {
+								frame = unsafe.Slice((*int16)(unsafe.Pointer(&g.FsCNG.FCNG_synth_state[0])), 16)
+								cf = unsafe.Slice((*int16)(unsafe.Pointer(&c.FsCNG.FCNG_synth_state[0])), 16)
+							}
+							opuscc.Opus_silk_CNG(nil, &g, gc, unsafe.SliceData(frame), int32(len(frame)))
+							nativeWholeCNG(&c, ct, cf)
+							if g != c || control != cc || !slices.Equal(frame, cf) {
+								t.Fatal("CNG boundary/alias", fs, loss, signal, reset, alias, gain, g.FsCNG, c.FsCNG, frame, cf)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestWholeCNGSaturationAgainstC(t *testing.T) {
+	for _, order := range []int32{10, 16} {
+		for _, sign := range []int32{-1, 1} {
+			for _, gain := range []int32{1100000, 11950000} {
+				g := opuscc.OpusT_silk_decoder_state{Ffs_kHz: 16, FLPC_order: order, FlossCnt: 1}
+				g.FsCNG.Ffs_kHz = 16
+				g.FsCNG.FCNG_smth_Gain_Q16 = gain
+				g.FsCNG.Frand_seed = 24681357
+				for i := int32(0); i < order; i++ {
+					g.FsCNG.FCNG_smth_NLSF_Q15[i] = int16((i + 1) * 32767 / (order + 1))
+				}
+				for i := range g.FsCNG.FCNG_exc_buf_Q14 {
+					g.FsCNG.FCNG_exc_buf_Q14[i] = sign * 2147483647
+				}
+				for i := range g.FsCNG.FCNG_synth_state {
+					g.FsCNG.FCNG_synth_state[i] = sign * (1 << 28)
+				}
+				c := g
+				frame, cf := make([]int16, 80), make([]int16, 80)
+				for i := range frame {
+					if i&1 == 0 {
+						frame[i] = 32767
+					} else {
+						frame[i] = -32768
+					}
+					cf[i] = frame[i]
+				}
+				opuscc.Opus_silk_CNG(nil, &g, nil, &frame[0], 80)
+				nativeWholeCNG(&c, nil, cf)
+				if g != c || !slices.Equal(frame, cf) {
+					t.Fatal("CNG saturation/narrowing", order, sign, gain, g.FsCNG, c.FsCNG, frame, cf)
+				}
+			}
+		}
+	}
+}
+
 func TestWholeCNGAgainstC(t *testing.T) {
 	for _, order := range []int32{10, 16} {
 		for _, sub := range []int32{2, 4} {
 			for _, length := range []int{0, 1, 8, 80, 160} {
 				for _, loss := range []int32{0, 1, 3} {
 					for _, gain := range []int32{0, 1100000, 11950000} {
-						tls := libc.NewTLS()
-						ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
-						scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
-						*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
-						libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
 						g := opuscc.OpusT_silk_decoder_state{Ffs_kHz: 16, FLPC_order: order, Fnb_subfr: sub, Fsubfr_length: 40, FlossCnt: loss, FprevSignalType: 0}
 						g.FsCNG.Ffs_kHz = 16
 						g.FsCNG.FCNG_smth_Gain_Q16 = gain
@@ -190,9 +289,8 @@ func TestWholeCNGAgainstC(t *testing.T) {
 							frame[i] = int16(i*131 - 2000)
 							cf[i] = frame[i]
 						}
-						opuscc.Opus_silk_CNG(tls, &g, &control, &frame[1], int32(length))
+						opuscc.Opus_silk_CNG(nil, &g, &control, &frame[1], int32(length))
 						nativeWholeCNG(&c, &cc, cf[1:len(cf)-1])
-						tls.Close()
 						if g != c || control != cc || !slices.Equal(frame, cf) {
 							t.Fatal(order, sub, length, loss, gain, "CNG state/frame", g.FsCNG, c.FsCNG, frame, cf)
 						}

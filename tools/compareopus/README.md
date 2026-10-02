@@ -374,6 +374,20 @@ decoder partition fixtures cover recursive budgets and optional folding alongsid
 the mono/stereo references. Native comparisons run on the host, not ARM64/macOS.
 Remaining outer integer boundaries, opaque allocations and pseudostack ownership
 mean these tests still do not establish global safety.
+SILK CNG now takes typed decoder/control/PCM pointers, shifts excitation with copy,
+and clears only the active LPC history. Its length+16 synthesis buffer is Go-owned;
+no TLS scratch allocation, restore, integer reconstruction or pinning remains in
+this leaf. The fixed coefficient array and per-MAC int32 narrowing, approximate
+integer square root, shifts, rounding, saturation, seed and final-history store
+order match actual silk/CNG.c fixtures (including control/excitation and PCM/history
+aliases). Native fixtures cover orders 10/16, rates 8/12/16, two/four subframes,
+reset/no-reset, signal types, zero/short/full frames, loss counts, gain branches and
+extreme signed samples. Focused checkptr includes active loss synthesis, nil TLS,
+GC/stack growth and guards on amd64, 386 and ARM64/QEMU; original loss-path expected
+outputs are unchanged. Earlier rounds checked non-loss paths only while TLS scratch
+was still legacy. The enclosing SILK frame/PLC APIs and their pseudostack remain
+legacy; this is not a global decoder safety claim.
+
 Opaque byte-backed allocations, architecture FFT headers, outer integer APIs and
 some outer band-table locals remain legacy. Earlier ARM64 quant-partition and stereo
 fixture lifetime failures required pinning. With the internal spectral chain typed,
