@@ -10,6 +10,10 @@ func ComparePLCDispatch(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *O
 	silk_PLC(tls, dec, control, frame, lost, arch)
 }
 
+func ComparePLCWhiten(decoder *OpusT_silk_decoder_state, samples []int16, a *[MAX_LPC_ORDER]int16, index int32) {
+	silkPLCWhiten(nil, decoder, samples, a, index, 0)
+}
+
 func ComparePLCLPC(decoder *OpusT_silk_decoder_state, history []int32, A *[MAX_LPC_ORDER]int16, frame *int16, gain int32) {
 	silkPLCLPC(nil, decoder, history, A, frame, gain)
 }

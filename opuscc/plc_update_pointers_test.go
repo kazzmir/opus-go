@@ -7,6 +7,42 @@ import (
 	"weak"
 )
 
+func TestPLCWhiteningPointers(t *testing.T) {
+	for _, length := range []int32{160, 240, 320} {
+		for _, order := range []int32{10, 16} {
+			for _, index := range []int32{1, 17, length - order - 1} {
+				d := &OpusT_silk_decoder_state{Fltp_mem_length: length, FLPC_order: order, FpsNLSF_CB: cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB)}
+				for i := range d.FoutBuf {
+					d.FoutBuf[i] = int16((i*71)%60000 - 30000)
+				}
+				a := new([16]int16)
+				for i := range a {
+					a[i] = int16(i*137 - 700)
+				}
+				samples := make([]int16, length+2)
+				for i := range samples {
+					samples[i] = 123
+				}
+				samples[0], samples[len(samples)-1] = 77, 88
+				want := append([]int16(nil), samples...)
+				Opus_silk_LPC_analysis_filter(nil, &want[1+index], &d.FoutBuf[index], &a[0], length-index, order, 0)
+				before := *d
+				entropyInitGrowStack(12)
+				runtime.GC()
+				silkPLCWhiten(nil, d, samples[1:len(samples)-1], a, index, 0)
+				for i := range samples {
+					if samples[i] != want[i] {
+						t.Fatal("whitening cursor", length, order, index, i, samples[i], want[i])
+					}
+				}
+				if *d != before {
+					t.Fatal("whitening changed decoder")
+				}
+			}
+		}
+	}
+}
+
 func TestPLCLPCHistoryPointers(t *testing.T) {
 	for _, length := range []int32{0, 1, 10, 16, 17, 80, 320} {
 		for _, order := range []int32{10, 16} {

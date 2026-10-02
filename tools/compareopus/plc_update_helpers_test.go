@@ -10,6 +10,35 @@ import (
 	"unsafe"
 )
 
+func TestPLCWhiteningAgainstC(t *testing.T) {
+	for _, length := range []int32{160, 240, 320} {
+		for _, order := range []int32{10, 16} {
+			for _, index := range []int32{1, 17, length - order - 1} {
+				d := opuscc.OpusT_silk_decoder_state{Fltp_mem_length: length, FLPC_order: order}
+				for i := range d.FoutBuf {
+					d.FoutBuf[i] = int16((i*71)%60000 - 30000)
+				}
+				var a [16]int16
+				for i := range a {
+					a[i] = int16(i*137 - 700)
+				}
+				samples := make([]int16, length+2)
+				for i := range samples {
+					samples[i] = 123
+				}
+				samples[0], samples[len(samples)-1] = 77, 88
+				want := slices.Clone(samples)
+				before := d
+				opuscc.ComparePLCWhiten(&d, samples[1:len(samples)-1], &a, index)
+				nativeLPCAnalysis(want[1+index:len(want)-1], d.FoutBuf[index:length], a[:order])
+				if !slices.Equal(samples, want) || d != before {
+					t.Fatal("whitening", length, order, index)
+				}
+			}
+		}
+	}
+}
+
 func TestPLCLPCAgainstC(t *testing.T) {
 	for _, length := range []int32{0, 1, 10, 16, 17, 80, 320} {
 		for _, order := range []int32{10, 16} {
