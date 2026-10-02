@@ -562,12 +562,14 @@ var LOG2_FRAC_TABLE = [24]uint8{
 
 //go:uintptrescapes
 func interp_bits2pulses_legacy(tls *libc.TLS, m uintptr, start, end, skipStart int32, bits1, bits2, thresh, cap1 uintptr, total int32, balance uintptr, skipRsv int32, intensity uintptr, intensityRsv int32, dual uintptr, dualRsv int32, bits, ebits, priority uintptr, C, LM int32, ec uintptr, encode, prev, bandwidth int32) int32 {
-	return interp_bits2pulses(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, skipStart, bits1, bits2, thresh, cap1, total, balance, skipRsv, intensity, intensityRsv, dual, dualRsv, bits, ebits, priority, C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), encode, prev, bandwidth)
+	return interp_bits2pulses(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, skipStart, (*int32)(unsafe.Pointer(bits1)), (*int32)(unsafe.Pointer(bits2)), (*int32)(unsafe.Pointer(thresh)), (*int32)(unsafe.Pointer(cap1)), total, balance, skipRsv, intensity, intensityRsv, dual, dualRsv, bits, ebits, priority, C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), encode, prev, bandwidth)
 }
-func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, skip_start int32, bits1 uintptr, bits2 uintptr, thresh uintptr, cap1 uintptr, total OpusT_opus_int32, _balance uintptr, skip_rsv int32, intensity uintptr, intensity_rsv int32, dual_stereo uintptr, dual_stereo_rsv int32, bits uintptr, ebits uintptr, fine_priority uintptr, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
+func allocationInterpBit(a1, a2 []int32, j, mid int32) int32 { return a1[j] + mid*a2[j]>>ALLOC_STEPS }
+func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, skip_start int32, bits1 *int32, bits2 *int32, thresh *int32, cap1 *int32, total OpusT_opus_int32, _balance uintptr, skip_rsv int32, intensity uintptr, intensity_rsv int32, dual_stereo uintptr, dual_stereo_rsv int32, bits uintptr, ebits uintptr, fine_priority uintptr, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
 	var N, N0, NClogN, alloc_floor, band_bits, band_width, codedBands, den, depth_threshold, done, extra_bits, extra_fine, hi, i, j, lo, logM, mid, offset, rem, stereo, tmp, tmp1, tmp2, v7, v8 int32
 	var balance, bit, excess, left, percoeff, psum OpusT_opus_int32
 	var v13, v14 OpusT_opus_uint32
+	a1, a2, thresholds, caps := unsafe.Slice(bits1, end), unsafe.Slice(bits2, end), unsafe.Slice(thresh, end), unsafe.Slice(cap1, end)
 	codedBands = -1
 	alloc_floor = C << int32(BITRES)
 	stereo = libc.BoolInt32(C > int32(1))
@@ -589,15 +591,10 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 			if !(v7 > start) {
 				break
 			}
-			tmp = *(*int32)(unsafe.Pointer(bits1 + uintptr(j)*4)) + mid**(*int32)(unsafe.Pointer(bits2 + uintptr(j)*4))>>int32(ALLOC_STEPS)
-			if tmp >= *(*int32)(unsafe.Pointer(thresh + uintptr(j)*4)) || done != 0 {
-				done = int32(1)
-				/* Don't allocate more than we can actually use */
-				if tmp < *(*int32)(unsafe.Pointer(cap1 + uintptr(j)*4)) {
-					v7 = tmp
-				} else {
-					v7 = *(*int32)(unsafe.Pointer(cap1 + uintptr(j)*4))
-				}
+			tmp = allocationInterpBit(a1, a2, j, mid)
+			if tmp >= thresholds[j] || done != 0 {
+				done = 1
+				v7 = min(tmp, caps[j])
 				psum = psum + v7
 			} else {
 				if tmp >= alloc_floor {
@@ -622,8 +619,8 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 		if !(v7 > start) {
 			break
 		}
-		tmp1 = *(*int32)(unsafe.Pointer(bits1 + uintptr(j)*4)) + lo**(*int32)(unsafe.Pointer(bits2 + uintptr(j)*4))>>int32(ALLOC_STEPS)
-		if tmp1 < *(*int32)(unsafe.Pointer(thresh + uintptr(j)*4)) && !(done != 0) {
+		tmp1 = allocationInterpBit(a1, a2, j, lo)
+		if tmp1 < thresholds[j] && !(done != 0) {
 			if tmp1 >= alloc_floor {
 				tmp1 = alloc_floor
 			} else {
@@ -633,11 +630,7 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 			done = int32(1)
 		}
 		/* Don't allocate more than we can actually use */
-		if tmp1 < *(*int32)(unsafe.Pointer(cap1 + uintptr(j)*4)) {
-			v7 = tmp1
-		} else {
-			v7 = *(*int32)(unsafe.Pointer(cap1 + uintptr(j)*4))
-		}
+		v7 = min(tmp1, caps[j])
 		tmp1 = v7
 		*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) = tmp1
 		psum = psum + tmp1
@@ -676,11 +669,7 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 		/*Only code a skip decision if we're above the threshold for this band.
 		  Otherwise it is force-skipped.
 		  This ensures that we have enough bits to code the skip flag.*/
-		if *(*int32)(unsafe.Pointer(thresh + uintptr(j)*4)) > alloc_floor+int32(1)<<int32(BITRES) {
-			v7 = *(*int32)(unsafe.Pointer(thresh + uintptr(j)*4))
-		} else {
-			v7 = alloc_floor + int32(1)<<int32(BITRES)
-		}
+		v7 = max(thresholds[j], alloc_floor+int32(1)<<int32(BITRES))
 		if band_bits >= v7 {
 			if encode != 0 {
 				/*We choose a threshold with some hysteresis to keep bands from
@@ -801,11 +790,7 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 		N = N0 << LM
 		bit = *(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) + balance
 		if N > int32(1) {
-			if bit-*(*int32)(unsafe.Pointer(cap1 + uintptr(j)*4)) > 0 {
-				v7 = bit - *(*int32)(unsafe.Pointer(cap1 + uintptr(j)*4))
-			} else {
-				v7 = 0
-			}
+			v7 = max(bit-caps[j], 0)
 			excess = v7
 			*(*int32)(unsafe.Pointer(bits + uintptr(j)*4)) = bit - excess
 			/* Compensate for the extra DoF in stereo */

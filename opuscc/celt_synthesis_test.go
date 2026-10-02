@@ -32,6 +32,36 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestAllocationBandInputPointers(t *testing.T) {
+	views := func() [2][]int32 {
+		a, b := make([]int32, 21), make([]int32, 21)
+		for i := range a {
+			a[i] = int32(i) * 17
+			b[i] = int32(i) * 31
+		}
+		return [2][]int32{a, b}
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for j := int32(0); j < 21; j++ {
+		for mid := int32(0); mid <= 1<<ALLOC_STEPS; mid++ {
+			want := int32(j*17 + int32(mid*j*31)>>ALLOC_STEPS)
+			if got := allocationInterpBit(views[0], views[1], j, mid); got != want {
+				t.Fatal("allocation input", j, mid, got, want)
+			}
+		}
+	}
+	views[0][0] = 1 << 30
+	views[1][0] = 1 << 30
+	if got := allocationInterpBit(views[0], views[1], 0, 3); got != 1056964608 {
+		t.Fatal("int32 product/shift wrapping", got)
+	}
+	views[1][0] = 32
+	if got := allocationInterpBit(views[0], views[1], 0, 32); got != (1<<30)+16 {
+		t.Fatal("live array load", got)
+	}
+}
+
 func TestAllocationModeEntropyPointers(t *testing.T) {
 	mode := newSynthesisTestMode()
 	logs := slices.Clone(unsafe.Slice(mode.FlogN, mode.FnbEBands))
