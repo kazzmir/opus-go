@@ -6,7 +6,6 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 	"github.com/kazzmir/opus-go/opuscc"
 	"math/rand"
-	"runtime"
 	"slices"
 	"testing"
 	"unsafe"
@@ -191,12 +190,8 @@ func TestWholeCNGAgainstC(t *testing.T) {
 							frame[i] = int16(i*131 - 2000)
 							cf[i] = frame[i]
 						}
-						var pins runtime.Pinner
-						pins.Pin(&g)
-						pins.Pin(unsafe.SliceData(frame))
-						opuscc.Opus_silk_CNG(tls, &g, &control, uintptr(unsafe.Pointer(&frame[1])), int32(length))
+						opuscc.Opus_silk_CNG(tls, &g, &control, &frame[1], int32(length))
 						nativeWholeCNG(&c, &cc, cf[1:len(cf)-1])
-						pins.Unpin()
 						tls.Close()
 						if g != c || control != cc || !slices.Equal(frame, cf) {
 							t.Fatal(order, sub, length, loss, gain, "CNG state/frame", g.FsCNG, c.FsCNG, frame, cf)

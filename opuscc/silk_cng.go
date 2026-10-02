@@ -57,7 +57,7 @@ func Opus_silk_CNG_Reset(tls *libc.TLS, dec *OpusT_silk_decoder_state) {
 // C documentation
 //
 //	/* Updates CNG estimate, and applies the CNG when packet was lost   */
-func Opus_silk_CNG(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, frame uintptr, length int32) {
+func Opus_silk_CNG(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, frame *int16, length int32) {
 	var CNG_sig_Q14, _saved_stack, st, v1, v11, v13, v15, v17, v19, v21, v23, v25, v3, v6, v9 uintptr
 	var LPC_pred_Q10, gain_Q10, gain_Q16, lzeros, max_Gain_Q16, y, v33, v34, v36, v37, v38, v41, v43 OpusT_opus_int32
 	var i, subfr, v40, v42, v52, v54, v58, v59, v60, v61, v62, v63, v64, v65, v66 int32
@@ -393,7 +393,7 @@ func Opus_silk_CNG(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *OpusT_
 				}
 				v42 = v52
 			}
-			if int32(*(*OpusT_opus_int16)(unsafe.Pointer(frame + uintptr(i)*2)))+v42 > int32(silk_int16_MAX1) {
+			if int32(unsafe.Slice(frame, length)[i])+v42 > int32(silk_int16_MAX1) {
 				v40 = int32(silk_int16_MAX1)
 			} else {
 				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX1) {
@@ -406,7 +406,7 @@ func Opus_silk_CNG(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *OpusT_
 					}
 					v58 = v59
 				}
-				if int32(*(*OpusT_opus_int16)(unsafe.Pointer(frame + uintptr(i)*2)))+v58 < int32(int16(-32768)) {
+				if int32(unsafe.Slice(frame, length)[i])+v58 < int32(int16(-32768)) {
 					v54 = int32(int16(-32768))
 				} else {
 					if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(CNG_sig_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX1) {
@@ -419,11 +419,11 @@ func Opus_silk_CNG(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *OpusT_
 						}
 						v60 = v61
 					}
-					v54 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(frame + uintptr(i)*2))) + v60
+					v54 = int32(unsafe.Slice(frame, length)[i]) + v60
 				}
 				v40 = v54
 			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(frame + uintptr(i)*2)) = int16(v40)
+			unsafe.Slice(frame, length)[i] = int16(v40)
 			i = i + 1
 		}
 		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&cng.FCNG_synth_state[0])), CNG_sig_Q14+uintptr(length)*4, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
