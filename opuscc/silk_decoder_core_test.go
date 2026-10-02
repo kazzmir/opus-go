@@ -9,6 +9,75 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeCoreExcitationPointers(t *testing.T) {
+	for _, length := range []int32{0, 1, 17, 80, 160, 320} {
+		for _, seed := range []int8{-128, -1, 0, 17, 127} {
+			d := newPLCConcealTestDecoder(16, 4)
+			d.Fframe_length = length
+			d.Findices.FSeed = seed
+			for i := range d.Fexc_Q14 {
+				d.Fexc_Q14[i] = 1234567
+			}
+			w := *d
+			w.FpsNLSF_CB = nil
+			pulses := make([]int16, length)
+			edges := []int16{-32768, 32767, -1, 0, 1, 13, -14}
+			s := int32(seed)
+			for i := range pulses {
+				pulses[i] = edges[i%len(edges)]
+				s = int32(uint32(RAND_INCREMENT) + uint32(s)*uint32(RAND_MULTIPLIER))
+				v := int32(uint32(int32(pulses[i])) << 14)
+				if v > 0 {
+					v -= QUANT_LEVEL_ADJUST_Q10 << 4
+				} else if v < 0 {
+					v += QUANT_LEVEL_ADJUST_Q10 << 4
+				}
+				v += 1600
+				if s < 0 {
+					v = -v
+				}
+				w.Fexc_Q14[i] = v
+				s = int32(uint32(s) + uint32(int32(pulses[i])))
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := silkDecodeCoreExcitation(d, unsafe.SliceData(pulses), 100)
+			g := *d
+			g.FpsNLSF_CB = nil
+			if got != s || g != w || d.FpsNLSF_CB.FCB1_NLSF_Q8 == nil {
+				t.Fatal("excitation/ownership", length, seed, got, s)
+			}
+		}
+	}
+	pulse, owner := func() (*int16, weak.Pointer[OpusT_silk_decoder_state]) {
+		source := newPLCConcealTestDecoder(16, 4)
+		return &source.FoutBuf[1], weak.Make(source)
+	}()
+	target := &OpusT_silk_decoder_state{Fframe_length: 320}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	silkDecodeCoreExcitation(target, pulse, 100)
+	source := owner.Value()
+	if source == nil || source.FpsNLSF_CB == nil || source.FpsNLSF_CB.FCB1_NLSF_Q8 == nil {
+		t.Fatal("sole pulse interior lost scanned backing")
+	}
+	runtime.KeepAlive(pulse)
+	// Go-only effective-type alias. The second pulse load must follow excitation
+	// writes, rather than use a cached original pulse.
+	d := &OpusT_silk_decoder_state{Fframe_length: 1}
+	d.Fexc_Q14[0] = 7
+	seed := int32(uint32(RAND_INCREMENT))
+	sample := int32(7<<14) - (QUANT_LEVEL_ADJUST_Q10 << 4) + 1600
+	if seed < 0 {
+		sample = -sample
+	}
+	want := int32(uint32(seed) + uint32(int32(int16(sample))))
+	got := silkDecodeCoreExcitation(d, (*int16)(unsafe.Pointer(&d.Fexc_Q14[0])), 100)
+	if got != want || d.Fexc_Q14[0] != sample {
+		t.Fatal("live pulse reload", got, want, d.Fexc_Q14[0], sample)
+	}
+}
+
 func TestDecodeCoreControlPointers(t *testing.T) {
 	for _, loss := range []int32{0, 1, -1} {
 		for _, prev := range []int32{TYPE_UNVOICED, TYPE_VOICED} {

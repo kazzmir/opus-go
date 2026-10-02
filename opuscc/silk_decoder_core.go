@@ -32,6 +32,26 @@ func Opus_silk_init_decoder(tls *libc.TLS, dec *OpusT_silk_decoder_state) int32 
 	return Opus_silk_reset_decoder(tls, dec)
 }
 
+func silkDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int16, offset int32) int32 {
+	samples := unsafe.Slice(pulses, decoder.Fframe_length)
+	seed := int32(decoder.Findices.FSeed)
+	for i := int32(0); i < decoder.Fframe_length; i++ {
+		seed = int32(uint32(RAND_INCREMENT) + uint32(seed)*uint32(RAND_MULTIPLIER))
+		decoder.Fexc_Q14[i] = int32(uint32(int32(samples[i])) << 14)
+		if decoder.Fexc_Q14[i] > 0 {
+			decoder.Fexc_Q14[i] -= QUANT_LEVEL_ADJUST_Q10 << 4
+		} else if decoder.Fexc_Q14[i] < 0 {
+			decoder.Fexc_Q14[i] += QUANT_LEVEL_ADJUST_Q10 << 4
+		}
+		decoder.Fexc_Q14[i] += int32(uint32(offset) << 4)
+		if seed < 0 {
+			decoder.Fexc_Q14[i] = -decoder.Fexc_Q14[i]
+		}
+		seed = int32(uint32(seed) + uint32(int32(samples[i])))
+	}
+	return seed
+}
+
 // Preserve the coefficient clear, center-tap store, then live lag load/store.
 func silkDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
 	if decoder.FlossCnt != 0 && decoder.FprevSignalType == TYPE_VOICED && decoder.Findices.FsignalType != TYPE_VOICED && k < MAX_NB_SUBFR/2 {
@@ -60,11 +80,11 @@ const silk_int16_MAX3 = 32767
 //
 //go:uintptrescapes
 func Opus_silk_decode_core(tls *libc.TLS, psDec, psDecCtrl, xq, pulses uintptr, arch int32) {
-	silk_decode_core(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), xq, pulses, arch)
+	silk_decode_core(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), xq, (*int16)(unsafe.Pointer(pulses)), arch)
 }
 
 // Scratch and synthesis cursors remain legacy; decoder ownership is typed.
-func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, xq uintptr, pulses uintptr, arch int32) {
+func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, xq uintptr, pulses *int16, arch int32) {
 	var A_Q12, B_Q14, _saved_stack, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, res_Q14, sLPC_Q14, sLTP, sLTP_Q15, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, a32_nrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, err_Q32, gain_adj_Q16, inv_gain_Q31, offset_Q10, rand_seed, result, result1, v103, v106, v107, v110, v117, v118, v121 OpusT_opus_int32
 	var NLSF_interpolation_flag, a_headrm, b_headrm, b_headrm1, i, k, lag, lshift, lshift1, sLTP_buf_idx, signalType, start_idx, v104, v105, v109, v112, v113, v114, v115, v116, v119, v120, v124, v125, v129 int32
@@ -351,35 +371,14 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	}
 	v23 = st
 	sLPC_Q14 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length+int32(MAX_LPC_ORDER)))*(uint64(4)/uint64(1)))
-	offset_Q10 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(uintptr(unsafe.Pointer(&Opus_silk_Quantization_Offsets_Q10)) + uintptr(int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType)>>int32(1))*4 + uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FquantOffsetType)*2)))
+	offset_Q10 = int32(Opus_silk_Quantization_Offsets_Q10[decoder.Findices.FsignalType>>1][decoder.Findices.FquantOffsetType])
 	if int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FNLSFInterpCoef_Q2) < int32(1)<<int32(2) {
 		NLSF_interpolation_flag = int32(1)
 	} else {
 		NLSF_interpolation_flag = 0
 	}
-	/* Decode excitation */
-	rand_seed = int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FSeed)
-	i = 0
-	for {
-		if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length) {
-			break
-		}
-		rand_seed = int32(uint32(int32(RAND_INCREMENT)) + uint32(rand_seed)*uint32(int32(RAND_MULTIPLIER)))
-		decoder.Fexc_Q14[i] = int32(uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(pulses + uintptr(i)*2)))) << int32(14))
-		if decoder.Fexc_Q14[i] > 0 {
-			decoder.Fexc_Q14[i] -= int32(QUANT_LEVEL_ADJUST_Q10) << int32(4)
-		} else {
-			if decoder.Fexc_Q14[i] < 0 {
-				decoder.Fexc_Q14[i] += int32(QUANT_LEVEL_ADJUST_Q10) << int32(4)
-			}
-		}
-		decoder.Fexc_Q14[i] += offset_Q10 << int32(4)
-		if rand_seed < 0 {
-			decoder.Fexc_Q14[i] = -decoder.Fexc_Q14[i]
-		}
-		rand_seed = int32(uint32(rand_seed) + uint32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(pulses + uintptr(i)*2)))))
-		i = i + 1
-	}
+	/* Decode excitation; pulse is reloaded after the aliased excitation stores. */
+	rand_seed = silkDecodeCoreExcitation(decoder, pulses, offset_Q10)
 	/* Copy LPC state */
 	libc.Xmemcpy(tls, sLPC_Q14, uintptr(unsafe.Pointer(&decoder.FsLPC_Q14_buf[0])), uint64(uint32(MAX_LPC_ORDER))*uint64(4))
 	pexc_Q14 = uintptr(unsafe.Pointer(&decoder.Fexc_Q14[0]))

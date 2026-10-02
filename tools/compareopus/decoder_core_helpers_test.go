@@ -10,6 +10,35 @@ import (
 	"unsafe"
 )
 
+func TestDecodeCoreExcitationAgainstC(t *testing.T) {
+	for _, length := range []int32{0, 1, 17, 80, 160, 320} {
+		for _, seed := range []int8{-128, -1, 0, 1, 17, 127} {
+			for _, signal := range []int8{0, 1, 2} {
+				for _, q := range []int8{0, 1} {
+					d := opuscc.OpusT_silk_decoder_state{Fframe_length: length}
+					d.Findices.FSeed = seed
+					for i := range d.Fexc_Q14 {
+						d.Fexc_Q14[i] = 1234567
+					}
+					c := d
+					pulses := make([]int16, length+2)
+					pulses[0], pulses[len(pulses)-1] = 77, 88
+					edges := []int16{-32768, 32767, -1, 0, 1, 13, -14}
+					for i := int32(0); i < length; i++ {
+						pulses[i+1] = edges[i%int32(len(edges))]
+					}
+					before := slices.Clone(pulses)
+					offset := int32(opuscc.Opus_silk_Quantization_Offsets_Q10[signal>>1][q])
+					g := opuscc.CompareDecodeCoreExcitation(&d, &pulses[1], offset)
+					n := nativeDecodeCoreExcitation(&c, pulses[1:len(pulses)-1], offset)
+					if g != n || d != c || !slices.Equal(pulses, before) {
+						t.Fatal("excitation", length, seed, signal, q, g, n)
+					}
+				}
+			}
+		}
+	}
+}
 func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 	for _, loss := range []int32{0, 1, -1} {
 		for _, prev := range []int32{1, 2} {
@@ -93,7 +122,7 @@ func TestDecodeCoreAgainstC(t *testing.T) {
 						scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
 						*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
 						libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
-						opuscc.CompareDecodeCore(tls, &d, &ctrl, uintptr(unsafe.Pointer(&out[1])), uintptr(unsafe.Pointer(&pulses[0])))
+						opuscc.CompareDecodeCore(tls, &d, &ctrl, uintptr(unsafe.Pointer(&out[1])), &pulses[0])
 						tls.Close()
 						r := nativeDecodeCore(&c, &cc, want[1:len(want)-1], pulses)
 						if r != 0 || d != c || ctrl != cc || !slices.Equal(out, want) || !slices.Equal(pulses, before) {
