@@ -7,6 +7,31 @@ import (
 	"weak"
 )
 
+func TestPLCConcealPCMPointers(t *testing.T) {
+	pcm := make([]int16, 3)
+	pcm[0], pcm[2] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for _, sample := range []int32{-2147483648, -8388609, -8388608, -128, -1, 0, 127, 128, 8388352, 8388608, 2147483647} {
+		for _, gain := range []int32{-2147483648, -65536, -1, 0, 1, 1024, 65536, 2147483647} {
+			scaled := int32(int64(sample) * int64(gain) >> 16)
+			want := int16(min(max(((scaled>>7)+1)>>1, -32768), 32767))
+			silkPLCPCMStore(pcm[1:2], 0, sample, gain)
+			if pcm[1] != want || pcm[0] != 77 || pcm[2] != 88 {
+				t.Fatal("PLC PCM", sample, gain, pcm, want)
+			}
+		}
+	}
+	for _, f := range []struct {
+		s, g int32
+		want int16
+	}{{128, 65536, 1}, {-128, 65536, 0}, {-129, 65536, -1}, {8388608, 65536, 32767}, {-8388609, 65536, -32768}, {2147483647, 2147483647, -256}} {
+		if got := silkPLCPCM(f.s, f.g); got != f.want {
+			t.Fatal("PCM narrowing/rounding/saturation", f, got)
+		}
+	}
+}
+
 func TestPLCRandomPointers(t *testing.T) {
 	random, owner := func() ([]int32, weak.Pointer[OpusT_silk_NLSF_CB_struct]) {
 		cb := cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB)

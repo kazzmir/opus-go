@@ -38,7 +38,7 @@ func silk_PLC(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_s
 		/****************************/
 		/* Generate Signal          */
 		/****************************/
-		silk_PLC_conceal_owned(tls, decoder, control, uintptr(unsafe.Pointer(frame)), arch)
+		silk_PLC_conceal_owned(tls, decoder, control, frame, arch)
 		decoder.FlossCnt = decoder.FlossCnt + 1
 	} else {
 		/****************************/
@@ -155,7 +155,13 @@ func silk_PLC_energy(tls *libc.TLS, energy1, shift1, energy2, shift2 *int32, exc
 
 //go:uintptrescapes
 func silk_PLC_conceal(tls *libc.TLS, psDec, psDecCtrl, frame uintptr, arch int32) {
-	silk_PLC_conceal_owned(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), frame, arch)
+	silk_PLC_conceal_owned(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(frame)), arch)
+}
+func silkPLCPCMStore(pcm []int16, index, sample, gain int32) { pcm[index] = silkPLCPCM(sample, gain) }
+func silkPLCPCM(sample, gain int32) int16 {
+	scaled := int32(int64(sample) * int64(gain) >> 16)
+	rounded := ((scaled >> 7) + 1) >> 1
+	return int16(min(max(rounded, -32768), 32767))
 }
 func silkPLCRandom(decoder *OpusT_silk_decoder_state, offset int32) []int32 {
 	return decoder.Fexc_Q14[offset : offset+RAND_BUF_SIZE]
@@ -172,10 +178,8 @@ func silkPLCConcealState(decoder *OpusT_silk_decoder_state) *OpusT_silk_PLC_stru
 	return &decoder.FsPLC
 }
 
-// Frame and internal synthesis/history cursors still use the legacy ABI.
-//
-//go:uintptrescapes
-func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, frame uintptr, arch int32) {
+// Internal synthesis/history cursors and TLS scratch remain legacy.
+func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, frame *int16, arch int32) {
 	var psPLC *OpusT_silk_PLC_struct
 	var B_Q14 *[LTP_ORDER]int16
 	var rand_ptr []int32
@@ -592,6 +596,7 @@ _102:
 	if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order >= int32(10)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6755, __ccgo_ts+6715, int32(373))
 	} /* check that unrolling works */
+	pcm := unsafe.Slice(frame, decoder.Fframe_length)
 	i = 0
 	for {
 		if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length) {
@@ -685,48 +690,8 @@ _102:
 			v53 = v63
 		}
 		*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)) = v53
-		/* Scale with Gain */
-		if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX7) {
-			v54 = int32(silk_int16_MAX7)
-		} else {
-			if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-				v55 = int32(int16(-32768))
-			} else {
-				v55 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-			}
-			v54 = v55
-		}
-		if v54 > int32(silk_int16_MAX7) {
-			v53 = int32(silk_int16_MAX7)
-		} else {
-			if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX7) {
-				v58 = int32(silk_int16_MAX7)
-			} else {
-				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-					v59 = int32(int16(-32768))
-				} else {
-					v59 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-				}
-				v58 = v59
-			}
-			if v58 < int32(int16(-32768)) {
-				v57 = int32(int16(-32768))
-			} else {
-				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX7) {
-					v60 = int32(silk_int16_MAX7)
-				} else {
-					if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-						v62 = int32(int16(-32768))
-					} else {
-						v62 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(prevGain_Q10[1])>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-					}
-					v60 = v62
-				}
-				v57 = v60
-			}
-			v53 = v57
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(frame + uintptr(i)*2)) = int16(v53)
+		// SMULWW narrows before RSHIFT_ROUND; the nested SAT16 is idempotent.
+		silkPLCPCMStore(pcm, i, *(*int32)(unsafe.Pointer(sLPC_Q14_ptr + uintptr(MAX_LPC_ORDER+i)*4)), prevGain_Q10[1])
 		i = i + 1
 	}
 	/* Save LPC state */

@@ -10,6 +10,7 @@ package main
 #define silk_PLC comparison_PLC
 #define silk_PLC_glue_frames comparison_PLC_glue_frames
 #include "PLC.c"
+static short plc_pcm(int sample,int gain) {return (short)silk_SAT16(silk_SAT16(silk_RSHIFT_ROUND(silk_SMULWW(sample,gain),8)));}
 static int plc_noise(int prediction,const int *random,int index,short scale) {return silk_LSHIFT32(silk_SMLAWB(prediction,random[index],scale),2);}
 static void plc_decay(short *b,int gain) {for(int j=0;j<LTP_ORDER;j++)b[j]=silk_RSHIFT(silk_SMULBB(gain,b[j]),15);}
 static int plc_dispatch(unsigned char *d,int ds,unsigned char *c,int cs,short *pcm,int lost,int arch) {
@@ -40,6 +41,8 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePLCPCM(sample, gain int32) int16 { return int16(C.plc_pcm(C.int(sample), C.int(gain))) }
 
 func nativePLCNoise(prediction int32, random []int32, index int32, scale int16) int32 {
 	return int32(C.plc_noise(C.int(prediction), (*C.int)(unsafe.Pointer(unsafe.SliceData(random))), C.int(index), C.short(scale)))

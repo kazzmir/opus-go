@@ -10,6 +10,18 @@ import (
 	"unsafe"
 )
 
+func TestPLCPCMAgainstC(t *testing.T) {
+	for _, sample := range []int32{-2147483648, -8388609, -128, -1, 0, 127, 128, 8388608, 2147483647} {
+		for _, gain := range []int32{-2147483648, -65536, -1, 0, 1, 1024, 65536, 2147483647} {
+			g := opuscc.ComparePLCPCM(sample, gain)
+			c := nativePLCPCM(sample, gain)
+			if g != c {
+				t.Fatal("PCM", sample, gain, g, c)
+			}
+		}
+	}
+}
+
 func TestPLCNoiseAgainstC(t *testing.T) {
 	random := make([]int32, 128)
 	for i := range random {
