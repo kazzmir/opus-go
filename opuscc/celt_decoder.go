@@ -253,8 +253,19 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 	}
 }
 
-func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, oldBandE uintptr, start int32, effEnd int32, C int32, CC int32, isTransient int32, LM int32, downsample int32, silence int32, arch int32) {
-	modeView := (*OpusT_OpusCustomMode)(unsafe.Pointer(mode))
+func celt_synthesis_legacy(tls *libc.TLS, mode, X, out, energy uintptr, start, end, C, CC, transient, LM, downsample, silence, arch int32) {
+	celt_synthesis(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), X, out, energy, start, end, C, CC, transient, LM, downsample, silence, arch)
+}
+func celtSynthesisGeometry(mode *OpusT_OpusCustomMode, LM int32) (overlap, bands, N int32) {
+	return mode.Foverlap, mode.FnbEBands, mode.FshortMdctSize << LM
+}
+func celtSynthesisIMDCT(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq, out *float32, overlap, shift, stride, arch int32) {
+	lookup := &mode.Fmdct
+	st := lookup.Fkfft[shift]
+	Opus_clt_mdct_backward_c(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, out, mode.Fwindow, overlap, shift, stride, arch)
+}
+func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X uintptr, out_syn uintptr, oldBandE uintptr, start int32, effEnd int32, C int32, CC int32, isTransient int32, LM int32, downsample int32, silence int32, arch int32) {
+	modeView := mode
 	bandBoundaries := modeView.FeBands
 	var B, M, N, NB, b, c, i, nbEBands, overlap, shift, v33 int32
 	var _saved_stack, freq, freq2, freq21, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
@@ -270,9 +281,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	overlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
-	nbEBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FnbEBands
-	N = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize << LM
+	overlap, nbEBands, N = celtSynthesisGeometry(mode, LM)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -359,7 +368,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 			if !(b < B) {
 				break
 			}
-			mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq2+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+			celtSynthesisIMDCT(tls, mode, (*float32)(unsafe.Pointer(freq2+uintptr(b)*4)), (*float32)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4)), overlap, shift, B, arch)
 			b = b + 1
 		}
 		b = 0
@@ -367,7 +376,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 			if !(b < B) {
 				break
 			}
-			mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+			celtSynthesisIMDCT(tls, mode, (*float32)(unsafe.Pointer(freq+uintptr(b)*4)), (*float32)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(out_syn + uintptr(libc.PtrSize)))+uintptr(NB*b)*4)), overlap, shift, B, arch)
 			b = b + 1
 		}
 	} else {
@@ -389,7 +398,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 				if !(b < B) {
 					break
 				}
-				mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+				celtSynthesisIMDCT(tls, mode, (*float32)(unsafe.Pointer(freq+uintptr(b)*4)), (*float32)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(out_syn))+uintptr(NB*b)*4)), overlap, shift, B, arch)
 				b = b + 1
 			}
 		} else {
@@ -402,7 +411,7 @@ func celt_synthesis(tls *libc.TLS, mode uintptr, X uintptr, out_syn uintptr, old
 					if !(b < B) {
 						break
 					}
-					mdct_backward_legacy(tls, mode+unsafe.Offsetof(OpusT_OpusCustomMode{}.Fmdct), freq+uintptr(b)*4, *(*uintptr)(unsafe.Pointer(out_syn + uintptr(c)*uintptr(libc.PtrSize)))+uintptr(NB*b)*4, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Fwindow, overlap, shift, B, arch)
+					celtSynthesisIMDCT(tls, mode, (*float32)(unsafe.Pointer(freq+uintptr(b)*4)), (*float32)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(out_syn + uintptr(c)*uintptr(libc.PtrSize)))+uintptr(NB*b)*4)), overlap, shift, B, arch)
 					b = b + 1
 				}
 				c = c + 1
@@ -827,7 +836,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			c = c + 1
 		}
 		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng = seed
-		celt_synthesis(tls, mode, X, uintptr(unsafe.Pointer(&out_syn[0])), oldBandE, start, effEnd, C, C, 0, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+		celt_synthesis_legacy(tls, mode, X, uintptr(unsafe.Pointer(&out_syn[0])), oldBandE, start, effEnd, C, C, 0, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 		/* Run the postfilter with the last parameters. */
 		c = 0
 		for {
@@ -2156,7 +2165,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold != 0 {
 		prefilter_and_fold(tls, st1, N)
 	}
-	celt_synthesis(tls, mode, X, uintptr(unsafe.Pointer(&out_syn[0])), oldBandE, start, effEnd, C, CC, isTransient, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, silence, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+	celt_synthesis_legacy(tls, mode, X, uintptr(unsafe.Pointer(&out_syn[0])), oldBandE, start, effEnd, C, CC, isTransient, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, silence, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 	c = 0
 	for {
 		if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period > int32(COMBFILTER_MINPERIOD) {

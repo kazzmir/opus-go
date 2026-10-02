@@ -18,6 +18,8 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #define celt_decoder_init comparison_celt_init
 #define opus_custom_decoder_init comparison_custom_init
 #define opus_custom_decoder_destroy comparison_custom_destroy
+#define clt_mdct_backward_c compare_mdct_backward
+#define denormalise_bands compare_hadamard_denormalise
 #define celt_synthesis comparison_celt_synthesis
 #define celt_decode_with_ec_dred comparison_celt_decode_dred
 #define celt_decode_with_ec comparison_celt_decode_ec
@@ -40,6 +42,7 @@ static int native_plc_pitch(float *left,float *right,int channels) {float *data[
 #define opus_custom_mode_create comparison_mode_create
 #define opus_custom_mode_destroy comparison_mode_destroy
 #include "../../../opus/celt/modes.c"
+static void native_celt_synthesis(float *x,float *energy,float *left,float *right,int start,int end,int C,int CC,int transient,int LM,int downsample,int silence) {float *out[2]={left,right};const CELTMode *mode=comparison_mode_create(48000,960,NULL);comparison_celt_synthesis(mode,x,out,energy,start,end,C,CC,transient,LM,downsample,silence,0);}
 static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
 #undef opus_custom_mode_create
 #undef opus_custom_mode_destroy
@@ -92,6 +95,10 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeCeltSynthesis(x, energy, left, right []float32, start, end, channels, outputChannels, transient, LM, downsample, silence int32) {
+	C.native_celt_synthesis((*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.float)(unsafe.Pointer(unsafe.SliceData(energy))), (*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), C.int(start), C.int(end), C.int(channels), C.int(outputChannels), C.int(transient), C.int(LM), C.int(downsample), C.int(silence))
+}
 
 func nativeDeemphasis(left, right, pcm []float32, N, channels, downsample int32, coef float32, mem *[2]float32, accum int32) {
 	C.native_deemphasis((*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), (*C.float)(unsafe.Pointer(unsafe.SliceData(pcm))), C.int(N), C.int(channels), C.int(downsample), C.float(coef), (*C.float)(unsafe.Pointer(mem)), C.int(accum))

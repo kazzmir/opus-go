@@ -536,6 +536,53 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestCeltSynthesisAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		N := int32(120) << LM
+		for _, channels := range [][2]int32{{1, 1}, {2, 2}, {1, 2}, {2, 1}, {0, 0}, {0, 1}} {
+			for _, transient := range []int32{0, 1} {
+				for _, downsample := range []int32{1, 2, 3, 4, 6} {
+					for _, silence := range []int32{0, 1} {
+						for _, rangeBands := range [][2]int32{{0, 21}, {0, 20}, {1, 19}, {5, 7}, {21, 21}} {
+							tls := libc.NewTLS()
+							ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
+							scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
+							*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
+							libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
+							x := make([]float32, N*max(channels[0], channels[1], 1)+2)
+							energy := make([]float32, 21*max(channels[0], channels[1], 1)+2)
+							for i := range x {
+								x[i] = float32(i%19-9) / 32
+							}
+							for i := range energy {
+								energy[i] = []float32{-28, -9, .25, 8, 32}[i%5]
+							}
+							cx, ce := slices.Clone(x), slices.Clone(energy)
+							gl, gr := make([]float32, N+62), make([]float32, N+62)
+							for i := range gl {
+								gl[i] = float32(i%11-5) / 31
+								gr[i] = float32(i%13-6) / 37
+							}
+							gl[0], gl[len(gl)-1], gr[0], gr[len(gr)-1] = 77, 88, 99, 111
+							cl, cr := slices.Clone(gl), slices.Clone(gr)
+							opuscc.CompareCeltSynthesis(tls, &x[1], &energy[1], &gl[1], &gr[1], rangeBands[0], rangeBands[1], channels[0], channels[1], transient, LM, downsample, silence)
+							nativeCeltSynthesis(cx[1:], ce[1:], cl[1:], cr[1:], rangeBands[0], rangeBands[1], channels[0], channels[1], transient, LM, downsample, silence)
+							tls.Close()
+							for _, pair := range [][2][]float32{{x, cx}, {energy, ce}, {gl, cl}, {gr, cr}} {
+								for i := range pair[0] {
+									if math.Float32bits(pair[0][i]) != math.Float32bits(pair[1][i]) {
+										t.Fatal("synthesis", LM, channels, transient, downsample, silence, rangeBands, i, pair[0][i], pair[1][i])
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestDeemphasisDriverAgainstC(t *testing.T) {
 	for _, N := range []int32{0, 1, 2, 8, 120, 960} {
 		for _, channels := range []int32{0, 1, 2} {
