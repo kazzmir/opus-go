@@ -111,6 +111,37 @@ func TestStereoBandAgainstC(t *testing.T) {
 	}
 }
 
+func TestThetaSpectrumAgainstC(t *testing.T) {
+	for _, N := range []int32{2, 4, 16} {
+		for _, budget := range []int32{0, 16, 64, 160} {
+			for _, stereo := range []int32{0, 1} {
+				for _, intensity := range []int32{0, 1} {
+					cfg := [12]int32{N, 1, 1, 0, stereo, budget, 15, intensity, 24, 300, 0, 0}
+					gb, cb := make([]byte, 64), make([]byte, 64)
+					var ge opuscc.OpusT_ec_ctx
+					opuscc.Opus_ec_enc_init(nil, &ge, &gb[0], 64)
+					ce := ge
+					ce.Fbuf = &cb[0]
+					x, y, cx, cy := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+					for i := range x {
+						x[i] = float32(i+1) / 17
+						y[i] = -float32(i+2) / 19
+						cx[i] = x[i]
+						cy[i] = y[i]
+					}
+					g := opuscc.CompareThetaSpectrum(&ge, &x[1], &y[1], cfg, true)
+					c := nativeThetaSpectrum(&ce, cb, cx[1:len(cx)-1], cy[1:len(cy)-1], cfg, true)
+					ge.Fbuf = nil
+					ce.Fbuf = nil
+					if g != c || ge != ce || !sameFloatBits(x, cx) || !sameFloatBits(y, cy) || !slices.Equal(gb, cb) {
+						t.Fatal(cfg, g, c, x, cx, y, cy, ge, ce)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestQuantN1AgainstC(t *testing.T) {
 	for encode := int32(0); encode <= 1; encode++ {
 		for resynth := int32(0); resynth <= 1; resynth++ {

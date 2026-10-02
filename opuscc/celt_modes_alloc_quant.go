@@ -2071,9 +2071,8 @@ type split_ctx = struct {
 	Fqalloc int32
 }
 
-// Context and local outputs remain visible across nested entropy calls.
-// Spectral buffers still cross the surrounding legacy boundary.
-func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X uintptr, Y uintptr, N int32, b *int32, B int32, B0 int32, LM int32, stereo int32, fill *int32) {
+// Context, spectra and local outputs remain visible across entropy calls.
+func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y *float32, N int32, b *int32, B int32, B0 int32, LM int32, stereo int32, fill *int32) {
 	var bandE *OpusT_celt_ener
 	var ec *OpusT_ec_ctx
 	var m *OpusT_OpusCustomMode
@@ -2107,7 +2106,7 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X uintptr, Y u
 		   side and mid. With just that parameter, we can re-scale both
 		   mid and side because we know that 1) they have unit norm and
 		   2) they are orthogonal. */
-		itheta_q30 = Opus_stereo_itheta(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), stereo, N, ctx.Farch)
+		itheta_q30 = Opus_stereo_itheta(tls, X, Y, stereo, N, ctx.Farch)
 		itheta = itheta_q30 >> int32(16)
 	}
 	tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))))
@@ -2256,9 +2255,9 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X uintptr, Y u
 		itheta = int32(v3)
 		if encode != 0 && stereo != 0 {
 			if itheta == 0 {
-				intensity_stereo(tls, m, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), bandE, i, N)
+				intensity_stereo(tls, m, X, Y, bandE, i, N)
 			} else {
-				stereo_split(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), N)
+				stereo_split(tls, X, Y, N)
 			}
 		}
 		/* NOTE: Renormalising X and Y *may* help fixed-point a bit at very high rate.
@@ -2273,11 +2272,11 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X uintptr, Y u
 						if !(j < N) {
 							break
 						}
-						*(*OpusT_celt_norm)(unsafe.Pointer(Y + uintptr(j)*4)) = -*(*OpusT_celt_norm)(unsafe.Pointer(Y + uintptr(j)*4))
+						unsafe.Slice(Y, N)[j] = -unsafe.Slice(Y, N)[j]
 						j = j + 1
 					}
 				}
-				intensity_stereo(tls, m, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), bandE, i, N)
+				intensity_stereo(tls, m, X, Y, bandE, i, N)
 			}
 			if *b > int32(2)<<int32(BITRES) && ctx.Fremaining_bits > int32(2)<<int32(BITRES) {
 				if encode != 0 {
@@ -2405,7 +2404,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 			fill = fill&int32(1) | fill<<int32(1)
 		}
 		B = (B + int32(1)) >> int32(1)
-		compute_theta(tls, ctx, &sctx, X, Y, N, &b, B, B0, LM2, 0, &fill)
+		compute_theta(tls, ctx, &sctx, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), N, &b, B, B0, LM2, 0, &fill)
 		imid = sctx.Fimid
 		iside = sctx.Fiside
 		delta = sctx.Fdelta
@@ -2742,7 +2741,7 @@ func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X uintptr, Y uintptr, N int
 			}
 		}
 	}
-	compute_theta(tls, bandContext, &sctx, X, Y, N, &b, B, B, LM, int32(1), &fill)
+	compute_theta(tls, bandContext, &sctx, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), N, &b, B, B, LM, int32(1), &fill)
 	inv = sctx.Finv
 	imid = sctx.Fimid
 	iside = sctx.Fiside

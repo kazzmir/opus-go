@@ -137,7 +137,7 @@ func TestThetaOutputPointers(t *testing.T) {
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		compute_theta(nil, &ctx, &split, 0, 0, 2, bp, 1, 1, 0, 1, fp)
+		compute_theta(nil, &ctx, &split, nil, nil, 2, bp, 1, 1, 0, 1, fp)
 		if split.Fimid != 32767 || split.Fiside != 0 || split.Fdelta != -16384 || split.Fitheta != 0 || split.Fqalloc != 0 || split.Finv != 0 {
 			t.Fatal(alias, split)
 		}
@@ -166,6 +166,27 @@ func TestQuantStereoContextPointers(t *testing.T) {
 	runtime.GC()
 	if mask := quant_band_stereo(nil, ctx, 0, 0, 1, 0, 1, 0, 0, 0, 0, 3); mask != 1 || *ctx != saved {
 		t.Fatal("typed stereo context / unused nil spectra", mask, ctx)
+	}
+}
+
+func TestThetaSpectrumPointers(t *testing.T) {
+	buffer := make([]byte, 32)
+	var ec OpusT_ec_ctx
+	Opus_ec_enc_init(nil, &ec, &buffer[0], 32)
+	log := [1]int16{24}
+	m := OpusT_OpusCustomMode{FnbEBands: 1, FlogN: &log[0]}
+	energy := [2]float32{.8, 1.2}
+	ctx := band_ctx{Fm: &m, Fec: &ec, FbandE: &energy[0], Fencode: 1, Fremaining_bits: 300}
+	x, y := []float32{77, .3, -.4, 88}, []float32{99, .2, .1, 66}
+	rx, ry := slices.Clone(x), slices.Clone(y)
+	intensity_stereo(nil, &m, &rx[1], &ry[1], &energy[0], 0, 2)
+	var split split_ctx
+	b, fill := int32(0), int32(3)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	compute_theta(nil, &ctx, &split, &x[1], &y[1], 2, &b, 1, 1, 0, 1, &fill)
+	if !slices.Equal(x, rx) || !slices.Equal(y, ry) || split.Fitheta != 0 || b != 0 || fill != 1 {
+		t.Fatal("typed theta spectra", split, x, y)
 	}
 }
 

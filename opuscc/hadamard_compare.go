@@ -22,9 +22,17 @@ func CompareMonoBand(ec *OpusT_ec_ctx, x, low *float32, cfg [8]int32) (uint32, [
 }
 
 func CompareTheta(ec *OpusT_ec_ctx, cfg [12]int32) [9]int32 {
+	return CompareThetaSpectrum(ec, nil, nil, cfg, false)
+}
+
+func CompareThetaSpectrum(ec *OpusT_ec_ctx, x, y *float32, cfg [12]int32, encode bool) [9]int32 {
 	log := [1]int16{int16(cfg[8])}
 	m := OpusT_OpusCustomMode{FnbEBands: 1, FlogN: &log[0]}
-	ctx := band_ctx{Fm: &m, Fec: ec, Fintensity: cfg[7], Fremaining_bits: cfg[9], Fdisable_inv: cfg[10]}
+	energy := [2]float32{.8, 1.2}
+	ctx := band_ctx{Fm: &m, Fec: ec, FbandE: &energy[0], Fintensity: cfg[7], Fremaining_bits: cfg[9], Fdisable_inv: cfg[10]}
+	if encode {
+		ctx.Fencode = 1
+	}
 	var split split_ctx
 	b, fill := cfg[5], cfg[6]
 	bp, fp := &b, &fill
@@ -40,7 +48,7 @@ func CompareTheta(ec *OpusT_ec_ctx, cfg [12]int32) [9]int32 {
 		bp = &split.Fitheta
 		fp = &split.Fqalloc
 	}
-	compute_theta(nil, &ctx, &split, 0, 0, cfg[0], bp, cfg[1], cfg[2], cfg[3], cfg[4], fp)
+	compute_theta(nil, &ctx, &split, x, y, cfg[0], bp, cfg[1], cfg[2], cfg[3], cfg[4], fp)
 	return [9]int32{split.Finv, split.Fimid, split.Fiside, split.Fdelta, split.Fitheta, split.Fqalloc, *bp, *fp, ctx.Fremaining_bits}
 }
 
