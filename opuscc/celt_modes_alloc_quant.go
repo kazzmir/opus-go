@@ -2358,8 +2358,7 @@ func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband
 	return 1
 }
 
-func quant_band_n1_legacy(tls *libc.TLS, ctx, X, Y, lowband uintptr) uint32 {
-	context := (*band_ctx)(unsafe.Pointer(ctx))
+func quant_band_n1_legacy(tls *libc.TLS, context *band_ctx, X, Y, lowband uintptr) uint32 {
 	return quant_band_n1(tls, context, context.Fec, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(lowband)))
 }
 
@@ -2549,7 +2548,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 // C documentation
 //
 //	/* This function is responsible for encoding and decoding a band for the mono case. */
-func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32, lowband uintptr, LM int32, lowband_out uintptr, gain OpusT_opus_val32, lowband_scratch uintptr, fill int32) (r uint32) {
+func quant_band(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, b int32, B int32, lowband uintptr, LM int32, lowband_out uintptr, gain OpusT_opus_val32, lowband_scratch uintptr, fill int32) (r uint32) {
 	var B0, N0, N_B, N_B0, encode, j, k, longBlocks, recombine, tf_change, time_divide int32
 	var cm uint32
 	var n1 OpusT_opus_val16
@@ -2561,8 +2560,8 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 	time_divide = 0
 	recombine = 0
 	cm = uint32(0)
-	encode = (*band_ctx)(unsafe.Pointer(ctx)).Fencode
-	tf_change = (*band_ctx)(unsafe.Pointer(ctx)).Ftf_change
+	encode = ctx.Fencode
+	tf_change = ctx.Ftf_change
 	longBlocks = libc.BoolInt32(B0 == int32(1))
 	v1 = uint32(B)
 	_ = v1 > uint32(0)
@@ -2621,9 +2620,9 @@ func quant_band(tls *libc.TLS, ctx uintptr, X uintptr, N int32, b int32, B int32
 			deinterleave_hadamard(tls, (*OpusT_celt_norm)(unsafe.Pointer(lowband)), N_B>>recombine, B0<<recombine, longBlocks)
 		}
 	}
-	cm = quant_partition(tls, (*band_ctx)(unsafe.Pointer(ctx)), X, N, b, B, lowband, LM, gain, fill)
+	cm = quant_partition(tls, ctx, X, N, b, B, lowband, LM, gain, fill)
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
-	if (*band_ctx)(unsafe.Pointer(ctx)).Fresynth != 0 {
+	if ctx.Fresynth != 0 {
 		/* Undo the sample reorganization going from time order to frequency order */
 		if B0 > int32(1) {
 			interleave_hadamard(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N_B>>recombine, B0<<recombine, longBlocks)
@@ -2731,7 +2730,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 	ec = bandContext.Fec
 	/* Special case for one sample */
 	if N == int32(1) {
-		return quant_band_n1_legacy(tls, ctx, X, Y, lowband_out)
+		return quant_band_n1_legacy(tls, bandContext, X, Y, lowband_out)
 	}
 	orig_fill = fill
 	if encode != 0 {
@@ -2791,7 +2790,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 		sign = int32(1) - int32(2)*sign
 		/* We use orig_fill here because we want to fold the side, but if
 		   itheta==16384, we'll have cleared the low bits of fill. */
-		cm = quant_band(tls, ctx, x2, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, orig_fill)
+		cm = quant_band(tls, bandContext, x2, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, orig_fill)
 		/* We don't split N=2 bands, so cm is either 1 or 0 (for a fold-collapse),
 		   and there's no need to worry about mixing with the other channel. */
 		*(*OpusT_celt_norm)(unsafe.Pointer(y2)) = OpusT_celt_norm(float32(-sign) * *(*OpusT_celt_norm)(unsafe.Pointer(x2 + 1*4)))
@@ -2831,25 +2830,25 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 		if mbits >= sbits {
 			/* In stereo mode, we do not apply a scaling to the mid because we need the normalized
 			   mid for folding later. */
-			cm = quant_band(tls, ctx, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
+			cm = quant_band(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
 			rebalance = mbits - (rebalance - bandContext.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != 0 {
 				sbits = sbits + (rebalance - int32(3)<<int32(BITRES))
 			}
 			/* For a stereo split, the high bits of fill are always zero, so no
 			   folding will be done to the side. */
-			cm = cm | quant_band(tls, ctx, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
+			cm = cm | quant_band(tls, bandContext, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
 		} else {
 			/* For a stereo split, the high bits of fill are always zero, so no
 			   folding will be done to the side. */
-			cm = quant_band(tls, ctx, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
+			cm = quant_band(tls, bandContext, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
 			rebalance = sbits - (rebalance - bandContext.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != int32(16384) {
 				mbits = mbits + (rebalance - int32(3)<<int32(BITRES))
 			}
 			/* In stereo mode, we do not apply a scaling to the mid because we need the normalized
 			   mid for folding later. */
-			cm = cm | quant_band(tls, ctx, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
+			cm = cm | quant_band(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
 		}
 	}
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
@@ -2894,8 +2893,8 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 	   a Go stack local whose address is laundered
 	   through uintptr would be left behind by a goroutine stack growth in
 	   the PVQ recursion. */
-	ctx := (*band_ctx)(unsafe.Pointer(libc.Xmalloc(tls, 80)))
-	defer libc.Xfree(tls, uintptr(unsafe.Pointer(ctx)))
+	// Go storage scans the context's mode, codec and energy references.
+	ctx := new(band_ctx)
 	// Channel weights now stay Go-visible across calls and stack growth.
 	w := new([2]OpusT_opus_val16)
 	var B, C, M, N1, b, effective_lowband, fold_end, fold_i, fold_start, i, i1, j, last, lowband_offset, nend_bytes, norm_offset, nstart_bytes, resynth, resynth_alloc, save_bytes, tf_change, theta_rdo, update_lowband, v1, v183, v196, v201, v203, v207, v6 int32
@@ -3671,7 +3670,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 			} else {
 				v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 			}
-			x_cm = quant_band(tls, uintptr(unsafe.Pointer(ctx)), X, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm))
+			x_cm = quant_band(tls, ctx, X, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm))
 			if effective_lowband != -int32(1) {
 				v2 = norm2 + uintptr(effective_lowband)*4
 			} else {
@@ -3682,7 +3681,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 			} else {
 				v4 = norm2 + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 			}
-			y_cm = quant_band(tls, uintptr(unsafe.Pointer(ctx)), Y, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(y_cm))
+			y_cm = quant_band(tls, ctx, Y, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(y_cm))
 		} else {
 			if Y != uintptr(uint32(0)) {
 				if theta_rdo != 0 && i1 < intensity {
@@ -3823,7 +3822,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 				} else {
 					v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 				}
-				x_cm = quant_band(tls, uintptr(unsafe.Pointer(ctx)), X, N1, b, B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm|y_cm))
+				x_cm = quant_band(tls, ctx, X, N1, b, B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm|y_cm))
 			}
 			y_cm = x_cm
 		}
