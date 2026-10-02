@@ -38,7 +38,7 @@ func silk_PLC(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_s
 		/****************************/
 		/* Generate Signal          */
 		/****************************/
-		silk_PLC_conceal_owned(tls, decoder, control, frame, arch)
+		silk_PLC_conceal(tls, decoder, control, frame, arch)
 		decoder.FlossCnt = decoder.FlossCnt + 1
 	} else {
 		/****************************/
@@ -153,10 +153,6 @@ func silk_PLC_energy(tls *libc.TLS, energy1, shift1, energy2, shift2 *int32, exc
 	Opus_silk_sum_sqr_shift(tls, energy2, shift2, unsafe.SliceData(buffer[subfr_length:]), subfr_length)
 }
 
-//go:uintptrescapes
-func silk_PLC_conceal(tls *libc.TLS, psDec, psDecCtrl, frame uintptr, arch int32) {
-	silk_PLC_conceal_owned(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(frame)), arch)
-}
 func silkPLCAddPrediction(excitation, prediction int32) int32 {
 	prediction = min(max(prediction, -2147483648>>4), 2147483647>>4)
 	shifted := int32(uint32(prediction) << 4)
@@ -215,15 +211,14 @@ func silkPLCConcealState(decoder *OpusT_silk_decoder_state) *OpusT_silk_PLC_stru
 	return &decoder.FsPLC
 }
 
-// Internal synthesis/history cursors and TLS scratch remain legacy.
-func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, frame *int16, arch int32) {
+// Both scratch arrays are Go-owned; no TLS cursor is consumed or restored.
+func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, frame *int16, arch int32) {
 	var psPLC *OpusT_silk_PLC_struct
 	var B_Q14 *[LTP_ORDER]int16
 	var rand_ptr []int32
 	var sLTP []int16
 	var sLTP_Q14 []int32
 	var pred_index int32
-	var _saved_stack, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var LTP_pred_Q12, b32_inv, b32_nrm, down_scale_Q30, err_Q32, harm_Gain_Q15, invGain_Q30, inv_gain_Q30, rand_Gain_Q15, rand_seed, result, v84, v85, v86, v89 OpusT_opus_int32
 	var b_headrm, i, idx, k, lag, lshift, sLTP_buf_idx, v53, v54, v55, v57, v58, v59, v60, v62 int32
 	var rand_scale_Q14, v79, v80, v81 OpusT_opus_int16
@@ -234,84 +229,8 @@ func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDe
 	decoder, control := psDec, psDecCtrl
 	plc := silkPLCConcealState(decoder)
 	psPLC = plc
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	sLTP_Q14 = silkPLCSynthesisBuffer(decoder)
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(2)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(2)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+6715, int32(250))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length)) * (uint64(2) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	sLTP = unsafe.Slice((*int16)(unsafe.Pointer((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack-uintptr(uint64(uint32(decoder.Fltp_mem_length))*2))), decoder.Fltp_mem_length)
+	sLTP = make([]int16, decoder.Fltp_mem_length)
 	prevGain_Q10[0] = plc.FprevGain_Q16[0] >> int32(6)
 	prevGain_Q10[1] = plc.FprevGain_Q16[1] >> int32(6)
 	if decoder.Ffirst_frame_after_reset != 0 {
@@ -573,17 +492,6 @@ _102:
 		control.FpitchL[i] = lag
 		i = i + 1
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
 // C documentation

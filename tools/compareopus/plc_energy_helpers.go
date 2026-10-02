@@ -19,9 +19,9 @@ static void plc_lpc(int *state,int *history,const short *a,short *pcm,int length
 static short plc_pcm(int sample,int gain) {return (short)silk_SAT16(silk_SAT16(silk_RSHIFT_ROUND(silk_SMULWW(sample,gain),8)));}
 static int plc_noise(int prediction,const int *random,int index,short scale) {return silk_LSHIFT32(silk_SMLAWB(prediction,random[index],scale),2);}
 static void plc_decay(short *b,int gain) {for(int j=0;j<LTP_ORDER;j++)b[j]=silk_RSHIFT(silk_SMULBB(gain,b[j]),15);}
-static int plc_dispatch(unsigned char *d,int ds,unsigned char *c,int cs,short *pcm,int lost,int arch) {
+static int plc_dispatch(unsigned char *d,int ds,unsigned char *c,int cs,short *pcm,int lost,int arch,int alias) {
  if(ds!=sizeof(silk_decoder_state)||cs!=sizeof(silk_decoder_control))return -98;
- silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_PLC(&dec,&ctrl,pcm,lost,arch);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
+ silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_PLC(&dec,&ctrl,alias?dec.outBuf:pcm,lost,arch);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
 }
 static void plc_update(int *p,int *d,int *c) {
  silk_decoder_state dec={0};silk_decoder_control ctrl={0};
@@ -67,10 +67,13 @@ func nativePLCDecay(b *[5]int16, gain int32) { C.plc_decay((*C.short)(unsafe.Poi
 // Fixtures leave all embedded codebook/coefficient pointers nil. Byte images
 // are numeric-only: this is not a write-barrier-safe Go pointer import path.
 func nativePLCDispatch(dec *opuscc.OpusT_silk_decoder_state, control *opuscc.OpusT_silk_decoder_control, frame []int16, lost, arch int32) int32 {
+	return nativePLCDispatchAlias(dec, control, frame, lost, arch, 0)
+}
+func nativePLCDispatchAlias(dec *opuscc.OpusT_silk_decoder_state, control *opuscc.OpusT_silk_decoder_control, frame []int16, lost, arch, alias int32) int32 {
 	d, c := make([]byte, int(unsafe.Sizeof(*dec))), make([]byte, int(unsafe.Sizeof(*control)))
 	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)))
 	copy(c, unsafe.Slice((*byte)(unsafe.Pointer(control)), len(c)))
-	r := int32(C.plc_dispatch((*C.uchar)(unsafe.Pointer(&d[0])), C.int(len(d)), (*C.uchar)(unsafe.Pointer(&c[0])), C.int(len(c)), (*C.short)(unsafe.Pointer(unsafe.SliceData(frame))), C.int(lost), C.int(arch)))
+	r := int32(C.plc_dispatch((*C.uchar)(unsafe.Pointer(&d[0])), C.int(len(d)), (*C.uchar)(unsafe.Pointer(&c[0])), C.int(len(c)), (*C.short)(unsafe.Pointer(unsafe.SliceData(frame))), C.int(lost), C.int(arch), C.int(alias)))
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(control)), len(c)), c)
 	return r

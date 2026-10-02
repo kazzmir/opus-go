@@ -2,7 +2,6 @@ package opuscc
 
 import (
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -28,9 +27,7 @@ func TestPLCResetFieldAccesses(t *testing.T) {
 }
 
 func TestPLCConcealFieldAccesses(t *testing.T) {
-	tls := libc.NewTLS()
-	defer tls.Close()
-	setupResamplerPseudostack(tls)
+	var tls *libc.TLS
 	decoder := OpusT_silk_decoder_state{Ffs_kHz: 8, Fframe_length: 80, Fsubfr_length: 20, Fnb_subfr: 4, Fltp_mem_length: 200, FLPC_order: 10, FprevSignalType: TYPE_VOICED, FsPLC: OpusT_silk_PLC_struct{FLTPCoef_Q14: [5]OpusT_opus_int16{300, -150, 1200, -100, 75}, FprevLPC_Q12: [16]OpusT_opus_int16{120, -80, 60, -45, 30, -20, 15, -10, 8, -5}, FprevGain_Q16: [2]OpusT_opus_int32{65536, 65536}, FprevLTP_scale_Q14: 13000, FpitchL_Q8: 20 << 8, FrandScale_Q14: 11000, Frand_seed: 12345, Fsubfr_length: 20, Fnb_subfr: 4}}
 	for i := range decoder.Fexc_Q14 {
 		decoder.Fexc_Q14[i] = int32((i*71)%3000 - 1500)
@@ -40,7 +37,7 @@ func TestPLCConcealFieldAccesses(t *testing.T) {
 	}
 	var control OpusT_silk_decoder_control
 	frame := make([]int16, decoder.Fframe_length)
-	silk_PLC_conceal(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&control)), uintptr(unsafe.Pointer(&frame[0])), 0)
+	silk_PLC_conceal(tls, &decoder, &control, &frame[0], 0)
 	if got, want := control.FpitchL, [4]OpusT_opus_int32{21, 21, 21, 21}; got != want {
 		t.Fatalf("pitch lags: got %v, want %v", got, want)
 	}
@@ -106,9 +103,7 @@ func plcConcealState(dec *OpusT_silk_decoder_state, ctrl *OpusT_silk_decoder_con
 // unvoiced first-frame paths, attenuation tables, pitch drift and state
 // carry-over between concealed frames.
 func TestPLCConcealCReference(t *testing.T) {
-	tls := libc.NewTLS()
-	defer tls.Close()
-	setupResamplerPseudostack(tls)
+	var tls *libc.TLS
 
 	/* Scenario V: voiced, 16 kHz, 20 ms frame, LPC order 16. */
 	decoder := OpusT_silk_decoder_state{
@@ -139,7 +134,7 @@ func TestPLCConcealCReference(t *testing.T) {
 	var control OpusT_silk_decoder_control
 	frame := make([]int16, 320)
 
-	Opus_silk_PLC(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&control)), uintptr(unsafe.Pointer(&frame[0])), 1, 0)
+	silk_PLC(tls, &decoder, &control, &frame[0], 1, 0)
 	if got, want := fnv1aInt16s(frame), uint32(0xe552e96e); got != want {
 		t.Fatalf("V.call1 fnv: got %08x, want %08x", got, want)
 	}
@@ -156,7 +151,7 @@ func TestPLCConcealCReference(t *testing.T) {
 		t.Fatalf("V.call1 state: got %+v, want %+v", got, want)
 	}
 
-	Opus_silk_PLC(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&control)), uintptr(unsafe.Pointer(&frame[0])), 1, 0)
+	silk_PLC(tls, &decoder, &control, &frame[0], 1, 0)
 	if got, want := fnv1aInt16s(frame), uint32(0xad44a286); got != want {
 		t.Fatalf("V.call2 fnv: got %08x, want %08x", got, want)
 	}
@@ -203,7 +198,7 @@ func TestPLCConcealCReference(t *testing.T) {
 	control = OpusT_silk_decoder_control{}
 	frame = frame[:160]
 
-	Opus_silk_PLC(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&control)), uintptr(unsafe.Pointer(&frame[0])), 1, 0)
+	silk_PLC(tls, &decoder, &control, &frame[0], 1, 0)
 	if got, want := fnv1aInt16s(frame), uint32(0x5b9922fd); got != want {
 		t.Fatalf("U.call1 fnv: got %08x, want %08x", got, want)
 	}
@@ -220,7 +215,7 @@ func TestPLCConcealCReference(t *testing.T) {
 		t.Fatalf("U.call1 state: got %+v, want %+v", got, want)
 	}
 
-	Opus_silk_PLC(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&control)), uintptr(unsafe.Pointer(&frame[0])), 1, 0)
+	silk_PLC(tls, &decoder, &control, &frame[0], 1, 0)
 	if got, want := fnv1aInt16s(frame), uint32(0xdbae42f4); got != want {
 		t.Fatalf("U.call2 fnv: got %08x, want %08x", got, want)
 	}

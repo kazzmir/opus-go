@@ -463,25 +463,36 @@ live. The redundant nested SAT16 is collapsed without changing its value;
 SMULWW still narrows before RSHIFT_ROUND (the max-int32 product fixture yields
 -256, not a clamp of the wide product).
 
-The private uintptr ABI remains an explicit escape adapter. The outer core
-still has integer-addressed LTP predictor/whitening cursors and two TLS synthesis
-scratch arrays; the typed LPC kernel receives an explicit converted scratch
-interior. Focused checkptr checks active helper buffers, not that conversion or
-the complete concealment path. Opaque byte-backed decoder allocations are not
-made scanned by these changes.
+Whitening samples and Q14 prediction/history now use typed slices and numeric
+indices, including reverse-order five-tap loads. The int16 whitening buffer has
+ltp_mem_length samples; the int32 synthesis buffer has ltp_mem_length +
+frame_length words. Both are Go-owned. There is no concealment TLS allocation,
+cursor addressing or save/restore. Previous-LPC reset uses clear and coefficient
+snapshots use copy. Whitening still runs before any PCM stores, the five MACs
+narrow individually, subframe attenuation/pitch drift remain ordered, and LPC
+uses the same live synthesis tail. The obsolete private uintptr concealment
+adapter is removed; only the public Opus_silk_PLC ABI adapter remains.
+
+Focused checkptr now covers complete active typed concealment/dispatch with
+nil TLS, forced GC/stack growth, heap codebooks, PCM/guards, reset/type/loss
+matrices and an untouched TLS sentinel. Original voiced/unvoiced C-reference
+goldens now enter the typed driver without fixture pseudostack setup and pass
+unchanged. Opaque byte-backed decoder allocations, outer SILK frame/API/core,
+CELT concealment and other legacy boundaries are not made globally GC-safe.
 
 Actual PLC.c dispatcher fixtures compare the full decoder/control structs and
 PCM/guards: rates 8/12/16, 2/4 subframes, orders 10/16 on update, all signal types,
 matching/mismatching rates, prior loss counts 0/1/3, flags 1/-1/7, first-frame
 reset, and voiced/unvoiced concealment. Native byte-image fixture states leave
 embedded codebook/coefficient pointers nil; they do not import Go pointers via
-raw stores. The loss fixtures still initialize Go's legacy TLS
-scratch and run natively only. Focused checkptr tests cover rate ownership and
-full nonloss dispatch with GC/stack growth, nil/unused PCM and Go-only invalid-
+raw stores. Native loss fixtures now call Go with nil TLS, and actual PLC.c
+fixtures also check valid int16 decoder-history/PCM aliases (whitening precedes
+output). Native comparisons remain host-only. Focused tests cover rate ownership,
+full nonloss/loss dispatch with GC/stack growth, nil/unused PCM and Go-only invalid-
 control reset/store ordering. A sole typed PLC interior retains a scanned decoder
 and heap codebook through forced GC. Round one checked the rate helper while
-control remained integer-addressed; later rounds check full nonloss dispatch,
-not active concealment. The following coefficient/random/PCM/history rounds
+control remained integer-addressed; the first dispatcher rounds checked full
+nonloss dispatch, not active concealment. The coefficient/random/PCM/history rounds
 also check active typed LPC buffers with nil TLS, GC/stack growth, lengths
 0/1/10/16/17/80/320, orders 10/16, guard words, saturation and copy-before-order-
 assertion behavior. Decoder-backed coefficient/random interiors retain heap
@@ -490,8 +501,14 @@ history save after PCM; they do not claim C effective-type alias parity.
 Macro-based native leaf fixtures add coefficient decay, random mixing, narrowed
 PCM scaling, and the full LPC kernel/working history (zero/extreme coefficients,
 several gains, all listed lengths). Actual PLC.c lost-dispatch fixtures remain
-the complete native integration reference. All rounds retain the original
-baselines/goldens and cross-architecture checks; QEMU is not direct macOS CI.
+the complete native integration reference. The following whitening/Q14/scratch
+rounds check typed whitening and five-tap helpers first, then Go synthesis storage,
+and finally the whole active path after the int16 scratch migration. Whitening
+fixtures cover lengths 160/240/320, orders 10/16, multiple consumed offsets,
+untouched prefixes and guards. Go-only failure fixtures retain rate reset/bandwidth
+expansion, do not increment lossCnt and do not touch PCM/control when rewhitening
+asserts. All rounds retain the original baselines/goldens and cross-architecture
+checks; QEMU is not direct macOS CI.
 
 CELT allocation interpolation now takes typed mode/entropy, four band inputs,
 three band outputs and balance/intensity/dual-stereo output pointers. The unused

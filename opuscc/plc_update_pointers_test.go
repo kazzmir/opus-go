@@ -1,11 +1,115 @@
 package opuscc
 
 import (
+	libc "github.com/kazzmir/opus-go/libcshim"
 	"runtime"
 	"testing"
 	"unsafe"
 	"weak"
 )
+
+func newPLCConcealTestDecoder(rate, nb int32) *OpusT_silk_decoder_state {
+	order := int32(10)
+	cb := &Opus_silk_NLSF_CB_NB_MB
+	if rate == 16 {
+		order = 16
+		cb = &Opus_silk_NLSF_CB_WB
+	}
+	d := &OpusT_silk_decoder_state{Ffs_kHz: rate, Fframe_length: rate * 5 * nb, Fsubfr_length: rate * 5, Fnb_subfr: nb, Fltp_mem_length: rate * 20, FLPC_order: order, FprevSignalType: TYPE_VOICED, FpsNLSF_CB: cloneTestNLSFCodebook(cb)}
+	d.FsPLC = OpusT_silk_PLC_struct{Ffs_kHz: rate, FpitchL_Q8: rate * 5 << 8, FLTPCoef_Q14: [5]int16{300, -150, 1200, -100, 75}, FprevLPC_Q12: [16]int16{120, -80, 60, -45, 30, -20, 15, -10, 8, -5}, FprevGain_Q16: [2]int32{98304, 131072}, FprevLTP_scale_Q14: 13000, FrandScale_Q14: 11000, Frand_seed: 12345, Fsubfr_length: rate * 5, Fnb_subfr: nb}
+	for i := range d.Fexc_Q14 {
+		d.Fexc_Q14[i] = int32((i*71)%3000000 - 1500000)
+	}
+	for i := range d.FoutBuf {
+		d.FoutBuf[i] = int16((i*37)%1000 - 500)
+	}
+	return d
+}
+func TestPLCConcealScratchPointers(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, nb := range []int32{2, 4} {
+			for _, signal := range []int32{TYPE_UNVOICED, TYPE_VOICED} {
+				for _, loss := range []int32{0, 1, 3} {
+					for _, lost := range []int32{1, -1} {
+						for _, reset := range []bool{false, true} {
+							d := newPLCConcealTestDecoder(rate, nb)
+							d.FprevSignalType = signal
+							d.FlossCnt = loss
+							if reset {
+								d.FsPLC.Ffs_kHz = 0
+								d.Ffirst_frame_after_reset = 1
+							}
+							w := *d
+							w.FpsNLSF_CB = nil
+							control, expected := OpusT_silk_decoder_control{}, OpusT_silk_decoder_control{}
+							frame := make([]int16, d.Fframe_length+2)
+							frame[0], frame[len(frame)-1] = 77, 88
+							want := make([]int16, d.Fframe_length)
+							entropyInitGrowStack(12)
+							runtime.GC()
+							silk_PLC(nil, d, &control, &frame[1], lost, 0)
+							silk_PLC(nil, &w, &expected, &want[0], lost, 0)
+							g := *d
+							g.FpsNLSF_CB = nil
+							if g != w || control != expected || d.FlossCnt != loss+1 || frame[0] != 77 || frame[len(frame)-1] != 88 || d.FpsNLSF_CB == nil {
+								t.Fatal("typed complete concealment", rate, nb, signal, loss, lost, reset)
+							}
+							for i := range want {
+								if frame[i+1] != want[i] {
+									t.Fatal("concealment PCM", rate, nb, signal, loss, i)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	d := newPLCConcealTestDecoder(16, 4)
+	control := OpusT_silk_decoder_control{}
+	tls := libc.NewTLS()
+	defer tls.Close()
+	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+	frame := make([]int16, d.Fframe_length)
+	silk_PLC(tls, d, &control, &frame[0], 1, 0)
+	if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+		t.Fatal("concealment touched TLS scratch")
+	}
+	// Failed rewhitening leaves reset/bandwidth expansion committed, but cannot
+	// increment lossCnt or overwrite PCM/control. This is Go-only error ordering.
+	d = newPLCConcealTestDecoder(8, 2)
+	d.FsPLC.Ffs_kHz = 0
+	d.Fltp_mem_length = 16
+	frame = make([]int16, d.Fframe_length)
+	for i := range frame {
+		frame[i] = 77
+	}
+	before := control
+	panicked := false
+	func() { defer func() { panicked = recover() != nil }(); silk_PLC(nil, d, &control, &frame[0], 1, 0) }()
+	if !panicked || d.FlossCnt != 0 || control != before || d.FsPLC.Ffs_kHz != 8 || d.FsPLC.FprevLPC_Q12[0] == 120 {
+		t.Fatal("failed concealment ordering", panicked, d.FlossCnt)
+	}
+	for _, v := range frame {
+		if v != 77 {
+			t.Fatal("failed concealment PCM")
+		}
+	}
+}
+func TestPLCConcealHistoryAliasPointers(t *testing.T) {
+	d := newPLCConcealTestDecoder(16, 4)
+	w := *d
+	control, expected := OpusT_silk_decoder_control{}, OpusT_silk_decoder_control{}
+	frame := make([]int16, d.Fframe_length)
+	silk_PLC(nil, &w, &expected, &frame[0], 1, 0)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	silk_PLC(nil, d, &control, &d.FoutBuf[0], 1, 0)
+	copy(w.FoutBuf[:], frame)
+	if *d != w || control != expected {
+		t.Fatal("whitening-before-aliased-output order")
+	}
+}
 
 func TestPLCSynthesisScratchPointers(t *testing.T) {
 	for _, shape := range [][2]int32{{160, 80}, {160, 160}, {240, 120}, {240, 240}, {320, 160}, {320, 320}, {320, 0}} {
