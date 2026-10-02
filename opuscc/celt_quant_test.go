@@ -190,6 +190,48 @@ func TestThetaSpectrumPointers(t *testing.T) {
 	}
 }
 
+func TestPartitionSpectrumPointers(t *testing.T) {
+	for LM := int32(1); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, budget := range []int32{0, 24, 400} {
+			for _, fold := range []bool{false, true} {
+				data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 8)
+				ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fremaining_bits: 600, Fseed: 123456}
+				x := make([]float32, N+2)
+				x[0] = 77
+				x[N+1] = 88
+				low := make([]float32, N+2)
+				for i := range low {
+					low[i] = float32(i+1) / 17
+				}
+				var lp *float32
+				if fold {
+					lp = &low[1]
+				}
+				before := slices.Clone(low)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				mask := quant_partition(nil, &ctx, &x[1], N, budget, 1, lp, LM, 1, 1)
+				if x[0] != 77 || x[N+1] != 88 || !slices.Equal(low, before) || mask > 1 {
+					t.Fatal("partition guards/mask", LM, budget, mask)
+				}
+			}
+		}
+	}
+	// Sequential fold stores must retain overlapping-read behavior.
+	data := []byte{0}
+	var ec OpusT_ec_ctx
+	Opus_ec_dec_init(nil, &ec, &data[0], 1)
+	ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fseed: 123456}
+	shared := []float32{.2, .3, .4, .5, .6}
+	quant_partition(nil, &ctx, &shared[1], 4, 0, 1, &shared[0], 2, 1, 1)
+	if shared[0] != .2 {
+		t.Fatal("overlapping fold guard")
+	}
+}
+
 func TestSpreadingPointers(t *testing.T) {
 	bands := [3]int16{0, 1, 10}
 	x := [12]float32{77}

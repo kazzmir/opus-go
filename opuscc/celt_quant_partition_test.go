@@ -27,7 +27,7 @@ func TestQuantPartitionRemainingBitsField(t *testing.T) {
 	pins.Pin(&context)
 	pins.Pin(&x)
 
-	if got, want := quant_partition(tls, &context, uintptr(unsafe.Pointer(&x[0])), 2, 1, 1, 0, -1, 1, 1), uint32(1); got != want {
+	if got, want := quant_partition(tls, &context, &x[0], 2, 1, 1, nil, -1, 1, 1), uint32(1); got != want {
 		t.Fatalf("collapse mask: got %d, want %d", got, want)
 	}
 
@@ -76,7 +76,7 @@ func TestQuantPartitionLocalSplitState(t *testing.T) {
 	pins.Pin(&encoder)
 	pins.Pin(&x)
 
-	mask := quant_partition(tls, &context, uintptr(unsafe.Pointer(&x[0])), 4, 30, 1, 0, 0, 1, 3)
+	mask := quant_partition(tls, &context, &x[0], 4, 30, 1, nil, 0, 1, 3)
 	Opus_ec_enc_done(tls, &encoder)
 
 	if got, want := mask, uint32(1); got != want {

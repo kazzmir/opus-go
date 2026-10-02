@@ -15,6 +15,12 @@ func CompareStereoBand(ec *OpusT_ec_ctx, x, y, low *float32, cfg [9]int32) (uint
 	return mask, [2]uint32{uint32(ctx.Fremaining_bits), ctx.Fseed}
 }
 
+func ComparePartition(ec *OpusT_ec_ctx, x, low *float32, cfg [8]int32) (uint32, [2]uint32) {
+	ctx := band_ctx{Fm: &mode48000_960_120, Fec: ec, Fresynth: cfg[4], Fremaining_bits: cfg[6], Fseed: 123456}
+	mask := quant_partition(nil, &ctx, x, cfg[0], cfg[3], cfg[1], low, cfg[2], 1, cfg[7])
+	return mask, [2]uint32{uint32(ctx.Fremaining_bits), ctx.Fseed}
+}
+
 func CompareMonoBand(ec *OpusT_ec_ctx, x, low *float32, cfg [8]int32) (uint32, [2]uint32) {
 	ctx := band_ctx{Fm: &mode48000_960_120, Fec: ec, Fresynth: cfg[4], Ftf_change: cfg[5], Fremaining_bits: cfg[6], Fseed: 123456}
 	mask := quant_band(nil, &ctx, uintptr(unsafe.Pointer(x)), cfg[0], cfg[3], cfg[1], 0, cfg[2], uintptr(unsafe.Pointer(low)), 1, 0, cfg[7])

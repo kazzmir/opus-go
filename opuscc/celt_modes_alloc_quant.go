@@ -376,10 +376,6 @@ func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, en
 }
 
 // The partition driver still owns integer-addressed band/context buffers.
-func alg_quant_legacy(tls *libc.TLS, X uintptr, N, K, spread, B int32, enc *OpusT_ec_ctx, gain float32, resynth, arch int32) uint32 {
-	return Opus_alg_quant(tls, (*float32)(unsafe.Pointer(X)), N, K, spread, B, enc, gain, resynth, arch)
-}
-
 // C documentation
 //
 //	/** Decode pulse vector and combine the result with the pitch vector to produce
@@ -2058,6 +2054,10 @@ type band_ctx = struct {
 	Favoid_split_noise int32
 }
 
+func celtNormAdd(p *float32, offset int32) *float32 {
+	return (*float32)(unsafe.Add(unsafe.Pointer(p), int(offset)*4))
+}
+
 func bandContextEnergy(ctx *band_ctx, index int32) float32 {
 	return *(*float32)(unsafe.Add(unsafe.Pointer(ctx.FbandE), int(index)*4))
 }
@@ -2367,11 +2367,12 @@ func quant_band_n1_legacy(tls *libc.TLS, context *band_ctx, X, Y, lowband uintpt
 //	   It can split the band in two and transmit the energy difference with
 //	   the two half-bands. It can be called recursively so bands can end up being
 //	   split in 8 parts. */
-func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32, B int32, lowband uintptr, LM2 int32, gain OpusT_opus_val32, _fill int32) (r uint32) {
+func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32, B int32, lowband *float32, LM2 int32, gain OpusT_opus_val32, _fill int32) (r uint32) {
 	b := _b
 	fill := _fill
 	var B0, K, curr_bits, delta, encode, hi, i1, i2, imid, iside, itheta, j, lo, mbits, mid, q, qalloc, sbits, spread, v1, v2, v3, v4 int32
-	var Y, next_lowband2, v5 uintptr
+	var Y, next_lowband2 *float32
+	var v5 uintptr
 	var ec *OpusT_ec_ctx
 	var m2 *OpusT_OpusCustomMode
 	var cache, cache1, cache2 *byte
@@ -2387,7 +2388,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 	mid1 = float32(0)
 	side = float32(0)
 	cm = uint32(0)
-	Y = uintptr(uint32(0))
+	Y = nil
 	encode = ctx.Fencode
 	m2 = ctx.Fm
 	i2 = ctx.Fi
@@ -2396,15 +2397,15 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 	/* If we need 1.5 more bit than we can produce, split the band in two. */
 	cache2 = modePulseCache(m2, (LM2+int32(1))*m2.FnbEBands+i2)
 	if LM2 != -int32(1) && b > int32(modePulseByte(cache2, int32(*cache2)))+int32(12) && N > int32(2) {
-		next_lowband2 = uintptr(uint32(0))
+		next_lowband2 = nil
 		N = N >> int32(1)
-		Y = X + uintptr(N)*4
+		Y = celtNormAdd(X, N)
 		LM2 = LM2 - int32(1)
 		if B == int32(1) {
 			fill = fill&int32(1) | fill<<int32(1)
 		}
 		B = (B + int32(1)) >> int32(1)
-		compute_theta(tls, ctx, &sctx, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), N, &b, B, B0, LM2, 0, &fill)
+		compute_theta(tls, ctx, &sctx, X, Y, N, &b, B, B0, LM2, 0, &fill)
 		imid = sctx.Fimid
 		iside = sctx.Fiside
 		delta = sctx.Fdelta
@@ -2445,8 +2446,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 		mbits = v1
 		sbits = b - mbits
 		ctx.Fremaining_bits -= qalloc
-		if lowband != 0 {
-			next_lowband2 = lowband + uintptr(N)*4
+		if lowband != nil {
+			next_lowband2 = celtNormAdd(lowband, N)
 		} /* >32-bit split case */
 		rebalance = ctx.Fremaining_bits
 		if mbits >= sbits {
@@ -2490,9 +2491,9 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 			K = v2
 			/* Finally do the actual quantization */
 			if encode != 0 {
-				cm = alg_quant_legacy(tls, X, N, K, spread, B, ec, gain, ctx.Fresynth, ctx.Farch)
+				cm = Opus_alg_quant(tls, X, N, K, spread, B, ec, gain, ctx.Fresynth, ctx.Farch)
 			} else {
-				cm = Opus_alg_unquant(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, K, spread, B, (*OpusT_ec_dec)(unsafe.Pointer(ec)), gain)
+				cm = Opus_alg_unquant(tls, X, N, K, spread, B, ec, gain)
 			}
 		} else {
 			if ctx.Fresynth != 0 {
@@ -2501,9 +2502,9 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 				cm_mask = uint32(uint64(1)<<B) - uint32(1)
 				fill = int32(uint32(fill) & cm_mask)
 				if !(fill != 0) {
-					libc.Xmemset(tls, X, 0, uint64(uint32(N))*uint64(4))
+					clear(unsafe.Slice(X, N))
 				} else {
-					if lowband == uintptr(uint32(0)) {
+					if lowband == nil {
 						/* Noise */
 						j = 0
 						for {
@@ -2511,7 +2512,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 								break
 							}
 							ctx.Fseed = Opus_celt_lcg_rand(tls, ctx.Fseed)
-							*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)) = float32(int32(ctx.Fseed) >> int32(20))
+							unsafe.Slice(X, N)[j] = float32(int32(ctx.Fseed) >> int32(20))
 							j = j + 1
 						}
 						cm = cm_mask
@@ -2531,12 +2532,12 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, _b int32,
 								v30 = -tmp
 							}
 							tmp = v30
-							*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(j)*4)) = *(*OpusT_celt_norm)(unsafe.Pointer(lowband + uintptr(j)*4)) + tmp
+							unsafe.Slice(X, N)[j] = unsafe.Slice(lowband, N)[j] + tmp
 							j = j + 1
 						}
 						cm = uint32(fill)
 					}
-					Opus_renormalise_vector(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), N, gain, ctx.Farch)
+					Opus_renormalise_vector(tls, X, N, gain, ctx.Farch)
 				}
 			}
 		}
@@ -2619,7 +2620,7 @@ func quant_band(tls *libc.TLS, ctx *band_ctx, X uintptr, N int32, b int32, B int
 			deinterleave_hadamard(tls, (*OpusT_celt_norm)(unsafe.Pointer(lowband)), N_B>>recombine, B0<<recombine, longBlocks)
 		}
 	}
-	cm = quant_partition(tls, ctx, X, N, b, B, lowband, LM, gain, fill)
+	cm = quant_partition(tls, ctx, (*float32)(unsafe.Pointer(X)), N, b, B, (*float32)(unsafe.Pointer(lowband)), LM, gain, fill)
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
 	if ctx.Fresynth != 0 {
 		/* Undo the sample reorganization going from time order to frequency order */

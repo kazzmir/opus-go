@@ -142,6 +142,39 @@ func TestThetaSpectrumAgainstC(t *testing.T) {
 	}
 }
 
+func TestPartitionSpectrumAgainstC(t *testing.T) {
+	for LM := int32(1); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, budget := range []int32{0, 8, 24, 80, 400} {
+			for _, fold := range []bool{false, true} {
+				cfg := [8]int32{N, 1, LM, budget, 1, 0, 600, 1}
+				data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+				var ge opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ge, &data[0], 8)
+				ce := ge
+				x, cx, low, clow := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+				for i := range x {
+					x[i] = float32(i+1) / 17
+					cx[i] = x[i]
+					low[i] = float32(i+2) / 19
+					clow[i] = low[i]
+				}
+				var lp *float32
+				var nl []float32
+				if fold {
+					lp = &low[1]
+					nl = clow[1 : len(clow)-1]
+				}
+				gm, gs := opuscc.ComparePartition(&ge, &x[1], lp, cfg)
+				cm, cs := nativeMonoOrPartition(&ce, data, cx[1:len(cx)-1], nl, cfg, true)
+				if gm != cm || gs != cs || ge != ce || !sameFloatBits(x, cx) || !sameFloatBits(low, clow) {
+					t.Fatal(cfg, fold, gm, cm, gs, cs, x, cx, ge, ce)
+				}
+			}
+		}
+	}
+}
+
 func TestQuantN1AgainstC(t *testing.T) {
 	for encode := int32(0); encode <= 1; encode++ {
 		for resynth := int32(0); resynth <= 1; resynth++ {
