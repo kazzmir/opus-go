@@ -164,7 +164,7 @@ func TestQuantStereoContextPointers(t *testing.T) {
 	saved := *ctx
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if mask := quant_band_stereo(nil, ctx, 0, 0, 1, 0, 1, 0, 0, 0, 0, 3); mask != 1 || *ctx != saved {
+	if mask := quant_band_stereo(nil, ctx, nil, nil, 1, 0, 1, nil, 0, nil, nil, 3); mask != 1 || *ctx != saved {
 		t.Fatal("typed stereo context / unused nil spectra", mask, ctx)
 	}
 }
@@ -261,6 +261,43 @@ func TestMonoSpectrumPointers(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestStereoSpectrumPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, budget := range []int32{0, 24, 400} {
+			for _, intensity := range []int32{0, 21} {
+				data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 8)
+				ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fremaining_bits: 600, Fseed: 123456, Fintensity: intensity}
+				x, y, out := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+				for i := range x {
+					x[i] = float32(i+1) / 17
+					y[i] = -float32(i+2) / 19
+					out[i] = 77
+				}
+				firstX, lastX, firstY, lastY := x[0], x[N+1], y[0], y[N+1]
+				entropyInitGrowStack(12)
+				runtime.GC()
+				quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, 1, nil, LM, &out[1], nil, 3)
+				if x[0] != firstX || x[N+1] != lastX || y[0] != firstY || y[N+1] != lastY || out[0] != 77 || out[N+1] != 77 {
+					t.Fatal("stereo guards", LM, budget, intensity)
+				}
+			}
+		}
+	}
+	// One-bin X/Y/lowband aliasing keeps the sequential C store order.
+	var ec OpusT_ec_ctx
+	buffer := make([]byte, 16)
+	Opus_ec_enc_init(nil, &ec, &buffer[0], 16)
+	ctx := band_ctx{Fec: &ec, Fencode: 1, Fresynth: 1, Fremaining_bits: 8}
+	x := float32(-.5)
+	quant_band_stereo(nil, &ctx, &x, &x, 1, 0, 1, nil, 0, &x, nil, 3)
+	if x != 1 || ctx.Fremaining_bits != 0 {
+		t.Fatal("stereo alias order", x, ctx)
 	}
 }
 

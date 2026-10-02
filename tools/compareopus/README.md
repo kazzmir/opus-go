@@ -360,14 +360,26 @@ contexts, and the outer driver uses GC-scanned Go context storage instead of a f
 80-byte TLS allocation. Decoder native fixtures compare masks, remaining budget,
 seed, complete entropy state, spectra, folding output and guards across LM 0–3,
 time/frequency changes, budgets and intensity choices.
-Focused checkptr exercises theta with unused nil spectra and the drivers' unused
-nil one-bin inputs; active spectral native comparisons run on the host. Spectral
-arguments and the outer pseudostack remain legacy; these tests do not establish
-global safety.
+Theta, recursive partition, mono and stereo spectra/folding/scratch arguments are
+now typed throughout the internal band chain. Splits derive interior pointers with
+unsafe.Add; direct indexing, copy and clear replace integer-address stores and
+memory shims while preserving sequential fold and N=2 stereo store order. The PVQ
+integer adapter and obsolete one-bin adapter are removed. The outer band driver
+retains explicit mono/stereo legacy spectral adapters and its pseudostack.
+Focused checkptr now exercises active spectra, recursive splitting, pulses, zero-fill,
+noise/folding, time/frequency changes, optional scratch/output buffers and aliasing,
+with stack growth/GC and guards on amd64, 386 and ARM64/QEMU. Actual bands.c encoder
+theta fixtures compare split outputs, entropy state/bytes and input/output spectra;
+decoder partition fixtures cover recursive budgets and optional folding alongside
+the mono/stereo references. Native comparisons run on the host, not ARM64/macOS.
+Remaining outer integer boundaries, opaque allocations and pseudostack ownership
+mean these tests still do not establish global safety.
 Opaque byte-backed allocations, architecture FFT headers, outer integer APIs and
-some outer band-table locals remain legacy. ARM64 exposed a quant-partition fixture stack-lifetime
-failure; its crossing objects are now pinned without changing expected outputs.
-This is fixture ownership repair, not a migration of the outer quantizer.
+some outer band-table locals remain legacy. Earlier ARM64 quant-partition and stereo
+fixture lifetime failures required pinning. With the internal spectral chain typed,
+those pins and unused pseudostack setup are removed: the unchanged expected outputs
+now pass with forced GC/stack growth and checkptr on all three tested architectures.
+This does not migrate the outer quantizer.
 MDCT lookups retain typed FFT-state and trig-table pointers; FFT states in turn
 retain typed bit-reversal and twiddle pointers. Grouped FFT tests compare both C
 layouts and force GC/stack growth with a heap lookup as the only table owner.

@@ -2357,10 +2357,6 @@ func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband
 	return 1
 }
 
-func quant_band_n1_legacy(tls *libc.TLS, context *band_ctx, X, Y, lowband uintptr) uint32 {
-	return quant_band_n1(tls, context, context.Fec, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(lowband)))
-}
-
 // C documentation
 //
 //	/* This function is responsible for encoding and decoding a mono partition.
@@ -2711,12 +2707,16 @@ var bit_deinterleave_table = [16]uint8{
 // C documentation
 //
 //	/* This function is responsible for encoding and decoding a band for the stereo case. */
-func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X uintptr, Y uintptr, N int32, _b int32, B int32, lowband uintptr, LM int32, lowband_out uintptr, lowband_scratch uintptr, _fill int32) (r uint32) {
+func quant_band_stereo_legacy(tls *libc.TLS, ctx *band_ctx, X, Y uintptr, N, b, B int32, lowband uintptr, LM int32, out, scratch uintptr, fill int32) uint32 {
+	return quant_band_stereo(tls, ctx, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), N, b, B, (*float32)(unsafe.Pointer(lowband)), LM, (*float32)(unsafe.Pointer(out)), (*float32)(unsafe.Pointer(scratch)), fill)
+}
+
+func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X *float32, Y *float32, N int32, _b int32, B int32, lowband *float32, LM int32, lowband_out *float32, lowband_scratch *float32, _fill int32) (r uint32) {
 	b := _b
 	fill := _fill
 	var c, delta, encode, imid, inv, iside, itheta, j, mbits, orig_fill, qalloc, sbits, sign, v3, v4, v5 int32
 	var cm uint32
-	var x2, y2, v1 uintptr
+	var x2, y2, v1 *float32
 	var ec *OpusT_ec_ctx
 	var mid, side OpusT_opus_val32
 	var rebalance OpusT_opus_int32
@@ -2734,19 +2734,19 @@ func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X uintptr, Y uintptr, N int
 	ec = bandContext.Fec
 	/* Special case for one sample */
 	if N == int32(1) {
-		return quant_band_n1_legacy(tls, bandContext, X, Y, lowband_out)
+		return quant_band_n1(tls, bandContext, bandContext.Fec, X, Y, lowband_out)
 	}
 	orig_fill = fill
 	if encode != 0 {
 		if bandContextEnergy(bandContext, bandContext.Fi) < float32(1e-10) || bandContextEnergy(bandContext, bandContext.Fm.FnbEBands+bandContext.Fi) < float32(1e-10) {
 			if bandContextEnergy(bandContext, bandContext.Fi) > bandContextEnergy(bandContext, bandContext.Fm.FnbEBands+bandContext.Fi) {
-				libc.Xmemcpy(tls, Y, X, uint64(uint32(N))*uint64(4)+uint64(0*((int64(Y)-int64(X))/4)))
+				copy(unsafe.Slice(Y, N), unsafe.Slice(X, N))
 			} else {
-				libc.Xmemcpy(tls, X, Y, uint64(uint32(N))*uint64(4)+uint64(0*((int64(X)-int64(Y))/4)))
+				copy(unsafe.Slice(X, N), unsafe.Slice(Y, N))
 			}
 		}
 	}
-	compute_theta(tls, bandContext, &sctx, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), N, &b, B, B, LM, int32(1), &fill)
+	compute_theta(tls, bandContext, &sctx, X, Y, N, &b, B, B, LM, int32(1), &fill)
 	inv = sctx.Finv
 	imid = sctx.Fimid
 	iside = sctx.Fiside
@@ -2785,7 +2785,7 @@ func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X uintptr, Y uintptr, N int
 			if encode != 0 {
 				/* Here we only need to encode a sign for the side. */
 				/* FIXME: Need to increase fixed-point precision? */
-				sign = libc.BoolInt32(OpusT_celt_norm(*(*OpusT_celt_norm)(unsafe.Pointer(x2))**(*OpusT_celt_norm)(unsafe.Pointer(y2 + 1*4)))-OpusT_celt_norm(*(*OpusT_celt_norm)(unsafe.Pointer(x2 + 1*4))**(*OpusT_celt_norm)(unsafe.Pointer(y2))) < float32(0))
+				sign = libc.BoolInt32(OpusT_celt_norm(*x2*unsafe.Slice(y2, N)[1])-OpusT_celt_norm(unsafe.Slice(x2, N)[1]**y2) < float32(0))
 				Opus_ec_enc_bits(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(sign), uint32(1))
 			} else {
 				sign = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1)))
@@ -2794,22 +2794,22 @@ func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X uintptr, Y uintptr, N int
 		sign = int32(1) - int32(2)*sign
 		/* We use orig_fill here because we want to fold the side, but if
 		   itheta==16384, we'll have cleared the low bits of fill. */
-		cm = quant_band_legacy(tls, bandContext, x2, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, orig_fill)
+		cm = quant_band(tls, bandContext, x2, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, orig_fill)
 		/* We don't split N=2 bands, so cm is either 1 or 0 (for a fold-collapse),
 		   and there's no need to worry about mixing with the other channel. */
-		*(*OpusT_celt_norm)(unsafe.Pointer(y2)) = OpusT_celt_norm(float32(-sign) * *(*OpusT_celt_norm)(unsafe.Pointer(x2 + 1*4)))
-		*(*OpusT_celt_norm)(unsafe.Pointer(y2 + 1*4)) = OpusT_celt_norm(float32(sign) * *(*OpusT_celt_norm)(unsafe.Pointer(x2)))
+		*y2 = OpusT_celt_norm(float32(-sign) * unsafe.Slice(x2, N)[1])
+		unsafe.Slice(y2, N)[1] = OpusT_celt_norm(float32(sign) * *x2)
 		if bandContext.Fresynth != 0 {
-			*(*OpusT_celt_norm)(unsafe.Pointer(X)) = OpusT_opus_val32(mid * *(*OpusT_celt_norm)(unsafe.Pointer(X)))
-			*(*OpusT_celt_norm)(unsafe.Pointer(X + 1*4)) = OpusT_opus_val32(mid * *(*OpusT_celt_norm)(unsafe.Pointer(X + 1*4)))
-			*(*OpusT_celt_norm)(unsafe.Pointer(Y)) = OpusT_opus_val32(side * *(*OpusT_celt_norm)(unsafe.Pointer(Y)))
-			*(*OpusT_celt_norm)(unsafe.Pointer(Y + 1*4)) = OpusT_opus_val32(side * *(*OpusT_celt_norm)(unsafe.Pointer(Y + 1*4)))
-			tmp = *(*OpusT_celt_norm)(unsafe.Pointer(X))
-			*(*OpusT_celt_norm)(unsafe.Pointer(X)) = tmp - *(*OpusT_celt_norm)(unsafe.Pointer(Y))
-			*(*OpusT_celt_norm)(unsafe.Pointer(Y)) = tmp + *(*OpusT_celt_norm)(unsafe.Pointer(Y))
-			tmp = *(*OpusT_celt_norm)(unsafe.Pointer(X + 1*4))
-			*(*OpusT_celt_norm)(unsafe.Pointer(X + 1*4)) = tmp - *(*OpusT_celt_norm)(unsafe.Pointer(Y + 1*4))
-			*(*OpusT_celt_norm)(unsafe.Pointer(Y + 1*4)) = tmp + *(*OpusT_celt_norm)(unsafe.Pointer(Y + 1*4))
+			*X = OpusT_opus_val32(mid * *X)
+			unsafe.Slice(X, N)[1] = OpusT_opus_val32(mid * unsafe.Slice(X, N)[1])
+			*Y = OpusT_opus_val32(side * *Y)
+			unsafe.Slice(Y, N)[1] = OpusT_opus_val32(side * unsafe.Slice(Y, N)[1])
+			tmp = *X
+			*X = tmp - *Y
+			*Y = tmp + *Y
+			tmp = unsafe.Slice(X, N)[1]
+			unsafe.Slice(X, N)[1] = tmp - unsafe.Slice(Y, N)[1]
+			unsafe.Slice(Y, N)[1] = tmp + unsafe.Slice(Y, N)[1]
 		}
 	} else {
 		if b < (b-delta)/int32(2) {
@@ -2834,31 +2834,31 @@ func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X uintptr, Y uintptr, N int
 		if mbits >= sbits {
 			/* In stereo mode, we do not apply a scaling to the mid because we need the normalized
 			   mid for folding later. */
-			cm = quant_band_legacy(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
+			cm = quant_band(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
 			rebalance = mbits - (rebalance - bandContext.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != 0 {
 				sbits = sbits + (rebalance - int32(3)<<int32(BITRES))
 			}
 			/* For a stereo split, the high bits of fill are always zero, so no
 			   folding will be done to the side. */
-			cm = cm | quant_band_legacy(tls, bandContext, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
+			cm = cm | quant_band(tls, bandContext, Y, N, sbits, B, nil, LM, nil, side, nil, fill>>B)
 		} else {
 			/* For a stereo split, the high bits of fill are always zero, so no
 			   folding will be done to the side. */
-			cm = quant_band_legacy(tls, bandContext, Y, N, sbits, B, uintptr(uint32(0)), LM, uintptr(uint32(0)), side, uintptr(uint32(0)), fill>>B)
+			cm = quant_band(tls, bandContext, Y, N, sbits, B, nil, LM, nil, side, nil, fill>>B)
 			rebalance = sbits - (rebalance - bandContext.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != int32(16384) {
 				mbits = mbits + (rebalance - int32(3)<<int32(BITRES))
 			}
 			/* In stereo mode, we do not apply a scaling to the mid because we need the normalized
 			   mid for folding later. */
-			cm = cm | quant_band_legacy(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
+			cm = cm | quant_band(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), lowband_scratch, fill)
 		}
 	}
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
 	if bandContext.Fresynth != 0 {
 		if N != int32(2) {
-			stereo_merge(tls, (*OpusT_celt_norm)(unsafe.Pointer(X)), (*OpusT_celt_norm)(unsafe.Pointer(Y)), mid, N, bandContext.Farch)
+			stereo_merge(tls, X, Y, mid, N, bandContext.Farch)
 		}
 		if inv != 0 {
 			j = 0
@@ -2866,7 +2866,7 @@ func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X uintptr, Y uintptr, N int
 				if !(j < N) {
 					break
 				}
-				*(*OpusT_celt_norm)(unsafe.Pointer(Y + uintptr(j)*4)) = -*(*OpusT_celt_norm)(unsafe.Pointer(Y + uintptr(j)*4))
+				unsafe.Slice(Y, N)[j] = -unsafe.Slice(Y, N)[j]
 				j = j + 1
 			}
 		}
@@ -3708,7 +3708,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					} else {
 						v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 					}
-					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
+					x_cm = quant_band_stereo_legacy(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
 					_ = arch
 					xy = float32(0)
 					i = int32(0)
@@ -3766,7 +3766,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					} else {
 						v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 					}
-					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
+					x_cm = quant_band_stereo_legacy(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
 					_ = arch
 					xy = float32(0)
 					i = int32(0)
@@ -3813,7 +3813,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					} else {
 						v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 					}
-					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(x_cm|y_cm))
+					x_cm = quant_band_stereo_legacy(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(x_cm|y_cm))
 				}
 			} else {
 				if effective_lowband != -int32(1) {
