@@ -5079,15 +5079,10 @@ func Opus_opus_projection_decode_float(tls *libc.TLS, st uintptr, data uintptr, 
 	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder_legacy(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_float_legacy), frame_size, decode_fec, 0, uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
 }
 
-func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
-	var ap OpusT_va_list
-	var ret int32
-	_, _ = ap, ret
-	ret = OPUS_OK
-	ap = va
-	ret = Opus_opus_multistream_decoder_ctl_va_list(tls, get_multistream_decoder_legacy(tls, st), request, ap)
-	_ = ap
-	return ret
+func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {
+	decoder := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))
+	ms := get_multistream_decoder(tls, decoder)
+	return Opus_opus_projection_decoder_ctl_typed(tls, decoder, request, msCtlLegacyArgs(ms, request, va))
 }
 
 func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {

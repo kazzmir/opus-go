@@ -374,6 +374,25 @@ decoder partition fixtures cover recursive budgets and optional folding alongsid
 the mono/stereo references. Native comparisons run on the host, not ARM64/macOS.
 Remaining outer integer boundaries, opaque allocations and pseudostack ownership
 mean these tests still do not establish global safety.
+Decoder CTL dispatch now has typed CELT custom, Opus, multistream and projection
+entries, using OpusDecoderCtlArgs for integer values and GC-visible scalar, range,
+mode and decoder output slots. Legacy vararg entries delegate; internal forwarding
+uses no TLS vararg/range scratch. Mode/decoder outputs use Go pointer stores and
+write barriers. Typed aligned traversal preserves live layout reads, range-clear
+before XOR, child-call order/early returns and first-stream getters. Numeric cursor
+offsets avoid unused one-past pointers, including a dependent multistream-init fix
+found by exact-sized composite checkptr tests; extension iterator EOF remains a
+separate unresolved boundary.
+Actual decoder C sources compare all supported requests, invalid/unknown requests,
+boundary values, nil outputs, reset images, SILK/CELT pitch modes, one/three streams
+and coupled layouts, decoder-output offsets and numeric output/layout aliases.
+CELT custom CTL's C state parameter is restrict-qualified: its state/output aliases
+are tested for Go store order, not claimed as valid C-oracle inputs. Focused checkptr
+and GC/stack-growth tests cover the active forwarding chain and pointer-output sole
+owners (including a heap mode retained through a returned component decoder) on
+amd64, 386 and ARM64/QEMU. Native comparisons are host-only; raw vararg boundaries
+and unscanned opaque byte-backed decoder storage still prevent a global safety claim.
+
 SILK CNG now takes typed decoder/control/PCM pointers, shifts excitation with copy,
 and clears only the active LPC history. Its length+16 synthesis buffer is Go-owned;
 no TLS scratch allocation, restore, integer reconstruction or pinning remains in

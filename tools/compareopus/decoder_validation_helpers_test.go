@@ -535,6 +535,39 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestProjectionCtlAgainstC(t *testing.T) {
+	requests := []int32{opuscc.OPUS_GET_BANDWIDTH_REQUEST, opuscc.OPUS_GET_SAMPLE_RATE_REQUEST, opuscc.OPUS_GET_GAIN_REQUEST, opuscc.OPUS_GET_LAST_PACKET_DURATION_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, opuscc.OPUS_SET_GAIN_REQUEST, opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PITCH_REQUEST, 123456}
+	for _, streams := range []int32{1, 3} {
+		for _, coupled := range []int32{0, streams} {
+			for _, request := range requests {
+				for _, value := range []int32{-32769, -1, 0, 1, 2, 3, 10, 11, 32767, 32768} {
+					for _, alias := range []int32{-2, -1} {
+						channels := streams + coupled
+						matrix := make([]byte, 2*channels*channels)
+						for i := int32(0); i < channels; i++ {
+							matrix[2*(i*channels+i)] = 255
+							matrix[2*(i*channels+i)+1] = 127
+						}
+						g := make([]byte, int(opuscc.Opus_opus_projection_decoder_get_size(nil, channels, streams, coupled))+16)
+						st := (*opuscc.OpusT_OpusProjectionDecoder)(unsafe.Pointer(&g[0]))
+						if opuscc.Opus_opus_projection_decoder_init(nil, st, 48000, channels, streams, coupled, unsafe.SliceData(matrix), int32(len(matrix))) != 0 {
+							t.Fatal("projection fixture")
+						}
+						msOff := nativeProjectionMultistream(unsafe.Pointer(st))
+						normalizeMSModes(g[msOff:], streams, coupled)
+						c := slices.Clone(g)
+						ret, out := opuscc.CompareProjectionCtl(g, request, value, alias)
+						cr, co := nativeProjectionCtl(c, request, value, alias)
+						if ret != cr || out != co || !slices.Equal(g, c) {
+							t.Fatal("projection CTL", streams, coupled, request, value, alias, ret, cr, out, co)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestMSCtlAgainstC(t *testing.T) {
 	requests := []int32{opuscc.OPUS_GET_BANDWIDTH_REQUEST, opuscc.OPUS_GET_SAMPLE_RATE_REQUEST, opuscc.OPUS_GET_GAIN_REQUEST, opuscc.OPUS_GET_LAST_PACKET_DURATION_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, opuscc.OPUS_SET_GAIN_REQUEST, opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PITCH_REQUEST, opuscc.OPUS_GET_IGNORE_EXTENSIONS_REQUEST, 123456}
 	for _, streams := range []int32{1, 2, 3} {

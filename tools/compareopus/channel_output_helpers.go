@@ -32,6 +32,7 @@ static void channels_factory_free(void *p){channels_free_calls++;channels_free_m
 extern void validation_normalize_decoder_mode(void *);
 void comparison_normalize_ms_modes(void *base,int streams,int coupled) {char *ptr=(char*)base+align(sizeof(OpusMSDecoder));for(int i=0;i<streams;i++){validation_normalize_decoder_mode(ptr);ptr+=align(validation_decoder_get_size(i<coupled?2:1));}}
 extern void validation_restore_decoder_mode(void *);
+void comparison_restore_ms_modes(void *base,int *streams,int *coupled) {OpusMSDecoder *st=base;*streams=st->layout.nb_streams;*coupled=st->layout.nb_coupled_streams;char *ptr=(char*)st+align(sizeof(*st));for(int i=0;i<*streams;i++){validation_restore_decoder_mode(ptr);ptr+=align(validation_decoder_get_size(i<*coupled?2:1));}}
 static int native_ms_ctl(unsigned char *data,size_t size,int request,int value,int alias,unsigned *output) {
  OpusMSDecoder *st=malloc(size);memcpy(st,data,size);int streams=st->layout.nb_streams,coupled=st->layout.nb_coupled_streams;char *ptr=(char*)st+align(sizeof(*st));for(int i=0;i<streams;i++){validation_restore_decoder_mode(ptr);ptr+=align(validation_decoder_get_size(i<coupled?2:1));}
  unsigned out=77;OpusDecoder *decoder=NULL;void *p=alias==-2?NULL:alias>=0?(void*)((char*)st+alias):(void*)&out;int result;

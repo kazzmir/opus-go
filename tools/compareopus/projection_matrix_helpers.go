@@ -16,6 +16,7 @@ static void projection_factory_free(void *p){projection_free_calls++;projection_
 #define VAR_ARRAYS 1
 #define opus_multistream_decoder_init comparison_channels_init
 #define opus_multistream_decoder_get_size comparison_channels_get_size
+#define opus_multistream_decoder_ctl_va_list comparison_channels_ctl_va
 #define opus_projection_decoder_get_size comparison_projection_size
 #define opus_projection_decoder_init comparison_projection_init
 #define opus_projection_decoder_create comparison_projection_create
@@ -26,6 +27,17 @@ static void projection_factory_free(void *p){projection_free_calls++;projection_
 #define opus_projection_decoder_destroy comparison_projection_destroy
 #include "../../../opus/src/opus_projection_decoder.c"
 extern void comparison_normalize_ms_modes(void *,int,int);
+extern void comparison_restore_ms_modes(void *,int *,int *);
+static int native_projection_ctl(unsigned char *data,size_t size,int request,int value,int alias,unsigned *output) {
+ OpusProjectionDecoder *st=malloc(size);memcpy(st,data,size);void *ms=get_multistream_decoder(st);int streams,coupled;comparison_restore_ms_modes(ms,&streams,&coupled);unsigned out=77;OpusDecoder *decoder=NULL;void *p=alias==-2?NULL:alias>=0?(void*)((char*)st+alias):(void*)&out;int result;
+ switch(request) {
+ case OPUS_SET_GAIN_REQUEST:case OPUS_SET_COMPLEXITY_REQUEST:case OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:result=comparison_projection_ctl(st,request,value);break;
+ case OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST:result=comparison_projection_ctl(st,request,value,alias==-2?NULL:&decoder);if(decoder)out=(unsigned)((char*)decoder-(char*)st);break;
+ case OPUS_RESET_STATE:result=comparison_projection_ctl(st,request);break;
+ default:result=comparison_projection_ctl(st,request,p);break;
+ }
+ comparison_normalize_ms_modes(ms,streams,coupled);memcpy(data,st,size);free(st);*output=out;return result;
+}
 static int native_projection_destroy(int null) {void *p=null?NULL:malloc(sizeof(OpusProjectionDecoder));projection_free_calls=0;projection_free_expected=p;comparison_projection_destroy(p);return projection_free_calls==1&&projection_free_matches;}
 static int native_projection_create_image(unsigned char *data,size_t size,int rate,int channels,int streams,int coupled,unsigned char *matrix,int bytes,int fail) {
  int error=99;projection_factory_fail=fail;OpusProjectionDecoder *st=comparison_projection_create(rate,channels,streams,coupled,matrix,bytes,&error);projection_factory_fail=0;
@@ -50,6 +62,12 @@ static size_t native_projection_matrix(void *base,int *fields) {
 */
 import "C"
 import "unsafe"
+
+func nativeProjectionCtl(data []byte, request, value, alias int32) (int32, uint32) {
+	var out C.uint
+	r := C.native_projection_ctl((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(request), C.int(value), C.int(alias), &out)
+	return int32(r), uint32(out)
+}
 
 func nativeProjectionDestroy(null bool) bool {
 	var n C.int

@@ -395,6 +395,55 @@ func TestCustomDecoderInitPointers(t *testing.T) {
 	}
 }
 
+type projectionCtlTestStorage struct {
+	State   OpusT_OpusProjectionDecoder
+	Padding [4]byte
+	MS      msCtlTestStorage
+}
+
+func TestProjectionCtlPointers(t *testing.T) {
+	s := new(projectionCtlTestStorage)
+	s.MS.State.Flayout.Fnb_streams = 1
+	s.MS.State.Flayout.Fnb_channels = 1
+	s.MS.Decoder = *newOpusCtlTestStorage()
+	heapMode := new(OpusT_OpusCustomMode)
+	*heapMode = mode48000_960_120
+	s.MS.Decoder.Celt.State.Fmode = heapMode
+	heapMode = nil
+	var child *OpusT_OpusDecoder
+	var out int32
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Decoder: &child}) != 0 || child != &s.MS.Decoder.State {
+		t.Fatal("projection interior")
+	}
+	if Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_SET_GAIN_REQUEST, OpusDecoderCtlArgs{Value: -19}) != 0 {
+		t.Fatal("projection setter")
+	}
+	Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_GET_GAIN_REQUEST, OpusDecoderCtlArgs{I32: &out})
+	if out != -19 {
+		t.Fatal("projection getter")
+	}
+	Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_RESET_STATE, OpusDecoderCtlArgs{})
+	if s.MS.Decoder.State.Fframe_size != 120 {
+		t.Fatal("projection reset")
+	}
+	if Opus_opus_projection_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{}) != -1 {
+		t.Fatal("projection nil output")
+	}
+	s = nil
+	runtime.GC()
+	if child.FFs != 48000 {
+		t.Fatal("projection output owner")
+	}
+	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(child), child.Fcelt_dec_offset))
+	var retained *OpusT_OpusCustomMode
+	Opus_opus_custom_decoder_ctl_typed(nil, celt, CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &retained})
+	if retained == nil || retained.FnbEBands != 21 {
+		t.Fatal("nested mode owner through child output")
+	}
+}
+
 type msCtlTestStorage struct {
 	State OpusT_OpusMSDecoder
 	// C aligns the 268-byte header to eight on 386 as well as amd64/ARM64.
@@ -433,6 +482,10 @@ func TestMSCtlPointers(t *testing.T) {
 	s.State.Flayout.Fnb_streams = 1
 	s.State.Flayout.Fnb_channels = 1
 	s.Decoder = *newOpusCtlTestStorage()
+	heapMode := new(OpusT_OpusCustomMode)
+	*heapMode = mode48000_960_120
+	s.Decoder.Celt.State.Fmode = heapMode
+	heapMode = nil
 	var child *OpusT_OpusDecoder
 	var rng uint32
 	entropyInitGrowStack(12)
@@ -468,6 +521,12 @@ func TestMSCtlPointers(t *testing.T) {
 	runtime.GC()
 	if child.FFs != 48000 {
 		t.Fatal("state output owner")
+	}
+	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(child), child.Fcelt_dec_offset))
+	var retained *OpusT_OpusCustomMode
+	Opus_opus_custom_decoder_ctl_typed(nil, celt, CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &retained})
+	if retained == nil || retained.FnbEBands != 21 {
+		t.Fatal("nested mode owner through child output")
 	}
 }
 

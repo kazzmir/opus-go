@@ -16,6 +16,10 @@ type OpusDecoderCtlArgs struct {
 	Decoder **OpusT_OpusDecoder
 }
 
+func Opus_opus_projection_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, request int32, a OpusDecoderCtlArgs) int32 {
+	return Opus_opus_multistream_decoder_ctl_typed(tls, get_multistream_decoder(tls, st), request, a)
+}
+
 func msCtlLegacyArgs(st *OpusT_OpusMSDecoder, request int32, ap uintptr) (a OpusDecoderCtlArgs) {
 	switch request {
 	case OPUS_GET_BANDWIDTH_REQUEST, OPUS_GET_SAMPLE_RATE_REQUEST, OPUS_GET_GAIN_REQUEST, OPUS_GET_LAST_PACKET_DURATION_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_GET_COMPLEXITY_REQUEST, OPUS_GET_FINAL_RANGE_REQUEST, OPUS_SET_GAIN_REQUEST, OPUS_SET_COMPLEXITY_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
