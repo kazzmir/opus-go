@@ -7,7 +7,7 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 func CompareCeltSynthesis(tls *libc.TLS, X, energy, left, right *float32, start, end, C, CC, transient, LM, downsample, silence int32) {
 	out := [2]uintptr{uintptr(unsafe.Pointer(left)), uintptr(unsafe.Pointer(right))}
-	celt_synthesis(tls, &mode48000_960_120, uintptr(unsafe.Pointer(X)), uintptr(unsafe.Pointer(&out[0])), uintptr(unsafe.Pointer(energy)), start, end, C, CC, transient, LM, downsample, silence, 0)
+	celt_synthesis(tls, &mode48000_960_120, X, uintptr(unsafe.Pointer(&out[0])), energy, start, end, C, CC, transient, LM, downsample, silence, 0)
 }
 
 func CompareDeemphasis(tls *libc.TLS, left, right, pcm *float32, N, C, downsample int32, coef *float32, mem *float32, accum int32) {

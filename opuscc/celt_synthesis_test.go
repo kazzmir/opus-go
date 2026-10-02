@@ -30,6 +30,45 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+// Until the synthesis scratch/output migrations, exercise the typed input chain
+// through the exact denormalizer called by synthesis; full native tests use TLS.
+func TestSynthesisSpectrumPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		m := newSynthesisTestMode()
+		_, bands, N := celtSynthesisGeometry(m, LM)
+		owners := func() []*float32 {
+			x, e := make([]float32, 2*N), make([]float32, 2*bands)
+			for i := range x {
+				x[i] = float32(i%19-9) / 32
+			}
+			for i := range e {
+				e[i] = float32(i%5 - 3)
+			}
+			return []*float32{unsafe.SliceData(x), unsafe.SliceData(e)}
+		}()
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for _, limits := range [][2]int32{{0, 21}, {1, 19}, {21, 21}} {
+			for _, down := range []int32{1, 2, 3, 4, 6} {
+				for _, silence := range []int32{0, 1} {
+					for c := int32(0); c < 2; c++ {
+						g := make([]float32, N+2)
+						g[0] = 77
+						g[N+1] = 88
+						want := slices.Clone(g)
+						x, e := celtNormAdd(owners[0], c*N), celtNormAdd(owners[1], c*bands)
+						Opus_denormalise_bands(nil, m.FeBands, m.FshortMdctSize, x, &g[1], e, limits[0], limits[1], 1<<LM, down, silence)
+						Opus_denormalise_bands(nil, mode48000_960_120.FeBands, 120, x, &want[1], e, limits[0], limits[1], 1<<LM, down, silence)
+						if !slices.Equal(g, want) || g[0] != 77 || g[N+1] != 88 {
+							t.Fatal("spectral owners", LM, limits, down, silence, c)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestSynthesisModePointers(t *testing.T) {
 	m := newSynthesisTestMode()
 	entropyInitGrowStack(12)
