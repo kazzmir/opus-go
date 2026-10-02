@@ -417,6 +417,34 @@ and staging helpers while full synthesis still depended on legacy scratch. Outer
 CELT decoding, concealment and opaque decoder allocation scanning remain legacy;
 this is not a global GC-safety proof or direct macOS CI validation.
 
+The CELT concealment prefilter/fold now takes a typed decoder/mode, retains
+scanned history interiors, calls the typed comb filter and folds through typed
+window/scratch pointers. One Go-owned overlap-length buffer replaces all TLS
+pseudostack allocation/restoration and is reused after each channel's fold. Live
+per-channel controls, channel-zero do-while visits, odd-overlap truncation and
+filter-before-fold order are preserved. Zero overlap consumes no audio cursor,
+including exact-sized mono histories with N=0; ordinary outer decode/PLC callers
+still use an explicit legacy adapter.
+
+The typed fold initially permitted a new ARM FMA, changing the existing PLC
+frame golden (7bc10321 instead of f3e48462). Independent float32 product rounding
+restored the original golden. The overlap-three regression is 0xc086cced versus
+the fused one-ULP alternative and is checked against actual static C prefilter
+output as well as Go. No goldens/tolerances were changed.
+
+Actual celt_decoder.c prefilter fixtures link the renamed scalar celt.c comb path
+and compare full normalized decoder/history/guard images over C=0/1/2,
+N=0/120/240/480/960, overlap 0/1/2/3/119/120, periods from 0 to 1024, zero/positive/
+negative gains and tapset transitions. Grouped Go tests retain heap modes via sole
+history interiors, exercise active prefilter/TDAC with nil TLS and forced GC/stack
+growth, check exact-sized zero-overlap history and an untouched sentinel TLS slot.
+Window/scratch alias-order fixtures are Go-only, not valid enclosing C restrict
+inputs. Earlier rounds checked state/history/folding helpers while full prefilter
+still used legacy scratch; focused checkptr now covers the complete active path
+on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
+allocation scanning and extension EOF remain unresolved. Host native comparisons
+and QEMU do not establish direct macOS CI or global decoder GC safety.
+
 Decoder CTL dispatch now has typed CELT custom, Opus, multistream and projection
 entries, using OpusDecoderCtlArgs for integer values and GC-visible scalar, range,
 mode and decoder output slots. Legacy vararg entries delegate; internal forwarding

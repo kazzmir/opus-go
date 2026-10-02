@@ -577,14 +577,8 @@ func TestPrefilterFoldAgainstC(t *testing.T) {
 								data[i] = 165
 							}
 							c := slices.Clone(data)
-							tls := libc.NewTLS()
-							ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
-							scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
-							*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
-							libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
-							opuscc.ComparePrefilterFold(tls, data, N)
+							opuscc.ComparePrefilterFold(nil, data, N)
 							nativePrefilterFold(c, N)
-							tls.Close()
 							if !slices.Equal(data, c) {
 								for i := range data {
 									if data[i] != c[i] {

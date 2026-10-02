@@ -400,126 +400,26 @@ func prefilterFoldTDAC(mode *OpusT_OpusCustomMode, memory, filtered *float32, ov
 	}
 }
 func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
-	var etmp *float32
-	var mode *OpusT_OpusCustomMode
-	var CC, c, decode_buffer_size, i, overlap, v29 int32
-	var _saved_stack, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
-	var decode_mem [2]*float32
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = CC, _saved_stack, c, decode_buffer_size, decode_mem, etmp, i, mode, overlap, st, v1, v11, v13, v15, v17, v19, v21, v23, v29, v3, v5, v7, v9
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+	mode, overlap, CC := prefilterFoldState(st1)
+	scratch := make([]float32, overlap)
+	etmp := unsafe.SliceData(scratch)
+	var decodeMem [2]*float32
+	// Match both C do-while loops, including channel zero for CC==0.
+	for c := int32(0); c < max(CC, 1); c++ {
+		decodeMem[c] = prefilterFoldHistory(st1, overlap, c)
 	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
-	mode, overlap, CC = prefilterFoldState(st1)
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+	// Neither the zero-length comb filter nor fold consumes an audio cursor.
+	// Avoid an unused one-past pointer for exact-sized histories when N==0.
+	if overlap == 0 {
+		return
 	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+	for c := int32(0); c < max(CC, 1); c++ {
+		input := celtNormAdd(decodeMem[c], DEC_PITCH_BUF_SIZE-N)
+		// Filter the overlap before writing any TDAC samples, then reuse scratch
+		// for the next channel. State controls remain live reads per channel.
+		Opus_comb_filter(tls, etmp, input, st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch)
+		prefilterFoldTDAC(mode, input, etmp, overlap)
 	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(overlap))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3767, int32(597))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(overlap)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	etmp = (*float32)(unsafe.Pointer((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(overlap))*(uint64(4)/uint64(1)))))
-	c = 0
-	for {
-		decode_mem[c] = prefilterFoldHistory(st1, overlap, c)
-		c = c + 1
-		v29 = c
-		if !(v29 < CC) {
-			break
-		}
-	}
-	c = 0
-	for {
-		/* Apply the pre-filter to the MDCT overlap for the next frame because
-		   the post-filter will be re-applied in the decoder after the MDCT
-		   overlap. */
-		Opus_comb_filter(tls, etmp, celtNormAdd(decode_mem[c], decode_buffer_size-N), st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch)
-		/* Simulate TDAC on the concealed audio so that it blends with the
-		   MDCT of the next frame. */
-		prefilterFoldTDAC(mode, celtNormAdd(decode_mem[c], decode_buffer_size-N), etmp, overlap)
-		c = c + 1
-		v29 = c
-		if !(v29 < CC) {
-			break
-		}
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 }
 
 func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {

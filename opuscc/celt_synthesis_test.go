@@ -32,6 +32,80 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestPrefilterScratchPointers(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		for _, overlap := range []int32{0, 1, 3, 119, 120} {
+			for _, N := range []int32{0, 120, 240, 480, 960} {
+				for _, gains := range [][2]float32{{0, 0}, {.25, .5}, {-.25, .75}} {
+					storage, image, size := celtStateTestBuffer(newSynthesisTestMode(), max(channels, 1))
+					st := &storage.State
+					st.Fchannels = channels
+					st.Foverlap = overlap
+					st.Fpostfilter_period_old = 31
+					st.Fpostfilter_period = 128
+					st.Fpostfilter_gain_old, st.Fpostfilter_gain = gains[0], gains[1]
+					st.Fpostfilter_tapset_old, st.Fpostfilter_tapset = 1, 2
+					st.Farch = 0
+					history := unsafe.Slice(&st.F_decode_mem[0], (DEC_PITCH_BUF_SIZE+overlap)*max(channels, 1))
+					for i := range history {
+						history[i] = float32(i%29-14) * 173
+					}
+					reference := new(celtStateTestStorage)
+					*reference = *storage
+					want := unsafe.Slice((*byte)(unsafe.Pointer(&reference.State)), len(image))
+					window := unsafe.Slice(st.Fmode.Fwindow, 120)
+					if overlap > 0 {
+						for c := int32(0); c < max(channels, 1); c++ {
+							input := prefilterFoldHistory(&reference.State, overlap, c)
+							input = celtNormAdd(input, DEC_PITCH_BUF_SIZE-N)
+							scratch := make([]float32, overlap)
+							Opus_comb_filter(nil, &scratch[0], input, 31, 128, overlap, -gains[0], -gains[1], 1, 2, nil, 0, 0)
+							out := unsafe.Slice(input, overlap)
+							for i := int32(0); i < overlap/2; i++ {
+								out[i] = float32(window[i]*scratch[overlap-1-i]) + float32(window[overlap-i-1]*scratch[i])
+							}
+						}
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					prefilter_and_fold(nil, st, N)
+					if !slices.Equal(image, want) {
+						for i := range image {
+							if image[i] != want[i] {
+								t.Fatal("prefilter full state/order", channels, overlap, N, gains, i, image[i], want[i])
+							}
+						}
+					}
+					for _, b := range image[size:] {
+						if b != 165 {
+							t.Fatal("prefilter guard")
+						}
+					}
+				}
+			}
+		}
+	}
+	// A genuinely scanned, exact-sized mono history; no trailing scratch/padding
+	// workaround and no mode is needed for overlap zero, even with N zero.
+	exact := new(struct {
+		State   OpusT_OpusCustomDecoder
+		History [DEC_PITCH_BUF_SIZE - 1]float32
+	})
+	exact.State.Fchannels = 1
+	prefilter_and_fold(nil, &exact.State, 0)
+	// Unused TLS must remain untouched on the active scratch path.
+	storage, _, _ := celtStateTestBuffer(newSynthesisTestMode(), 1)
+	storage.State.Fpostfilter_gain_old = 0
+	storage.State.Fpostfilter_gain = 0
+	tls := libc.NewTLS()
+	defer tls.Close()
+	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+	prefilter_and_fold(tls, &storage.State, 120)
+	if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+		t.Fatal("prefilter TLS changed")
+	}
+}
+
 func TestPrefilterTDACRounding(t *testing.T) {
 	// The scalar C/original generated fold rounds products separately. A fused
 	// rewrite changed the ARM PLC golden; this overlap-three case differs by 1 ULP.
