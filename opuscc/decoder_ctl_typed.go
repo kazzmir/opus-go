@@ -16,6 +16,105 @@ type OpusDecoderCtlArgs struct {
 	Decoder **OpusT_OpusDecoder
 }
 
+func opusCtlLegacyArgs(request int32, ap uintptr) (a OpusDecoderCtlArgs) {
+	switch request {
+	case OPUS_SET_COMPLEXITY_REQUEST, OPUS_SET_GAIN_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_SET_IGNORE_EXTENSIONS_REQUEST:
+		a.Value = libc.VaInt32(&ap)
+	case OPUS_GET_BANDWIDTH_REQUEST, OPUS_GET_COMPLEXITY_REQUEST, OPUS_GET_SAMPLE_RATE_REQUEST, OPUS_GET_PITCH_REQUEST, OPUS_GET_GAIN_REQUEST, OPUS_GET_LAST_PACKET_DURATION_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_GET_IGNORE_EXTENSIONS_REQUEST:
+		a.I32 = (*int32)(unsafe.Pointer(libc.VaUintptr(&ap)))
+	case OPUS_GET_FINAL_RANGE_REQUEST:
+		a.U32 = (*uint32)(unsafe.Pointer(libc.VaUintptr(&ap)))
+	}
+	return
+}
+
+func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, a OpusDecoderCtlArgs) int32 {
+	// C derives these interiors before dispatch, even for an unknown request.
+	silk := (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), st.Fsilk_dec_offset))
+	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), st.Fcelt_dec_offset))
+	switch request {
+	case OPUS_GET_BANDWIDTH_REQUEST:
+		if a.I32 == nil {
+			return -1
+		}
+		*a.I32 = st.Fbandwidth
+	case OPUS_SET_COMPLEXITY_REQUEST:
+		if a.Value < 0 || a.Value > 10 {
+			return -1
+		}
+		st.Fcomplexity = a.Value
+		// The C caller intentionally ignores the child return value here.
+		Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+	case OPUS_GET_COMPLEXITY_REQUEST:
+		if a.I32 == nil {
+			return -1
+		}
+		*a.I32 = st.Fcomplexity
+	case OPUS_GET_FINAL_RANGE_REQUEST:
+		if a.U32 == nil {
+			return -1
+		}
+		*a.U32 = st.FrangeFinal
+	case OPUS_RESET_STATE:
+		clear(unsafe.Slice((*byte)(unsafe.Pointer(&st.Fstream_channels)), int(unsafe.Sizeof(*st)-unsafe.Offsetof(st.Fstream_channels))))
+		Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+		Opus_silk_ResetDecoder(tls, silk)
+		st.Fstream_channels = st.Fchannels
+		st.Fframe_size = st.FFs / 400
+	case OPUS_GET_SAMPLE_RATE_REQUEST:
+		if a.I32 == nil {
+			return -1
+		}
+		*a.I32 = st.FFs
+	case OPUS_GET_PITCH_REQUEST:
+		if a.I32 == nil {
+			return -1
+		}
+		if st.Fprev_mode == MODE_CELT_ONLY {
+			return Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+		}
+		*a.I32 = st.FDecControl.FprevPitchLag
+	case OPUS_GET_GAIN_REQUEST:
+		if a.I32 == nil {
+			return -1
+		}
+		*a.I32 = st.Fdecode_gain
+	case OPUS_SET_GAIN_REQUEST:
+		if a.Value < -32768 || a.Value > 32767 {
+			return -1
+		}
+		st.Fdecode_gain = a.Value
+	case OPUS_GET_LAST_PACKET_DURATION_REQUEST:
+		if a.I32 == nil {
+			return -1
+		}
+		*a.I32 = st.Flast_packet_duration
+	case OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
+		if a.Value < 0 || a.Value > 1 {
+			return -1
+		}
+		return Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+	case OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST:
+		if a.I32 == nil {
+			return -1
+		}
+		return Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+	case OPUS_SET_IGNORE_EXTENSIONS_REQUEST:
+		if a.Value < 0 || a.Value > 1 {
+			return -1
+		}
+		st.Fignore_extensions = a.Value
+	case OPUS_GET_IGNORE_EXTENSIONS_REQUEST:
+		if a.I32 == nil {
+			return -1
+		}
+		*a.I32 = st.Fignore_extensions
+	default:
+		return -5
+	}
+	return OPUS_OK
+}
+
 func customCtlLegacyArgs(request int32, ap uintptr) (a OpusDecoderCtlArgs) {
 	switch request {
 	case OPUS_SET_COMPLEXITY_REQUEST, CELT_SET_START_BAND_REQUEST, CELT_SET_END_BAND_REQUEST, CELT_SET_CHANNELS_REQUEST, CELT_SET_SIGNALLING_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:

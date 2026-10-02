@@ -395,6 +395,70 @@ func TestCustomDecoderInitPointers(t *testing.T) {
 	}
 }
 
+type opusCtlTestStorage struct {
+	State OpusT_OpusDecoder
+	Silk  OpusT_silk_decoder
+	Celt  celtStateTestStorage
+}
+
+func newOpusCtlTestStorage() *opusCtlTestStorage {
+	s := new(opusCtlTestStorage)
+	s.State.Fsilk_dec_offset = int32(unsafe.Offsetof(s.Silk))
+	s.State.Fcelt_dec_offset = int32(unsafe.Offsetof(s.Celt))
+	s.State.FFs = 48000
+	s.State.Fchannels = 1
+	s.State.Fstream_channels = 1
+	s.State.Fcomplexity = 10
+	Opus_silk_InitDecoder(nil, &s.Silk)
+	opus_custom_decoder_init(nil, &s.Celt.State, &mode48000_960_120, 1)
+	return s
+}
+func TestOpusCtlPointers(t *testing.T) {
+	s := newOpusCtlTestStorage()
+	var out int32
+	var rng uint32
+	a := OpusDecoderCtlArgs{I32: &out, U32: &rng}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for _, v := range []int32{-32769, -32768, 0, 32767, 32768} {
+		r := Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_SET_GAIN_REQUEST, OpusDecoderCtlArgs{Value: v})
+		if (r == 0) != (v >= -32768 && v <= 32767) {
+			t.Fatal("gain", v, r)
+		}
+	}
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_GAIN_REQUEST, a)
+	if out != 32767 {
+		t.Fatal("gain output")
+	}
+	s.State.Fprev_mode = MODE_CELT_ONLY
+	s.Celt.State.Fpostfilter_period = 99
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_PITCH_REQUEST, a)
+	if out != 99 {
+		t.Fatal("CELT pitch")
+	}
+	s.State.Fprev_mode = MODE_SILK_ONLY
+	s.State.FDecControl.FprevPitchLag = 66
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_PITCH_REQUEST, a)
+	if out != 66 {
+		t.Fatal("SILK pitch")
+	}
+	s.State.FrangeFinal = 0xfedcba98
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, a)
+	if rng != 0xfedcba98 {
+		t.Fatal("range output")
+	}
+	if Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_GET_GAIN_REQUEST, OpusDecoderCtlArgs{}) != -1 {
+		t.Fatal("nil output")
+	}
+	Opus_opus_decoder_ctl_typed(nil, &s.State, OPUS_RESET_STATE, a)
+	if s.State.Fstream_channels != 1 || s.State.Fframe_size != 120 || s.State.FrangeFinal != 0 || s.Celt.State.Fskip_plc != 1 {
+		t.Fatal("aggregate reset")
+	}
+	if Opus_opus_decoder_ctl_typed(nil, &s.State, 123456, OpusDecoderCtlArgs{}) != -5 {
+		t.Fatal("unknown request")
+	}
+}
+
 func TestCustomCtlPointers(t *testing.T) {
 	mode := new(OpusT_OpusCustomMode)
 	*mode = mode48000_960_120

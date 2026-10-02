@@ -4,6 +4,27 @@ package opuscc
 
 import "unsafe"
 
+func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
+	st := (*OpusT_OpusDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), st.Fcelt_dec_offset))
+	celt.Fmode = &mode48000_960_120
+	out := uint32(77)
+	a := OpusDecoderCtlArgs{Value: value}
+	if alias != -2 {
+		if alias >= 0 {
+			p := unsafe.Add(unsafe.Pointer(st), alias)
+			a.I32 = (*int32)(p)
+			a.U32 = (*uint32)(p)
+		} else {
+			a.I32 = (*int32)(unsafe.Pointer(&out))
+			a.U32 = &out
+		}
+	}
+	r := Opus_opus_decoder_ctl_typed(nil, st, request, a)
+	celt.Fmode = nil
+	return r, out
+}
+
 func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) {
 	st := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
 	st.Fmode = &mode48000_960_120

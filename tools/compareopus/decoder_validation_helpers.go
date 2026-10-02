@@ -72,6 +72,15 @@ static int native_opus_init_image(unsigned char *data,size_t size,int rate,int c
  OpusDecoder *st=malloc(size);memcpy(st,data,size);int result=validation_decoder_init(st,rate,channels);
  if(result==OPUS_OK)memset((char*)st+st->celt_dec_offset,0,sizeof(void*));memcpy(data,st,size);free(st);return result;
 }
+static int native_opus_ctl(unsigned char *data,size_t size,int request,int value,int alias,unsigned *output) {
+ OpusDecoder *st=malloc(size);memcpy(st,data,size);const void *mode=opus_custom_mode_create(48000,960,NULL);memcpy((char*)st+st->celt_dec_offset,&mode,sizeof(mode));unsigned out=77;void *p=alias==-2?NULL:alias>=0?(void*)((char*)st+alias):(void*)&out;int result;
+ if(setjmp(validation_jump))result=-99;else switch(request) {
+ case OPUS_SET_COMPLEXITY_REQUEST:case OPUS_SET_GAIN_REQUEST:case OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:case OPUS_SET_IGNORE_EXTENSIONS_REQUEST:result=validation_decoder_ctl(st,request,value);break;
+ case OPUS_RESET_STATE:result=validation_decoder_ctl(st,request);break;
+ default:result=validation_decoder_ctl(st,request,p);break;
+ }
+ validation_normalize_decoder_mode(st);memcpy(data,st,size);free(st);*output=out;return result;
+}
 static int native_opus_validation(const int *v) {
  OpusDecoder st={0};st.channels=v[0];st.Fs=v[1];st.DecControl.API_sampleRate=v[2];st.DecControl.internalSampleRate=v[3];st.DecControl.nChannelsAPI=v[4];st.DecControl.nChannelsInternal=v[5];st.DecControl.payloadSize_ms=v[6];st.arch=v[7];st.stream_channels=v[8];
  if(setjmp(validation_jump)) return 1;
@@ -83,6 +92,12 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
+	var out C.uint
+	r := C.native_opus_ctl((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(request), C.int(value), C.int(alias), &out)
+	return int32(r), uint32(out)
+}
 
 func nativeOpusDestroy(null bool) bool {
 	var n C.int
