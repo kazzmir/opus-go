@@ -819,7 +819,7 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 //
 //go:uintptrescapes
 func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start, end int32, offsets, cap1 uintptr, trim int32, intensity, dual uintptr, total int32, balance, pulses, ebits, priority uintptr, C, LM int32, ec uintptr, encode, prev, bandwidth int32) int32 {
-	return clt_compute_allocation(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, (*int32)(unsafe.Pointer(offsets)), (*int32)(unsafe.Pointer(cap1)), trim, intensity, dual, total, balance, pulses, ebits, priority, C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), encode, prev, bandwidth)
+	return clt_compute_allocation(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, (*int32)(unsafe.Pointer(offsets)), (*int32)(unsafe.Pointer(cap1)), trim, (*int32)(unsafe.Pointer(intensity)), (*int32)(unsafe.Pointer(dual)), total, (*int32)(unsafe.Pointer(balance)), (*int32)(unsafe.Pointer(pulses)), (*int32)(unsafe.Pointer(ebits)), (*int32)(unsafe.Pointer(priority)), C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), encode, prev, bandwidth)
 }
 func allocationVector(mode *OpusT_OpusCustomMode, stride, vector, band int32) byte {
 	return unsafe.Slice(mode.FallocVectors, mode.FnbAllocVectors*stride)[vector*stride+band]
@@ -827,7 +827,7 @@ func allocationVector(mode *OpusT_OpusCustomMode, stride, vector, band int32) by
 func allocationInputs(offsets, cap *int32, end int32) ([]int32, []int32) {
 	return unsafe.Slice(offsets, end), unsafe.Slice(cap, end)
 }
-func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, offsets *int32, cap1 *int32, alloc_trim int32, intensity uintptr, dual_stereo uintptr, total OpusT_opus_int32, balance uintptr, pulses uintptr, ebits uintptr, fine_priority uintptr, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
+func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, offsets *int32, cap1 *int32, alloc_trim int32, intensity *int32, dual_stereo *int32, total OpusT_opus_int32, balance *int32, pulses *int32, ebits *int32, fine_priority *int32, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
 	off, caps := allocationInputs(offsets, cap1, end)
 	var N, N1, bits1j, bits2j, bitsj, codedBands, done, dual_stereo_rsv, hi, intensity_rsv, j, len1, lo, mid, psum, skip_rsv, skip_start, v5 int32
 	var _saved_stack, bits1, bits2, st, thresh, trim_offset, v1, v11, v13, v15, v17, v19, v21, v23, v25, v27, v3, v9 uintptr
@@ -1255,7 +1255,7 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 		*(*int32)(unsafe.Pointer(bits2 + uintptr(j)*4)) = bits2j
 		j = j + 1
 	}
-	codedBands = interp_bits2pulses(tls, m, start, end, skip_start, (*int32)(unsafe.Pointer(bits1)), (*int32)(unsafe.Pointer(bits2)), (*int32)(unsafe.Pointer(thresh)), cap1, total, (*int32)(unsafe.Pointer(balance)), skip_rsv, (*int32)(unsafe.Pointer(intensity)), intensity_rsv, (*int32)(unsafe.Pointer(dual_stereo)), dual_stereo_rsv, (*int32)(unsafe.Pointer(pulses)), (*int32)(unsafe.Pointer(ebits)), (*int32)(unsafe.Pointer(fine_priority)), C, LM, ec, encode, prev, signalBandwidth)
+	codedBands = interp_bits2pulses(tls, m, start, end, skip_start, (*int32)(unsafe.Pointer(bits1)), (*int32)(unsafe.Pointer(bits2)), (*int32)(unsafe.Pointer(thresh)), cap1, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
