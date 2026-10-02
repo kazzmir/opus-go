@@ -2000,7 +2000,7 @@ type OpusT_silk_encoder_state = struct {
 	FuseCBR                        int32
 	FprefillFlag                   int32
 	Fpitch_lag_low_bits_iCDF       *byte
-	Fpitch_contour_iCDF            uintptr
+	Fpitch_contour_iCDF            *byte
 	FpsNLSF_CB                     *OpusT_silk_NLSF_CB_struct
 	Finput_quality_bands_Q15       [4]int32
 	Finput_tilt_Q15                int32
@@ -2075,7 +2075,7 @@ type OpusT_silk_decoder_state = struct {
 	FprevNLSF_Q15            [16]OpusT_opus_int16
 	Ffirst_frame_after_reset int32
 	Fpitch_lag_low_bits_iCDF *byte
-	Fpitch_contour_iCDF      uintptr
+	Fpitch_contour_iCDF      *byte
 	FnFramesDecoded          int32
 	FnFramesPerPacket        int32
 	Fec_prevSignalType       int32

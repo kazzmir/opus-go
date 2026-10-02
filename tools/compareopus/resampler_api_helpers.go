@@ -130,7 +130,7 @@ func nativeResamplerDriver(g *opuscc.OpusT_silk_resampler_state_struct, out, in 
 	return int32(ret)
 }
 
-var fsContourTables = []uintptr{0, uintptr(unsafe.Pointer(&opuscc.Opus_silk_pitch_contour_NB_iCDF)), uintptr(unsafe.Pointer(&opuscc.Opus_silk_pitch_contour_10_ms_NB_iCDF)), uintptr(unsafe.Pointer(&opuscc.Opus_silk_pitch_contour_iCDF)), uintptr(unsafe.Pointer(&opuscc.Opus_silk_pitch_contour_10_ms_iCDF))}
+var fsContourTables = []*byte{nil, &opuscc.Opus_silk_pitch_contour_NB_iCDF[0], &opuscc.Opus_silk_pitch_contour_10_ms_NB_iCDF[0], &opuscc.Opus_silk_pitch_contour_iCDF[0], &opuscc.Opus_silk_pitch_contour_10_ms_iCDF[0]}
 var fsLagTables = []*byte{nil, &opuscc.Opus_silk_uniform4_iCDF[0], &opuscc.Opus_silk_uniform6_iCDF[0], &opuscc.Opus_silk_uniform8_iCDF[0]}
 
 func fsByteTableID(table []*byte, p *byte) C.int {
@@ -153,15 +153,6 @@ func fsCodebookID(p *opuscc.OpusT_silk_NLSF_CB_struct) C.int {
 	panic("unknown decoder codebook")
 }
 
-func fsTableID(table []uintptr, p uintptr) C.int {
-	for i, v := range table {
-		if v == p {
-			return C.int(i)
-		}
-	}
-	panic("unknown decoder table")
-}
-
 func nativeDecoderSetFS(g *opuscc.OpusT_silk_decoder_state, rate, api int32) (int32, bool) {
 	var c C.silk_decoder_state
 	C.native_decoder_fs_blank(&c)
@@ -179,7 +170,7 @@ func nativeDecoderSetFS(g *opuscc.OpusT_silk_decoder_state, rate, api int32) (in
 	c.resampler_state = resamplerStateToC(&g.Fresampler_state)
 	copy(unsafe.Slice((*int16)(unsafe.Pointer(&c.outBuf[0])), len(g.FoutBuf)), g.FoutBuf[:])
 	copy(unsafe.Slice((*int32)(unsafe.Pointer(&c.sLPC_Q14_buf[0])), len(g.FsLPC_Q14_buf)), g.FsLPC_Q14_buf[:])
-	C.native_fs_set_tables(&c, fsTableID(fsContourTables, g.Fpitch_contour_iCDF), fsByteTableID(fsLagTables, g.Fpitch_lag_low_bits_iCDF), fsCodebookID(g.FpsNLSF_CB))
+	C.native_fs_set_tables(&c, fsByteTableID(fsContourTables, g.Fpitch_contour_iCDF), fsByteTableID(fsLagTables, g.Fpitch_lag_low_bits_iCDF), fsCodebookID(g.FpsNLSF_CB))
 	before := c
 	ret := C.compare_decoder_set_fs(&c, C.int(rate), C.opus_int32(api))
 	unchanged := C.native_fs_remainder(c, &before) != 0

@@ -29,15 +29,15 @@ func Opus_silk_decoder_set_fs(tls *libc.TLS, st *OpusT_silk_decoder_state, fsKHz
 	if st.Ffs_kHz != fsKHz || frameLength != st.Fframe_length {
 		if fsKHz == 8 {
 			if st.Fnb_subfr == MAX_NB_SUBFR {
-				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_NB_iCDF))
+				st.Fpitch_contour_iCDF = &Opus_silk_pitch_contour_NB_iCDF[0]
 			} else {
-				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_10_ms_NB_iCDF))
+				st.Fpitch_contour_iCDF = &Opus_silk_pitch_contour_10_ms_NB_iCDF[0]
 			}
 		} else {
 			if st.Fnb_subfr == MAX_NB_SUBFR {
-				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_iCDF))
+				st.Fpitch_contour_iCDF = &Opus_silk_pitch_contour_iCDF[0]
 			} else {
-				st.Fpitch_contour_iCDF = uintptr(unsafe.Pointer(&Opus_silk_pitch_contour_10_ms_iCDF))
+				st.Fpitch_contour_iCDF = &Opus_silk_pitch_contour_10_ms_iCDF[0]
 			}
 		}
 		if st.Ffs_kHz != fsKHz {
