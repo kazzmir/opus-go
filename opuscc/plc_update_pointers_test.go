@@ -7,6 +7,31 @@ import (
 	"weak"
 )
 
+func TestPLCLTPCoefficientPointers(t *testing.T) {
+	b, owner := func() (*[LTP_ORDER]int16, weak.Pointer[OpusT_silk_NLSF_CB_struct]) {
+		cb := cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB)
+		d := &OpusT_silk_decoder_state{FpsNLSF_CB: cb}
+		d.FsPLC.FLTPCoef_Q14 = [5]int16{-32768, 32767, -1, 0, 12345}
+		return &d.FsPLC.FLTPCoef_Q14, weak.Make(cb)
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if owner.Value() == nil {
+		t.Fatal("coefficient interior owner")
+	}
+	for _, gain := range []int32{-32768, -32767, 0, 16384, 32767, 32768, 65535} {
+		before := *b
+		silkPLCDecayLTP(b, gain)
+		for j := range b {
+			want := int16(int32(int16(gain)) * int32(before[j]) >> 15)
+			if b[j] != want {
+				t.Fatal("LTP decay", gain, j, b[j], want)
+			}
+		}
+	}
+	runtime.KeepAlive(b)
+}
+
 func TestPLCConcealStateOwnersPointers(t *testing.T) {
 	plc, owner := func() (*OpusT_silk_PLC_struct, weak.Pointer[OpusT_silk_NLSF_CB_struct]) {
 		cb := cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB)

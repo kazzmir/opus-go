@@ -10,6 +10,7 @@ package main
 #define silk_PLC comparison_PLC
 #define silk_PLC_glue_frames comparison_PLC_glue_frames
 #include "PLC.c"
+static void plc_decay(short *b,int gain) {for(int j=0;j<LTP_ORDER;j++)b[j]=silk_RSHIFT(silk_SMULBB(gain,b[j]),15);}
 static int plc_dispatch(unsigned char *d,int ds,unsigned char *c,int cs,short *pcm,int lost,int arch) {
  if(ds!=sizeof(silk_decoder_state)||cs!=sizeof(silk_decoder_control))return -98;
  silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_PLC(&dec,&ctrl,pcm,lost,arch);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
@@ -38,6 +39,8 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePLCDecay(b *[5]int16, gain int32) { C.plc_decay((*C.short)(unsafe.Pointer(b)), C.int(gain)) }
 
 // Fixtures leave all embedded codebook/coefficient pointers nil. Byte images
 // are numeric-only: this is not a write-barrier-safe Go pointer import path.

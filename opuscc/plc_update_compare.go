@@ -10,6 +10,8 @@ func ComparePLCDispatch(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *O
 	silk_PLC(tls, dec, control, frame, lost, arch)
 }
 
+func ComparePLCDecay(coefficients *[LTP_ORDER]int16, gain int32) { silkPLCDecayLTP(coefficients, gain) }
+
 func ComparePLCUpdate(dec *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control) {
 	silk_PLC_update(nil, dec, control)
 }

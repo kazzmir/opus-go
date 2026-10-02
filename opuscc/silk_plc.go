@@ -157,6 +157,11 @@ func silk_PLC_energy(tls *libc.TLS, energy1, shift1, energy2, shift2 *int32, exc
 func silk_PLC_conceal(tls *libc.TLS, psDec, psDecCtrl, frame uintptr, arch int32) {
 	silk_PLC_conceal_owned(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), frame, arch)
 }
+func silkPLCDecayLTP(coefficients *[LTP_ORDER]int16, gain int32) {
+	for i := range coefficients {
+		coefficients[i] = int16(int32(int16(gain)) * int32(coefficients[i]) >> 15)
+	}
+}
 func silkPLCConcealState(decoder *OpusT_silk_decoder_state) *OpusT_silk_PLC_struct {
 	return &decoder.FsPLC
 }
@@ -166,7 +171,8 @@ func silkPLCConcealState(decoder *OpusT_silk_decoder_state) *OpusT_silk_PLC_stru
 //go:uintptrescapes
 func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, frame uintptr, arch int32) {
 	var psPLC *OpusT_silk_PLC_struct
-	var B_Q14, _saved_stack, pred_lag_ptr, rand_ptr, sLPC_Q14_ptr, sLTP, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var B_Q14 *[LTP_ORDER]int16
+	var _saved_stack, pred_lag_ptr, rand_ptr, sLPC_Q14_ptr, sLTP, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var LPC_pred_Q10, LTP_pred_Q12, b32_inv, b32_nrm, down_scale_Q30, err_Q32, harm_Gain_Q15, invGain_Q30, inv_gain_Q30, rand_Gain_Q15, rand_seed, result, v84, v85, v86, v89 OpusT_opus_int32
 	var b_headrm, i, idx, j, k, lag, lshift, sLTP_buf_idx, v53, v54, v55, v57, v58, v59, v60, v62, v63, v64, v65, v67, v68 int32
 	var rand_scale_Q14, v79, v80, v81 OpusT_opus_int16
@@ -350,7 +356,7 @@ func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDe
 		rand_ptr = uintptr(unsafe.Pointer(&decoder.Fexc_Q14[v55]))
 	}
 	/* Set up Gain to random noise component */
-	B_Q14 = uintptr(unsafe.Pointer(&plc.FLTPCoef_Q14[0]))
+	B_Q14 = &plc.FLTPCoef_Q14
 	rand_scale_Q14 = plc.FrandScale_Q14
 	/* Set up attenuation gains */
 	v53 = int32(NB_ATT) - int32(1)
@@ -397,7 +403,7 @@ func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDe
 				if !(i < int32(LTP_ORDER)) {
 					break
 				}
-				rand_scale_Q14 = int16(int32(rand_scale_Q14) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + uintptr(i)*2))))
+				rand_scale_Q14 = int16(int32(rand_scale_Q14) - int32(B_Q14[i]))
 				i = i + 1
 			}
 			v79 = int16(3277)
@@ -539,11 +545,11 @@ _102:
 			/* Unrolled loop */
 			/* Avoids introducing a bias because silk_SMLAWB() always rounds to -inf */
 			LTP_pred_Q12 = int32(2)
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14)))>>int32(16))
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(1)*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + 1*2)))>>int32(16))
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(2)*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + 2*2)))>>int32(16))
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(3)*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + 3*2)))>>int32(16))
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(4)*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + 4*2)))>>int32(16))
+			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr)))*int64(B_Q14[0])>>16)
+			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr - 4)))*int64(B_Q14[1])>>16)
+			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr - 8)))*int64(B_Q14[2])>>16)
+			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr - 12)))*int64(B_Q14[3])>>16)
+			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr - 16)))*int64(B_Q14[4])>>16)
 			pred_lag_ptr += 4
 			/* Generate LPC excitation */
 			rand_seed = int32(uint32(int32(RAND_INCREMENT)) + uint32(rand_seed)*uint32(int32(RAND_MULTIPLIER)))
@@ -553,14 +559,7 @@ _102:
 			i = i + 1
 		}
 		/* Gradually reduce LTP gain */
-		j = 0
-		for {
-			if !(j < int32(LTP_ORDER)) {
-				break
-			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + uintptr(j)*2)) = int16(int32(int16(harm_Gain_Q15)) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + uintptr(j)*2))) >> int32(15))
-			j = j + 1
-		}
+		silkPLCDecayLTP(B_Q14, harm_Gain_Q15)
 		/* Gradually reduce excitation gain */
 		rand_scale_Q14 = int16(int32(rand_scale_Q14) * int32(int16(rand_Gain_Q15)) >> int32(15))
 		/* Slowly increase pitch lag */

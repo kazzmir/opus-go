@@ -10,6 +10,18 @@ import (
 	"unsafe"
 )
 
+func TestPLCDecayAgainstC(t *testing.T) {
+	for _, gain := range []int32{-32768, -32767, 0, 16384, 32767, 32768, 65535} {
+		g := [5]int16{-32768, 32767, -1, 0, 12345}
+		c := g
+		opuscc.ComparePLCDecay(&g, gain)
+		nativePLCDecay(&c, gain)
+		if g != c {
+			t.Fatal("decay", gain, g, c)
+		}
+	}
+}
+
 func TestPLCDispatchLossAgainstC(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
 		for _, nb := range []int32{2, 4} {
