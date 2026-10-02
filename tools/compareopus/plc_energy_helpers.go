@@ -10,6 +10,7 @@ package main
 #define silk_PLC comparison_PLC
 #define silk_PLC_glue_frames comparison_PLC_glue_frames
 #include "PLC.c"
+static int plc_noise(int prediction,const int *random,int index,short scale) {return silk_LSHIFT32(silk_SMLAWB(prediction,random[index],scale),2);}
 static void plc_decay(short *b,int gain) {for(int j=0;j<LTP_ORDER;j++)b[j]=silk_RSHIFT(silk_SMULBB(gain,b[j]),15);}
 static int plc_dispatch(unsigned char *d,int ds,unsigned char *c,int cs,short *pcm,int lost,int arch) {
  if(ds!=sizeof(silk_decoder_state)||cs!=sizeof(silk_decoder_control))return -98;
@@ -39,6 +40,10 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePLCNoise(prediction int32, random []int32, index int32, scale int16) int32 {
+	return int32(C.plc_noise(C.int(prediction), (*C.int)(unsafe.Pointer(unsafe.SliceData(random))), C.int(index), C.short(scale)))
+}
 
 func nativePLCDecay(b *[5]int16, gain int32) { C.plc_decay((*C.short)(unsafe.Pointer(b)), C.int(gain)) }
 

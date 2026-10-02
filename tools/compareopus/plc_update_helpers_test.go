@@ -10,6 +10,24 @@ import (
 	"unsafe"
 )
 
+func TestPLCNoiseAgainstC(t *testing.T) {
+	random := make([]int32, 128)
+	for i := range random {
+		random[i] = int32(i*1000003) - 160000000
+	}
+	for i := int32(0); i < 128; i++ {
+		for _, scale := range []int16{-32768, -1, 0, 16384, 32767} {
+			for _, p := range []int32{-1000000, 0, 1000000} {
+				g := opuscc.ComparePLCNoise(p, random, i, scale)
+				c := nativePLCNoise(p, random, i, scale)
+				if g != c {
+					t.Fatal("noise", i, scale, p, g, c)
+				}
+			}
+		}
+	}
+}
+
 func TestPLCDecayAgainstC(t *testing.T) {
 	for _, gain := range []int32{-32768, -32767, 0, 16384, 32767, 32768, 65535} {
 		g := [5]int16{-32768, 32767, -1, 0, 12345}

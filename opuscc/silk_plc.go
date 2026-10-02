@@ -157,6 +157,12 @@ func silk_PLC_energy(tls *libc.TLS, energy1, shift1, energy2, shift2 *int32, exc
 func silk_PLC_conceal(tls *libc.TLS, psDec, psDecCtrl, frame uintptr, arch int32) {
 	silk_PLC_conceal_owned(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), frame, arch)
 }
+func silkPLCRandom(decoder *OpusT_silk_decoder_state, offset int32) []int32 {
+	return decoder.Fexc_Q14[offset : offset+RAND_BUF_SIZE]
+}
+func silkPLCNoise(prediction int32, random []int32, index int32, scale int16) int32 {
+	return int32(uint32(int32(int64(prediction)+(int64(random[index])*int64(scale)>>16))) << 2)
+}
 func silkPLCDecayLTP(coefficients *[LTP_ORDER]int16, gain int32) {
 	for i := range coefficients {
 		coefficients[i] = int16(int32(int16(gain)) * int32(coefficients[i]) >> 15)
@@ -172,7 +178,8 @@ func silkPLCConcealState(decoder *OpusT_silk_decoder_state) *OpusT_silk_PLC_stru
 func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, frame uintptr, arch int32) {
 	var psPLC *OpusT_silk_PLC_struct
 	var B_Q14 *[LTP_ORDER]int16
-	var _saved_stack, pred_lag_ptr, rand_ptr, sLPC_Q14_ptr, sLTP, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var rand_ptr []int32
+	var _saved_stack, pred_lag_ptr, sLPC_Q14_ptr, sLTP, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var LPC_pred_Q10, LTP_pred_Q12, b32_inv, b32_nrm, down_scale_Q30, err_Q32, harm_Gain_Q15, invGain_Q30, inv_gain_Q30, rand_Gain_Q15, rand_seed, result, v84, v85, v86, v89 OpusT_opus_int32
 	var b_headrm, i, idx, j, k, lag, lshift, sLTP_buf_idx, v53, v54, v55, v57, v58, v59, v60, v62, v63, v64, v65, v67, v68 int32
 	var rand_scale_Q14, v79, v80, v81 OpusT_opus_int16
@@ -342,7 +349,7 @@ func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDe
 			v57 = v54
 		}
 		v55 = v57
-		rand_ptr = uintptr(unsafe.Pointer(&decoder.Fexc_Q14[v55]))
+		rand_ptr = silkPLCRandom(decoder, v55)
 	} else {
 		/* Second sub-frame has lowest energy */
 		v53 = 0
@@ -353,7 +360,7 @@ func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDe
 			v57 = v54
 		}
 		v55 = v57
-		rand_ptr = uintptr(unsafe.Pointer(&decoder.Fexc_Q14[v55]))
+		rand_ptr = silkPLCRandom(decoder, v55)
 	}
 	/* Set up Gain to random noise component */
 	B_Q14 = &plc.FLTPCoef_Q14
@@ -554,7 +561,7 @@ _102:
 			/* Generate LPC excitation */
 			rand_seed = int32(uint32(int32(RAND_INCREMENT)) + uint32(rand_seed)*uint32(int32(RAND_MULTIPLIER)))
 			idx = rand_seed >> int32(25) & (int32(RAND_BUF_SIZE) - int32(1))
-			*(*OpusT_opus_int32)(unsafe.Pointer(sLTP_Q14 + uintptr(sLTP_buf_idx)*4)) = int32(uint32(int32(int64(LTP_pred_Q12)+int64(*(*OpusT_opus_int32)(unsafe.Pointer(rand_ptr + uintptr(idx)*4)))*int64(rand_scale_Q14)>>int32(16))) << int32(2))
+			*(*OpusT_opus_int32)(unsafe.Pointer(sLTP_Q14 + uintptr(sLTP_buf_idx)*4)) = silkPLCNoise(LTP_pred_Q12, rand_ptr, idx, rand_scale_Q14)
 			sLTP_buf_idx = sLTP_buf_idx + 1
 			i = i + 1
 		}

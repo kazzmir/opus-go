@@ -7,6 +7,36 @@ import (
 	"weak"
 )
 
+func TestPLCRandomPointers(t *testing.T) {
+	random, owner := func() ([]int32, weak.Pointer[OpusT_silk_NLSF_CB_struct]) {
+		cb := cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB)
+		d := &OpusT_silk_decoder_state{FpsNLSF_CB: cb}
+		for i := range d.Fexc_Q14 {
+			d.Fexc_Q14[i] = int32(i*1000003) - 160000000
+		}
+		return silkPLCRandom(d, 192), weak.Make(cb)
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if len(random) != 128 || owner.Value() == nil {
+		t.Fatal("random interior owner")
+	}
+	for i := int32(0); i < 128; i++ {
+		for _, scale := range []int16{-32768, -1, 0, 16384, 32767} {
+			for _, prediction := range []int32{-2147483648, -1, 0, 2147483647} {
+				want := int32(uint32(int32(int64(prediction)+(int64(int32((i+192)*1000003)-160000000)*int64(scale)>>16))) << 2)
+				if got := silkPLCNoise(prediction, random, i, scale); got != want {
+					t.Fatal("random Q14", i, scale, prediction, got, want)
+				}
+			}
+		}
+	}
+	random[0] = 1 << 20
+	if got := silkPLCNoise(2, random, 0, 16384); got != (2+(1<<18))<<2 {
+		t.Fatal("live random load", got)
+	}
+}
+
 func TestPLCLTPCoefficientPointers(t *testing.T) {
 	b, owner := func() (*[LTP_ORDER]int16, weak.Pointer[OpusT_silk_NLSF_CB_struct]) {
 		cb := cloneTestNLSFCodebook(&Opus_silk_NLSF_CB_WB)
