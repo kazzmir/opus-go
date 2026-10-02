@@ -29,6 +29,7 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #define pitch_downsample compare_pitch_downsample
 #define pitch_search compare_pitch_search
 #include "../../../opus/celt/celt_decoder.c"
+static void native_deemphasis(float *left,float *right,float *pcm,int N,int channels,int downsample,float coef,float *mem,int accum) {float *in[2]={left,right};float coefficients[4]={coef,0,0,0};deemphasis(in,pcm,N,channels,downsample,coefficients,mem,accum);}
 static int native_plc_pitch(float *left,float *right,int channels) {float *data[2]={left,right};return celt_plc_pitch_search(NULL,data,channels,0);}
 #define comb_filter comparison_celt_comb_filter
 #define init_caps comparison_celt_init_caps
@@ -91,6 +92,10 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeDeemphasis(left, right, pcm []float32, N, channels, downsample int32, coef float32, mem *[2]float32, accum int32) {
+	C.native_deemphasis((*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), (*C.float)(unsafe.Pointer(unsafe.SliceData(pcm))), C.int(N), C.int(channels), C.int(downsample), C.float(coef), (*C.float)(unsafe.Pointer(mem)), C.int(accum))
+}
 
 func nativeCustomCtl(data []byte, request, value, alias int32) (int32, uint32) {
 	var out C.uint

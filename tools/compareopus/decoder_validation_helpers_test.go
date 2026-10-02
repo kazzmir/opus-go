@@ -5,6 +5,7 @@ package main
 import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 	"github.com/kazzmir/opus-go/opuscc"
+	"math"
 	"slices"
 	"testing"
 	"unsafe"
@@ -531,6 +532,46 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	for _, ch := range []int32{-1, 0, 1, 2, 3} {
 		if g, c := opuscc.CompareCustomDecoderInit(nil, nil, ch), nativeCeltState(nil, 1, ch, 48000, 120, 21, 21); g != c {
 			t.Fatal("nil/invalid", ch, g, c)
+		}
+	}
+}
+
+func TestDeemphasisDriverAgainstC(t *testing.T) {
+	for _, N := range []int32{0, 1, 2, 8, 120, 960} {
+		for _, channels := range []int32{1, 2} {
+			for _, downsample := range []int32{1, 2, 3, 4, 6} {
+				for _, accum := range []int32{0, 1} {
+					for _, coef := range []float32{0, .85, -.25, 1} {
+						tls := libc.NewTLS()
+						ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
+						scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
+						*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
+						libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
+						left, right := make([]float32, N), make([]float32, N)
+						for i := range left {
+							left[i] = float32(i%17-8) * 1700
+							right[i] = float32(i%13-6) * 2300
+						}
+						g := make([]float32, (N/downsample)*channels+2)
+						for i := range g {
+							g[i] = float32(i+77) / 31
+						}
+						c := slices.Clone(g)
+						gm, cm := [2]float32{.25, -.5}, [2]float32{.25, -.5}
+						opuscc.CompareDeemphasis(tls, unsafe.SliceData(left), unsafe.SliceData(right), &g[1], N, channels, downsample, &coef, &gm[0], accum)
+						nativeDeemphasis(left, right, c[1:], N, channels, downsample, coef, &cm, accum)
+						tls.Close()
+						for i := range g {
+							if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+								t.Fatal("deemphasis", N, channels, downsample, accum, coef, i, g[i], c[i])
+							}
+						}
+						if gm != cm {
+							t.Fatal("deemphasis memory", N, channels, downsample, accum, coef, gm, cm)
+						}
+					}
+				}
+			}
 		}
 	}
 }

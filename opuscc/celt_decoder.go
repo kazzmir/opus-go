@@ -150,9 +150,24 @@ func deemphasis_stereo_simple(tls *libc.TLS, left *OpusT_celt_sig, right *OpusT_
 	mem[0], mem[1] = m0, m1
 }
 
-func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsample int32, coef uintptr, mem uintptr, accum int32) {
+func deemphasis_legacy(tls *libc.TLS, in, pcm uintptr, N, C, downsample int32, coef, mem uintptr, accum int32) {
+	raw := unsafe.Slice((*uintptr)(unsafe.Pointer(in)), max(C, 1))
+	channels := make([]*float32, len(raw))
+	for i := range raw {
+		channels[i] = (*float32)(unsafe.Pointer(raw[i]))
+	}
+	deemphasis(tls, unsafe.SliceData(channels), (*float32)(unsafe.Pointer(pcm)), N, C, downsample, (*float32)(unsafe.Pointer(coef)), (*float32)(unsafe.Pointer(mem)), accum)
+}
+func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, downsample int32, coef *float32, mem *float32, accum int32) {
+	// Common stereo dispatch needs no TLS scratch, just as the C early return.
+	if downsample == 1 && C == 2 && accum == 0 {
+		channels := unsafe.Slice(in, 2)
+		deemphasis_stereo_simple(tls, channels[0], channels[1], pcm, N, *coef, (*[2]float32)(unsafe.Pointer(mem)))
+		return
+	}
+	var x, y *float32
 	var Nd, apply_downsampling, c, j, v29 int32
-	var _saved_stack, scratch, st, x, y, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var _saved_stack, scratch, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var coef0 OpusT_opus_val16
 	var m, tmp, tmp1, tmp2 OpusT_celt_sig
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = Nd, _saved_stack, apply_downsampling, c, coef0, j, m, scratch, st, tmp, tmp1, tmp2, x, y, v1, v11, v13, v15, v17, v19, v21, v23, v29, v3, v5, v7, v9
@@ -168,12 +183,6 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	/* Short version for common case. */
-	if downsample == int32(1) && C == int32(2) && !(accum != 0) {
-		channels := unsafe.Slice((*uintptr)(unsafe.Pointer(in)), 2)
-		deemphasis_stereo_simple(tls, (*OpusT_celt_sig)(unsafe.Pointer(channels[0])), (*OpusT_celt_sig)(unsafe.Pointer(channels[1])), (*OpusT_opus_res)(unsafe.Pointer(pcm)), N, *(*OpusT_opus_val16)(unsafe.Pointer(coef)), (*[2]OpusT_celt_sig)(unsafe.Pointer(mem)))
-		return
-	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -240,13 +249,16 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 	}
 	v23 = st
 	scratch = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(N))*(uint64(4)/uint64(1)))
-	coef0 = *(*OpusT_opus_val16)(unsafe.Pointer(coef))
+	coef0 = *coef
 	Nd = N / downsample
 	c = 0
 	for {
-		m = *(*OpusT_celt_sig)(unsafe.Pointer(mem + uintptr(c)*4))
-		x = *(*uintptr)(unsafe.Pointer(in + uintptr(c)*uintptr(libc.PtrSize)))
-		y = pcm + uintptr(c)*4
+		m = unsafe.Slice(mem, max(C, 1))[c]
+		x = unsafe.Slice(in, max(C, 1))[c]
+		y = nil
+		if N > 0 {
+			y = celtNormAdd(pcm, c)
+		}
 		if downsample > int32(1) {
 			/* Shortcut for the standard (non-custom modes) case */
 			j = 0
@@ -254,7 +266,7 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 				if !(j < N) {
 					break
 				}
-				tmp = *(*OpusT_celt_sig)(unsafe.Pointer(x + uintptr(j)*4)) + float32(1e-30) + m
+				tmp = unsafe.Slice(x, N)[j] + float32(1e-30) + m
 				m = OpusT_opus_val16(coef0 * tmp)
 				*(*OpusT_celt_sig)(unsafe.Pointer(scratch + uintptr(j)*4)) = tmp
 				j = j + 1
@@ -268,9 +280,9 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 					if !(j < N) {
 						break
 					}
-					tmp1 = *(*OpusT_celt_sig)(unsafe.Pointer(x + uintptr(j)*4)) + m + float32(1e-30)
+					tmp1 = unsafe.Slice(x, N)[j] + m + float32(1e-30)
 					m = OpusT_opus_val16(coef0 * tmp1)
-					*(*OpusT_opus_res)(unsafe.Pointer(y + uintptr(j*C)*4)) = *(*OpusT_opus_res)(unsafe.Pointer(y + uintptr(j*C)*4)) + float32(float32(1)/float32(32768)*tmp1)
+					*celtNormAdd(y, j*C) = *celtNormAdd(y, j*C) + float32(float32(1)/float32(32768)*tmp1)
 					j = j + 1
 				}
 			} else {
@@ -279,14 +291,14 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 					if !(j < N) {
 						break
 					}
-					tmp2 = *(*OpusT_celt_sig)(unsafe.Pointer(x + uintptr(j)*4)) + float32(1e-30) + m
+					tmp2 = unsafe.Slice(x, N)[j] + float32(1e-30) + m
 					m = OpusT_opus_val16(coef0 * tmp2)
-					*(*OpusT_opus_res)(unsafe.Pointer(y + uintptr(j*C)*4)) = float32(float32(1) / float32(32768) * tmp2)
+					*celtNormAdd(y, j*C) = float32(float32(1) / float32(32768) * tmp2)
 					j = j + 1
 				}
 			}
 		}
-		*(*OpusT_celt_sig)(unsafe.Pointer(mem + uintptr(c)*4)) = m
+		unsafe.Slice(mem, max(C, 1))[c] = m
 		if apply_downsampling != 0 {
 			/* Perform down-sampling */
 			if accum != 0 {
@@ -295,7 +307,7 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 					if !(j < Nd) {
 						break
 					}
-					*(*OpusT_opus_res)(unsafe.Pointer(y + uintptr(j*C)*4)) = *(*OpusT_opus_res)(unsafe.Pointer(y + uintptr(j*C)*4)) + float32(float32(1)/float32(32768)**(*OpusT_celt_sig)(unsafe.Pointer(scratch + uintptr(j*downsample)*4)))
+					*celtNormAdd(y, j*C) = *celtNormAdd(y, j*C) + float32(float32(1)/float32(32768)**(*OpusT_celt_sig)(unsafe.Pointer(scratch + uintptr(j*downsample)*4)))
 					j = j + 1
 				}
 			} else {
@@ -304,7 +316,7 @@ func deemphasis(tls *libc.TLS, in uintptr, pcm uintptr, N int32, C int32, downsa
 					if !(j < Nd) {
 						break
 					}
-					*(*OpusT_opus_res)(unsafe.Pointer(y + uintptr(j*C)*4)) = float32(float32(1) / float32(32768) * *(*OpusT_celt_sig)(unsafe.Pointer(scratch + uintptr(j*downsample)*4)))
+					*celtNormAdd(y, j*C) = float32(float32(1) / float32(32768) * *(*OpusT_celt_sig)(unsafe.Pointer(scratch + uintptr(j*downsample)*4)))
 					j = j + 1
 				}
 			}
@@ -1402,7 +1414,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	if data == uintptr(uint32(0)) || len1 <= int32(1) {
 		celt_decode_lost(tls, st1, N, LM)
-		deemphasis(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Fpreemph_memD), accum)
+		deemphasis_legacy(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Fpreemph_memD), accum)
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v1 = libc.Xmalloc(tls, uint64(16))
@@ -2342,7 +2354,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		}
 	}
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng = (*OpusT_ec_dec)(unsafe.Pointer(dec)).Frng
-	deemphasis(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Fpreemph_memD), accum)
+	deemphasis_legacy(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Fpreemph_memD), accum)
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration = 0
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fplc_duration = 0
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type = int32(FRAME_NORMAL)

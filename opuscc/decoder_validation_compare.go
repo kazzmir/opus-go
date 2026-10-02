@@ -3,6 +3,12 @@
 package opuscc
 
 import "unsafe"
+import libc "github.com/kazzmir/opus-go/libcshim"
+
+func CompareDeemphasis(tls *libc.TLS, left, right, pcm *float32, N, C, downsample int32, coef *float32, mem *float32, accum int32) {
+	input := [2]*float32{left, right}
+	deemphasis(tls, &input[0], pcm, N, C, downsample, coef, mem, accum)
+}
 
 func CompareProjectionCtl(data []byte, request, value, alias int32) (int32, uint32) {
 	st := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(unsafe.SliceData(data)))

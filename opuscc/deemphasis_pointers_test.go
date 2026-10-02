@@ -3,9 +3,34 @@ package opuscc
 import (
 	"math"
 	"math/rand"
+	"runtime"
 	"slices"
 	"testing"
 )
+
+func TestDeemphasisDriverPointers(t *testing.T) {
+	channels := func() []*float32 {
+		l, r := make([]float32, 8), make([]float32, 8)
+		for i := range l {
+			l[i] = float32(i*17 - 31)
+			r[i] = float32(i*23 - 37)
+		}
+		return []*float32{&l[0], &r[0]}
+	}()
+	coef := float32(.85)
+	memory := [2]float32{.25, -.5}
+	out := make([]float32, 18)
+	out[0] = 77
+	out[17] = 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	deemphasis(nil, &channels[0], &out[1], 8, 2, 1, &coef, &memory[0], 0)
+	if out[0] != 77 || out[17] != 88 {
+		t.Fatal("driver guards")
+	}
+	var mem [2]float32
+	deemphasis(nil, &channels[0], nil, 0, 2, 1, &coef, &mem[0], 0)
+}
 
 func TestDeemphasisPointers(t *testing.T) {
 	left := [4]float32{32768, 0, 16384, -32768}
