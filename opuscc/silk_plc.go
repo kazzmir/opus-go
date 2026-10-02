@@ -198,6 +198,13 @@ func silkPLCDecayLTP(coefficients *[LTP_ORDER]int16, gain int32) {
 		coefficients[i] = int16(int32(int16(gain)) * int32(coefficients[i]) >> 15)
 	}
 }
+func silkPLCLTPPrediction(history []int32, index int32, coefficients *[LTP_ORDER]int16) int32 {
+	prediction := int32(2)
+	for j := int32(0); j < LTP_ORDER; j++ {
+		prediction = int32(int64(prediction) + (int64(history[index-j]) * int64(coefficients[j]) >> 16))
+	}
+	return prediction
+}
 func silkPLCWhiten(tls *libc.TLS, decoder *OpusT_silk_decoder_state, samples []int16, A *[MAX_LPC_ORDER]int16, index, arch int32) {
 	Opus_silk_LPC_analysis_filter(tls, unsafe.SliceData(samples[index:]), &decoder.FoutBuf[index], &A[0], decoder.Fltp_mem_length-index, decoder.FLPC_order, arch)
 }
@@ -211,7 +218,9 @@ func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDe
 	var B_Q14 *[LTP_ORDER]int16
 	var rand_ptr []int32
 	var sLTP []int16
-	var _saved_stack, pred_lag_ptr, sLTP_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var sLTP_Q14 []int32
+	var pred_index int32
+	var _saved_stack, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var LTP_pred_Q12, b32_inv, b32_nrm, down_scale_Q30, err_Q32, harm_Gain_Q15, invGain_Q30, inv_gain_Q30, rand_Gain_Q15, rand_seed, result, v84, v85, v86, v89 OpusT_opus_int32
 	var b_headrm, i, idx, k, lag, lshift, sLTP_buf_idx, v53, v54, v55, v57, v58, v59, v60, v62 int32
 	var rand_scale_Q14, v79, v80, v81 OpusT_opus_int16
@@ -298,7 +307,7 @@ func silk_PLC_conceal_owned(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDe
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v23 = st
-	sLTP_Q14 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length+(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length))*(uint64(4)/uint64(1)))
+	sLTP_Q14 = unsafe.Slice((*int32)(unsafe.Pointer((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack-uintptr(uint64(uint32(decoder.Fltp_mem_length+decoder.Fframe_length))*4))), decoder.Fltp_mem_length+decoder.Fframe_length)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -563,7 +572,7 @@ _102:
 		if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length) {
 			break
 		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(sLTP_Q14 + uintptr(i)*4)) = int32(int64(inv_gain_Q30) * int64(sLTP[i]) >> int32(16))
+		sLTP_Q14[i] = int32(int64(inv_gain_Q30) * int64(sLTP[i]) >> 16)
 		i = i + 1
 	}
 	/***************************/
@@ -575,7 +584,7 @@ _102:
 			break
 		}
 		/* Set up pointer */
-		pred_lag_ptr = sLTP_Q14 + uintptr(sLTP_buf_idx-lag+int32(LTP_ORDER)/int32(2))*4
+		pred_index = sLTP_buf_idx - lag + LTP_ORDER/2
 		i = 0
 		for {
 			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length) {
@@ -583,17 +592,12 @@ _102:
 			}
 			/* Unrolled loop */
 			/* Avoids introducing a bias because silk_SMLAWB() always rounds to -inf */
-			LTP_pred_Q12 = int32(2)
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr)))*int64(B_Q14[0])>>16)
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr - 4)))*int64(B_Q14[1])>>16)
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr - 8)))*int64(B_Q14[2])>>16)
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr - 12)))*int64(B_Q14[3])>>16)
-			LTP_pred_Q12 = int32(int64(LTP_pred_Q12) + int64(*(*int32)(unsafe.Pointer(pred_lag_ptr - 16)))*int64(B_Q14[4])>>16)
-			pred_lag_ptr += 4
+			LTP_pred_Q12 = silkPLCLTPPrediction(sLTP_Q14, pred_index, B_Q14)
+			pred_index++
 			/* Generate LPC excitation */
 			rand_seed = int32(uint32(int32(RAND_INCREMENT)) + uint32(rand_seed)*uint32(int32(RAND_MULTIPLIER)))
 			idx = rand_seed >> int32(25) & (int32(RAND_BUF_SIZE) - int32(1))
-			*(*OpusT_opus_int32)(unsafe.Pointer(sLTP_Q14 + uintptr(sLTP_buf_idx)*4)) = silkPLCNoise(LTP_pred_Q12, rand_ptr, idx, rand_scale_Q14)
+			sLTP_Q14[sLTP_buf_idx] = silkPLCNoise(LTP_pred_Q12, rand_ptr, idx, rand_scale_Q14)
 			sLTP_buf_idx = sLTP_buf_idx + 1
 			i = i + 1
 		}
@@ -615,9 +619,8 @@ _102:
 		lag = ((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
 		k = k + 1
 	}
-	// Explicit legacy scratch boundary; the complete LPC history/PCM kernel below
-	// uses typed views, sequential narrowing/stores, and Go copy operations.
-	history := unsafe.Slice((*int32)(unsafe.Pointer(sLTP_Q14+uintptr(decoder.Fltp_mem_length-MAX_LPC_ORDER)*4)), MAX_LPC_ORDER+decoder.Fframe_length)
+	// LPC uses the live tail of the same typed synthesis buffer.
+	history := sLTP_Q14[decoder.Fltp_mem_length-MAX_LPC_ORDER : decoder.Fltp_mem_length+decoder.Fframe_length]
 	silkPLCLPC(tls, decoder, history, &A_Q12, frame, prevGain_Q10[1])
 	/**************************************/
 	/* Update states                      */

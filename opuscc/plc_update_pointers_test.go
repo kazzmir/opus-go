@@ -7,6 +7,27 @@ import (
 	"weak"
 )
 
+func TestPLCLTPHistoryPointers(t *testing.T) {
+	h := []int32{-2147483648, 2147483647, -1, 0, 100000003, 12345, -54321, 2147483647}
+	b := &[5]int16{-32768, 32767, -1, 16384, 12345}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for index := int32(4); index < int32(len(h)); index++ {
+		want := int32(2)
+		for j := int32(0); j < 5; j++ {
+			want = int32(int64(want) + (int64(h[index-j]) * int64(b[j]) >> 16))
+		}
+		if got := silkPLCLTPPrediction(h, index, b); got != want {
+			t.Fatal("LTP history", index, got, want)
+		}
+	}
+	b[0] = 0
+	h[4] = 1
+	if got := silkPLCLTPPrediction(h, 4, b); got != int32(int64(2)+(int64(h[3])*int64(b[1])>>16)+(int64(h[2])*int64(b[2])>>16)+(int64(h[1])*int64(b[3])>>16)+(int64(h[0])*int64(b[4])>>16)) {
+		t.Fatal("live taps/history", got)
+	}
+}
+
 func TestPLCWhiteningPointers(t *testing.T) {
 	for _, length := range []int32{160, 240, 320} {
 		for _, order := range []int32{10, 16} {

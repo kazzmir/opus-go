@@ -10,6 +10,19 @@ import (
 	"unsafe"
 )
 
+func TestPLCLTPHistoryAgainstC(t *testing.T) {
+	h := []int32{-2147483648, 2147483647, -1, 0, 100000003, 12345, -54321, 2147483647}
+	for _, b := range [][5]int16{{-32768, 32767, -1, 16384, 12345}, {300, -150, 1200, -100, 75}, {0, 0, 0, 0, 0}} {
+		for index := int32(4); index < int32(len(h)); index++ {
+			g := opuscc.ComparePLCLTPPrediction(h, index, &b)
+			c := nativePLCLTPPrediction(h, index, &b)
+			if g != c {
+				t.Fatal("LTP", index, b, g, c)
+			}
+		}
+	}
+}
+
 func TestPLCWhiteningAgainstC(t *testing.T) {
 	for _, length := range []int32{160, 240, 320} {
 		for _, order := range []int32{10, 16} {

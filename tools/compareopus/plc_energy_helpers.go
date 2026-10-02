@@ -10,6 +10,7 @@ package main
 #define silk_PLC comparison_PLC
 #define silk_PLC_glue_frames comparison_PLC_glue_frames
 #include "PLC.c"
+static int plc_prediction(const int *h,int index,const short *b) {int p=2;for(int j=0;j<LTP_ORDER;j++)p=silk_SMLAWB(p,h[index-j],b[j]);return p;}
 static void plc_lpc(int *state,int *history,const short *a,short *pcm,int length,int order,int gain) {
  memcpy(history,state,MAX_LPC_ORDER*sizeof(int));
  for(int i=0;i<length;i++){int prediction=order>>1;for(int j=0;j<order;j++)prediction=silk_SMLAWB(prediction,history[MAX_LPC_ORDER+i-j-1],a[j]);history[MAX_LPC_ORDER+i]=silk_ADD_SAT32(history[MAX_LPC_ORDER+i],silk_LSHIFT_SAT32(prediction,4));pcm[i]=(short)silk_SAT16(silk_SAT16(silk_RSHIFT_ROUND(silk_SMULWW(history[MAX_LPC_ORDER+i],gain),8)));}
@@ -46,6 +47,10 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePLCLTPPrediction(history []int32, index int32, b *[5]int16) int32 {
+	return int32(C.plc_prediction((*C.int)(unsafe.Pointer(unsafe.SliceData(history))), C.int(index), (*C.short)(unsafe.Pointer(b))))
+}
 
 func nativePLCLPC(state *[16]int32, history []int32, a *[16]int16, pcm []int16, order, gain int32) {
 	C.plc_lpc((*C.int)(unsafe.Pointer(state)), (*C.int)(unsafe.Pointer(unsafe.SliceData(history))), (*C.short)(unsafe.Pointer(a)), (*C.short)(unsafe.Pointer(unsafe.SliceData(pcm))), C.int(len(pcm)), C.int(order), C.int(gain))
