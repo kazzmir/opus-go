@@ -16,7 +16,7 @@ func TestQuantPartitionRemainingBitsField(t *testing.T) {
 	mode := OpusT_OpusCustomMode{FnbEBands: 1}
 	mode.Fcache.Findex = &cacheIndex[0]
 	mode.Fcache.Fbits = &cacheBits[0]
-	context := band_ctx{Fm: uintptr(unsafe.Pointer(&mode)), Fi: 0, Fresynth: 1, Fremaining_bits: 23, Fseed: 123456}
+	context := band_ctx{Fm: &mode, Fi: 0, Fresynth: 1, Fremaining_bits: 23, Fseed: 123456}
 	x := [2]OpusT_celt_norm{0.3, -0.4}
 	// These objects still cross legacy uintptr quantizer boundaries.
 	var pins runtime.Pinner
@@ -58,7 +58,7 @@ func TestQuantPartitionLocalSplitState(t *testing.T) {
 	var encoder OpusT_ec_enc
 	Opus_ec_enc_init(tls, &encoder, unsafe.SliceData(buffer), uint32(len(buffer)))
 	context := band_ctx{
-		Fm:              uintptr(unsafe.Pointer(&mode)),
+		Fm:              &mode,
 		Fencode:         1,
 		Fresynth:        1,
 		Fec:             uintptr(unsafe.Pointer(&encoder)),

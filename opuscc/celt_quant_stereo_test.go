@@ -68,7 +68,7 @@ func TestQuantBandStereoLocalSplitState(t *testing.T) {
 	var encoder OpusT_ec_enc
 	Opus_ec_enc_init(tls, &encoder, unsafe.SliceData(buffer), uint32(len(buffer)))
 	context := band_ctx{
-		Fm:              uintptr(unsafe.Pointer(&mode)),
+		Fm:              &mode,
 		Fencode:         1,
 		Fresynth:        1,
 		Fec:             uintptr(unsafe.Pointer(&encoder)),

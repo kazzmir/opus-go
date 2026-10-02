@@ -29,6 +29,7 @@ static void scalar_anti_renormalise(float *x,int n,float gain,int arch);
 static void scalar_anti_renormalise(float *x,int n,float gain,int arch) {
  float energy=EPSILON+celt_inner_prod_c(x,x,n);float g=celt_rsqrt(energy)*gain;for(int i=0;i<n;i++)x[i]=g*x[i];
 }
+static void native_band_ctx_layout(size_t *v) {v[0]=sizeof(struct band_ctx);v[1]=offsetof(struct band_ctx,m);v[2]=offsetof(struct band_ctx,ec);v[3]=offsetof(struct band_ctx,bandE);}
 static unsigned native_quant_n1(unsigned *s,unsigned char *buf,float *v,int encode,int resynth,int *remaining,int y,int low,int done) {
  ec_ctx ec={0};ec.buf=buf;ec.storage=s[0];ec.end_offs=s[1];ec.end_window=s[2];ec.nend_bits=s[3];ec.nbits_total=s[4];ec.offs=s[5];ec.rng=s[6];ec.val=s[7];ec.ext=s[8];ec.rem=s[9];ec.error=s[10];
  struct band_ctx ctx={0};ctx.encode=encode;ctx.resynth=resynth;ctx.remaining_bits=*remaining;ctx.ec=&ec;
@@ -52,6 +53,12 @@ static void compare_deinterleave(float *x,int n0,int stride,int hadamard) {
 import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
+
+func nativeBandContextLayout() [4]uint64 {
+	var v [4]C.size_t
+	C.native_band_ctx_layout(&v[0])
+	return [4]uint64{uint64(v[0]), uint64(v[1]), uint64(v[2]), uint64(v[3])}
+}
 
 func nativeQuantN1(e *opuscc.OpusT_ec_ctx, buf []byte, v []float32, encode, resynth int32, remaining *int32, y, low int32) uint32 {
 	s := [11]C.uint{C.uint(e.Fstorage), C.uint(e.Fend_offs), C.uint(e.Fend_window), C.uint(e.Fnend_bits), C.uint(e.Fnbits_total), C.uint(e.Foffs), C.uint(e.Frng), C.uint(e.Fval), C.uint(e.Fext), C.uint(e.Frem), C.uint(e.Ferror1)}

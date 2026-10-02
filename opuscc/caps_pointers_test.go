@@ -198,6 +198,48 @@ func TestModeBandPointers(t *testing.T) {
 	runtime.KeepAlive(m)
 }
 
+func TestBandContextModePointers(t *testing.T) {
+	makeContext := func() *band_ctx {
+		m := mode48000_960_120
+		bands := slices.Clone(eband5ms[:])
+		log := slices.Clone(logN400[:])
+		index := slices.Clone(cache_index50[:])
+		bits := slices.Clone(cache_bits50[:])
+		m.FeBands = &bands[0]
+		m.FlogN = &log[0]
+		m.Fcache.Findex = &index[0]
+		m.Fcache.Fbits = &bits[0]
+		return &band_ctx{Fm: &m, Fi: 3}
+	}
+	ctx := makeContext()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if modeBand(ctx.Fm, ctx.Fi) != eband5ms[3] || modeLogN(ctx.Fm, ctx.Fi) != logN400[3] {
+		t.Fatal("context-owned mode tables")
+	}
+	for i, offset := range cache_index50 {
+		if offset < 0 {
+			continue
+		}
+		if cache := modePulseCache(ctx.Fm, int32(i)); *cache != cache_bits50[offset] {
+			t.Fatal("context-owned pulse cache", i)
+		}
+	}
+	saved := *ctx
+	ctx.Fm = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if saved.Fm == nil || modeBand(saved.Fm, 21) != eband5ms[21] || modeLogN(saved.Fm, 20) != logN400[20] {
+		t.Fatal("copied context ownership")
+	}
+	*ctx = saved
+	runtime.GC()
+	if ctx.Fm != saved.Fm {
+		t.Fatal("context restore")
+	}
+	runtime.KeepAlive(ctx)
+}
+
 func TestCapsPointers(t *testing.T) {
 	bands := [4]int16{0, 1, 3, 7}
 	var cache [24]uint8

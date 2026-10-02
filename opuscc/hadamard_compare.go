@@ -2,6 +2,13 @@
 
 package opuscc
 
+import "unsafe"
+
+func CompareBandContextLayout() [4]uint64 {
+	var ctx band_ctx
+	return [4]uint64{uint64(unsafe.Sizeof(ctx)), uint64(unsafe.Offsetof(ctx.Fm)), uint64(unsafe.Offsetof(ctx.Fec)), uint64(unsafe.Offsetof(ctx.FbandE))}
+}
+
 func CompareQuantN1(encode, resynth int32, remaining *int32, ec *OpusT_ec_ctx, x, y, low *float32) uint32 {
 	ctx := band_ctx{Fencode: encode, Fresynth: resynth, Fremaining_bits: *remaining}
 	mask := quant_band_n1(nil, &ctx, ec, x, y, low)

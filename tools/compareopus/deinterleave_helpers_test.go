@@ -10,6 +10,12 @@ import (
 	"testing"
 )
 
+func TestBandContextLayoutAgainstC(t *testing.T) {
+	if nativeBandContextLayout() != opuscc.CompareBandContextLayout() {
+		t.Fatal(nativeBandContextLayout(), opuscc.CompareBandContextLayout())
+	}
+}
+
 func TestQuantN1AgainstC(t *testing.T) {
 	for encode := int32(0); encode <= 1; encode++ {
 		for resynth := int32(0); resynth <= 1; resynth++ {
