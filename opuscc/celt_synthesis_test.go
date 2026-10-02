@@ -32,6 +32,24 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestPrefilterStatePointers(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		m := newSynthesisTestMode()
+		storage, _, _ := celtStateTestBuffer(m, max(channels, 1))
+		st := &storage.State
+		st.Fchannels = channels
+		for _, overlap := range []int32{0, 1, 3, 119, 120} {
+			st.Foverlap = overlap
+			entropyInitGrowStack(12)
+			runtime.GC()
+			owned, o, c := prefilterFoldState(st)
+			if owned != m || o != overlap || c != channels || unsafe.Slice(owned.Fwindow, 120)[119] != window120[119] {
+				t.Fatal("prefilter state owner", overlap, channels)
+			}
+		}
+	}
+}
+
 func TestSynthesisScratchPointers(t *testing.T) {
 	m := newSynthesisTestMode()
 	for LM := int32(0); LM <= 3; LM++ {

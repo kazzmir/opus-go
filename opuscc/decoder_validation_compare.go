@@ -5,6 +5,13 @@ package opuscc
 import "unsafe"
 import libc "github.com/kazzmir/opus-go/libcshim"
 
+func ComparePrefilterFold(tls *libc.TLS, data []byte, N int32) {
+	st := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+	st.Fmode = &mode48000_960_120
+	prefilter_and_fold(tls, st, N)
+	st.Fmode = nil
+}
+
 func CompareCeltSynthesis(tls *libc.TLS, X, energy, left, right *float32, start, end, C, CC, transient, LM, downsample, silence int32) {
 	out := [2]*float32{left, right}
 	celt_synthesis(tls, &mode48000_960_120, X, &out[0], energy, start, end, C, CC, transient, LM, downsample, silence, 0)

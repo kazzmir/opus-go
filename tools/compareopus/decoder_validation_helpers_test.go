@@ -536,6 +536,56 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestPrefilterFoldAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{0, 1, 2} {
+		for _, N := range []int32{0, 120, 240, 480, 960} {
+			for _, overlap := range []int32{0, 1, 2, 3, 119, 120} {
+				for _, periods := range [][2]int32{{0, 0}, {15, 15}, {31, 128}, {1024, 1024}} {
+					for _, gains := range [][2]float32{{0, 0}, {.25, .5}, {-.25, .75}} {
+						for _, taps := range [][2]int32{{0, 0}, {1, 2}, {2, 1}} {
+							size := int(opuscc.CompareCustomDecoderSize(mode, max(channels, 1)))
+							data := make([]byte, size+16)
+							st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&data[0]))
+							st.Fchannels = channels
+							st.Foverlap = overlap
+							st.Fpostfilter_period_old, st.Fpostfilter_period = periods[0], periods[1]
+							st.Fpostfilter_gain_old, st.Fpostfilter_gain = gains[0], gains[1]
+							st.Fpostfilter_tapset_old, st.Fpostfilter_tapset = taps[0], taps[1]
+							history := unsafe.Slice(&st.F_decode_mem[0], (2048+overlap)*max(channels, 1))
+							for i := range history {
+								history[i] = float32(i%29-14) * 173
+							}
+							for i := size; i < len(data); i++ {
+								data[i] = 165
+							}
+							c := slices.Clone(data)
+							tls := libc.NewTLS()
+							ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
+							scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
+							*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
+							libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
+							opuscc.ComparePrefilterFold(tls, data, N)
+							nativePrefilterFold(c, N)
+							tls.Close()
+							if !slices.Equal(data, c) {
+								for i := range data {
+									if data[i] != c[i] {
+										t.Fatal("prefilter", channels, N, overlap, periods, gains, taps, i, data[i], c[i])
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestCeltSynthesisOutputAliasAgainstC(t *testing.T) {
 	// Normal stereo calls access the two (possibly overlapping) outputs in
 	// separate MDCT invocations; neither output aliases a live spectral input.

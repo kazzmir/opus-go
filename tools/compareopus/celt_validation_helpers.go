@@ -18,6 +18,7 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #define celt_decoder_init comparison_celt_init
 #define opus_custom_decoder_init comparison_custom_init
 #define opus_custom_decoder_destroy comparison_custom_destroy
+#define comb_filter comparison_celt_comb_filter
 #define clt_mdct_backward_c compare_mdct_backward
 #define denormalise_bands compare_hadamard_denormalise
 #define celt_synthesis comparison_celt_synthesis
@@ -33,7 +34,6 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #include "../../../opus/celt/celt_decoder.c"
 static void native_deemphasis(float *left,float *right,float *pcm,int N,int channels,int downsample,float coef,float *mem,int accum) {float *in[2]={left,right};float coefficients[4]={coef,0,0,0};deemphasis(in,pcm,N,channels,downsample,coefficients,mem,accum);}
 static int native_plc_pitch(float *left,float *right,int channels) {float *data[2]={left,right};return celt_plc_pitch_search(NULL,data,channels,0);}
-#define comb_filter comparison_celt_comb_filter
 #define init_caps comparison_celt_init_caps
 #define tf_select_table comparison_celt_tf_select_table
 #define opus_strerror comparison_celt_strerror
@@ -42,6 +42,7 @@ static int native_plc_pitch(float *left,float *right,int channels) {float *data[
 #define opus_custom_mode_create comparison_mode_create
 #define opus_custom_mode_destroy comparison_mode_destroy
 #include "../../../opus/celt/modes.c"
+static void native_prefilter_fold(unsigned char *data,size_t size,int N) {CELTDecoder *st=malloc(size);memcpy(st,data,size);st->mode=comparison_mode_create(48000,960,NULL);prefilter_and_fold(st,N);st->mode=NULL;memcpy(data,st,size);free(st);}
 static void native_celt_synthesis(float *x,float *energy,float *left,float *right,int start,int end,int C,int CC,int transient,int LM,int downsample,int silence) {float *out[2]={left,right};const CELTMode *mode=comparison_mode_create(48000,960,NULL);comparison_celt_synthesis(mode,x,out,energy,start,end,C,CC,transient,LM,downsample,silence,0);}
 static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
 #undef opus_custom_mode_create
@@ -95,6 +96,10 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativePrefilterFold(data []byte, N int32) {
+	C.native_prefilter_fold((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(N))
+}
 
 func nativeCeltSynthesis(x, energy, left, right []float32, start, end, channels, outputChannels, transient, LM, downsample, silence int32) {
 	C.native_celt_synthesis((*C.float)(unsafe.Pointer(unsafe.SliceData(x))), (*C.float)(unsafe.Pointer(unsafe.SliceData(energy))), (*C.float)(unsafe.Pointer(unsafe.SliceData(left))), (*C.float)(unsafe.Pointer(unsafe.SliceData(right))), C.int(start), C.int(end), C.int(channels), C.int(outputChannels), C.int(transient), C.int(LM), C.int(downsample), C.int(silence))
