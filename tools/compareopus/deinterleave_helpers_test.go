@@ -75,6 +75,42 @@ func TestMonoBandAgainstC(t *testing.T) {
 	}
 }
 
+func TestStereoBandAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, B := range []int32{1, N} {
+			for _, tf := range []int32{-1, 0, 1} {
+				if tf > 0 && B < 2 {
+					continue
+				}
+				for _, budget := range []int32{0, 8, 24, 80} {
+					for _, intensity := range []int32{0, 21} {
+						cfg := [9]int32{N, B, LM, budget, 1, tf, 300, (1 << (2 * B)) - 1, intensity}
+						data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+						var ge opuscc.OpusT_ec_ctx
+						opuscc.Opus_ec_dec_init(nil, &ge, &data[0], uint32(len(data)))
+						ce := ge
+						x, cx, y, cy, low, clow := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+						for i := range x {
+							x[i] = float32(i+1) / 17
+							cx[i] = x[i]
+							y[i] = -float32(i+2) / 19
+							cy[i] = y[i]
+							low[i] = 77
+							clow[i] = 77
+						}
+						gm, gs := opuscc.CompareStereoBand(&ge, &x[1], &y[1], &low[1], cfg)
+						cm, cs := nativeStereoBand(&ce, data, cx[1:len(cx)-1], cy[1:len(cy)-1], clow[1:len(clow)-1], cfg)
+						if gm != cm || gs != cs || ge != ce || !sameFloatBits(x, cx) || !sameFloatBits(y, cy) || !sameFloatBits(low, clow) {
+							t.Fatal(cfg, gm, cm, gs, cs, x, cx, y, cy, low, clow, ge, ce)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestQuantN1AgainstC(t *testing.T) {
 	for encode := int32(0); encode <= 1; encode++ {
 		for resynth := int32(0); resynth <= 1; resynth++ {

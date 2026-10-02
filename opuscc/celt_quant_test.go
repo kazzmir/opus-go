@@ -159,6 +159,16 @@ func TestQuantBandContextPointers(t *testing.T) {
 	}
 }
 
+func TestQuantStereoContextPointers(t *testing.T) {
+	ctx := new(band_ctx)
+	saved := *ctx
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if mask := quant_band_stereo(nil, ctx, 0, 0, 1, 0, 1, 0, 0, 0, 0, 3); mask != 1 || *ctx != saved {
+		t.Fatal("typed stereo context / unused nil spectra", mask, ctx)
+	}
+}
+
 func TestSpreadingPointers(t *testing.T) {
 	bands := [3]int16{0, 1, 10}
 	x := [12]float32{77}

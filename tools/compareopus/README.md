@@ -345,15 +345,25 @@ cache reloads and remaining-budget updates. Actual rate.h comparisons cover ever
 valid LM -1 through 3 cache row, budgets -2 through 400 and every valid pulse count;
 a guarded backwards index checks signed offset -1 without exercising C's invalid
 sentinel rows. Grouped owner cases also exercise caps and MDCT.
-CELT band contexts retain typed mode and shared entropy-codec pointers, including
+CELT band contexts retain typed mode, band-energy and shared entropy-codec pointers, including
 through copied/restored context snapshots. Theta/partition/stereo locals keep these
 references typed; the PVQ adapter's codec argument no longer crosses an integer
 boundary. Heap-context tests retain mode tables and encoder/decoder packet buffers
 through GC/stack growth, exercising one-bin signs, lowband stores and complete codec
 state/bytes for zero, tiny and normal encoder capacities. Native bands.c checks
 context layout and the one-bin reference fixtures use the context-owned codec.
-Outer context/spectral arguments, band energies and pseudostack ownership remain
-legacy; these tests do not establish global safety.
+Theta now takes typed context, split-output, budget and fill pointers, preserving
+sequential output stores even when budget/fill alias one another, remaining_bits,
+or split fields. Actual bands.c decoder fixtures cover uniform/triangular/intensity
+branches, budgets, LM and these output aliases. Mono/stereo band drivers take typed
+contexts, and the outer driver uses GC-scanned Go context storage instead of a fixed
+80-byte TLS allocation. Decoder native fixtures compare masks, remaining budget,
+seed, complete entropy state, spectra, folding output and guards across LM 0–3,
+time/frequency changes, budgets and intensity choices.
+Focused checkptr exercises theta with unused nil spectra and the drivers' unused
+nil one-bin inputs; active spectral native comparisons run on the host. Spectral
+arguments and the outer pseudostack remain legacy; these tests do not establish
+global safety.
 Opaque byte-backed allocations, architecture FFT headers, outer integer APIs and
 some outer band-table locals remain legacy. ARM64 exposed a quant-partition fixture stack-lifetime
 failure; its crossing objects are now pinned without changing expected outputs.

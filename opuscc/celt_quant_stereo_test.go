@@ -33,7 +33,7 @@ func TestQuantBandStereoOneSampleFieldAccesses(t *testing.T) {
 	pins.Pin(&y)
 	pins.Pin(&lowband)
 
-	if got, want := quant_band_stereo(tls, uintptr(unsafe.Pointer(&context)), uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)), 1, 0, 1, 0, 0, uintptr(unsafe.Pointer(&lowband)), 0, 3), uint32(1); got != want {
+	if got, want := quant_band_stereo(tls, &context, uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)), 1, 0, 1, 0, 0, uintptr(unsafe.Pointer(&lowband)), 0, 3), uint32(1); got != want {
 		t.Fatalf("coded dimensions: got %d, want %d", got, want)
 	}
 
@@ -79,7 +79,7 @@ func TestQuantBandStereoLocalSplitState(t *testing.T) {
 	x := [2]OpusT_celt_norm{0.3, -0.7}
 	y := [2]OpusT_celt_norm{-0.4, 0.9}
 
-	mask := quant_band_stereo(tls, uintptr(unsafe.Pointer(&context)), uintptr(unsafe.Pointer(&x[0])), uintptr(unsafe.Pointer(&y[0])), 2, 16, 1, 0, 0, 0, 0, 3)
+	mask := quant_band_stereo(tls, &context, uintptr(unsafe.Pointer(&x[0])), uintptr(unsafe.Pointer(&y[0])), 2, 16, 1, 0, 0, 0, 0, 3)
 	Opus_ec_enc_done(tls, &encoder)
 
 	t.Logf("mask=%d x=%v y=%v bits=%d seed=%d encoded=% x", mask, x, y, context.Fremaining_bits, context.Fseed, buffer[:encoder.Foffs])

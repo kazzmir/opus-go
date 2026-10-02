@@ -2707,7 +2707,7 @@ var bit_deinterleave_table = [16]uint8{
 // C documentation
 //
 //	/* This function is responsible for encoding and decoding a band for the stereo case. */
-func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32, _b int32, B int32, lowband uintptr, LM int32, lowband_out uintptr, lowband_scratch uintptr, _fill int32) (r uint32) {
+func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X uintptr, Y uintptr, N int32, _b int32, B int32, lowband uintptr, LM int32, lowband_out uintptr, lowband_scratch uintptr, _fill int32) (r uint32) {
 	b := _b
 	fill := _fill
 	var c, delta, encode, imid, inv, iside, itheta, j, mbits, orig_fill, qalloc, sbits, sign, v3, v4, v5 int32
@@ -2725,7 +2725,7 @@ func quant_band_stereo(tls *libc.TLS, ctx uintptr, X uintptr, Y uintptr, N int32
 	mid = float32(0)
 	side = float32(0)
 	cm = uint32(0)
-	bandContext := (*band_ctx)(unsafe.Pointer(ctx))
+	bandContext := ctx
 	encode = bandContext.Fencode
 	ec = bandContext.Fec
 	/* Special case for one sample */
@@ -3704,7 +3704,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					} else {
 						v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 					}
-					x_cm = quant_band_stereo(tls, uintptr(unsafe.Pointer(ctx)), X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
+					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
 					_ = arch
 					xy = float32(0)
 					i = int32(0)
@@ -3762,7 +3762,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					} else {
 						v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 					}
-					x_cm = quant_band_stereo(tls, uintptr(unsafe.Pointer(ctx)), X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
+					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
 					_ = arch
 					xy = float32(0)
 					i = int32(0)
@@ -3809,7 +3809,7 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, e
 					} else {
 						v4 = norm + uintptr(M*int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i1)*2))))*4 - uintptr(norm_offset)*4
 					}
-					x_cm = quant_band_stereo(tls, uintptr(unsafe.Pointer(ctx)), X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(x_cm|y_cm))
+					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(x_cm|y_cm))
 				}
 			} else {
 				if effective_lowband != -int32(1) {

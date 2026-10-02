@@ -9,6 +9,12 @@ func CompareBandContextLayout() [4]uint64 {
 	return [4]uint64{uint64(unsafe.Sizeof(ctx)), uint64(unsafe.Offsetof(ctx.Fm)), uint64(unsafe.Offsetof(ctx.Fec)), uint64(unsafe.Offsetof(ctx.FbandE))}
 }
 
+func CompareStereoBand(ec *OpusT_ec_ctx, x, y, low *float32, cfg [9]int32) (uint32, [2]uint32) {
+	ctx := band_ctx{Fm: &mode48000_960_120, Fec: ec, Fresynth: cfg[4], Ftf_change: cfg[5], Fremaining_bits: cfg[6], Fseed: 123456, Fintensity: cfg[8]}
+	mask := quant_band_stereo(nil, &ctx, uintptr(unsafe.Pointer(x)), uintptr(unsafe.Pointer(y)), cfg[0], cfg[3], cfg[1], 0, cfg[2], uintptr(unsafe.Pointer(low)), 0, cfg[7])
+	return mask, [2]uint32{uint32(ctx.Fremaining_bits), ctx.Fseed}
+}
+
 func CompareMonoBand(ec *OpusT_ec_ctx, x, low *float32, cfg [8]int32) (uint32, [2]uint32) {
 	ctx := band_ctx{Fm: &mode48000_960_120, Fec: ec, Fresynth: cfg[4], Ftf_change: cfg[5], Fremaining_bits: cfg[6], Fseed: 123456}
 	mask := quant_band(nil, &ctx, uintptr(unsafe.Pointer(x)), cfg[0], cfg[3], cfg[1], 0, cfg[2], uintptr(unsafe.Pointer(low)), 1, 0, cfg[7])
