@@ -32,6 +32,33 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 	return &m
 }
 
+func TestAllocationDriverInputsPointers(t *testing.T) {
+	off, caps := func() ([]int32, []int32) {
+		a, b := make([]int32, 21), make([]int32, 21)
+		for i := range a {
+			a[i] = int32(i * 8)
+			b[i] = int32(i * 64)
+		}
+		return allocationInputs(&a[0], &b[0], 21)
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i := range off {
+		if off[i] != int32(i*8) || caps[i] != int32(i*64) {
+			t.Fatal("driver input owner", i)
+		}
+	}
+	alias, _ := allocationInputs(&off[0], &off[0], 21)
+	alias[3] = 88
+	if off[3] != 88 {
+		t.Fatal("live input view")
+	}
+	a, b := allocationInputs(nil, nil, 0)
+	if len(a) != 0 || len(b) != 0 {
+		t.Fatal("empty inputs")
+	}
+}
+
 func TestAllocationDriverTablesPointers(t *testing.T) {
 	m := func() *OpusT_OpusCustomMode {
 		mode := newSynthesisTestMode()
