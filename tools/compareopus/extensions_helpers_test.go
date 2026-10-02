@@ -411,6 +411,69 @@ func TestExtensionIteratorInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestExtensionGenerateAgainstC(t *testing.T) {
+	payload := make([]byte, 5000)
+	for i := range payload {
+		payload[i] = byte(i*17 + 31)
+	}
+	for _, frames := range []int32{0, 1, 2, 6, 48, 49} {
+		for _, capacity := range []int32{-1, 0, 1, 2, 5, 32, 300, 1000, 2000} {
+			for _, pad := range []int32{0, 1} {
+				for _, dry := range []bool{false, true} {
+					for _, pattern := range []int{0, 1, 2, 3, 4} {
+						var exts []opuscc.OpusT_opus_extension_data
+						var words []int32
+						if pattern != 0 {
+							for f := int32(0); f < min(frames, 6); f++ {
+								for _, id := range []int32{3, 31, 32, 112} {
+									length := int32(1)
+									if id >= 32 {
+										length = 300 + f
+									}
+									if pattern == 2 {
+										length = -1
+									}
+									if pattern == 3 {
+										id = 128
+									}
+									off := len(exts) * 173 % 4500
+									exts = append(exts, opuscc.OpusT_opus_extension_data{Fid: id, Fframe: f, Flen1: length, Fdata: &payload[off]})
+									words = append(words, id, f, length, int32(off))
+								}
+							}
+						}
+						if pattern == 4 {
+							for i, j := 0, len(exts)-1; i < j; i, j = i+1, j-1 {
+								exts[i], exts[j] = exts[j], exts[i]
+								for k := 0; k < 4; k++ {
+									words[4*i+k], words[4*j+k] = words[4*j+k], words[4*i+k]
+								}
+							}
+						}
+						g, c := make([]byte, max(capacity, 0)+16), make([]byte, max(capacity, 0)+16)
+						for i := range g {
+							g[i] = 165
+							c[i] = 165
+						}
+						var dst *byte
+						nativeData := c
+						if !dry {
+							dst = &g[0]
+						} else {
+							nativeData = nil
+						}
+						r := opuscc.CompareExtensionGenerate(dst, capacity, unsafe.SliceData(exts), int32(len(exts)), frames, pad)
+						cr := nativeExtensionGenerate(nativeData, capacity, payload, words, frames, pad)
+						if r != cr || (!dry && !slices.Equal(g, c)) {
+							t.Fatal("generator", frames, capacity, pad, dry, pattern, r, cr, g, c)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestWriteExtensionAgainstC(t *testing.T) {
 	for _, id := range []int32{3, 31, 32, 127} {
 		for _, length := range []int32{-1, 0, 1, 2, 254, 255, 256, 510, 511} {

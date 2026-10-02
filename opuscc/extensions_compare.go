@@ -2,6 +2,17 @@
 
 package opuscc
 
+import "unsafe"
+
+func CompareExtensionGenerate(data *byte, length int32, exts *OpusT_opus_extension_data, count, frames, pad int32) (result int32) {
+	defer func() {
+		if recover() != nil {
+			result = -99
+		}
+	}()
+	return Opus_opus_packet_extensions_generate(nil, uintptr(unsafe.Pointer(data)), length, exts, count, frames, pad)
+}
+
 func CompareExtensionRepeat(iter *OpusT_OpusExtensionIterator, ext *OpusT_opus_extension_data) int32 {
 	return opus_extension_iterator_next_repeat(nil, iter, ext)
 }

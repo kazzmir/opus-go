@@ -46,6 +46,9 @@ static int native_extension_parse(const unsigned char *base,int length,int frame
  if(capacity&&nb)*nb=*capacity;
  for(int i=0;i<slots;i++){words[4*i]=out[i].id;words[4*i+1]=out[i].frame;words[4*i+2]=extension_offset(base,out[i].data);words[4*i+3]=out[i].len;}free(out);return result;
 }
+static int native_extension_generate(unsigned char *data,int capacity,const unsigned char *payload,const int *words,int count,int frames,int pad) {
+ opus_extension_data *ext=calloc(count+1,sizeof(*ext));for(int i=0;i<count;i++){ext[i].id=words[4*i];ext[i].frame=words[4*i+1];ext[i].len=words[4*i+2];ext[i].data=words[4*i+3]<0?NULL:payload+words[4*i+3];}int result;if(setjmp(extension_jump))result=-99;else result=comparison_extensions_generate(data,capacity,ext,count,frames,pad);free(ext);return result;
+}
 static int native_write_extension(unsigned char *data,int capacity,int pos,int id,int length,const unsigned char *payload,int last) {
  opus_extension_data ext={0};ext.id=id;ext.len=length;ext.data=payload;return write_extension(data,capacity,pos,&ext,last);
 }
@@ -60,6 +63,10 @@ static int native_skip_payload(const unsigned char *base,int len,int id,int trai
 */
 import "C"
 import "unsafe"
+
+func nativeExtensionGenerate(data []byte, capacity int32, payload []byte, words []int32, frames, pad int32) int32 {
+	return int32(C.native_extension_generate((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(capacity), (*C.uchar)(unsafe.Pointer(unsafe.SliceData(payload))), (*C.int)(unsafe.Pointer(unsafe.SliceData(words))), C.int(len(words)/4), C.int(frames), C.int(pad)))
+}
 
 func nativeExtensionIterator(data []byte, length, frames int32, v *[19]int32, options ...int32) int32 {
 	op, want, id := int32(0), int32(1), int32(0)

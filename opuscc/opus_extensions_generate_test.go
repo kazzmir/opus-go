@@ -4,12 +4,38 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestExtensionGenerateDescriptorsPointers(t *testing.T) {
+	exts := func() []OpusT_opus_extension_data {
+		out := make([]OpusT_opus_extension_data, 6)
+		for i := range out {
+			p := make([]byte, 300)
+			for j := range p {
+				p[j] = byte(i + j)
+			}
+			out[i] = OpusT_opus_extension_data{Fid: 32, Fframe: int32(i), Flen1: 300, Fdata: &p[0]}
+		}
+		return out
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if got := Opus_opus_packet_extensions_generate(nil, 0, 2000, &exts[0], 6, 6, 1); got != 2000 {
+		t.Fatal("descriptor owner/sizing", got)
+	}
+	if exts[5].Fdata == nil || *exts[5].Fdata != 5 {
+		t.Fatal("payload owner")
+	}
+	if Opus_opus_packet_extensions_generate(nil, 0, 0, nil, 0, 0, 0) != 0 || Opus_opus_packet_extensions_generate(nil, 0, 0, nil, 100, 49, 0) != -1 {
+		t.Fatal("early validation")
+	}
+}
 
 func TestPacketExtensionsGenerateCReference(t *testing.T) {
 	// Retained C generator covers repeated short/long extensions (including
@@ -32,30 +58,27 @@ func TestPacketExtensionsGenerateCReference(t *testing.T) {
 		t.Run(fmt.Sprintf("%s/%d", name, line), func(t *testing.T) {
 			tls := libc.NewTLS()
 			defer tls.Close()
-			extMemory := libc.Xmalloc(tls, uint64(count+1)*uint64(unsafe.Sizeof(OpusT_opus_extension_data{})))
-			defer libc.Xfree(tls, extMemory)
-			extensions := unsafe.Slice((*OpusT_opus_extension_data)(unsafe.Pointer(extMemory)), int(count))
-			payload := libc.Xmalloc(tls, uint64(count+1)*600)
-			defer libc.Xfree(tls, payload)
+			extensions := make([]OpusT_opus_extension_data, count)
+			payload := make([]byte, int(count+1)*600)
 			for i := range extensions {
 				var id, frame, length, seed int32
 				if _, err := fmt.Fscan(input, &id, &frame, &length, &seed); err != nil {
 					t.Fatal(err)
 				}
-				p := payload + uintptr(i*600)
-				bytes := unsafe.Slice((*byte)(unsafe.Pointer(p)), 600)
+				bytes := payload[i*600 : (i+1)*600]
+				p := unsafe.SliceData(bytes)
 				for j := range bytes {
 					bytes[j] = byte(seed + int32(j)*17)
 				}
-				extensions[i] = OpusT_opus_extension_data{Fid: id, Fframe: frame, Flen1: length, Fdata: (*byte)(unsafe.Pointer(p))}
+				extensions[i] = OpusT_opus_extension_data{Fid: id, Fframe: frame, Flen1: length, Fdata: p}
 			}
 			out := libc.Xmalloc(tls, uint64(capacity+16))
 			defer libc.Xfree(tls, out)
 			libc.Xmemset(tls, out, 0xa5, uint64(capacity+16))
-			if got := Opus_opus_packet_extensions_generate(tls, out, capacity, extMemory, count, frames, pad); got != wantRet {
+			if got := Opus_opus_packet_extensions_generate(tls, out, capacity, unsafe.SliceData(extensions), count, frames, pad); got != wantRet {
 				t.Fatalf("return %d, want %d", got, wantRet)
 			}
-			if got := Opus_opus_packet_extensions_generate(tls, 0, capacity, extMemory, count, frames, pad); got != wantDry {
+			if got := Opus_opus_packet_extensions_generate(tls, 0, capacity, unsafe.SliceData(extensions), count, frames, pad); got != wantDry {
 				t.Fatalf("sizing return %d, want %d", got, wantDry)
 			}
 			// Include the untouched suffix and 16 guard bytes, even on errors: the C
