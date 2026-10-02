@@ -16,6 +16,74 @@ type OpusDecoderCtlArgs struct {
 	Decoder **OpusT_OpusDecoder
 }
 
+func msCtlLegacyArgs(st *OpusT_OpusMSDecoder, request int32, ap uintptr) (a OpusDecoderCtlArgs) {
+	switch request {
+	case OPUS_GET_BANDWIDTH_REQUEST, OPUS_GET_SAMPLE_RATE_REQUEST, OPUS_GET_GAIN_REQUEST, OPUS_GET_LAST_PACKET_DURATION_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_GET_COMPLEXITY_REQUEST, OPUS_GET_FINAL_RANGE_REQUEST, OPUS_SET_GAIN_REQUEST, OPUS_SET_COMPLEXITY_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
+		return opusCtlLegacyArgs(request, ap)
+	case OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST:
+		a.Value = libc.VaInt32(&ap)
+		// Do not read the second vararg for an invalid stream ID.
+		if a.Value >= 0 && a.Value < st.Flayout.Fnb_streams {
+			a.Decoder = (**OpusT_OpusDecoder)(unsafe.Pointer(libc.VaUintptr(&ap)))
+		}
+	}
+	return
+}
+
+func Opus_opus_multistream_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32, a OpusDecoderCtlArgs) int32 {
+	coupled := int((uint32(Opus_opus_decoder_get_size(tls, 2)) + 7) &^ uint32(7))
+	mono := int((uint32(Opus_opus_decoder_get_size(tls, 1)) + 7) &^ uint32(7))
+	offset := int((unsafe.Sizeof(*st) + 7) &^ uintptr(7))
+	next := func(s int32) {
+		if s < st.Flayout.Fnb_coupled_streams {
+			offset += coupled
+		} else {
+			offset += mono
+		}
+	}
+	switch request {
+	case OPUS_GET_BANDWIDTH_REQUEST, OPUS_GET_SAMPLE_RATE_REQUEST, OPUS_GET_GAIN_REQUEST, OPUS_GET_LAST_PACKET_DURATION_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_GET_COMPLEXITY_REQUEST:
+		return Opus_opus_decoder_ctl_typed(tls, (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset)), request, a)
+	case OPUS_GET_FINAL_RANGE_REQUEST:
+		if a.U32 == nil {
+			return -1
+		}
+		*a.U32 = 0
+		for s := int32(0); s < st.Flayout.Fnb_streams; s++ {
+			dec := (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
+			next(s)
+			var tmp uint32
+			if ret := Opus_opus_decoder_ctl_typed(tls, dec, request, OpusDecoderCtlArgs{U32: &tmp}); ret != OPUS_OK {
+				return ret
+			}
+			*a.U32 ^= tmp
+		}
+	case OPUS_RESET_STATE, OPUS_SET_GAIN_REQUEST, OPUS_SET_COMPLEXITY_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
+		for s := int32(0); s < st.Flayout.Fnb_streams; s++ {
+			dec := (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
+			next(s)
+			if ret := Opus_opus_decoder_ctl_typed(tls, dec, request, a); ret != OPUS_OK {
+				return ret
+			}
+		}
+	case OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST:
+		if a.Value < 0 || a.Value >= st.Flayout.Fnb_streams {
+			return -1
+		}
+		if a.Decoder == nil {
+			return -1
+		}
+		for s := int32(0); s < a.Value; s++ {
+			next(s)
+		}
+		*a.Decoder = (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
+	default:
+		return -5
+	}
+	// Offsets advance before child calls, but no unused one-past pointer is made.
+	return OPUS_OK
+}
+
 func opusCtlLegacyArgs(request int32, ap uintptr) (a OpusDecoderCtlArgs) {
 	switch request {
 	case OPUS_SET_COMPLEXITY_REQUEST, OPUS_SET_GAIN_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_SET_IGNORE_EXTENSIONS_REQUEST:

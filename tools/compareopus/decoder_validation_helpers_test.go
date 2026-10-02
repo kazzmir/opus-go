@@ -535,6 +535,47 @@ func TestCustomDecoderInitAgainstC(t *testing.T) {
 	}
 }
 
+func TestMSCtlAgainstC(t *testing.T) {
+	requests := []int32{opuscc.OPUS_GET_BANDWIDTH_REQUEST, opuscc.OPUS_GET_SAMPLE_RATE_REQUEST, opuscc.OPUS_GET_GAIN_REQUEST, opuscc.OPUS_GET_LAST_PACKET_DURATION_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, opuscc.OPUS_SET_GAIN_REQUEST, opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PITCH_REQUEST, opuscc.OPUS_GET_IGNORE_EXTENSIONS_REQUEST, 123456}
+	for _, streams := range []int32{1, 2, 3} {
+		for coupled := int32(0); coupled <= streams; coupled++ {
+			for _, request := range requests {
+				for _, value := range []int32{-32769, -32768, -1, 0, 1, 2, 3, 10, 11, 32767, 32768} {
+					for _, alias := range []int32{-2, -1, int32(unsafe.Offsetof(opuscc.OpusT_OpusMSDecoder{}.Flayout) + unsafe.Offsetof(opuscc.OpusT_ChannelLayout{}.Fnb_streams))} {
+						channels := streams + coupled
+						mapping := make([]byte, channels)
+						for i := range mapping {
+							mapping[i] = byte(i)
+						}
+						g := make([]byte, int(opuscc.Opus_opus_multistream_decoder_get_size(nil, streams, coupled))+16)
+						st := (*opuscc.OpusT_OpusMSDecoder)(unsafe.Pointer(&g[0]))
+						opuscc.Opus_opus_multistream_decoder_init(nil, st, 48000, channels, streams, coupled, unsafe.SliceData(mapping))
+						offset := int((unsafe.Sizeof(*st) + 7) &^ uintptr(7))
+						for i := int32(0); i < streams; i++ {
+							dec := (*opuscc.OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
+							dec.FrangeFinal = uint32(0x12345678 + i*37)
+							dec.Fdecode_gain = i * 17
+							dec.Fbandwidth = 1105
+							(*opuscc.OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(dec), dec.Fcelt_dec_offset)).Fmode = nil
+							ch := int32(1)
+							if i < coupled {
+								ch = 2
+							}
+							offset += int((uint32(opuscc.Opus_opus_decoder_get_size(nil, ch)) + 7) &^ uint32(7))
+						}
+						c := slices.Clone(g)
+						ret, out := opuscc.CompareMSCtl(g, request, value, alias)
+						cr, co := nativeMSCtl(c, request, value, alias)
+						if ret != cr || out != co || !slices.Equal(g, c) {
+							t.Fatal("MS CTL", streams, coupled, request, value, alias, ret, cr, out, co)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestOpusCtlAgainstC(t *testing.T) {
 	requests := []int32{opuscc.OPUS_GET_BANDWIDTH_REQUEST, opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_GET_SAMPLE_RATE_REQUEST, opuscc.OPUS_GET_PITCH_REQUEST, opuscc.OPUS_GET_GAIN_REQUEST, opuscc.OPUS_SET_GAIN_REQUEST, opuscc.OPUS_GET_LAST_PACKET_DURATION_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_SET_IGNORE_EXTENSIONS_REQUEST, opuscc.OPUS_GET_IGNORE_EXTENSIONS_REQUEST, 123456}
 	for _, ch := range []int32{1, 2} {

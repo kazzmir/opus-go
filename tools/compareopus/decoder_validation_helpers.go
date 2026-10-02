@@ -60,6 +60,7 @@ void comparison_validator_fatal(const char *str,const char *file,int line) {long
 #include "../../../opus/src/opus_decoder.c"
 #include "../../../opus/silk/init_decoder.c"
 #include "../../../opus/silk/dec_API.c"
+void validation_restore_decoder_mode(void *decoder) {OpusDecoder *st=decoder;const void *mode=opus_custom_mode_create(48000,960,NULL);memcpy((char*)st+st->celt_dec_offset,&mode,sizeof(mode));}
 void validation_normalize_decoder_mode(void *decoder) {OpusDecoder *st=decoder;memset((char*)st+st->celt_dec_offset,0,sizeof(void*));}
 static int native_opus_destroy(int null) {
  void *p=null?NULL:malloc(sizeof(OpusDecoder));validation_free_calls=0;validation_free_expected=p;validation_decoder_destroy(p);return validation_free_calls==1&&validation_free_matches;

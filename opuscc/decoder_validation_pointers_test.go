@@ -395,6 +395,82 @@ func TestCustomDecoderInitPointers(t *testing.T) {
 	}
 }
 
+type msCtlTestStorage struct {
+	State OpusT_OpusMSDecoder
+	// C aligns the 268-byte header to eight on 386 as well as amd64/ARM64.
+	Padding [4]byte
+	Decoder opusCtlTestStorage
+}
+
+func TestMSCtlPointers(t *testing.T) {
+	// Exact-sized standard composites exercise every stream and final cursor on 386.
+	for _, coupled := range []int32{0, 1, 3} {
+		size := Opus_opus_multistream_decoder_get_size(nil, 3, coupled)
+		backing := make([]byte, size)
+		st := (*OpusT_OpusMSDecoder)(unsafe.Pointer(unsafe.SliceData(backing)))
+		mapping := []byte{0, 1, 2, 3, 4, 5}
+		Opus_opus_multistream_decoder_init(nil, st, 48000, 3+coupled, 3, coupled, &mapping[0])
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for i := int32(0); i < 3; i++ {
+			var child *OpusT_OpusDecoder
+			if Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Value: i, Decoder: &child}) != 0 {
+				t.Fatal("composite stream")
+			}
+			child.FrangeFinal = uint32(i + 1)
+		}
+		var rangeOut uint32
+		Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &rangeOut})
+		if rangeOut != 0 {
+			t.Fatal("all-stream XOR")
+		}
+		if Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_SET_GAIN_REQUEST, OpusDecoderCtlArgs{Value: -12}) != 0 {
+			t.Fatal("all-stream setter")
+		}
+		Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_RESET_STATE, OpusDecoderCtlArgs{})
+	}
+	s := new(msCtlTestStorage)
+	s.State.Flayout.Fnb_streams = 1
+	s.State.Flayout.Fnb_channels = 1
+	s.Decoder = *newOpusCtlTestStorage()
+	var child *OpusT_OpusDecoder
+	var rng uint32
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Decoder: &child}) != 0 || child != &s.Decoder.State {
+		t.Fatal("state interior")
+	}
+	s.Decoder.State.FrangeFinal = 0x12345678
+	Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &rng})
+	if rng != 0x12345678 {
+		t.Fatal("range XOR")
+	}
+	Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &s.Decoder.State.FrangeFinal})
+	if s.Decoder.State.FrangeFinal != 0 {
+		t.Fatal("clear before query")
+	}
+	if Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Value: -1}) != -1 {
+		t.Fatal("stream ID error")
+	}
+	if Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_GET_PITCH_REQUEST, OpusDecoderCtlArgs{}) != -5 {
+		t.Fatal("MS unsupported request")
+	}
+	Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_RESET_STATE, OpusDecoderCtlArgs{})
+	if s.Decoder.State.Fframe_size != 120 {
+		t.Fatal("MS reset")
+	}
+	// Clearing an aliased stream count must precede the live loop condition.
+	Opus_opus_multistream_decoder_ctl_typed(nil, &s.State, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: (*uint32)(unsafe.Pointer(&s.State.Flayout.Fnb_streams))})
+	if s.State.Flayout.Fnb_streams != 0 {
+		t.Fatal("live loop count")
+	}
+	s = nil
+	runtime.GC()
+	if child.FFs != 48000 {
+		t.Fatal("state output owner")
+	}
+}
+
 type opusCtlTestStorage struct {
 	State OpusT_OpusDecoder
 	Silk  OpusT_silk_decoder
