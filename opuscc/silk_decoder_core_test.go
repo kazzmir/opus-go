@@ -1,11 +1,46 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
+	"weak"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestDecodeCoreHistoryPointers(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, length := range []int32{0, rate * 5} {
+			d := newPLCConcealTestDecoder(rate, 4)
+			d.Fsubfr_length = length
+			before := *d
+			before.FpsNLSF_CB = nil
+			owner := weak.Make(d)
+			frame := make([]int16, 2*length)
+			for i := range frame {
+				frame[i] = int16(i*31 - 900)
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeCoreHistory(d, unsafe.SliceData(frame))
+			copy(before.FoutBuf[d.Fltp_mem_length:d.Fltp_mem_length+2*length], frame)
+			g := *d
+			g.FpsNLSF_CB = nil
+			if g != before || owner.Value() == nil || d.FpsNLSF_CB.FCB1_NLSF_Q8 == nil {
+				t.Fatal("history staging/ownership", rate, length)
+			}
+		}
+	}
+	// Go-only overlapping copy: C memcpy does not define this alias.
+	d := newPLCConcealTestDecoder(8, 4)
+	w := d.FoutBuf
+	copy(w[d.Fltp_mem_length:d.Fltp_mem_length+2*d.Fsubfr_length], w[d.Fltp_mem_length-1:d.Fltp_mem_length+2*d.Fsubfr_length-1])
+	silkDecodeCoreHistory(d, &d.FoutBuf[d.Fltp_mem_length-1])
+	if d.FoutBuf != w {
+		t.Fatal("history overlap order")
+	}
+}
 
 func TestDecodeCoreFieldAccesses(t *testing.T) {
 	tls := libc.NewTLS()

@@ -32,6 +32,12 @@ func Opus_silk_init_decoder(tls *libc.TLS, dec *OpusT_silk_decoder_state) int32 
 	return Opus_silk_reset_decoder(tls, dec)
 }
 
+// Stage the already decoded first two subframes before rewhitening at k=2.
+func silkDecodeCoreHistory(decoder *OpusT_silk_decoder_state, frame *int16) {
+	count := 2 * decoder.Fsubfr_length
+	copy(decoder.FoutBuf[decoder.Fltp_mem_length:decoder.Fltp_mem_length+count], unsafe.Slice(frame, count))
+}
+
 const silk_int16_MAX3 = 32767
 
 // C documentation
@@ -39,12 +45,19 @@ const silk_int16_MAX3 = 32767
 //	/**********************************************************/
 //	/* Core decoder. Performs inverse NSQ operation LTP + LPC */
 //	/**********************************************************/
-func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq uintptr, pulses uintptr, arch int32) {
+//
+//go:uintptrescapes
+func Opus_silk_decode_core(tls *libc.TLS, psDec, psDecCtrl, xq, pulses uintptr, arch int32) {
+	silk_decode_core(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), psDecCtrl, xq, pulses, arch)
+}
+
+// Scratch and synthesis cursors remain legacy; decoder ownership is typed.
+func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl uintptr, xq uintptr, pulses uintptr, arch int32) {
 	var A_Q12, B_Q14, _saved_stack, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, res_Q14, sLPC_Q14, sLTP, sLTP_Q15, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, a32_nrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, err_Q32, gain_adj_Q16, inv_gain_Q31, offset_Q10, rand_seed, result, result1, v103, v106, v107, v110, v117, v118, v121 OpusT_opus_int32
 	var NLSF_interpolation_flag, a_headrm, b_headrm, b_headrm1, i, k, lag, lshift, lshift1, sLTP_buf_idx, signalType, start_idx, v104, v105, v109, v112, v113, v114, v115, v116, v119, v120, v124, v125, v129 int32
 	var A_Q12_tmp [MAX_LPC_ORDER]OpusT_opus_int16
-	decoder := (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec))
+	decoder := psDec
 	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = A_Q12, B_Q14, Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, NLSF_interpolation_flag, _saved_stack, a32_nrm, a_headrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, b_headrm, b_headrm1, err_Q32, gain_adj_Q16, i, inv_gain_Q31, k, lag, lshift, lshift1, offset_Q10, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, rand_seed, res_Q14, result, result1, sLPC_Q14, sLTP, sLTP_Q15, sLTP_buf_idx, signalType, st, start_idx, v1, v103, v104, v105, v106, v107, v109, v11, v110, v112, v113, v114, v115, v116, v117, v118, v119, v120, v121, v124, v125, v129, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
 	lag = 0
@@ -547,7 +560,7 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq u
 					Opus_celt_fatal(tls, __ccgo_ts+5866, __ccgo_ts+5844, int32(150))
 				}
 				if k == int32(2) {
-					libc.Xmemcpy(tls, psDec+1348+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length)*2, xq, uint64(uint32(int32(2)*(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length))*uint64(2))
+					silkDecodeCoreHistory(decoder, (*int16)(unsafe.Pointer(xq)))
 				}
 				Opus_silk_LPC_analysis_filter(tls, (*OpusT_opus_int16)(unsafe.Pointer(sLTP+uintptr(start_idx)*2)), &decoder.FoutBuf[start_idx+k*decoder.Fsubfr_length], (*OpusT_opus_int16)(unsafe.Pointer(A_Q12)), decoder.Fltp_mem_length-start_idx, decoder.FLPC_order, arch)
 				/* After rewhitening the LTP state is unscaled */
@@ -722,7 +735,7 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec uintptr, psDecCtrl uintptr, xq u
 		k = k + 1
 	}
 	/* Save LPC state */
-	libc.Xmemcpy(tls, psDec+1284, sLPC_Q14, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
+	copy(decoder.FsLPC_Q14_buf[:], unsafe.Slice((*int32)(unsafe.Pointer(sLPC_Q14)), MAX_LPC_ORDER))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
