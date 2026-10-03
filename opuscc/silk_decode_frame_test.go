@@ -1,11 +1,47 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestDecodeFrameHistoryPointers(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, nb := range []int32{2, 4} {
+			d := newPLCConcealTestDecoder(rate, nb)
+			w := *d
+			w.FpsNLSF_CB = nil
+			frame := make([]int16, d.Fframe_length)
+			for i := range frame {
+				frame[i] = int16(i*71 - 9000)
+			}
+			move := d.Fltp_mem_length - d.Fframe_length
+			copy(w.FoutBuf[:move], w.FoutBuf[d.Fframe_length:d.Fframe_length+move])
+			copy(w.FoutBuf[move:d.Fltp_mem_length], frame)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeFrameHistory(d, &frame[0])
+			g := *d
+			g.FpsNLSF_CB = nil
+			if g != w || d.FpsNLSF_CB.FCB1_NLSF_Q8 == nil {
+				t.Fatal("frame history", rate, nb)
+			}
+		}
+	}
+	// Go-only overlapping memcpy source: shift must happen before frame reload.
+	d := newPLCConcealTestDecoder(8, 2)
+	w := d.FoutBuf
+	move := d.Fltp_mem_length - d.Fframe_length
+	copy(w[:move], w[d.Fframe_length:d.Fltp_mem_length])
+	copy(w[move:d.Fltp_mem_length], w[:d.Fframe_length])
+	silkDecodeFrameHistory(d, &d.FoutBuf[0])
+	if d.FoutBuf != w {
+		t.Fatal("history clear/read alias")
+	}
+}
 
 func TestDecodeFrameFieldAccesses(t *testing.T) {
 	tls := libc.NewTLS()

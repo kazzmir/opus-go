@@ -25,6 +25,9 @@ static int decoder_core_transition(unsigned char *d,unsigned char *c,int k) {
  silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,sizeof(dec));memcpy(&ctrl,c,sizeof(ctrl));int active=dec.lossCnt && dec.prevSignalType==TYPE_VOICED && dec.indices.signalType!=TYPE_VOICED && k<MAX_NB_SUBFR/2;
  if(active){opus_int16 *b=&ctrl.LTPCoef_Q14[k*LTP_ORDER];silk_memset(b,0,LTP_ORDER*sizeof(short));b[LTP_ORDER/2]=SILK_FIX_CONST(0.25,14);ctrl.pitchL[k]=dec.lagPrev;}memcpy(d,&dec,sizeof(dec));memcpy(c,&ctrl,sizeof(ctrl));return active;
 }
+static void decoder_frame_history(unsigned char *d,const short *frame) {
+ silk_decoder_state dec;memcpy(&dec,d,sizeof(dec));int move=dec.ltp_mem_length-dec.frame_length;silk_memmove(dec.outBuf,&dec.outBuf[dec.frame_length],move*sizeof(short));silk_memcpy(&dec.outBuf[move],frame,dec.frame_length*sizeof(short));memcpy(d,&dec,sizeof(dec));
+}
 static void decoder_core_history(unsigned char *d,int memory,int count,const short *frame) {
  silk_decoder_state dec;memcpy(&dec,d,sizeof(dec));silk_memcpy(&dec.outBuf[memory],frame,count*sizeof(short));memcpy(d,&dec,sizeof(dec));
 }
@@ -77,6 +80,12 @@ func nativeDecodeCoreTransition(dec *opuscc.OpusT_silk_decoder_state, ctrl *opus
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r != 0
+}
+func nativeDecodeFrameHistory(dec *opuscc.OpusT_silk_decoder_state, frame []int16) {
+	d := make([]byte, int(unsafe.Sizeof(*dec)))
+	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)))
+	C.decoder_frame_history((*C.uchar)(unsafe.Pointer(&d[0])), (*C.short)(unsafe.Pointer(unsafe.SliceData(frame))))
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 }
 func nativeDecodeCoreHistory(dec *opuscc.OpusT_silk_decoder_state, frame []int16) {
 	d := make([]byte, int(unsafe.Sizeof(*dec)))

@@ -170,6 +170,26 @@ func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 		}
 	}
 }
+func TestDecodeFrameHistoryAgainstC(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, nb := range []int32{2, 4} {
+			d := opuscc.OpusT_silk_decoder_state{Fltp_mem_length: rate * 20, Fframe_length: rate * 5 * nb}
+			for i := range d.FoutBuf {
+				d.FoutBuf[i] = int16(i*37 - 1000)
+			}
+			c := d
+			frame := make([]int16, d.Fframe_length)
+			for i := range frame {
+				frame[i] = int16(i*71 - 9000)
+			}
+			opuscc.CompareDecodeFrameHistory(&d, frame)
+			nativeDecodeFrameHistory(&c, frame)
+			if d != c {
+				t.Fatal("frame history", rate, nb)
+			}
+		}
+	}
+}
 func TestDecodeCoreHistoryAgainstC(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
 		d := opuscc.OpusT_silk_decoder_state{Fltp_mem_length: rate * 20, Fsubfr_length: rate * 5}
