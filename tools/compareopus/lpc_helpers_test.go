@@ -18,7 +18,8 @@ func TestCeltPLCLostAgainstC(t *testing.T) {
 	}
 	for _, channels := range []int32{1, 2} {
 		for LM := int32(0); LM <= 3; LM++ {
-			for _, noise := range []bool{false, true} {
+			for _, scenario := range []int{0, 1, 2, 3} {
+				noise := scenario == 1 || scenario == 3
 				size := int(opuscc.CompareCustomDecoderSize(mode, channels))
 				data := make([]byte, size+16)
 				st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&data[0]))
@@ -33,6 +34,18 @@ func TestCeltPLCLostAgainstC(t *testing.T) {
 				if noise {
 					st.Fskip_plc = 1
 				}
+				if scenario == 2 {
+					st.Flast_frame_type = 0
+				}
+				if scenario == 3 {
+					st.Fprefilter_and_fold = 1
+					st.Fpostfilter_period_old = 80
+					st.Fpostfilter_period = 96
+					st.Fpostfilter_gain_old = .13
+					st.Fpostfilter_gain = .2
+					st.Fpostfilter_tapset_old = 1
+					st.Fpostfilter_tapset = 2
+				}
 				history := unsafe.Slice(&st.F_decode_mem[0], (2048+120)*channels)
 				for i := range history {
 					history[i] = float32(math.Sin(float64(i)*.17) * .03)
@@ -45,16 +58,18 @@ func TestCeltPLCLostAgainstC(t *testing.T) {
 					data[i] = 165
 				}
 				c := slices.Clone(data)
-				st.Fmode = mode
-				opuscc.CompareCeltPLCLost(nil, st, 120<<LM, LM)
-				st.Fmode = nil
-				if ret := nativeCeltLost(c, 120<<LM, LM); ret != 0 {
-					t.Fatal("native concealment", ret)
-				}
-				if !slices.Equal(data, c) {
-					for i := range data {
-						if data[i] != c[i] {
-							t.Fatal("whole concealment", channels, LM, noise, i, data[i], c[i])
+				for call := 0; call < 3; call++ {
+					st.Fmode = mode
+					opuscc.CompareCeltPLCLost(nil, st, 120<<LM, LM)
+					st.Fmode = nil
+					if ret := nativeCeltLost(c, 120<<LM, LM); ret != 0 {
+						t.Fatal("native concealment", ret)
+					}
+					if !slices.Equal(data, c) {
+						for i := range data {
+							if data[i] != c[i] {
+								t.Fatal("whole concealment", channels, LM, scenario, call, i, data[i], c[i])
+							}
 						}
 					}
 				}

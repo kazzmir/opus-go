@@ -75,9 +75,8 @@ func TestCeltPLCDispatchPointers(t *testing.T) {
 		}
 	}
 }
-func TestCeltPLCLostScratch(t *testing.T) {
-	// Ordinary (not checkptr) integration: dispatcher state/history integer
-	// views are still legacy, while its complete active paths need no TLS scratch.
+func TestCeltPLCLostPointers(t *testing.T) {
+	// Complete active periodic/noise concealment with typed state/history owners.
 	for _, channels := range []int32{1, 2} {
 		for LM := int32(0); LM <= 3; LM++ {
 			for _, noise := range []bool{false, true} {
@@ -118,6 +117,46 @@ func TestCeltPLCLostScratch(t *testing.T) {
 				tls.Close()
 				runtime.KeepAlive(owner)
 			}
+		}
+	}
+}
+func TestCeltPLCFirstLossPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			mode := newSynthesisTestMode()
+			owner, image, size := celtStateTestBuffer(mode, channels)
+			state := &owner.State
+			opus_custom_decoder_init(nil, state, mode, channels)
+			state.Fskip_plc = 0
+			state.Flast_frame_type = 0
+			state.Fpostfilter_period_old = 80
+			state.Fpostfilter_period = 96
+			state.Fpostfilter_gain_old = .13
+			state.Fpostfilter_gain = .2
+			state.Fpostfilter_tapset_old = 1
+			state.Fpostfilter_tapset = 2
+			h := unsafe.Slice(&state.F_decode_mem[0], (2048+120)*channels)
+			for i := range h {
+				h[i] = float32(math.Sin(float64(i)*.17) * .03)
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celt_decode_lost(nil, state, 120<<LM, LM)
+			if state.Flast_frame_type != FRAME_PLC_PERIODIC || state.Flast_pitch_index < PLC_PITCH_LAG_MIN || state.Flast_pitch_index > PLC_PITCH_LAG_MAX || state.Fprefilter_and_fold != 1 {
+				t.Fatal("first loss pitch/LPC")
+			}
+			state.Fskip_plc = 1
+			runtime.GC()
+			celt_decode_lost(nil, state, 120<<LM, LM)
+			if state.Flast_frame_type != FRAME_PLC_NOISE || state.Fprefilter_and_fold != 0 || state.Fskip_plc != 1 {
+				t.Fatal("periodic to folded noise")
+			}
+			for _, v := range image[size : size+16] {
+				if v != 165 {
+					t.Fatal("first loss guard")
+				}
+			}
+			runtime.KeepAlive(owner)
 		}
 	}
 }

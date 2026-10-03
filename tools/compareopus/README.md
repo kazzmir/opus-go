@@ -508,6 +508,32 @@ baselines/tolerances, and repeated ARM checks. Earlier mentions of concealment
 TLS scratch above are historical; opaque allocation scanning and outer CELT
 decoding remain unresolved, and host/QEMU coverage is not direct macOS CI.
 
+The next four rounds retain a typed decoder at the concealment entry, a typed
+cached mode/eBands owner, scanned history/output views, then typed LPC/window
+consumers. Channel geometry uses numeric offsets into the decoder's trailing
+float storage; only consumed interiors are materialized (including no unused
+mono channel or zero-overlap/N=0 one-past output). Noise and periodic history
+shifts use copy with their distinct overlap lengths. Synthesis, pitch search,
+comb filtering, autocorrelation, LPC, FIR and IIR now receive typed pointers;
+no integer-addressed view or private legacy adapter remains inside concealment.
+The surrounding public CELT decode ABI still converts its legacy state once.
+
+Focused checkptr now covers complete active concealment, with nil TLS, an
+untouched TLS sentinel, forced GC/stack growth, heap modes/FFT tables, mono/stereo,
+LM=0..3, first-loss pitch/LPC, repeated periodic/noise calls and folding into
+noise with nonzero postfilters. All prior packet/frame goldens are unchanged.
+The actual included celt_decoder.c oracle checks full numeric state/history
+images and guards across three calls, periodic reuse, first loss, noise and
+prefilter/postfilter cases. Native mode pointers are rebound locally and cleared
+before import; Go pointer bytes are never passed to C. Scalar normalization,
+FIR/IIR and autocorrelation are selected rather than the linked presumed-SSE
+build: an initial noise mismatch exposed this oracle-selection difference.
+All four rounds retain full amd64/386/ARM64-QEMU tests, native and GC stress,
+unchanged encode/decode baselines and tolerances, and repeated ARM checks.
+Earlier leaf-only checkptr limits and legacy concealment views above are now
+historical. Outer CELT decoding and opaque allocation pointer scanning still
+remain legacy; this is not global GC safety or direct macOS CI coverage.
+
 The outer SILK API now retains typed decoder/channel, control, entropy, float PCM
 and output-count pointers behind Opus_silk_Decode's explicit uintptr escape ABI.
 Packet-start frame counters use typed state and a live channel-count pointer.
