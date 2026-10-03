@@ -11,6 +11,57 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCLostAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, noise := range []bool{false, true} {
+				size := int(opuscc.CompareCustomDecoderSize(mode, channels))
+				data := make([]byte, size+16)
+				st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&data[0]))
+				st.Fchannels = channels
+				st.Fstream_channels = channels
+				st.Foverlap = 120
+				st.Fdownsample = 1
+				st.Fend = 21
+				st.Flast_frame_type = opuscc.FRAME_PLC_PERIODIC
+				st.Flast_pitch_index = 100
+				st.Frng = 0xdeadbeef
+				if noise {
+					st.Fskip_plc = 1
+				}
+				history := unsafe.Slice(&st.F_decode_mem[0], (2048+120)*channels)
+				for i := range history {
+					history[i] = float32(math.Sin(float64(i)*.17) * .03)
+				}
+				energies := unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(&st.F_decode_mem[0]), int((2048+120)*channels)*4)), 168)
+				for i := range energies {
+					energies[i] = -12
+				}
+				for i := size; i < len(data); i++ {
+					data[i] = 165
+				}
+				c := slices.Clone(data)
+				st.Fmode = mode
+				opuscc.CompareCeltPLCLost(nil, st, 120<<LM, LM)
+				st.Fmode = nil
+				if ret := nativeCeltLost(c, 120<<LM, LM); ret != 0 {
+					t.Fatal("native concealment", ret)
+				}
+				if !slices.Equal(data, c) {
+					for i := range data {
+						if data[i] != c[i] {
+							t.Fatal("whole concealment", channels, LM, noise, i, data[i], c[i])
+						}
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltPLCDispatchAgainstC(t *testing.T) {
 	for _, duration := range []int32{-1, 0, 39, 40, 10000} {
 		for _, start := range []int32{0, 1, 20} {

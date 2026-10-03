@@ -31,6 +31,13 @@ void comparison_celt_validator_fatal(const char *str,const char *file,int line) 
 #define resampling_factor comparison_celt_resampling
 #define pitch_downsample compare_pitch_downsample
 #define pitch_search compare_pitch_search
+// Match the translated scalar leaves rather than libopus's presumed-SSE build.
+#include <math.h>
+static void comparison_plc_renormalise(float *x,int N,float gain,int arch) {float xy=0;for(int i=0;i<N;i++)xy+=x[i]*x[i];float g=(1.f/(float)sqrt((double)(1e-15f+xy)))*gain;for(int i=0;i<N;i++)x[i]=g*x[i];}
+#define renormalise_vector comparison_plc_renormalise
+#define celt_fir_c comparison_fir
+#define celt_iir comparison_iir
+#define _celt_autocorr comparison_autocorr
 #include "../../../opus/celt/celt_decoder.c"
 static void native_deemphasis(float *left,float *right,float *pcm,int N,int channels,int downsample,float coef,float *mem,int accum) {float *in[2]={left,right};float coefficients[4]={coef,0,0,0};deemphasis(in,pcm,N,channels,downsample,coefficients,mem,accum);}
 static int native_plc_pitch(float *left,float *right,int channels) {float *data[2]={left,right};return celt_plc_pitch_search(NULL,data,channels,0);}
@@ -48,6 +55,7 @@ static int native_plc_pitch(float *left,float *right,int channels) {float *data[
 static int native_allocation_interp(unsigned *s,unsigned char *buf,int *a,int *outputs,const int *cfg,int alias,int driver) {
  ec_ctx e={0};e.buf=buf;e.storage=s[0];e.end_offs=s[1];e.end_window=s[2];e.nend_bits=s[3];e.nbits_total=s[4];e.offs=s[5];e.rng=s[6];e.val=s[7];e.ext=s[8];e.rem=s[9];e.error=s[10];int *balance=outputs,*intensity=outputs+1,*dual=outputs+2,*bits=a+93,*fine=a+116,*priority=a+139;switch(alias){case 1:bits=a+1;break;case 2:dual=intensity;break;case 3:balance=a+115+cfg[1];break;case 4:priority=fine;break;case 5:intensity=bits;break;case 6:bits=a+70;break;case 7:fine=a+70;break;}int r;if(setjmp(celt_validation_jump))r=-99;else if(driver)r=comparison_rate_allocation(comparison_mode_create(48000,960,NULL),cfg[0],cfg[1],a+1,a+70,cfg[2],intensity,dual,cfg[3],balance,bits,fine,priority,cfg[7],cfg[8],&e,cfg[9],cfg[10],cfg[11]);else r=interp_bits2pulses(comparison_mode_create(48000,960,NULL),cfg[0],cfg[1],cfg[2],a+1,a+24,a+47,a+70,cfg[3],balance,cfg[4],intensity,cfg[5],dual,cfg[6],bits,fine,priority,cfg[7],cfg[8],&e,cfg[9],cfg[10],cfg[11]);s[0]=e.storage;s[1]=e.end_offs;s[2]=e.end_window;s[3]=e.nend_bits;s[4]=e.nbits_total;s[5]=e.offs;s[6]=e.rng;s[7]=e.val;s[8]=e.ext;s[9]=e.rem;s[10]=e.error;return r;
 }
+static int native_celt_lost(unsigned char *data,size_t size,int N,int LM) {CELTDecoder *st=malloc(size);memcpy(st,data,size);st->mode=comparison_mode_create(48000,960,NULL);int ret=0;if(setjmp(celt_validation_jump))ret=-99;else celt_decode_lost(st,N,LM);st->mode=NULL;memcpy(data,st,size);free(st);return ret;}
 static void native_prefilter_fold(unsigned char *data,size_t size,int N) {CELTDecoder *st=malloc(size);memcpy(st,data,size);st->mode=comparison_mode_create(48000,960,NULL);prefilter_and_fold(st,N);st->mode=NULL;memcpy(data,st,size);free(st);}
 static void native_celt_synthesis(float *x,float *energy,float *left,float *right,int start,int end,int C,int CC,int transient,int LM,int downsample,int silence) {float *out[2]={left,right};const CELTMode *mode=comparison_mode_create(48000,960,NULL);comparison_celt_synthesis(mode,x,out,energy,start,end,C,CC,transient,LM,downsample,silence,0);}
 static int native_mode_lookup(int Fs,int frame,int *v) {int error=99;CELTMode *mode=opus_custom_mode_create(Fs,frame,&error);if(mode){v[0]=mode->Fs;v[1]=mode->overlap;v[2]=mode->nbEBands;v[3]=mode->effEBands;v[4]=mode->shortMdctSize;v[5]=mode->nbShortMdcts;v[6]=mode->maxLM;}return error;}
@@ -129,6 +137,9 @@ func nativeAllocationCall(dec *opuscc.OpusT_ec_ctx, data []byte, a *[7][23]int32
 	return int32(r)
 }
 
+func nativeCeltLost(data []byte, N, LM int32) int32 {
+	return int32(C.native_celt_lost((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(N), C.int(LM)))
+}
 func nativePrefilterFold(data []byte, N int32) {
 	C.native_prefilter_fold((*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.size_t(len(data)), C.int(N))
 }

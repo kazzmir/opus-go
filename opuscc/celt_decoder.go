@@ -569,6 +569,12 @@ func celtPLCDecay(energy, background *float32, bands, start, end, channels, loss
 	}
 }
 
+func celtPLCMode(state *OpusT_OpusCustomDecoder) (mode *OpusT_OpusCustomMode, bands, overlap int32, eBands *int16) {
+	mode = state.Fmode
+	bands, overlap, eBands = mode.FnbEBands, mode.Foverlap, mode.FeBands
+	return
+}
+
 func celtPLCDispatch(state *OpusT_OpusCustomDecoder) (loss, start, frameType int32) {
 	loss, start = state.Floss_duration, state.Fstart
 	frameType = FRAME_PLC_PERIODIC
@@ -585,18 +591,17 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 	var C, c, curr_frame_type, curr_neural, decode_buffer_size, effEnd, end, exc_length, extrapolation_len, last_neural, loss_duration, max_period, nbEBands, overlap, pitch_index, start, v5, v7, v8 int32
 	var S1 float32
 	var X, _exc, exc, fir_tmp []float32
-	var backgroundLogE, buf, eBands, lpc, mode, oldBandE, oldLogE, oldLogE2, window uintptr
+	var mode *OpusT_OpusCustomMode
+	var eBands *int16
+	var backgroundLogE, buf, lpc, oldBandE, oldLogE, oldLogE2, window uintptr
 	var decay1, fade float32
 	var ac [25]float32
 	var decode_mem, out_syn [2]uintptr
 	var lpc_mem [24]float32
 	C = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fchannels
 	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
-	max_period = int32(MAX_PERIOD)
-	mode = uintptr(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode))
-	nbEBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FnbEBands
-	overlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
-	eBands = uintptr(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeBands))
+	max_period = MAX_PERIOD
+	mode, nbEBands, overlap, eBands = celtPLCMode(st1)
 	c = 0
 	for {
 		decode_mem[c] = base + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr(c*(decode_buffer_size+overlap))*4
@@ -614,19 +619,19 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 	lpc = backgroundLogE + uintptr(int32(2)*nbEBands)*4
 	loss_duration, start, curr_frame_type = celtPLCDispatch(st1)
 	if curr_frame_type == int32(FRAME_PLC_NOISE) {
-		end = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fend
-		if end < (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands {
+		end = st1.Fend
+		if end < mode.FeffEBands {
 			v7 = end
 		} else {
-			v7 = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands
+			v7 = mode.FeffEBands
 		}
 		if start > v7 {
 			v5 = start
 		} else {
-			if end < (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands {
+			if end < mode.FeffEBands {
 				v8 = end
 			} else {
-				v8 = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands
+				v8 = mode.FeffEBands
 			}
 			v5 = v8
 		}
@@ -645,7 +650,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			prefilter_and_fold(tls, st1, N)
 		}
 		celtPLCDecay((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(backgroundLogE)), nbEBands, start, end, C, loss_duration)
-		celtPLCNoise(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*int16)(unsafe.Pointer(eBands)), unsafe.SliceData(X), N, start, effEnd, LM, C)
+		celtPLCNoise(tls, st1, eBands, unsafe.SliceData(X), N, start, effEnd, LM, C)
 		var outputs [2]*float32
 		for channel := int32(0); channel < max(C, 1); channel++ {
 			outputs[channel] = (*float32)(unsafe.Pointer(out_syn[channel]))

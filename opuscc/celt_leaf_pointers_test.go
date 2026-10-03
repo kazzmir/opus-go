@@ -8,6 +8,16 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCModePointers(t *testing.T) {
+	state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode()}
+	m, nb, overlap, bands := celtPLCMode(state)
+	state = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if nb != 21 || overlap != 120 || m.FeBands != bands || unsafe.Slice(bands, nb+1)[nb] != 100 || m.Fmdct.Fkfft[0] == nil {
+		t.Fatal("typed mode/table owners", nb, overlap)
+	}
+}
 func TestCeltPLCDispatchPointers(t *testing.T) {
 	for _, duration := range []int32{-1, 0, 39, 40, 10000} {
 		for _, start := range []int32{0, 1, 20} {
