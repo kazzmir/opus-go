@@ -423,6 +423,21 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeEnergyBackground(state *OpusT_OpusCustomDecoder, background, energy *float32, bands, M int32) {
+	increase := float32(min(int32(160), state.Floss_duration+M)) * float32(.001)
+	if bands <= 0 {
+		return
+	}
+	b, e := unsafe.Slice(background, 2*bands), unsafe.Slice(energy, 2*bands)
+	for i := range b {
+		if b[i]+increase < e[i] {
+			b[i] = b[i] + increase
+		} else {
+			b[i] = e[i]
+		}
+	}
+}
+
 func celtDecodeEnergyLogs(energy, log, previous *float32, bands, transient int32) {
 	if bands <= 0 {
 		return
@@ -799,7 +814,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	var X, _saved_stack, backgroundLogE, cap1, collapse_masks, eBands, fine_priority, fine_quant, mode, offsets, oldBandE, oldLogE, oldLogE2, pulses, st, tf_res, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var bits, tell, total_bits OpusT_opus_int32
 	var decode_mem [2]uintptr
-	var max_background_increase, safety, v35, v56, v61 OpusT_celt_glog
+	var safety, v35, v56, v61 OpusT_celt_glog
 	var postfilter_gain OpusT_opus_val16
 	var v60 float32
 	var _dec OpusT_ec_dec
@@ -1792,25 +1807,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	/* In normal circumstances, we only allow the noise floor to increase by
 	   up to 2.4 dB/second, but when we're in DTX we give the weight of
 	   all missing packets to the update packet. */
-	if int32(160) < (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration+M {
-		v28 = int32(160)
-	} else {
-		v28 = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration + M
-	}
-	max_background_increase = OpusT_celt_glog(float32(v28) * float32(0.001))
-	i = 0
-	for {
-		if !(i < int32(2)*nbEBands) {
-			break
-		}
-		if *(*OpusT_celt_glog)(unsafe.Pointer(backgroundLogE + uintptr(i)*4))+max_background_increase < *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(i)*4)) {
-			v35 = *(*OpusT_celt_glog)(unsafe.Pointer(backgroundLogE + uintptr(i)*4)) + max_background_increase
-		} else {
-			v35 = *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(i)*4))
-		}
-		*(*OpusT_celt_glog)(unsafe.Pointer(backgroundLogE + uintptr(i)*4)) = v35
-		i = i + 1
-	}
+	celtDecodeEnergyBackground((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*float32)(unsafe.Pointer(backgroundLogE)), (*float32)(unsafe.Pointer(oldBandE)), nbEBands, M)
 	/* In case start or end were to change */
 	c = 0
 	for {

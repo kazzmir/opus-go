@@ -55,6 +55,56 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeEnergyBackgroundPointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, loss := range []int32{-1, 0, 40, 160, 10000} {
+			for _, M := range []int32{1, 2, 4, 8} {
+				b, e := make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+				for i := range b {
+					b[i] = float32(i%9 - 4)
+					e[i] = float32(i%7 - 3)
+				}
+				want := append([]float32(nil), b...)
+				increase := float32(min(int32(160), loss+M)) * float32(.001)
+				for i := int32(1); i <= 2*bands; i++ {
+					if want[i]+increase < e[i] {
+						want[i] += increase
+					} else {
+						want[i] = e[i]
+					}
+				}
+				state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Floss_duration: loss}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDecodeEnergyBackground(state, &b[1], &e[1], bands, M)
+				if state.Floss_duration != loss {
+					t.Fatal("background changed duration")
+				}
+				for i := range b {
+					if math.Float32bits(b[i]) != math.Float32bits(want[i]) {
+						t.Fatal("background energy", bands, loss, M, i)
+					}
+				}
+			}
+		}
+	}
+	state := &OpusT_OpusCustomDecoder{}
+	celtDecodeEnergyBackground(state, nil, nil, 0, 1)
+	b := []float32{float32(math.NaN()), 1}
+	e := []float32{3, float32(math.NaN())}
+	celtDecodeEnergyBackground(state, &b[0], &e[0], 1, 1)
+	if b[0] != 3 || !math.IsNaN(float64(b[1])) {
+		t.Fatal("background MING NaN selection")
+	}
+	state.Floss_duration = math.MaxInt32
+	b = []float32{0, 0}
+	e = []float32{1, 1}
+	celtDecodeEnergyBackground(state, &b[0], &e[0], 1, 1)
+	want := float32(int32(math.MinInt32)) * float32(.001)
+	if b[0] != want || b[1] != want {
+		t.Fatal("Go-only background int32 wrapping", b, want)
+	}
+}
 func TestCeltDecodeEnergyLogsPointers(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		for _, transient := range []int32{-1, 0, 1, 7} {

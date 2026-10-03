@@ -11,6 +11,28 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeEnergyBackgroundAgainstC(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, loss := range []int32{-1, 0, 40, 160, 10000} {
+			for _, M := range []int32{1, 2, 4, 8} {
+				b, e := make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+				for i := range b {
+					b[i] = float32(i%9 - 4)
+					e[i] = float32(i%7 - 3)
+				}
+				c := slices.Clone(b)
+				state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: loss}
+				opuscc.CompareCeltDecodeEnergyBackground(&state, &b[1], &e[1], bands, M)
+				nativeCeltDecodeEnergyBackground(&c[1], &e[1], bands, loss, M)
+				for i := range b {
+					if math.Float32bits(b[i]) != math.Float32bits(c[i]) {
+						t.Fatal("background energy", bands, loss, M, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeEnergyLogsAgainstC(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		for _, transient := range []int32{-1, 0, 1, 7} {
