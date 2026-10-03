@@ -171,6 +171,25 @@ func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 		}
 	}
 }
+func TestDecodeAPIChannelHistoryAgainstC(t *testing.T) {
+	for _, length := range []int32{80, 120, 160, 240, 320} {
+		for _, channels := range []int32{1, 2} {
+			storage := make([]int16, channels*(length+2))
+			for i := range storage {
+				storage[i] = int16(i*37 - 9000)
+			}
+			views := opuscc.CompareDecodeAPIChannelViews(storage, length, channels)
+			want := slices.Clone(storage)
+			stereo := opuscc.OpusT_stereo_dec_state{FsMid: [2]int16{123, 456}}
+			cs := stereo
+			opuscc.CompareDecodeAPIMonoHistory(&stereo, views[0], length)
+			nativeDecodeAPIMonoHistory(&cs, want[:length+2], length)
+			if !slices.Equal(storage, want) || stereo != cs || channels == 1 && views[1] != nil {
+				t.Fatal("channel history", length, channels)
+			}
+		}
+	}
+}
 func TestDecodeAPICountOutputAgainstC(t *testing.T) {
 	for _, fs := range []int32{8, 12, 16} {
 		for _, api := range []int32{8000, 12000, 16000, 24000, 48000} {

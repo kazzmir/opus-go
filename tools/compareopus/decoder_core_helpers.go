@@ -8,6 +8,7 @@ package main
 #include "decode_core.c"
 #define silk_decode_frame comparison_decode_frame
 #include "decode_frame.c"
+static void decoder_api_mono(short *mid,short *channel,int count) {memcpy(channel,mid,2*sizeof(short));memcpy(mid,channel+count,2*sizeof(short));}
 static int decoder_api_count(int internal,int api,int fs) {return internal*api/((short)fs*(short)1000);}
 static void decoder_api_output(float *out,const short *input,int *count,int channel,int stride) {for(int i=0;i<*count;i++)out[channel+stride*i]=(float)input[i]*(1.0f/32768);}
 static void decoder_api_duplicate(float *out,int *count) {for(int i=0;i<*count;i++)out[1+2*i]=out[2*i];}
@@ -104,6 +105,9 @@ func nativeDecodeCoreTransition(dec *opuscc.OpusT_silk_decoder_state, ctrl *opus
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r != 0
+}
+func nativeDecodeAPIMonoHistory(stereo *opuscc.OpusT_stereo_dec_state, channel []int16, count int32) {
+	C.decoder_api_mono((*C.short)(unsafe.Pointer(&stereo.FsMid[0])), (*C.short)(unsafe.Pointer(unsafe.SliceData(channel))), C.int(count))
 }
 func nativeDecodeAPICount(internal, api, fs int32) int32 {
 	return int32(C.decoder_api_count(C.int(internal), C.int(api), C.int(fs)))

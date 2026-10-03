@@ -36,6 +36,12 @@ func CompareDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int1
 func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
 	return silkDecodeCoreTransition(decoder, control, k)
 }
+func CompareDecodeAPIChannelViews(storage []int16, length, channels int32) [2][]int16 {
+	return silkDecodeAPIChannelViews(storage, length, channels)
+}
+func CompareDecodeAPIMonoHistory(stereo *OpusT_stereo_dec_state, channel []int16, count int32) {
+	silkDecodeAPIMonoHistory(stereo, channel, count)
+}
 func CompareDecodeAPICount(decoder *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct, count *int32, internal int32) {
 	silkDecodeAPICount(decoder, control, count, internal)
 }

@@ -10,6 +10,48 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeAPIChannelViewsPointers(t *testing.T) {
+	for _, length := range []int32{80, 120, 160, 240, 320} {
+		for _, channels := range []int32{1, 2} {
+			storage := make([]int16, channels*(length+2))
+			for i := range storage {
+				storage[i] = int16(i*37 - 9000)
+			}
+			views := silkDecodeAPIChannelViews(storage, length, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if len(views[0]) != int(length+2) || channels == 1 && views[1] != nil || channels == 2 && len(views[1]) != int(length+2) {
+				t.Fatal("channel geometry", length, channels)
+			}
+			views[0][length+1] = 77
+			if storage[length+1] != 77 {
+				t.Fatal("channel backing")
+			}
+			if channels == 2 {
+				views[1][0] = 88
+				if storage[length+2] != 88 || views[0][length+1] != 77 {
+					t.Fatal("adjacent channel views")
+				}
+			}
+			stereo := &OpusT_stereo_dec_state{FsMid: [2]int16{123, 456}}
+			want := append([]int16(nil), storage...)
+			copy(want[:2], stereo.FsMid[:])
+			expected := [2]int16{want[length], want[length+1]}
+			silkDecodeAPIMonoHistory(stereo, views[0], length)
+			if !equalInt16s(storage, want) || stereo.FsMid != expected {
+				t.Fatal("mono history order", length, channels)
+			}
+		}
+	}
+	// Go-only count=0 source alias; the prefix copy precedes the history reload.
+	stereo := &OpusT_stereo_dec_state{FsMid: [2]int16{123, 456}}
+	channel := []int16{1, 2}
+	silkDecodeAPIMonoHistory(stereo, channel, 0)
+	if stereo.FsMid != [2]int16{123, 456} || !equalInt16s(channel, []int16{123, 456}) {
+		t.Fatal("zero history alias")
+	}
+}
+
 func TestDecodeAPICountPCMPointers(t *testing.T) {
 	sameFloatBits := func(a, b []float32) bool {
 		if len(a) != len(b) {
