@@ -55,6 +55,50 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeOffsetsStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		got := celtDecodeOffsetsStorage(bands)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(got) != int(bands) {
+			t.Fatal("boost offset geometry")
+		}
+		for i, v := range got {
+			if v != 0 {
+				t.Fatal("zero-owned offsets")
+			}
+			got[i] = int32(i) * 16
+		}
+		runtime.GC()
+		for i, v := range got {
+			if v != int32(i)*16 {
+				t.Fatal("offset owner retention")
+			}
+		}
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		mode := newSynthesisTestMode()
+		offsets := celtDecodeOffsetsStorage(21)
+		for i := range offsets {
+			offsets[i] = int32(i%3) * 16
+		}
+		caps := celtDecodeCapsStorage(nil, mode, 21, LM, 2)
+		var intensity, dual, balance int32
+		var pulses, fine, priority [21]int32
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*71 + 13)
+		}
+		var ec OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ret := clt_compute_allocation(nil, mode, 0, 21, &offsets[0], &caps[0], 5, &intensity, &dual, 512, &balance, &pulses[0], &fine[0], &priority[0], 2, LM, &ec, 0, 0, 0)
+		if ret < 0 || ret > 21 {
+			t.Fatal("owned offsets allocation consumer", LM, ret)
+		}
+	}
+}
 func TestCeltDecodeCapsStoragePointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, channels := range []int32{1, 2} {

@@ -11,6 +11,41 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeOffsetsStorageAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		offsets := opuscc.CompareCeltDecodeOffsetsStorage(21)
+		for i := range offsets {
+			offsets[i] = int32(i%3) * 16
+		}
+		caps := opuscc.CompareCeltDecodeCapsStorage(mode, 21, LM, 2)
+		var a [7][23]int32
+		copy(a[0][1:22], offsets)
+		copy(a[3][1:22], caps)
+		cfg := [12]int32{0, 21, 5, 512, 0, 0, 0, 2, LM, 0, 0, 0}
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*71 + 13)
+		}
+		var ec opuscc.OpusT_ec_ctx
+		opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+		c := ec
+		g, values, out := opuscc.CompareCeltDecodeOffsetsAllocation(mode, offsets, caps, LM, &ec)
+		var cv [3]int32
+		n := nativeAllocationDriver(&c, data, &a, &cv, &cfg)
+		if g != n || values != cv || ec != c {
+			t.Fatal("owned offsets allocation", LM, g, n, values, cv)
+		}
+		for k := range out {
+			if !slices.Equal(out[k][:], a[k+4][1:22]) {
+				t.Fatal("owned offsets results", LM, k)
+			}
+		}
+	}
+}
 func TestCeltDecodeCapsStorageAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {

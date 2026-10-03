@@ -7,6 +7,11 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltDecodeOffsetsStorage(bands int32) []int32 { return celtDecodeOffsetsStorage(bands) }
+func CompareCeltDecodeOffsetsAllocation(mode *OpusT_OpusCustomMode, offsets, caps []int32, LM int32, ec *OpusT_ec_ctx) (coded int32, values [3]int32, outputs [3][21]int32) {
+	coded = clt_compute_allocation(nil, mode, 0, 21, unsafe.SliceData(offsets), unsafe.SliceData(caps), 5, &values[1], &values[2], 512, &values[0], &outputs[0][0], &outputs[1][0], &outputs[2][0], 2, LM, ec, 0, 0, 0)
+	return
+}
 func CompareCeltDecodeCapsStorage(mode *OpusT_OpusCustomMode, bands, LM, channels int32) []int32 {
 	return celtDecodeCapsStorage(nil, mode, bands, LM, channels)
 }
