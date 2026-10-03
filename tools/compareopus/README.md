@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four later outer CELT decode scratch rounds replace pseudostack allocations for
+TF flags, caps, boost offsets and fine-energy bits with Go-owned int32 slices.
+Each removes its TLS allocation/alignment/cursor block. TF and caps initialize
+through the existing typed kernels; caps reads and boost-offset stores use
+numeric indexing. Fine-energy allocation now calls the typed allocation driver
+with typed local outputs, followed by typed fine/final-energy consumers. Remaining
+pulses, priorities, spectra and collapse-mask storage are still pseudostack-backed.
+The quant-all-bands uintptr ABI explicitly escapes pointer arguments so new TF
+storage survives its recursive legacy consumers; this is a boundary adapter,
+not migration of the quant-all-bands body. Empty caps skip unused table views,
+matching the C zero-iteration loop and accepting nil unused pointers.
+
+Grouped owned-storage tests force GC/stack growth, cover empty and positive
+storage sizes, TF transient/LM/partial-band combinations, mono/stereo caps and
+fine/final-energy consumers. Native tests reuse actual TF/caps kernels, rate.c
+allocation and quant_bands.c energy decoding, including complete entropy state.
+Scoped checkptr covers these typed helper/consumer pipelines and migrated PLC,
+not the enclosing legacy CELT decode/quant-all-bands path. Full amd64/386,
+ARM64/QEMU, native, GC stress and unchanged encode/decode goldens/tolerances run
+per commit; repeated ARM pointer and ordinary golden tests follow the batch.
+
 Four subsequent outer CELT decode-history rounds type mono energy duplication,
 current/previous log-energy updates, background energy tracking and out-of-band
 clearing. Mono duplication copies the contiguous second lane; nontransient logs

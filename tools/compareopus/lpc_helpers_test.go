@@ -11,6 +11,44 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeFineStorageAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		q := opuscc.CompareCeltDecodeFineStorage(21)
+		priority := make([]int32, 21)
+		for i := range q {
+			q[i] = int32(i % 9)
+			priority[i] = int32(i % 2)
+		}
+		energy := make([]float32, 42)
+		for i := range energy {
+			energy[i] = -12
+		}
+		cEnergy := slices.Clone(energy)
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*71 + 13)
+		}
+		var ec opuscc.OpusT_ec_ctx
+		opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 128)
+		c := ec
+		opuscc.Opus_unquant_fine_energy(nil, mode, 0, 21, &energy[0], nil, &q[0], &ec, channels)
+		opuscc.Opus_unquant_energy_finalise(nil, mode, 0, 21, &energy[0], &q[0], &priority[0], 12, &ec, channels)
+		nativeEnergyDecode(&c, data, cEnergy, 21, 0, 21, channels, 1, 0, 0, nil, q)
+		nativeEnergyDecode(&c, data, cEnergy, 21, 0, 21, channels, 2, 12, 0, q, priority)
+		if ec != c {
+			t.Fatal("owned fine entropy", channels)
+		}
+		for i := range energy {
+			if math.Float32bits(energy[i]) != math.Float32bits(cEnergy[i]) {
+				t.Fatal("owned fine energy", channels, i)
+			}
+		}
+	}
+}
 func TestCeltDecodeOffsetsStorageAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {

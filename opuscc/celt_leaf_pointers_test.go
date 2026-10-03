@@ -55,6 +55,56 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeFineStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		q := celtDecodeFineStorage(bands)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(q) != int(bands) {
+			t.Fatal("fine storage geometry")
+		}
+		for _, v := range q {
+			if v != 0 {
+				t.Fatal("zero-owned fine storage")
+			}
+		}
+	}
+	for _, channels := range []int32{1, 2} {
+		mode := newSynthesisTestMode()
+		q := celtDecodeFineStorage(21)
+		priority := make([]int32, 21)
+		for i := range q {
+			q[i] = int32(i % 9)
+			priority[i] = int32(i % 2)
+		}
+		energy := make([]float32, 42)
+		for i := range energy {
+			energy[i] = -12
+		}
+		want := append([]float32(nil), energy...)
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*71 + 13)
+		}
+		var ec OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &ec, &data[0], 128)
+		c := ec
+		Opus_unquant_fine_energy(nil, mode, 0, 21, &want[0], nil, &q[0], &c, channels)
+		Opus_unquant_energy_finalise(nil, mode, 0, 21, &want[0], &q[0], &priority[0], 12, &c, channels)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus_unquant_fine_energy(nil, mode, 0, 21, &energy[0], nil, &q[0], &ec, channels)
+		Opus_unquant_energy_finalise(nil, mode, 0, 21, &energy[0], &q[0], &priority[0], 12, &ec, channels)
+		if ec != c {
+			t.Fatal("owned fine entropy")
+		}
+		for i := range energy {
+			if math.Float32bits(energy[i]) != math.Float32bits(want[i]) {
+				t.Fatal("owned fine consumers", channels, i)
+			}
+		}
+	}
+}
 func TestCeltDecodeOffsetsStoragePointers(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		got := celtDecodeOffsetsStorage(bands)
