@@ -10,6 +10,33 @@ import (
 	"unsafe"
 )
 
+func TestDecodeCoreCoefficientsAgainstC(t *testing.T) {
+	for _, order := range []int32{0, 10, 16} {
+		for k := int32(0); k < 4; k++ {
+			d := opuscc.OpusT_silk_decoder_state{FLPC_order: order}
+			c := opuscc.OpusT_silk_decoder_control{}
+			for row := range c.FPredCoef_Q12 {
+				for i := range c.FPredCoef_Q12[row] {
+					c.FPredCoef_Q12[row][i] = int16(row*1000 + i*71 - 900)
+				}
+			}
+			for i := range c.FLTPCoef_Q14 {
+				c.FLTPCoef_Q14[i] = int16(i*31 - 400)
+			}
+			before := c
+			var snapshot [16]int16
+			for i := range snapshot {
+				snapshot[i] = 123
+			}
+			want := snapshot
+			a, b := opuscc.CompareDecodeCoreCoefficients(&d, &c, k, &snapshot)
+			na, nb := nativeDecodeCoreCoefficients(&c, order, k, &want)
+			if *a != na || *b != nb || snapshot != want || c != before {
+				t.Fatal("coefficients", order, k, *a, na, *b, nb, snapshot, want)
+			}
+		}
+	}
+}
 func TestDecodeCoreExcitationAgainstC(t *testing.T) {
 	for _, length := range []int32{0, 1, 17, 80, 160, 320} {
 		for _, seed := range []int8{-128, -1, 0, 1, 17, 127} {

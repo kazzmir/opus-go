@@ -9,6 +9,74 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeCoreCoefficientPointers(t *testing.T) {
+	for _, order := range []int32{0, 10, 16} {
+		for k := int32(0); k < 4; k++ {
+			d := &OpusT_silk_decoder_state{FLPC_order: order}
+			c := new(OpusT_silk_decoder_control)
+			for row := range c.FPredCoef_Q12 {
+				for i := range c.FPredCoef_Q12[row] {
+					c.FPredCoef_Q12[row][i] = int16(row*1000 + i*71 - 900)
+				}
+			}
+			for i := range c.FLTPCoef_Q14 {
+				c.FLTPCoef_Q14[i] = int16(i*31 - 400)
+			}
+			before := *c
+			var snapshot [16]int16
+			for i := range snapshot {
+				snapshot[i] = 123
+			}
+			want := snapshot
+			copy(want[:order], c.FPredCoef_Q12[k>>1][:order])
+			entropyInitGrowStack(12)
+			runtime.GC()
+			a, b := silkDecodeCoreCoefficients(d, c, k, &snapshot)
+			if a != &c.FPredCoef_Q12[k>>1] || b[0] != c.FLTPCoef_Q14[k*5] || snapshot != want || *c != before {
+				t.Fatal("coefficient views/snapshot", order, k)
+			}
+			c.FPredCoef_Q12[k>>1][0] = 999
+			c.FLTPCoef_Q14[k*5] = 888
+			if a[0] != 999 || b[0] != 888 || snapshot != want {
+				t.Fatal("live coefficients vs snapshot", order, k)
+			}
+		}
+	}
+	a, b, owner := func() (*[16]int16, *[5]int16, weak.Pointer[OpusT_silk_decoder_control]) {
+		c := new(OpusT_silk_decoder_control)
+		c.FPredCoef_Q12[1][0] = 77
+		c.FLTPCoef_Q14[15] = 88
+		var snapshot [16]int16
+		a, b := silkDecodeCoreCoefficients(&OpusT_silk_decoder_state{FLPC_order: 16}, c, 3, &snapshot)
+		return a, b, weak.Make(c)
+	}()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if owner.Value() == nil || a[0] != 77 || b[0] != 88 {
+		t.Fatal("sole coefficient interiors lost control")
+	}
+	a[1] = 99
+	b[1] = 100
+	if owner.Value().FPredCoef_Q12[1][1] != 99 || owner.Value().FLTPCoef_Q14[16] != 100 {
+		t.Fatal("live coefficient stores")
+	}
+	runtime.KeepAlive(a)
+	runtime.KeepAlive(b)
+	// Go-only snapshot overlap. Rewhitening retains the original live A, even
+	// when the snapshot writes overlap its source.
+	c := new(OpusT_silk_decoder_control)
+	for i := range c.FPredCoef_Q12[0] {
+		c.FPredCoef_Q12[0][i] = int16(i + 1)
+	}
+	want := c.FPredCoef_Q12
+	flat := unsafe.Slice(&want[0][0], 32)
+	copy(flat[1:11], flat[:10])
+	a, _ = silkDecodeCoreCoefficients(&OpusT_silk_decoder_state{FLPC_order: 10}, c, 0, (*[16]int16)(unsafe.Pointer(&c.FPredCoef_Q12[0][1])))
+	if c.FPredCoef_Q12 != want || a != &c.FPredCoef_Q12[0] {
+		t.Fatal("snapshot alias ordering")
+	}
+}
+
 func TestDecodeCoreExcitationPointers(t *testing.T) {
 	for _, length := range []int32{0, 1, 17, 80, 160, 320} {
 		for _, seed := range []int8{-128, -1, 0, 17, 127} {

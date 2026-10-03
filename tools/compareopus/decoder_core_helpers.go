@@ -10,6 +10,9 @@ static int decoder_core(unsigned char *d,int ds,unsigned char *c,int cs,short *o
  if(ds!=sizeof(silk_decoder_state)||cs!=sizeof(silk_decoder_control))return -98;
  silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_decode_core(&dec,&ctrl,output,pulses,0);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
 }
+static void decoder_core_coefficients(unsigned char *c,int order,int k,short *snapshot,short *a,short *b) {
+ silk_decoder_control ctrl;memcpy(&ctrl,c,sizeof(ctrl));const short *live=ctrl.PredCoef_Q12[k>>1];silk_memcpy(snapshot,live,order*sizeof(short));memcpy(a,live,MAX_LPC_ORDER*sizeof(short));memcpy(b,&ctrl.LTPCoef_Q14[k*LTP_ORDER],LTP_ORDER*sizeof(short));
+}
 static int decoder_core_excitation(unsigned char *d,const short *pulses,int offset) {
  silk_decoder_state dec;memcpy(&dec,d,sizeof(dec));int seed=dec.indices.Seed;
  for(int i=0;i<dec.frame_length;i++){seed=silk_RAND(seed);dec.exc_Q14[i]=silk_LSHIFT((int)pulses[i],14);if(dec.exc_Q14[i]>0)dec.exc_Q14[i]-=QUANT_LEVEL_ADJUST_Q10<<4;else if(dec.exc_Q14[i]<0)dec.exc_Q14[i]+=QUANT_LEVEL_ADJUST_Q10<<4;dec.exc_Q14[i]+=offset<<4;if(seed<0)dec.exc_Q14[i]=-dec.exc_Q14[i];seed=silk_ADD32_ovflw(seed,pulses[i]);}memcpy(d,&dec,sizeof(dec));return seed;
@@ -37,6 +40,14 @@ func nativeDecodeCore(dec *opuscc.OpusT_silk_decoder_state, ctrl *opuscc.OpusT_s
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r
+}
+func nativeDecodeCoreCoefficients(ctrl *opuscc.OpusT_silk_decoder_control, order, k int32, snapshot *[16]int16) ([16]int16, [5]int16) {
+	c := make([]byte, int(unsafe.Sizeof(*ctrl)))
+	copy(c, unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)))
+	var a [16]int16
+	var b [5]int16
+	C.decoder_core_coefficients((*C.uchar)(unsafe.Pointer(&c[0])), C.int(order), C.int(k), (*C.short)(unsafe.Pointer(snapshot)), (*C.short)(unsafe.Pointer(&a)), (*C.short)(unsafe.Pointer(&b)))
+	return a, b
 }
 func nativeDecodeCoreExcitation(dec *opuscc.OpusT_silk_decoder_state, pulses []int16, offset int32) int32 {
 	d := make([]byte, int(unsafe.Sizeof(*dec)))

@@ -13,6 +13,9 @@ import (
 func CompareDecodeCore(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, output uintptr, pulses *int16) {
 	silk_decode_core(tls, decoder, control, output, pulses, 0)
 }
+func CompareDecodeCoreCoefficients(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32, snapshot *[16]int16) (*[16]int16, *[5]int16) {
+	return silkDecodeCoreCoefficients(decoder, control, k, snapshot)
+}
 func CompareDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int16, offset int32) int32 {
 	return silkDecodeCoreExcitation(decoder, pulses, offset)
 }

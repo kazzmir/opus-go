@@ -445,6 +445,39 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
+SILK normal decode-core ownership now retains typed decoder, control and pulse
+pointers behind the public Opus_silk_decode_core uintptr escape adapter. The
+k=2 output-history staging and final LPC-state destination use typed fields rather
+than hard-coded state offsets. The PLC-to-unvoiced transition clears the live
+five-tap control view, stores its center tap, then reloads/stores the decoder lag;
+inactive branches do not consume control. Pulse excitation uses typed samples
+and quantization-table indexing, unsigned RNG/shift wrapping and a second live
+pulse load after excitation stores. The second load matters for Go-only
+pulse/excitation aliases.
+
+LPC/LTP coefficients use live fixed-array pointers. Only LPC_order entries are
+copied into the LPC snapshot; unused tail entries remain untouched. Rewhitening
+still receives the original live A, and LTP prediction reads the live five-tap B
+in the original order. Go-only overlapping snapshots use copy and retain the
+live source pointer. Sole typed pulse/coefficient interiors retain scanned
+backing through GC/stack growth; decoder-history fixtures retain heap codebooks.
+
+The actual renamed decode_core.c integration oracle checks complete numeric
+state/control images, excitation, LPC history, output/guards and unchanged pulses
+for rates 8/12/16, 2/4 subframes, signal types 0/1/2, interpolation 0/4, prior loss
+0/1, gain changes, voiced rewhitening and PLC transition. Embedded fixture
+pointers remain nil; raw image copying is not a write-barrier-safe pointer import.
+Native leaf fixtures cover history staging, transition stores, extreme/zero pulse
+excitation and coefficient snapshots. Excitation includes seeds -128/-1/0/1/17/127,
+lengths 0/1/17/80/160/320 and both quantization offsets. Alias/error cases that C
+cannot define are Go-only.
+
+Focused checkptr covers these active typed helpers, not the full normal core:
+its four TLS arrays, residual/LTP/LPC synthesis cursors and output boundary remain
+legacy. Original normal-core/frame goldens and decode/encode baselines are
+unchanged. Full amd64/386 and ARM64/QEMU checks do not imply direct macOS coverage
+or globally scanned opaque decoder storage.
+
 SILK PLC dispatch now holds typed decoder, control and PCM pointers. The public
 Opus_silk_PLC uintptr ABI is an explicit escape adapter that converts all three
 arguments before forwarding. The rate mismatch/reset helper uses typed state;

@@ -52,6 +52,14 @@ func silkDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int16, 
 	return seed
 }
 
+// A remains live for rewhitening; the LPC kernel uses the order-sized snapshot.
+func silkDecodeCoreCoefficients(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32, snapshot *[MAX_LPC_ORDER]int16) (*[MAX_LPC_ORDER]int16, *[LTP_ORDER]int16) {
+	a := &control.FPredCoef_Q12[k>>1]
+	copy(snapshot[:decoder.FLPC_order], a[:decoder.FLPC_order])
+	b := (*[LTP_ORDER]int16)(control.FLTPCoef_Q14[k*LTP_ORDER : (k+1)*LTP_ORDER])
+	return a, b
+}
+
 // Preserve the coefficient clear, center-tap store, then live lag load/store.
 func silkDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
 	if decoder.FlossCnt != 0 && decoder.FprevSignalType == TYPE_VOICED && decoder.Findices.FsignalType != TYPE_VOICED && k < MAX_NB_SUBFR/2 {
@@ -83,9 +91,12 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec, psDecCtrl, xq, pulses uintptr, 
 	silk_decode_core(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), xq, (*int16)(unsafe.Pointer(pulses)), arch)
 }
 
-// Scratch and synthesis cursors remain legacy; decoder ownership is typed.
+// Decoder/control/pulse owners and coefficient/excitation leaves are typed.
+// Four TLS arrays, synthesis/history cursors, and the output boundary remain legacy.
 func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, xq uintptr, pulses *int16, arch int32) {
-	var A_Q12, B_Q14, _saved_stack, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, res_Q14, sLPC_Q14, sLTP, sLTP_Q15, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var A_Q12 *[MAX_LPC_ORDER]int16
+	var B_Q14 *[LTP_ORDER]int16
+	var _saved_stack, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, res_Q14, sLPC_Q14, sLTP, sLTP_Q15, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, a32_nrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, err_Q32, gain_adj_Q16, inv_gain_Q31, offset_Q10, rand_seed, result, result1, v103, v106, v107, v110, v117, v118, v121 OpusT_opus_int32
 	var NLSF_interpolation_flag, a_headrm, b_headrm, b_headrm1, i, k, lag, lshift, lshift1, sLTP_buf_idx, signalType, start_idx, v104, v105, v109, v112, v113, v114, v115, v116, v119, v120, v124, v125, v129 int32
 	var A_Q12_tmp [MAX_LPC_ORDER]OpusT_opus_int16
@@ -391,10 +402,8 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 			break
 		}
 		pres_Q14 = res_Q14
-		A_Q12 = uintptr(unsafe.Pointer(&control.FPredCoef_Q12[k>>int32(1)][0]))
-		/* Preload LPC coefficients to array on stack. Gives small performance gain */
-		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&A_Q12_tmp[0])), A_Q12, uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order))*uint64(2))
-		B_Q14 = uintptr(unsafe.Pointer(&control.FLTPCoef_Q14[k*int32(LTP_ORDER)]))
+		/* Preload only LPC_order coefficients; rewhitening still uses live A. */
+		A_Q12, B_Q14 = silkDecodeCoreCoefficients(decoder, control, k, &A_Q12_tmp)
 		signalType = int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType)
 		Gain_Q10 = control.FGains_Q16[k] >> int32(6)
 		v103 = control.FGains_Q16[k]
@@ -570,7 +579,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 				if k == int32(2) {
 					silkDecodeCoreHistory(decoder, (*int16)(unsafe.Pointer(xq)))
 				}
-				Opus_silk_LPC_analysis_filter(tls, (*OpusT_opus_int16)(unsafe.Pointer(sLTP+uintptr(start_idx)*2)), &decoder.FoutBuf[start_idx+k*decoder.Fsubfr_length], (*OpusT_opus_int16)(unsafe.Pointer(A_Q12)), decoder.Fltp_mem_length-start_idx, decoder.FLPC_order, arch)
+				Opus_silk_LPC_analysis_filter(tls, (*OpusT_opus_int16)(unsafe.Pointer(sLTP+uintptr(start_idx)*2)), &decoder.FoutBuf[start_idx+k*decoder.Fsubfr_length], &A_Q12[0], decoder.Fltp_mem_length-start_idx, decoder.FLPC_order, arch)
 				/* After rewhitening the LTP state is unscaled */
 				if k == 0 {
 					/* Do LTP downscaling to reduce inter-packet dependency */
@@ -610,11 +619,11 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 				/* Unrolled loop */
 				/* Avoids introducing a bias because silk_SMLAWB() always rounds to -inf */
 				LTP_pred_Q13 = int32(2)
-				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14)))>>int32(16))
-				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(1)*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + 1*2)))>>int32(16))
-				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(2)*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + 2*2)))>>int32(16))
-				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(3)*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + 3*2)))>>int32(16))
-				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(4)*4)))*int64(*(*OpusT_opus_int16)(unsafe.Pointer(B_Q14 + 4*2)))>>int32(16))
+				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr)))*int64(B_Q14[0])>>int32(16))
+				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(1)*4)))*int64(B_Q14[1])>>int32(16))
+				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(2)*4)))*int64(B_Q14[2])>>int32(16))
+				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(3)*4)))*int64(B_Q14[3])>>int32(16))
+				LTP_pred_Q13 = int32(int64(LTP_pred_Q13) + int64(*(*OpusT_opus_int32)(unsafe.Pointer(pred_lag_ptr - uintptr(4)*4)))*int64(B_Q14[4])>>int32(16))
 				pred_lag_ptr += 4
 				/* Generate LPC excitation */
 				*(*OpusT_opus_int32)(unsafe.Pointer(pres_Q14 + uintptr(i)*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(pexc_Q14 + uintptr(i)*4)) + int32(uint32(LTP_pred_Q13)<<int32(1))
