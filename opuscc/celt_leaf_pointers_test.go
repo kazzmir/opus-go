@@ -1,9 +1,63 @@
 package opuscc
 
 import (
+	"math"
+	"runtime"
 	"testing"
 )
 
+func TestCeltPLCDecayPointers(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		for _, loss := range []int32{0, 1, 99} {
+			for _, alias := range []bool{false, true} {
+				a := make([]float32, 44)
+				b := make([]float32, 44)
+				for i := range a {
+					a[i] = float32(i) - 22
+					b[i] = float32(i%5) - 12
+				}
+				a[0], a[43] = 77, 88
+				if alias {
+					b = a
+				}
+				want := append([]float32(nil), a...)
+				wb := append([]float32(nil), b...)
+				if alias {
+					wb = want
+				}
+				for c := int32(0); c < max(channels, 1); c++ {
+					for i := int32(1); i < 20; i++ {
+						index := 1 + c*21 + i
+						decay := float32(.5)
+						if loss == 0 {
+							decay = 1.5
+						}
+						if wb[index] > want[index]-decay {
+							want[index] = wb[index]
+						} else {
+							want[index] -= decay
+						}
+					}
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtPLCDecay(&a[1], &b[1], 21, 1, 20, channels, loss)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+						t.Fatal("decay order", channels, loss, alias, i)
+					}
+				}
+			}
+		}
+	}
+	celtPLCDecay(nil, nil, 21, 5, 5, 2, 0)
+	a := []float32{float32(math.NaN()), 3}
+	b := []float32{2, float32(math.NaN())}
+	celtPLCDecay(&a[0], &b[0], 2, 0, 2, 1, 0)
+	if !math.IsNaN(float64(a[0])) || a[1] != 1.5 {
+		t.Fatal("MAXG NaN selection", a)
+	}
+}
 func TestEntropyWritePointers(t *testing.T) {
 	buffer := [3]byte{}
 	enc := OpusT_ec_enc{

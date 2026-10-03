@@ -11,6 +11,37 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCDecayAgainstC(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		for _, loss := range []int32{0, 1, 99} {
+			for _, alias := range []int{0, 1, 2} {
+				a := make([]float32, 66)
+				b := make([]float32, 66)
+				for i := range a {
+					a[i] = float32(i) - 22
+					b[i] = float32(i%5) - 12
+				}
+				a[0], a[65] = 77, 88
+				want := slices.Clone(a)
+				wb := slices.Clone(b)
+				gp, cp := &b[1], &wb[1]
+				if alias == 1 {
+					gp, cp = &a[1], &want[1]
+				}
+				if alias == 2 {
+					gp, cp = &a[2], &want[2]
+				}
+				opuscc.CompareCeltPLCDecay(&a[1], gp, 21, 1, 20, channels, loss)
+				nativeCeltPLCDecay(&want[1], cp, 21, 1, 20, channels, loss)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+						t.Fatal("PLC decay", channels, loss, alias, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestPLCPitchSearchAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(1316))
 	for _, channels := range []int32{0, 1, 2, 3} {

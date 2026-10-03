@@ -422,6 +422,29 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+// celtPLCDecay retains MAXG's ordered live loads (including NaN selection)
+// and the C do/while channel count. The caller still owns legacy storage.
+func celtPLCDecay(energy, background *float32, bands, start, end, channels, loss int32) {
+	if start >= end {
+		return
+	}
+	a, b := unsafe.Slice(energy, max(channels, 1)*bands), unsafe.Slice(background, max(channels, 1)*bands)
+	decay := float32(0.5)
+	if loss == 0 {
+		decay = 1.5
+	}
+	for c := int32(0); c < max(channels, 1); c++ {
+		for i := start; i < end; i++ {
+			index := c*bands + i
+			if b[index] > a[index]-decay {
+				a[index] = b[index]
+			} else {
+				a[index] = a[index] - decay
+			}
+		}
+	}
+}
+
 func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 	var C, blen, boffs, c, curr_frame_type, curr_neural, decay_length, decode_buffer_size, effEnd, end, exc_length, extrapolation_len, extrapolation_offset, i, j, j1, last_neural, loss_duration, max_period, nbEBands, overlap, pitch_index, start, v5, v7, v8 int32
 	var E1, E2, S1, S2, v103 OpusT_opus_val32
@@ -574,34 +597,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 		if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold != 0 {
 			prefilter_and_fold_legacy(tls, st1, N)
 		}
-		/* Energy decay */
-		if loss_duration == 0 {
-			v36 = float32(1.5)
-		} else {
-			v36 = float32(0.5)
-		}
-		decay = v36
-		c = 0
-		for {
-			i = start
-			for {
-				if !(i < end) {
-					break
-				}
-				if *(*OpusT_celt_glog)(unsafe.Pointer(backgroundLogE + uintptr(c*nbEBands+i)*4)) > *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4))-decay {
-					v40 = *(*OpusT_celt_glog)(unsafe.Pointer(backgroundLogE + uintptr(c*nbEBands+i)*4))
-				} else {
-					v40 = *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) - decay
-				}
-				*(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) = v40
-				i = i + 1
-			}
-			c = c + 1
-			v5 = c
-			if !(v5 < C) {
-				break
-			}
-		}
+		celtPLCDecay((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(backgroundLogE)), nbEBands, start, end, C, loss_duration)
 		seed = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng
 		c = 0
 		for {
