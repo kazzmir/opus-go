@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static void compare_plc_finish(int *state,int loss,int LM,int frameType) {state[0]=IMIN(10000,loss+(1<<LM));state[1]=IMIN(10000,state[1]+(1<<LM));state[2]=frameType;}
 static void compare_plc_lpc_history(float *memory,const float *h,int size,int N) {for(int i=0;i<CELT_LPC_ORDER;i++)memory[i]=h[size-N-1-i];}
 static float compare_plc_extrapolate(float *h,const float *exc,int size,int period,int N,int overlap,int pitch,float fade,float decay) {float energy=0,attenuation=fade*decay;int offset=period-pitch;for(int i=0,j=0;i<N+overlap;i++,j++){if(j>=pitch){j-=pitch;attenuation*=decay;}h[size-N+i]=attenuation*exc[offset+j];float sample=h[size-period-N+offset+j];energy+=sample*sample;}return energy;}
 static void compare_plc_history(float *exc,const float *h,int size,int period) {for(int i=0;i<period+CELT_LPC_ORDER;i++)exc[i]=h[size-period-CELT_LPC_ORDER+i];}
@@ -23,7 +24,15 @@ static void compare_plc_decay(float *a,const float *b,int bands,int start,int en
 */
 import "C"
 import "unsafe"
+import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltPLCFinish(state *opuscc.OpusT_OpusCustomDecoder, loss, LM, frameType int32) {
+	v := [3]C.int{C.int(state.Floss_duration), C.int(state.Fplc_duration), C.int(state.Flast_frame_type)}
+	C.compare_plc_finish(&v[0], C.int(loss), C.int(LM), C.int(frameType))
+	state.Floss_duration = int32(v[0])
+	state.Fplc_duration = int32(v[1])
+	state.Flast_frame_type = int32(v[2])
+}
 func nativeCeltPLCLPCHistory(memory *[24]float32, history *float32, size, N int32) {
 	C.compare_plc_lpc_history((*C.float)(unsafe.Pointer(memory)), (*C.float)(unsafe.Pointer(history)), C.int(size), C.int(N))
 }

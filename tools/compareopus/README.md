@@ -466,6 +466,25 @@ full amd64/386/ARM64-QEMU tests, native/GC-stress comparisons and unchanged
 packet/frame/encode/decode goldens and tolerances. Host/QEMU is not macOS CI or
 proof of global GC safety or opaque-allocation pointer scanning.
 
+The next four concealment leaf rounds also type excitation history copying,
+periodic extrapolation/reference-energy accumulation, reverse 24-word LPC history
+gathering, and final decoder-state updates. Excitation copying and LPC gathering
+keep individual live loads/stores, not memmove/snapshot behavior. Extrapolation
+retains store-before-reference-energy order, period-boundary attenuation and
+explicit float32 rounding. Final state updates retain cached loss duration,
+live PLC duration, int32 addition/shifts, the 10000 clamp and last-frame-type store.
+
+Grouped tests cover periods 0/1/512/1024, pitch 40/100/511/1024, frame lengths
+0/120/240/960, overlap, guards, GC/stack growth and heap mode ownership. Outer
+scratch/history aliases are Go-only fixtures; signed overflow and shifts outside
+C's domain are also explicitly Go-only. Native source-equivalent leaf snippets
+check normal sample spans, sequential energy, LPC history and scalar duration
+updates using the actual IMIN macro, without importing pointer-bearing C images.
+Scoped checkptr remains leaf-only; the legacy CELT concealment dispatcher, TLS
+scratch and integer cursors are not yet fully migrated. Each round runs full
+amd64/386/ARM64-QEMU tests, native/GC-stress comparisons and unchanged baselines;
+repeated ARM leaf/checkptr and ordinary frame goldens remain separate scopes.
+
 The outer SILK API now retains typed decoder/channel, control, entropy, float PCM
 and output-count pointers behind Opus_silk_Decode's explicit uintptr escape ABI.
 Packet-start frame counters use typed state and a live channel-count pointer.

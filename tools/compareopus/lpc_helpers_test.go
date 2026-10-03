@@ -11,6 +11,23 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCFinishAgainstC(t *testing.T) {
+	for _, loss := range []int32{-10, 0, 1, 9999, 10000} {
+		for _, plc := range []int32{-10, 0, 1, 9999, 10000} {
+			for LM := int32(0); LM <= 3; LM++ {
+				for _, frameType := range []int32{opuscc.FRAME_PLC_PERIODIC, opuscc.FRAME_PLC_NOISE, opuscc.FRAME_PLC_NEURAL, opuscc.FRAME_DRED} {
+					a := opuscc.OpusT_OpusCustomDecoder{Floss_duration: 123, Fplc_duration: plc, Fprefilter_and_fold: 1, Fskip_plc: 1, Frng: 0xdeadbeef}
+					b := a
+					opuscc.CompareCeltPLCFinish(&a, loss, LM, frameType)
+					nativeCeltPLCFinish(&b, loss, LM, frameType)
+					if a != b {
+						t.Fatal("finish", loss, plc, LM, frameType)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltPLCLPCHistoryAgainstC(t *testing.T) {
 	for _, N := range []int32{0, 120, 240, 960} {
 		h := make([]float32, 2048)

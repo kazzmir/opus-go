@@ -7,6 +7,39 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCFinishPointers(t *testing.T) {
+	for _, loss := range []int32{-10, 0, 1, 9999, 10000} {
+		for _, plc := range []int32{-10, 0, 1, 9999, 10000} {
+			for LM := int32(0); LM <= 3; LM++ {
+				for _, frameType := range []int32{FRAME_PLC_PERIODIC, FRAME_PLC_NOISE, FRAME_PLC_NEURAL, FRAME_DRED} {
+					state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Floss_duration: 123, Fplc_duration: plc, Fprefilter_and_fold: 1, Fskip_plc: 1, Frng: 0xdeadbeef}
+					before := *state
+					want := before
+					want.Floss_duration = min(int32(10000), loss+int32(1)<<LM)
+					want.Fplc_duration = min(int32(10000), plc+int32(1)<<LM)
+					want.Flast_frame_type = frameType
+					entropyInitGrowStack(12)
+					runtime.GC()
+					celtPLCFinish(state, loss, LM, frameType)
+					if *state != want || state.Fmode.FeBands == nil {
+						t.Fatal("finish state owners/order", loss, plc, LM, frameType)
+					}
+				}
+			}
+		}
+	}
+	// Signed-overflow and out-of-C-domain shift cases are Go-only: retain the
+	// translated int32 wrapping rather than widening/saturating before addition.
+	state := &OpusT_OpusCustomDecoder{Fplc_duration: math.MaxInt32}
+	celtPLCFinish(state, math.MaxInt32, 0, FRAME_PLC_NOISE)
+	if state.Floss_duration != math.MinInt32 || state.Fplc_duration != math.MinInt32 {
+		t.Fatal("finish wrapping", state.Floss_duration, state.Fplc_duration)
+	}
+	celtPLCFinish(state, 9, 32, FRAME_PLC_PERIODIC)
+	if state.Floss_duration != 9 || state.Fplc_duration != math.MinInt32 {
+		t.Fatal("finish large Go shift")
+	}
+}
 func TestCeltPLCLPCHistoryPointers(t *testing.T) {
 	for _, N := range []int32{0, 120, 240, 960} {
 		h := make([]float32, 2048)

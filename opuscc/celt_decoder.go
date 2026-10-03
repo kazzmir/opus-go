@@ -423,6 +423,12 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtPLCFinish(state *OpusT_OpusCustomDecoder, loss, LM, frameType int32) {
+	state.Floss_duration = min(int32(10000), loss+int32(1)<<LM)
+	state.Fplc_duration = min(int32(10000), state.Fplc_duration+int32(1)<<LM)
+	state.Flast_frame_type = frameType
+}
+
 func celtPLCLPCHistory(memory *[CELT_LPC_ORDER]float32, history *float32, size, N int32) {
 	h := unsafe.Slice(history, size)
 	for i := int32(0); i < CELT_LPC_ORDER; i++ {
@@ -952,20 +958,8 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 		}
 		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold = int32(1)
 	}
-	/* Saturate to something large to avoid wrap-around. */
-	if int32(10000) < loss_duration+int32(1)<<LM {
-		v5 = int32(10000)
-	} else {
-		v5 = loss_duration + int32(1)<<LM
-	}
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration = v5
-	if int32(10000) < (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fplc_duration+int32(1)<<LM {
-		v5 = int32(10000)
-	} else {
-		v5 = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fplc_duration + int32(1)<<LM
-	}
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fplc_duration = v5
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type = curr_frame_type
+	/* Saturate duration counters, then commit the frame type. */
+	celtPLCFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), loss_duration, LM, curr_frame_type)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
