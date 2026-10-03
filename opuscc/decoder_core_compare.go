@@ -13,6 +13,15 @@ import (
 func CompareDecodeCore(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, output uintptr, pulses *int16) {
 	silk_decode_core(tls, decoder, control, output, pulses, 0)
 }
+func CompareDecodeCoreLTPWhiten(history []int32, samples []int16, index, memory, lag, gain int32) {
+	silkDecodeCoreLTPWhiten(history, samples, index, memory, lag, gain)
+}
+func CompareDecodeCoreLTPScale(history []int32, index, lag, gain int32) {
+	silkDecodeCoreLTPScale(history, index, lag, gain)
+}
+func CompareDecodeCoreLTPPrediction(history []int32, index int32, b *[5]int16) int32 {
+	return silkDecodeCoreLTPPrediction(history, index, b)
+}
 func CompareDecodeCoreWhiten(decoder *OpusT_silk_decoder_state, samples []int16, a *[16]int16, start, k int32) {
 	silkDecodeCoreWhiten(nil, decoder, samples, a, start, k, 0)
 }

@@ -10,6 +10,43 @@ import (
 	"unsafe"
 )
 
+func TestDecodeCoreLTPStorageAgainstC(t *testing.T) {
+	for _, shape := range [][3]int32{{160, 160, 240}, {240, 360, 480}, {320, 640, 640}} {
+		for _, lag := range []int32{0, 1, 40, 80} {
+			for _, gain := range []int32{-2147483648, -65536, 0, 65536, 2147483647} {
+				samples := make([]int16, shape[0])
+				for i := range samples {
+					samples[i] = int16(i*137 - 20000)
+				}
+				h := make([]int32, shape[2]+2)
+				for i := range h {
+					h[i] = int32(i*17000003 - 2100000000)
+				}
+				want := slices.Clone(h)
+				opuscc.CompareDecodeCoreLTPWhiten(h[1:len(h)-1], samples, shape[1], shape[0], lag, gain)
+				nativeDecodeCoreLTP(want[1:len(want)-1], samples, shape[1], shape[0], lag, gain, 0)
+				if !slices.Equal(h, want) {
+					t.Fatal("LTP rewhitening", shape, lag, gain)
+				}
+				opuscc.CompareDecodeCoreLTPScale(h[1:len(h)-1], shape[1], lag, gain)
+				nativeDecodeCoreLTP(want[1:len(want)-1], nil, shape[1], shape[0], lag, gain, 1)
+				if !slices.Equal(h, want) {
+					t.Fatal("LTP scaling", shape, lag, gain)
+				}
+			}
+		}
+	}
+	h := []int32{-2147483648, 2147483647, -1, 0, 100000003, 12345, -54321, 2147483647}
+	for _, b := range [][5]int16{{-32768, 32767, -1, 16384, 12345}, {300, -150, 1200, -100, 75}, {}} {
+		for index := int32(4); index < int32(len(h)); index++ {
+			g := opuscc.CompareDecodeCoreLTPPrediction(h, index, &b)
+			n := nativePLCLTPPrediction(h, index, &b)
+			if g != n {
+				t.Fatal("Q13 MAC narrowing", index, b, g, n)
+			}
+		}
+	}
+}
 func TestDecodeCoreWhiteningAgainstC(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
 		for _, order := range []int32{10, 16} {

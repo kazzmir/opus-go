@@ -9,6 +9,54 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeCoreLTPStoragePointers(t *testing.T) {
+	for _, shape := range [][3]int32{{160, 160, 240}, {240, 360, 480}, {320, 640, 640}} {
+		for _, lag := range []int32{0, 1, 40, 80} {
+			for _, gain := range []int32{-2147483648, -65536, 0, 65536, 2147483647} {
+				samples := make([]int16, shape[0])
+				for i := range samples {
+					samples[i] = int16(i*137 - 20000)
+				}
+				h := make([]int32, shape[2]+2)
+				for i := range h {
+					h[i] = int32(i*17000003 - 2100000000)
+				}
+				want := append([]int32(nil), h...)
+				for i := int32(0); i < lag+2; i++ {
+					want[1+shape[1]-i-1] = int32(int64(gain) * int64(samples[shape[0]-i-1]) >> 16)
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				silkDecodeCoreLTPWhiten(h[1:len(h)-1], samples, shape[1], shape[0], lag, gain)
+				if !equalInt32s(h, want) {
+					t.Fatal("LTP rewhitening", shape, lag, gain)
+				}
+				for i := int32(0); i < lag+2; i++ {
+					index := 1 + shape[1] - i - 1
+					want[index] = int32(int64(gain) * int64(want[index]) >> 16)
+				}
+				silkDecodeCoreLTPScale(h[1:len(h)-1], shape[1], lag, gain)
+				if !equalInt32s(h, want) {
+					t.Fatal("LTP scaling", shape, lag, gain)
+				}
+			}
+		}
+	}
+	h := []int32{-2147483648, 2147483647, -1, 0, 100000003, 12345, -54321, 2147483647}
+	b := &[5]int16{-32768, 32767, -1, 16384, 12345}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for index := int32(4); index < int32(len(h)); index++ {
+		want := int32(2)
+		for j := int32(0); j < 5; j++ {
+			want = int32(int64(want) + (int64(h[index-j]) * int64(b[j]) >> 16))
+		}
+		if got := silkDecodeCoreLTPPrediction(h, index, b); got != want {
+			t.Fatal("Q13 MAC narrowing", index, got, want)
+		}
+	}
+}
+
 func TestDecodeCoreWhiteningPointers(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
 		for _, order := range []int32{10, 16} {

@@ -10,6 +10,9 @@ static int decoder_core(unsigned char *d,int ds,unsigned char *c,int cs,short *o
  if(ds!=sizeof(silk_decoder_state)||cs!=sizeof(silk_decoder_control))return -98;
  silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_decode_core(&dec,&ctrl,output,pulses,0);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
 }
+static void decoder_core_ltp(int *history,const short *samples,int index,int memory,int lag,int gain,int scale) {
+ for(int i=0;i<lag+LTP_ORDER/2;i++) {int at=index-i-1;history[at]=scale?silk_SMULWW(gain,history[at]):silk_SMULWB(gain,samples[memory-i-1]);}
+}
 static void decoder_core_coefficients(unsigned char *c,int order,int k,short *snapshot,short *a,short *b) {
  silk_decoder_control ctrl;memcpy(&ctrl,c,sizeof(ctrl));const short *live=ctrl.PredCoef_Q12[k>>1];silk_memcpy(snapshot,live,order*sizeof(short));memcpy(a,live,MAX_LPC_ORDER*sizeof(short));memcpy(b,&ctrl.LTPCoef_Q14[k*LTP_ORDER],LTP_ORDER*sizeof(short));
 }
@@ -40,6 +43,9 @@ func nativeDecodeCore(dec *opuscc.OpusT_silk_decoder_state, ctrl *opuscc.OpusT_s
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r
+}
+func nativeDecodeCoreLTP(history []int32, samples []int16, index, memory, lag, gain, scale int32) {
+	C.decoder_core_ltp((*C.int)(unsafe.Pointer(unsafe.SliceData(history))), (*C.short)(unsafe.Pointer(unsafe.SliceData(samples))), C.int(index), C.int(memory), C.int(lag), C.int(gain), C.int(scale))
 }
 func nativeDecodeCoreCoefficients(ctrl *opuscc.OpusT_silk_decoder_control, order, k int32, snapshot *[16]int16) ([16]int16, [5]int16) {
 	c := make([]byte, int(unsafe.Sizeof(*ctrl)))
