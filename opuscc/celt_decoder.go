@@ -423,6 +423,29 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtPLCExtrapolate(history, exc *float32, size, period, N, overlap, pitch int32, fade, decay float32) float32 {
+	length := N + overlap
+	if length <= 0 {
+		return 0
+	}
+	h, x := unsafe.Slice(history, size+overlap), unsafe.Slice(exc, period)
+	offset := period - pitch
+	attenuation := float32(fade * decay)
+	energy := float32(0)
+	j := int32(0)
+	for i := int32(0); i < length; i++ {
+		if j >= pitch {
+			j -= pitch
+			attenuation = float32(attenuation * decay)
+		}
+		h[size-N+i] = float32(attenuation * x[offset+j])
+		sample := h[size-period-N+offset+j]
+		energy += float32(sample * sample)
+		j++
+	}
+	return energy
+}
+
 // Forward loads/stores deliberately preserve the original loop's alias order.
 func celtPLCExcitationHistory(exc, history *float32, size, period int32) {
 	x, h := unsafe.Slice(exc, period+CELT_LPC_ORDER), unsafe.Slice(history, size)
@@ -902,31 +925,8 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			/* Extrapolate from the end of the excitation with a period of
 			   "pitch_index", scaling down each period by an additional factor of
 			   "decay". */
-			extrapolation_offset = max_period - pitch_index
-			/* We need to extrapolate enough samples to cover a complete MDCT
-			   window (including overlap/2 samples on both sides). */
 			extrapolation_len = N + overlap
-			/* We also apply fading if this is not the first loss. */
-			attenuation = OpusT_opus_val16(fade * decay1)
-			v5 = int32(0)
-			j1 = v5
-			i = v5
-			for {
-				if !(i < extrapolation_len) {
-					break
-				}
-				if j1 >= pitch_index {
-					j1 = j1 - pitch_index
-					attenuation = OpusT_opus_val16(attenuation * decay1)
-				}
-				*(*OpusT_celt_sig)(unsafe.Pointer(buf + uintptr(decode_buffer_size-N+i)*4)) = OpusT_opus_val16(attenuation * *(*OpusT_opus_val16)(unsafe.Pointer(exc + uintptr(extrapolation_offset+j1)*4)))
-				/* Compute the energy of the previously decoded signal whose
-				   excitation we're copying. */
-				tmp = *(*OpusT_celt_sig)(unsafe.Pointer(buf + uintptr(decode_buffer_size-max_period-N+extrapolation_offset+j1)*4))
-				S1 = S1 + OpusT_opus_val32(tmp*tmp)
-				i = i + 1
-				j1 = j1 + 1
-			}
+			S1 = celtPLCExtrapolate((*float32)(unsafe.Pointer(buf)), (*float32)(unsafe.Pointer(exc)), decode_buffer_size, max_period, N, overlap, pitch_index, fade, decay1)
 			/* Copy the last decoded samples (prior to the overlap region) to
 			   synthesis filter memory so we can have a continuous signal. */
 			i = 0

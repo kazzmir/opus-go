@@ -11,6 +11,34 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCExtrapolateAgainstC(t *testing.T) {
+	for _, pitch := range []int32{40, 100, 511, 1024} {
+		for _, N := range []int32{120, 240, 960} {
+			for _, decay := range []float32{0, .923, 1} {
+				a := make([]float32, 2170)
+				x := make([]float32, 1024)
+				a[0], a[len(a)-1] = 77, 88
+				for i := 1; i < len(a)-1; i++ {
+					a[i] = float32((i*37)%79-39) / 13
+				}
+				for i := range x {
+					x[i] = float32((i*43)%89-44) / 17
+				}
+				b := slices.Clone(a)
+				g := opuscc.CompareCeltPLCExtrapolate(&a[1], &x[0], 2048, 1024, N, 120, pitch, .8, decay)
+				c := nativeCeltPLCExtrapolate(&b[1], &x[0], 2048, 1024, N, 120, pitch, .8, decay)
+				if math.Float32bits(g) != math.Float32bits(c) {
+					t.Fatal("extrapolation energy", pitch, N, decay, g, c)
+				}
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("extrapolation", pitch, N, decay, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltPLCExcitationHistoryAgainstC(t *testing.T) {
 	for _, period := range []int32{0, 1, 512, 1024} {
 		h := make([]float32, 2050)

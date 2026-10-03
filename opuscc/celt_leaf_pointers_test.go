@@ -7,6 +7,73 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCExtrapolatePointers(t *testing.T) {
+	for _, pitch := range []int32{40, 100, 511, 1024} {
+		for _, N := range []int32{120, 240, 960} {
+			a := make([]float32, 2170)
+			x := make([]float32, 1024)
+			a[0], a[len(a)-1] = 77, 88
+			for i := 1; i < len(a)-1; i++ {
+				a[i] = float32((i*37)%79-39) / 13
+			}
+			for i := range x {
+				x[i] = float32((i*43)%89-44) / 17
+			}
+			want := append([]float32(nil), a...)
+			attenuation := float32(float32(.8) * float32(.923))
+			energy := float32(0)
+			j := int32(0)
+			for i := int32(0); i < N+120; i++ {
+				if j >= pitch {
+					j -= pitch
+					attenuation = float32(attenuation * float32(.923))
+				}
+				want[1+2048-N+i] = float32(attenuation * x[1024-pitch+j])
+				sample := want[1+2048-N-pitch+j]
+				energy += float32(sample * sample)
+				j++
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := celtPLCExtrapolate(&a[1], &x[0], 2048, 1024, N, 120, pitch, .8, .923)
+			if math.Float32bits(got) != math.Float32bits(energy) {
+				t.Fatal("extrapolation energy", pitch, N, got, energy)
+			}
+			for i := range a {
+				if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+					t.Fatal("extrapolation samples", pitch, N, i)
+				}
+			}
+		}
+	}
+	if celtPLCExtrapolate(nil, nil, 0, 0, 0, 0, 0, 1, 1) != 0 {
+		t.Fatal("unused extrapolation")
+	}
+	// Go-only scratch/history alias: excitation reads remain live after stores.
+	a := []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
+	want := append([]float32(nil), a...)
+	got := celtPLCExtrapolate(&a[0], &a[5], 10, 3, 4, 2, 3, 1, .5)
+	// Build the exact sequential reference, including period attenuation.
+	energy := float32(0)
+	atten := float32(.5)
+	for i := 0; i < 6; i++ {
+		if i == 3 {
+			atten = float32(atten * .5)
+		}
+		j := i % 3
+		want[6+i] = float32(atten * want[5+j])
+		sample := want[3+j]
+		energy += float32(sample * sample)
+	}
+	if got != energy {
+		t.Fatal("aliased energy")
+	}
+	for i := range a {
+		if a[i] != want[i] {
+			t.Fatal("live excitation alias", i)
+		}
+	}
+}
 func TestCeltPLCExcitationHistoryPointers(t *testing.T) {
 	for _, period := range []int32{0, 1, 512, 1024} {
 		h := make([]float32, 2050)
