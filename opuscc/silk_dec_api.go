@@ -160,6 +160,8 @@ func Opus_silk_InitDecoder(tls *libc.TLS, decState *OpusT_silk_decoder) int32 {
 // C documentation
 //
 //	/* Decode a frame */
+//
+//go:uintptrescapes
 func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostFlag int32, newPacketFlag int32, psRangeDec uintptr, samplesOut uintptr, nSamplesOut uintptr, arch int32) (r int32) {
 	var FrameIndex, condCoding, condCoding1, fs_kHz_dec, has_side, i, n, ret, stereo_to_mono, v51 int32
 	var LBRR_symbol OpusT_opus_int32
@@ -513,7 +515,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 					}
 				}
 			}
-			ret = ret + Opus_silk_decode_frame(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[n])), psRangeDec, samplesOut1_tmp[n]+2*2, uintptr(unsafe.Pointer(&nSamplesOutDec)), lostFlag, condCoding1, arch)
+			ret = ret + silk_decode_frame(tls, &decoder.Fchannel_state[n], (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*int16)(unsafe.Pointer(samplesOut1_tmp[n]+2*2)), &nSamplesOutDec, lostFlag, condCoding1, arch)
 		} else {
 			libc.Xmemset(tls, samplesOut1_tmp[n]+2*2, 0, uint64(uint32(nSamplesOutDec))*uint64(2))
 		}

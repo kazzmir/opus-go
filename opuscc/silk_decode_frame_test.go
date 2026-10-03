@@ -7,6 +7,35 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeFrameLossPointers(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, nb := range []int32{2, 4} {
+			for _, flag := range []int32{1, 2, -1, 7} {
+				d := newPLCConcealTestDecoder(rate, nb)
+				frame := make([]int16, d.Fframe_length+2)
+				frame[0], frame[len(frame)-1] = 77, 88
+				count := int32(-99)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				ret := silk_decode_frame(nil, d, nil, &frame[1], &count, flag, CODE_INDEPENDENTLY, 0)
+				if ret != 0 || count != d.Fframe_length || d.FlossCnt != 1 || frame[0] != 77 || frame[len(frame)-1] != 88 || d.FpsNLSF_CB.FCB1_NLSF_Q8 == nil {
+					t.Fatal("loss frame", rate, nb, flag, ret, count, d.FlossCnt)
+				}
+			}
+		}
+	}
+	d := newPLCConcealTestDecoder(8, 2)
+	tls := libc.NewTLS()
+	defer tls.Close()
+	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+	frame := make([]int16, d.Fframe_length)
+	var count int32
+	silk_decode_frame(tls, d, nil, &frame[0], &count, 1, CODE_INDEPENDENTLY, 0)
+	if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+		t.Fatal("loss frame touched TLS")
+	}
+}
+
 func TestDecodeFrameFinishPointers(t *testing.T) {
 	for _, nb := range []int32{2, 4} {
 		for _, alias := range []int32{0, 1, 2} {
@@ -69,9 +98,7 @@ func TestDecodeFrameHistoryPointers(t *testing.T) {
 }
 
 func TestDecodeFrameFieldAccesses(t *testing.T) {
-	tls := libc.NewTLS()
-	defer tls.Close()
-	setupResamplerPseudostack(tls)
+	var tls *libc.TLS
 	var decoder OpusT_silk_decoder_state
 	decoder.Fnb_subfr = MAX_NB_SUBFR
 	if got := Opus_silk_decoder_set_fs(tls, &decoder, 8, 8000); got != OPUS_OK {

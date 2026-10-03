@@ -36,6 +36,9 @@ func CompareDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int1
 func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
 	return silkDecodeCoreTransition(decoder, control, k)
 }
+func CompareDecodeFrame(tls *libc.TLS, decoder *OpusT_silk_decoder_state, ec *OpusT_ec_ctx, output *int16, count *int32, lost, cond int32) int32 {
+	return silk_decode_frame(tls, decoder, ec, output, count, lost, cond, 0)
+}
 func CompareDecodeFrameFinish(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, count *int32, length int32) {
 	silkDecodeFrameFinish(decoder, control, count, length)
 }

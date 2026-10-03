@@ -6,6 +6,17 @@ package main
 #define VAR_ARRAYS 1
 #define silk_decode_core comparison_decode_core
 #include "decode_core.c"
+#define silk_decode_frame comparison_decode_frame
+#include "decode_frame.c"
+static int decoder_frame(unsigned char *d,int ds,short *output,int *count,int lost,int cond,unsigned *s,unsigned char *buf) {
+ if(ds!=sizeof(silk_decoder_state))return -98;
+ silk_decoder_state dec,bindings;memcpy(&dec,d,ds);silk_init_decoder(&bindings);bindings.nb_subfr=dec.nb_subfr;silk_decoder_set_fs(&bindings,dec.fs_kHz,dec.fs_kHz*1000);
+ dec.psNLSF_CB=bindings.psNLSF_CB;dec.pitch_lag_low_bits_iCDF=bindings.pitch_lag_low_bits_iCDF;dec.pitch_contour_iCDF=bindings.pitch_contour_iCDF;dec.resampler_state.Coefs=bindings.resampler_state.Coefs;
+ ec_dec ec={0};ec.buf=buf;ec.storage=s[0];ec.end_offs=s[1];ec.end_window=s[2];ec.nend_bits=s[3];ec.nbits_total=s[4];ec.offs=s[5];ec.rng=s[6];ec.val=s[7];ec.ext=s[8];ec.rem=s[9];ec.error=s[10];
+ int ret=comparison_decode_frame(&dec,&ec,output,count,lost,cond,0);
+ s[0]=ec.storage;s[1]=ec.end_offs;s[2]=ec.end_window;s[3]=ec.nend_bits;s[4]=ec.nbits_total;s[5]=ec.offs;s[6]=ec.rng;s[7]=ec.val;s[8]=ec.ext;s[9]=ec.rem;s[10]=ec.error;
+ dec.psNLSF_CB=0;dec.pitch_lag_low_bits_iCDF=0;dec.pitch_contour_iCDF=0;dec.resampler_state.Coefs=0;memcpy(d,&dec,ds);return ret;
+}
 static int decoder_core(unsigned char *d,int ds,unsigned char *c,int cs,short *output,const short *pulses,int alias) {
  if(ds!=sizeof(silk_decoder_state)||cs!=sizeof(silk_decoder_control))return -98;
  silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_decode_core(&dec,&ctrl,alias==1?dec.outBuf:alias==2?(short*)pulses:output,pulses,0);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
@@ -82,6 +93,43 @@ func nativeDecodeCoreTransition(dec *opuscc.OpusT_silk_decoder_state, ctrl *opus
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r != 0
 }
+func nativeDecodeFrame(dec *opuscc.OpusT_silk_decoder_state, ec *opuscc.OpusT_ec_ctx, buf []byte, output []int16, count *int32, lost, cond int32) int32 {
+	// Export numeric images only. Native table pointers are rebound on the C stack
+	// and stripped before return; embedded Go pointers never cross the byte bridge.
+	numeric := *dec
+	numeric.FpsNLSF_CB = nil
+	numeric.Fpitch_lag_low_bits_iCDF = nil
+	numeric.Fpitch_contour_iCDF = nil
+	numeric.Fresampler_state.FCoefs = nil
+	d := make([]byte, int(unsafe.Sizeof(numeric)))
+	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(&numeric)), len(d)))
+	s := [11]C.uint{}
+	if ec != nil {
+		s = [11]C.uint{C.uint(ec.Fstorage), C.uint(ec.Fend_offs), C.uint(ec.Fend_window), C.uint(ec.Fnend_bits), C.uint(ec.Fnbits_total), C.uint(ec.Foffs), C.uint(ec.Frng), C.uint(ec.Fval), C.uint(ec.Fext), C.uint(ec.Frem), C.uint(ec.Ferror1)}
+	}
+	ret := int32(C.decoder_frame((*C.uchar)(unsafe.Pointer(&d[0])), C.int(len(d)), (*C.short)(unsafe.Pointer(unsafe.SliceData(output))), (*C.int)(unsafe.Pointer(count)), C.int(lost), C.int(cond), &s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf)))))
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(&numeric)), len(d)), d)
+	numeric.FpsNLSF_CB = dec.FpsNLSF_CB
+	numeric.Fpitch_lag_low_bits_iCDF = dec.Fpitch_lag_low_bits_iCDF
+	numeric.Fpitch_contour_iCDF = dec.Fpitch_contour_iCDF
+	numeric.Fresampler_state.FCoefs = dec.Fresampler_state.FCoefs
+	*dec = numeric
+	if ec != nil {
+		ec.Fstorage = uint32(s[0])
+		ec.Fend_offs = uint32(s[1])
+		ec.Fend_window = uint32(s[2])
+		ec.Fnend_bits = int32(s[3])
+		ec.Fnbits_total = int32(s[4])
+		ec.Foffs = uint32(s[5])
+		ec.Frng = uint32(s[6])
+		ec.Fval = uint32(s[7])
+		ec.Fext = uint32(s[8])
+		ec.Frem = int32(s[9])
+		ec.Ferror1 = int32(s[10])
+	}
+	return ret
+}
+
 func nativeDecodeFrameFinish(dec *opuscc.OpusT_silk_decoder_state, ctrl *opuscc.OpusT_silk_decoder_control, count *int32, length, alias int32) {
 	d, c := make([]byte, int(unsafe.Sizeof(*dec))), make([]byte, int(unsafe.Sizeof(*ctrl)))
 	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)))

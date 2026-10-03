@@ -170,6 +170,36 @@ func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 		}
 	}
 }
+func TestDecodeFrameLossAgainstC(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, nb := range []int32{2, 4} {
+			for _, flag := range []int32{1, 2, -1, 7} {
+				order := int32(10)
+				if rate == 16 {
+					order = 16
+				}
+				d := opuscc.OpusT_silk_decoder_state{Ffs_kHz: rate, Fltp_mem_length: rate * 20, Fsubfr_length: rate * 5, Fframe_length: rate * 5 * nb, Fnb_subfr: nb, FLPC_order: order, FprevSignalType: 2}
+				d.FsPLC = opuscc.OpusT_silk_PLC_struct{Ffs_kHz: rate, FpitchL_Q8: rate * 5 << 8, FLTPCoef_Q14: [5]int16{300, -150, 1200, -100, 75}, FprevLPC_Q12: [16]int16{120, -80, 60, -45, 30, -20, 15, -10, 8, -5}, FprevGain_Q16: [2]int32{65536, 65536}, FprevLTP_scale_Q14: 13000, FrandScale_Q14: 11000, Frand_seed: 12345, Fsubfr_length: rate * 5, Fnb_subfr: nb}
+				for i := range d.Fexc_Q14 {
+					d.Fexc_Q14[i] = int32((i*71)%3000000 - 1500000)
+				}
+				for i := range d.FoutBuf {
+					d.FoutBuf[i] = int16((i*37)%1000 - 500)
+				}
+				c := d
+				frame := make([]int16, d.Fframe_length+2)
+				frame[0], frame[len(frame)-1] = 77, 88
+				want := slices.Clone(frame)
+				count, nativeCount := int32(-99), int32(-99)
+				g := opuscc.CompareDecodeFrame(nil, &d, nil, &frame[1], &count, flag, opuscc.CODE_INDEPENDENTLY)
+				n := nativeDecodeFrame(&c, nil, nil, want[1:len(want)-1], &nativeCount, flag, opuscc.CODE_INDEPENDENTLY)
+				if g != n || count != nativeCount || d != c || !slices.Equal(frame, want) {
+					t.Fatal("loss frame", rate, nb, flag, g, n, count, nativeCount)
+				}
+			}
+		}
+	}
+}
 func TestDecodeFrameFinishAgainstC(t *testing.T) {
 	for _, nb := range []int32{2, 4} {
 		for _, alias := range []int32{0, 1, 2} {

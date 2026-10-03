@@ -30,95 +30,30 @@ func silkDecodeFrameHistory(decoder *OpusT_silk_decoder_state, frame *int16) {
 
 func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDec *OpusT_ec_dec, pOut *int16, pN *int32, lostFlag int32, condCoding int32, arch int32) (r int32) {
 	var L, mv_len, ret int32
-	var _saved_stack, psDecCtrl, pulses, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var psDecCtrl *OpusT_silk_decoder_control
+	var _saved_stack, pulses, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	decoder := psDec
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = L, _saved_stack, mv_len, psDecCtrl, pulses, ret, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9
 	ret = 0
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	L = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(int32(1)))*(uint64(140)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+5898, int32(64))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(int32(1))) * (uint64(140) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	psDecCtrl = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(int32(1)))*(uint64(140)/uint64(1)))
-	control := (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl))
+	L = decoder.Fframe_length
+	psDecCtrl = new(OpusT_silk_decoder_control)
+	control := psDecCtrl
 	(*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)).FLTP_scale_Q14 = 0
 	/* Safety checks */
 	if !(L > 0 && L <= int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)*int32(MAX_FS_KHZ)) {
 		Opus_celt_fatal(tls, __ccgo_ts+5921, __ccgo_ts+5898, int32(68))
 	}
-	if lostFlag == FLAG_DECODE_NORMAL || lostFlag == int32(FLAG_DECODE_LBRR) && decoder.FLBRR_flags[decoder.FnFramesDecoded] == int32(1) {
+	decode := lostFlag == FLAG_DECODE_NORMAL || lostFlag == FLAG_DECODE_LBRR && decoder.FLBRR_flags[decoder.FnFramesDecoded] == 1
+	if decode {
+		st = libc.Xpthread_getspecific(tls, 0x6f707573)
+		if st == 0 {
+			st = libc.Xmalloc(tls, 16)
+			if st != 0 {
+				libc.Xmemset(tls, st, 0, 16)
+			}
+			libc.Xpthread_setspecific(tls, 0x6f707573, st)
+		}
+		_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(st)).Fglobal_stack
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v1 = libc.Xmalloc(tls, uint64(16))
@@ -240,17 +175,19 @@ func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDe
 	Opus_silk_PLC_glue_frames(tls, decoder, (*int16)(unsafe.Pointer(pOut)), L)
 	// Lag update precedes the final live count store.
 	silkDecodeFrameFinish(decoder, control, pN, L)
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
+	if decode {
+		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
+		if !(st != 0) {
+			v1 = libc.Xmalloc(tls, uint64(16))
+			st = v1
+			if st != 0 {
+				libc.Xmemset(tls, st, 0, uint64(16))
+			}
+			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+		v3 = st
+		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	return ret
 }
 
