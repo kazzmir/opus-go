@@ -423,6 +423,14 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+// Forward loads/stores deliberately preserve the original loop's alias order.
+func celtPLCExcitationHistory(exc, history *float32, size, period int32) {
+	x, h := unsafe.Slice(exc, period+CELT_LPC_ORDER), unsafe.Slice(history, size)
+	for i := int32(0); i < period+CELT_LPC_ORDER; i++ {
+		x[i] = h[size-period-CELT_LPC_ORDER+i]
+	}
+}
+
 func celtPLCSynthesisAttenuate(output, window *float32, length, overlap int32, s1 float32) {
 	if length <= 0 {
 		return
@@ -868,14 +876,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 		for {
 			S1 = float32(0)
 			buf = decode_mem[c]
-			i = 0
-			for {
-				if !(i < max_period+int32(CELT_LPC_ORDER)) {
-					break
-				}
-				*(*OpusT_opus_val16)(unsafe.Pointer(exc + uintptr(i-int32(CELT_LPC_ORDER))*4)) = *(*OpusT_celt_sig)(unsafe.Pointer(buf + uintptr(decode_buffer_size-max_period-int32(CELT_LPC_ORDER)+i)*4))
-				i = i + 1
-			}
+			celtPLCExcitationHistory((*float32)(unsafe.Pointer(_exc)), (*float32)(unsafe.Pointer(buf)), decode_buffer_size, max_period)
 			if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
 				/* Compute LPC coefficients for the last MAX_PERIOD samples before
 				   the first loss so we can work in the excitation-filter domain. */

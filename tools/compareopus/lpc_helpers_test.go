@@ -11,6 +11,28 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCExcitationHistoryAgainstC(t *testing.T) {
+	for _, period := range []int32{0, 1, 512, 1024} {
+		h := make([]float32, 2050)
+		for i := range h {
+			h[i] = math.Float32frombits(uint32(i) * uint32(7919))
+		}
+		before := slices.Clone(h)
+		a := make([]float32, period+26)
+		a[0], a[len(a)-1] = 77, 88
+		b := slices.Clone(a)
+		opuscc.CompareCeltPLCExcitationHistory(&a[1], &h[1], 2048, period)
+		nativeCeltPLCExcitationHistory(&b[1], &h[1], 2048, period)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("excitation history", period, i)
+			}
+		}
+		if !slices.Equal(h, before) {
+			t.Fatal("history input changed")
+		}
+	}
+}
 func TestCeltPLCSynthesisAttenuateAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(2453))
 	for _, length := range []int32{1, 120, 240, 1080} {

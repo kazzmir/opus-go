@@ -7,6 +7,51 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCExcitationHistoryPointers(t *testing.T) {
+	for _, period := range []int32{0, 1, 512, 1024} {
+		h := make([]float32, 2050)
+		x := make([]float32, period+26)
+		h[0], h[2049], x[0], x[len(x)-1] = 77, 88, 99, 66
+		for i := 1; i < 2049; i++ {
+			h[i] = math.Float32frombits(uint32(i) * 7919)
+		}
+		before := append([]float32(nil), h...)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		celtPLCExcitationHistory(&x[1], &h[1], 2048, period)
+		if x[0] != 99 || x[len(x)-1] != 66 {
+			t.Fatal("history destination guards")
+		}
+		for i := int32(0); i < period+24; i++ {
+			if math.Float32bits(x[i+1]) != math.Float32bits(h[1+2048-period-24+i]) {
+				t.Fatal("history samples", period, i)
+			}
+		}
+		for i := range h {
+			if math.Float32bits(h[i]) != math.Float32bits(before[i]) {
+				t.Fatal("source history changed")
+			}
+		}
+	}
+	// Go-only outer-scratch/history aliases: preserve forward stores, not copy's
+	// memmove semantics for a destination one sample after the source.
+	for _, offset := range []int{0, 1, 3} {
+		a := make([]float32, 30)
+		for i := range a {
+			a[i] = float32(i + 1)
+		}
+		want := append([]float32(nil), a...)
+		for i := 0; i < 24; i++ {
+			want[offset+i] = want[1+i]
+		}
+		celtPLCExcitationHistory(&a[offset], &a[0], 25, 0)
+		for i := range a {
+			if a[i] != want[i] {
+				t.Fatal("forward history alias", offset, i)
+			}
+		}
+	}
+}
 func TestCeltPLCSynthesisAttenuatePointers(t *testing.T) {
 	for _, length := range []int32{1, 120, 240, 1080} {
 		for _, overlap := range []int32{0, 1, min(120, length)} {

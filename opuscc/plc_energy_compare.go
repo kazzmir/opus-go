@@ -6,6 +6,9 @@ import "unsafe"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltPLCExcitationHistory(exc, history *float32, size, period int32) {
+	celtPLCExcitationHistory(exc, history, size, period)
+}
 func CompareCeltPLCSynthesisAttenuate(output, window *float32, length, overlap int32, s1 float32) {
 	celtPLCSynthesisAttenuate(output, window, length, overlap, s1)
 }

@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static void compare_plc_history(float *exc,const float *h,int size,int period) {for(int i=0;i<period+CELT_LPC_ORDER;i++)exc[i]=h[size-period-CELT_LPC_ORDER+i];}
 static void compare_plc_attenuate(float *x,const float *w,int length,int overlap,float s1) {float s2=0;for(int i=0;i<length;i++) {float tmp=x[i];s2+=tmp*tmp;}if(!(s1>.2f*s2)) {for(int i=0;i<length;i++)x[i]=0;}else if(s1<s2) {float ratio=celt_sqrt((s1+1)/(s2+1));for(int i=0;i<overlap;i++){float g=1-w[i]*(1-ratio);x[i]=g*x[i];}for(int i=overlap;i<length;i++)x[i]=ratio*x[i];}}
 static float compare_plc_exc(const float *exc,int period,int length) {float e1=1,e2=1;int half=length>>1;for(int i=0;i<half;i++){float e=exc[period-half+i];e1+=e*e;e=exc[period-2*half+i];e2+=e*e;}e1=MIN32(e1,e2);return celt_sqrt(e1/e2);}
 static void compare_plc_lag(float *ac) {ac[0]*=1.0001f;for(int i=1;i<=24;i++)ac[i]-=ac[i]*(.008f*.008f)*i*i;}
@@ -21,6 +22,9 @@ static void compare_plc_decay(float *a,const float *b,int bands,int start,int en
 import "C"
 import "unsafe"
 
+func nativeCeltPLCExcitationHistory(exc, history *float32, size, period int32) {
+	C.compare_plc_history((*C.float)(unsafe.Pointer(exc)), (*C.float)(unsafe.Pointer(history)), C.int(size), C.int(period))
+}
 func nativeCeltPLCSynthesisAttenuate(output, window *float32, length, overlap int32, s1 float32) {
 	C.compare_plc_attenuate((*C.float)(unsafe.Pointer(output)), (*C.float)(unsafe.Pointer(window)), C.int(length), C.int(overlap), C.float(s1))
 }
