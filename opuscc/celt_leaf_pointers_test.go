@@ -55,6 +55,41 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeTFStoragePointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, transient := range []int32{0, 1} {
+			for _, start := range []int32{0, 5} {
+				data := make([]byte, 64)
+				for i := range data {
+					data[i] = byte(i*71 + 13)
+				}
+				ec := new(OpusT_ec_ctx)
+				Opus_ec_dec_init(nil, ec, &data[0], uint32(len(data)))
+				wantEC := *ec
+				want := make([]int32, 21)
+				tf_decode(nil, start, 21, transient, &want[0], LM, &wantEC)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				got := celtDecodeTFStorage(nil, 21, start, 21, transient, LM, ec)
+				runtime.GC()
+				if len(got) != 21 || *ec != wantEC {
+					t.Fatal("owned TF entropy/shape")
+				}
+				for i := range got {
+					if got[i] != want[i] {
+						t.Fatal("owned TF flags", LM, transient, start, i)
+					}
+				}
+			}
+		}
+	}
+	data := []byte{0}
+	var ec OpusT_ec_ctx
+	Opus_ec_dec_init(nil, &ec, &data[0], 1)
+	if len(celtDecodeTFStorage(nil, 0, 0, 0, 0, 0, &ec)) != 0 {
+		t.Fatal("empty TF storage")
+	}
+}
 func TestCeltDecodeEnergyClearPointers(t *testing.T) {
 	for _, bands := range []int32{1, 3, 21, 25} {
 		for _, start := range []int32{0, 1, bands} {

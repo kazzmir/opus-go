@@ -11,6 +11,27 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeTFStorageAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, transient := range []int32{0, 1} {
+			for _, start := range []int32{0, 5} {
+				data := make([]byte, 64)
+				for i := range data {
+					data[i] = byte(i*71 + 13)
+				}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+				c := ec
+				want := make([]int32, 21)
+				got := opuscc.CompareCeltDecodeTFStorage(21, start, 21, transient, LM, &ec)
+				nativeTFDecode(&c, data, start, 21, transient, want, LM)
+				if ec != c || !slices.Equal(got, want) {
+					t.Fatal("owned TF storage", LM, transient, start)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeEnergyClearAgainstC(t *testing.T) {
 	for _, bands := range []int32{1, 3, 21, 25} {
 		for _, start := range []int32{0, 1, bands} {
