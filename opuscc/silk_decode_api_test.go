@@ -10,6 +10,35 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeAPIChannelStoragePointers(t *testing.T) {
+	for _, length := range []int32{80, 120, 160, 240, 320} {
+		for _, channels := range []int32{1, 2} {
+			storage := silkDecodeAPIChannelStorage(channels, length)
+			views := silkDecodeAPIChannelViews(storage, length, channels)
+			storage = nil
+			entropyInitGrowStack(12)
+			runtime.GC()
+			for n := int32(0); n < channels; n++ {
+				if len(views[n]) != int(length+2) {
+					t.Fatal("owned channel storage", length, channels)
+				}
+				for _, v := range views[n] {
+					if v != 0 {
+						t.Fatal("scratch zero")
+					}
+				}
+				views[n][2] = int16(123 + n)
+				if views[n][2] != int16(123+n) {
+					t.Fatal("scanned channel backing")
+				}
+			}
+			if channels == 1 && views[1] != nil {
+				t.Fatal("unused mono channel")
+			}
+		}
+	}
+}
+
 func TestDecodeAPIChannelViewsPointers(t *testing.T) {
 	for _, length := range []int32{80, 120, 160, 240, 320} {
 		for _, channels := range []int32{1, 2} {

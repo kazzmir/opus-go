@@ -36,6 +36,11 @@ func CompareDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int1
 func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
 	return silkDecodeCoreTransition(decoder, control, k)
 }
+
+// Whole API still consumes its remaining resampling TLS scratch.
+func CompareDecodeAPI(tls *libc.TLS, decoder *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct, lost, newPacket int32, ec *OpusT_ec_ctx, out *float32, count *int32) int32 {
+	return silk_Decode(tls, decoder, control, lost, newPacket, ec, out, count, 0)
+}
 func CompareDecodeAPIChannelViews(storage []int16, length, channels int32) [2][]int16 {
 	return silkDecodeAPIChannelViews(storage, length, channels)
 }

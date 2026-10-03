@@ -166,6 +166,10 @@ func Opus_silk_Decode(tls *libc.TLS, decState, decControl uintptr, lostFlag, new
 	return silk_Decode(tls, (*OpusT_silk_decoder)(unsafe.Pointer(decState)), (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)), lostFlag, newPacketFlag, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*float32)(unsafe.Pointer(samplesOut)), (*int32)(unsafe.Pointer(nSamplesOut)), arch)
 }
 
+func silkDecodeAPIChannelStorage(channels, length int32) []int16 {
+	return make([]int16, channels*(length+2))
+}
+
 func silkDecodeAPIChannelViews(storage []int16, length, channels int32) [2][]int16 {
 	var views [2][]int16
 	views[0] = storage[:length+2]
@@ -234,7 +238,8 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 	var FrameIndex, condCoding, condCoding1, fs_kHz_dec, has_side, i, n, ret, stereo_to_mono, v51 int32
 	var psDec *OpusT_silk_decoder
 	var channel_state *OpusT_silk_decoder_state
-	var _saved_stack, resample_out_ptr, samplesOut1_tmp_storage1, samplesOut2_tmp, st, v1, v11, v13, v15, v17, v26, v28, v3, v30, v32, v7, v9 uintptr
+	var samplesOut1_tmp_storage1 []int16
+	var _saved_stack, resample_out_ptr, samplesOut2_tmp, st, v1, v11, v13, v15, v17, v26, v28, v3, v30, v32, v7, v9 uintptr
 	var mult_tab [3]int32
 	var samplesOut1_tmp [2][]int16
 	var decode_only_middle int32
@@ -450,77 +455,8 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 		decoder.Fchannel_state[1].FprevSignalType = TYPE_NO_VOICE_ACTIVITY
 		decoder.Fchannel_state[1].Ffirst_frame_after_reset = int32(1)
 	}
-	/* Check if the temp buffer fits into the output PCM buffer. If it fits,
-	   we can delay allocating the temp buffer until after the SILK peak stack
-	   usage. We need to use a < and not a <= because of the two extra samples. */
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v7 = libc.Xmalloc(tls, uint64(16))
-		st = v7
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v9 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(2)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v9)).Fglobal_stack))) & (uint64(uint32(2)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v11 = libc.Xmalloc(tls, uint64(16))
-		st = v11
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v13 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v15 = libc.Xmalloc(tls, uint64(16))
-		st = v15
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v17 = st
-	if !(int64(int32(uint64(uint32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal*((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Fframe_length+int32(2))))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v13)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+6611, int32(319))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v26 = libc.Xmalloc(tls, uint64(16))
-		st = v26
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v28 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v28)).Fglobal_stack += uintptr(uint64(uint32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal*((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Fframe_length+int32(2)))) * (uint64(2) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v30 = libc.Xmalloc(tls, uint64(16))
-		st = v30
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v32 = st
-	samplesOut1_tmp_storage1 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v32)).Fglobal_stack - uintptr(uint64(uint32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal*((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Fframe_length+int32(2))))*(uint64(2)/uint64(1)))
-	// Explicit legacy storage boundary; materialize only consumed channel views.
-	samplesOut1_tmp = silkDecodeAPIChannelViews(unsafe.Slice((*int16)(unsafe.Pointer(samplesOut1_tmp_storage1)), control.FnChannelsInternal*(channel_state.Fframe_length+2)), channel_state.Fframe_length, control.FnChannelsInternal)
+	samplesOut1_tmp_storage1 = silkDecodeAPIChannelStorage(control.FnChannelsInternal, channel_state.Fframe_length)
+	samplesOut1_tmp = silkDecodeAPIChannelViews(samplesOut1_tmp_storage1, channel_state.Fframe_length, control.FnChannelsInternal)
 	if lostFlag == FLAG_DECODE_NORMAL {
 		has_side = libc.BoolInt32(!(decode_only_middle != 0))
 	} else {
