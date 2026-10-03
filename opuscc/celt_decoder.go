@@ -423,6 +423,27 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeEnergyClear(energy, log, previous *float32, bands, start, end int32) {
+	if bands <= 0 || start <= 0 && end >= bands {
+		return
+	}
+	e, l, p := unsafe.Slice(energy, 2*bands), unsafe.Slice(log, 2*bands), unsafe.Slice(previous, 2*bands)
+	for c := int32(0); c < 2; c++ {
+		for i := int32(0); i < start; i++ {
+			index := c*bands + i
+			e[index] = 0
+			p[index] = -28
+			l[index] = -28
+		}
+		for i := end; i < bands; i++ {
+			index := c*bands + i
+			e[index] = 0
+			p[index] = -28
+			l[index] = -28
+		}
+	}
+}
+
 func celtDecodeEnergyBackground(state *OpusT_OpusCustomDecoder, background, energy *float32, bands, M int32) {
 	increase := float32(min(int32(160), state.Floss_duration+M)) * float32(.001)
 	if bands <= 0 {
@@ -1808,37 +1829,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	   up to 2.4 dB/second, but when we're in DTX we give the weight of
 	   all missing packets to the update packet. */
 	celtDecodeEnergyBackground((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*float32)(unsafe.Pointer(backgroundLogE)), (*float32)(unsafe.Pointer(oldBandE)), nbEBands, M)
-	/* In case start or end were to change */
-	c = 0
-	for {
-		i = 0
-		for {
-			if !(i < start) {
-				break
-			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) = float32(0)
-			v35 = -float32(28)
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldLogE2 + uintptr(c*nbEBands+i)*4)) = v35
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(c*nbEBands+i)*4)) = v35
-			i = i + 1
-		}
-		i = end
-		for {
-			if !(i < nbEBands) {
-				break
-			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) = float32(0)
-			v35 = -float32(28)
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldLogE2 + uintptr(c*nbEBands+i)*4)) = v35
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(c*nbEBands+i)*4)) = v35
-			i = i + 1
-		}
-		c = c + 1
-		v28 = c
-		if !(v28 < int32(2)) {
-			break
-		}
-	}
+	/* In case start or end were to change: energy, previous, log store order. */
+	celtDecodeEnergyClear((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, start, end)
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng = (*OpusT_ec_dec)(unsafe.Pointer(dec)).Frng
 	deemphasis_legacy(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Fpreemph_memD), accum)
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration = 0

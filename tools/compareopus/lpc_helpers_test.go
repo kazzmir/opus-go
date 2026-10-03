@@ -11,6 +11,28 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeEnergyClearAgainstC(t *testing.T) {
+	for _, bands := range []int32{1, 3, 21, 25} {
+		for _, start := range []int32{0, 1, bands} {
+			for _, end := range []int32{0, bands - 1, bands} {
+				e, l, p := make([]float32, 2*bands+2), make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+				for i := range e {
+					e[i] = float32(i + 1)
+					l[i] = float32(i + 2)
+					p[i] = float32(i + 3)
+				}
+				ce, cl, cp := slices.Clone(e), slices.Clone(l), slices.Clone(p)
+				opuscc.CompareCeltDecodeEnergyClear(&e[1], &l[1], &p[1], bands, start, end)
+				nativeCeltDecodeEnergyClear(&ce[1], &cl[1], &cp[1], bands, start, end)
+				for i := range e {
+					if math.Float32bits(e[i]) != math.Float32bits(ce[i]) || l[i] != cl[i] || p[i] != cp[i] {
+						t.Fatal("energy clearing", bands, start, end, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeEnergyBackgroundAgainstC(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		for _, loss := range []int32{-1, 0, 40, 160, 10000} {
@@ -50,6 +72,28 @@ func TestCeltDecodeEnergyLogsAgainstC(t *testing.T) {
 					t.Fatal("energy logs", bands, transient, i)
 				}
 			}
+		}
+	}
+}
+func TestCeltDecodeEnergyExceptionalAgainstC(t *testing.T) {
+	e := []float32{3, float32(math.NaN()), math.Float32frombits(0x80000000), 0}
+	l := []float32{float32(math.NaN()), 1, 0, math.Float32frombits(0x80000000)}
+	c := slices.Clone(l)
+	opuscc.CompareCeltDecodeEnergyLogs(&e[0], &l[0], nil, 2, 1)
+	nativeCeltDecodeEnergyLogs(&e[0], &c[0], nil, 2, 1)
+	for i := range l {
+		if math.Float32bits(l[i]) != math.Float32bits(c[i]) {
+			t.Fatal("MING NaN/zero selection", i)
+		}
+	}
+	b := []float32{float32(math.NaN()), 1, 0, float32(math.Inf(1))}
+	c = slices.Clone(b)
+	state := opuscc.OpusT_OpusCustomDecoder{}
+	opuscc.CompareCeltDecodeEnergyBackground(&state, &b[0], &e[0], 2, 1)
+	nativeCeltDecodeEnergyBackground(&c[0], &e[0], 2, 0, 1)
+	for i := range b {
+		if math.Float32bits(b[i]) != math.Float32bits(c[i]) {
+			t.Fatal("background NaN/zero/infinity", i)
 		}
 	}
 }

@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four subsequent outer CELT decode-history rounds type mono energy duplication,
+current/previous log-energy updates, background energy tracking and out-of-band
+clearing. Mono duplication copies the contiguous second lane; nontransient logs
+copy previous<-current before current<-energy. Transient updates retain MING's
+ordered comparison/tie/NaN selection, not Go's builtin floating minimum. The
+background increment keeps int32 loss_duration+M, the 160 cap, exact float32
+.001 scaling, and sequential live loads/stores. Clearing retains two channel
+passes, prefix then suffix ranges, energy positive-zero followed by previous-log
+then current-log -28 stores; overlapping ranges still execute in source order.
+
+Grouped Go/native tests cover bands 0/1/3/21/25, zero/nonzero/negative transient
+flags, loss/LM increments, full/empty/overlapping active bands, guards, GC/stack
+growth, quiet NaNs, signed zero and infinity. Copy/history aliases and signed
+overflow are explicitly Go-only, not memcpy-overlap or C-overflow parity claims.
+Native fixtures use source-equivalent celt_decoder.c snippets and its actual
+MING/IMIN macros; they are leaf oracles, not a new complete decode-frame oracle.
+Scoped checkptr covers these typed history helpers alongside full migrated
+concealment, not the still-legacy outer CELT decode dispatcher or quant-all-bands.
+Each round keeps full amd64/386/ARM64-QEMU tests, native and GC stress, unchanged
+packet/frame/encode/decode goldens/tolerances and repeated ARM checks. This does
+not resolve opaque pointer scanning, global GC safety or direct macOS CI.
+
 The outer SILK API now retains typed decoder/channel, control, entropy, float PCM
 and output-count pointers behind Opus_silk_Decode's explicit uintptr escape ABI.
 Packet-start frame counters use typed state and a live channel-count pointer.

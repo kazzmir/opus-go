@@ -55,6 +55,65 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeEnergyClearPointers(t *testing.T) {
+	for _, bands := range []int32{1, 3, 21, 25} {
+		for _, start := range []int32{0, 1, bands} {
+			for _, end := range []int32{0, bands - 1, bands} {
+				e, l, p := make([]float32, 2*bands+2), make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+				for i := range e {
+					e[i] = float32(i + 1)
+					l[i] = float32(i + 2)
+					p[i] = float32(i + 3)
+				}
+				we, wl, wp := append([]float32(nil), e...), append([]float32(nil), l...), append([]float32(nil), p...)
+				for c := int32(0); c < 2; c++ {
+					for i := int32(0); i < bands; i++ {
+						if i < start || i >= end {
+							index := 1 + c*bands + i
+							we[index] = 0
+							wp[index] = -28
+							wl[index] = -28
+						}
+					}
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDecodeEnergyClear(&e[1], &l[1], &p[1], bands, start, end)
+				for i := range e {
+					if math.Float32bits(e[i]) != math.Float32bits(we[i]) || l[i] != wl[i] || p[i] != wp[i] {
+						t.Fatal("energy band clearing", bands, start, end, i)
+					}
+				}
+			}
+		}
+	}
+	celtDecodeEnergyClear(nil, nil, nil, 0, 0, 0)
+	celtDecodeEnergyClear(nil, nil, nil, 21, 0, 21)
+	// Go-only overlapping history views retain channel/band and nested-assignment
+	// order even when start/end ranges overlap.
+	a := []float32{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	want := append([]float32(nil), a...)
+	for c := 0; c < 2; c++ {
+		for i := 0; i < 2; i++ {
+			index := c*3 + i
+			want[index] = 0
+			want[index+2] = -28
+			want[index+1] = -28
+		}
+		for i := 1; i < 3; i++ {
+			index := c*3 + i
+			want[index] = 0
+			want[index+2] = -28
+			want[index+1] = -28
+		}
+	}
+	celtDecodeEnergyClear(&a[0], &a[1], &a[2], 3, 2, 1)
+	for i := range a {
+		if a[i] != want[i] {
+			t.Fatal("energy clearing store order", i)
+		}
+	}
+}
 func TestCeltDecodeEnergyBackgroundPointers(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		for _, loss := range []int32{-1, 0, 40, 160, 10000} {
