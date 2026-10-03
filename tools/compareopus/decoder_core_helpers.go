@@ -8,6 +8,10 @@ package main
 #include "decode_core.c"
 #define silk_decode_frame comparison_decode_frame
 #include "decode_frame.c"
+static int decoder_api_resampler(unsigned char *dst,const unsigned char *src,int size,short *pred,short *side,int api,int internal,int oldapi,int oldinternal) {
+ if(size!=sizeof(silk_resampler_state_struct))return -98;
+ if(api==2&&internal==2&&(oldapi==1||oldinternal==1)){memset(pred,0,2*sizeof(short));memset(side,0,2*sizeof(short));memcpy(dst,src,sizeof(silk_resampler_state_struct));}return 0;
+}
 static void decoder_api_packet(int *frames,int channels,int flag) {if(flag)for(int n=0;n<channels;n++)frames[n]=0;}
 static int decoder_frame(unsigned char *d,int ds,short *output,int *count,int lost,int cond,unsigned *s,unsigned char *buf) {
  if(ds!=sizeof(silk_decoder_state))return -98;
@@ -93,6 +97,23 @@ func nativeDecodeCoreTransition(dec *opuscc.OpusT_silk_decoder_state, ctrl *opus
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r != 0
+}
+func nativeDecodeAPIStartStereo(dec *opuscc.OpusT_silk_decoder, control *opuscc.OpusT_silk_DecControlStruct) int32 {
+	src, dst := dec.Fchannel_state[0].Fresampler_state, dec.Fchannel_state[1].Fresampler_state
+	src.FCoefs = nil
+	dst.FCoefs = nil
+	size := int(unsafe.Sizeof(src))
+	s, d := make([]byte, size), make([]byte, size)
+	copy(s, unsafe.Slice((*byte)(unsafe.Pointer(&src)), size))
+	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(&dst)), size))
+	r := int32(C.decoder_api_resampler((*C.uchar)(unsafe.Pointer(&d[0])), (*C.uchar)(unsafe.Pointer(&s[0])), C.int(size), (*C.short)(unsafe.Pointer(&dec.FsStereo.Fpred_prev_Q13[0])), (*C.short)(unsafe.Pointer(&dec.FsStereo.FsSide[0])), C.int(control.FnChannelsAPI), C.int(control.FnChannelsInternal), C.int(dec.FnChannelsAPI), C.int(dec.FnChannelsInternal)))
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(&dst)), size), d)
+	dst.FCoefs = dec.Fchannel_state[1].Fresampler_state.FCoefs
+	if control.FnChannelsAPI == 2 && control.FnChannelsInternal == 2 && (dec.FnChannelsAPI == 1 || dec.FnChannelsInternal == 1) {
+		dst.FCoefs = dec.Fchannel_state[0].Fresampler_state.FCoefs
+	}
+	dec.Fchannel_state[1].Fresampler_state = dst
+	return r
 }
 func nativeDecodeAPIPacketStart(frames *[2]int32, channels, flag int32) {
 	C.decoder_api_packet((*C.int)(unsafe.Pointer(frames)), C.int(channels), C.int(flag))

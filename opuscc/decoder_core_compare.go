@@ -36,6 +36,9 @@ func CompareDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int1
 func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
 	return silkDecodeCoreTransition(decoder, control, k)
 }
+func CompareDecodeAPIStartStereo(decoder *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct) {
+	silkDecodeAPIStartStereo(decoder, control)
+}
 func CompareDecodeAPIPacketStart(decoder *OpusT_silk_decoder, channels *int32, flag int32) {
 	silkDecodeAPIPacketStart(decoder, channels, flag)
 }

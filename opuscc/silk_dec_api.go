@@ -163,7 +163,17 @@ func Opus_silk_InitDecoder(tls *libc.TLS, decState *OpusT_silk_decoder) int32 {
 //
 //go:uintptrescapes
 func Opus_silk_Decode(tls *libc.TLS, decState, decControl uintptr, lostFlag, newPacketFlag int32, psRangeDec, samplesOut, nSamplesOut uintptr, arch int32) int32 {
-	return silk_Decode(tls, (*OpusT_silk_decoder)(unsafe.Pointer(decState)), decControl, lostFlag, newPacketFlag, psRangeDec, samplesOut, nSamplesOut, arch)
+	return silk_Decode(tls, (*OpusT_silk_decoder)(unsafe.Pointer(decState)), (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)), lostFlag, newPacketFlag, psRangeDec, samplesOut, nSamplesOut, arch)
+}
+
+// C uses sizeof(resampler_state), not a fixed 400-byte amd64 image. Typed
+// assignment also barriers its coefficient pointer on both 32- and 64-bit Go.
+func silkDecodeAPIStartStereo(decoder *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct) {
+	if control.FnChannelsAPI == 2 && control.FnChannelsInternal == 2 && (decoder.FnChannelsAPI == 1 || decoder.FnChannelsInternal == 1) {
+		clear(decoder.FsStereo.Fpred_prev_Q13[:])
+		clear(decoder.FsStereo.FsSide[:])
+		decoder.Fchannel_state[1].Fresampler_state = decoder.Fchannel_state[0].Fresampler_state
+	}
 }
 
 func silkDecodeAPIPacketStart(decoder *OpusT_silk_decoder, channels *int32, newPacket int32) {
@@ -175,7 +185,7 @@ func silkDecodeAPIPacketStart(decoder *OpusT_silk_decoder, channels *int32, newP
 }
 
 // Decoder/channel ownership is typed; other ABI arguments and TLS cursors remain legacy.
-func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl uintptr, lostFlag int32, newPacketFlag int32, psRangeDec uintptr, samplesOut uintptr, nSamplesOut uintptr, arch int32) (r int32) {
+func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_silk_DecControlStruct, lostFlag int32, newPacketFlag int32, psRangeDec uintptr, samplesOut uintptr, nSamplesOut uintptr, arch int32) (r int32) {
 	var FrameIndex, condCoding, condCoding1, fs_kHz_dec, has_side, i, n, ret, stereo_to_mono, v51 int32
 	var LBRR_symbol OpusT_opus_int32
 	var psDec *OpusT_silk_decoder
@@ -188,7 +198,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl uintptr
 	var MS_pred_Q13 [2]OpusT_opus_int32
 	var pulses [320]OpusT_opus_int16 /* MAX_FRAME_LENGTH */
 	decoder := decState
-	control := (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl))
+	control := decControl
 	decode_only_middle = 0
 	ret = SILK_NO_ERROR
 	MS_pred_Q13 = [2]OpusT_opus_int32{}
@@ -286,11 +296,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl uintptr
 			n = n + 1
 		}
 	}
-	if control.FnChannelsAPI == int32(2) && control.FnChannelsInternal == int32(2) && (decoder.FnChannelsAPI == int32(1) || decoder.FnChannelsInternal == int32(1)) {
-		libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.FsStereo.Fpred_prev_Q13[0])), 0, uint64(4))
-		libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.FsStereo.FsSide[0])), 0, uint64(4))
-		libc.Xmemcpy(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[1].Fresampler_state)), uintptr(unsafe.Pointer(&decoder.Fchannel_state[0].Fresampler_state)), uint64(400))
-	}
+	silkDecodeAPIStartStereo(decoder, control)
 	decoder.FnChannelsAPI = control.FnChannelsAPI
 	decoder.FnChannelsInternal = control.FnChannelsInternal
 	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FAPI_sampleRate > int32(MAX_API_FS_KHZ)*int32(1000) || (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FAPI_sampleRate < int32(8000) {

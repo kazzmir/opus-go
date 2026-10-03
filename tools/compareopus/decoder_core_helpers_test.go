@@ -170,6 +170,29 @@ func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 		}
 	}
 }
+func TestDecodeAPIResamplerAgainstC(t *testing.T) {
+	for _, api := range []int32{1, 2} {
+		for _, internal := range []int32{1, 2} {
+			for _, oldAPI := range []int32{0, 1, 2} {
+				for _, oldInternal := range []int32{0, 1, 2} {
+					d := opuscc.OpusT_silk_decoder{FnChannelsAPI: oldAPI, FnChannelsInternal: oldInternal}
+					d.FsStereo.Fpred_prev_Q13 = [2]int16{77, 88}
+					d.FsStereo.FsSide = [2]int16{99, 111}
+					d.Fchannel_state[0].Fresampler_state.FsIIR = [6]int32{1, 2, 3, 4, 5, 6}
+					d.Fchannel_state[1].Fresampler_state.FbatchSize = 77
+					d.Fchannel_state[1].FprevNLSF_Q15 = [16]int16{111, 222, 333}
+					c := d
+					ctrl := opuscc.OpusT_silk_DecControlStruct{FnChannelsAPI: api, FnChannelsInternal: internal}
+					opuscc.CompareDecodeAPIStartStereo(&d, &ctrl)
+					r := nativeDecodeAPIStartStereo(&c, &ctrl)
+					if r != 0 || d != c {
+						t.Fatal("stereo resampler", api, internal, oldAPI, oldInternal, r)
+					}
+				}
+			}
+		}
+	}
+}
 func TestDecodeAPIPacketStartAgainstC(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for _, flag := range []int32{0, 1, -1, 7} {
