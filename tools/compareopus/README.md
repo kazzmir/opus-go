@@ -445,7 +445,7 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
-SILK normal decode-core ownership now retains typed decoder, control and pulse
+SILK normal decode-core ownership now retains typed decoder, control, PCM and pulse
 pointers behind the public Opus_silk_decode_core uintptr escape adapter. The
 k=2 output-history staging and final LPC-state destination use typed fields rather
 than hard-coded state offsets. The PLC-to-unvoiced transition clears the live
@@ -465,18 +465,42 @@ backing through GC/stack growth; decoder-history fixtures retain heap codebooks.
 The actual renamed decode_core.c integration oracle checks complete numeric
 state/control images, excitation, LPC history, output/guards and unchanged pulses
 for rates 8/12/16, 2/4 subframes, signal types 0/1/2, interpolation 0/4, prior loss
-0/1, gain changes, voiced rewhitening and PLC transition. Embedded fixture
+0/1, gain changes, voiced rewhitening and PLC transition across three consecutive
+core calls. Actual-source fixtures also check valid int16 PCM/pulse aliases and
+PCM pointing into decoder outBuf. Embedded fixture
 pointers remain nil; raw image copying is not a write-barrier-safe pointer import.
 Native leaf fixtures cover history staging, transition stores, extreme/zero pulse
 excitation and coefficient snapshots. Excitation includes seeds -128/-1/0/1/17/127,
 lengths 0/1/17/80/160/320 and both quantization offsets. Alias/error cases that C
 cannot define are Go-only.
 
-Focused checkptr covers these active typed helpers, not the full normal core:
-its four TLS arrays, residual/LTP/LPC synthesis cursors and output boundary remain
-legacy. Original normal-core/frame goldens and decode/encode baselines are
-unchanged. Full amd64/386 and ARM64/QEMU checks do not imply direct macOS coverage
-or globally scanned opaque decoder storage.
+The following four storage rounds migrate whitening, Q15 LTP history, residual/
+PCM views, then LPC history. All four arrays are Go-owned: ltp_mem_length int16
+samples, ltp_mem_length + frame_length Q15 words, subfr_length residual words and
+subfr_length + MAX_LPC_ORDER LPC words. Reverse loads and prediction/state stores
+use numeric indices, not integer addresses. Gain scaling and each LPC/LTP MAC
+still narrow individually; wrapping residual/state shifts, PCM product narrowing,
+rounding and saturation are unchanged. LPC retains the ten-tap plus optional
+six-tap order, per-sample order assertion and PCM-before-history-copy ordering.
+Go copy handles state shifts, including zero-length unused cursors safely.
+
+Whitening compares native LPC analysis at k=0/2, multiple start offsets, lengths
+160/240/320 and orders 10/16, with untouched prefixes/guards. Native SILK macro
+fixtures compare reverse whitening/scale stores, five-tap prediction and PCM
+narrowing. Residual signed-overflow cases are Go-only; native residual fixtures
+stay within defined signed ranges.
+
+After the last round, focused checkptr covers the full active normal core with
+nil TLS, GC/stack growth, heap codebooks, zero-length unused PCM/pulses, guards and
+an untouched TLS sentinel. Order-failure fixtures preserve excitation/gain stores
+before the assertion and leave PCM untouched. Original normal-core tests now
+enter the typed driver without pseudostack setup and retain their exact goldens.
+There is no core TLS allocation/cursor/save/restore; only the public uintptr ABI
+adapter remains. Earlier storage rounds checked helpers until the final legacy
+LPC boundary was gone. Original frame goldens and decode/encode baselines remain
+unchanged. Outer SILK frame/API, CELT paths and opaque byte-backed decoder storage
+are not made globally GC-safe. Full amd64/386 and ARM64/QEMU checks do not imply
+direct macOS coverage.
 
 SILK PLC dispatch now holds typed decoder, control and PCM pointers. The public
 Opus_silk_PLC uintptr ABI is an explicit escape adapter that converts all three

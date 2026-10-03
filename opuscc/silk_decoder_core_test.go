@@ -9,6 +9,132 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func newDecodeCoreTestFixture(rate, nb int32, signal, interp int8, loss int32) (*OpusT_silk_decoder_state, *OpusT_silk_decoder_control) {
+	d := newPLCConcealTestDecoder(rate, nb)
+	d.Fprev_gain_Q16 = 65536
+	d.FlossCnt = loss
+	d.FlagPrev = rate * 5
+	d.Findices.FsignalType = signal
+	d.Findices.FquantOffsetType = 1
+	d.Findices.FNLSFInterpCoef_Q2 = interp
+	d.Findices.FSeed = 17
+	for i := range d.FsLPC_Q14_buf {
+		d.FsLPC_Q14_buf[i] = int32(i*97 - 800)
+	}
+	c := &OpusT_silk_decoder_control{FGains_Q16: [4]int32{65536, 72000, 68000, 76000}, FLTP_scale_Q14: 12288}
+	for row := range c.FPredCoef_Q12 {
+		c.FPredCoef_Q12[row] = [16]int16{120, -80, 60, -45, 30, -20, 15, -10, 8, -5, 4, -3, 2, -2, 1, -1}
+	}
+	for k := int32(0); k < nb; k++ {
+		c.FpitchL[k] = rate * 5
+		copy(c.FLTPCoef_Q14[k*5:k*5+5], []int16{300, -150, 1200, -100, 75})
+	}
+	return d, c
+}
+func TestDecodeCoreScratchPointers(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, nb := range []int32{2, 4} {
+			for _, signal := range []int8{0, 1, 2} {
+				for _, interp := range []int8{0, 4} {
+					for _, loss := range []int32{0, 1} {
+						d, c := newDecodeCoreTestFixture(rate, nb, signal, interp, loss)
+						w, wc := *d, *c
+						w.FpsNLSF_CB = nil
+						pulses := make([]int16, d.Fframe_length+2)
+						pulses[0], pulses[len(pulses)-1] = 77, 88
+						for i := int32(0); i < d.Fframe_length; i++ {
+							pulses[i+1] = int16((i*7)%9 - 4)
+						}
+						before := append([]int16(nil), pulses...)
+						frame := make([]int16, d.Fframe_length+2)
+						frame[0], frame[len(frame)-1] = 99, 111
+						want := make([]int16, d.Fframe_length)
+						entropyInitGrowStack(12)
+						runtime.GC()
+						silk_decode_core(nil, d, c, &frame[1], &pulses[1], 0)
+						silk_decode_core(nil, &w, &wc, &want[0], &pulses[1], 0)
+						g := *d
+						g.FpsNLSF_CB = nil
+						if g != w || *c != wc || d.FpsNLSF_CB.FCB1_NLSF_Q8 == nil || frame[0] != 99 || frame[len(frame)-1] != 111 || !equalInt16s(pulses, before) || !equalInt16s(frame[1:len(frame)-1], want) {
+							t.Fatal("complete typed core", rate, nb, signal, interp, loss)
+						}
+					}
+				}
+			}
+		}
+	}
+	d, c := newDecodeCoreTestFixture(16, 4, 2, 0, 0)
+	frame, pulses := make([]int16, d.Fframe_length), make([]int16, d.Fframe_length)
+	tls := libc.NewTLS()
+	defer tls.Close()
+	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+	silk_decode_core(tls, d, c, &frame[0], &pulses[0], 0)
+	if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+		t.Fatal("normal core touched TLS cursor")
+	}
+	d, c = newDecodeCoreTestFixture(8, 2, 1, 4, 0)
+	d.Fframe_length, d.Fsubfr_length = 0, 0
+	c.FGains_Q16 = [4]int32{65536, 65536, 65536, 65536}
+	before := *d
+	silk_decode_core(nil, d, c, nil, nil, 0)
+	if *d != before {
+		t.Fatal("zero-length core state")
+	}
+	// Order validation still occurs per sample, after excitation and gain stores.
+	d, c = newDecodeCoreTestFixture(8, 2, 1, 4, 0)
+	d.FLPC_order = 12
+	c.FGains_Q16[0] = 72000
+	frame, pulses = make([]int16, d.Fframe_length), make([]int16, d.Fframe_length)
+	for i := range frame {
+		frame[i] = 77
+		pulses[i] = 1
+	}
+	wc := *c
+	panicked := false
+	func() {
+		defer func() { panicked = recover() != nil }()
+		silk_decode_core(nil, d, c, &frame[0], &pulses[0], 0)
+	}()
+	if !panicked || d.Fprev_gain_Q16 != 72000 || d.Fexc_Q14[0] == 0 || *c != wc {
+		t.Fatal("LPC failure ordering", panicked, d.Fprev_gain_Q16)
+	}
+	for _, v := range frame {
+		if v != 77 {
+			t.Fatal("LPC failure touched PCM")
+		}
+	}
+}
+func TestDecodeCoreOutputAliasesPointers(t *testing.T) {
+	// Pulses are consumed before PCM. These int16 input/output aliases are valid
+	// C cases. Decoder outBuf alias parity is checked by the native whole oracle.
+	for _, signal := range []int8{1, 2} {
+		d, c := newDecodeCoreTestFixture(16, 4, signal, 0, 0)
+		w, wc := *d, *c
+		pulses := make([]int16, d.Fframe_length)
+		for i := range pulses {
+			pulses[i] = int16((i*7)%9 - 4)
+		}
+		frame := make([]int16, d.Fframe_length)
+		silk_decode_core(nil, &w, &wc, &frame[0], &pulses[0], 0)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		silk_decode_core(nil, d, c, &pulses[0], &pulses[0], 0)
+		if !equalInt16s(frame, pulses) || *d != w || *c != wc {
+			t.Fatal("PCM/pulse alias", signal)
+		}
+	}
+	for _, signal := range []int8{1, 2} {
+		d, c := newDecodeCoreTestFixture(16, 4, signal, 0, 0)
+		pulses := make([]int16, d.Fframe_length)
+		for i := range pulses {
+			pulses[i] = int16((i*7)%9 - 4)
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		silk_decode_core(nil, d, c, &d.FoutBuf[0], &pulses[0], 0)
+	}
+}
+
 func TestDecodeCoreResidualPCMPointers(t *testing.T) {
 	for _, excitation := range []int32{-2147483648, -16000000, -1, 0, 1, 16000000, 2147483647} {
 		for _, prediction := range []int32{-2147483648, -1000000, -1, 0, 1, 1000000, 2147483647} {
@@ -330,9 +456,7 @@ func TestDecodeCoreHistoryPointers(t *testing.T) {
 }
 
 func TestDecodeCoreFieldAccesses(t *testing.T) {
-	tls := libc.NewTLS()
-	defer tls.Close()
-	setupResamplerPseudostack(tls)
+	var tls *libc.TLS
 	var decoder OpusT_silk_decoder_state
 	decoder.Fnb_subfr = MAX_NB_SUBFR
 	if got := Opus_silk_decoder_set_fs(tls, &decoder, 8, 8000); got != OPUS_OK {
@@ -352,7 +476,7 @@ func TestDecodeCoreFieldAccesses(t *testing.T) {
 		pulses[i] = int16((i*7)%9 - 4)
 	}
 	output := make([]int16, decoder.Fframe_length)
-	Opus_silk_decode_core(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&control)), uintptr(unsafe.Pointer(&output[0])), uintptr(unsafe.Pointer(&pulses[0])), 0)
+	silk_decode_core(tls, &decoder, &control, &output[0], &pulses[0], 0)
 	/* expected values verified against the C reference implementation (silk/decode_core.c) */
 	if got, want := output[:8], []int16{4, 3, 1, 1, -3, -4, 2, 0}; !equalInt16s(got, want) {
 		t.Fatalf("output prefix: got %v, want %v", got, want)
@@ -366,9 +490,7 @@ func TestDecodeCoreFieldAccesses(t *testing.T) {
 }
 
 func TestDecodeCoreLocalLPCArray(t *testing.T) {
-	tls := libc.NewTLS()
-	defer tls.Close()
-	setupResamplerPseudostack(tls)
+	var tls *libc.TLS
 	var decoder OpusT_silk_decoder_state
 	decoder.Fnb_subfr = MAX_NB_SUBFR
 	if got := Opus_silk_decoder_set_fs(tls, &decoder, 16, 16000); got != OPUS_OK {
@@ -388,7 +510,7 @@ func TestDecodeCoreLocalLPCArray(t *testing.T) {
 		pulses[i] = int16((i*7)%9 - 4)
 	}
 	output := make([]int16, decoder.Fframe_length)
-	Opus_silk_decode_core(tls, uintptr(unsafe.Pointer(&decoder)), uintptr(unsafe.Pointer(&control)), uintptr(unsafe.Pointer(&output[0])), uintptr(unsafe.Pointer(&pulses[0])), 0)
+	silk_decode_core(tls, &decoder, &control, &output[0], &pulses[0], 0)
 
 	/* expected values from the C reference implementation (silk/decode_core.c) */
 	if got, want := output[:16], []int16{4, 3, 1, 1, -3, -4, 2, 0, 2, -4, -3, -1, -1, -3, -4, -2}; !equalInt16s(got, want) {

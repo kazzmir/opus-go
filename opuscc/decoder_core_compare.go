@@ -7,7 +7,7 @@ import (
 	"unsafe"
 )
 
-// Full core still consumes legacy LPC TLS scratch/cursors.
+// Full core accepts nil TLS and uses typed owners plus Go scratch.
 func CompareDecodeCore(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, output *int16, pulses *int16) {
 	silk_decode_core(tls, decoder, control, output, pulses, 0)
 }

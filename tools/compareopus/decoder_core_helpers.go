@@ -6,9 +6,9 @@ package main
 #define VAR_ARRAYS 1
 #define silk_decode_core comparison_decode_core
 #include "decode_core.c"
-static int decoder_core(unsigned char *d,int ds,unsigned char *c,int cs,short *output,const short *pulses) {
+static int decoder_core(unsigned char *d,int ds,unsigned char *c,int cs,short *output,const short *pulses,int alias) {
  if(ds!=sizeof(silk_decoder_state)||cs!=sizeof(silk_decoder_control))return -98;
- silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_decode_core(&dec,&ctrl,output,pulses,0);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
+ silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);comparison_decode_core(&dec,&ctrl,alias==1?dec.outBuf:alias==2?(short*)pulses:output,pulses,0);memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return 0;
 }
 static int decoder_core_residual(int excitation,int prediction) {return silk_ADD_LSHIFT32(excitation,prediction,1);}
 static void decoder_core_ltp(int *history,const short *samples,int index,int memory,int lag,int gain,int scale) {
@@ -37,10 +37,13 @@ import (
 
 // These byte-image fixtures must leave all embedded pointers nil.
 func nativeDecodeCore(dec *opuscc.OpusT_silk_decoder_state, ctrl *opuscc.OpusT_silk_decoder_control, output, pulses []int16) int32 {
+	return nativeDecodeCoreAlias(dec, ctrl, output, pulses, 0)
+}
+func nativeDecodeCoreAlias(dec *opuscc.OpusT_silk_decoder_state, ctrl *opuscc.OpusT_silk_decoder_control, output, pulses []int16, alias int32) int32 {
 	d, c := make([]byte, int(unsafe.Sizeof(*dec))), make([]byte, int(unsafe.Sizeof(*ctrl)))
 	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)))
 	copy(c, unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)))
-	r := int32(C.decoder_core((*C.uchar)(unsafe.Pointer(&d[0])), C.int(len(d)), (*C.uchar)(unsafe.Pointer(&c[0])), C.int(len(c)), (*C.short)(unsafe.Pointer(unsafe.SliceData(output))), (*C.short)(unsafe.Pointer(unsafe.SliceData(pulses)))))
+	r := int32(C.decoder_core((*C.uchar)(unsafe.Pointer(&d[0])), C.int(len(d)), (*C.uchar)(unsafe.Pointer(&c[0])), C.int(len(c)), (*C.short)(unsafe.Pointer(unsafe.SliceData(output))), (*C.short)(unsafe.Pointer(unsafe.SliceData(pulses))), C.int(alias)))
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r
