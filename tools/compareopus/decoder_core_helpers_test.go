@@ -170,6 +170,21 @@ func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 		}
 	}
 }
+func TestDecodeAPIPacketStartAgainstC(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, flag := range []int32{0, 1, -1, 7} {
+			d := opuscc.OpusT_silk_decoder{}
+			d.Fchannel_state[0].FnFramesDecoded = 2
+			d.Fchannel_state[1].FnFramesDecoded = 3
+			frames := [2]int32{2, 3}
+			opuscc.CompareDecodeAPIPacketStart(&d, &channels, flag)
+			nativeDecodeAPIPacketStart(&frames, channels, flag)
+			if d.Fchannel_state[0].FnFramesDecoded != frames[0] || d.Fchannel_state[1].FnFramesDecoded != frames[1] {
+				t.Fatal("packet start", channels, flag, frames)
+			}
+		}
+	}
+}
 func TestDecodeFrameNormalAgainstC(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
 		for _, nb := range []int32{2, 4} {

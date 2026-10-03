@@ -162,23 +162,38 @@ func Opus_silk_InitDecoder(tls *libc.TLS, decState *OpusT_silk_decoder) int32 {
 //	/* Decode a frame */
 //
 //go:uintptrescapes
-func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostFlag int32, newPacketFlag int32, psRangeDec uintptr, samplesOut uintptr, nSamplesOut uintptr, arch int32) (r int32) {
+func Opus_silk_Decode(tls *libc.TLS, decState, decControl uintptr, lostFlag, newPacketFlag int32, psRangeDec, samplesOut, nSamplesOut uintptr, arch int32) int32 {
+	return silk_Decode(tls, (*OpusT_silk_decoder)(unsafe.Pointer(decState)), decControl, lostFlag, newPacketFlag, psRangeDec, samplesOut, nSamplesOut, arch)
+}
+
+func silkDecodeAPIPacketStart(decoder *OpusT_silk_decoder, channels *int32, newPacket int32) {
+	if newPacket != 0 {
+		for n := int32(0); n < *channels; n++ {
+			decoder.Fchannel_state[n].FnFramesDecoded = 0
+		}
+	}
+}
+
+// Decoder/channel ownership is typed; other ABI arguments and TLS cursors remain legacy.
+func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl uintptr, lostFlag int32, newPacketFlag int32, psRangeDec uintptr, samplesOut uintptr, nSamplesOut uintptr, arch int32) (r int32) {
 	var FrameIndex, condCoding, condCoding1, fs_kHz_dec, has_side, i, n, ret, stereo_to_mono, v51 int32
 	var LBRR_symbol OpusT_opus_int32
-	var _saved_stack, channel_state, psDec, resample_out_ptr, samplesOut1_tmp_storage1, samplesOut2_tmp, st, v1, v11, v13, v15, v17, v26, v28, v3, v30, v32, v7, v9 uintptr
+	var psDec *OpusT_silk_decoder
+	var channel_state *OpusT_silk_decoder_state
+	var _saved_stack, resample_out_ptr, samplesOut1_tmp_storage1, samplesOut2_tmp, st, v1, v11, v13, v15, v17, v26, v28, v3, v30, v32, v7, v9 uintptr
 	var mult_tab [3]int32
 	var samplesOut1_tmp [2]uintptr
 	var decode_only_middle int32
 	var nSamplesOutDec OpusT_opus_int32
 	var MS_pred_Q13 [2]OpusT_opus_int32
 	var pulses [320]OpusT_opus_int16 /* MAX_FRAME_LENGTH */
-	decoder := (*OpusT_silk_decoder)(unsafe.Pointer(decState))
+	decoder := decState
 	control := (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl))
 	decode_only_middle = 0
 	ret = SILK_NO_ERROR
 	MS_pred_Q13 = [2]OpusT_opus_int32{}
-	psDec = uintptr(unsafe.Pointer(decoder))
-	channel_state = uintptr(unsafe.Pointer(&decoder.Fchannel_state[0]))
+	psDec = decoder
+	channel_state = &decoder.Fchannel_state[0]
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -196,16 +211,7 @@ func Opus_silk_Decode(tls *libc.TLS, decState uintptr, decControl uintptr, lostF
 	/**********************************/
 	/* Test if first frame in payload */
 	/**********************************/
-	if newPacketFlag != 0 {
-		n = 0
-		for {
-			if !(n < control.FnChannelsInternal) {
-				break
-			}
-			decoder.Fchannel_state[n].FnFramesDecoded = 0 /* Used to count frames in packet */
-			n = n + 1
-		}
-	}
+	silkDecodeAPIPacketStart(decoder, &control.FnChannelsInternal, newPacketFlag)
 	/* If Mono -> Stereo transition in bitstream: init state of second channel */
 	if control.FnChannelsInternal > decoder.FnChannelsInternal {
 		ret = ret + Opus_silk_init_decoder(tls, &decoder.Fchannel_state[1])

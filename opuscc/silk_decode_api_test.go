@@ -3,11 +3,41 @@ package opuscc
 import (
 	"encoding/hex"
 	"math"
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestDecodeAPIPacketStatePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, flag := range []int32{0, 1, -1, 7} {
+			d := new(OpusT_silk_decoder)
+			d.Fchannel_state[0] = *newPLCConcealTestDecoder(8, 4)
+			d.Fchannel_state[1] = *newPLCConcealTestDecoder(16, 4)
+			d.Fchannel_state[0].FnFramesDecoded = 2
+			d.Fchannel_state[1].FnFramesDecoded = 3
+			want := *d
+			if flag != 0 {
+				for n := int32(0); n < channels; n++ {
+					want.Fchannel_state[n].FnFramesDecoded = 0
+				}
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeAPIPacketStart(d, &channels, flag)
+			if *d != want || d.Fchannel_state[1].FpsNLSF_CB.FCB1_NLSF_Q8 == nil {
+				t.Fatal("packet-start state", channels, flag)
+			}
+		}
+	}
+	var channels int32
+	if channels != 0 {
+		t.Fatal("unreachable")
+	}
+	silkDecodeAPIPacketStart(nil, nil, 0)
+}
 
 func mustHex(t *testing.T, s string) []byte {
 	t.Helper()

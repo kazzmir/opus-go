@@ -8,6 +8,7 @@ package main
 #include "decode_core.c"
 #define silk_decode_frame comparison_decode_frame
 #include "decode_frame.c"
+static void decoder_api_packet(int *frames,int channels,int flag) {if(flag)for(int n=0;n<channels;n++)frames[n]=0;}
 static int decoder_frame(unsigned char *d,int ds,short *output,int *count,int lost,int cond,unsigned *s,unsigned char *buf) {
  if(ds!=sizeof(silk_decoder_state))return -98;
  silk_decoder_state dec,bindings;memcpy(&dec,d,ds);silk_init_decoder(&bindings);bindings.nb_subfr=dec.nb_subfr;silk_decoder_set_fs(&bindings,dec.fs_kHz,dec.fs_kHz*1000);
@@ -92,6 +93,9 @@ func nativeDecodeCoreTransition(dec *opuscc.OpusT_silk_decoder_state, ctrl *opus
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r != 0
+}
+func nativeDecodeAPIPacketStart(frames *[2]int32, channels, flag int32) {
+	C.decoder_api_packet((*C.int)(unsafe.Pointer(frames)), C.int(channels), C.int(flag))
 }
 func nativeDecodeFrame(dec *opuscc.OpusT_silk_decoder_state, ec *opuscc.OpusT_ec_ctx, buf []byte, output []int16, count *int32, lost, cond int32) int32 {
 	// Export numeric images only. Native table pointers are rebound on the C stack
