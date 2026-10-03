@@ -7,6 +7,49 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCNoisePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, seed := range []uint32{0, 1, 0xffffffff, 0xdeadbeef} {
+				bands := []int16{0, 1, 3, 6, 12, 20}
+				N := int32(20) << LM
+				a := make([]float32, N*channels+2)
+				a[0], a[len(a)-1] = 77, 88
+				want := append([]float32(nil), a...)
+				state := &OpusT_OpusCustomDecoder{Frng: seed, Fmode: newSynthesisTestMode()}
+				s := seed
+				for c := int32(0); c < channels; c++ {
+					for i := int32(1); i < 5; i++ {
+						offset := 1 + N*c + int32(bands[i])<<LM
+						length := int32(bands[i+1]-bands[i]) << LM
+						for j := int32(0); j < length; j++ {
+							s = 1664525*s + 1013904223
+							want[offset+j] = float32(int32(s) >> 20)
+						}
+						Opus_renormalise_vector(nil, &want[offset], length, 1, 0)
+					}
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtPLCNoise(nil, state, &bands[0], &a[1], N, 1, 5, LM, channels)
+				if state.Frng != s {
+					t.Fatal("noise RNG", channels, LM, seed)
+				}
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+						t.Fatal("noise spectrum", channels, LM, seed, i)
+					}
+				}
+			}
+		}
+	}
+	state := &OpusT_OpusCustomDecoder{Frng: 123}
+	celtPLCNoise(nil, state, nil, nil, 0, 0, 0, 0, 2)
+	celtPLCNoise(nil, state, nil, nil, 0, 0, 1, 0, 0)
+	if state.Frng != 123 {
+		t.Fatal("unused noise")
+	}
+}
 func TestCeltPLCFinishPointers(t *testing.T) {
 	for _, loss := range []int32{-10, 0, 1, 9999, 10000} {
 		for _, plc := range []int32{-10, 0, 1, 9999, 10000} {

@@ -423,6 +423,28 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtPLCNoise(tls *libc.TLS, state *OpusT_OpusCustomDecoder, eBands *int16, spectrum *float32, N, start, end, LM, channels int32) {
+	seed := state.Frng
+	if channels > 0 && start < end {
+		bands := unsafe.Slice(eBands, end+1)
+		x := unsafe.Slice(spectrum, N*channels)
+		for c := int32(0); c < channels; c++ {
+			for i := start; i < end; i++ {
+				offset := N*c + int32(bands[i])<<LM
+				length := (int32(bands[i+1]) - int32(bands[i])) << LM
+				for j := int32(0); j < length; j++ {
+					seed = Opus_celt_lcg_rand(tls, seed)
+					x[offset+j] = float32(int32(seed) >> 20)
+				}
+				if length > 0 {
+					Opus_renormalise_vector(tls, &x[offset], length, 1, state.Farch)
+				}
+			}
+		}
+	}
+	state.Frng = seed
+}
+
 func celtPLCFinish(state *OpusT_OpusCustomDecoder, loss, LM, frameType int32) {
 	state.Floss_duration = min(int32(10000), loss+int32(1)<<LM)
 	state.Fplc_duration = min(int32(10000), state.Fplc_duration+int32(1)<<LM)
@@ -694,34 +716,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			prefilter_and_fold_legacy(tls, st1, N)
 		}
 		celtPLCDecay((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(backgroundLogE)), nbEBands, start, end, C, loss_duration)
-		seed = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng
-		c = 0
-		for {
-			if !(c < C) {
-				break
-			}
-			i = start
-			for {
-				if !(i < effEnd) {
-					break
-				}
-				boffs = N*c + int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i)*2)))<<LM
-				blen = (int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i)*2)))) << LM
-				j = 0
-				for {
-					if !(j < blen) {
-						break
-					}
-					seed = Opus_celt_lcg_rand(tls, seed)
-					*(*OpusT_celt_norm)(unsafe.Pointer(X + uintptr(boffs+j)*4)) = float32(int32(seed) >> int32(20))
-					j = j + 1
-				}
-				Opus_renormalise_vector(tls, (*OpusT_celt_norm)(unsafe.Pointer(X+uintptr(boffs)*4)), blen, float32(1), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
-				i = i + 1
-			}
-			c = c + 1
-		}
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng = seed
+		celtPLCNoise(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*int16)(unsafe.Pointer(eBands)), (*float32)(unsafe.Pointer(X)), N, start, effEnd, LM, C)
 		celt_synthesis_legacy(tls, mode, X, uintptr(unsafe.Pointer(&out_syn[0])), oldBandE, start, effEnd, C, C, 0, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 		/* Run the postfilter with the last parameters. */
 		c = 0

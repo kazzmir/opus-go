@@ -11,6 +11,30 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCNoiseAgainstC(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, seed := range []uint32{0, 1, 0xffffffff, 0xdeadbeef} {
+				bands := []int16{0, 1, 3, 6, 12, 20}
+				N := int32(20) << LM
+				a := make([]float32, N*channels+2)
+				a[0], a[len(a)-1] = 77, 88
+				b := slices.Clone(a)
+				state := opuscc.OpusT_OpusCustomDecoder{Frng: seed}
+				opuscc.CompareCeltPLCNoise(&state, &bands[0], &a[1], N, 1, 5, LM, channels)
+				s := nativeCeltPLCNoise(seed, &bands[0], &b[1], N, 1, 5, LM, channels)
+				if state.Frng != s {
+					t.Fatal("noise seed", channels, LM, seed)
+				}
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("noise spectrum", channels, LM, seed, i, a[i], b[i])
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltPLCFinishAgainstC(t *testing.T) {
 	for _, loss := range []int32{-10, 0, 1, 9999, 10000} {
 		for _, plc := range []int32{-10, 0, 1, 9999, 10000} {

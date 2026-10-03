@@ -6,6 +6,9 @@ import "unsafe"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltPLCNoise(state *OpusT_OpusCustomDecoder, bands *int16, spectrum *float32, N, start, end, LM, channels int32) {
+	celtPLCNoise(nil, state, bands, spectrum, N, start, end, LM, channels)
+}
 func CompareCeltPLCFinish(state *OpusT_OpusCustomDecoder, loss, LM, frameType int32) {
 	celtPLCFinish(state, loss, LM, frameType)
 }
