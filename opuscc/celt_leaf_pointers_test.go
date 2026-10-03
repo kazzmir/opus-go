@@ -4,8 +4,35 @@ import (
 	"math"
 	"runtime"
 	"testing"
+	"unsafe"
 )
 
+func TestCeltPLCLagWindowPointers(t *testing.T) {
+	for trial := 0; trial < 80; trial++ {
+		storage := new([27]float32)
+		storage[0], storage[26] = 77, 88
+		for i := 1; i < 26; i++ {
+			storage[i] = float32((i*7919+trial*997)%65536-32768) / 37
+		}
+		ac := (*[25]float32)(unsafe.Pointer(&storage[1]))
+		want := *ac
+		want[0] *= 1.0001
+		for i := int32(1); i <= 24; i++ {
+			want[i] -= float32(float32(float32(want[i]*float32(float32(.008)*float32(.008)))*float32(i)) * float32(i))
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		celtPLCLagWindow(ac)
+		for i := range ac {
+			if math.Float32bits(ac[i]) != math.Float32bits(want[i]) {
+				t.Fatal("rounded lag window", trial, i)
+			}
+		}
+		if storage[0] != 77 || storage[26] != 88 {
+			t.Fatal("lag window guards")
+		}
+	}
+}
 func TestCeltPLCDecayPointers(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		for _, loss := range []int32{0, 1, 99} {

@@ -13,11 +13,13 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static void compare_plc_lag(float *ac) {ac[0]*=1.0001f;for(int i=1;i<=24;i++)ac[i]-=ac[i]*(.008f*.008f)*i*i;}
 static void compare_plc_decay(float *a,const float *b,int bands,int start,int end,int C,int loss) {float decay=loss==0?1.5f:.5f;int c=0;do {for(int i=start;i<end;i++)a[c*bands+i]=MAXG(b[c*bands+i],a[c*bands+i]-decay);}while(++c<C);}
 */
 import "C"
 import "unsafe"
 
+func nativeCeltPLCLagWindow(ac *[25]float32) { C.compare_plc_lag((*C.float)(unsafe.Pointer(ac))) }
 func nativeCeltPLCDecay(a, b *float32, bands, start, end, channels, loss int32) {
 	C.compare_plc_decay((*C.float)(unsafe.Pointer(a)), (*C.float)(unsafe.Pointer(b)), C.int(bands), C.int(start), C.int(end), C.int(channels), C.int(loss))
 }

@@ -11,6 +11,23 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCLagWindowAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(2451))
+	for trial := 0; trial < 1000; trial++ {
+		var a [25]float32
+		for i := range a {
+			a[i] = float32(rng.NormFloat64() * 1e10)
+		}
+		b := a
+		opuscc.CompareCeltPLCLagWindow(&a)
+		nativeCeltPLCLagWindow(&b)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("lag window", trial, i, a[i], b[i])
+			}
+		}
+	}
+}
 func TestCeltPLCDecayAgainstC(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		for _, loss := range []int32{0, 1, 99} {

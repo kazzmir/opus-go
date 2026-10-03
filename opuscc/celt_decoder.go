@@ -422,6 +422,14 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtPLCLagWindow(ac *[CELT_LPC_ORDER + 1]float32) {
+	ac[0] *= float32(1.0001)
+	for i := int32(1); i <= CELT_LPC_ORDER; i++ {
+		term := float32(float32(float32(ac[i]*float32(float32(.008)*float32(.008)))*float32(i)) * float32(i))
+		ac[i] -= term
+	}
+}
+
 // celtPLCDecay retains MAXG's ordered live loads (including NaN selection)
 // and the C do/while channel count. The caller still owns legacy storage.
 func celtPLCDecay(energy, background *float32, bands, start, end, channels, loss int32) {
@@ -828,18 +836,8 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 				/* Compute LPC coefficients for the last MAX_PERIOD samples before
 				   the first loss so we can work in the excitation-filter domain. */
 				Opus__celt_autocorr(tls, (*float32)(unsafe.Pointer(exc)), &ac[0], (*float32)(unsafe.Pointer(window)), overlap, int32(CELT_LPC_ORDER), max_period, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
-				/* Add a noise floor of -40 dB. */
-				ac[0] *= float32(1.0001)
-				/* Use lag windowing to stabilize the Levinson-Durbin recursion. */
-				i = int32(1)
-				for {
-					if !(i <= int32(CELT_LPC_ORDER)) {
-						break
-					}
-					/*ac[i] *= exp(-.5*(2*M_PI*.002*i)*(2*M_PI*.002*i));*/
-					ac[i] -= OpusT_opus_val32(OpusT_opus_val32(OpusT_opus_val32(ac[i]*float32(float32(0.008)*float32(0.008)))*float32(i)) * float32(i))
-					i = i + 1
-				}
+				// Noise floor followed by rounded lag-window products.
+				celtPLCLagWindow(&ac)
 				Opus__celt_lpc(tls, (*OpusT_opus_val16)(unsafe.Pointer(lpc+uintptr(c*int32(CELT_LPC_ORDER))*4)), &ac[0], int32(CELT_LPC_ORDER))
 			}
 			/* Initialize the LPC history with the samples just before the start
