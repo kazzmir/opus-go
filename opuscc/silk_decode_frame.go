@@ -14,7 +14,12 @@ var _ unsafe.Pointer
 
 //go:uintptrescapes
 func Opus_silk_decode_frame(tls *libc.TLS, psDec, psRangeDec, pOut, pN uintptr, lostFlag, condCoding, arch int32) int32 {
-	return silk_decode_frame(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), psRangeDec, pOut, pN, lostFlag, condCoding, arch)
+	return silk_decode_frame(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*int16)(unsafe.Pointer(pOut)), (*int32)(unsafe.Pointer(pN)), lostFlag, condCoding, arch)
+}
+
+func silkDecodeFrameFinish(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, count *int32, length int32) {
+	decoder.FlagPrev = control.FpitchL[decoder.Fnb_subfr-1]
+	*count = length
 }
 
 func silkDecodeFrameHistory(decoder *OpusT_silk_decoder_state, frame *int16) {
@@ -23,7 +28,7 @@ func silkDecodeFrameHistory(decoder *OpusT_silk_decoder_state, frame *int16) {
 	copy(decoder.FoutBuf[move:move+decoder.Fframe_length], unsafe.Slice(frame, decoder.Fframe_length))
 }
 
-func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDec uintptr, pOut uintptr, pN uintptr, lostFlag int32, condCoding int32, arch int32) (r int32) {
+func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDec *OpusT_ec_dec, pOut *int16, pN *int32, lostFlag int32, condCoding int32, arch int32) (r int32) {
 	var L, mv_len, ret int32
 	var _saved_stack, psDecCtrl, pulses, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	decoder := psDec
@@ -233,10 +238,8 @@ func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDe
 	/* Ensure smooth connection of extrapolated and good frames     */
 	/****************************************************************/
 	Opus_silk_PLC_glue_frames(tls, decoder, (*int16)(unsafe.Pointer(pOut)), L)
-	/* Update some decoder state variables */
-	decoder.FlagPrev = control.FpitchL[decoder.Fnb_subfr-int32(1)]
-	/* Set output frame length */
-	*(*OpusT_opus_int32)(unsafe.Pointer(pN)) = L
+	// Lag update precedes the final live count store.
+	silkDecodeFrameFinish(decoder, control, pN, L)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))

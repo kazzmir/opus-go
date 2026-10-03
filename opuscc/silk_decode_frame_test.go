@@ -3,10 +3,35 @@ package opuscc
 import (
 	"runtime"
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestDecodeFrameFinishPointers(t *testing.T) {
+	for _, nb := range []int32{2, 4} {
+		for _, alias := range []int32{0, 1, 2} {
+			d := &OpusT_silk_decoder_state{Fnb_subfr: nb, FlagPrev: 17}
+			c := &OpusT_silk_decoder_control{FpitchL: [4]int32{41, 42, 43, 44}}
+			count := int32(-77)
+			p := &count
+			if alias == 1 {
+				p = &d.FlagPrev
+			} else if alias == 2 {
+				p = &c.FpitchL[nb-1]
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeFrameFinish(d, c, p, 160)
+			lag := int32(40 + nb)
+			if alias == 1 {
+				lag = 160
+			}
+			if *p != 160 || d.FlagPrev != lag || alias == 2 && c.FpitchL[nb-1] != 160 {
+				t.Fatal("lag/count ordering", nb, alias, d.FlagPrev, *p)
+			}
+		}
+	}
+}
 
 func TestDecodeFrameHistoryPointers(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
@@ -67,15 +92,11 @@ func TestDecodeFrameFieldAccesses(t *testing.T) {
 		decoder.FoutBuf[i] = int16((i*37)%1000 - 500)
 	}
 	output := make([]int16, decoder.Fframe_length)
-	// samples must not live on the goroutine stack: its address is passed as a
-	// uintptr, so a stack move during the decode would leave the write behind
-	// in the old stack.
-	samples := libc.Xmalloc(tls, 4)
-	defer libc.Xfree(tls, samples)
-	if got := Opus_silk_decode_frame(tls, uintptr(unsafe.Pointer(&decoder)), 0, uintptr(unsafe.Pointer(&output[0])), samples, 1, CODE_INDEPENDENTLY, 0); got != OPUS_OK {
+	var samples int32
+	if got := silk_decode_frame(tls, &decoder, nil, &output[0], &samples, 1, CODE_INDEPENDENTLY, 0); got != OPUS_OK {
 		t.Fatalf("decode result: got %d", got)
 	}
-	if got, want := *(*int32)(unsafe.Pointer(samples)), int32(160); got != want {
+	if got, want := samples, int32(160); got != want {
 		t.Fatalf("sample count: got %d, want %d", got, want)
 	}
 	if got, want := output[:8], []int16{20, 32, -38, -29, -31, -28, -25, -22}; !equalInt16s(got, want) {

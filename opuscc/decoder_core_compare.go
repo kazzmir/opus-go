@@ -36,6 +36,9 @@ func CompareDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int1
 func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
 	return silkDecodeCoreTransition(decoder, control, k)
 }
+func CompareDecodeFrameFinish(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, count *int32, length int32) {
+	silkDecodeFrameFinish(decoder, control, count, length)
+}
 func CompareDecodeFrameHistory(decoder *OpusT_silk_decoder_state, frame []int16) {
 	silkDecodeFrameHistory(decoder, unsafe.SliceData(frame))
 }

@@ -25,6 +25,7 @@ static int decoder_core_transition(unsigned char *d,unsigned char *c,int k) {
  silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,sizeof(dec));memcpy(&ctrl,c,sizeof(ctrl));int active=dec.lossCnt && dec.prevSignalType==TYPE_VOICED && dec.indices.signalType!=TYPE_VOICED && k<MAX_NB_SUBFR/2;
  if(active){opus_int16 *b=&ctrl.LTPCoef_Q14[k*LTP_ORDER];silk_memset(b,0,LTP_ORDER*sizeof(short));b[LTP_ORDER/2]=SILK_FIX_CONST(0.25,14);ctrl.pitchL[k]=dec.lagPrev;}memcpy(d,&dec,sizeof(dec));memcpy(c,&ctrl,sizeof(ctrl));return active;
 }
+static void decoder_frame_finish(unsigned char *d,unsigned char *c,int *count,int length,int alias) {silk_decoder_state dec;silk_decoder_control ctrl;memcpy(&dec,d,sizeof(dec));memcpy(&ctrl,c,sizeof(ctrl));int *output=alias==1?&dec.lagPrev:alias==2?&ctrl.pitchL[dec.nb_subfr-1]:count;dec.lagPrev=ctrl.pitchL[dec.nb_subfr-1];*output=length;*count=*output;memcpy(d,&dec,sizeof(dec));memcpy(c,&ctrl,sizeof(ctrl));}
 static void decoder_frame_history(unsigned char *d,const short *frame) {
  silk_decoder_state dec;memcpy(&dec,d,sizeof(dec));int move=dec.ltp_mem_length-dec.frame_length;silk_memmove(dec.outBuf,&dec.outBuf[dec.frame_length],move*sizeof(short));silk_memcpy(&dec.outBuf[move],frame,dec.frame_length*sizeof(short));memcpy(d,&dec,sizeof(dec));
 }
@@ -80,6 +81,14 @@ func nativeDecodeCoreTransition(dec *opuscc.OpusT_silk_decoder_state, ctrl *opus
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r != 0
+}
+func nativeDecodeFrameFinish(dec *opuscc.OpusT_silk_decoder_state, ctrl *opuscc.OpusT_silk_decoder_control, count *int32, length, alias int32) {
+	d, c := make([]byte, int(unsafe.Sizeof(*dec))), make([]byte, int(unsafe.Sizeof(*ctrl)))
+	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)))
+	copy(c, unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)))
+	C.decoder_frame_finish((*C.uchar)(unsafe.Pointer(&d[0])), (*C.uchar)(unsafe.Pointer(&c[0])), (*C.int)(unsafe.Pointer(count)), C.int(length), C.int(alias))
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 }
 func nativeDecodeFrameHistory(dec *opuscc.OpusT_silk_decoder_state, frame []int16) {
 	d := make([]byte, int(unsafe.Sizeof(*dec)))
