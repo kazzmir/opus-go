@@ -11,6 +11,26 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeEnergyLogsAgainstC(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, transient := range []int32{-1, 0, 1, 7} {
+			e, l, p := make([]float32, 2*bands+2), make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+			for i := range e {
+				e[i] = float32(i%7 - 3)
+				l[i] = float32(i%9 - 4)
+				p[i] = float32(i%11 - 5)
+			}
+			cl, cp := slices.Clone(l), slices.Clone(p)
+			opuscc.CompareCeltDecodeEnergyLogs(&e[1], &l[1], &p[1], bands, transient)
+			nativeCeltDecodeEnergyLogs(&e[1], &cl[1], &cp[1], bands, transient)
+			for i := range l {
+				if math.Float32bits(l[i]) != math.Float32bits(cl[i]) || math.Float32bits(p[i]) != math.Float32bits(cp[i]) {
+					t.Fatal("energy logs", bands, transient, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeEnergyMonoAgainstC(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		a := make([]float32, 2*bands+2)

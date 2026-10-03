@@ -55,6 +55,55 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeEnergyLogsPointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, transient := range []int32{-1, 0, 1, 7} {
+			e, l, p := make([]float32, 2*bands+2), make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+			for i := range e {
+				e[i] = float32(i%7 - 3)
+				l[i] = float32(i%9 - 4)
+				p[i] = float32(i%11 - 5)
+			}
+			wl, wp := append([]float32(nil), l...), append([]float32(nil), p...)
+			if transient == 0 {
+				copy(wp[1:1+2*bands], wl[1:1+2*bands])
+				copy(wl[1:1+2*bands], e[1:1+2*bands])
+			} else {
+				for i := int32(1); i <= 2*bands; i++ {
+					if !(wl[i] < e[i]) {
+						wl[i] = e[i]
+					}
+				}
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodeEnergyLogs(&e[1], &l[1], &p[1], bands, transient)
+			for i := range l {
+				if math.Float32bits(l[i]) != math.Float32bits(wl[i]) || math.Float32bits(p[i]) != math.Float32bits(wp[i]) {
+					t.Fatal("energy log order", bands, transient, i)
+				}
+			}
+		}
+	}
+	celtDecodeEnergyLogs(nil, nil, nil, 0, 0)
+	e := []float32{3, math.Float32frombits(0x80000000)}
+	l := []float32{float32(math.NaN()), 0}
+	celtDecodeEnergyLogs(&e[0], &l[0], nil, 1, 1)
+	if l[0] != 3 || math.Float32bits(l[1]) != 0x80000000 {
+		t.Fatal("MING tie/NaN selection")
+	}
+	// Go-only overlapping memcpy images: first previous<-log, then log<-energy.
+	a := []float32{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	want := append([]float32(nil), a...)
+	copy(want[3:7], want[1:5])
+	copy(want[1:5], want[:4])
+	celtDecodeEnergyLogs(&a[0], &a[1], &a[3], 2, 0)
+	for i := range a {
+		if a[i] != want[i] {
+			t.Fatal("log copy alias order")
+		}
+	}
+}
 func TestCeltDecodeEnergyMonoPointers(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		a := make([]float32, 2*bands+2)

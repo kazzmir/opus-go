@@ -423,6 +423,26 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeEnergyLogs(energy, log, previous *float32, bands, transient int32) {
+	if bands <= 0 {
+		return
+	}
+	e, l := unsafe.Slice(energy, 2*bands), unsafe.Slice(log, 2*bands)
+	if transient == 0 {
+		p := unsafe.Slice(previous, 2*bands)
+		copy(p, l)
+		copy(l, e)
+	} else {
+		for i := range l {
+			if l[i] < e[i] {
+				l[i] = l[i]
+			} else {
+				l[i] = e[i]
+			}
+		}
+	}
+}
+
 func celtDecodeEnergyMono(energy *float32, bands int32) {
 	if bands <= 0 {
 		return
@@ -1768,24 +1788,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	if C == 1 {
 		celtDecodeEnergyMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
 	}
-	if !(isTransient != 0) {
-		libc.Xmemcpy(tls, oldLogE2, oldLogE, uint64(uint32(int32(2)*nbEBands))*uint64(4)+uint64(0*((int64(oldLogE2)-int64(oldLogE))/4)))
-		libc.Xmemcpy(tls, oldLogE, oldBandE, uint64(uint32(int32(2)*nbEBands))*uint64(4)+uint64(0*((int64(oldLogE)-int64(oldBandE))/4)))
-	} else {
-		i = 0
-		for {
-			if !(i < int32(2)*nbEBands) {
-				break
-			}
-			if *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(i)*4)) < *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(i)*4)) {
-				v35 = *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(i)*4))
-			} else {
-				v35 = *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(i)*4))
-			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(i)*4)) = v35
-			i = i + 1
-		}
-	}
+	celtDecodeEnergyLogs((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, isTransient)
 	/* In normal circumstances, we only allow the noise floor to increase by
 	   up to 2.4 dB/second, but when we're in DTX we give the weight of
 	   all missing packets to the update packet. */
