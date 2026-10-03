@@ -569,7 +569,17 @@ func celtPLCDecay(energy, background *float32, bands, start, end, channels, loss
 	}
 }
 
-func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
+func celtPLCDispatch(state *OpusT_OpusCustomDecoder) (loss, start, frameType int32) {
+	loss, start = state.Floss_duration, state.Fstart
+	frameType = FRAME_PLC_PERIODIC
+	if state.Fplc_duration >= 40 || start != 0 || state.Fskip_plc != 0 {
+		frameType = FRAME_PLC_NOISE
+	}
+	return
+}
+
+func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM int32) {
+	base := uintptr(unsafe.Pointer(st1)) // Remaining legacy trailing-storage boundary.
 	// All concealment scratch is Go-owned. Decoder/mode/history uintptr views
 	// remain legacy; this is not yet a whole-path checkptr boundary.
 	var C, c, curr_frame_type, curr_neural, decode_buffer_size, effEnd, end, exc_length, extrapolation_len, last_neural, loss_duration, max_period, nbEBands, overlap, pitch_index, start, v5, v7, v8 int32
@@ -589,7 +599,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 	eBands = uintptr(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeBands))
 	c = 0
 	for {
-		decode_mem[c] = st1 + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr(c*(decode_buffer_size+overlap))*4
+		decode_mem[c] = base + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr(c*(decode_buffer_size+overlap))*4
 		out_syn[c] = decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4
 		c = c + 1
 		v5 = c
@@ -597,17 +607,12 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			break
 		}
 	}
-	oldBandE = st1 + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr((decode_buffer_size+overlap)*C)*4
+	oldBandE = base + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr((decode_buffer_size+overlap)*C)*4
 	oldLogE = oldBandE + uintptr(int32(2)*nbEBands)*4
 	oldLogE2 = oldLogE + uintptr(int32(2)*nbEBands)*4
 	backgroundLogE = oldLogE2 + uintptr(int32(2)*nbEBands)*4
 	lpc = backgroundLogE + uintptr(int32(2)*nbEBands)*4
-	loss_duration = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration
-	start = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fstart
-	curr_frame_type = int32(FRAME_PLC_PERIODIC)
-	if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fplc_duration >= int32(40) || start != 0 || (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fskip_plc != 0 {
-		curr_frame_type = int32(FRAME_PLC_NOISE)
-	}
+	loss_duration, start, curr_frame_type = celtPLCDispatch(st1)
 	if curr_frame_type == int32(FRAME_PLC_NOISE) {
 		end = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fend
 		if end < (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands {
@@ -637,7 +642,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			}
 		}
 		if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold != 0 {
-			prefilter_and_fold_legacy(tls, st1, N)
+			prefilter_and_fold(tls, st1, N)
 		}
 		celtPLCDecay((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(backgroundLogE)), nbEBands, start, end, C, loss_duration)
 		celtPLCNoise(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*int16)(unsafe.Pointer(eBands)), unsafe.SliceData(X), N, start, effEnd, LM, C)
@@ -881,7 +886,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		effEnd = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands
 	}
 	if data == uintptr(uint32(0)) || len1 <= int32(1) {
-		celt_decode_lost(tls, st1, N, LM)
+		celt_decode_lost(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), N, LM)
 		deemphasis_legacy(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Fpreemph_memD), accum)
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {

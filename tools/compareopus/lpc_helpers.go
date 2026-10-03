@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static int compare_plc_dispatch(int duration,int start,int skip) {return duration>=40||start!=0||skip!=0;}
 static void compare_plc_finish(int *state,int loss,int LM,int frameType) {state[0]=IMIN(10000,loss+(1<<LM));state[1]=IMIN(10000,state[1]+(1<<LM));state[2]=frameType;}
 static void compare_plc_lpc_history(float *memory,const float *h,int size,int N) {for(int i=0;i<CELT_LPC_ORDER;i++)memory[i]=h[size-N-1-i];}
 static float compare_plc_extrapolate(float *h,const float *exc,int size,int period,int N,int overlap,int pitch,float fade,float decay) {float energy=0,attenuation=fade*decay;int offset=period-pitch;for(int i=0,j=0;i<N+overlap;i++,j++){if(j>=pitch){j-=pitch;attenuation*=decay;}h[size-N+i]=attenuation*exc[offset+j];float sample=h[size-period-N+offset+j];energy+=sample*sample;}return energy;}
@@ -26,6 +27,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltPLCDispatch(duration, start, skip int32) bool {
+	return C.compare_plc_dispatch(C.int(duration), C.int(start), C.int(skip)) != 0
+}
 func nativeCeltPLCFinish(state *opuscc.OpusT_OpusCustomDecoder, loss, LM, frameType int32) {
 	v := [3]C.int{C.int(state.Floss_duration), C.int(state.Fplc_duration), C.int(state.Flast_frame_type)}
 	C.compare_plc_finish(&v[0], C.int(loss), C.int(LM), C.int(frameType))

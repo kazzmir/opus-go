@@ -11,6 +11,19 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCDispatchAgainstC(t *testing.T) {
+	for _, duration := range []int32{-1, 0, 39, 40, 10000} {
+		for _, start := range []int32{0, 1, 20} {
+			for _, skip := range []int32{-1, 0, 1} {
+				state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: 123, Fplc_duration: duration, Fstart: start, Fskip_plc: skip}
+				loss, s, kind := opuscc.CompareCeltPLCDispatch(&state)
+				if loss != 123 || s != start || (kind == opuscc.FRAME_PLC_NOISE) != nativeCeltPLCDispatch(duration, start, skip) {
+					t.Fatal("dispatch", duration, start, skip)
+				}
+			}
+		}
+	}
+}
 func TestCeltPLCFIRStorageAgainstC(t *testing.T) {
 	for _, length := range []int32{80, 200, 1024} {
 		input := make([]float32, length+24)

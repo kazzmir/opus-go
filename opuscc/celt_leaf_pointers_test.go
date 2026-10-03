@@ -8,6 +8,26 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCDispatchPointers(t *testing.T) {
+	for _, duration := range []int32{-1, 0, 39, 40, 10000} {
+		for _, start := range []int32{0, 1, 20} {
+			for _, skip := range []int32{-1, 0, 1} {
+				state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Floss_duration: 123, Fplc_duration: duration, Fstart: start, Fskip_plc: skip}
+				before := *state
+				entropyInitGrowStack(12)
+				runtime.GC()
+				loss, s, kind := celtPLCDispatch(state)
+				want := int32(FRAME_PLC_PERIODIC)
+				if duration >= 40 || start != 0 || skip != 0 {
+					want = FRAME_PLC_NOISE
+				}
+				if loss != 123 || s != start || kind != want || *state != before {
+					t.Fatal("typed dispatch", duration, start, skip)
+				}
+			}
+		}
+	}
+}
 func TestCeltPLCLostScratch(t *testing.T) {
 	// Ordinary (not checkptr) integration: dispatcher state/history integer
 	// views are still legacy, while its complete active paths need no TLS scratch.
@@ -30,7 +50,7 @@ func TestCeltPLCLostScratch(t *testing.T) {
 				}
 				entropyInitGrowStack(12)
 				runtime.GC()
-				celt_decode_lost(nil, uintptr(unsafe.Pointer(state)), mode.FshortMdctSize<<LM, LM)
+				celt_decode_lost(nil, state, mode.FshortMdctSize<<LM, LM)
 				if state.Floss_duration != 1<<LM || state.Fplc_duration != 1<<LM {
 					t.Fatal("concealment durations", channels, LM, noise)
 				}
@@ -44,7 +64,7 @@ func TestCeltPLCLostScratch(t *testing.T) {
 				}
 				tls := libc.NewTLS()
 				libc.Xpthread_setspecific(tls, 0x6f707573, 123)
-				celt_decode_lost(tls, uintptr(unsafe.Pointer(state)), mode.FshortMdctSize<<LM, LM)
+				celt_decode_lost(tls, state, mode.FshortMdctSize<<LM, LM)
 				if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
 					t.Fatal("concealment touched TLS")
 				}

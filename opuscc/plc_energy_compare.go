@@ -3,9 +3,16 @@
 package opuscc
 
 import "unsafe"
+import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltPLCLost(tls *libc.TLS, state *OpusT_OpusCustomDecoder, N, LM int32) {
+	celt_decode_lost(tls, state, N, LM)
+}
+func CompareCeltPLCDispatch(state *OpusT_OpusCustomDecoder) (int32, int32, int32) {
+	return celtPLCDispatch(state)
+}
 func CompareCeltPLCNoise(state *OpusT_OpusCustomDecoder, bands *int16, spectrum *float32, N, start, end, LM, channels int32) {
 	celtPLCNoise(nil, state, bands, spectrum, N, start, end, LM, channels)
 }
