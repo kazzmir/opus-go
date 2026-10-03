@@ -166,6 +166,10 @@ func Opus_silk_Decode(tls *libc.TLS, decState, decControl uintptr, lostFlag, new
 	return silk_Decode(tls, (*OpusT_silk_decoder)(unsafe.Pointer(decState)), (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)), lostFlag, newPacketFlag, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*float32)(unsafe.Pointer(samplesOut)), (*int32)(unsafe.Pointer(nSamplesOut)), arch)
 }
 
+func silkDecodeAPIResample(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, output, channel []int16, count int32) int32 {
+	return Opus_silk_resampler(tls, state, unsafe.SliceData(output), unsafe.SliceData(channel[1:]), count)
+}
+
 func silkDecodeAPIChannelStorage(channels, length int32) []int16 {
 	return make([]int16, channels*(length+2))
 }
@@ -239,7 +243,8 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 	var psDec *OpusT_silk_decoder
 	var channel_state *OpusT_silk_decoder_state
 	var samplesOut1_tmp_storage1 []int16
-	var _saved_stack, resample_out_ptr, samplesOut2_tmp, st, v1, v11, v13, v15, v17, v26, v28, v3, v30, v32, v7, v9 uintptr
+	var samplesOut2_tmp, resample_out_ptr []int16
+	var _saved_stack, st, v1, v11, v13, v15, v17, v26, v28, v3, v30, v32, v7, v9 uintptr
 	var mult_tab [3]int32
 	var samplesOut1_tmp [2][]int16
 	var decode_only_middle int32
@@ -574,7 +579,8 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v32 = st
-	samplesOut2_tmp = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v32)).Fglobal_stack - uintptr(uint64(uint32(*nSamplesOut))*(uint64(2)/uint64(1)))
+	// Explicit legacy allocation boundary; active resampling uses typed views.
+	samplesOut2_tmp = unsafe.Slice((*int16)(unsafe.Pointer((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v32)).Fglobal_stack-uintptr(uint64(uint32(*nSamplesOut))*2))), *nSamplesOut)
 	resample_out_ptr = samplesOut2_tmp
 	n = 0
 	for {
@@ -587,12 +593,12 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 			break
 		}
 		/* Resample decoded signal to API_sampleRate */
-		ret = ret + Opus_silk_resampler(tls, &decoder.Fchannel_state[n].Fresampler_state, (*int16)(unsafe.Pointer(resample_out_ptr)), &samplesOut1_tmp[n][1], nSamplesOutDec)
+		ret = ret + silkDecodeAPIResample(tls, &decoder.Fchannel_state[n].Fresampler_state, resample_out_ptr, samplesOut1_tmp[n], nSamplesOutDec)
 		/* Interleave if stereo output and stereo stream */
 		if control.FnChannelsAPI == 2 {
-			silkDecodeAPIOutput(samplesOut, (*int16)(unsafe.Pointer(resample_out_ptr)), nSamplesOut, n, 2)
+			silkDecodeAPIOutput(samplesOut, unsafe.SliceData(resample_out_ptr), nSamplesOut, n, 2)
 		} else {
-			silkDecodeAPIOutput(samplesOut, (*int16)(unsafe.Pointer(resample_out_ptr)), nSamplesOut, 0, 1)
+			silkDecodeAPIOutput(samplesOut, unsafe.SliceData(resample_out_ptr), nSamplesOut, 0, 1)
 		}
 		n = n + 1
 	}
@@ -601,8 +607,8 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 		if stereo_to_mono != 0 {
 			/* Resample right channel for newly collapsed stereo just in case
 			   we weren't doing collapsing when switching to mono */
-			ret = ret + Opus_silk_resampler(tls, &decoder.Fchannel_state[1].Fresampler_state, (*int16)(unsafe.Pointer(resample_out_ptr)), &samplesOut1_tmp[0][1], nSamplesOutDec)
-			silkDecodeAPIOutput(samplesOut, (*int16)(unsafe.Pointer(resample_out_ptr)), nSamplesOut, 1, 2)
+			ret = ret + silkDecodeAPIResample(tls, &decoder.Fchannel_state[1].Fresampler_state, resample_out_ptr, samplesOut1_tmp[0], nSamplesOutDec)
+			silkDecodeAPIOutput(samplesOut, unsafe.SliceData(resample_out_ptr), nSamplesOut, 1, 2)
 		} else {
 			silkDecodeAPIDuplicate(samplesOut, nSamplesOut)
 		}

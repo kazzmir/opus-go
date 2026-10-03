@@ -220,6 +220,31 @@ func TestDecodeAPIWholeAgainstC(t *testing.T) {
 		}
 	}
 }
+func TestDecodeAPIResampleViewsAgainstC(t *testing.T) {
+	for _, fs := range []int32{8000, 12000, 16000} {
+		for _, api := range []int32{8000, 12000, 16000, 24000, 48000} {
+			for _, ms := range []int32{10, 20} {
+				var state opuscc.OpusT_silk_resampler_state_struct
+				opuscc.Opus_silk_resampler_init(nil, &state, fs, api, 0)
+				c := state
+				count := fs * ms / 1000
+				channel := make([]int16, count+2)
+				for i := range channel {
+					channel[i] = int16(i*997 - 32768)
+				}
+				before := slices.Clone(channel)
+				out := make([]int16, api*ms/1000+2)
+				out[0], out[len(out)-1] = 77, 88
+				want := slices.Clone(out)
+				g := opuscc.CompareDecodeAPIResample(&state, out[1:len(out)-1], channel, count)
+				n := nativeResamplerDriver(&c, want[1:len(want)-1], channel[1:1+count])
+				if g != n || state != c || !slices.Equal(out, want) || !slices.Equal(channel, before) {
+					t.Fatal("resampler views", fs, api, ms, g, n)
+				}
+			}
+		}
+	}
+}
 func TestDecodeAPIChannelHistoryAgainstC(t *testing.T) {
 	for _, length := range []int32{80, 120, 160, 240, 320} {
 		for _, channels := range []int32{1, 2} {

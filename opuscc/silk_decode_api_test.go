@@ -10,6 +10,36 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeAPIResampleViewsPointers(t *testing.T) {
+	for _, fs := range []int32{8000, 12000, 16000} {
+		for _, api := range []int32{8000, 12000, 16000, 24000, 48000} {
+			for _, ms := range []int32{10, 20} {
+				var state OpusT_silk_resampler_state_struct
+				if Opus_silk_resampler_init(nil, &state, fs, api, 0) != 0 {
+					t.Fatal("resampler init")
+				}
+				expected := state
+				count := fs * ms / 1000
+				channel := make([]int16, count+2)
+				for i := range channel {
+					channel[i] = int16(i*997 - 32768)
+				}
+				before := append([]int16(nil), channel...)
+				out := make([]int16, api*ms/1000+2)
+				out[0], out[len(out)-1] = 77, 88
+				want := append([]int16(nil), out...)
+				Opus_silk_resampler(nil, &expected, &want[1], &channel[1], count)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				ret := silkDecodeAPIResample(nil, &state, out[1:len(out)-1], channel, count)
+				if ret != 0 || state != expected || !equalInt16s(out, want) || !equalInt16s(channel, before) {
+					t.Fatal("resampling typed views", fs, api, ms)
+				}
+			}
+		}
+	}
+}
+
 func TestDecodeAPIChannelStoragePointers(t *testing.T) {
 	for _, length := range []int32{80, 120, 160, 240, 320} {
 		for _, channels := range []int32{1, 2} {

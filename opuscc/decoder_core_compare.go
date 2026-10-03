@@ -41,6 +41,9 @@ func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *Opu
 func CompareDecodeAPI(tls *libc.TLS, decoder *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct, lost, newPacket int32, ec *OpusT_ec_ctx, out *float32, count *int32) int32 {
 	return silk_Decode(tls, decoder, control, lost, newPacket, ec, out, count, 0)
 }
+func CompareDecodeAPIResample(state *OpusT_silk_resampler_state_struct, output, channel []int16, count int32) int32 {
+	return silkDecodeAPIResample(nil, state, output, channel, count)
+}
 func CompareDecodeAPIChannelViews(storage []int16, length, channels int32) [2][]int16 {
 	return silkDecodeAPIChannelViews(storage, length, channels)
 }
