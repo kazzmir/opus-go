@@ -11,6 +11,37 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCSynthesisAttenuateAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(2453))
+	for _, length := range []int32{1, 120, 240, 1080} {
+		for _, overlap := range []int32{0, 1, min(120, length)} {
+			for _, factor := range []float32{0, .1, .2, .21, .5, 1, 2, float32(math.NaN())} {
+				a := make([]float32, length+2)
+				a[0], a[len(a)-1] = 77, 88
+				w := make([]float32, overlap)
+				for i := int32(0); i < length; i++ {
+					a[i+1] = float32(rng.NormFloat64() * 7)
+				}
+				for i := range w {
+					w[i] = float32(i+1) / float32(len(w)+1)
+				}
+				b := slices.Clone(a)
+				s2 := float32(0)
+				for _, v := range a[1 : len(a)-1] {
+					s2 += float32(v * v)
+				}
+				s1 := float32(factor * s2)
+				opuscc.CompareCeltPLCSynthesisAttenuate(&a[1], unsafe.SliceData(w), length, overlap, s1)
+				nativeCeltPLCSynthesisAttenuate(&b[1], unsafe.SliceData(w), length, overlap, s1)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("attenuation", length, overlap, factor, i, a[i], b[i])
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltPLCExcitationDecayAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(2452))
 	for _, length := range []int32{0, 1, 2, 31, 120, 512, 1024} {

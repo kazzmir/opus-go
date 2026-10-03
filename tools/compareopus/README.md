@@ -445,6 +445,27 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
+Four subsequent CELT concealment leaf rounds move band-energy decay, the
+25-word autocorrelation noise-floor/lag window, excitation decay energy, and
+synthesis explosion/attenuation into typed pointer/fixed-array helpers. Active
+legacy concealment calls these helpers at explicit storage boundaries. MAXG and
+MIN32 retain ordered comparisons and NaN selection; the energy channel loop still
+has C's do/while behavior. Float32 products are explicitly rounded before MACs
+and subtraction, preserving ARM behavior. Synthesis computes energy before any
+writes, clears explosions (including NaNs) to positive zero, and reloads live
+window/output values while applying overlap and tail attenuation.
+
+Grouped Go tests cover exact spans, guards, forced GC/stack growth, nil unused
+inputs, zero/odd/full excitation lengths, mono/stereo/zero-channel decay,
+threshold branches, NaNs, and live aliases. Grouped native tests use
+source-equivalent celt_decoder.c snippets with actual MAXG/MIN32/celt_sqrt macros,
+not a whole-C-concealment integration oracle. Scoped checkptr covers only these
+migrated leaves. The outer CELT concealment dispatcher, state layout and TLS
+scratch remain legacy, as does surrounding CELT decoding. Every round retains
+full amd64/386/ARM64-QEMU tests, native/GC-stress comparisons and unchanged
+packet/frame/encode/decode goldens and tolerances. Host/QEMU is not macOS CI or
+proof of global GC safety or opaque-allocation pointer scanning.
+
 The outer SILK API now retains typed decoder/channel, control, entropy, float PCM
 and output-count pointers behind Opus_silk_Decode's explicit uintptr escape ABI.
 Packet-start frame counters use typed state and a live channel-count pointer.

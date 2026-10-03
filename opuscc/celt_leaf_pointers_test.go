@@ -7,6 +7,75 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCSynthesisAttenuatePointers(t *testing.T) {
+	for _, length := range []int32{1, 120, 240, 1080} {
+		for _, overlap := range []int32{0, 1, min(120, length)} {
+			for _, factor := range []float32{0, .1, .2, .21, .5, 1, 2, float32(math.NaN())} {
+				a := make([]float32, length+2)
+				a[0], a[len(a)-1] = 77, 88
+				w := make([]float32, overlap)
+				for i := int32(0); i < length; i++ {
+					a[i+1] = float32((i*37)%79-39) / 13
+				}
+				for i := range w {
+					w[i] = float32(i+1) / float32(len(w)+1)
+				}
+				want := append([]float32(nil), a...)
+				s2 := float32(0)
+				for _, v := range a[1 : len(a)-1] {
+					s2 += float32(v * v)
+				}
+				s1 := float32(factor * s2)
+				if !(s1 > float32(.2*s2)) {
+					clear(want[1 : len(want)-1])
+				} else if s1 < s2 {
+					ratio := float32(math.Sqrt(float64((s1 + 1) / (s2 + 1))))
+					for i := int32(0); i < overlap; i++ {
+						g := float32(1) - float32(w[i]*(float32(1)-ratio))
+						want[i+1] = float32(g * want[i+1])
+					}
+					for i := overlap; i < length; i++ {
+						want[i+1] = float32(ratio * want[i+1])
+					}
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtPLCSynthesisAttenuate(&a[1], unsafe.SliceData(w), length, overlap, s1)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+						t.Fatal("synthesis attenuation", length, overlap, factor, i)
+					}
+				}
+			}
+		}
+	}
+	// Go-only mode-window/output alias: reload each window value after prior
+	// output stores rather than snapshotting the window.
+	aAlias := []float32{.5, .75, 1, 1.25, 1.5}
+	wantAlias := append([]float32(nil), aAlias...)
+	s2Alias := float32(0)
+	for _, v := range aAlias[1:] {
+		s2Alias += float32(v * v)
+	}
+	s1Alias := float32(.5 * s2Alias)
+	ratioAlias := float32(math.Sqrt(float64((s1Alias + 1) / (s2Alias + 1))))
+	for i := 0; i < 4; i++ {
+		g := float32(1) - float32(wantAlias[i]*(float32(1)-ratioAlias))
+		wantAlias[i+1] = float32(g * wantAlias[i+1])
+	}
+	celtPLCSynthesisAttenuate(&aAlias[1], &aAlias[0], 4, 4, s1Alias)
+	for i := range aAlias {
+		if math.Float32bits(aAlias[i]) != math.Float32bits(wantAlias[i]) {
+			t.Fatal("live attenuation window alias")
+		}
+	}
+	celtPLCSynthesisAttenuate(nil, nil, 0, 0, 0)
+	a := []float32{float32(math.NaN()), 1}
+	celtPLCSynthesisAttenuate(&a[0], nil, 2, 0, 100)
+	if a[0] != 0 || a[1] != 0 {
+		t.Fatal("NaN explosion not cleared")
+	}
+}
 func TestCeltPLCExcitationDecayPointers(t *testing.T) {
 	for _, length := range []int32{0, 1, 2, 31, 120, 512, 1024} {
 		a := make([]float32, 1026)
@@ -38,6 +107,14 @@ func TestCeltPLCExcitationDecayPointers(t *testing.T) {
 				t.Fatal("excitation changed")
 			}
 		}
+	}
+	recentNaN := []float32{1, 1, float32(math.NaN()), 1}
+	if celtPLCExcitationDecay(&recentNaN[0], 4, 4) != 1 {
+		t.Fatal("MIN32 recent NaN selection")
+	}
+	olderNaN := []float32{float32(math.NaN()), 1, 1, 1}
+	if !math.IsNaN(float64(celtPLCExcitationDecay(&olderNaN[0], 4, 4))) {
+		t.Fatal("MIN32 older NaN selection")
 	}
 	if celtPLCExcitationDecay(nil, 0, 0) != 1 {
 		t.Fatal("unused excitation")

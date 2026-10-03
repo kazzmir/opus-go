@@ -423,6 +423,30 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtPLCSynthesisAttenuate(output, window *float32, length, overlap int32, s1 float32) {
+	if length <= 0 {
+		return
+	}
+	x := unsafe.Slice(output, length)
+	s2 := float32(0)
+	for _, sample := range x {
+		s2 += float32(sample * sample)
+	}
+	if !(s1 > float32(float32(.2)*s2)) {
+		clear(x)
+	} else if s1 < s2 {
+		ratio := float32(math.Sqrt(float64((s1 + float32(1)) / (s2 + float32(1)))))
+		w := unsafe.Slice(window, overlap)
+		for i := int32(0); i < overlap; i++ {
+			g := float32(1) - float32(w[i]*(float32(1)-ratio))
+			x[i] = float32(g * x[i])
+		}
+		for i := overlap; i < length; i++ {
+			x[i] = float32(ratio * x[i])
+		}
+	}
+}
+
 func celtPLCExcitationDecay(exc *float32, period, length int32) float32 {
 	half := length >> 1
 	if half <= 0 {
@@ -918,50 +942,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			/* Check if the synthesis energy is higher than expected, which can
 			   happen with the signal changes during our window. If so,
 			   attenuate. */
-			S2 = float32(0)
-			i = 0
-			for {
-				if !(i < extrapolation_len) {
-					break
-				}
-				tmp1 = *(*OpusT_celt_sig)(unsafe.Pointer(buf + uintptr(decode_buffer_size-N+i)*4))
-				S2 = S2 + OpusT_opus_val32(tmp1*tmp1)
-				i = i + 1
-			}
-			/* This checks for an "explosion" in the synthesis. */
-			/* The float test is written this way to catch NaNs in the output
-			   of the IIR filter at the same time. */
-			if !(S1 > OpusT_opus_val32(float32(0.2)*S2)) {
-				i = 0
-				for {
-					if !(i < extrapolation_len) {
-						break
-					}
-					*(*OpusT_celt_sig)(unsafe.Pointer(buf + uintptr(decode_buffer_size-N+i)*4)) = float32(0)
-					i = i + 1
-				}
-			} else {
-				if S1 < S2 {
-					ratio = float32(libc.Xsqrt(tls, float64((S1+float32(1))/(S2+float32(1)))))
-					i = 0
-					for {
-						if !(i < overlap) {
-							break
-						}
-						tmp_g = float32(1) - OpusT_celt_coef(*(*OpusT_celt_coef)(unsafe.Pointer(window + uintptr(i)*4))*(float32(1)-ratio))
-						*(*OpusT_celt_sig)(unsafe.Pointer(buf + uintptr(decode_buffer_size-N+i)*4)) = OpusT_opus_val16(tmp_g * *(*OpusT_celt_sig)(unsafe.Pointer(buf + uintptr(decode_buffer_size-N+i)*4)))
-						i = i + 1
-					}
-					i = overlap
-					for {
-						if !(i < extrapolation_len) {
-							break
-						}
-						*(*OpusT_celt_sig)(unsafe.Pointer(buf + uintptr(decode_buffer_size-N+i)*4)) = OpusT_opus_val16(ratio * *(*OpusT_celt_sig)(unsafe.Pointer(buf + uintptr(decode_buffer_size-N+i)*4)))
-						i = i + 1
-					}
-				}
-			}
+			celtPLCSynthesisAttenuate((*float32)(unsafe.Pointer(buf+uintptr(decode_buffer_size-N)*4)), (*float32)(unsafe.Pointer(window)), extrapolation_len, overlap, S1)
 			c = c + 1
 			v5 = c
 			if !(v5 < C) {
