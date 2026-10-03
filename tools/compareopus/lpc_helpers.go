@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static void compare_plc_lpc_history(float *memory,const float *h,int size,int N) {for(int i=0;i<CELT_LPC_ORDER;i++)memory[i]=h[size-N-1-i];}
 static float compare_plc_extrapolate(float *h,const float *exc,int size,int period,int N,int overlap,int pitch,float fade,float decay) {float energy=0,attenuation=fade*decay;int offset=period-pitch;for(int i=0,j=0;i<N+overlap;i++,j++){if(j>=pitch){j-=pitch;attenuation*=decay;}h[size-N+i]=attenuation*exc[offset+j];float sample=h[size-period-N+offset+j];energy+=sample*sample;}return energy;}
 static void compare_plc_history(float *exc,const float *h,int size,int period) {for(int i=0;i<period+CELT_LPC_ORDER;i++)exc[i]=h[size-period-CELT_LPC_ORDER+i];}
 static void compare_plc_attenuate(float *x,const float *w,int length,int overlap,float s1) {float s2=0;for(int i=0;i<length;i++) {float tmp=x[i];s2+=tmp*tmp;}if(!(s1>.2f*s2)) {for(int i=0;i<length;i++)x[i]=0;}else if(s1<s2) {float ratio=celt_sqrt((s1+1)/(s2+1));for(int i=0;i<overlap;i++){float g=1-w[i]*(1-ratio);x[i]=g*x[i];}for(int i=overlap;i<length;i++)x[i]=ratio*x[i];}}
@@ -23,6 +24,9 @@ static void compare_plc_decay(float *a,const float *b,int bands,int start,int en
 import "C"
 import "unsafe"
 
+func nativeCeltPLCLPCHistory(memory *[24]float32, history *float32, size, N int32) {
+	C.compare_plc_lpc_history((*C.float)(unsafe.Pointer(memory)), (*C.float)(unsafe.Pointer(history)), C.int(size), C.int(N))
+}
 func nativeCeltPLCExtrapolate(history, exc *float32, size, period, N, overlap, pitch int32, fade, decay float32) float32 {
 	return float32(C.compare_plc_extrapolate((*C.float)(unsafe.Pointer(history)), (*C.float)(unsafe.Pointer(exc)), C.int(size), C.int(period), C.int(N), C.int(overlap), C.int(pitch), C.float(fade), C.float(decay)))
 }

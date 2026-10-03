@@ -7,6 +7,44 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCLPCHistoryPointers(t *testing.T) {
+	for _, N := range []int32{0, 120, 240, 960} {
+		h := make([]float32, 2048)
+		for i := range h {
+			h[i] = math.Float32frombits(uint32(i) * uint32(7919))
+		}
+		storage := new([26]float32)
+		storage[0], storage[25] = 77, 88
+		memory := (*[24]float32)(unsafe.Pointer(&storage[1]))
+		entropyInitGrowStack(12)
+		runtime.GC()
+		celtPLCLPCHistory(memory, &h[0], 2048, N)
+		if storage[0] != 77 || storage[25] != 88 {
+			t.Fatal("LPC history guards")
+		}
+		for i := range memory {
+			if math.Float32bits(memory[i]) != math.Float32bits(h[2048-int(N)-1-i]) {
+				t.Fatal("reverse LPC history", N, i)
+			}
+		}
+	}
+	// Go-only scratch/history overlap must retain store/load order.
+	a := make([]float32, 48)
+	for i := range a {
+		a[i] = float32(i + 1)
+	}
+	want := append([]float32(nil), a...)
+	for i := 0; i < 24; i++ {
+		want[8+i] = want[31-i]
+	}
+	memory := (*[24]float32)(unsafe.Pointer(&a[8]))
+	celtPLCLPCHistory(memory, &a[0], 32, 0)
+	for i := range a {
+		if a[i] != want[i] {
+			t.Fatal("reverse LPC live alias", i)
+		}
+	}
+}
 func TestCeltPLCExtrapolatePointers(t *testing.T) {
 	for _, pitch := range []int32{40, 100, 511, 1024} {
 		for _, N := range []int32{120, 240, 960} {

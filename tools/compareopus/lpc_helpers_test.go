@@ -11,6 +11,24 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCLPCHistoryAgainstC(t *testing.T) {
+	for _, N := range []int32{0, 120, 240, 960} {
+		h := make([]float32, 2048)
+		for i := range h {
+			h[i] = math.Float32frombits(uint32(i) * uint32(7919))
+		}
+		a := [26]float32{}
+		a[0], a[25] = 77, 88
+		b := a
+		opuscc.CompareCeltPLCLPCHistory((*[24]float32)(unsafe.Pointer(&a[1])), &h[0], 2048, N)
+		nativeCeltPLCLPCHistory((*[24]float32)(unsafe.Pointer(&b[1])), &h[0], 2048, N)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("LPC history", N, i)
+			}
+		}
+	}
+}
 func TestCeltPLCExtrapolateAgainstC(t *testing.T) {
 	for _, pitch := range []int32{40, 100, 511, 1024} {
 		for _, N := range []int32{120, 240, 960} {
