@@ -11,6 +11,26 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCFIRStorageAgainstC(t *testing.T) {
+	for _, length := range []int32{80, 200, 1024} {
+		input := make([]float32, length+24)
+		for i := range input {
+			input[i] = float32(math.Sin(float64(i) * .17))
+		}
+		coefficients := make([]float32, 24)
+		coefficients[0], coefficients[23] = .125, -.03125
+		a := make([]float32, length+2)
+		a[0], a[len(a)-1] = 77, 88
+		b := slices.Clone(a)
+		opuscc.Opus_celt_fir_c(nil, &input[24], &coefficients[0], &a[1], length, 24, 0)
+		nativeFIR(input, coefficients, b[1:len(b)-1], length, 24)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("concealment FIR spans", length, i, a[i], b[i])
+			}
+		}
+	}
+}
 func TestCeltPLCNoiseAgainstC(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for LM := int32(0); LM <= 3; LM++ {

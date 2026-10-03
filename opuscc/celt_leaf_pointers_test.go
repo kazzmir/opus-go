@@ -1,12 +1,93 @@
 package opuscc
 
 import (
+	libc "github.com/kazzmir/opus-go/libcshim"
 	"math"
 	"runtime"
 	"testing"
 	"unsafe"
 )
 
+func TestCeltPLCLostScratch(t *testing.T) {
+	// Ordinary (not checkptr) integration: dispatcher state/history integer
+	// views are still legacy, while its complete active paths need no TLS scratch.
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, noise := range []bool{false, true} {
+				mode := newSynthesisTestMode()
+				owner, image, size := celtStateTestBuffer(mode, channels)
+				state := &owner.State
+				if ret := opus_custom_decoder_init(nil, state, mode, channels); ret != 0 {
+					t.Fatal("concealment init", ret)
+				}
+				state.Frng = 0xdeadbeef
+				state.Flast_pitch_index = 100
+				state.Flast_frame_type = FRAME_PLC_PERIODIC
+				state.Fskip_plc = libc.BoolInt32(noise)
+				history := unsafe.Slice(&state.F_decode_mem[0], int(channels)*(DEC_PITCH_BUF_SIZE+int(mode.Foverlap)))
+				for i := range history {
+					history[i] = float32(math.Sin(float64(i)*.17) * .03)
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celt_decode_lost(nil, uintptr(unsafe.Pointer(state)), mode.FshortMdctSize<<LM, LM)
+				if state.Floss_duration != 1<<LM || state.Fplc_duration != 1<<LM {
+					t.Fatal("concealment durations", channels, LM, noise)
+				}
+				if noise && state.Flast_frame_type != FRAME_PLC_NOISE || !noise && state.Flast_frame_type != FRAME_PLC_PERIODIC {
+					t.Fatal("concealment dispatch")
+				}
+				for _, v := range image[size : size+16] {
+					if v != 0xa5 {
+						t.Fatal("concealment guard")
+					}
+				}
+				tls := libc.NewTLS()
+				libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+				celt_decode_lost(tls, uintptr(unsafe.Pointer(state)), mode.FshortMdctSize<<LM, LM)
+				if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+					t.Fatal("concealment touched TLS")
+				}
+				tls.Close()
+				runtime.KeepAlive(owner)
+			}
+		}
+	}
+}
+func TestCeltPLCFIRStoragePointers(t *testing.T) {
+	for _, length := range []int32{0, 80, 200, 1024} {
+		storage := celtPLCFIRStorage(length)
+		if len(storage) != int(length) {
+			t.Fatal("FIR geometry")
+		}
+		if length == 0 {
+			continue
+		}
+		exc := celtPLCExcitationStorage(length)
+		for i := range exc {
+			exc[i] = float32(math.Sin(float64(i) * .17))
+		}
+		var coef [24]float32
+		coef[0] = .125
+		coef[23] = -.03125
+		want := make([]float32, length)
+		Opus_celt_fir_c(nil, &exc[24], &coef[0], &want[0], length, 24, 0)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus_celt_fir_c(nil, &exc[24], &coef[0], unsafe.SliceData(storage), length, 24, 0)
+		for i := range storage {
+			if math.Float32bits(storage[i]) != math.Float32bits(want[i]) {
+				t.Fatal("owned FIR storage", length, i)
+			}
+		}
+		copy(exc[24:], storage)
+		for i := range storage {
+			if exc[24+i] != storage[i] {
+				t.Fatal("FIR copy-back")
+			}
+		}
+	}
+}
 func TestCeltPLCExcitationStoragePointers(t *testing.T) {
 	for _, period := range []int32{512, 1024} {
 		storage := celtPLCExcitationStorage(period)

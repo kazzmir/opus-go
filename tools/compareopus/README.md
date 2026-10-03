@@ -485,6 +485,29 @@ scratch and integer cursors are not yet fully migrated. Each round runs full
 amd64/386/ARM64-QEMU tests, native/GC-stress comparisons and unchanged baselines;
 repeated ARM leaf/checkptr and ordinary frame goldens remain separate scopes.
 
+The following four concealment rounds type noise-spectrum generation and
+replace all three TLS scratch arrays: the C*N normalized spectrum, the
+max_period+24 excitation with its retained negative-index history prefix, and
+the exc_length FIR temporary. Spectrum/excitation/FIR pointers and indexing are
+now Go-owned slices; FIR copy-back uses copy on disjoint owned arrays. Noise
+synthesis receives a scanned two-pointer output table rather than a raw integer
+array. Sequential unsigned RNG updates, signed sample conversion, channel/band
+order and final RNG store are preserved. Native noise tests use the scalar
+vq.c normalization formula, not presumed-SSE native dispatch.
+
+There is no concealment TLS allocation/cursor/save/restore left. Ordinary
+full periodic/noise concealment fixtures run with nil TLS and an untouched
+sentinel slot, including mono/stereo and LM=0..3. Scoped checkptr covers owned
+noise/synthesis and excitation/autocorrelation/LPC/FIR pipelines plus migrated
+leaves, not the whole dispatcher: decoder/mode/history integer-addressed views
+still remain. The constructor tests keep empty noise/FIR storage and the
+prefix-only excitation case separate from consumed interior pointers. Native
+FIR spans include length 80/200/1024 and the 24-sample prehistory. All four
+rounds retain full amd64/386/ARM64-QEMU tests, native and GC stress, unchanged
+baselines/tolerances, and repeated ARM checks. Earlier mentions of concealment
+TLS scratch above are historical; opaque allocation scanning and outer CELT
+decoding remain unresolved, and host/QEMU coverage is not direct macOS CI.
+
 The outer SILK API now retains typed decoder/channel, control, entropy, float PCM
 and output-count pointers behind Opus_silk_Decode's explicit uintptr escape ABI.
 Packet-start frame counters use typed state and a live channel-count pointer.
