@@ -8,6 +8,10 @@ package main
 #include "decode_core.c"
 #define silk_decode_frame comparison_decode_frame
 #include "decode_frame.c"
+static void decoder_api_lbrr(unsigned *s,unsigned char *buf,int *flags,int frames,int flag) {
+ ec_dec ec={0};ec.buf=buf;ec.storage=s[0];ec.end_offs=s[1];ec.end_window=s[2];ec.nend_bits=s[3];ec.nbits_total=s[4];ec.offs=s[5];ec.rng=s[6];ec.val=s[7];ec.ext=s[8];ec.rem=s[9];ec.error=s[10];memset(flags,0,3*sizeof(int));if(flag){if(frames==1)flags[0]=1;else {int symbol=ec_dec_icdf(&ec,silk_LBRR_flags_iCDF_ptr[frames-2],8)+1;for(int i=0;i<frames;i++)flags[i]=(symbol>>i)&1;}}
+ s[0]=ec.storage;s[1]=ec.end_offs;s[2]=ec.end_window;s[3]=ec.nend_bits;s[4]=ec.nbits_total;s[5]=ec.offs;s[6]=ec.rng;s[7]=ec.val;s[8]=ec.ext;s[9]=ec.rem;s[10]=ec.error;
+}
 static int decoder_api_resampler(unsigned char *dst,const unsigned char *src,int size,short *pred,short *side,int api,int internal,int oldapi,int oldinternal) {
  if(size!=sizeof(silk_resampler_state_struct))return -98;
  if(api==2&&internal==2&&(oldapi==1||oldinternal==1)){memset(pred,0,2*sizeof(short));memset(side,0,2*sizeof(short));memcpy(dst,src,sizeof(silk_resampler_state_struct));}return 0;
@@ -97,6 +101,21 @@ func nativeDecodeCoreTransition(dec *opuscc.OpusT_silk_decoder_state, ctrl *opus
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(dec)), len(d)), d)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r != 0
+}
+func nativeDecodeAPILBRR(dec *opuscc.OpusT_silk_decoder_state, ec *opuscc.OpusT_ec_ctx, buf []byte) {
+	s := [11]C.uint{C.uint(ec.Fstorage), C.uint(ec.Fend_offs), C.uint(ec.Fend_window), C.uint(ec.Fnend_bits), C.uint(ec.Fnbits_total), C.uint(ec.Foffs), C.uint(ec.Frng), C.uint(ec.Fval), C.uint(ec.Fext), C.uint(ec.Frem), C.uint(ec.Ferror1)}
+	C.decoder_api_lbrr(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf))), (*C.int)(unsafe.Pointer(&dec.FLBRR_flags[0])), C.int(dec.FnFramesPerPacket), C.int(dec.FLBRR_flag))
+	ec.Fstorage = uint32(s[0])
+	ec.Fend_offs = uint32(s[1])
+	ec.Fend_window = uint32(s[2])
+	ec.Fnend_bits = int32(s[3])
+	ec.Fnbits_total = int32(s[4])
+	ec.Foffs = uint32(s[5])
+	ec.Frng = uint32(s[6])
+	ec.Fval = uint32(s[7])
+	ec.Fext = uint32(s[8])
+	ec.Frem = int32(s[9])
+	ec.Ferror1 = int32(s[10])
 }
 func nativeDecodeAPIStartStereo(dec *opuscc.OpusT_silk_decoder, control *opuscc.OpusT_silk_DecControlStruct) int32 {
 	src, dst := dec.Fchannel_state[0].Fresampler_state, dec.Fchannel_state[1].Fresampler_state

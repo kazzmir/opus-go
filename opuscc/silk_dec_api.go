@@ -163,7 +163,21 @@ func Opus_silk_InitDecoder(tls *libc.TLS, decState *OpusT_silk_decoder) int32 {
 //
 //go:uintptrescapes
 func Opus_silk_Decode(tls *libc.TLS, decState, decControl uintptr, lostFlag, newPacketFlag int32, psRangeDec, samplesOut, nSamplesOut uintptr, arch int32) int32 {
-	return silk_Decode(tls, (*OpusT_silk_decoder)(unsafe.Pointer(decState)), (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)), lostFlag, newPacketFlag, psRangeDec, samplesOut, nSamplesOut, arch)
+	return silk_Decode(tls, (*OpusT_silk_decoder)(unsafe.Pointer(decState)), (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)), lostFlag, newPacketFlag, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), samplesOut, nSamplesOut, arch)
+}
+
+func silkDecodeAPILBRR(tls *libc.TLS, decoder *OpusT_silk_decoder_state, ec *OpusT_ec_ctx) {
+	clear(decoder.FLBRR_flags[:])
+	if decoder.FLBRR_flag != 0 {
+		if decoder.FnFramesPerPacket == 1 {
+			decoder.FLBRR_flags[0] = 1
+		} else {
+			symbol := Opus_ec_dec_icdf(tls, ec, Opus_silk_LBRR_flags_iCDF_ptr[decoder.FnFramesPerPacket-2], 8) + 1
+			for i := int32(0); i < decoder.FnFramesPerPacket; i++ {
+				decoder.FLBRR_flags[i] = (symbol >> i) & 1
+			}
+		}
+	}
 }
 
 // C uses sizeof(resampler_state), not a fixed 400-byte amd64 image. Typed
@@ -185,9 +199,8 @@ func silkDecodeAPIPacketStart(decoder *OpusT_silk_decoder, channels *int32, newP
 }
 
 // Decoder/channel ownership is typed; other ABI arguments and TLS cursors remain legacy.
-func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_silk_DecControlStruct, lostFlag int32, newPacketFlag int32, psRangeDec uintptr, samplesOut uintptr, nSamplesOut uintptr, arch int32) (r int32) {
+func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_silk_DecControlStruct, lostFlag int32, newPacketFlag int32, psRangeDec *OpusT_ec_dec, samplesOut uintptr, nSamplesOut uintptr, arch int32) (r int32) {
 	var FrameIndex, condCoding, condCoding1, fs_kHz_dec, has_side, i, n, ret, stereo_to_mono, v51 int32
-	var LBRR_symbol OpusT_opus_int32
 	var psDec *OpusT_silk_decoder
 	var channel_state *OpusT_silk_decoder_state
 	var _saved_stack, resample_out_ptr, samplesOut1_tmp_storage1, samplesOut2_tmp, st, v1, v11, v13, v15, v17, v26, v28, v3, v30, v32, v7, v9 uintptr
@@ -339,22 +352,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 			if !(n < control.FnChannelsInternal) {
 				break
 			}
-			libc.Xmemset(tls, uintptr(unsafe.Pointer(&decoder.Fchannel_state[n].FLBRR_flags[0])), 0, uint64(12))
-			if decoder.Fchannel_state[n].FLBRR_flag != 0 {
-				if decoder.Fchannel_state[n].FnFramesPerPacket == int32(1) {
-					decoder.Fchannel_state[n].FLBRR_flags[0] = int32(1)
-				} else {
-					LBRR_symbol = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*uint8)(unsafe.Pointer(Opus_silk_LBRR_flags_iCDF_ptr[decoder.Fchannel_state[n].FnFramesPerPacket-int32(2)])), uint32(8)) + int32(1)
-					i = 0
-					for {
-						if !(i < decoder.Fchannel_state[n].FnFramesPerPacket) {
-							break
-						}
-						decoder.Fchannel_state[n].FLBRR_flags[i] = LBRR_symbol >> i & int32(1)
-						i = i + 1
-					}
-				}
-			}
+			silkDecodeAPILBRR(tls, &decoder.Fchannel_state[n], psRangeDec)
 			n = n + 1
 		}
 		if lostFlag == FLAG_DECODE_NORMAL {

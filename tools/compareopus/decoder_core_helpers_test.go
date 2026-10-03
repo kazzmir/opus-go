@@ -170,6 +170,29 @@ func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 		}
 	}
 }
+func TestDecodeAPILBRRAgainstC(t *testing.T) {
+	for _, frames := range []int32{1, 2, 3} {
+		for _, flag := range []int32{0, 1, -1} {
+			for seed := 0; seed < 32; seed++ {
+				data := make([]byte, 8)
+				for i := range data {
+					data[i] = byte(seed*17 + i*71 + 13)
+				}
+				d := opuscc.OpusT_silk_decoder_state{FnFramesPerPacket: frames, FLBRR_flag: flag, FLBRR_flags: [3]int32{77, 88, 99}}
+				c := d
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+				ce := ec
+				before := slices.Clone(data)
+				opuscc.CompareDecodeAPILBRR(&d, &ec)
+				nativeDecodeAPILBRR(&c, &ce, data)
+				if d != c || ec != ce || !slices.Equal(data, before) {
+					t.Fatal("LBRR", frames, flag, seed, d.FLBRR_flags, c.FLBRR_flags, ec, ce)
+				}
+			}
+		}
+	}
+}
 func TestDecodeAPIResamplerAgainstC(t *testing.T) {
 	for _, api := range []int32{1, 2} {
 		for _, internal := range []int32{1, 2} {

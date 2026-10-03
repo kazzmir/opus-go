@@ -4672,9 +4672,9 @@ var Opus_silk_CB_lags_stage3_10_ms = [2][12]OpusT_opus_int8{
 	},
 }
 
-var Opus_silk_LBRR_flags_iCDF_ptr = [2]uintptr{
-	0: uintptr(unsafe.Pointer(&silk_LBRR_flags_2_iCDF)),
-	1: uintptr(unsafe.Pointer(&silk_LBRR_flags_3_iCDF)),
+var Opus_silk_LBRR_flags_iCDF_ptr = [2]*byte{
+	0: &silk_LBRR_flags_2_iCDF[0],
+	1: &silk_LBRR_flags_3_iCDF[0],
 }
 
 // C documentation

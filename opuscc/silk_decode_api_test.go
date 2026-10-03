@@ -10,6 +10,56 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeAPIEntropyLBRRPointers(t *testing.T) {
+	for _, frames := range []int32{1, 2, 3} {
+		for _, flag := range []int32{0, 1, -1} {
+			d := newPLCConcealTestDecoder(16, 4)
+			d.FnFramesPerPacket = frames
+			d.FLBRR_flag = flag
+			d.FLBRR_flags = [3]int32{77, 88, 99}
+			data := []byte{13, 84, 155, 226, 41, 112, 183, 254}
+			ec := new(OpusT_ec_ctx)
+			Opus_ec_dec_init(nil, ec, &data[0], uint32(len(data)))
+			before := *ec
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeAPILBRR(nil, d, ec)
+			if d.FpsNLSF_CB.FCB1_NLSF_Q8 == nil || ec.Fbuf != &data[0] {
+				t.Fatal("LBRR ownership")
+			}
+			if flag == 0 {
+				if d.FLBRR_flags != [3]int32{} || *ec != before {
+					t.Fatal("unused LBRR entropy")
+				}
+			} else {
+				for i, v := range d.FLBRR_flags {
+					if int32(i) < frames {
+						if v != 0 && v != 1 {
+							t.Fatal("LBRR flags", frames, flag, d.FLBRR_flags)
+						}
+					} else if v != 0 {
+						t.Fatal("LBRR tail")
+					}
+				}
+				if frames == 1 && (*ec != before || d.FLBRR_flags[0] != 1) {
+					t.Fatal("one-frame LBRR")
+				}
+			}
+		}
+	}
+	d := &OpusT_silk_decoder_state{FLBRR_flags: [3]int32{1, 2, 3}}
+	silkDecodeAPILBRR(nil, d, nil)
+	if d.FLBRR_flags != [3]int32{} {
+		t.Fatal("nil unused entropy")
+	}
+	d.FnFramesPerPacket = 1
+	d.FLBRR_flag = 1
+	silkDecodeAPILBRR(nil, d, nil)
+	if d.FLBRR_flags != [3]int32{1, 0, 0} {
+		t.Fatal("one frame nil entropy")
+	}
+}
+
 func TestDecodeAPIControlResamplerPointers(t *testing.T) {
 	for _, api := range []int32{1, 2} {
 		for _, internal := range []int32{1, 2} {
