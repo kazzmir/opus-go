@@ -3,11 +3,201 @@ package opuscc
 import (
 	"encoding/hex"
 	"math"
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestDecodeAPICountPCMPointers(t *testing.T) {
+	sameFloatBits := func(a, b []float32) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	for _, fs := range []int32{8, 12, 16} {
+		for _, api := range []int32{8000, 12000, 16000, 24000, 48000} {
+			d := new(OpusT_silk_decoder)
+			d.Fchannel_state[0].Ffs_kHz = fs
+			c := &OpusT_silk_DecControlStruct{FAPI_sampleRate: api}
+			count := int32(-99)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeAPICount(d, c, &count, fs*20)
+			if count != api/50 {
+				t.Fatal("API count", fs, api, count)
+			}
+		}
+	}
+	for _, length := range []int32{0, 1, 17, 80, 240, 960} {
+		for _, stride := range []int32{1, 2} {
+			for channel := int32(0); channel < stride; channel++ {
+				count := length
+				input := make([]int16, length)
+				for i := range input {
+					input[i] = int16(i*997 - 32768)
+				}
+				out := make([]float32, length*stride+2)
+				for i := range out {
+					out[i] = 123
+				}
+				want := append([]float32(nil), out...)
+				for i := int32(0); i < length; i++ {
+					want[1+channel+stride*i] = float32(input[i]) * (float32(1) / 32768)
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				silkDecodeAPIOutput(&out[1], unsafe.SliceData(input), &count, channel, stride)
+				if !sameFloatBits(out, want) {
+					t.Fatal("PCM channel/guards", length, stride, channel)
+				}
+				if stride == 2 {
+					for i := int32(0); i < length; i++ {
+						want[2+2*i] = want[1+2*i]
+					}
+					silkDecodeAPIDuplicate(&out[1], &count)
+					if !sameFloatBits(out, want) {
+						t.Fatal("duplicate", length, channel)
+					}
+				}
+			}
+		}
+	}
+	zero := int32(0)
+	silkDecodeAPIOutput(nil, nil, &zero, 0, 1)
+	silkDecodeAPIDuplicate(nil, &zero)
+	// Go-only output/count alias: the count is reloaded after every float store.
+	out := []float32{1, 2, 3, 4}
+	count := (*int32)(unsafe.Pointer(&out[0]))
+	*count = 2
+	silkDecodeAPIOutput(&out[0], &[]int16{0, 32767}[0], count, 0, 1)
+	if out[0] != 0 || out[1] != 2 || *count != 0 {
+		t.Fatal("live count alias", out, *count)
+	}
+}
+
+func TestDecodeAPIEntropyLBRRPointers(t *testing.T) {
+	for _, frames := range []int32{1, 2, 3} {
+		for _, flag := range []int32{0, 1, -1} {
+			d := newPLCConcealTestDecoder(16, 4)
+			d.FnFramesPerPacket = frames
+			d.FLBRR_flag = flag
+			d.FLBRR_flags = [3]int32{77, 88, 99}
+			data := []byte{13, 84, 155, 226, 41, 112, 183, 254}
+			ec := new(OpusT_ec_ctx)
+			Opus_ec_dec_init(nil, ec, &data[0], uint32(len(data)))
+			before := *ec
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeAPILBRR(nil, d, ec)
+			if d.FpsNLSF_CB.FCB1_NLSF_Q8 == nil || ec.Fbuf != &data[0] {
+				t.Fatal("LBRR ownership")
+			}
+			if flag == 0 {
+				if d.FLBRR_flags != [3]int32{} || *ec != before {
+					t.Fatal("unused LBRR entropy")
+				}
+			} else {
+				for i, v := range d.FLBRR_flags {
+					if int32(i) < frames {
+						if v != 0 && v != 1 {
+							t.Fatal("LBRR flags", frames, flag, d.FLBRR_flags)
+						}
+					} else if v != 0 {
+						t.Fatal("LBRR tail")
+					}
+				}
+				if frames == 1 && (*ec != before || d.FLBRR_flags[0] != 1) {
+					t.Fatal("one-frame LBRR")
+				}
+			}
+		}
+	}
+	d := &OpusT_silk_decoder_state{FLBRR_flags: [3]int32{1, 2, 3}}
+	silkDecodeAPILBRR(nil, d, nil)
+	if d.FLBRR_flags != [3]int32{} {
+		t.Fatal("nil unused entropy")
+	}
+	d.FnFramesPerPacket = 1
+	d.FLBRR_flag = 1
+	silkDecodeAPILBRR(nil, d, nil)
+	if d.FLBRR_flags != [3]int32{1, 0, 0} {
+		t.Fatal("one frame nil entropy")
+	}
+}
+
+func TestDecodeAPIControlResamplerPointers(t *testing.T) {
+	for _, api := range []int32{1, 2} {
+		for _, internal := range []int32{1, 2} {
+			for _, oldAPI := range []int32{0, 1, 2} {
+				for _, oldInternal := range []int32{0, 1, 2} {
+					d := new(OpusT_silk_decoder)
+					d.FnChannelsAPI, d.FnChannelsInternal = oldAPI, oldInternal
+					d.FsStereo.Fpred_prev_Q13 = [2]int16{77, 88}
+					d.FsStereo.FsSide = [2]int16{99, 111}
+					d.Fchannel_state[0].Fresampler_state.FsIIR = [6]int32{1, 2, 3, 4, 5, 6}
+					coefs := new([64]int16)
+					coefs[0] = 123
+					d.Fchannel_state[0].Fresampler_state.FCoefs = &coefs[0]
+					d.Fchannel_state[1].Fresampler_state.FbatchSize = 77
+					d.Fchannel_state[1].FprevNLSF_Q15 = [16]int16{111, 222, 333}
+					control := &OpusT_silk_DecControlStruct{FnChannelsAPI: api, FnChannelsInternal: internal}
+					want := *d
+					if api == 2 && internal == 2 && (oldAPI == 1 || oldInternal == 1) {
+						clear(want.FsStereo.Fpred_prev_Q13[:])
+						clear(want.FsStereo.FsSide[:])
+						want.Fchannel_state[1].Fresampler_state = want.Fchannel_state[0].Fresampler_state
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					silkDecodeAPIStartStereo(d, control)
+					if *d != want {
+						t.Fatal("stereo resampler/layout", api, internal, oldAPI, oldInternal)
+					}
+					if d.Fchannel_state[1].Fresampler_state.FCoefs != nil && *d.Fchannel_state[1].Fresampler_state.FCoefs != 123 {
+						t.Fatal("coefficient retention")
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestDecodeAPIPacketStatePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, flag := range []int32{0, 1, -1, 7} {
+			d := new(OpusT_silk_decoder)
+			d.Fchannel_state[0] = *newPLCConcealTestDecoder(8, 4)
+			d.Fchannel_state[1] = *newPLCConcealTestDecoder(16, 4)
+			d.Fchannel_state[0].FnFramesDecoded = 2
+			d.Fchannel_state[1].FnFramesDecoded = 3
+			want := *d
+			if flag != 0 {
+				for n := int32(0); n < channels; n++ {
+					want.Fchannel_state[n].FnFramesDecoded = 0
+				}
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeAPIPacketStart(d, &channels, flag)
+			if *d != want || d.Fchannel_state[1].FpsNLSF_CB.FCB1_NLSF_Q8 == nil {
+				t.Fatal("packet-start state", channels, flag)
+			}
+		}
+	}
+	var channels int32
+	if channels != 0 {
+		t.Fatal("unreachable")
+	}
+	silkDecodeAPIPacketStart(nil, nil, 0)
+}
 
 func mustHex(t *testing.T, s string) []byte {
 	t.Helper()

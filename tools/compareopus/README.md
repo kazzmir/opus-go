@@ -445,6 +445,126 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
+The outer SILK API now retains typed decoder/channel, control, entropy, float PCM
+and output-count pointers behind Opus_silk_Decode's explicit uintptr escape ABI.
+Packet-start frame counters use typed state and a live channel-count pointer.
+Stereo-start state clears use clear; resampler cloning uses typed struct assignment
+rather than the hard-coded 400-byte amd64 image, respecting 386 size and barriering
+the coefficient pointer. Clear/clear/copy order and channel-transition predicates
+are preserved. This fixes the adjacent-state overwrite risk on 386 without changing
+C's sizeof-based behavior.
+
+LBRR flag reconstruction clears the live three-word field, preserves the no-entropy
+one-frame case, and uses typed pointers for both ICDF table rows. Normal entropy
+forwarding retains typed contexts. Tests compare all flags and eleven entropy
+fields for 1/2/3 frames, zero/nonzero/negative LBRR flags and 32 input patterns.
+
+Count and PCM helpers use typed outputs and numeric indexing. Count calculation
+keeps int32 multiplication/division and signed int16 rate narrowing; float PCM
+conversion preserves the exact float32 1/32768 scaling. Mono/stereo interleave,
+collapsed-stereo right-channel output and sequential mono duplication retain live
+count reloads, channel order and guards. Native fixtures cover counts at API rates
+8/12/16/24/48 kHz, lengths 0/1/17/80/240/960 and all output channels. A Go-only
+float/count alias verifies stopping after a count-changing store; it is not a
+C effective-type parity claim.
+
+Focused checkptr checks these active typed API helpers, not the entire API.
+Its channel sample/storage/resampling TLS arrays and integer cursors remain legacy.
+All four rounds retain full amd64/386/ARM64-QEMU tests, original API/frame goldens,
+end-to-end native/GC-stress comparisons and unchanged baselines/tolerances. This
+is neither direct macOS CI nor a global GC-safety proof for opaque allocations.
+
+SILK frame decoding now retains typed decoder, entropy, PCM and output-count
+pointers behind the public Opus_silk_decode_frame uintptr escape adapter. The
+control struct and shell-aligned pulse buffer are Go-owned; 120-sample frames
+retain 128 pulse slots. There is no frame TLS allocation/cursor/save/restore.
+Normal/FEC dispatch still follows the exact LBRR flag test; all other flags
+conceal. History shift precedes copying live PCM, then PLC/CNG/glue, the lag store
+and final output-count store remain ordered. The two history assertions retain
+their separate source/error positions. Internal core and PLC calls are typed.
+
+Actual renamed decode_frame.c fixtures compare full numeric decoder images,
+PCM/guards, counts and all eleven entropy fields: rates 8/12/16, 2/4 subframes,
+normal/FEC flags and independent/conditional coding across three consecutive
+calls, plus loss/FEC-fallback/negative/other flags. Go embedded pointer fields
+are cleared in a numeric temporary before exporting bytes; native tables are
+rebound on the C stack and cleared before import. Original Go pointer fields are
+restored via a typed struct assignment, not raw pointer-byte stores. Input entropy
+buffers remain unchanged. Native history and lag/count alias fixtures complement
+the whole-frame oracle; overlapping history memcpy cases are Go-only.
+
+Focused checkptr now covers full active normal/FEC/loss frame paths with nil TLS,
+GC/stack growth, heap codebooks, guards, shell padding, unused nil entropy on loss,
+validation-before-output ordering and an untouched TLS sentinel. The original
+loss-frame golden enters the typed frame with a Go-owned count, unchanged. Rounds
+one/two checked typed history/finish helpers; round three covered active loss
+with Go-owned control; round four enabled the entire frame after pulse migration.
+
+Control allocation exposed an outer API stack-lifetime defect: the original
+TestSilkDecodeLostFrameState returned count 0 rather than 80. The legacy public
+Opus_silk_Decode ABI now declares uintptrescapes, and its frame-local count is
+forwarded directly as a typed pointer. No test/golden was weakened. The outer
+SILK API remains largely legacy, as do other decoder boundaries and opaque
+byte-backed pointer-bearing storage. Host native/QEMU validation is not direct
+macOS CI or a global GC-safety proof.
+
+SILK normal decode-core ownership now retains typed decoder, control, PCM and pulse
+pointers behind the public Opus_silk_decode_core uintptr escape adapter. The
+k=2 output-history staging and final LPC-state destination use typed fields rather
+than hard-coded state offsets. The PLC-to-unvoiced transition clears the live
+five-tap control view, stores its center tap, then reloads/stores the decoder lag;
+inactive branches do not consume control. Pulse excitation uses typed samples
+and quantization-table indexing, unsigned RNG/shift wrapping and a second live
+pulse load after excitation stores. The second load matters for Go-only
+pulse/excitation aliases.
+
+LPC/LTP coefficients use live fixed-array pointers. Only LPC_order entries are
+copied into the LPC snapshot; unused tail entries remain untouched. Rewhitening
+still receives the original live A, and LTP prediction reads the live five-tap B
+in the original order. Go-only overlapping snapshots use copy and retain the
+live source pointer. Sole typed pulse/coefficient interiors retain scanned
+backing through GC/stack growth; decoder-history fixtures retain heap codebooks.
+
+The actual renamed decode_core.c integration oracle checks complete numeric
+state/control images, excitation, LPC history, output/guards and unchanged pulses
+for rates 8/12/16, 2/4 subframes, signal types 0/1/2, interpolation 0/4, prior loss
+0/1, gain changes, voiced rewhitening and PLC transition across three consecutive
+core calls. Actual-source fixtures also check valid int16 PCM/pulse aliases and
+PCM pointing into decoder outBuf. Embedded fixture
+pointers remain nil; raw image copying is not a write-barrier-safe pointer import.
+Native leaf fixtures cover history staging, transition stores, extreme/zero pulse
+excitation and coefficient snapshots. Excitation includes seeds -128/-1/0/1/17/127,
+lengths 0/1/17/80/160/320 and both quantization offsets. Alias/error cases that C
+cannot define are Go-only.
+
+The following four storage rounds migrate whitening, Q15 LTP history, residual/
+PCM views, then LPC history. All four arrays are Go-owned: ltp_mem_length int16
+samples, ltp_mem_length + frame_length Q15 words, subfr_length residual words and
+subfr_length + MAX_LPC_ORDER LPC words. Reverse loads and prediction/state stores
+use numeric indices, not integer addresses. Gain scaling and each LPC/LTP MAC
+still narrow individually; wrapping residual/state shifts, PCM product narrowing,
+rounding and saturation are unchanged. LPC retains the ten-tap plus optional
+six-tap order, per-sample order assertion and PCM-before-history-copy ordering.
+Go copy handles state shifts, including zero-length unused cursors safely.
+
+Whitening compares native LPC analysis at k=0/2, multiple start offsets, lengths
+160/240/320 and orders 10/16, with untouched prefixes/guards. Native SILK macro
+fixtures compare reverse whitening/scale stores, five-tap prediction and PCM
+narrowing. Residual signed-overflow cases are Go-only; native residual fixtures
+stay within defined signed ranges.
+
+After the last round, focused checkptr covers the full active normal core with
+nil TLS, GC/stack growth, heap codebooks, zero-length unused PCM/pulses, guards and
+an untouched TLS sentinel. Order-failure fixtures preserve excitation/gain stores
+before the assertion and leave PCM untouched. Original normal-core tests now
+enter the typed driver without pseudostack setup and retain their exact goldens.
+There is no core TLS allocation/cursor/save/restore; only the public uintptr ABI
+adapter remains. Earlier storage rounds checked helpers until the final legacy
+LPC boundary was gone. Original frame goldens and decode/encode baselines remain
+unchanged. Outer SILK API, CELT paths and opaque byte-backed decoder storage
+are not made globally GC-safe. Full amd64/386 and ARM64/QEMU checks do not imply
+direct macOS coverage.
+
 SILK PLC dispatch now holds typed decoder, control and PCM pointers. The public
 Opus_silk_PLC uintptr ABI is an explicit escape adapter that converts all three
 arguments before forwarding. The rate mismatch/reset helper uses typed state;
@@ -477,7 +597,7 @@ Focused checkptr now covers complete active typed concealment/dispatch with
 nil TLS, forced GC/stack growth, heap codebooks, PCM/guards, reset/type/loss
 matrices and an untouched TLS sentinel. Original voiced/unvoiced C-reference
 goldens now enter the typed driver without fixture pseudostack setup and pass
-unchanged. Opaque byte-backed decoder allocations, outer SILK frame/API/core,
+unchanged. Opaque byte-backed decoder allocations, outer SILK API,
 CELT concealment and other legacy boundaries are not made globally GC-safe.
 
 Actual PLC.c dispatcher fixtures compare the full decoder/control structs and
