@@ -7,6 +7,41 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCExcitationStoragePointers(t *testing.T) {
+	for _, period := range []int32{512, 1024} {
+		storage := celtPLCExcitationStorage(period)
+		if len(storage) != int(period+24) {
+			t.Fatal("excitation geometry")
+		}
+		history := make([]float32, 2048)
+		for i := range history {
+			history[i] = float32(math.Sin(float64(i) * .17))
+		}
+		celtPLCExcitationHistory(unsafe.SliceData(storage), &history[0], 2048, period)
+		exc := storage[24:]
+		storage = nil
+		mode := newSynthesisTestMode()
+		var ac [25]float32
+		var coefficients [24]float32
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus__celt_autocorr(nil, unsafe.SliceData(exc), &ac[0], mode.Fwindow, 120, 24, period, 0)
+		celtPLCLagWindow(&ac)
+		Opus__celt_lpc(nil, &coefficients[0], &ac[0], 24)
+		filtered := make([]float32, period)
+		Opus_celt_fir_c(nil, &exc[0], &coefficients[0], &filtered[0], period, 24, 0)
+		copy(exc, filtered)
+		runtime.GC()
+		decay := celtPLCExcitationDecay(&exc[0], period, period)
+		if math.IsNaN(float64(decay)) || decay < 0 || decay > 1 {
+			t.Fatal("owned excitation pipeline", period, decay)
+		}
+	}
+	storage := celtPLCExcitationStorage(0)
+	if len(storage) != 24 || len(storage[24:]) != 0 {
+		t.Fatal("prefix-only excitation")
+	}
+}
 func TestCeltPLCNoiseStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for LM := int32(0); LM <= 3; LM++ {
