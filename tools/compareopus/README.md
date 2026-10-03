@@ -445,6 +445,40 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
+SILK frame decoding now retains typed decoder, entropy, PCM and output-count
+pointers behind the public Opus_silk_decode_frame uintptr escape adapter. The
+control struct and shell-aligned pulse buffer are Go-owned; 120-sample frames
+retain 128 pulse slots. There is no frame TLS allocation/cursor/save/restore.
+Normal/FEC dispatch still follows the exact LBRR flag test; all other flags
+conceal. History shift precedes copying live PCM, then PLC/CNG/glue, the lag store
+and final output-count store remain ordered. The two history assertions retain
+their separate source/error positions. Internal core and PLC calls are typed.
+
+Actual renamed decode_frame.c fixtures compare full numeric decoder images,
+PCM/guards, counts and all eleven entropy fields: rates 8/12/16, 2/4 subframes,
+normal/FEC flags and independent/conditional coding across three consecutive
+calls, plus loss/FEC-fallback/negative/other flags. Go embedded pointer fields
+are cleared in a numeric temporary before exporting bytes; native tables are
+rebound on the C stack and cleared before import. Original Go pointer fields are
+restored via a typed struct assignment, not raw pointer-byte stores. Input entropy
+buffers remain unchanged. Native history and lag/count alias fixtures complement
+the whole-frame oracle; overlapping history memcpy cases are Go-only.
+
+Focused checkptr now covers full active normal/FEC/loss frame paths with nil TLS,
+GC/stack growth, heap codebooks, guards, shell padding, unused nil entropy on loss,
+validation-before-output ordering and an untouched TLS sentinel. The original
+loss-frame golden enters the typed frame with a Go-owned count, unchanged. Rounds
+one/two checked typed history/finish helpers; round three covered active loss
+with Go-owned control; round four enabled the entire frame after pulse migration.
+
+Control allocation exposed an outer API stack-lifetime defect: the original
+TestSilkDecodeLostFrameState returned count 0 rather than 80. The legacy public
+Opus_silk_Decode ABI now declares uintptrescapes, and its frame-local count is
+forwarded directly as a typed pointer. No test/golden was weakened. The outer
+SILK API remains largely legacy, as do other decoder boundaries and opaque
+byte-backed pointer-bearing storage. Host native/QEMU validation is not direct
+macOS CI or a global GC-safety proof.
+
 SILK normal decode-core ownership now retains typed decoder, control, PCM and pulse
 pointers behind the public Opus_silk_decode_core uintptr escape adapter. The
 k=2 output-history staging and final LPC-state destination use typed fields rather
@@ -498,7 +532,7 @@ enter the typed driver without pseudostack setup and retain their exact goldens.
 There is no core TLS allocation/cursor/save/restore; only the public uintptr ABI
 adapter remains. Earlier storage rounds checked helpers until the final legacy
 LPC boundary was gone. Original frame goldens and decode/encode baselines remain
-unchanged. Outer SILK frame/API, CELT paths and opaque byte-backed decoder storage
+unchanged. Outer SILK API, CELT paths and opaque byte-backed decoder storage
 are not made globally GC-safe. Full amd64/386 and ARM64/QEMU checks do not imply
 direct macOS coverage.
 
@@ -534,7 +568,7 @@ Focused checkptr now covers complete active typed concealment/dispatch with
 nil TLS, forced GC/stack growth, heap codebooks, PCM/guards, reset/type/loss
 matrices and an untouched TLS sentinel. Original voiced/unvoiced C-reference
 goldens now enter the typed driver without fixture pseudostack setup and pass
-unchanged. Opaque byte-backed decoder allocations, outer SILK frame/API/core,
+unchanged. Opaque byte-backed decoder allocations, outer SILK API,
 CELT concealment and other legacy boundaries are not made globally GC-safe.
 
 Actual PLC.c dispatcher fixtures compare the full decoder/control structs and

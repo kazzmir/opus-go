@@ -170,6 +170,42 @@ func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 		}
 	}
 }
+func TestDecodeFrameNormalAgainstC(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, nb := range []int32{2, 4} {
+			for _, flag := range []int32{0, 2} {
+				for _, cond := range []int32{opuscc.CODE_INDEPENDENTLY, opuscc.CODE_CONDITIONALLY} {
+					d := opuscc.OpusT_silk_decoder_state{}
+					opuscc.Opus_silk_init_decoder(nil, &d)
+					d.Fnb_subfr = nb
+					opuscc.Opus_silk_decoder_set_fs(nil, &d, rate, rate*1000)
+					d.FVAD_flags[0] = 1
+					d.FLBRR_flags[0] = 1
+					c := d
+					buf := make([]byte, 900)
+					for i := range buf {
+						buf[i] = byte(i*71 + 13)
+					}
+					before := slices.Clone(buf)
+					var ec opuscc.OpusT_ec_ctx
+					opuscc.Opus_ec_dec_init(nil, &ec, &buf[0], uint32(len(buf)))
+					ce := ec
+					frame := make([]int16, d.Fframe_length+2)
+					frame[0], frame[len(frame)-1] = 77, 88
+					want := slices.Clone(frame)
+					count, nativeCount := int32(-99), int32(-99)
+					for step := 0; step < 3; step++ {
+						g := opuscc.CompareDecodeFrame(nil, &d, &ec, &frame[1], &count, flag, cond)
+						n := nativeDecodeFrame(&c, &ce, buf, want[1:len(want)-1], &nativeCount, flag, cond)
+						if g != n || d != c || count != nativeCount || ec != ce || !slices.Equal(frame, want) || !slices.Equal(buf, before) {
+							t.Fatal("normal/fec frame", rate, nb, flag, cond, step, g, n, count, nativeCount, ec, ce)
+						}
+					}
+				}
+			}
+		}
+	}
+}
 func TestDecodeFrameLossAgainstC(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
 		for _, nb := range []int32{2, 4} {

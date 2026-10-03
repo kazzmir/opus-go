@@ -7,6 +7,86 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func newDecodeFrameTestState(rate, nb int32) *OpusT_silk_decoder_state {
+	d := new(OpusT_silk_decoder_state)
+	Opus_silk_init_decoder(nil, d)
+	d.Fnb_subfr = nb
+	Opus_silk_decoder_set_fs(nil, d, rate, rate*1000)
+	d.FpsNLSF_CB = cloneTestNLSFCodebook(d.FpsNLSF_CB)
+	d.FVAD_flags[0] = 1
+	d.FLBRR_flags[0] = 1
+	return d
+}
+func TestDecodeFramePulseScratchPointers(t *testing.T) {
+	for _, length := range []int32{1, 16, 17, 80, 120, 160, 240, 320} {
+		pulses := silkDecodeFramePulses(length)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if int32(len(pulses)) != (length+15)&^15 {
+			t.Fatal("pulse padding", length, len(pulses))
+		}
+		for _, v := range pulses {
+			if v != 0 {
+				t.Fatal("scratch zero")
+			}
+		}
+	}
+	for _, rate := range []int32{8, 12, 16} {
+		for _, nb := range []int32{2, 4} {
+			for _, flag := range []int32{0, 2} {
+				for _, cond := range []int32{CODE_INDEPENDENTLY, CODE_CONDITIONALLY} {
+					d := newDecodeFrameTestState(rate, nb)
+					buf := make([]byte, 900)
+					for i := range buf {
+						buf[i] = byte(i*71 + 13)
+					}
+					var ec OpusT_ec_ctx
+					Opus_ec_dec_init(nil, &ec, &buf[0], uint32(len(buf)))
+					frame := make([]int16, d.Fframe_length+2)
+					frame[0], frame[len(frame)-1] = 77, 88
+					before := append([]byte(nil), buf...)
+					count := int32(-99)
+					entropyInitGrowStack(12)
+					runtime.GC()
+					ret := silk_decode_frame(nil, d, &ec, &frame[1], &count, flag, cond, 0)
+					if ret != 0 || count != d.Fframe_length || d.FlossCnt != 0 || frame[0] != 77 || frame[len(frame)-1] != 88 || d.FpsNLSF_CB.FCB1_NLSF_Q8 == nil || ec.Fbuf != &buf[0] {
+						t.Fatal("typed normal/fec frame", rate, nb, flag, cond, ret, count)
+					}
+					for i := range buf {
+						if buf[i] != before[i] {
+							t.Fatal("frame wrote entropy input")
+						}
+					}
+				}
+			}
+		}
+	}
+	d := newDecodeFrameTestState(12, 2)
+	buf := make([]byte, 900)
+	ec := new(OpusT_ec_ctx)
+	Opus_ec_dec_init(nil, ec, &buf[0], uint32(len(buf)))
+	frame := make([]int16, d.Fframe_length)
+	var count int32
+	tls := libc.NewTLS()
+	defer tls.Close()
+	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+	silk_decode_frame(tls, d, ec, &frame[0], &count, 0, CODE_INDEPENDENTLY, 0)
+	if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+		t.Fatal("normal frame touched TLS")
+	}
+	// Length validation precedes entropy/PCM/count consumption.
+	d.Fframe_length = 0
+	count = 123
+	panicked := false
+	func() {
+		defer func() { panicked = recover() != nil }()
+		silk_decode_frame(nil, d, nil, nil, &count, 0, 0, 0)
+	}()
+	if !panicked || count != 123 {
+		t.Fatal("frame validation/count ordering", panicked, count)
+	}
+}
+
 func TestDecodeFrameLossPointers(t *testing.T) {
 	for _, rate := range []int32{8, 12, 16} {
 		for _, nb := range []int32{2, 4} {
