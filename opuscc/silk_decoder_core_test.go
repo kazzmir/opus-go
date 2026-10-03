@@ -9,6 +9,42 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeCoreWhiteningPointers(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, order := range []int32{10, 16} {
+			for _, k := range []int32{0, 2} {
+				d := newPLCConcealTestDecoder(rate, 4)
+				d.FLPC_order = order
+				for i := range d.FoutBuf {
+					d.FoutBuf[i] = int16(i*71 - 20000)
+				}
+				for _, start := range []int32{1, 17, d.Fltp_mem_length - order - 1} {
+					a := &[16]int16{120, -80, 60, -45, 30, -20, 15, -10, 8, -5, 4, -3, 2, -2, 1, -1}
+					samples := make([]int16, d.Fltp_mem_length+2)
+					for i := range samples {
+						samples[i] = 123
+					}
+					samples[0], samples[len(samples)-1] = 77, 88
+					want := append([]int16(nil), samples...)
+					Opus_silk_LPC_analysis_filter(nil, &want[start+1], &d.FoutBuf[start+k*d.Fsubfr_length], &a[0], d.Fltp_mem_length-start, order, 0)
+					before := *d
+					entropyInitGrowStack(12)
+					runtime.GC()
+					silkDecodeCoreWhiten(nil, d, samples[1:len(samples)-1], a, start, k, 0)
+					for i := range samples {
+						if samples[i] != want[i] {
+							t.Fatal("whitening", rate, order, k, start, i)
+						}
+					}
+					if *d != before {
+						t.Fatal("whitening changed decoder")
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestDecodeCoreCoefficientPointers(t *testing.T) {
 	for _, order := range []int32{0, 10, 16} {
 		for k := int32(0); k < 4; k++ {

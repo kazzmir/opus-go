@@ -32,6 +32,10 @@ func Opus_silk_init_decoder(tls *libc.TLS, dec *OpusT_silk_decoder_state) int32 
 	return Opus_silk_reset_decoder(tls, dec)
 }
 
+func silkDecodeCoreWhiten(tls *libc.TLS, decoder *OpusT_silk_decoder_state, samples []int16, a *[MAX_LPC_ORDER]int16, start, k, arch int32) {
+	Opus_silk_LPC_analysis_filter(tls, unsafe.SliceData(samples[start:]), &decoder.FoutBuf[start+k*decoder.Fsubfr_length], &a[0], decoder.Fltp_mem_length-start, decoder.FLPC_order, arch)
+}
+
 func silkDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int16, offset int32) int32 {
 	samples := unsafe.Slice(pulses, decoder.Fframe_length)
 	seed := int32(decoder.Findices.FSeed)
@@ -96,7 +100,8 @@ func Opus_silk_decode_core(tls *libc.TLS, psDec, psDecCtrl, xq, pulses uintptr, 
 func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, xq uintptr, pulses *int16, arch int32) {
 	var A_Q12 *[MAX_LPC_ORDER]int16
 	var B_Q14 *[LTP_ORDER]int16
-	var _saved_stack, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, res_Q14, sLPC_Q14, sLTP, sLTP_Q15, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var sLTP []int16
+	var _saved_stack, pexc_Q14, pred_lag_ptr, pres_Q14, pxq, res_Q14, sLPC_Q14, sLTP_Q15, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, a32_nrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, err_Q32, gain_adj_Q16, inv_gain_Q31, offset_Q10, rand_seed, result, result1, v103, v106, v107, v110, v117, v118, v121 OpusT_opus_int32
 	var NLSF_interpolation_flag, a_headrm, b_headrm, b_headrm1, i, k, lag, lshift, lshift1, sLTP_buf_idx, signalType, start_idx, v104, v105, v109, v112, v113, v114, v115, v116, v119, v120, v124, v125, v129 int32
 	var A_Q12_tmp [MAX_LPC_ORDER]OpusT_opus_int16
@@ -115,73 +120,8 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	_ = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fprev_gain_Q16 != int32(0)
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(2)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(2)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+5844, int32(58))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length)) * (uint64(2) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	sLTP = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length))*(uint64(2)/uint64(1)))
+	_ = decoder.Fprev_gain_Q16 != 0
+	sLTP = make([]int16, decoder.Fltp_mem_length)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))
@@ -579,7 +519,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 				if k == int32(2) {
 					silkDecodeCoreHistory(decoder, (*int16)(unsafe.Pointer(xq)))
 				}
-				Opus_silk_LPC_analysis_filter(tls, (*OpusT_opus_int16)(unsafe.Pointer(sLTP+uintptr(start_idx)*2)), &decoder.FoutBuf[start_idx+k*decoder.Fsubfr_length], &A_Q12[0], decoder.Fltp_mem_length-start_idx, decoder.FLPC_order, arch)
+				silkDecodeCoreWhiten(tls, decoder, sLTP, A_Q12, start_idx, k, arch)
 				/* After rewhitening the LTP state is unscaled */
 				if k == 0 {
 					/* Do LTP downscaling to reduce inter-packet dependency */
@@ -590,7 +530,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 					if !(i < lag+int32(LTP_ORDER)/int32(2)) {
 						break
 					}
-					*(*OpusT_opus_int32)(unsafe.Pointer(sLTP_Q15 + uintptr(sLTP_buf_idx-i-int32(1))*4)) = int32(int64(inv_gain_Q31) * int64(*(*OpusT_opus_int16)(unsafe.Pointer(sLTP + uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length-i-int32(1))*2))) >> int32(16))
+					*(*OpusT_opus_int32)(unsafe.Pointer(sLTP_Q15 + uintptr(sLTP_buf_idx-i-int32(1))*4)) = int32(int64(inv_gain_Q31) * int64(sLTP[decoder.Fltp_mem_length-i-1]) >> int32(16))
 					i = i + 1
 				}
 			} else {

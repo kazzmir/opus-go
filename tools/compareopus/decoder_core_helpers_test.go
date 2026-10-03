@@ -10,6 +10,33 @@ import (
 	"unsafe"
 )
 
+func TestDecodeCoreWhiteningAgainstC(t *testing.T) {
+	for _, rate := range []int32{8, 12, 16} {
+		for _, order := range []int32{10, 16} {
+			for _, k := range []int32{0, 2} {
+				d := opuscc.OpusT_silk_decoder_state{Fltp_mem_length: rate * 20, Fsubfr_length: rate * 5, FLPC_order: order}
+				for i := range d.FoutBuf {
+					d.FoutBuf[i] = int16(i*71 - 20000)
+				}
+				for _, start := range []int32{1, 17, d.Fltp_mem_length - order - 1} {
+					a := &[16]int16{120, -80, 60, -45, 30, -20, 15, -10, 8, -5, 4, -3, 2, -2, 1, -1}
+					samples := make([]int16, d.Fltp_mem_length+2)
+					for i := range samples {
+						samples[i] = 123
+					}
+					samples[0], samples[len(samples)-1] = 77, 88
+					want := slices.Clone(samples)
+					before := d
+					opuscc.CompareDecodeCoreWhiten(&d, samples[1:len(samples)-1], a, start, k)
+					nativeLPCAnalysis(want[start+1:len(want)-1], d.FoutBuf[start+k*d.Fsubfr_length:d.Fltp_mem_length+k*d.Fsubfr_length], a[:order])
+					if !slices.Equal(samples, want) || d != before {
+						t.Fatal("whitening", rate, order, k, start)
+					}
+				}
+			}
+		}
+	}
+}
 func TestDecodeCoreCoefficientsAgainstC(t *testing.T) {
 	for _, order := range []int32{0, 10, 16} {
 		for k := int32(0); k < 4; k++ {
