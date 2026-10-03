@@ -10,6 +10,9 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 func CompareCeltPLCLost(tls *libc.TLS, state *OpusT_OpusCustomDecoder, N, LM int32) {
 	celt_decode_lost(tls, state, N, LM)
 }
+func CompareCeltPLCHistoryViews(state *OpusT_OpusCustomDecoder, overlap, bands, channels, N int32) ([2][]float32, [2]*float32, *float32, *float32, *float32) {
+	return celtPLCHistoryViews(state, overlap, bands, channels, N)
+}
 func CompareCeltPLCMode(state *OpusT_OpusCustomDecoder) (*OpusT_OpusCustomMode, int32, int32, *int16) {
 	return celtPLCMode(state)
 }

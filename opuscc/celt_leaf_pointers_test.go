@@ -8,6 +8,43 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCHistoryViewsPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			for _, N := range []int32{0, 120, 240, 480, 960} {
+				owner, _, _ := celtStateTestBuffer(newSynthesisTestMode(), channels)
+				h, out, e, b, a := celtPLCHistoryViews(&owner.State, overlap, 21, channels, N)
+				owner = nil
+				entropyInitGrowStack(12)
+				runtime.GC()
+				stride := int32(2048) + overlap
+				for c := int32(0); c < channels; c++ {
+					if len(h[c]) != int(stride) {
+						t.Fatal("history span")
+					}
+					h[c][0] = float32(c + 77)
+					if N == 0 && overlap == 0 {
+						if out[c] != nil {
+							t.Fatal("unused one-past output")
+						}
+					} else {
+						if out[c] != &h[c][2048-N] {
+							t.Fatal("output view")
+						}
+						*out[c] = 99
+					}
+				}
+				if channels == 1 && (h[1] != nil || out[1] != nil) {
+					t.Fatal("unused mono channel")
+				}
+				if uintptr(unsafe.Pointer(b))-uintptr(unsafe.Pointer(e)) != 6*21*4 || uintptr(unsafe.Pointer(a))-uintptr(unsafe.Pointer(e)) != 8*21*4 {
+					t.Fatal("energy/LPC offsets")
+				}
+				*e, *b, *a = -12, -28, .125
+			}
+		}
+	}
+}
 func TestCeltPLCModePointers(t *testing.T) {
 	state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode()}
 	m, nb, overlap, bands := celtPLCMode(state)
