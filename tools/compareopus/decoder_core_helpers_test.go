@@ -10,6 +10,26 @@ import (
 	"unsafe"
 )
 
+func TestDecodeCoreResidualPCMAgainstC(t *testing.T) {
+	for _, sample := range []int32{-2147483648, -100000003, -1, 0, 1, 100000003, 2147483647} {
+		for _, gain := range []int32{-2147483648, -65536, 0, 1024, 131072, 2147483647} {
+			g := opuscc.CompareDecodeCorePCM(sample, gain)
+			n := nativePLCPCM(sample, gain)
+			if g != n {
+				t.Fatal("PCM", sample, gain, g, n)
+			}
+		}
+	}
+	for _, excitation := range []int32{-16000000, -1, 0, 1, 16000000} {
+		for _, prediction := range []int32{-1000000, -1, 0, 1, 1000000} {
+			g := opuscc.CompareDecodeCoreResidual(excitation, prediction)
+			n := nativeDecodeCoreResidual(excitation, prediction)
+			if g != n {
+				t.Fatal("residual", excitation, prediction, g, n)
+			}
+		}
+	}
+}
 func TestDecodeCoreLTPStorageAgainstC(t *testing.T) {
 	for _, shape := range [][3]int32{{160, 160, 240}, {240, 360, 480}, {320, 640, 640}} {
 		for _, lag := range []int32{0, 1, 40, 80} {
@@ -213,7 +233,7 @@ func TestDecodeCoreAgainstC(t *testing.T) {
 						scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
 						*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
 						libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
-						opuscc.CompareDecodeCore(tls, &d, &ctrl, uintptr(unsafe.Pointer(&out[1])), &pulses[0])
+						opuscc.CompareDecodeCore(tls, &d, &ctrl, &out[1], &pulses[0])
 						tls.Close()
 						r := nativeDecodeCore(&c, &cc, want[1:len(want)-1], pulses)
 						if r != 0 || d != c || ctrl != cc || !slices.Equal(out, want) || !slices.Equal(pulses, before) {

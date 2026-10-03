@@ -7,12 +7,14 @@ import (
 	"unsafe"
 )
 
-// Full core still consumes legacy TLS scratch and output/pulse cursors.
-//
-//go:uintptrescapes
-func CompareDecodeCore(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, output uintptr, pulses *int16) {
+// Full core still consumes legacy LPC TLS scratch/cursors.
+func CompareDecodeCore(tls *libc.TLS, decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, output *int16, pulses *int16) {
 	silk_decode_core(tls, decoder, control, output, pulses, 0)
 }
+func CompareDecodeCoreResidual(excitation, prediction int32) int32 {
+	return silkDecodeCoreResidual(excitation, prediction)
+}
+func CompareDecodeCorePCM(sample, gain int32) int16 { return silkDecodeCorePCM(sample, gain) }
 func CompareDecodeCoreLTPWhiten(history []int32, samples []int16, index, memory, lag, gain int32) {
 	silkDecodeCoreLTPWhiten(history, samples, index, memory, lag, gain)
 }

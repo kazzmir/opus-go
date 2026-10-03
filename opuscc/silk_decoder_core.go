@@ -32,6 +32,18 @@ func Opus_silk_init_decoder(tls *libc.TLS, dec *OpusT_silk_decoder_state) int32 
 	return Opus_silk_reset_decoder(tls, dec)
 }
 
+func silkDecodeCoreResidual(excitation, prediction int32) int32 {
+	return int32(uint32(excitation) + (uint32(prediction) << 1))
+}
+func silkDecodeCorePCMStore(pcm []int16, index, sample, gain int32) {
+	pcm[index] = silkDecodeCorePCM(sample, gain)
+}
+func silkDecodeCorePCM(sample, gain int32) int16 {
+	scaled := int32(int64(sample) * int64(gain) >> 16)
+	rounded := ((scaled >> 7) + 1) >> 1
+	return int16(min(max(rounded, -32768), 32767))
+}
+
 func silkDecodeCoreLTPWhiten(history []int32, samples []int16, bufferIndex, memoryLength, lag, gain int32) {
 	for i := int32(0); i < lag+LTP_ORDER/2; i++ {
 		history[bufferIndex-i-1] = int32(int64(gain) * int64(samples[memoryLength-i-1]) >> 16)
@@ -111,18 +123,20 @@ const silk_int16_MAX3 = 32767
 //
 //go:uintptrescapes
 func Opus_silk_decode_core(tls *libc.TLS, psDec, psDecCtrl, xq, pulses uintptr, arch int32) {
-	silk_decode_core(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), xq, (*int16)(unsafe.Pointer(pulses)), arch)
+	silk_decode_core(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(xq)), (*int16)(unsafe.Pointer(pulses)), arch)
 }
 
 // Decoder/control/pulse owners and coefficient/excitation leaves are typed.
 // Four TLS arrays, synthesis/history cursors, and the output boundary remain legacy.
-func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, xq uintptr, pulses *int16, arch int32) {
+func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, xq *int16, pulses *int16, arch int32) {
 	var A_Q12 *[MAX_LPC_ORDER]int16
 	var B_Q14 *[LTP_ORDER]int16
 	var sLTP []int16
 	var sLTP_Q15 []int32
 	var pred_lag_ptr int32 // Numeric index, not an address.
-	var _saved_stack, pexc_Q14, pres_Q14, pxq, res_Q14, sLPC_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var pexc_Q14, pres_Q14, res_Q14 []int32
+	var pxq []int16
+	var _saved_stack, sLPC_Q14, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var Gain_Q10, LPC_pred_Q10, LTP_pred_Q13, a32_nrm, b32_inv, b32_inv1, b32_nrm, b32_nrm1, err_Q32, gain_adj_Q16, inv_gain_Q31, offset_Q10, rand_seed, result, result1, v103, v106, v107, v110, v117, v118, v121 OpusT_opus_int32
 	var NLSF_interpolation_flag, a_headrm, b_headrm, b_headrm1, i, k, lag, lshift, lshift1, sLTP_buf_idx, signalType, start_idx, v104, v105, v109, v112, v113, v114, v115, v116, v119, v120, v124, v125, v129 int32
 	var A_Q12_tmp [MAX_LPC_ORDER]OpusT_opus_int16
@@ -144,72 +158,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	_ = decoder.Fprev_gain_Q16 != 0
 	sLTP = make([]int16, decoder.Fltp_mem_length)
 	sLTP_Q15 = make([]int32, decoder.Fltp_mem_length+decoder.Fframe_length)
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+5844, int32(60))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	res_Q14 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length))*(uint64(4)/uint64(1)))
+	res_Q14 = make([]int32, decoder.Fsubfr_length)
 	/* Work around a clang bug (verified with clang 6.0 through clang 20.1.0) that causes the last
 	   memset to be flagged as an invalid read by valgrind (not caught by asan). */
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -288,8 +237,8 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	rand_seed = silkDecodeCoreExcitation(decoder, pulses, offset_Q10)
 	/* Copy LPC state */
 	libc.Xmemcpy(tls, sLPC_Q14, uintptr(unsafe.Pointer(&decoder.FsLPC_Q14_buf[0])), uint64(uint32(MAX_LPC_ORDER))*uint64(4))
-	pexc_Q14 = uintptr(unsafe.Pointer(&decoder.Fexc_Q14[0]))
-	pxq = xq
+	pexc_Q14 = decoder.Fexc_Q14[:decoder.Fframe_length]
+	pxq = unsafe.Slice(xq, decoder.Fframe_length)
 	sLTP_buf_idx = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length
 	/* Loop over subframes */
 	k = 0
@@ -473,7 +422,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 					Opus_celt_fatal(tls, __ccgo_ts+5866, __ccgo_ts+5844, int32(150))
 				}
 				if k == int32(2) {
-					silkDecodeCoreHistory(decoder, (*int16)(unsafe.Pointer(xq)))
+					silkDecodeCoreHistory(decoder, xq)
 				}
 				silkDecodeCoreWhiten(tls, decoder, sLTP, A_Q12, start_idx, k, arch)
 				/* After rewhitening the LTP state is unscaled */
@@ -503,9 +452,9 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 				LTP_pred_Q13 = silkDecodeCoreLTPPrediction(sLTP_Q15, pred_lag_ptr, B_Q14)
 				pred_lag_ptr++
 				/* Generate LPC excitation */
-				*(*OpusT_opus_int32)(unsafe.Pointer(pres_Q14 + uintptr(i)*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(pexc_Q14 + uintptr(i)*4)) + int32(uint32(LTP_pred_Q13)<<int32(1))
+				pres_Q14[i] = silkDecodeCoreResidual(pexc_Q14[i], LTP_pred_Q13)
 				/* Update states */
-				sLTP_Q15[sLTP_buf_idx] = int32(uint32(*(*OpusT_opus_int32)(unsafe.Pointer(pres_Q14 + uintptr(i)*4))) << int32(1))
+				sLTP_Q15[sLTP_buf_idx] = int32(uint32(pres_Q14[i]) << 1)
 				sLTP_buf_idx = sLTP_buf_idx + 1
 				i = i + 1
 			}
@@ -552,7 +501,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 				}
 				v105 = v109
 			}
-			if (uint32(*(*OpusT_opus_int32)(unsafe.Pointer(pres_Q14 + uintptr(i)*4)))+uint32(int32(uint32(v105)<<int32(4))))&uint32(0x80000000) == uint32(0) {
+			if (uint32(pres_Q14[i])+uint32(int32(uint32(v105)<<int32(4))))&uint32(0x80000000) == uint32(0) {
 				if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
 					v113 = int32(silk_int32_MAX) >> int32(4)
 				} else {
@@ -563,7 +512,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 					}
 					v113 = v114
 				}
-				if uint32(*(*OpusT_opus_int32)(unsafe.Pointer(pres_Q14 + uintptr(i)*4))&int32(uint32(v113)<<int32(4)))&uint32(0x80000000) != uint32(0) {
+				if uint32(pres_Q14[i]&int32(uint32(v113)<<int32(4)))&uint32(0x80000000) != uint32(0) {
 					v112 = int32(-2147483648)
 				} else {
 					if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
@@ -576,7 +525,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 						}
 						v115 = v116
 					}
-					v112 = *(*OpusT_opus_int32)(unsafe.Pointer(pres_Q14 + uintptr(i)*4)) + int32(uint32(v115)<<int32(4))
+					v112 = pres_Q14[i] + int32(uint32(v115)<<int32(4))
 				}
 				v104 = v112
 			} else {
@@ -590,7 +539,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 					}
 					v120 = v124
 				}
-				if uint32(*(*OpusT_opus_int32)(unsafe.Pointer(pres_Q14 + uintptr(i)*4))|int32(uint32(v120)<<int32(4)))&uint32(0x80000000) == uint32(0) {
+				if uint32(pres_Q14[i]|int32(uint32(v120)<<int32(4)))&uint32(0x80000000) == uint32(0) {
 					v119 = int32(silk_int32_MAX)
 				} else {
 					if LPC_pred_Q10 > int32(silk_int32_MAX)>>int32(4) {
@@ -603,29 +552,19 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 						}
 						v125 = v129
 					}
-					v119 = *(*OpusT_opus_int32)(unsafe.Pointer(pres_Q14 + uintptr(i)*4)) + int32(uint32(v125)<<int32(4))
+					v119 = pres_Q14[i] + int32(uint32(v125)<<int32(4))
 				}
 				v104 = v119
 			}
 			*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)) = v104
-			/* Scale with gain */
-			if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(Gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) > int32(silk_int16_MAX3) {
-				v104 = int32(silk_int16_MAX3)
-			} else {
-				if (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(Gain_Q10)>>int32(16))>>(int32(8)-int32(1))+int32(1))>>int32(1) < int32(int16(-32768)) {
-					v105 = int32(int16(-32768))
-				} else {
-					v105 = (int32(int64(*(*OpusT_opus_int32)(unsafe.Pointer(sLPC_Q14 + uintptr(int32(MAX_LPC_ORDER)+i)*4)))*int64(Gain_Q10)>>int32(16))>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-				}
-				v104 = v105
-			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(pxq + uintptr(i)*2)) = int16(v104)
+			/* Scale with gain: narrow SMULWW before rounding/saturation. */
+			silkDecodeCorePCMStore(pxq, i, *(*int32)(unsafe.Pointer(sLPC_Q14 + uintptr(MAX_LPC_ORDER+i)*4)), Gain_Q10)
 			i = i + 1
 		}
 		/* Update LPC filter state */
 		libc.Xmemcpy(tls, sLPC_Q14, sLPC_Q14+uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length)*4, uint64(uint32(MAX_LPC_ORDER))*uint64(4))
-		pexc_Q14 = pexc_Q14 + uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length)*4
-		pxq = pxq + uintptr((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length)*2
+		pexc_Q14 = pexc_Q14[decoder.Fsubfr_length:]
+		pxq = pxq[decoder.Fsubfr_length:]
 		k = k + 1
 	}
 	/* Save LPC state */

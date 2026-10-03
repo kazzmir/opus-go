@@ -9,6 +9,32 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeCoreResidualPCMPointers(t *testing.T) {
+	for _, excitation := range []int32{-2147483648, -16000000, -1, 0, 1, 16000000, 2147483647} {
+		for _, prediction := range []int32{-2147483648, -1000000, -1, 0, 1, 1000000, 2147483647} {
+			if g := silkDecodeCoreResidual(excitation, prediction); g != int32(uint32(excitation)+(uint32(prediction)<<1)) {
+				t.Fatal("residual wrapping", excitation, prediction, g)
+			}
+		}
+	}
+	for _, sample := range []int32{-2147483648, -100000003, -1, 0, 1, 100000003, 2147483647} {
+		for _, gain := range []int32{-2147483648, -65536, 0, 1024, 131072, 2147483647} {
+			pcm := []int16{77, 0, 88}
+			product := int32(int64(sample) * int64(gain) >> 16)
+			want := int16(min(max(((product>>7)+1)>>1, -32768), 32767))
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeCorePCMStore(pcm[1:2], 0, sample, gain)
+			if pcm[0] != 77 || pcm[1] != want || pcm[2] != 88 {
+				t.Fatal("PCM narrowing/guards", sample, gain, pcm, want)
+			}
+		}
+	}
+	if g := silkDecodeCorePCM(2147483647, 2147483647); g != -256 {
+		t.Fatal("wide product must narrow", g)
+	}
+}
+
 func TestDecodeCoreLTPStoragePointers(t *testing.T) {
 	for _, shape := range [][3]int32{{160, 160, 240}, {240, 360, 480}, {320, 640, 640}} {
 		for _, lag := range []int32{0, 1, 40, 80} {
