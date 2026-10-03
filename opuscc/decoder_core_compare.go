@@ -37,7 +37,7 @@ func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *Opu
 	return silkDecodeCoreTransition(decoder, control, k)
 }
 
-// Whole API still consumes its remaining resampling TLS scratch.
+// Whole typed API accepts nil TLS, with Go-owned channel/resampling scratch.
 func CompareDecodeAPI(tls *libc.TLS, decoder *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct, lost, newPacket int32, ec *OpusT_ec_ctx, out *float32, count *int32) int32 {
 	return silk_Decode(tls, decoder, control, lost, newPacket, ec, out, count, 0)
 }

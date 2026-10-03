@@ -3,7 +3,7 @@
 package main
 
 import (
-	libc "github.com/kazzmir/opus-go/libcshim"
+	"encoding/hex"
 	"github.com/kazzmir/opus-go/opuscc"
 	"reflect"
 	"slices"
@@ -195,13 +195,7 @@ func TestDecodeAPIWholeAgainstC(t *testing.T) {
 					out[0], out[len(out)-1] = 77, 88
 					want := slices.Clone(out)
 					count, nativeCount := int32(-99), int32(-99)
-					tls := libc.NewTLS()
-					ps := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(opuscc.OpusT_opus_ccgo_pseudostack_state{})))
-					scratch := libc.XmallocPointer(tls, opuscc.GLOBAL_STACK_SIZE)
-					*(*opuscc.OpusT_opus_ccgo_pseudostack_state)(ps) = opuscc.OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: uintptr(scratch), Fglobal_stack: uintptr(scratch)}
-					libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(ps))
-					g := opuscc.CompareDecodeAPI(tls, &d, &ctrl, flag, 1, &ec, &out[1], &count)
-					tls.Close()
+					g := opuscc.CompareDecodeAPI(nil, &d, &ctrl, flag, 1, &ec, &out[1], &count)
 					n := nativeDecodeAPI(&c, &cc, &ce, data, want[1:len(want)-1], &nativeCount, flag, 1)
 					if g != n || d != c || ctrl != cc || ec != ce || count != nativeCount || !slices.Equal(out, want) || !slices.Equal(data, before) {
 						for ch := range d.Fchannel_state {
@@ -216,6 +210,65 @@ func TestDecodeAPIWholeAgainstC(t *testing.T) {
 						t.Fatal("whole API", fs, api, mode, flag, g, n, count, nativeCount, ctrl, cc, ec, ce)
 					}
 				}
+			}
+		}
+	}
+}
+func TestDecodeAPIRealPacketsAgainstC(t *testing.T) {
+	d := opuscc.OpusT_silk_decoder{}
+	opuscc.Opus_silk_InitDecoder(nil, &d)
+	c := d
+	ctrl := opuscc.OpusT_silk_DecControlStruct{FnChannelsAPI: 2, FnChannelsInternal: 1, FAPI_sampleRate: 48000, FinternalSampleRate: 8000, FpayloadSize_ms: 60}
+	cc := ctrl
+	for _, packet := range []string{"18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40", "182312cf4040d200ea1335b36ad4d1a12853dd70b1861253119131ec38"} {
+		data, err := hex.DecodeString(packet)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data = data[1:]
+		var ec opuscc.OpusT_ec_ctx
+		opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+		ce := ec
+		for f := 0; f < 3; f++ {
+			out := make([]float32, 1922)
+			out[0], out[1921] = 77, 88
+			want := slices.Clone(out)
+			count, nativeCount := int32(-99), int32(-99)
+			newPacket := int32(0)
+			if f == 0 {
+				newPacket = 1
+			}
+			g := opuscc.CompareDecodeAPI(nil, &d, &ctrl, 0, newPacket, &ec, &out[1], &count)
+			n := nativeDecodeAPI(&c, &cc, &ce, data, want[1:1921], &nativeCount, 0, newPacket)
+			if g != n || d != c || ctrl != cc || ec != ce || count != nativeCount || !slices.Equal(out, want) {
+				t.Fatal("real API frame", f, g, n, count, nativeCount)
+			}
+		}
+	}
+}
+func TestDecodeAPITransitionsAgainstC(t *testing.T) {
+	for _, api := range []int32{24000, 48000} {
+		d := opuscc.OpusT_silk_decoder{}
+		opuscc.Opus_silk_InitDecoder(nil, &d)
+		c := d
+		for step, mode := range [][2]int32{{2, 2}, {2, 1}, {2, 2}, {1, 2}, {2, 2}} {
+			ctrl := opuscc.OpusT_silk_DecControlStruct{FnChannelsAPI: mode[0], FnChannelsInternal: mode[1], FAPI_sampleRate: api, FinternalSampleRate: 16000, FpayloadSize_ms: 20}
+			cc := ctrl
+			data := make([]byte, 900)
+			for i := range data {
+				data[i] = byte(i*71 + 13 + step*7)
+			}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+			ce := ec
+			out := make([]float32, 2+api/50*mode[0])
+			out[0], out[len(out)-1] = 77, 88
+			want := slices.Clone(out)
+			count, nativeCount := int32(-99), int32(-99)
+			g := opuscc.CompareDecodeAPI(nil, &d, &ctrl, 0, 1, &ec, &out[1], &count)
+			n := nativeDecodeAPI(&c, &cc, &ce, data, want[1:len(want)-1], &nativeCount, 0, 1)
+			if g != n || d != c || ctrl != cc || ec != ce || count != nativeCount || !slices.Equal(out, want) {
+				t.Fatal("API transition", api, step, mode, g, n, count, nativeCount)
 			}
 		}
 	}

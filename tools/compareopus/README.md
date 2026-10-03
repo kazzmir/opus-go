@@ -468,8 +468,27 @@ count reloads, channel order and guards. Native fixtures cover counts at API rat
 float/count alias verifies stopping after a count-changing store; it is not a
 C effective-type parity claim.
 
-Focused checkptr checks these active typed API helpers, not the entire API.
-Its channel sample/storage/resampling TLS arrays and integer cursors remain legacy.
+The subsequent four API scratch rounds type channel slices, replace channel
+storage with one Go-owned int16 array, type delayed-input/resampling views, then
+replace resampling storage with a Go slice. Unused mono channel pointers are not
+materialized. Sequential history copies, side clears, channel passes, collapsed
+stereo resampling and live output/count reloads retain source order. All API TLS
+allocation/cursor/save/restore operations are gone; the public escape ABI remains.
+
+Focused checkptr now covers the complete typed API with nil TLS, GC/stack growth,
+heap codebooks, normal/FEC/loss calls, transitions, exact guards, validation order
+and an untouched TLS sentinel. Original real-packet and PLC goldens are unchanged;
+a full-API float/count alias is explicitly Go-only. Earlier helper-only checkptr
+limits and references below to legacy outer SILK API scratch are historical.
+
+The renamed upstream dec_API.c oracle compares full numeric decoder/control
+images, PCM/counts and all eleven entropy fields at internal rates 8/12/16 kHz,
+API rates 8/24/48 kHz, all channel combinations and normal/FEC/loss flags. It also
+checks channel transitions and six consecutive real 60-ms packet frame calls.
+Native initialization selects scalar arch=0 to match Go, not host SIMD arch=4.
+Numeric images strip pointers; native tables are rebound locally, cleared before
+import, and Go table owners are restored by typed assignment. Delayed resampling
+views also match C at all five supported decoder API rates and 10/20-ms lengths.
 All four rounds retain full amd64/386/ARM64-QEMU tests, original API/frame goldens,
 end-to-end native/GC-stress comparisons and unchanged baselines/tolerances. This
 is neither direct macOS CI nor a global GC-safety proof for opaque allocations.

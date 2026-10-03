@@ -10,6 +10,138 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeAPIWholePointers(t *testing.T) {
+	for _, fs := range []int32{8000, 12000, 16000} {
+		for _, api := range []int32{8000, 24000, 48000} {
+			for _, mode := range [][2]int32{{1, 1}, {2, 1}, {2, 2}, {1, 2}} {
+				for _, flag := range []int32{0, 1, 2} {
+					d := new(OpusT_silk_decoder)
+					Opus_silk_InitDecoder(nil, d)
+					ctrl := &OpusT_silk_DecControlStruct{FnChannelsAPI: mode[0], FnChannelsInternal: mode[1], FAPI_sampleRate: api, FinternalSampleRate: fs, FpayloadSize_ms: 20}
+					data := make([]byte, 900)
+					for i := range data {
+						data[i] = byte(i*71 + 13)
+					}
+					ec := new(OpusT_ec_ctx)
+					Opus_ec_dec_init(nil, ec, &data[0], uint32(len(data)))
+					before := append([]byte(nil), data...)
+					out := make([]float32, 2+api/50*mode[0])
+					out[0], out[len(out)-1] = 77, 88
+					count := int32(-99)
+					entropyInitGrowStack(12)
+					runtime.GC()
+					ret := silk_Decode(nil, d, ctrl, flag, 1, ec, &out[1], &count, 0)
+					if ret != 0 || count != api/50 || out[0] != 77 || out[len(out)-1] != 88 || ec.Fbuf != &data[0] || d.Fchannel_state[0].FnFramesDecoded != 1 {
+						t.Fatal("complete typed API", fs, api, mode, flag, ret, count)
+					}
+					for i := range data {
+						if data[i] != before[i] {
+							t.Fatal("API wrote entropy")
+						}
+					}
+				}
+			}
+		}
+	}
+	// Exercise resampler-state transitions and heap codebook retention through
+	// complete active calls, not only the leaf channel/output helpers.
+	td := new(OpusT_silk_decoder)
+	Opus_silk_InitDecoder(nil, td)
+	for step, mode := range [][2]int32{{2, 2}, {2, 1}, {2, 2}, {1, 2}, {2, 2}} {
+		ctrl := &OpusT_silk_DecControlStruct{FnChannelsAPI: mode[0], FnChannelsInternal: mode[1], FAPI_sampleRate: 48000, FinternalSampleRate: 16000, FpayloadSize_ms: 20}
+		data := make([]byte, 900)
+		for i := range data {
+			data[i] = byte(i*71 + 13 + step*7)
+		}
+		ec := new(OpusT_ec_ctx)
+		Opus_ec_dec_init(nil, ec, &data[0], uint32(len(data)))
+		out := make([]float32, 960*mode[0]+2)
+		out[0], out[len(out)-1] = 77, 88
+		var count int32
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if ret := silk_Decode(nil, td, ctrl, 0, 1, ec, &out[1], &count, 0); ret != 0 || count != 960 || out[0] != 77 || out[len(out)-1] != 88 {
+			t.Fatal("typed API transition", step, mode, ret, count)
+		}
+		for ch := int32(0); ch < mode[1]; ch++ {
+			td.Fchannel_state[ch].FpsNLSF_CB = cloneTestNLSFCodebook(td.Fchannel_state[ch].FpsNLSF_CB)
+		}
+	}
+	// Go-only effective-type alias: the first float output store changes the
+	// live count to zero and stops subsequent PCM writes.
+	ad := new(OpusT_silk_decoder)
+	Opus_silk_InitDecoder(nil, ad)
+	ac := &OpusT_silk_DecControlStruct{FnChannelsAPI: 1, FnChannelsInternal: 1, FAPI_sampleRate: 8000, FinternalSampleRate: 8000, FpayloadSize_ms: 20}
+	ao := make([]float32, 160)
+	for i := range ao {
+		ao[i] = 77
+	}
+	an := (*int32)(unsafe.Pointer(&ao[0]))
+	if ret := silk_Decode(nil, ad, ac, 1, 1, nil, &ao[0], an, 0); ret != 0 || *an != 0 {
+		t.Fatal("whole API live-count alias", ret, *an)
+	}
+	for _, v := range ao[1:] {
+		if v != 77 {
+			t.Fatal("whole API count alias did not stop")
+		}
+	}
+
+	d := new(OpusT_silk_decoder)
+	Opus_silk_InitDecoder(nil, d)
+	ctrl := &OpusT_silk_DecControlStruct{FnChannelsAPI: 2, FnChannelsInternal: 1, FAPI_sampleRate: 48000, FinternalSampleRate: 8000, FpayloadSize_ms: 20}
+	out := make([]float32, 1920)
+	var count int32
+	tls := libc.NewTLS()
+	defer tls.Close()
+	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
+	silk_Decode(tls, d, ctrl, 1, 1, nil, &out[0], &count, 0)
+	if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
+		t.Fatal("API touched TLS")
+	}
+	// API-rate failure still commits channel counters before returning, but does
+	// not consume entropy, PCM or count. Preconfigured frame state avoids a
+	// resampler-init failure and isolates this ordered API validation branch.
+	d.Fchannel_state[0].FnFramesDecoded = 1
+	ctrl.FAPI_sampleRate = 7900
+	count = 123
+	ret := silk_Decode(nil, d, ctrl, 0, 0, nil, nil, &count, 0)
+	if ret != -200 || count != 123 || d.FnChannelsAPI != 2 || d.FnChannelsInternal != 1 {
+		t.Fatal("API validation order", ret, count)
+	}
+}
+func TestDecodeAPIRealPacketsPointers(t *testing.T) {
+	d := new(OpusT_silk_decoder)
+	Opus_silk_InitDecoder(nil, d)
+	ctrl := &OpusT_silk_DecControlStruct{FnChannelsAPI: 2, FnChannelsInternal: 1, FAPI_sampleRate: 48000, FinternalSampleRate: 8000, FpayloadSize_ms: 60}
+	packets := []string{"18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40", "182312cf4040d200ea1335b36ad4d1a12853dd70b1861253119131ec38"}
+	hashes := [2][3]uint32{{0x8725c6f5, 0x05a82535, 0x3aec7d35}, {0x08df9055, 0x3946b6c5, 0x0721dd61}}
+	out := make([]float32, 1920)
+	for p, packet := range packets {
+		data := mustHex(t, packet)[1:]
+		ec := new(OpusT_ec_ctx)
+		Opus_ec_dec_init(nil, ec, &data[0], uint32(len(data)))
+		for f := 0; f < 3; f++ {
+			var count int32
+			entropyInitGrowStack(12)
+			runtime.GC()
+			ret := silk_Decode(nil, d, ctrl, 0, libc.BoolInt32(f == 0), ec, &out[0], &count, 0)
+			if ret != 0 || count != 960 || fnv1aFloats(out) != hashes[p][f] {
+				t.Fatal("unchanged API golden", p, f, ret, count, fnv1aFloats(out), hashes[p][f])
+			}
+			if f == 0 {
+				d.Fchannel_state[0].FpsNLSF_CB = cloneTestNLSFCodebook(d.Fchannel_state[0].FpsNLSF_CB)
+			}
+		}
+	}
+	ctrl.FpayloadSize_ms = 20
+	var count int32
+	runtime.GC()
+	ret := silk_Decode(nil, d, ctrl, 1, 1, nil, &out[0], &count, 0)
+	if ret != 0 || count != 960 || fnv1aFloats(out) != 0xe4303d55 {
+		t.Fatal("unchanged typed API PLC golden", ret, count, fnv1aFloats(out))
+	}
+}
+
 func TestDecodeAPIResampleViewsPointers(t *testing.T) {
 	for _, fs := range []int32{8000, 12000, 16000} {
 		for _, api := range []int32{8000, 12000, 16000, 24000, 48000} {
