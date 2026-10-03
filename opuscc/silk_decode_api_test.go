@@ -10,6 +10,79 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeAPICountPCMPointers(t *testing.T) {
+	sameFloatBits := func(a, b []float32) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	for _, fs := range []int32{8, 12, 16} {
+		for _, api := range []int32{8000, 12000, 16000, 24000, 48000} {
+			d := new(OpusT_silk_decoder)
+			d.Fchannel_state[0].Ffs_kHz = fs
+			c := &OpusT_silk_DecControlStruct{FAPI_sampleRate: api}
+			count := int32(-99)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			silkDecodeAPICount(d, c, &count, fs*20)
+			if count != api/50 {
+				t.Fatal("API count", fs, api, count)
+			}
+		}
+	}
+	for _, length := range []int32{0, 1, 17, 80, 240, 960} {
+		for _, stride := range []int32{1, 2} {
+			for channel := int32(0); channel < stride; channel++ {
+				count := length
+				input := make([]int16, length)
+				for i := range input {
+					input[i] = int16(i*997 - 32768)
+				}
+				out := make([]float32, length*stride+2)
+				for i := range out {
+					out[i] = 123
+				}
+				want := append([]float32(nil), out...)
+				for i := int32(0); i < length; i++ {
+					want[1+channel+stride*i] = float32(input[i]) * (float32(1) / 32768)
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				silkDecodeAPIOutput(&out[1], unsafe.SliceData(input), &count, channel, stride)
+				if !sameFloatBits(out, want) {
+					t.Fatal("PCM channel/guards", length, stride, channel)
+				}
+				if stride == 2 {
+					for i := int32(0); i < length; i++ {
+						want[2+2*i] = want[1+2*i]
+					}
+					silkDecodeAPIDuplicate(&out[1], &count)
+					if !sameFloatBits(out, want) {
+						t.Fatal("duplicate", length, channel)
+					}
+				}
+			}
+		}
+	}
+	zero := int32(0)
+	silkDecodeAPIOutput(nil, nil, &zero, 0, 1)
+	silkDecodeAPIDuplicate(nil, &zero)
+	// Go-only output/count alias: the count is reloaded after every float store.
+	out := []float32{1, 2, 3, 4}
+	count := (*int32)(unsafe.Pointer(&out[0]))
+	*count = 2
+	silkDecodeAPIOutput(&out[0], &[]int16{0, 32767}[0], count, 0, 1)
+	if out[0] != 0 || out[1] != 2 || *count != 0 {
+		t.Fatal("live count alias", out, *count)
+	}
+}
+
 func TestDecodeAPIEntropyLBRRPointers(t *testing.T) {
 	for _, frames := range []int32{1, 2, 3} {
 		for _, flag := range []int32{0, 1, -1} {

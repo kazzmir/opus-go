@@ -445,6 +445,35 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
+The outer SILK API now retains typed decoder/channel, control, entropy, float PCM
+and output-count pointers behind Opus_silk_Decode's explicit uintptr escape ABI.
+Packet-start frame counters use typed state and a live channel-count pointer.
+Stereo-start state clears use clear; resampler cloning uses typed struct assignment
+rather than the hard-coded 400-byte amd64 image, respecting 386 size and barriering
+the coefficient pointer. Clear/clear/copy order and channel-transition predicates
+are preserved. This fixes the adjacent-state overwrite risk on 386 without changing
+C's sizeof-based behavior.
+
+LBRR flag reconstruction clears the live three-word field, preserves the no-entropy
+one-frame case, and uses typed pointers for both ICDF table rows. Normal entropy
+forwarding retains typed contexts. Tests compare all flags and eleven entropy
+fields for 1/2/3 frames, zero/nonzero/negative LBRR flags and 32 input patterns.
+
+Count and PCM helpers use typed outputs and numeric indexing. Count calculation
+keeps int32 multiplication/division and signed int16 rate narrowing; float PCM
+conversion preserves the exact float32 1/32768 scaling. Mono/stereo interleave,
+collapsed-stereo right-channel output and sequential mono duplication retain live
+count reloads, channel order and guards. Native fixtures cover counts at API rates
+8/12/16/24/48 kHz, lengths 0/1/17/80/240/960 and all output channels. A Go-only
+float/count alias verifies stopping after a count-changing store; it is not a
+C effective-type parity claim.
+
+Focused checkptr checks these active typed API helpers, not the entire API.
+Its channel sample/storage/resampling TLS arrays and integer cursors remain legacy.
+All four rounds retain full amd64/386/ARM64-QEMU tests, original API/frame goldens,
+end-to-end native/GC-stress comparisons and unchanged baselines/tolerances. This
+is neither direct macOS CI nor a global GC-safety proof for opaque allocations.
+
 SILK frame decoding now retains typed decoder, entropy, PCM and output-count
 pointers behind the public Opus_silk_decode_frame uintptr escape adapter. The
 control struct and shell-aligned pulse buffer are Go-owned; 120-sample frames

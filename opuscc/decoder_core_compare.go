@@ -36,6 +36,13 @@ func CompareDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int1
 func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
 	return silkDecodeCoreTransition(decoder, control, k)
 }
+func CompareDecodeAPICount(decoder *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct, count *int32, internal int32) {
+	silkDecodeAPICount(decoder, control, count, internal)
+}
+func CompareDecodeAPIOutput(out *float32, input *int16, count *int32, channel, stride int32) {
+	silkDecodeAPIOutput(out, input, count, channel, stride)
+}
+func CompareDecodeAPIDuplicate(out *float32, count *int32) { silkDecodeAPIDuplicate(out, count) }
 func CompareDecodeAPILBRR(decoder *OpusT_silk_decoder_state, ec *OpusT_ec_ctx) {
 	silkDecodeAPILBRR(nil, decoder, ec)
 }

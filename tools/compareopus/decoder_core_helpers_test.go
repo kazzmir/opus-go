@@ -6,6 +6,7 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"slices"
 	"testing"
+	"unsafe"
 )
 
 func TestDecodeCoreResidualPCMAgainstC(t *testing.T) {
@@ -164,6 +165,48 @@ func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 					n := nativeDecodeCoreTransition(&c, &cc, k)
 					if g != n || d != c || ctrl != cc {
 						t.Fatal("transition", loss, prev, signal, k, g, n)
+					}
+				}
+			}
+		}
+	}
+}
+func TestDecodeAPICountOutputAgainstC(t *testing.T) {
+	for _, fs := range []int32{8, 12, 16} {
+		for _, api := range []int32{8000, 12000, 16000, 24000, 48000} {
+			d := opuscc.OpusT_silk_decoder{}
+			d.Fchannel_state[0].Ffs_kHz = fs
+			ctrl := opuscc.OpusT_silk_DecControlStruct{FAPI_sampleRate: api}
+			var count int32
+			opuscc.CompareDecodeAPICount(&d, &ctrl, &count, fs*20)
+			if n := nativeDecodeAPICount(fs*20, api, fs); count != n {
+				t.Fatal("count", fs, api, count, n)
+			}
+		}
+	}
+	for _, length := range []int32{0, 1, 17, 80, 240, 960} {
+		for _, stride := range []int32{1, 2} {
+			for channel := int32(0); channel < stride; channel++ {
+				count := length
+				input := make([]int16, length)
+				for i := range input {
+					input[i] = int16(i*997 - 32768)
+				}
+				out := make([]float32, length*stride+2)
+				for i := range out {
+					out[i] = 123
+				}
+				want := slices.Clone(out)
+				opuscc.CompareDecodeAPIOutput(&out[1], unsafe.SliceData(input), &count, channel, stride)
+				nativeDecodeAPIOutput(want[1:len(want)-1], input, &count, channel, stride)
+				if !slices.Equal(out, want) {
+					t.Fatal("PCM", length, stride, channel)
+				}
+				if stride == 2 {
+					opuscc.CompareDecodeAPIDuplicate(&out[1], &count)
+					nativeDecodeAPIDuplicate(want[1:len(want)-1], &count)
+					if !slices.Equal(out, want) {
+						t.Fatal("duplicate", length, channel)
 					}
 				}
 			}
