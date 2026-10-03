@@ -7,6 +7,50 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCExcitationDecayPointers(t *testing.T) {
+	for _, length := range []int32{0, 1, 2, 31, 120, 512, 1024} {
+		a := make([]float32, 1026)
+		a[0], a[1025] = 77, 88
+		for i := 1; i < 1025; i++ {
+			a[i] = float32((i*7919)%65536-32768) / 37
+		}
+		before := append([]float32(nil), a...)
+		e1, e2 := float32(1), float32(1)
+		half := length >> 1
+		for i := int32(0); i < half; i++ {
+			e := a[1+1024-half+i]
+			e1 += float32(e * e)
+			e = a[1+1024-2*half+i]
+			e2 += float32(e * e)
+		}
+		if !(e1 < e2) {
+			e1 = e2
+		}
+		want := float32(math.Sqrt(float64(e1 / e2)))
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := celtPLCExcitationDecay(&a[1], 1024, length)
+		if math.Float32bits(got) != math.Float32bits(want) {
+			t.Fatal("excitation decay", length, got, want)
+		}
+		for i := range a {
+			if a[i] != before[i] {
+				t.Fatal("excitation changed")
+			}
+		}
+	}
+	if celtPLCExcitationDecay(nil, 0, 0) != 1 {
+		t.Fatal("unused excitation")
+	}
+	a := []float32{100, 100, 1, 1}
+	if !(celtPLCExcitationDecay(&a[0], 4, 4) < 1) {
+		t.Fatal("decaying waveform")
+	}
+	a = []float32{1, 1, 100, 100}
+	if celtPLCExcitationDecay(&a[0], 4, 4) != 1 {
+		t.Fatal("no amplification")
+	}
+}
 func TestCeltPLCLagWindowPointers(t *testing.T) {
 	for trial := 0; trial < 80; trial++ {
 		storage := new([27]float32)

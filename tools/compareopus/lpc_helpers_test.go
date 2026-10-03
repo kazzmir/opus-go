@@ -11,6 +11,22 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCExcitationDecayAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(2452))
+	for _, length := range []int32{0, 1, 2, 31, 120, 512, 1024} {
+		for trial := 0; trial < 80; trial++ {
+			a := make([]float32, 1024)
+			for i := range a {
+				a[i] = float32(rng.NormFloat64() * 1e4)
+			}
+			g := opuscc.CompareCeltPLCExcitationDecay(&a[0], 1024, length)
+			c := nativeCeltPLCExcitationDecay(&a[0], 1024, length)
+			if math.Float32bits(g) != math.Float32bits(c) {
+				t.Fatal("excitation decay", length, trial, g, c)
+			}
+		}
+	}
+}
 func TestCeltPLCLagWindowAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(2451))
 	for trial := 0; trial < 1000; trial++ {

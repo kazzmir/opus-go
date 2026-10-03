@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math"
 	"math/bits"
 	"reflect"
 	"unsafe"
@@ -420,6 +421,25 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 		Opus_comb_filter(tls, etmp, input, st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch)
 		prefilterFoldTDAC(mode, input, etmp, overlap)
 	}
+}
+
+func celtPLCExcitationDecay(exc *float32, period, length int32) float32 {
+	half := length >> 1
+	if half <= 0 {
+		return 1
+	}
+	x := unsafe.Slice(exc, period)
+	e1, e2 := float32(1), float32(1)
+	for i := int32(0); i < half; i++ {
+		e := x[period-half+i]
+		e1 += float32(e * e)
+		e = x[period-2*half+i]
+		e2 += float32(e * e)
+	}
+	if !(e1 < e2) {
+		e1 = e2
+	}
+	return float32(math.Sqrt(float64(e1 / e2)))
 }
 
 func celtPLCLagWindow(ac *[CELT_LPC_ORDER + 1]float32) {
@@ -849,27 +869,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			/* Check if the waveform is decaying, and if so how fast.
 			   We do this to avoid adding energy when concealing in a segment
 			   with decaying energy. */
-			E1 = float32(1)
-			E2 = float32(1)
-			decay_length = exc_length >> int32(1)
-			i = 0
-			for {
-				if !(i < decay_length) {
-					break
-				}
-				e = *(*OpusT_opus_val16)(unsafe.Pointer(exc + uintptr(max_period-decay_length+i)*4))
-				E1 = E1 + OpusT_opus_val32(e*e)
-				e = *(*OpusT_opus_val16)(unsafe.Pointer(exc + uintptr(max_period-int32(2)*decay_length+i)*4))
-				E2 = E2 + OpusT_opus_val32(e*e)
-				i = i + 1
-			}
-			if E1 < E2 {
-				v103 = E1
-			} else {
-				v103 = E2
-			}
-			E1 = v103
-			decay1 = float32(libc.Xsqrt(tls, float64(E1/E2)))
+			decay1 = celtPLCExcitationDecay((*float32)(unsafe.Pointer(exc)), max_period, exc_length)
 			/* Move the decoder memory one frame to the left to give us room to
 			   add the data for the new frame. We ignore the overlap that extends
 			   past the end of the buffer, because we aren't going to use it. */
