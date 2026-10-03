@@ -423,6 +423,14 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeEnergyMono(energy *float32, bands int32) {
+	if bands <= 0 {
+		return
+	}
+	e := unsafe.Slice(energy, 2*bands)
+	copy(e[bands:], e[:bands])
+}
+
 func celtPLCFIRStorage(length int32) []float32 { return make([]float32, length) }
 
 func celtPLCExcitationStorage(period int32) []float32 { return make([]float32, period+CELT_LPC_ORDER) }
@@ -1757,8 +1765,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain_old = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain
 		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset_old = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset
 	}
-	if C == int32(1) {
-		libc.Xmemcpy(tls, oldBandE+uintptr(nbEBands)*4, oldBandE, uint64(uint32(nbEBands))*uint64(4)+uint64(0*((OpusT___predefined_ptrdiff_t(oldBandE+uintptr(nbEBands)*4)-int64(oldBandE))/4)))
+	if C == 1 {
+		celtDecodeEnergyMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
 	}
 	if !(isTransient != 0) {
 		libc.Xmemcpy(tls, oldLogE2, oldLogE, uint64(uint32(int32(2)*nbEBands))*uint64(4)+uint64(0*((int64(oldLogE2)-int64(oldLogE))/4)))

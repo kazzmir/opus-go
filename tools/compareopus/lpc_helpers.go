@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static void compare_decode_energy_mono(float *energy,int bands) {if(bands>0)memcpy(energy+bands,energy,bands*sizeof(float));}
 static int compare_plc_dispatch(int duration,int start,int skip) {return duration>=40||start!=0||skip!=0;}
 static void compare_plc_finish(int *state,int loss,int LM,int frameType) {state[0]=IMIN(10000,loss+(1<<LM));state[1]=IMIN(10000,state[1]+(1<<LM));state[2]=frameType;}
 static void compare_plc_lpc_history(float *memory,const float *h,int size,int N) {for(int i=0;i<CELT_LPC_ORDER;i++)memory[i]=h[size-N-1-i];}
@@ -27,6 +28,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodeEnergyMono(energy *float32, bands int32) {
+	C.compare_decode_energy_mono((*C.float)(unsafe.Pointer(energy)), C.int(bands))
+}
 func nativeCeltPLCDispatch(duration, start, skip int32) bool {
 	return C.compare_plc_dispatch(C.int(duration), C.int(start), C.int(skip)) != 0
 }

@@ -11,6 +11,23 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeEnergyMonoAgainstC(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		a := make([]float32, 2*bands+2)
+		a[0], a[len(a)-1] = 77, 88
+		for i := int32(0); i < bands; i++ {
+			a[1+i] = math.Float32frombits(uint32(i)*0x1234567 + 0x80000000)
+		}
+		b := slices.Clone(a)
+		opuscc.CompareCeltDecodeEnergyMono(&a[1], bands)
+		nativeCeltDecodeEnergyMono(&b[1], bands)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("mono energy", bands, i)
+			}
+		}
+	}
+}
 func TestCeltPLCLostAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {

@@ -55,6 +55,33 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeEnergyMonoPointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		a := make([]float32, 2*bands+2)
+		a[0], a[len(a)-1] = 77, 88
+		for i := int32(0); i < bands; i++ {
+			a[1+i] = math.Float32frombits(uint32(i)*0x1234567 + 0x80000000)
+		}
+		want := append([]float32(nil), a...)
+		copy(want[1+bands:1+2*bands], want[1:1+bands])
+		entropyInitGrowStack(12)
+		runtime.GC()
+		celtDecodeEnergyMono(&a[1], bands)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+				t.Fatal("mono energy ownership", bands, i)
+			}
+		}
+	}
+	celtDecodeEnergyMono(nil, 0)
+	a := []float32{float32(math.NaN()), float32(math.Inf(1)), math.Float32frombits(0x80000000), 0, 0, 0}
+	celtDecodeEnergyMono(&a[0], 3)
+	for i := 0; i < 3; i++ {
+		if math.Float32bits(a[i]) != math.Float32bits(a[3+i]) {
+			t.Fatal("mono bit preservation")
+		}
+	}
+}
 func TestCeltPLCDispatchPointers(t *testing.T) {
 	for _, duration := range []int32{-1, 0, 39, 40, 10000} {
 		for _, start := range []int32{0, 1, 20} {
