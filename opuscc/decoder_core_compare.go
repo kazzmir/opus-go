@@ -36,6 +36,20 @@ func CompareDecodeCoreExcitation(decoder *OpusT_silk_decoder_state, pulses *int1
 func CompareDecodeCoreTransition(decoder *OpusT_silk_decoder_state, control *OpusT_silk_decoder_control, k int32) bool {
 	return silkDecodeCoreTransition(decoder, control, k)
 }
+
+// Whole typed API accepts nil TLS, with Go-owned channel/resampling scratch.
+func CompareDecodeAPI(tls *libc.TLS, decoder *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct, lost, newPacket int32, ec *OpusT_ec_ctx, out *float32, count *int32) int32 {
+	return silk_Decode(tls, decoder, control, lost, newPacket, ec, out, count, 0)
+}
+func CompareDecodeAPIResample(state *OpusT_silk_resampler_state_struct, output, channel []int16, count int32) int32 {
+	return silkDecodeAPIResample(nil, state, output, channel, count)
+}
+func CompareDecodeAPIChannelViews(storage []int16, length, channels int32) [2][]int16 {
+	return silkDecodeAPIChannelViews(storage, length, channels)
+}
+func CompareDecodeAPIMonoHistory(stereo *OpusT_stereo_dec_state, channel []int16, count int32) {
+	silkDecodeAPIMonoHistory(stereo, channel, count)
+}
 func CompareDecodeAPICount(decoder *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct, count *int32, internal int32) {
 	silkDecodeAPICount(decoder, control, count, internal)
 }

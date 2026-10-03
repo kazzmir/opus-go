@@ -8,6 +8,25 @@ package main
 #include "decode_core.c"
 #define silk_decode_frame comparison_decode_frame
 #include "decode_frame.c"
+// Match Go's scalar architecture initialization even on SIMD-capable hosts.
+static int comparison_scalar_init_decoder(silk_decoder_state *st) {int ret=silk_init_decoder(st);st->arch=0;return ret;}
+#define silk_init_decoder comparison_scalar_init_decoder
+#define silk_LoadOSCEModels comparison_LoadOSCEModels
+#define silk_Get_Decoder_Size comparison_Get_Decoder_Size
+#define silk_ResetDecoder comparison_ResetDecoder
+#define silk_InitDecoder comparison_InitDecoder
+#define silk_Decode comparison_Decode
+#include "dec_API.c"
+static int decoder_api(unsigned char *d,int ds,unsigned char *c,int cs,float *out,int *count,int lost,int packet,unsigned *s,unsigned char *buf) {
+ if(ds!=sizeof(silk_decoder)||cs!=sizeof(silk_DecControlStruct))return -98;
+ silk_decoder dec;silk_DecControlStruct ctrl;memcpy(&dec,d,ds);memcpy(&ctrl,c,cs);
+ for(int n=0;n<2;n++){silk_decoder_state *st=&dec.channel_state[n];if(st->fs_kHz){silk_decoder_state b;silk_init_decoder(&b);b.nb_subfr=st->nb_subfr;silk_decoder_set_fs(&b,st->fs_kHz,st->fs_API_hz);st->psNLSF_CB=b.psNLSF_CB;st->pitch_lag_low_bits_iCDF=b.pitch_lag_low_bits_iCDF;st->pitch_contour_iCDF=b.pitch_contour_iCDF;st->resampler_state.Coefs=b.resampler_state.Coefs;}}
+ ec_dec ec={0};ec.buf=buf;ec.storage=s[0];ec.end_offs=s[1];ec.end_window=s[2];ec.nend_bits=s[3];ec.nbits_total=s[4];ec.offs=s[5];ec.rng=s[6];ec.val=s[7];ec.ext=s[8];ec.rem=s[9];ec.error=s[10];
+ int ret=comparison_Decode(&dec,&ctrl,lost,packet,&ec,out,count,0);
+ s[0]=ec.storage;s[1]=ec.end_offs;s[2]=ec.end_window;s[3]=ec.nend_bits;s[4]=ec.nbits_total;s[5]=ec.offs;s[6]=ec.rng;s[7]=ec.val;s[8]=ec.ext;s[9]=ec.rem;s[10]=ec.error;
+ for(int n=0;n<2;n++){silk_decoder_state *st=&dec.channel_state[n];st->psNLSF_CB=0;st->pitch_lag_low_bits_iCDF=0;st->pitch_contour_iCDF=0;st->resampler_state.Coefs=0;}memcpy(d,&dec,ds);memcpy(c,&ctrl,cs);return ret;
+}
+static void decoder_api_mono(short *mid,short *channel,int count) {memcpy(channel,mid,2*sizeof(short));memcpy(mid,channel+count,2*sizeof(short));}
 static int decoder_api_count(int internal,int api,int fs) {return internal*api/((short)fs*(short)1000);}
 static void decoder_api_output(float *out,const short *input,int *count,int channel,int stride) {for(int i=0;i<*count;i++)out[channel+stride*i]=(float)input[i]*(1.0f/32768);}
 static void decoder_api_duplicate(float *out,int *count) {for(int i=0;i<*count;i++)out[1+2*i]=out[2*i];}
@@ -105,6 +124,9 @@ func nativeDecodeCoreTransition(dec *opuscc.OpusT_silk_decoder_state, ctrl *opus
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(ctrl)), len(c)), c)
 	return r != 0
 }
+func nativeDecodeAPIMonoHistory(stereo *opuscc.OpusT_stereo_dec_state, channel []int16, count int32) {
+	C.decoder_api_mono((*C.short)(unsafe.Pointer(&stereo.FsMid[0])), (*C.short)(unsafe.Pointer(unsafe.SliceData(channel))), C.int(count))
+}
 func nativeDecodeAPICount(internal, api, fs int32) int32 {
 	return int32(C.decoder_api_count(C.int(internal), C.int(api), C.int(fs)))
 }
@@ -149,6 +171,48 @@ func nativeDecodeAPIStartStereo(dec *opuscc.OpusT_silk_decoder, control *opuscc.
 func nativeDecodeAPIPacketStart(frames *[2]int32, channels, flag int32) {
 	C.decoder_api_packet((*C.int)(unsafe.Pointer(frames)), C.int(channels), C.int(flag))
 }
+func nativeDecodeAPI(dec *opuscc.OpusT_silk_decoder, control *opuscc.OpusT_silk_DecControlStruct, ec *opuscc.OpusT_ec_ctx, buf []byte, out []float32, count *int32, lost, packet int32) int32 {
+	numeric := *dec
+	for n := range numeric.Fchannel_state {
+		st := &numeric.Fchannel_state[n]
+		st.FpsNLSF_CB = nil
+		st.Fpitch_lag_low_bits_iCDF = nil
+		st.Fpitch_contour_iCDF = nil
+		st.Fresampler_state.FCoefs = nil
+	}
+	d, c := make([]byte, int(unsafe.Sizeof(numeric))), make([]byte, int(unsafe.Sizeof(*control)))
+	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(&numeric)), len(d)))
+	copy(c, unsafe.Slice((*byte)(unsafe.Pointer(control)), len(c)))
+	s := [11]C.uint{C.uint(ec.Fstorage), C.uint(ec.Fend_offs), C.uint(ec.Fend_window), C.uint(ec.Fnend_bits), C.uint(ec.Fnbits_total), C.uint(ec.Foffs), C.uint(ec.Frng), C.uint(ec.Fval), C.uint(ec.Fext), C.uint(ec.Frem), C.uint(ec.Ferror1)}
+	ret := int32(C.decoder_api((*C.uchar)(unsafe.Pointer(&d[0])), C.int(len(d)), (*C.uchar)(unsafe.Pointer(&c[0])), C.int(len(c)), (*C.float)(unsafe.Pointer(unsafe.SliceData(out))), (*C.int)(unsafe.Pointer(count)), C.int(lost), C.int(packet), &s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(buf)))))
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(&numeric)), len(d)), d)
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(control)), len(c)), c)
+	for n := range numeric.Fchannel_state {
+		st := &numeric.Fchannel_state[n]
+		if st.Ffs_kHz != 0 {
+			b := opuscc.OpusT_silk_decoder_state{Fnb_subfr: st.Fnb_subfr}
+			opuscc.Opus_silk_decoder_set_fs(nil, &b, st.Ffs_kHz, st.Ffs_API_hz)
+			st.FpsNLSF_CB = b.FpsNLSF_CB
+			st.Fpitch_lag_low_bits_iCDF = b.Fpitch_lag_low_bits_iCDF
+			st.Fpitch_contour_iCDF = b.Fpitch_contour_iCDF
+			st.Fresampler_state.FCoefs = b.Fresampler_state.FCoefs
+		}
+	}
+	*dec = numeric
+	ec.Fstorage = uint32(s[0])
+	ec.Fend_offs = uint32(s[1])
+	ec.Fend_window = uint32(s[2])
+	ec.Fnend_bits = int32(s[3])
+	ec.Fnbits_total = int32(s[4])
+	ec.Foffs = uint32(s[5])
+	ec.Frng = uint32(s[6])
+	ec.Fval = uint32(s[7])
+	ec.Fext = uint32(s[8])
+	ec.Frem = int32(s[9])
+	ec.Ferror1 = int32(s[10])
+	return ret
+}
+
 func nativeDecodeFrame(dec *opuscc.OpusT_silk_decoder_state, ec *opuscc.OpusT_ec_ctx, buf []byte, output []int16, count *int32, lost, cond int32) int32 {
 	// Export numeric images only. Native table pointers are rebound on the C stack
 	// and stripped before return; embedded Go pointers never cross the byte bridge.

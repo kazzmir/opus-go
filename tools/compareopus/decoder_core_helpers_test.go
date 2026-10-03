@@ -3,7 +3,9 @@
 package main
 
 import (
+	"encoding/hex"
 	"github.com/kazzmir/opus-go/opuscc"
+	"reflect"
 	"slices"
 	"testing"
 	"unsafe"
@@ -167,6 +169,150 @@ func TestDecodeCoreTransitionAgainstC(t *testing.T) {
 						t.Fatal("transition", loss, prev, signal, k, g, n)
 					}
 				}
+			}
+		}
+	}
+}
+func TestDecodeAPIWholeAgainstC(t *testing.T) {
+	for _, fs := range []int32{8000, 12000, 16000} {
+		for _, api := range []int32{8000, 24000, 48000} {
+			for _, mode := range [][2]int32{{1, 1}, {2, 1}, {2, 2}, {1, 2}} {
+				for _, flag := range []int32{0, 1, 2} {
+					d := opuscc.OpusT_silk_decoder{}
+					opuscc.Opus_silk_InitDecoder(nil, &d)
+					c := d
+					ctrl := opuscc.OpusT_silk_DecControlStruct{FnChannelsAPI: mode[0], FnChannelsInternal: mode[1], FAPI_sampleRate: api, FinternalSampleRate: fs, FpayloadSize_ms: 20}
+					cc := ctrl
+					data := make([]byte, 900)
+					for i := range data {
+						data[i] = byte(i*71 + 13)
+					}
+					before := slices.Clone(data)
+					var ec opuscc.OpusT_ec_ctx
+					opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+					ce := ec
+					out := make([]float32, 2+api/50*mode[0])
+					out[0], out[len(out)-1] = 77, 88
+					want := slices.Clone(out)
+					count, nativeCount := int32(-99), int32(-99)
+					g := opuscc.CompareDecodeAPI(nil, &d, &ctrl, flag, 1, &ec, &out[1], &count)
+					n := nativeDecodeAPI(&c, &cc, &ce, data, want[1:len(want)-1], &nativeCount, flag, 1)
+					if g != n || d != c || ctrl != cc || ec != ce || count != nativeCount || !slices.Equal(out, want) || !slices.Equal(data, before) {
+						for ch := range d.Fchannel_state {
+							a, b := reflect.ValueOf(d.Fchannel_state[ch]), reflect.ValueOf(c.Fchannel_state[ch])
+							for i := 0; i < a.NumField(); i++ {
+								if !reflect.DeepEqual(a.Field(i).Interface(), b.Field(i).Interface()) {
+									t.Logf("channel %d %s: Go=%v C=%v", ch, a.Type().Field(i).Name, a.Field(i).Interface(), b.Field(i).Interface())
+								}
+							}
+						}
+						t.Logf("stereo Go=%+v C=%+v", d.FsStereo, c.FsStereo)
+						t.Fatal("whole API", fs, api, mode, flag, g, n, count, nativeCount, ctrl, cc, ec, ce)
+					}
+				}
+			}
+		}
+	}
+}
+func TestDecodeAPIRealPacketsAgainstC(t *testing.T) {
+	d := opuscc.OpusT_silk_decoder{}
+	opuscc.Opus_silk_InitDecoder(nil, &d)
+	c := d
+	ctrl := opuscc.OpusT_silk_DecControlStruct{FnChannelsAPI: 2, FnChannelsInternal: 1, FAPI_sampleRate: 48000, FinternalSampleRate: 8000, FpayloadSize_ms: 60}
+	cc := ctrl
+	for _, packet := range []string{"18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40", "182312cf4040d200ea1335b36ad4d1a12853dd70b1861253119131ec38"} {
+		data, err := hex.DecodeString(packet)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data = data[1:]
+		var ec opuscc.OpusT_ec_ctx
+		opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+		ce := ec
+		for f := 0; f < 3; f++ {
+			out := make([]float32, 1922)
+			out[0], out[1921] = 77, 88
+			want := slices.Clone(out)
+			count, nativeCount := int32(-99), int32(-99)
+			newPacket := int32(0)
+			if f == 0 {
+				newPacket = 1
+			}
+			g := opuscc.CompareDecodeAPI(nil, &d, &ctrl, 0, newPacket, &ec, &out[1], &count)
+			n := nativeDecodeAPI(&c, &cc, &ce, data, want[1:1921], &nativeCount, 0, newPacket)
+			if g != n || d != c || ctrl != cc || ec != ce || count != nativeCount || !slices.Equal(out, want) {
+				t.Fatal("real API frame", f, g, n, count, nativeCount)
+			}
+		}
+	}
+}
+func TestDecodeAPITransitionsAgainstC(t *testing.T) {
+	for _, api := range []int32{24000, 48000} {
+		d := opuscc.OpusT_silk_decoder{}
+		opuscc.Opus_silk_InitDecoder(nil, &d)
+		c := d
+		for step, mode := range [][2]int32{{2, 2}, {2, 1}, {2, 2}, {1, 2}, {2, 2}} {
+			ctrl := opuscc.OpusT_silk_DecControlStruct{FnChannelsAPI: mode[0], FnChannelsInternal: mode[1], FAPI_sampleRate: api, FinternalSampleRate: 16000, FpayloadSize_ms: 20}
+			cc := ctrl
+			data := make([]byte, 900)
+			for i := range data {
+				data[i] = byte(i*71 + 13 + step*7)
+			}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+			ce := ec
+			out := make([]float32, 2+api/50*mode[0])
+			out[0], out[len(out)-1] = 77, 88
+			want := slices.Clone(out)
+			count, nativeCount := int32(-99), int32(-99)
+			g := opuscc.CompareDecodeAPI(nil, &d, &ctrl, 0, 1, &ec, &out[1], &count)
+			n := nativeDecodeAPI(&c, &cc, &ce, data, want[1:len(want)-1], &nativeCount, 0, 1)
+			if g != n || d != c || ctrl != cc || ec != ce || count != nativeCount || !slices.Equal(out, want) {
+				t.Fatal("API transition", api, step, mode, g, n, count, nativeCount)
+			}
+		}
+	}
+}
+func TestDecodeAPIResampleViewsAgainstC(t *testing.T) {
+	for _, fs := range []int32{8000, 12000, 16000} {
+		for _, api := range []int32{8000, 12000, 16000, 24000, 48000} {
+			for _, ms := range []int32{10, 20} {
+				var state opuscc.OpusT_silk_resampler_state_struct
+				opuscc.Opus_silk_resampler_init(nil, &state, fs, api, 0)
+				c := state
+				count := fs * ms / 1000
+				channel := make([]int16, count+2)
+				for i := range channel {
+					channel[i] = int16(i*997 - 32768)
+				}
+				before := slices.Clone(channel)
+				out := make([]int16, api*ms/1000+2)
+				out[0], out[len(out)-1] = 77, 88
+				want := slices.Clone(out)
+				g := opuscc.CompareDecodeAPIResample(&state, out[1:len(out)-1], channel, count)
+				n := nativeResamplerDriver(&c, want[1:len(want)-1], channel[1:1+count])
+				if g != n || state != c || !slices.Equal(out, want) || !slices.Equal(channel, before) {
+					t.Fatal("resampler views", fs, api, ms, g, n)
+				}
+			}
+		}
+	}
+}
+func TestDecodeAPIChannelHistoryAgainstC(t *testing.T) {
+	for _, length := range []int32{80, 120, 160, 240, 320} {
+		for _, channels := range []int32{1, 2} {
+			storage := make([]int16, channels*(length+2))
+			for i := range storage {
+				storage[i] = int16(i*37 - 9000)
+			}
+			views := opuscc.CompareDecodeAPIChannelViews(storage, length, channels)
+			want := slices.Clone(storage)
+			stereo := opuscc.OpusT_stereo_dec_state{FsMid: [2]int16{123, 456}}
+			cs := stereo
+			opuscc.CompareDecodeAPIMonoHistory(&stereo, views[0], length)
+			nativeDecodeAPIMonoHistory(&cs, want[:length+2], length)
+			if !slices.Equal(storage, want) || stereo != cs || channels == 1 && views[1] != nil {
+				t.Fatal("channel history", length, channels)
 			}
 		}
 	}

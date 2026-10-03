@@ -11,6 +11,230 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCFIRStorageAgainstC(t *testing.T) {
+	for _, length := range []int32{80, 200, 1024} {
+		input := make([]float32, length+24)
+		for i := range input {
+			input[i] = float32(math.Sin(float64(i) * .17))
+		}
+		coefficients := make([]float32, 24)
+		coefficients[0], coefficients[23] = .125, -.03125
+		a := make([]float32, length+2)
+		a[0], a[len(a)-1] = 77, 88
+		b := slices.Clone(a)
+		opuscc.Opus_celt_fir_c(nil, &input[24], &coefficients[0], &a[1], length, 24, 0)
+		nativeFIR(input, coefficients, b[1:len(b)-1], length, 24)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("concealment FIR spans", length, i, a[i], b[i])
+			}
+		}
+	}
+}
+func TestCeltPLCNoiseAgainstC(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, seed := range []uint32{0, 1, 0xffffffff, 0xdeadbeef} {
+				bands := []int16{0, 1, 3, 6, 12, 20}
+				N := int32(20) << LM
+				a := make([]float32, N*channels+2)
+				a[0], a[len(a)-1] = 77, 88
+				b := slices.Clone(a)
+				state := opuscc.OpusT_OpusCustomDecoder{Frng: seed}
+				opuscc.CompareCeltPLCNoise(&state, &bands[0], &a[1], N, 1, 5, LM, channels)
+				s := nativeCeltPLCNoise(seed, &bands[0], &b[1], N, 1, 5, LM, channels)
+				if state.Frng != s {
+					t.Fatal("noise seed", channels, LM, seed)
+				}
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("noise spectrum", channels, LM, seed, i, a[i], b[i])
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltPLCFinishAgainstC(t *testing.T) {
+	for _, loss := range []int32{-10, 0, 1, 9999, 10000} {
+		for _, plc := range []int32{-10, 0, 1, 9999, 10000} {
+			for LM := int32(0); LM <= 3; LM++ {
+				for _, frameType := range []int32{opuscc.FRAME_PLC_PERIODIC, opuscc.FRAME_PLC_NOISE, opuscc.FRAME_PLC_NEURAL, opuscc.FRAME_DRED} {
+					a := opuscc.OpusT_OpusCustomDecoder{Floss_duration: 123, Fplc_duration: plc, Fprefilter_and_fold: 1, Fskip_plc: 1, Frng: 0xdeadbeef}
+					b := a
+					opuscc.CompareCeltPLCFinish(&a, loss, LM, frameType)
+					nativeCeltPLCFinish(&b, loss, LM, frameType)
+					if a != b {
+						t.Fatal("finish", loss, plc, LM, frameType)
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltPLCLPCHistoryAgainstC(t *testing.T) {
+	for _, N := range []int32{0, 120, 240, 960} {
+		h := make([]float32, 2048)
+		for i := range h {
+			h[i] = math.Float32frombits(uint32(i) * uint32(7919))
+		}
+		a := [26]float32{}
+		a[0], a[25] = 77, 88
+		b := a
+		opuscc.CompareCeltPLCLPCHistory((*[24]float32)(unsafe.Pointer(&a[1])), &h[0], 2048, N)
+		nativeCeltPLCLPCHistory((*[24]float32)(unsafe.Pointer(&b[1])), &h[0], 2048, N)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("LPC history", N, i)
+			}
+		}
+	}
+}
+func TestCeltPLCExtrapolateAgainstC(t *testing.T) {
+	for _, pitch := range []int32{40, 100, 511, 1024} {
+		for _, N := range []int32{120, 240, 960} {
+			for _, decay := range []float32{0, .923, 1} {
+				a := make([]float32, 2170)
+				x := make([]float32, 1024)
+				a[0], a[len(a)-1] = 77, 88
+				for i := 1; i < len(a)-1; i++ {
+					a[i] = float32((i*37)%79-39) / 13
+				}
+				for i := range x {
+					x[i] = float32((i*43)%89-44) / 17
+				}
+				b := slices.Clone(a)
+				g := opuscc.CompareCeltPLCExtrapolate(&a[1], &x[0], 2048, 1024, N, 120, pitch, .8, decay)
+				c := nativeCeltPLCExtrapolate(&b[1], &x[0], 2048, 1024, N, 120, pitch, .8, decay)
+				if math.Float32bits(g) != math.Float32bits(c) {
+					t.Fatal("extrapolation energy", pitch, N, decay, g, c)
+				}
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("extrapolation", pitch, N, decay, i)
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltPLCExcitationHistoryAgainstC(t *testing.T) {
+	for _, period := range []int32{0, 1, 512, 1024} {
+		h := make([]float32, 2050)
+		for i := range h {
+			h[i] = math.Float32frombits(uint32(i) * uint32(7919))
+		}
+		before := slices.Clone(h)
+		a := make([]float32, period+26)
+		a[0], a[len(a)-1] = 77, 88
+		b := slices.Clone(a)
+		opuscc.CompareCeltPLCExcitationHistory(&a[1], &h[1], 2048, period)
+		nativeCeltPLCExcitationHistory(&b[1], &h[1], 2048, period)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("excitation history", period, i)
+			}
+		}
+		if !slices.Equal(h, before) {
+			t.Fatal("history input changed")
+		}
+	}
+}
+func TestCeltPLCSynthesisAttenuateAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(2453))
+	for _, length := range []int32{1, 120, 240, 1080} {
+		for _, overlap := range []int32{0, 1, min(120, length)} {
+			for _, factor := range []float32{0, .1, .2, .21, .5, 1, 2, float32(math.NaN())} {
+				a := make([]float32, length+2)
+				a[0], a[len(a)-1] = 77, 88
+				w := make([]float32, overlap)
+				for i := int32(0); i < length; i++ {
+					a[i+1] = float32(rng.NormFloat64() * 7)
+				}
+				for i := range w {
+					w[i] = float32(i+1) / float32(len(w)+1)
+				}
+				b := slices.Clone(a)
+				s2 := float32(0)
+				for _, v := range a[1 : len(a)-1] {
+					s2 += float32(v * v)
+				}
+				s1 := float32(factor * s2)
+				opuscc.CompareCeltPLCSynthesisAttenuate(&a[1], unsafe.SliceData(w), length, overlap, s1)
+				nativeCeltPLCSynthesisAttenuate(&b[1], unsafe.SliceData(w), length, overlap, s1)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("attenuation", length, overlap, factor, i, a[i], b[i])
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltPLCExcitationDecayAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(2452))
+	for _, length := range []int32{0, 1, 2, 31, 120, 512, 1024} {
+		for trial := 0; trial < 80; trial++ {
+			a := make([]float32, 1024)
+			for i := range a {
+				a[i] = float32(rng.NormFloat64() * 1e4)
+			}
+			g := opuscc.CompareCeltPLCExcitationDecay(&a[0], 1024, length)
+			c := nativeCeltPLCExcitationDecay(&a[0], 1024, length)
+			if math.Float32bits(g) != math.Float32bits(c) {
+				t.Fatal("excitation decay", length, trial, g, c)
+			}
+		}
+	}
+}
+func TestCeltPLCLagWindowAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(2451))
+	for trial := 0; trial < 1000; trial++ {
+		var a [25]float32
+		for i := range a {
+			a[i] = float32(rng.NormFloat64() * 1e10)
+		}
+		b := a
+		opuscc.CompareCeltPLCLagWindow(&a)
+		nativeCeltPLCLagWindow(&b)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("lag window", trial, i, a[i], b[i])
+			}
+		}
+	}
+}
+func TestCeltPLCDecayAgainstC(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		for _, loss := range []int32{0, 1, 99} {
+			for _, alias := range []int{0, 1, 2} {
+				a := make([]float32, 66)
+				b := make([]float32, 66)
+				for i := range a {
+					a[i] = float32(i) - 22
+					b[i] = float32(i%5) - 12
+				}
+				a[0], a[65] = 77, 88
+				want := slices.Clone(a)
+				wb := slices.Clone(b)
+				gp, cp := &b[1], &wb[1]
+				if alias == 1 {
+					gp, cp = &a[1], &want[1]
+				}
+				if alias == 2 {
+					gp, cp = &a[2], &want[2]
+				}
+				opuscc.CompareCeltPLCDecay(&a[1], gp, 21, 1, 20, channels, loss)
+				nativeCeltPLCDecay(&want[1], cp, 21, 1, 20, channels, loss)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+						t.Fatal("PLC decay", channels, loss, alias, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestPLCPitchSearchAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(1316))
 	for _, channels := range []int32{0, 1, 2, 3} {

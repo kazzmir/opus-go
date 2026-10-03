@@ -445,6 +445,69 @@ on amd64/386 and ARM64/QEMU. Surrounding PLC concealment/state scratch, opaque
 allocation scanning and extension EOF remain unresolved. Host native comparisons
 and QEMU do not establish direct macOS CI or global decoder GC safety.
 
+Four subsequent CELT concealment leaf rounds move band-energy decay, the
+25-word autocorrelation noise-floor/lag window, excitation decay energy, and
+synthesis explosion/attenuation into typed pointer/fixed-array helpers. Active
+legacy concealment calls these helpers at explicit storage boundaries. MAXG and
+MIN32 retain ordered comparisons and NaN selection; the energy channel loop still
+has C's do/while behavior. Float32 products are explicitly rounded before MACs
+and subtraction, preserving ARM behavior. Synthesis computes energy before any
+writes, clears explosions (including NaNs) to positive zero, and reloads live
+window/output values while applying overlap and tail attenuation.
+
+Grouped Go tests cover exact spans, guards, forced GC/stack growth, nil unused
+inputs, zero/odd/full excitation lengths, mono/stereo/zero-channel decay,
+threshold branches, NaNs, and live aliases. Grouped native tests use
+source-equivalent celt_decoder.c snippets with actual MAXG/MIN32/celt_sqrt macros,
+not a whole-C-concealment integration oracle. Scoped checkptr covers only these
+migrated leaves. The outer CELT concealment dispatcher, state layout and TLS
+scratch remain legacy, as does surrounding CELT decoding. Every round retains
+full amd64/386/ARM64-QEMU tests, native/GC-stress comparisons and unchanged
+packet/frame/encode/decode goldens and tolerances. Host/QEMU is not macOS CI or
+proof of global GC safety or opaque-allocation pointer scanning.
+
+The next four concealment leaf rounds also type excitation history copying,
+periodic extrapolation/reference-energy accumulation, reverse 24-word LPC history
+gathering, and final decoder-state updates. Excitation copying and LPC gathering
+keep individual live loads/stores, not memmove/snapshot behavior. Extrapolation
+retains store-before-reference-energy order, period-boundary attenuation and
+explicit float32 rounding. Final state updates retain cached loss duration,
+live PLC duration, int32 addition/shifts, the 10000 clamp and last-frame-type store.
+
+Grouped tests cover periods 0/1/512/1024, pitch 40/100/511/1024, frame lengths
+0/120/240/960, overlap, guards, GC/stack growth and heap mode ownership. Outer
+scratch/history aliases are Go-only fixtures; signed overflow and shifts outside
+C's domain are also explicitly Go-only. Native source-equivalent leaf snippets
+check normal sample spans, sequential energy, LPC history and scalar duration
+updates using the actual IMIN macro, without importing pointer-bearing C images.
+Scoped checkptr remains leaf-only; the legacy CELT concealment dispatcher, TLS
+scratch and integer cursors are not yet fully migrated. Each round runs full
+amd64/386/ARM64-QEMU tests, native/GC-stress comparisons and unchanged baselines;
+repeated ARM leaf/checkptr and ordinary frame goldens remain separate scopes.
+
+The following four concealment rounds type noise-spectrum generation and
+replace all three TLS scratch arrays: the C*N normalized spectrum, the
+max_period+24 excitation with its retained negative-index history prefix, and
+the exc_length FIR temporary. Spectrum/excitation/FIR pointers and indexing are
+now Go-owned slices; FIR copy-back uses copy on disjoint owned arrays. Noise
+synthesis receives a scanned two-pointer output table rather than a raw integer
+array. Sequential unsigned RNG updates, signed sample conversion, channel/band
+order and final RNG store are preserved. Native noise tests use the scalar
+vq.c normalization formula, not presumed-SSE native dispatch.
+
+There is no concealment TLS allocation/cursor/save/restore left. Ordinary
+full periodic/noise concealment fixtures run with nil TLS and an untouched
+sentinel slot, including mono/stereo and LM=0..3. Scoped checkptr covers owned
+noise/synthesis and excitation/autocorrelation/LPC/FIR pipelines plus migrated
+leaves, not the whole dispatcher: decoder/mode/history integer-addressed views
+still remain. The constructor tests keep empty noise/FIR storage and the
+prefix-only excitation case separate from consumed interior pointers. Native
+FIR spans include length 80/200/1024 and the 24-sample prehistory. All four
+rounds retain full amd64/386/ARM64-QEMU tests, native and GC stress, unchanged
+baselines/tolerances, and repeated ARM checks. Earlier mentions of concealment
+TLS scratch above are historical; opaque allocation scanning and outer CELT
+decoding remain unresolved, and host/QEMU coverage is not direct macOS CI.
+
 The outer SILK API now retains typed decoder/channel, control, entropy, float PCM
 and output-count pointers behind Opus_silk_Decode's explicit uintptr escape ABI.
 Packet-start frame counters use typed state and a live channel-count pointer.
@@ -468,8 +531,27 @@ count reloads, channel order and guards. Native fixtures cover counts at API rat
 float/count alias verifies stopping after a count-changing store; it is not a
 C effective-type parity claim.
 
-Focused checkptr checks these active typed API helpers, not the entire API.
-Its channel sample/storage/resampling TLS arrays and integer cursors remain legacy.
+The subsequent four API scratch rounds type channel slices, replace channel
+storage with one Go-owned int16 array, type delayed-input/resampling views, then
+replace resampling storage with a Go slice. Unused mono channel pointers are not
+materialized. Sequential history copies, side clears, channel passes, collapsed
+stereo resampling and live output/count reloads retain source order. All API TLS
+allocation/cursor/save/restore operations are gone; the public escape ABI remains.
+
+Focused checkptr now covers the complete typed API with nil TLS, GC/stack growth,
+heap codebooks, normal/FEC/loss calls, transitions, exact guards, validation order
+and an untouched TLS sentinel. Original real-packet and PLC goldens are unchanged;
+a full-API float/count alias is explicitly Go-only. Earlier helper-only checkptr
+limits and references below to legacy outer SILK API scratch are historical.
+
+The renamed upstream dec_API.c oracle compares full numeric decoder/control
+images, PCM/counts and all eleven entropy fields at internal rates 8/12/16 kHz,
+API rates 8/24/48 kHz, all channel combinations and normal/FEC/loss flags. It also
+checks channel transitions and six consecutive real 60-ms packet frame calls.
+Native initialization selects scalar arch=0 to match Go, not host SIMD arch=4.
+Numeric images strip pointers; native tables are rebound locally, cleared before
+import, and Go table owners are restored by typed assignment. Delayed resampling
+views also match C at all five supported decoder API rates and 10/20-ms lengths.
 All four rounds retain full amd64/386/ARM64-QEMU tests, original API/frame goldens,
 end-to-end native/GC-stress comparisons and unchanged baselines/tolerances. This
 is neither direct macOS CI nor a global GC-safety proof for opaque allocations.
