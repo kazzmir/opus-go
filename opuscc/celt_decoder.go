@@ -423,6 +423,8 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtPLCNoiseStorage(N, channels int32) []float32 { return make([]float32, N*channels) }
+
 func celtPLCNoise(tls *libc.TLS, state *OpusT_OpusCustomDecoder, eBands *int16, spectrum *float32, N, start, end, LM, channels int32) {
 	seed := state.Frng
 	if channels > 0 && start < end {
@@ -566,7 +568,8 @@ func celtPLCDecay(energy, background *float32, bands, start, end, channels, loss
 func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 	var C, blen, boffs, c, curr_frame_type, curr_neural, decay_length, decode_buffer_size, effEnd, end, exc_length, extrapolation_len, extrapolation_offset, i, j, j1, last_neural, loss_duration, max_period, nbEBands, overlap, pitch_index, start, v5, v7, v8 int32
 	var E1, E2, S1, S2, v103 OpusT_opus_val32
-	var X, _exc, _saved_stack, backgroundLogE, buf, eBands, exc, fir_tmp, lpc, mode, oldBandE, oldLogE, oldLogE2, st, window, v1, v10, v12, v14, v16, v18, v20, v22, v24, v26, v28, v3 uintptr
+	var X []float32
+	var _exc, _saved_stack, backgroundLogE, buf, eBands, exc, fir_tmp, lpc, mode, oldBandE, oldLogE, oldLogE2, st, window, v1, v10, v12, v14, v16, v18, v20, v22, v24, v26, v28, v3 uintptr
 	var attenuation, decay1, e, fade, ratio, tmp, tmp1, tmp_g OpusT_opus_val16
 	var decay, v40 OpusT_celt_glog
 	var seed OpusT_opus_uint32
@@ -637,72 +640,7 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			v5 = v8
 		}
 		effEnd = v5
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v10 = libc.Xmalloc(tls, uint64(16))
-			st = v10
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v12 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v12)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v14 = libc.Xmalloc(tls, uint64(16))
-			st = v14
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v16 = st
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v18 = libc.Xmalloc(tls, uint64(16))
-			st = v18
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v20 = st
-		if !(int64(int32(uint64(uint32(C*N))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v16)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v20)).Fglobal_stack)) {
-			Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+3767, int32(749))
-		}
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v22 = libc.Xmalloc(tls, uint64(16))
-			st = v22
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v24 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v24)).Fglobal_stack += uintptr(uint64(uint32(C*N)) * (uint64(4) / uint64(1)))
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v26 = libc.Xmalloc(tls, uint64(16))
-			st = v26
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v28 = st
-		X = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v28)).Fglobal_stack - uintptr(uint64(uint32(C*N))*(uint64(4)/uint64(1))) /**< Interleaved normalised MDCTs */
+		X = celtPLCNoiseStorage(N, C)
 		c = 0
 		for {
 			libc.Xmemmove(tls, decode_mem[c], decode_mem[c]+uintptr(N)*4, uint64(uint32(decode_buffer_size-N+overlap))*uint64(4)+uint64(0*((int64(decode_mem[c])-int64(decode_mem[c]+uintptr(N)*4))/4)))
@@ -716,8 +654,12 @@ func celt_decode_lost(tls *libc.TLS, st1 uintptr, N int32, LM int32) {
 			prefilter_and_fold_legacy(tls, st1, N)
 		}
 		celtPLCDecay((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(backgroundLogE)), nbEBands, start, end, C, loss_duration)
-		celtPLCNoise(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*int16)(unsafe.Pointer(eBands)), (*float32)(unsafe.Pointer(X)), N, start, effEnd, LM, C)
-		celt_synthesis_legacy(tls, mode, X, uintptr(unsafe.Pointer(&out_syn[0])), oldBandE, start, effEnd, C, C, 0, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+		celtPLCNoise(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*int16)(unsafe.Pointer(eBands)), unsafe.SliceData(X), N, start, effEnd, LM, C)
+		var outputs [2]*float32
+		for channel := int32(0); channel < max(C, 1); channel++ {
+			outputs[channel] = (*float32)(unsafe.Pointer(out_syn[channel]))
+		}
+		celt_synthesis(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), unsafe.SliceData(X), &outputs[0], (*float32)(unsafe.Pointer(oldBandE)), start, effEnd, C, C, 0, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 		/* Run the postfilter with the last parameters. */
 		c = 0
 		for {

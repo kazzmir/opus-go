@@ -7,6 +7,47 @@ import (
 	"unsafe"
 )
 
+func TestCeltPLCNoiseStoragePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			mode := newSynthesisTestMode()
+			N := mode.FshortMdctSize << LM
+			storage := celtPLCNoiseStorage(N, channels)
+			if len(storage) != int(N*channels) {
+				t.Fatal("noise storage geometry")
+			}
+			state := &OpusT_OpusCustomDecoder{Fmode: mode, Frng: 0xdeadbeef}
+			celtPLCNoise(nil, state, mode.FeBands, unsafe.SliceData(storage), N, 0, mode.FeffEBands, LM, channels)
+			var outputs [2]*float32
+			buffers := make([][]float32, channels)
+			for c := range buffers {
+				buffers[c] = make([]float32, N+mode.Foverlap+2)
+				buffers[c][0], buffers[c][len(buffers[c])-1] = 77, 88
+				outputs[c] = &buffers[c][1]
+			}
+			energy := make([]float32, 2*mode.FnbEBands)
+			for i := range energy {
+				energy[i] = -12
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celt_synthesis(nil, mode, unsafe.SliceData(storage), &outputs[0], &energy[0], 0, mode.FeffEBands, channels, channels, 0, LM, 1, 0, 0)
+			for _, buffer := range buffers {
+				if buffer[0] != 77 || buffer[len(buffer)-1] != 88 {
+					t.Fatal("owned noise synthesis guards")
+				}
+				for _, sample := range buffer[1 : len(buffer)-1] {
+					if math.IsNaN(float64(sample)) || math.IsInf(float64(sample), 0) {
+						t.Fatal("owned noise synthesis")
+					}
+				}
+			}
+		}
+	}
+	if len(celtPLCNoiseStorage(0, 2)) != 0 {
+		t.Fatal("empty noise storage")
+	}
+}
 func TestCeltPLCNoisePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for LM := int32(0); LM <= 3; LM++ {
