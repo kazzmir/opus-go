@@ -11,6 +11,24 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeCapsStorageAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bands := unsafe.Slice(mode.FeBands, mode.FnbEBands+1)
+	cache := unsafe.Slice(mode.Fcache.Fcaps, 8*mode.FnbEBands)
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			got := opuscc.CompareCeltDecodeCapsStorage(mode, mode.FnbEBands, LM, channels)
+			want := make([]int32, len(got))
+			nativeCaps(bands, cache, want, LM, channels)
+			if !slices.Equal(got, want) {
+				t.Fatal("owned caps", LM, channels)
+			}
+		}
+	}
+}
 func TestCeltDecodeTFStorageAgainstC(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, transient := range []int32{0, 1} {

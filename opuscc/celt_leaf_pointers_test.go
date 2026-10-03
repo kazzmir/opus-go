@@ -55,6 +55,31 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeCapsStoragePointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			mode := newSynthesisTestMode()
+			want := make([]int32, mode.FnbEBands)
+			Opus_init_caps(nil, mode.FeBands, mode.Fcache.Fcaps, &want[0], mode.FnbEBands, LM, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := celtDecodeCapsStorage(nil, mode, mode.FnbEBands, LM, channels)
+			mode = nil
+			runtime.GC()
+			if len(got) != 21 {
+				t.Fatal("owned caps geometry")
+			}
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatal("owned caps", LM, channels, i)
+				}
+			}
+		}
+	}
+	if len(celtDecodeCapsStorage(nil, &OpusT_OpusCustomMode{}, 0, 0, 1)) != 0 {
+		t.Fatal("empty caps")
+	}
+}
 func TestCeltDecodeTFStoragePointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, transient := range []int32{0, 1} {
