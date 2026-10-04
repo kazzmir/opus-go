@@ -35,6 +35,40 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsLowbandStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 1, 4, 64, 960} {
+		owned := quantAllBandsLowbandStorage(N)
+		if len(owned) != int(N) || N == 0 && owned != nil {
+			t.Fatal("lowband size")
+		}
+		if N == 0 {
+			continue
+		}
+		pointer := unsafe.SliceData(owned)
+		owned = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		values := unsafe.Slice(pointer, N)
+		values[N-1] = .75
+		if values[N-1] != .75 {
+			t.Fatal("retained lowband")
+		}
+	}
+	bands := []int16{0, 4, 8}
+	for _, M := range []int32{1, 2, 4, 8} {
+		spectrum := make([]float32, 12*M+2)
+		spectrum[0], spectrum[len(spectrum)-1] = 77, 88
+		view := quantAllBandsLowbandView(&spectrum[1], &bands[0], 2, M)
+		if view != &spectrum[1+8*M] {
+			t.Fatal("last-band scratch alias")
+		}
+		*view = .25
+		if spectrum[1+8*M] != .25 || spectrum[0] != 77 || spectrum[len(spectrum)-1] != 88 {
+			t.Fatal("live last-band scratch")
+		}
+	}
+}
+
 func TestQuantAllBandsNormStoragePointers(t *testing.T) {
 	for _, N := range []int32{0, 1, 4, 64, 960} {
 		saved := quantAllBandsNormStorage(N)

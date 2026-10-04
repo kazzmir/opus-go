@@ -11,6 +11,31 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsLowbandStorageAgainstC(t *testing.T) {
+	bands := []int16{0, 4, 8}
+	for _, M := range []int32{1, 2, 4, 8} {
+		spectrum := make([]float32, 12*M)
+		view := opuscc.CompareQuantAllBandsLowbandView(unsafe.SliceData(spectrum), unsafe.SliceData(bands), 2, M)
+		index := nativeQuantAllBandsLowband(unsafe.SliceData(bands), 2, M)
+		if view != &spectrum[index] {
+			t.Fatal("native last-band view", M)
+		}
+		owned := opuscc.CompareQuantAllBandsLowbandStorage(4 * M)
+		src := spectrum[index:]
+		for i := range src {
+			src[i] = float32(i) + .25
+		}
+		native := make([]float32, len(owned))
+		opuscc.CompareQuantAllBandsCopy(unsafe.SliceData(owned), view, 4*M)
+		nativeQuantAllBandsCopy(unsafe.SliceData(native), view, 4*M)
+		for i := range owned {
+			if math.Float32bits(owned[i]) != math.Float32bits(native[i]) {
+				t.Fatal("owned lowband/native copy", M, i)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsNormStorageAgainstC(t *testing.T) {
 	for _, N := range []int32{1, 4, 64, 960} {
 		saved := opuscc.CompareQuantAllBandsNormStorage(N)

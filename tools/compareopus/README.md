@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four quant-all-bands float-storage rounds replace initial X/Y snapshots,
+trial X/Y snapshots, the norm snapshot and encoder lowband scratch with separate
+Go-owned float slices of the original resynth_alloc length. Zero length yields
+nil unused storage. All six float scratch TLS allocation/alignment/capacity
+blocks are removed; snapshots and dot/norm consumers now receive SliceData
+pointers directly, never a reconverted snapshot integer address. Lowband scratch
+is a typed pointer forwarded through the remaining mono/stereo legacy adapters.
+On decode/non-resynthesis it preserves the live last-band spectrum alias using
+numeric indexing; an empty band loop does not form an unused interior view.
+
+Grouped GC/stack-growth/checkptr tests check zero/1/4/64/960 lengths, independent
+initial/trial lanes, exact snapshot/restore consumers, norm offsets/guards and
+LM0..3 last-band scratch aliases. Native storage pipeline checks use actual owned
+Go storage with scalar C copy/norm operations and source-equivalent band offset
+geometry; they are not a whole-driver pointer oracle. Existing whole-band scalar
+C-reference cases still verify theta-RDO bytes, spectra, entropy and seed. Each
+round passes full amd64/386, ARM64/QEMU, scoped checkptr, native codec comparison
+and GC stress without changing goldens/tolerances. Only the main norm buffer
+still allocates quantizer TLS scratch; spectrum/folding/norm views and initial
+pseudostack setup/final cursor restore remain legacy. Full driver checkptr and
+opaque byte-backed embedded-pointer scanning are still not claimed.
+
 Four quant-all-bands RDO rounds replace spectrum snapshot/restore memcpy calls
 with typed float copy consumers; replace four integer-addressed distortion loops
 with numeric, ordered scalar dot products and explicitly rounded float32
