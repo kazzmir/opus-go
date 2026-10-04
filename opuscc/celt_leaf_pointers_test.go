@@ -191,6 +191,26 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeFrameRangePointers(t *testing.T) {
+	state := &OpusT_OpusCustomDecoder{Fmode: &mode48000_960_120}
+	for _, value := range []uint32{0, 1, 0x80000000, 0xffffffff} {
+		state.Frng = value
+		output := []uint32{77, 0, 88}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_custom_decoder_ctl_typed(nil, state, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &output[1]}) != 0 || output[1] != value || output[0] != 77 || output[2] != 88 || state.Frng != value {
+			t.Fatal("frame range output")
+		}
+		outer := new(OpusT_OpusDecoder)
+		if Opus_opus_custom_decoder_ctl_typed(nil, state, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &outer.FrangeFinal}) != 0 || outer.FrangeFinal != value {
+			t.Fatal("outer final-range field")
+		}
+		if Opus_opus_custom_decoder_ctl_typed(nil, state, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &state.Frng}) != 0 || state.Frng != value {
+			t.Fatal("range field alias")
+		}
+	}
+}
+
 func TestCeltDecodeFrameResetPointers(t *testing.T) {
 	for _, C := range []int32{1, 2} {
 		storage := new(celtStateTestStorage)
