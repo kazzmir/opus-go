@@ -35,6 +35,28 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsCopyPointers(t *testing.T) {
+	quantAllBandsCopy(nil, nil, 0)
+	src := []float32{math.Float32frombits(0x80000000), math.Float32frombits(0x7fc00123), 3}
+	dst := []float32{77, 0, 0, 0, 88}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	quantAllBandsCopy(&dst[1], &src[0], 3)
+	for i := range src {
+		if math.Float32bits(dst[i+1]) != math.Float32bits(src[i]) {
+			t.Fatal("RDO snapshot bits", i)
+		}
+	}
+	if dst[0] != 77 || dst[4] != 88 {
+		t.Fatal("RDO copy guards")
+	}
+	alias := []float32{1, 2, 3, 4}
+	quantAllBandsCopy(&alias[1], &alias[0], 3)
+	if alias[1] != 1 || alias[2] != 2 || alias[3] != 3 {
+		t.Fatal("Go-only overlapping copy")
+	}
+}
+
 func TestQuantAllBandsNormLengthPointers(t *testing.T) {
 	bands := []int16{0, 4, 8, 12}
 	for _, C := range []int32{1, 2} {

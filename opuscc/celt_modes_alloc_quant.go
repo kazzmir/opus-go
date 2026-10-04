@@ -2470,6 +2470,13 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsCopy(dst, src *float32, N int32) {
+	if N == 0 {
+		return
+	}
+	copy(unsafe.Slice(dst, N), unsafe.Slice(src, N))
+}
+
 func quantAllBandsNormLength(bands *int16, index, M, channels, offset int32) int32 {
 	return channels * (M*quantAllBandsBoundary(bands, index) - offset)
 }
@@ -3322,8 +3329,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					cm = x_cm | y_cm
 					ec_save = *(*OpusT_ec_ctx)(unsafe.Pointer(ec))
 					ctx_save = *ctx
-					libc.Xmemcpy(tls, X_save, X, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(X_save)-int64(X))/4)))
-					libc.Xmemcpy(tls, Y_save, Y, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(Y_save)-int64(Y))/4)))
+					quantAllBandsCopy((*float32)(unsafe.Pointer(X_save)), (*float32)(unsafe.Pointer(X)), N1)
+					quantAllBandsCopy((*float32)(unsafe.Pointer(Y_save)), (*float32)(unsafe.Pointer(Y)), N1)
 					/* Encode and round down. */
 					ctx.Ftheta_round = -1
 					if effective_lowband != -1 {
@@ -3364,8 +3371,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					cm2 = x_cm
 					ec_save2 = *(*OpusT_ec_ctx)(unsafe.Pointer(ec))
 					ctx_save2 = *ctx
-					libc.Xmemcpy(tls, X_save2, X, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(X_save2)-int64(X))/4)))
-					libc.Xmemcpy(tls, Y_save2, Y, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(Y_save2)-int64(Y))/4)))
+					quantAllBandsCopy((*float32)(unsafe.Pointer(X_save2)), (*float32)(unsafe.Pointer(X)), N1)
+					quantAllBandsCopy((*float32)(unsafe.Pointer(Y_save2)), (*float32)(unsafe.Pointer(Y)), N1)
 					if !(last != 0) {
 						libc.Xmemcpy(tls, norm_save2, norm+uintptr(M*quantAllBandsBoundary(eBands, i1))*4-uintptr(norm_offset)*4, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(norm_save2)-int64(norm+uintptr(M*quantAllBandsBoundary(eBands, i1))*4-uintptr(norm_offset)*4))/4)))
 					}
@@ -3377,8 +3384,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					/* Restore */
 					*(*OpusT_ec_ctx)(unsafe.Pointer(ec)) = ec_save
 					*ctx = ctx_save
-					libc.Xmemcpy(tls, X, X_save, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(X)-int64(X_save))/4)))
-					libc.Xmemcpy(tls, Y, Y_save, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(Y)-int64(Y_save))/4)))
+					quantAllBandsCopy((*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(X_save)), N1)
+					quantAllBandsCopy((*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(Y_save)), N1)
 					if i1 == start+int32(1) {
 						special_hybrid_folding(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands, (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
 					}
@@ -3422,8 +3429,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 						x_cm = cm2
 						*(*OpusT_ec_ctx)(unsafe.Pointer(ec)) = ec_save2
 						*ctx = ctx_save2
-						libc.Xmemcpy(tls, X, X_save2, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(X)-int64(X_save2))/4)))
-						libc.Xmemcpy(tls, Y, Y_save2, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(Y)-int64(Y_save2))/4)))
+						quantAllBandsCopy((*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(X_save2)), N1)
+						quantAllBandsCopy((*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(Y_save2)), N1)
 						if !(last != 0) {
 							libc.Xmemcpy(tls, norm+uintptr(M*quantAllBandsBoundary(eBands, i1))*4-uintptr(norm_offset)*4, norm_save2, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(norm+uintptr(M*quantAllBandsBoundary(eBands, i1))*4-uintptr(norm_offset)*4)-int64(norm_save2))/4)))
 						}

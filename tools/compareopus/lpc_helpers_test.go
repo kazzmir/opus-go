@@ -11,6 +11,21 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsCopyAgainstC(t *testing.T) {
+	src := []float32{math.Float32frombits(0x80000000), math.Float32frombits(0x7fc00123), 3}
+	for N := int32(0); N <= 3; N++ {
+		g := []float32{77, 0, 0, 0, 88}
+		c := append([]float32(nil), g...)
+		opuscc.CompareQuantAllBandsCopy(&g[1], &src[0], N)
+		nativeQuantAllBandsCopy(&c[1], &src[0], N)
+		for i := range g {
+			if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+				t.Fatal("native RDO copy", N, i)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsNormLengthAgainstC(t *testing.T) {
 	bands := []int16{0, 4, 8, 12}
 	for _, C := range []int32{1, 2} {

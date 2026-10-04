@@ -14,6 +14,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
 // bands.c compute_channel_weights, float branch, with original lane loads.
+static void compare_quant_all_copy(float *dst,const float *src,int N) {if(N)memcpy(dst,src,N*sizeof(float));}
 static int compare_quant_all_norm_length(const short *bands,int index,int M,int channels,int offset) {return channels*(M*bands[index]-offset);}
 static int compare_quant_all_boundary(const short *bands,int index) {return bands[index];}
 static void compare_quant_all_masks(unsigned char *masks,int band,int channels,unsigned left,unsigned right) {masks[band*channels+0]=(unsigned char)left;masks[band*channels+channels-1]=(unsigned char)right;}
@@ -72,6 +73,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeQuantAllBandsCopy(dst, src *float32, N int32) {
+	C.compare_quant_all_copy((*C.float)(unsafe.Pointer(dst)), (*C.float)(unsafe.Pointer(src)), C.int(N))
+}
 func nativeQuantAllBandsNormLength(bands *int16, index, M, channels, offset int32) int32 {
 	return int32(C.compare_quant_all_norm_length((*C.short)(unsafe.Pointer(bands)), C.int(index), C.int(M), C.int(channels), C.int(offset)))
 }
