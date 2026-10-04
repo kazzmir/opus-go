@@ -191,6 +191,28 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeLostCursor(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	raw := libc.Xmalloc(tls, 16)
+	defer libc.Xfree(tls, raw)
+	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	before := *cursor
+	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
+	storage := new(celtStateTestStorage)
+	if opus_custom_decoder_init(nil, &storage.State, &mode48000_960_120, 1) != 0 {
+		t.Fatal("decoder init")
+	}
+	pcm := make([]float32, 122)
+	pcm[0], pcm[121] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if celt_decode_with_ec_dred(tls, &storage.State, nil, 0, &pcm[1], 120, nil, 0) != 120 || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
+		t.Fatal("lost frame cursor/guards")
+	}
+}
+
 func TestCeltDecodeScratchInitialization(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
