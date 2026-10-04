@@ -55,6 +55,27 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeHistoryMovePointers(t *testing.T) {
+	celtDecodeHistoryMove(nil, 960, 0)
+	for _, N := range []int32{0, 1, 120, 240, 960} {
+		for _, length := range []int32{0, 1, 128, 2048} {
+			h := make([]float32, N+length+2)
+			for i := range h {
+				h[i] = math.Float32frombits(uint32(i)*7717 + 0x80000000)
+			}
+			want := append([]float32(nil), h...)
+			copy(want[1:1+length], want[1+N:1+N+length])
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodeHistoryMove(&h[1], N, length)
+			for i := range h {
+				if math.Float32bits(h[i]) != math.Float32bits(want[i]) {
+					t.Fatal("history memmove", N, length, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeMaskStoragePointers(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		for _, channels := range []int32{0, 1, 2} {

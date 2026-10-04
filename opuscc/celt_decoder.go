@@ -423,6 +423,14 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeHistoryMove(history *float32, N, length int32) {
+	if length == 0 {
+		return
+	}
+	h := unsafe.Slice(history, N+length)
+	copy(h[:length], h[N:])
+}
+
 func celtDecodeMaskStorage(bands, channels int32) []byte { return make([]byte, channels*bands) }
 
 func celtDecodeSpectrumStorage(N, channels int32) []float32 { return make([]float32, channels*N) }
@@ -1262,7 +1270,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	X = celtDecodeSpectrumStorage(N, C) // Contiguous per-channel normalized MDCT spectra.
 	c = 0
 	for {
-		libc.Xmemmove(tls, decode_mem[c], decode_mem[c]+uintptr(N)*4, uint64(uint32(decode_buffer_size-N+overlap))*uint64(4)+uint64(0*((int64(decode_mem[c])-int64(decode_mem[c]+uintptr(N)*4))/4)))
+		celtDecodeHistoryMove((*float32)(unsafe.Pointer(decode_mem[c])), N, decode_buffer_size-N+overlap)
 		c = c + 1
 		v28 = c
 		if !(v28 < CC) {

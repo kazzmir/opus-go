@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static void compare_decode_history_move(float *h,int N,int length) {if(length>0)memmove(h,h+N,length*sizeof(float));}
 static void compare_decode_energy_clear(float *e,float *l,float *p,int bands,int start,int end) {int c=0;do{for(int i=0;i<start;i++){e[c*bands+i]=0;l[c*bands+i]=p[c*bands+i]=-28.f;}for(int i=end;i<bands;i++){e[c*bands+i]=0;l[c*bands+i]=p[c*bands+i]=-28.f;}}while(++c<2);}
 static void compare_decode_energy_background(float *b,const float *e,int bands,int loss,int M) {float increase=IMIN(160,loss+M)*.001f;for(int i=0;i<2*bands;i++)b[i]=MING(b[i]+increase,e[i]);}
 static void compare_decode_energy_logs(const float *e,float *l,float *p,int bands,int transient) {if(!transient){memcpy(p,l,2*bands*sizeof(float));memcpy(l,e,2*bands*sizeof(float));}else for(int i=0;i<2*bands;i++)l[i]=MING(l[i],e[i]);}
@@ -31,6 +32,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodeHistoryMove(h *float32, N, length int32) {
+	C.compare_decode_history_move((*C.float)(unsafe.Pointer(h)), C.int(N), C.int(length))
+}
 func nativeCeltDecodeEnergyClear(e, l, p *float32, bands, start, end int32) {
 	C.compare_decode_energy_clear((*C.float)(unsafe.Pointer(e)), (*C.float)(unsafe.Pointer(l)), (*C.float)(unsafe.Pointer(p)), C.int(bands), C.int(start), C.int(end))
 }

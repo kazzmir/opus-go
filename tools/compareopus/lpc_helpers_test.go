@@ -11,6 +11,24 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeHistoryMoveAgainstC(t *testing.T) {
+	for _, N := range []int32{0, 1, 120, 240, 960} {
+		for _, length := range []int32{0, 1, 128, 2048} {
+			h := make([]float32, N+length+2)
+			for i := range h {
+				h[i] = math.Float32frombits(uint32(i)*7717 + 0x80000000)
+			}
+			c := slices.Clone(h)
+			opuscc.CompareCeltDecodeHistoryMove(&h[1], N, length)
+			nativeCeltDecodeHistoryMove(&c[1], N, length)
+			for i := range h {
+				if math.Float32bits(h[i]) != math.Float32bits(c[i]) {
+					t.Fatal("history move", N, length, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeMaskStorageAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {
