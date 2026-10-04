@@ -35,6 +35,300 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsActivePointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, C := range []int32{1, 2} {
+			mode := newSynthesisTestMode()
+			bands := mode.FnbEBands
+			N := mode.FshortMdctSize << LM
+			x, y := make([]float32, N+2), make([]float32, N+2)
+			x[0], x[N+1], y[0], y[N+1] = 77, 88, 55, 66
+			pulses, tf := make([]int32, bands), make([]int32, bands)
+			for i := range pulses {
+				if i%3 != 0 {
+					pulses[i] = 80
+				}
+				if LM > 0 && i >= 8 {
+					tf[i] = int32(i%3) - 1
+				}
+			}
+			data := make([]byte, 256)
+			for i := range data {
+				data[i] = byte(i*73 + 19)
+			}
+			ec := new(OpusT_ec_ctx)
+			Opus_ec_dec_init(nil, ec, &data[0], 256)
+			seed := uint32(123456)
+			masks := make([]byte, C*bands+2)
+			masks[0], masks[len(masks)-1] = 33, 44
+			var right *float32
+			if C == 2 {
+				right = &y[1]
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			var tls *libc.TLS
+			sentinel := &OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+			before := *sentinel
+			if LM == 0 && C == 1 {
+				tls = libc.NewTLS()
+				libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(sentinel)))
+			}
+			quant_all_bands(tls, 0, mode, 0, bands, &x[1], right, &masks[1], nil, &pulses[0], 1, SPREAD_NORMAL, 0, bands, &tf[0], 4096, 24, ec, LM, bands, &seed, 8, 0, 0)
+			if *sentinel != before {
+				t.Fatal("quantizer touched legacy cursor")
+			}
+			if tls != nil {
+				tls.Close()
+			}
+			runtime.GC()
+			if x[0] != 77 || x[N+1] != 88 || y[0] != 55 || y[N+1] != 66 || masks[0] != 33 || masks[len(masks)-1] != 44 {
+				t.Fatal("whole active quantizer guards", LM, C)
+			}
+			for i := int32(1); i <= N; i++ {
+				if math.IsNaN(float64(x[i])) || math.IsInf(float64(x[i]), 0) || C == 2 && (math.IsNaN(float64(y[i])) || math.IsInf(float64(y[i]), 0)) {
+					t.Fatal("whole active finite spectra", LM, C, i)
+				}
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsWholePointers(t *testing.T) {
+	bands := []int16{0, 4, 8, 12}
+	logs := []int16{2, 2, 2}
+	index := []int16{0, 0, 0, 0, 9, 16}
+	bits := []byte{8, 20, 30, 40, 48, 56, 64, 72, 80, 6, 4, 8, 12, 16, 20, 24, 4, 32, 56, 76, 96}
+	mode := &OpusT_OpusCustomMode{FFs: 48000, FnbEBands: 3, FeffEBands: 3, FeBands: &bands[0], FlogN: &logs[0]}
+	mode.Fcache.Findex = &index[0]
+	mode.Fcache.Fbits = &bits[0]
+	energy := []float32{1.5, .7, 2.2, 1.1, .9, 1.8}
+	pulses := []int32{84, 80, 76}
+	tf := []int32{0, 0, 0}
+	cases := []struct {
+		stereo                   bool
+		complexity, dual, spread int32
+		seed                     uint32
+		x, y                     uint32
+		packet                   string
+		nbits                    int32
+	}{{true, 8, 0, SPREAD_NORMAL, 123456789, 0xba1de34d, 0xa91fb3cd, "\xfb\x1c\x14\xc0", 59}, {true, 5, 0, SPREAD_LIGHT, 987654321, 0x73c07e4a, 0x29a287d1, "\x7e\xfb\x67\x5a", 61}, {true, 5, 1, SPREAD_NORMAL, 555555555, 0xfd324584, 0xd2dd4616, "\x49\xda\x3b\x7a", 61}, {false, 9, 0, SPREAD_AGGRESSIVE, 111111111, 0x585e6f84, 0, "\x40\xb9\x10\x70", 60}}
+	for _, tc := range cases {
+		x := []float32{77, .5, -.3, .8, .2, -.6, .4, .1, .7, -.2, .6, -.5, .3, 88}
+		y := []float32{55, -.2, .6, -.4, .3, .1, -.5, .8, -.1, .4, -.6, .2, -.7, 66}
+		buffer := make([]byte, 64)
+		ec := new(OpusT_ec_ctx)
+		Opus_ec_enc_init(nil, ec, &buffer[0], 64)
+		seed := tc.seed
+		masks := make([]byte, 8)
+		masks[0], masks[7] = 77, 88
+		var right *float32
+		if tc.stereo {
+			right = &y[1]
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		quant_all_bands(nil, 1, mode, 0, 3, &x[1], right, &masks[1], &energy[0], &pulses[0], 0, tc.spread, tc.dual, 3, &tf[0], 400, 24, ec, 0, 3, &seed, tc.complexity, 0, 0)
+		Opus_ec_enc_done(nil, ec)
+		wantedMasks := "\x01\x01\x01"
+		if tc.stereo {
+			wantedMasks = "\x01\x01\x01\x01\x01\x01"
+			if tc.complexity == 5 {
+				wantedMasks = "\x01\x01\x01\x01\x00\x00"
+			}
+		}
+		if string(masks[1:1+len(wantedMasks)]) != wantedMasks {
+			t.Fatal("whole typed scalar C mask golden", tc)
+		}
+		if fnv1aFloats(x[1:13]) != tc.x || tc.stereo && fnv1aFloats(y[1:13]) != tc.y || string(buffer[:ec.Foffs]) != tc.packet || ec.Fnbits_total != tc.nbits || seed != tc.seed {
+			t.Fatal("whole typed scalar C golden", tc, ec.Fnbits_total)
+		}
+		if x[0] != 77 || x[13] != 88 || y[0] != 55 || y[13] != 66 || masks[0] != 77 || masks[7] != 88 {
+			t.Fatal("whole quantizer guards")
+		}
+	}
+	x, y := make([]float32, 12), make([]float32, 12)
+	buffer := make([]byte, 64)
+	copy(buffer, []byte{0xfb, 0x1c, 0x14, 0xc0})
+	buffer[63] = 2
+	ec := new(OpusT_ec_ctx)
+	Opus_ec_dec_init(nil, ec, &buffer[0], 64)
+	seed := uint32(123456789)
+	masks := make([]byte, 6)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	quant_all_bands(nil, 0, mode, 0, 3, &x[0], &y[0], &masks[0], &energy[0], &pulses[0], 0, SPREAD_NORMAL, 0, 3, &tf[0], 400, 24, ec, 0, 3, &seed, 8, 0, 0)
+	if fnv1aFloats(x) != 0xba1de34d || fnv1aFloats(y) != 0xa91fb3cd || seed != 123456789 || string(masks) != "\x01\x01\x01\x01\x01\x01" {
+		t.Fatal("whole typed decode C golden")
+	}
+}
+
+func TestQuantAllBandsSpectrumNormAliasPointers(t *testing.T) {
+	bands := []int16{0, 4, 8}
+	memory, x, y := quantAllBandsNormBuffer(&bands[0], 2, 1, 2, 0)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	x = y
+	*x = 3
+	if memory[8] != 3 || *y != 3 {
+		t.Fatal("live spectrum/norm fallback alias")
+	}
+	input, output := quantAllBandsBandViews(x, &bands[0], 1, 1, 0, 4, 0, 0)
+	if input != x || output != &memory[12] {
+		t.Fatal("typed fallback fold views")
+	}
+}
+
+func TestQuantAllBandsStereoSpectrumPointers(t *testing.T) {
+	bands := []int16{0, 4, 8}
+	left, right := make([]float32, 12), make([]float32, 12)
+	for band := int32(0); band < 3; band++ {
+		x := quantAllBandsSpectrum(&left[0], &bands[0], band, 1)
+		y := quantAllBandsSpectrum(&right[0], &bands[0], band, 1)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		*x = 1
+		*y = 2
+		if left[bands[band]] != 1 || right[bands[band]] != 2 {
+			t.Fatal("independent stereo spectrum owners")
+		}
+	}
+}
+
+func TestQuantAllBandsSpectrumPointers(t *testing.T) {
+	bands := []int16{0, 4, 8}
+	for _, M := range []int32{1, 2, 4, 8} {
+		spectrum := make([]float32, 12*M+2)
+		spectrum[0], spectrum[len(spectrum)-1] = 77, 88
+		for band := int32(0); band < 3; band++ {
+			pointer := quantAllBandsSpectrum(&spectrum[1], &bands[0], band, M)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if pointer != &spectrum[1+int32(bands[band])*M] {
+				t.Fatal("spectrum view geometry")
+			}
+			*pointer = float32(band)
+			if spectrum[0] != 77 || spectrum[len(spectrum)-1] != 88 {
+				t.Fatal("spectrum guards")
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsNormBufferPointers(t *testing.T) {
+	bands := []int16{0, 4, 8, 12}
+	for _, C := range []int32{1, 2} {
+		for _, M := range []int32{1, 2, 4, 8} {
+			for _, start := range []int32{0, 1, 2} {
+				offset := M * int32(bands[start])
+				memory, left, right := quantAllBandsNormBuffer(&bands[0], 2, M, C, offset)
+				lane := M*8 - offset
+				if len(memory) != int(C*lane) {
+					t.Fatal("owned norm length")
+				}
+				if lane == 0 {
+					if memory != nil || left != nil || right != nil {
+						t.Fatal("unused empty norm")
+					}
+					continue
+				}
+				if left != &memory[0] || C == 1 && right != nil || C == 2 && right != &memory[lane] {
+					t.Fatal("norm lane geometry")
+				}
+				memory = nil
+				entropyInitGrowStack(12)
+				runtime.GC()
+				*left = 1
+				if C == 2 {
+					*right = 2
+					if *left != 1 {
+						t.Fatal("independent norm lanes")
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsBandViewsPointers(t *testing.T) {
+	input, output := quantAllBandsBandViews(nil, nil, 99, 1, 0, 4, -1, 1)
+	if input != nil || output != nil {
+		t.Fatal("nil unused band views")
+	}
+	bands := []int16{0, 2, 4}
+	norm := make([]float32, 16)
+	for _, last := range []int32{0, 1} {
+		for _, effective := range []int32{-1, 0, 2} {
+			input, output := quantAllBandsBandViews(unsafe.SliceData(norm), &bands[0], 1, 2, 1, 2, effective, last)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if effective == -1 {
+				if input != nil {
+					t.Fatal("unused input")
+				}
+			} else if input != &norm[effective] {
+				t.Fatal("input forwarding")
+			}
+			if last != 0 {
+				if output != nil {
+					t.Fatal("last band output")
+				}
+			} else if output != &norm[3] {
+				t.Fatal("output forwarding")
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsFoldPointers(t *testing.T) {
+	if quantAllBandsFoldInput(nil, -1, 3) != nil || quantAllBandsFoldInput(nil, 99, 0) != nil || quantAllBandsFoldOutput(nil, nil, 99, 1, 0, 4, 1) != nil {
+		t.Fatal("unused fold views")
+	}
+	data := []float32{77, 1, 2, 3, 4, 5, 6, 88}
+	bands := []int16{0, 2, 4}
+	for _, offset := range []int32{0, 1, 3} {
+		input := quantAllBandsFoldInput(&data[1], offset, 2)
+		if input != &data[1+offset] {
+			t.Fatal("fold input geometry")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+	}
+	output := quantAllBandsFoldOutput(&data[1], &bands[0], 1, 2, 1, 2, 0)
+	if output != &data[4] {
+		t.Fatal("fold output geometry")
+	}
+	*output = 7
+	if data[4] != 7 || data[0] != 77 || data[7] != 88 {
+		t.Fatal("retained fold view/guards")
+	}
+}
+
+func TestQuantAllBandsMergePointers(t *testing.T) {
+	bands := []int16{0, 3}
+	norm := []float32{77, 1, 2, 3, 88}
+	other := []float32{4, 5, 6}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	quantAllBandsMerge(&norm[1], &other[0], &bands[0], 1, 1, 0)
+	if norm[1] != 2.5 || norm[2] != 3.5 || norm[3] != 4.5 || norm[0] != 77 || norm[4] != 88 {
+		t.Fatal("ordered norm merge")
+	}
+	quantAllBandsMerge(nil, nil, &bands[0], 0, 1, 0)
+	alias := []float32{1, 2, 3, 4}
+	quantAllBandsMerge(&alias[1], &alias[0], &bands[0], 1, 1, 0)
+	if alias[1] != 1.5 || alias[2] != 2.25 || alias[3] != 3.125 {
+		t.Fatal("live merge aliases")
+	}
+	live := []float32{math.Float32frombits(3), 2, 77}
+	bound := (*int16)(unsafe.Pointer(&live[0]))
+	zero := []float32{0, 0, 0}
+	quantAllBandsMerge(&live[0], &zero[0], bound, 0, 1, 0)
+	if math.Float32bits(live[0]) != 2 || live[1] != 1 || live[2] != 77 {
+		t.Fatal("Go-only live bound reload")
+	}
+}
+
 func TestQuantAllBandsLowbandStoragePointers(t *testing.T) {
 	for _, N := range []int32{0, 1, 4, 64, 960} {
 		owned := quantAllBandsLowbandStorage(N)

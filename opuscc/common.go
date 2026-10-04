@@ -2338,7 +2338,6 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	framePins.Pin(&redundant_rng)
 	framePins.Pin(&celt_mode)
 	framePins.Pin(&va)
-	framePins.Pin(&silence)
 	defer framePins.Unpin()
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st1))
 	silk_ret = 0
@@ -3033,7 +3032,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_SET_START_BAND_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), int32(0))) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(586))
 		}
-		Opus_celt_decode_with_ec(tls, celt_dec, data+uintptr(len1), redundancy_bytes, redundant_audio, F5, uintptr(uint32(0)), 0)
+		opusFrameCeltRedundant(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), (*byte)(unsafe.Pointer(data)), len1, redundancy_bytes, (*float32)(unsafe.Pointer(redundant_audio)), F5)
 		if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_FINAL_RANGE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), uintptr(unsafe.Pointer(&redundant_rng)))) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(589))
 		}
@@ -3057,12 +3056,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			}
 		}
 		/* Decode CELT */
-		if decode_fec != 0 {
-			v1 = uintptr(uint32(0))
-		} else {
-			v1 = data
-		}
-		celt_ret = Opus_celt_decode_with_ec_dred(tls, celt_dec, v1, len1, pcm, celt_frame_size, uintptr(unsafe.Pointer(&dec)), celt_accum)
+		celt_ret = opusFrameCelt(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(pcm)), celt_frame_size, &dec, decode_fec, celt_accum)
 		Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_FINAL_RANGE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), st1+96))
 	} else {
 		silence = [2]uint8{
@@ -3086,7 +3080,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_SET_START_BAND_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), int32(0))) == int32(OPUS_OK)) {
 				Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(624))
 			}
-			Opus_celt_decode_with_ec(tls, celt_dec, uintptr(unsafe.Pointer(&silence[0])), int32(2), pcm, F2_5, uintptr(uint32(0)), celt_accum)
+			opusFrameCeltSilence(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), &silence, (*float32)(unsafe.Pointer(pcm)), F2_5, celt_accum)
 		}
 		(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FrangeFinal = dec.Frng
 	}
@@ -3103,7 +3097,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_SET_START_BAND_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), int32(0))) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(640))
 		}
-		Opus_celt_decode_with_ec(tls, celt_dec, data+uintptr(len1), redundancy_bytes, redundant_audio, F5, uintptr(uint32(0)), 0)
+		opusFrameCeltRedundant(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), (*byte)(unsafe.Pointer(data)), len1, redundancy_bytes, (*float32)(unsafe.Pointer(redundant_audio)), F5)
 		if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_FINAL_RANGE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), uintptr(unsafe.Pointer(&redundant_rng)))) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(643))
 		}

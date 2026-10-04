@@ -7,6 +7,24 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareQuantAllBandsSpectrum(spectrum *float32, bands *int16, band, M int32) *float32 {
+	return quantAllBandsSpectrum(spectrum, bands, band, M)
+}
+func CompareQuantAllBandsNormBuffer(bands *int16, index, M, channels, offset int32) ([]float32, *float32, *float32) {
+	return quantAllBandsNormBuffer(bands, index, M, channels, offset)
+}
+func CompareQuantAllBandsBandViews(norm *float32, bands *int16, band, M, offset, N, effective, last int32) (*float32, *float32) {
+	return quantAllBandsBandViews(norm, bands, band, M, offset, N, effective, last)
+}
+func CompareQuantAllBandsFoldInput(norm *float32, offset, N int32) *float32 {
+	return quantAllBandsFoldInput(norm, offset, N)
+}
+func CompareQuantAllBandsFoldOutput(norm *float32, bands *int16, band, M, offset, N, last int32) *float32 {
+	return quantAllBandsFoldOutput(norm, bands, band, M, offset, N, last)
+}
+func CompareQuantAllBandsMerge(norm, other *float32, bands *int16, band, M, offset int32) {
+	quantAllBandsMerge(norm, other, bands, band, M, offset)
+}
 func CompareQuantAllBandsLowbandStorage(length int32) []float32 {
 	return quantAllBandsLowbandStorage(length)
 }
@@ -52,6 +70,9 @@ func CompareQuantAllBandsPulse(pulses *int32, band int32) int32 {
 func CompareQuantAllBandsTF(flags *int32, band int32) int32 { return quantAllBandsTF(flags, band) }
 func CompareQuantAllBandsChannelWeights(mode *OpusT_OpusCustomMode, energy *float32, band int32, w *[2]float32) {
 	quantAllBandsChannelWeights(nil, mode, energy, band, w)
+}
+func CompareOpusFrameRedundantPacket(data *byte, offset, length int32) *byte {
+	return opusFrameRedundantPacket(data, offset, length)
 }
 func CompareCeltDecodeFrameLM(mode *OpusT_OpusCustomMode, frameSize int32) int32 {
 	return celtDecodeFrameLM(mode, frameSize)

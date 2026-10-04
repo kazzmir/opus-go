@@ -534,6 +534,94 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four Opus-frame CELT dispatch rounds forward typed decoder, payload, PCM and
+entropy owners to the internal decoder for the main/FEC call, CELT→SILK redundant
+frame, hybrid→SILK silence frame and SILK→CELT redundant frame. Redundant packet
+suffixes use numeric byte slices; length<=1 forms no unused interior and still
+selects loss through the original length predicate. Main FEC keeps nonzero→nil
+payload selection with the original length and provided entropy. Silence uses
+the live two-byte Go array, retains accumulation forwarding and no longer needs
+its frame Pinner slot. The other five legacy local pins remain. Existing CTL
+start-band/reset/range queries and redundancy fade ordering are unchanged.
+
+Grouped full typed-boundary checkptr/GC tests compare dispatch with direct CELT
+decoding for normal/FEC/loss, packet suffixes, silence accumulation, PCM guards,
+reset/redundancy state and final range; native suffix tests use scalar C window
+copies. Existing transition/redundancy frame references and native codec
+comparisons preserve all goldens/tolerances, with full amd64/386 and ARM64/QEMU
+validation each round and separate repeated typed-path/ordinary golden runs.
+These typed consumers do not prove enclosing Opus-frame checkptr: decoder offsets,
+PCM/redundancy allocation, varargs CTL/fades and other integer owners remain.
+Opaque byte-backed embedded-pointer scanning is still a separate blocker.
+
+Four outer CELT pseudostack cleanup rounds remove scratch initialization,
+lost-frame cursor restore, normal-frame cursor restore, then the remaining cursor
+snapshot/metadata allocation and dead temporaries. Decoder work remains ordered:
+validation/frame-size selection, packet/PCM checks, concealment or entropy decode,
+deemphasis, packet finalization and terminal error handling. The public uintptr
+escape adapters remain, but the private celt_decode_with_ec_dred entry and all its
+active consumers now require no pseudostack storage and accept nil TLS on valid
+paths. Scratch/cursor initialization side effects are intentionally eliminated.
+
+Full active decoder checkptr now runs on scanned decoder-tail storage with Go
+packet/PCM/entropy buffers, mono/stereo LM0..3 packet→PLC→PLC→packet sequences,
+forced GC/stack growth, PCM guards, validation gates, and provided-vs-local entropy
+state/history/PCM parity. A typed TLS cursor sentinel is untouched through both
+normal and lost decoding. The build's original standard-mode pointer-identity
+assertion remains: a cloned heap mode is invalid at this entry and was rejected,
+not accommodated by weakening validation. Native scalar helper/whole concealment
+comparisons plus unchanged enclosing frame C-reference/Go goldens and codec
+baselines still pass. Full per-round amd64/386 and ARM64/QEMU, repeated active-path
+checkptr/ordinary goldens, GC stress and unchanged tolerances pass. This proves
+coverage of these typed decoder paths, not global Opus-frame uintptr ownership,
+macOS CI or scanning of embedded pointers in opaque byte-backed allocations.
+
+Four final quant-all-bands owner rounds type the left spectrum base, right
+spectrum base and per-band/fallback X/Y pointers, then remove the unused TLS
+pseudostack setup/save/final restore and its dead translated temporaries. The
+public uintptr escape ABI remains, but the private quantizer has only typed
+pointer arguments and no integer-addressed owners or views. The typed CELT
+caller forwards both spectrum channels directly; the private escape annotation
+is no longer necessary. All band offsets use numeric indexing; fallback X/Y
+remain live aliases of the typed norm lane. No private call allocates or touches
+pseudostack storage, and valid paths accept nil TLS.
+
+Full active typed-quantizer checkptr now runs with scanned heap mode/cache/table
+owners, Go arrays/entropy/buffers and nil TLS. The new grouped whole fixture
+reuses unchanged scalar C goldens for four encoder scenarios (mono, stereo,
+dual stereo and theta-RDO) plus decoder resynthesis, including encoded bytes,
+bit counts, spectra, masks, guards and seeds. An additional active mono/stereo
+LM0..3 fixture exercises pulse/noise bands, TF changes, heap modes, GC/stack growth
+and guards; one case supplies an untouched legacy TLS cursor sentinel. Other
+legacy C-reference fixtures remain ordinary tests; this expanded checkptr claim
+is for the typed quantizer, not the enclosing outer CELT decoder's still-legacy
+pseudostack or public decoder storage. Full per-round amd64/386, ARM64/QEMU,
+native comparisons and GC stress preserve encode/decode goldens/tolerances.
+Opaque byte-backed allocations still do not scan embedded pointers globally.
+
+Four main-norm rounds type the dual-stereo-to-intensity merge with live eBands
+bound reloads and ordered float stores, then switch dual-stereo and normal
+mono/stereo dispatch to typed quant_band/quant_band_stereo calls with numeric
+optional folding views. The final round allocates the main norm buffer in Go,
+retains typed left/right pointers, skips unused mono/empty second-lane interiors,
+and switches RDO dispatch to the same typed band views. Obsolete private mono
+and stereo uintptr adapters are removed. Quant-all-bands no longer allocates any
+TLS scratch; initial pseudostack setup/save and final cursor restore remain for
+a later boundary cleanup. Spectral bases/X/Y fallback still have explicit integer
+views; all norm offsets/merges/copies/folding consumers are now numeric/typed.
+
+Grouped scoped checkptr tests cover optional -1 inputs, last-band nil outputs,
+zero/nonzero norm extents, channels1/2, LM0..3, nonzero offsets, live merge aliases
+and retained lane owners across GC/stack growth. An int16/float merge-bound alias
+is explicitly Go-only, because C effective-type rules exclude it. Native fixtures
+compare scalar merge operations and source-equivalent folding/allocation geometry,
+not a whole-driver pointer oracle. Whole-band scalar C references still verify
+mono/stereo/dual/intensity/theta-RDO entropy/spectra/seed. Each round passes full
+amd64/386, ARM64/QEMU, native comparisons and GC stress with unchanged baselines;
+repeated ARM checkptr stays scoped to typed helpers/consumers, separate from
+ordinary whole-band/frame goldens. Spectrum integer views and byte-backed
+embedded-pointer scanning still prevent a global GC-safety claim.
+
 Four quant-all-bands float-storage rounds replace initial X/Y snapshots,
 trial X/Y snapshots, the norm snapshot and encoder lowband scratch with separate
 Go-owned float slices of the original resynth_alloc length. Zero length yields

@@ -11,6 +11,93 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsSpectrumAgainstC(t *testing.T) {
+	bands := []int16{0, 4, 8}
+	for _, M := range []int32{1, 2, 4, 8} {
+		data := make([]float32, 12*M)
+		for band := int32(0); band < 3; band++ {
+			pointer := opuscc.CompareQuantAllBandsSpectrum(&data[0], &bands[0], band, M)
+			if pointer != &data[nativeQuantAllBandsLowband(&bands[0], band, M)] {
+				t.Fatal("native spectrum geometry", M, band)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsNormBufferAgainstC(t *testing.T) {
+	bands := []int16{0, 4, 8, 12}
+	for _, C := range []int32{1, 2} {
+		for _, M := range []int32{1, 2, 4, 8} {
+			for _, start := range []int32{0, 1, 2} {
+				offset := M * int32(bands[start])
+				memory, left, right := opuscc.CompareQuantAllBandsNormBuffer(&bands[0], 2, M, C, offset)
+				length := nativeQuantAllBandsNormLength(&bands[0], 2, M, C, offset)
+				if len(memory) != int(length) {
+					t.Fatal("native norm allocation geometry")
+				}
+				if length != 0 && (left != &memory[0] || C == 1 && right != nil || C == 2 && right != &memory[length/C]) {
+					t.Fatal("native norm lanes")
+				}
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsBandViewsAgainstC(t *testing.T) {
+	bands := []int16{0, 2, 4}
+	norm := make([]float32, 16)
+	for _, last := range []int32{0, 1} {
+		for _, effective := range []int32{-1, 0, 2} {
+			input, output := opuscc.CompareQuantAllBandsBandViews(unsafe.SliceData(norm), &bands[0], 1, 2, 1, 2, effective, last)
+			var wantInput, wantOutput *float32
+			if effective != -1 {
+				wantInput = &norm[effective]
+			}
+			if last == 0 {
+				wantOutput = &norm[nativeQuantAllBandsLowband(&bands[0], 1, 2)-1]
+			}
+			if input != wantInput || output != wantOutput {
+				t.Fatal("native optional band views", last, effective)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsFoldAgainstC(t *testing.T) {
+	bands := []int16{0, 2, 4}
+	data := make([]float32, 24)
+	for _, M := range []int32{1, 2, 4} {
+		for offset := int32(0); offset <= 2; offset++ {
+			input := opuscc.CompareQuantAllBandsFoldInput(&data[0], offset, 2)
+			output := opuscc.CompareQuantAllBandsFoldOutput(&data[0], &bands[0], 1, M, offset, 2, 0)
+			index := nativeQuantAllBandsLowband(&bands[0], 1, M) - offset
+			if input != &data[offset] || output != &data[index] {
+				t.Fatal("native fold geometry", M, offset)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsMergeAgainstC(t *testing.T) {
+	for _, alias := range []bool{false, true} {
+		bands := []int16{0, 3}
+		g := []float32{77, 1, 2, 3, 88}
+		c := append([]float32(nil), g...)
+		other := []float32{4, 5, 6}
+		goOther, cOther := &other[0], &other[0]
+		if alias {
+			goOther, cOther = &g[0], &c[0]
+		}
+		opuscc.CompareQuantAllBandsMerge(&g[1], goOther, &bands[0], 1, 1, 0)
+		nativeQuantAllBandsMerge(&c[1], cOther, &bands[0], 1, 1, 0)
+		for i := range g {
+			if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+				t.Fatal("native merge", alias, i)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsLowbandStorageAgainstC(t *testing.T) {
 	bands := []int16{0, 4, 8}
 	for _, M := range []int32{1, 2, 4, 8} {
@@ -268,6 +355,21 @@ func TestQuantAllBandsWeightsAgainstC(t *testing.T) {
 					t.Fatal("native weight guards", alias, band, i)
 				}
 			}
+		}
+	}
+}
+
+func TestOpusFrameRedundantPacketAgainstC(t *testing.T) {
+	data := make([]byte, 71)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	window := opuscc.CompareOpusFrameRedundantPacket(&data[0], 7, 64)
+	native := make([]byte, 64)
+	nativeQuantAllBandsBytes(&native[0], &data[0], 7, 64, false)
+	for i := range native {
+		if unsafe.Slice(window, 64)[i] != native[i] {
+			t.Fatal("native packet suffix", i)
 		}
 	}
 }

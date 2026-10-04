@@ -14,6 +14,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
 // bands.c compute_channel_weights, float branch, with original lane loads.
+static void compare_quant_all_merge(float *norm,float *other,short *bands,int band,int M,int offset) {for(int j=0;j<M*bands[band]-offset;j++)norm[j]=HALF32(norm[j]+other[j]);}
 static int compare_quant_all_lowband(short *bands,int index,int M) {return M*bands[index];}
 static void compare_quant_all_bytes(unsigned char *saved,unsigned char *buffer,int start,int count,int restore) {if(count){if(restore)memcpy(buffer+start,saved,count);else memcpy(saved,buffer+start,count);}}
 static void compare_quant_all_norm_copy(float *saved,float *norm,int offset,int N,int restore) {if(N){if(restore)memcpy(norm+offset,saved,N*sizeof(float));else memcpy(saved,norm+offset,N*sizeof(float));}}
@@ -77,6 +78,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeQuantAllBandsMerge(norm, other *float32, bands *int16, band, M, offset int32) {
+	C.compare_quant_all_merge((*C.float)(unsafe.Pointer(norm)), (*C.float)(unsafe.Pointer(other)), (*C.short)(unsafe.Pointer(bands)), C.int(band), C.int(M), C.int(offset))
+}
 func nativeQuantAllBandsLowband(bands *int16, index, M int32) int32 {
 	return int32(C.compare_quant_all_lowband((*C.short)(unsafe.Pointer(bands)), C.int(index), C.int(M)))
 }

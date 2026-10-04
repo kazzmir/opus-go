@@ -191,6 +191,315 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeRedundancyResetPointers(t *testing.T) {
+	left, right := new(celtStateTestStorage), new(celtStateTestStorage)
+	opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, 1)
+	opus_custom_decoder_init(nil, &right.State, &mode48000_960_120, 1)
+	data := make([]byte, 71)
+	for i := 7; i < len(data); i++ {
+		data[i] = byte((i-7)*73 + 165)
+	}
+	a, b := make([]float32, 240), make([]float32, 240)
+	opusFrameCeltRedundant(nil, &left.State, &data[0], 7, 64, &a[0], 240)
+	if Opus_opus_custom_decoder_ctl_typed(nil, &left.State, OPUS_RESET_STATE, OpusDecoderCtlArgs{}) != 0 {
+		t.Fatal("redundancy reset")
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	ra := opusFrameCeltRedundant(nil, &left.State, &data[0], 7, 64, &a[0], 240)
+	rb := celt_decode_with_ec_dred(nil, &right.State, &data[7], 64, &b[0], 240, nil, 0)
+	if ra != 240 || rb != ra || left.State != right.State || left.State.Frng != right.State.Frng {
+		t.Fatal("reset/redundancy range order")
+	}
+	for i := range a {
+		if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+			t.Fatal("reset redundancy PCM", i)
+		}
+	}
+}
+
+func TestCeltDecodeSilenceDispatchPointers(t *testing.T) {
+	for _, accum := range []int32{0, 1} {
+		left, right := new(celtStateTestStorage), new(celtStateTestStorage)
+		opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, 1)
+		opus_custom_decoder_init(nil, &right.State, &mode48000_960_120, 1)
+		silence := &[2]byte{255, 255}
+		a, b := make([]float32, 122), make([]float32, 122)
+		for i := range a {
+			a[i] = float32(i) / 128
+			b[i] = a[i]
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ra := opusFrameCeltSilence(nil, &left.State, silence, &a[1], 120, accum)
+		rb := celt_decode_with_ec_dred(nil, &right.State, &silence[0], 2, &b[1], 120, nil, accum)
+		if ra != 120 || rb != ra || left.State != right.State || *silence != [2]byte{255, 255} {
+			t.Fatal("silence dispatch", accum)
+		}
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("silence PCM/guards", accum, i)
+			}
+		}
+	}
+}
+
+func TestCeltDecodeRedundantPacketPointers(t *testing.T) {
+	if opusFrameRedundantPacket(nil, 99, 0) != nil || opusFrameRedundantPacket(nil, 99, 1) != nil {
+		t.Fatal("unused redundant packet")
+	}
+	data := make([]byte, 71)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	pointer := opusFrameRedundantPacket(&data[0], 7, 64)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if pointer != &data[7] || unsafe.Slice(pointer, 64)[63] != 70 {
+		t.Fatal("redundancy suffix owner")
+	}
+}
+
+func TestCeltDecodeRedundancyDispatchPointers(t *testing.T) {
+	left, right := new(celtStateTestStorage), new(celtStateTestStorage)
+	opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, 1)
+	opus_custom_decoder_init(nil, &right.State, &mode48000_960_120, 1)
+	data := make([]byte, 71)
+	for i := 7; i < len(data); i++ {
+		data[i] = byte((i-7)*73 + 165)
+	}
+	a, b := make([]float32, 242), make([]float32, 242)
+	a[0], a[241], b[0], b[241] = 77, 88, 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	ra := opusFrameCeltRedundant(nil, &left.State, &data[0], 7, 64, &a[1], 240)
+	rb := celt_decode_with_ec_dred(nil, &right.State, &data[7], 64, &b[1], 240, nil, 0)
+	if ra != 240 || rb != ra || left.State != right.State {
+		t.Fatal("redundancy dispatch")
+	}
+	for i := range a {
+		if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+			t.Fatal("redundancy PCM/guards", i)
+		}
+	}
+}
+
+func TestCeltDecodeFrameDispatchPointers(t *testing.T) {
+	for _, fec := range []int32{-1, 0, 1} {
+		left, right := new(celtStateTestStorage), new(celtStateTestStorage)
+		opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, 1)
+		opus_custom_decoder_init(nil, &right.State, &mode48000_960_120, 1)
+		data := make([]byte, 64)
+		for i := range data {
+			data[i] = byte(i*73 + 165)
+		}
+		var aec, bec OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &aec, &data[0], 64)
+		bec = aec
+		before := aec
+		a, b := make([]float32, 120), make([]float32, 120)
+		packet := &data[0]
+		if fec != 0 {
+			packet = nil
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ra := opusFrameCelt(nil, &left.State, &data[0], 64, &a[0], 120, &aec, fec, 0)
+		rb := celt_decode_with_ec_dred(nil, &right.State, packet, 64, &b[0], 120, &bec, 0)
+		if ra != 120 || ra != rb || aec != bec || left.State != right.State || fec != 0 && aec != before {
+			t.Fatal("frame CELT FEC dispatch", fec)
+		}
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("frame CELT PCM", fec, i)
+			}
+		}
+	}
+}
+
+func TestCeltDecodeWholePointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, C := range []int32{1, 2} {
+			storage := new(celtStateTestStorage)
+			state := &storage.State
+			if opus_custom_decoder_init(nil, state, &mode48000_960_120, C) != 0 {
+				t.Fatal("decoder init")
+			}
+			N := int32(120) << LM
+			pcm := make([]float32, C*N+2)
+			pcm[0], pcm[len(pcm)-1] = 77, 88
+			data := make([]byte, 128)
+			for i := range data {
+				data[i] = byte(i*73 + 165)
+			}
+			for step := 0; step < 4; step++ {
+				var packet *byte
+				length := int32(0)
+				if step == 0 || step == 3 {
+					packet = &data[0]
+					length = 128
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				result := celt_decode_with_ec_dred(nil, state, packet, length, &pcm[1], N, nil, 0)
+				if result != N {
+					t.Fatal("whole typed decoder", LM, C, step, result)
+				}
+				if pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+					t.Fatal("whole typed decoder guards", LM, C, step)
+				}
+				for i := int32(1); i <= C*N; i++ {
+					if math.IsNaN(float64(pcm[i])) || math.IsInf(float64(pcm[i]), 0) {
+						t.Fatal("whole typed PCM", LM, C, step, i)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestCeltDecodeWholeEntropyPointers(t *testing.T) {
+	for _, C := range []int32{1, 2} {
+		left, right := new(celtStateTestStorage), new(celtStateTestStorage)
+		if opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, C) != 0 || opus_custom_decoder_init(nil, &right.State, &mode48000_960_120, C) != 0 {
+			t.Fatal("decoder init")
+		}
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*73 + 165)
+		}
+		a, b := make([]float32, 240*C), make([]float32, 240*C)
+		ec := new(OpusT_ec_ctx)
+		Opus_ec_dec_init(nil, ec, &data[0], 128)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ra := celt_decode_with_ec_dred(nil, &left.State, &data[0], 128, &a[0], 240, nil, 0)
+		rb := celt_decode_with_ec_dred(nil, &right.State, &data[0], 128, &b[0], 240, ec, 0)
+		if ra != 240 || rb != ra || left.State != right.State || ec.Frng != right.State.Frng {
+			t.Fatal("provided/local entropy state", C, ra, rb)
+		}
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("provided/local entropy PCM", C, i)
+			}
+		}
+		size := (2048+120)*C + 8*21
+		lh, rh := unsafe.Slice(&left.State.F_decode_mem[0], size), unsafe.Slice(&right.State.F_decode_mem[0], size)
+		for i := range lh {
+			if math.Float32bits(lh[i]) != math.Float32bits(rh[i]) {
+				t.Fatal("provided/local entropy histories", C, i)
+			}
+		}
+	}
+}
+
+func TestCeltDecodeWholeCursorPointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	cursor := &OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	before := *cursor
+	libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(cursor)))
+	storage := new(celtStateTestStorage)
+	if opus_custom_decoder_init(nil, &storage.State, &mode48000_960_120, 1) != 0 {
+		t.Fatal("decoder init")
+	}
+	data := make([]byte, 64)
+	for i := range data {
+		data[i] = byte(i*73 + 165)
+	}
+	pcm := make([]float32, 120)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if celt_decode_with_ec_dred(tls, &storage.State, &data[0], 64, &pcm[0], 120, nil, 0) != 120 || celt_decode_with_ec_dred(tls, &storage.State, nil, 0, &pcm[0], 120, nil, 0) != 120 || *cursor != before {
+		t.Fatal("typed decoder touched legacy cursor")
+	}
+}
+
+func TestCeltDecodeWholeArgumentsPointers(t *testing.T) {
+	storage := new(celtStateTestStorage)
+	state := &storage.State
+	if opus_custom_decoder_init(nil, state, &mode48000_960_120, 1) != 0 {
+		t.Fatal("decoder init")
+	}
+	sample := float32(77)
+	for _, tc := range []struct {
+		frame, length int32
+		pcm           *float32
+	}{{119, 0, &sample}, {120, -1, &sample}, {120, 1276, &sample}, {120, 0, nil}} {
+		if celt_decode_with_ec_dred(nil, state, nil, tc.length, tc.pcm, tc.frame, nil, 0) != -1 || sample != 77 {
+			t.Fatal("typed decoder validation order", tc)
+		}
+	}
+}
+
+func TestCeltDecodeNormalCursor(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	raw := libc.Xmalloc(tls, 16)
+	defer libc.Xfree(tls, raw)
+	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	before := *cursor
+	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
+	storage := new(celtStateTestStorage)
+	if opus_custom_decoder_init(nil, &storage.State, &mode48000_960_120, 1) != 0 {
+		t.Fatal("decoder init")
+	}
+	data := make([]byte, 64)
+	for i := range data {
+		data[i] = byte(i*73 + 165)
+	}
+	pcm := make([]float32, 122)
+	pcm[0], pcm[121] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	result := celt_decode_with_ec_dred(tls, &storage.State, &data[0], 64, &pcm[1], 120, nil, 0)
+	if result != 120 || *cursor != before || pcm[0] != 77 || pcm[121] != 88 || storage.State.Floss_duration != 0 {
+		t.Fatal("normal frame cursor/finalization", result)
+	}
+}
+
+func TestCeltDecodeLostCursor(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	raw := libc.Xmalloc(tls, 16)
+	defer libc.Xfree(tls, raw)
+	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	before := *cursor
+	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
+	storage := new(celtStateTestStorage)
+	if opus_custom_decoder_init(nil, &storage.State, &mode48000_960_120, 1) != 0 {
+		t.Fatal("decoder init")
+	}
+	pcm := make([]float32, 122)
+	pcm[0], pcm[121] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if celt_decode_with_ec_dred(tls, &storage.State, nil, 0, &pcm[1], 120, nil, 0) != 120 || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
+		t.Fatal("lost frame cursor/guards")
+	}
+}
+
+func TestCeltDecodeScratchInitialization(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	raw := libc.Xmalloc(tls, 16)
+	defer libc.Xfree(tls, raw)
+	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
+	*cursor = OpusT_opus_ccgo_pseudostack_state{}
+	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
+	storage := new(celtStateTestStorage)
+	mode := &mode48000_960_120
+	if opus_custom_decoder_init(nil, &storage.State, mode, 1) != 0 {
+		t.Fatal("decoder init")
+	}
+	sample := float32(77)
+	if celt_decode_with_ec_dred(tls, &storage.State, nil, 0, &sample, 119, nil, 0) != -1 || cursor.Fscratch_ptr != 0 || cursor.Fglobal_stack != 0 || sample != 77 {
+		t.Fatal("decoder initialized unused scratch or changed frame validation")
+	}
+}
+
 func TestCeltDecodeModePointers(t *testing.T) {
 	state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode()}
 	want := state.Fmode
