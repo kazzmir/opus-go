@@ -56,6 +56,18 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeModePointers(t *testing.T) {
+	state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode()}
+	want := state.Fmode
+	mode, bands, overlap, boundaries := celtDecodeMode(state)
+	state.Fmode = nil
+	state = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if mode != want || bands != 21 || overlap != 120 || boundaries != mode.FeBands || unsafe.Slice(boundaries, bands+1)[bands] != 100 {
+		t.Fatal("retained decode mode owner")
+	}
+}
 func TestCeltDecodeAntiCollapsePointers(t *testing.T) {
 	celtDecodeAntiCollapse(nil, nil, nil, nil, nil, nil, nil, nil, nil, 120, 0, 1, 0, 21, 0)
 	if celtDecodeAntiCollapseBit(nil, nil, 0) != 0 || celtDecodeAntiCollapseBit(nil, nil, -1) != 0 {

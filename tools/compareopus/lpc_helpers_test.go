@@ -11,6 +11,18 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeModeAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := opuscc.OpusT_OpusCustomDecoder{Fmode: mode}
+	owner, bands, overlap, boundaries := opuscc.CompareCeltDecodeMode(&state)
+	code, values := nativeCustomMode(48000, 960)
+	if code != 0 || owner != mode || bands != values[2] || overlap != values[1] || boundaries != mode.FeBands {
+		t.Fatal("decode mode metadata", values)
+	}
+}
 func TestCeltDecodeAntiCollapseBitAgainstC(t *testing.T) {
 	for _, reserved := range []int32{-1, 0, 8} {
 		for _, pattern := range []byte{0, 71, 255} {
