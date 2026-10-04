@@ -55,6 +55,67 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeMaskStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, channels := range []int32{0, 1, 2} {
+			m := celtDecodeMaskStorage(bands, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if len(m) != int(bands*channels) {
+				t.Fatal("collapse mask geometry")
+			}
+			for i, v := range m {
+				if v != 0 {
+					t.Fatal("collapse mask initialization")
+				}
+				m[i] = byte(i)
+			}
+			runtime.GC()
+			for i, v := range m {
+				if v != byte(i) {
+					t.Fatal("collapse mask retention")
+				}
+			}
+		}
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			N := int32(120) << LM
+			mode := newSynthesisTestMode()
+			m := celtDecodeMaskStorage(21, channels)
+			for i := range m {
+				if i%2 != 0 {
+					m[i] = byte((1 << (1 << LM)) - 1)
+				}
+			}
+			saved := append([]byte(nil), m...)
+			s := make([]float32, N*channels+2)
+			s[0] = 901
+			s[len(s)-1] = 902
+			energy, previous, older := make([]float32, 42), make([]float32, 42), make([]float32, 42)
+			for i := range energy {
+				energy[i] = -12
+				previous[i] = -10
+				older[i] = -11
+			}
+			pulses := celtDecodePulseStorage(21)
+			for i := range pulses {
+				pulses[i] = int32(i)*32 + 8
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_anti_collapse(nil, mode.FeBands, 21, &s[1], &m[0], LM, channels, N, 0, 21, &energy[0], &previous[0], &older[0], &pulses[0], 123, 0, 0)
+			if s[0] != 901 || s[len(s)-1] != 902 {
+				t.Fatal("owned mask anti-collapse guards")
+			}
+			for i := range m {
+				if m[i] != saved[i] {
+					t.Fatal("mask consumer wrote input")
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeSpectrumStoragePointers(t *testing.T) {
 	for _, N := range []int32{0, 120, 240, 480, 960} {
 		for _, channels := range []int32{1, 2} {

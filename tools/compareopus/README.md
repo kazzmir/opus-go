@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+The next four scratch rounds migrate pulses, fine priorities, contiguous C*N
+spectra and C*nbEBands collapse masks into Go-owned slices. Allocation writes
+typed pulse/priority outputs, and final-energy decoding consumes typed priorities.
+Spectral channel views retain the base and stereo N offset with numeric indexing;
+mono and empty views never materialize an unused interior. The decode caller now
+uses typed anti-collapse and synthesis directly, with a scanned two-pointer
+synthesis output array; only quant-all-bands converts these scratch owners back
+to uintptr through its explicit escape ABI. Every outer decode temporary array
+is now Go-owned. Its initial pseudostack setup/save/restore is deliberately still
+present: the legacy quant-all-bands body expects an initialized scratch stack.
+This is not yet a complete typed outer CELT decode or quant-all-bands migration.
+
+Grouped tests cover empty/positive storage geometry, retained channel views,
+GC/stack growth, allocation pulse/priority writes, final-energy priority reads,
+mono/stereo LM0..3 synthesis and anti-collapse with guarded outputs. Native
+fixtures compare actual rate.c output/scalar/entropy state, quant_bands.c final
+energy, scalar synthesis and anti-collapse. All four rounds run full amd64/386,
+ARM64/QEMU, scoped helper/consumer checkptr, native comparisons and GC stress
+without changing goldens/tolerances. Final repeated ARM checkptr remains scoped
+to typed helper/consumer/PLC paths, separately from ordinary frame goldens.
+
 Four later outer CELT decode scratch rounds replace pseudostack allocations for
 TF flags, caps, boost offsets and fine-energy bits with Go-owned int32 slices.
 Each removes its TLS allocation/alignment/cursor block. TF and caps initialize

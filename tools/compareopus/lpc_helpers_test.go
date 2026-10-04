@@ -11,6 +11,43 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeMaskStorageAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bands := unsafe.Slice(mode.FeBands, 22)
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			N := int32(120) << LM
+			m := opuscc.CompareCeltDecodeMaskStorage(21, channels)
+			for i := range m {
+				if i%2 != 0 {
+					m[i] = byte((1 << (1 << LM)) - 1)
+				}
+			}
+			s := make([]float32, N*channels)
+			c := slices.Clone(s)
+			energy, previous, older := make([]float32, 42), make([]float32, 42), make([]float32, 42)
+			for i := range energy {
+				energy[i] = -12
+				previous[i] = -10
+				older[i] = -11
+			}
+			pulses := opuscc.CompareCeltDecodePulseStorage(21)
+			for i := range pulses {
+				pulses[i] = int32(i)*32 + 8
+			}
+			opuscc.Opus_anti_collapse(nil, mode.FeBands, 21, &s[0], &m[0], LM, channels, N, 0, 21, &energy[0], &previous[0], &older[0], &pulses[0], 123, 0, 0)
+			nativeAntiCollapse(bands, 21, c, m, LM, channels, N, 0, 21, energy, previous, older, pulses, 123, 0)
+			for i := range s {
+				if math.Float32bits(s[i]) != math.Float32bits(c[i]) {
+					t.Fatal("owned mask anti-collapse", LM, channels, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeSpectrumStorageAgainstC(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, channels := range []int32{1, 2} {
