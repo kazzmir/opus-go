@@ -7,6 +7,9 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareQuantAllBandsDot(left, right *float32, N int32) float32 {
+	return quantAllBandsDot(left, right, N)
+}
 func CompareQuantAllBandsCopy(dst, src *float32, N int32) { quantAllBandsCopy(dst, src, N) }
 func CompareQuantAllBandsNormLength(bands *int16, index, M, channels, offset int32) int32 {
 	return quantAllBandsNormLength(bands, index, M, channels, offset)

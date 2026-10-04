@@ -2470,6 +2470,18 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsDot(left, right *float32, N int32) float32 {
+	if N == 0 {
+		return 0
+	}
+	x, y := unsafe.Slice(left, N), unsafe.Slice(right, N)
+	sum := float32(0)
+	for i := int32(0); i < N; i++ {
+		sum = sum + float32(x[i]*y[i])
+	}
+	return sum
+}
+
 func quantAllBandsCopy(dst, src *float32, N int32) {
 	if N == 0 {
 		return
@@ -3345,27 +3357,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					}
 					x_cm = quant_band_stereo_legacy(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
 					_ = arch
-					xy = float32(0)
-					i = int32(0)
-					for {
-						if !(i < N1) {
-							break
-						}
-						xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(X_save + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(X + uintptr(i)*4)))
-						i = i + 1
-					}
-					v229 = xy
-					_ = arch
-					xy = float32(0)
-					i = int32(0)
-					for {
-						if !(i < N1) {
-							break
-						}
-						xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(Y_save + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(Y + uintptr(i)*4)))
-						i = i + 1
-					}
-					v232 = xy
+					v229 = quantAllBandsDot((*float32)(unsafe.Pointer(X_save)), (*float32)(unsafe.Pointer(X)), N1)
+					v232 = quantAllBandsDot((*float32)(unsafe.Pointer(Y_save)), (*float32)(unsafe.Pointer(Y)), N1)
 					dist0 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					/* Save first result. */
 					cm2 = x_cm
@@ -3403,27 +3396,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					}
 					x_cm = quant_band_stereo_legacy(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(cm))
 					_ = arch
-					xy = float32(0)
-					i = int32(0)
-					for {
-						if !(i < N1) {
-							break
-						}
-						xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(X_save + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(X + uintptr(i)*4)))
-						i = i + 1
-					}
-					v229 = xy
-					_ = arch
-					xy = float32(0)
-					i = int32(0)
-					for {
-						if !(i < N1) {
-							break
-						}
-						xy = xy + OpusT_opus_val32(*(*OpusT_opus_val16)(unsafe.Pointer(Y_save + uintptr(i)*4))**(*OpusT_opus_val16)(unsafe.Pointer(Y + uintptr(i)*4)))
-						i = i + 1
-					}
-					v232 = xy
+					v229 = quantAllBandsDot((*float32)(unsafe.Pointer(X_save)), (*float32)(unsafe.Pointer(X)), N1)
+					v232 = quantAllBandsDot((*float32)(unsafe.Pointer(Y_save)), (*float32)(unsafe.Pointer(Y)), N1)
 					dist1 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					if dist0 >= dist1 {
 						x_cm = cm2

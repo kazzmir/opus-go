@@ -11,6 +11,18 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsDotAgainstC(t *testing.T) {
+	x := []float32{1.00001, 10000, -10000, 0.12345}
+	y := []float32{1.33333, 2, 2, -0.23456}
+	for N := int32(0); N <= 4; N++ {
+		g := opuscc.CompareQuantAllBandsDot(&x[0], &y[0], N)
+		c := nativeQuantAllBandsDot(&x[0], &y[0], N)
+		if math.Float32bits(g) != math.Float32bits(c) {
+			t.Fatal("native ordered dot", N, g, c)
+		}
+	}
+}
+
 func TestQuantAllBandsCopyAgainstC(t *testing.T) {
 	src := []float32{math.Float32frombits(0x80000000), math.Float32frombits(0x7fc00123), 3}
 	for N := int32(0); N <= 3; N++ {

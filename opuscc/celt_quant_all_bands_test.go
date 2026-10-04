@@ -35,6 +35,30 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsDotPointers(t *testing.T) {
+	if math.Float32bits(quantAllBandsDot(nil, nil, 0)) != 0 {
+		t.Fatal("empty RDO dot")
+	}
+	x := []float32{77, 1.00001, 10000, -10000, 0.12345, 88}
+	y := []float32{1.33333, 2, 2, -0.23456}
+	sum := float32(0)
+	for i := range y {
+		sum = sum + float32(x[i+1]*y[i])
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if math.Float32bits(quantAllBandsDot(&x[1], &y[0], 4)) != math.Float32bits(sum) || x[0] != 77 || x[5] != 88 {
+		t.Fatal("ordered RDO dot")
+	}
+	want := float32(0)
+	for i := 0; i < 4; i++ {
+		want += float32(x[i+1] * x[i+1])
+	}
+	if quantAllBandsDot(&x[1], &x[1], 4) != want {
+		t.Fatal("dot input alias")
+	}
+}
+
 func TestQuantAllBandsCopyPointers(t *testing.T) {
 	quantAllBandsCopy(nil, nil, 0)
 	src := []float32{math.Float32frombits(0x80000000), math.Float32frombits(0x7fc00123), 3}
