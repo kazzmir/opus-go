@@ -35,6 +35,36 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsNormStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 1, 4, 64, 960} {
+		saved := quantAllBandsNormStorage(N)
+		if len(saved) != int(N) || N == 0 && saved != nil {
+			t.Fatal("norm snapshot size")
+		}
+		if N == 0 {
+			continue
+		}
+		norm := make([]float32, N+4)
+		norm[0], norm[len(norm)-1] = 77, 88
+		for i := int32(0); i < N; i++ {
+			norm[2+i] = float32(i) + .75
+		}
+		quantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(norm), 2, N, false)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		clear(norm[2 : 2+N])
+		quantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(norm), 2, N, true)
+		for i := int32(0); i < N; i++ {
+			if norm[2+i] != float32(i)+.75 {
+				t.Fatal("owned norm restore", N, i)
+			}
+		}
+		if norm[0] != 77 || norm[len(norm)-1] != 88 {
+			t.Fatal("owned norm guards")
+		}
+	}
+}
+
 func TestQuantAllBandsTrialStoragePointers(t *testing.T) {
 	for _, N := range []int32{0, 1, 4, 64, 960} {
 		x, y := quantAllBandsTrialStorage(N)

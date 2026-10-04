@@ -11,6 +11,29 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsNormStorageAgainstC(t *testing.T) {
+	for _, N := range []int32{1, 4, 64, 960} {
+		saved := opuscc.CompareQuantAllBandsNormStorage(N)
+		cs := make([]float32, N)
+		g := make([]float32, N+4)
+		for i := range g {
+			g[i] = float32(i) + .75
+		}
+		c := append([]float32(nil), g...)
+		opuscc.CompareQuantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(g), 2, N, false)
+		nativeQuantAllBandsNormCopy(unsafe.SliceData(cs), unsafe.SliceData(c), 2, N, false)
+		clear(g[2 : 2+N])
+		clear(c[2 : 2+N])
+		opuscc.CompareQuantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(g), 2, N, true)
+		nativeQuantAllBandsNormCopy(unsafe.SliceData(cs), unsafe.SliceData(c), 2, N, true)
+		for i := range g {
+			if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+				t.Fatal("owned norm/native restore", N, i)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsTrialStorageAgainstC(t *testing.T) {
 	for _, N := range []int32{1, 4, 64, 960} {
 		x, y := opuscc.CompareQuantAllBandsTrialStorage(N)

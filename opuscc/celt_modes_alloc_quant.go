@@ -2470,6 +2470,13 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsNormStorage(length int32) []float32 {
+	if length == 0 {
+		return nil
+	}
+	return make([]float32, length)
+}
+
 func quantAllBandsTrialStorage(length int32) (left, right []float32) {
 	if length == 0 {
 		return
@@ -2592,8 +2599,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 	var B, C, M, N1, b, effective_lowband, fold_end, fold_i, fold_start, i, i1, j, last, lowband_offset, nend_bytes, norm_offset, nstart_bytes, resynth, resynth_alloc, save_bytes, tf_change, theta_rdo, update_lowband, v1, v183, v196, v201, v203, v207, v6 int32
 	var eBands *int16
 	var bytes_buf, bytes_save []byte
-	var X_save, Y_save, X_save2, Y_save2 []float32
-	var X, Y, _lowband_scratch, _norm, _saved_stack, lowband_scratch, norm, norm2, norm_save2, st, v11, v13, v15, v17, v19, v2, v21, v23, v25, v4, v7, v9 uintptr
+	var X_save, Y_save, X_save2, Y_save2, norm_save2 []float32
+	var X, Y, _lowband_scratch, _norm, _saved_stack, lowband_scratch, norm, norm2, st, v11, v13, v15, v17, v19, v2, v21, v23, v25, v4, v7, v9 uintptr
 	var cm, cm2, x_cm, y_cm, v217 uint32
 	var ctx_save, ctx_save2 band_ctx
 	var curr_balance, remaining_bits, tell, v204, v205 OpusT_opus_int32
@@ -2780,72 +2787,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 	}
 	X_save, Y_save = quantAllBandsInitialStorage(resynth_alloc)
 	X_save2, Y_save2 = quantAllBandsTrialStorage(resynth_alloc)
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v2 = libc.Xmalloc(tls, uint64(16))
-		st = v2
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v4 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v7 = libc.Xmalloc(tls, uint64(16))
-		st = v7
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v9 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v4)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v9)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v11 = libc.Xmalloc(tls, uint64(16))
-		st = v11
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v13 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v15 = libc.Xmalloc(tls, uint64(16))
-		st = v15
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v17 = st
-	if !(int64(int32(uint64(uint32(resynth_alloc))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v13)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+5312, int32(1658))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v19 = libc.Xmalloc(tls, uint64(16))
-		st = v19
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v21 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack += uintptr(uint64(uint32(resynth_alloc)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v23 = libc.Xmalloc(tls, uint64(16))
-		st = v23
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v25 = st
-	norm_save2 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v25)).Fglobal_stack - uintptr(uint64(uint32(resynth_alloc))*(uint64(4)/uint64(1)))
+	norm_save2 = quantAllBandsNormStorage(resynth_alloc)
 	lowband_offset = 0
 	quantAllBandsSetEnergy(ctx, bandE)
 	quantAllBandsSetEntropy(ctx, ec)
@@ -3069,7 +3011,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					quantAllBandsCopy(unsafe.SliceData(X_save2), (*float32)(unsafe.Pointer(X)), N1)
 					quantAllBandsCopy(unsafe.SliceData(Y_save2), (*float32)(unsafe.Pointer(Y)), N1)
 					if !(last != 0) {
-						quantAllBandsNormCopy((*float32)(unsafe.Pointer(norm_save2)), (*float32)(unsafe.Pointer(norm)), M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
+						quantAllBandsNormCopy(unsafe.SliceData(norm_save2), (*float32)(unsafe.Pointer(norm)), M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
 					}
 					nstart_bytes = int32(ec_save.Foffs)
 					nend_bytes = int32(ec_save.Fstorage)
@@ -3107,7 +3049,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 						quantAllBandsCopy((*float32)(unsafe.Pointer(X)), unsafe.SliceData(X_save2), N1)
 						quantAllBandsCopy((*float32)(unsafe.Pointer(Y)), unsafe.SliceData(Y_save2), N1)
 						if !(last != 0) {
-							quantAllBandsNormCopy((*float32)(unsafe.Pointer(norm_save2)), (*float32)(unsafe.Pointer(norm)), M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
+							quantAllBandsNormCopy(unsafe.SliceData(norm_save2), (*float32)(unsafe.Pointer(norm)), M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
 						}
 						quantAllBandsByteRestore(bytes_buf, bytes_save, save_bytes)
 					}
