@@ -35,6 +35,46 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsBytePointers(t *testing.T) {
+	if quantAllBandsByteStorage(0) != nil || len(quantAllBandsByteStorage(-1)) != 1275 {
+		t.Fatal("byte scratch predicate")
+	}
+	if quantAllBandsByteSave(nil, nil, 99, 0) != nil {
+		t.Fatal("unused byte window")
+	}
+	quantAllBandsByteRestore(nil, nil, 0)
+	for _, start := range []int32{0, 1, 5, 1275} {
+		data := make([]byte, 1277)
+		data[0], data[1276] = 77, 88
+		for i := 1; i < 1276; i++ {
+			data[i] = byte(i)
+		}
+		ec := &OpusT_ec_ctx{Fbuf: &data[1], Fstorage: 1275, Foffs: uint32(start), Ferror1: 17}
+		before := *ec
+		saved := quantAllBandsByteStorage(1)
+		window := quantAllBandsByteSave(saved, ec, start, 1275-start)
+		if *ec != before {
+			t.Fatal("snapshot entropy mutated")
+		}
+		ec.Fbuf = nil
+		ec = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for i := range window {
+			window[i] = 0
+		}
+		quantAllBandsByteRestore(window, saved, 1275-start)
+		for i := range window {
+			if window[i] != byte(int(start)+i+1) {
+				t.Fatal("retained original byte window", start, i)
+			}
+		}
+		if data[0] != 77 || data[1276] != 88 {
+			t.Fatal("byte guards")
+		}
+	}
+}
+
 func TestQuantAllBandsNormCopyPointers(t *testing.T) {
 	quantAllBandsNormCopy(nil, nil, 99, 0, false)
 	quantAllBandsNormCopy(nil, nil, 99, 0, true)

@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four quant-all-bands RDO rounds replace spectrum snapshot/restore memcpy calls
+with typed float copy consumers; replace four integer-addressed distortion loops
+with numeric, ordered scalar dot products and explicitly rounded float32
+products; replace norm snapshot/restore memcpy with typed numeric-offset views;
+and replace entropy byte scratch with Go-owned 1275-byte storage when theta-RDO
+is nonzero. The original entropy offs/storage snapshot selects a retained byte
+window; later context rollback does not rederive its owner. Zero-byte windows
+remain nil and never form unused one-past pointers. Only the byte scratch TLS
+allocation/alignment/capacity block is removed; float scratch still uses TLS.
+
+Grouped tests cover exact float bits, NaN/signed-zero copies, ordered products,
+guards, zero-length nil inputs, byte offsets/full extent/EOF and retained payload
+owners across GC/stack growth. Overlapping float/norm copy cases are explicitly
+Go-only (C OPUS_COPY's memcpy overlap is invalid). Native copy/window fixtures use
+the source-equivalent OPUS_COPY operations; dot fixtures use scalar ordered
+products, not libopus SIMD reduction. Whole-band scalar C-reference scenarios
+still check theta-RDO rollback/bytes/spectra/entropy/seed. Each round passes full
+amd64/386, ARM64/QEMU, scoped helper checkptr, native comparisons and GC stress
+with unchanged encode/decode goldens/tolerances. Full driver checkptr is not
+claimed: float scratch owners and spectral/lowband views remain integer-addressed.
+
 Four quant-all-bands view rounds type TF flags, pulse budgets, collapse masks
 and the cached eBands owner. All accesses to these views in the driver now use
 numeric unsafe.Slice indexing, including allocation geometry, folding searches,

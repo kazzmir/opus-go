@@ -11,6 +11,38 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsBytesAgainstC(t *testing.T) {
+	for _, start := range []int32{0, 1, 5, 1275} {
+		g := make([]byte, 1277)
+		g[0], g[1276] = 77, 88
+		for i := 1; i < 1276; i++ {
+			g[i] = byte(i)
+		}
+		c := append([]byte(nil), g...)
+		gs := opuscc.CompareQuantAllBandsByteStorage(1)
+		cs := make([]byte, 1275)
+		ec := opuscc.OpusT_ec_ctx{Fbuf: &g[1], Fstorage: 1275, Foffs: uint32(start)}
+		window := opuscc.CompareQuantAllBandsByteSave(gs, &ec, start, 1275-start)
+		nativeQuantAllBandsBytes(&cs[0], &c[1], start, 1275-start, false)
+		for i := range gs {
+			if gs[i] != cs[i] {
+				t.Fatal("native byte snapshot", start, i)
+			}
+		}
+		for i := range window {
+			window[i] = 0
+			c[int(start)+1+i] = 0
+		}
+		opuscc.CompareQuantAllBandsByteRestore(window, gs, 1275-start)
+		nativeQuantAllBandsBytes(&cs[0], &c[1], start, 1275-start, true)
+		for i := range g {
+			if g[i] != c[i] {
+				t.Fatal("native byte restoration", start, i)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsNormCopyAgainstC(t *testing.T) {
 	for _, restore := range []bool{false, true} {
 		for offset := int32(0); offset < 3; offset++ {
