@@ -423,6 +423,11 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeFinalEnergy(tls *libc.TLS, mode *OpusT_OpusCustomMode, energy *float32, fine, priority *int32, start, end, length, channels int32, ec *OpusT_ec_ctx) {
+	tell := ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	Opus_unquant_energy_finalise(tls, mode, start, end, energy, fine, priority, length*8-tell, ec, channels)
+}
+
 func celtDecodeAllocationBudget(tls *libc.TLS, ec *OpusT_ec_ctx, length, transient, LM int32) (budget, reserved int32) {
 	budget = (length * 8) << BITRES
 	budget -= int32(Opus_ec_tell_frac(tls, ec))
@@ -1332,9 +1337,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	if anti_collapse_rsv > 0 {
 		anti_collapse_on = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)))
 	}
-	v1 = dec
-	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	Opus_unquant_energy_finalise(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*OpusT_celt_glog)(unsafe.Pointer(oldBandE)), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), len1*int32(8)-v28, (*OpusT_ec_dec)(unsafe.Pointer(dec)), C)
+	celtDecodeFinalEnergy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), (*float32)(unsafe.Pointer(oldBandE)), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), start, end, len1, C, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
 	if anti_collapse_on != 0 {
 		antiMode := (*OpusT_OpusCustomMode)(unsafe.Pointer(mode))
 		Opus_anti_collapse(tls, antiMode.FeBands, antiMode.FnbEBands, unsafe.SliceData(X), unsafe.SliceData(collapse_masks), LM, C, N, start, end, (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), unsafe.SliceData(pulses), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)

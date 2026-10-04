@@ -56,6 +56,42 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeFinalEnergyPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, length := range []int32{0, 1, 2, 16} {
+			mode := newSynthesisTestMode()
+			e := make([]float32, 44)
+			for i := range e {
+				e[i] = -12
+			}
+			e[0] = 901
+			e[43] = 902
+			fine, priority := celtDecodeFineStorage(21), celtDecodePriorityStorage(21)
+			for i := range fine {
+				fine[i] = int32(i % 9)
+				priority[i] = int32(i % 2)
+			}
+			want := append([]float32(nil), e...)
+			data := []byte{0, 71, 255, 13, 40}
+			var ec OpusT_ec_ctx
+			Opus_ec_dec_init(nil, &ec, &data[0], 5)
+			ref := ec
+			tell := ref.Fnbits_total - int32(bits.Len32(ref.Frng))
+			Opus_unquant_energy_finalise(nil, mode, 0, 21, &want[1], &fine[0], &priority[0], length*8-tell, &ref, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodeFinalEnergy(nil, mode, &e[1], &fine[0], &priority[0], 0, 21, length, channels, &ec)
+			if ec != ref {
+				t.Fatal("final energy entropy")
+			}
+			for i := range e {
+				if math.Float32bits(e[i]) != math.Float32bits(want[i]) {
+					t.Fatal("final energy forwarding", channels, length, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeAllocationBudgetPointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, tr := range []int32{0, 1, -1} {

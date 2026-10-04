@@ -11,6 +11,42 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeFinalEnergyAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		for _, length := range []int32{0, 1, 2, 16} {
+			e := make([]float32, 44)
+			for i := range e {
+				e[i] = -12
+			}
+			e[0] = 901
+			e[43] = 902
+			cEnergy := slices.Clone(e)
+			fine, priority := opuscc.CompareCeltDecodeFineStorage(21), opuscc.CompareCeltDecodePriorityStorage(21)
+			for i := range fine {
+				fine[i] = int32(i % 9)
+				priority[i] = int32(i % 2)
+			}
+			data := []byte{0, 71, 255, 13, 40}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 5)
+			c := ec
+			opuscc.CompareCeltDecodeFinalEnergy(mode, &e[1], &fine[0], &priority[0], 0, 21, length, channels, &ec)
+			nativeEnergyDecode(&c, data, cEnergy[1:], 21, 0, 21, channels, 2, length*8-1, 0, fine, priority)
+			if ec != c {
+				t.Fatal("final energy forwarding entropy")
+			}
+			for i := range e {
+				if math.Float32bits(e[i]) != math.Float32bits(cEnergy[i]) {
+					t.Fatal("final energy forwarding", channels, length, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeAllocationBudgetAgainstC(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, tr := range []int32{0, 1, -1} {
