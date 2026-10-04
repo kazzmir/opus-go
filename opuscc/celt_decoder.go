@@ -423,6 +423,20 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeFrameLM(mode *OpusT_OpusCustomMode, frameSize int32) int32 {
+	LM := int32(0)
+	for LM <= mode.FmaxLM {
+		if mode.FshortMdctSize<<LM == frameSize {
+			break
+		}
+		LM++
+	}
+	if LM > mode.FmaxLM {
+		return -1
+	}
+	return LM
+}
+
 func celtDecodePacketArguments(pcm *float32, length int32) bool {
 	return length >= 0 && length <= 1275 && pcm != nil
 }
@@ -1306,17 +1320,8 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	end = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fend
 	frame_size = frame_size * (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample
 	oldBandE, oldLogE, oldLogE2, backgroundLogE = celtDecodeEnergyViews((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), nbEBands, overlap, CC)
-	LM = 0
-	for {
-		if !(LM <= (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FmaxLM) {
-			break
-		}
-		if (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize<<LM == frame_size {
-			break
-		}
-		LM = LM + 1
-	}
-	if LM > (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FmaxLM {
+	LM = celtDecodeFrameLM(mode, frame_size)
+	if LM < 0 {
 		return -int32(1)
 	}
 	M = int32(1) << LM

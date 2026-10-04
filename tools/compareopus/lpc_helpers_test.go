@@ -11,6 +11,18 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeFrameLMAgainstC(t *testing.T) {
+	for _, short := range []int32{60, 120, 240} {
+		for _, maximum := range []int32{-1, 0, 1, 3} {
+			for _, frame := range []int32{-1, 0, 59, 60, 119, 120, 240, 480, 960, 1920} {
+				mode := opuscc.OpusT_OpusCustomMode{FshortMdctSize: short, FmaxLM: maximum}
+				if opuscc.CompareCeltDecodeFrameLM(&mode, frame) != nativeCeltDecodeFrameLM(short, maximum, frame) {
+					t.Fatal("frame-size matching", short, maximum, frame)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePacketArgumentsAgainstC(t *testing.T) {
 	pcm := float32(123)
 	for _, length := range []int32{-2147483648, -1, 0, 1, 1275, 1276, 2147483647} {

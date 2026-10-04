@@ -56,6 +56,27 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeFrameLMPointers(t *testing.T) {
+	for _, short := range []int32{60, 120, 240} {
+		for _, maximum := range []int32{-1, 0, 1, 3} {
+			for _, frame := range []int32{-1, 0, 59, 60, 119, 120, 240, 480, 960, 1920} {
+				mode := &OpusT_OpusCustomMode{FshortMdctSize: short, FmaxLM: maximum}
+				want := int32(-1)
+				for LM := int32(0); LM <= maximum; LM++ {
+					if short<<LM == frame {
+						want = LM
+						break
+					}
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				if celtDecodeFrameLM(mode, frame) != want {
+					t.Fatal("frame-size matching", short, maximum, frame)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePacketArgumentsPointers(t *testing.T) {
 	pcm := new(float32)
 	*pcm = 123

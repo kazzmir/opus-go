@@ -534,6 +534,25 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four internal-entry rounds introduce celt_decode_with_ec_dred with typed decoder,
+payload, entropy and float PCM arguments, behind the retained public uintptr
+adapters. Both public forwarding ABIs explicitly escape pointer arguments. The
+legacy quant-all-bands seed argument is now the direct address of the typed rng
+field, not a decoder-base integer offset. Packet continuity, loss-packet predicate
+and PCM/length validation helpers preserve their original ordering. Frame-size
+matching uses a typed mode and the same live maxLM/short-size loop, before packet
+argument validation and without moving N computation ahead of it.
+
+Per-round full amd64/386 and ARM64/QEMU suites, native comparisons, GC stress and
+unchanged encode/decode baselines exercise the private entry via the public ABI.
+Grouped scoped checkptr/native tests cover continuity, nil payload/PCM,
+length bounds, zero/one-byte loss predicates and frame-size matching. This is a
+typed entry/owner migration, not yet a full active-path checkptr proof: initial
+pseudostack setup/cursor restore and quant-all-bands still use legacy integer
+addresses. Existing redundant typed-pointer casts do not turn those owners back
+into integer addresses. Opaque byte-backed decoder allocations still do not scan
+embedded pointer fields; public ABI retention alone does not fix that storage.
+
 Four outer-owner rounds retain typed mode and entropy, replace energy-history
 integer addresses with typed numeric views, and replace decode-history integer
 addresses with scanned channel slices/output pointers. The mode getter snapshots

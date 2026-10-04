@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static int compare_decode_frame_lm(int shortSize,int maximum,int frameSize) {int LM;for(LM=0;LM<=maximum;LM++)if(shortSize<<LM==frameSize)break;return LM>maximum?-1:LM;}
 static int compare_decode_packet_arguments(const float *pcm,int length) {return !(length<0||length>1275||pcm==NULL);}
 static int compare_decode_packet_lost(const unsigned char *data,int length) {return data==NULL||length<=1;}
 static int compare_decode_packet_start(int loss,int skip) {if(loss==0)skip=0;return skip;}
@@ -65,6 +66,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodeFrameLM(short, maximum, frame int32) int32 {
+	return int32(C.compare_decode_frame_lm(C.int(short), C.int(maximum), C.int(frame)))
+}
 func nativeCeltDecodePacketArguments(pcm *float32, length int32) bool {
 	return C.compare_decode_packet_arguments((*C.float)(unsafe.Pointer(pcm)), C.int(length)) != 0
 }
