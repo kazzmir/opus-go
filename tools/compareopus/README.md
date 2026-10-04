@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four outer CELT pseudostack cleanup rounds remove scratch initialization,
+lost-frame cursor restore, normal-frame cursor restore, then the remaining cursor
+snapshot/metadata allocation and dead temporaries. Decoder work remains ordered:
+validation/frame-size selection, packet/PCM checks, concealment or entropy decode,
+deemphasis, packet finalization and terminal error handling. The public uintptr
+escape adapters remain, but the private celt_decode_with_ec_dred entry and all its
+active consumers now require no pseudostack storage and accept nil TLS on valid
+paths. Scratch/cursor initialization side effects are intentionally eliminated.
+
+Full active decoder checkptr now runs on scanned decoder-tail storage with Go
+packet/PCM/entropy buffers, mono/stereo LM0..3 packet→PLC→PLC→packet sequences,
+forced GC/stack growth, PCM guards, validation gates, and provided-vs-local entropy
+state/history/PCM parity. A typed TLS cursor sentinel is untouched through both
+normal and lost decoding. The build's original standard-mode pointer-identity
+assertion remains: a cloned heap mode is invalid at this entry and was rejected,
+not accommodated by weakening validation. Native scalar helper/whole concealment
+comparisons plus unchanged enclosing frame C-reference/Go goldens and codec
+baselines still pass. Full per-round amd64/386 and ARM64/QEMU, repeated active-path
+checkptr/ordinary goldens, GC stress and unchanged tolerances pass. This proves
+coverage of these typed decoder paths, not global Opus-frame uintptr ownership,
+macOS CI or scanning of embedded pointers in opaque byte-backed allocations.
+
 Four final quant-all-bands owner rounds type the left spectrum base, right
 spectrum base and per-band/fallback X/Y pointers, then remove the unused TLS
 pseudostack setup/save/final restore and its dead translated temporaries. The

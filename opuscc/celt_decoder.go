@@ -1238,7 +1238,6 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	var eBands *int16
 	var mode *OpusT_OpusCustomMode
 	var backgroundLogE, oldBandE, oldLogE, oldLogE2 *float32
-	var _saved_stack, st, v1, v3 uintptr
 	var bits, tell, total_bits OpusT_opus_int32
 	var decode_mem [2][]float32
 	var postfilter_gain OpusT_opus_val16
@@ -1252,18 +1251,6 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	dual_stereo = 0
 	anti_collapse_on = 0
 	C = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fstream_channels
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	_ = _saved_stack
 	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
 	Opus_validate_celt_decoder(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
 	mode, nbEBands, overlap, eBands = celtDecodeMode((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
