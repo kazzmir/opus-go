@@ -35,6 +35,35 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsTrialStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 1, 4, 64, 960} {
+		x, y := quantAllBandsTrialStorage(N)
+		initialX, initialY := quantAllBandsInitialStorage(N)
+		if len(x) != int(N) || len(y) != int(N) || N == 0 && (x != nil || y != nil) {
+			t.Fatal("trial snapshot size", N)
+		}
+		if N == 0 {
+			continue
+		}
+		for i := range x {
+			x[i] = float32(i) + .5
+			y[i] = -float32(i) - .25
+			initialX[i] = 7
+			initialY[i] = 8
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		dx, dy := make([]float32, N), make([]float32, N)
+		quantAllBandsCopy(unsafe.SliceData(dx), unsafe.SliceData(x), N)
+		quantAllBandsCopy(unsafe.SliceData(dy), unsafe.SliceData(y), N)
+		for i := range x {
+			if dx[i] != float32(i)+.5 || dy[i] != -float32(i)-.25 || initialX[i] != 7 || initialY[i] != 8 {
+				t.Fatal("trial restoration/initial independence", N, i)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsInitialStoragePointers(t *testing.T) {
 	for _, N := range []int32{0, 1, 4, 64, 960} {
 		x, y := quantAllBandsInitialStorage(N)
