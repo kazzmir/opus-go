@@ -11,6 +11,25 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeSilenceAgainstC(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 1, 8, 16, 128} {
+			data := make([]byte, 16)
+			for i := range data {
+				data[i] = pattern
+			}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+			c := ec
+			a := [8]int32{total}
+			s, tell := opuscc.CompareCeltDecodeSilence(&ec, total)
+			nativeCeltDecodeHeader(&c, data, 0, &a)
+			if ec != c || s != a[1] || tell != a[2] {
+				t.Fatal("silence header", pattern, total)
+			}
+		}
+	}
+}
 func TestCeltDecodePacketErrorAgainstC(t *testing.T) {
 	for _, nbits := range []int32{0, 1, 7, 8, 9, 100} {
 		for _, rng := range []uint32{1, 2, 3, 0x80000000, 0xffffffff} {

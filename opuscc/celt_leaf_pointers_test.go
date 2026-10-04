@@ -3,6 +3,7 @@ package opuscc
 import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 	"math"
+	"math/bits"
 	"runtime"
 	"testing"
 	"unsafe"
@@ -53,6 +54,36 @@ func TestCeltPLCModePointers(t *testing.T) {
 	runtime.GC()
 	if nb != 21 || overlap != 120 || m.FeBands != bands || unsafe.Slice(bands, nb+1)[nb] != 100 || m.Fmdct.Fkfft[0] == nil {
 		t.Fatal("typed mode/table owners", nb, overlap)
+	}
+}
+func TestCeltDecodeSilencePointers(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 1, 8, 16, 128} {
+			data := make([]byte, 16)
+			for i := range data {
+				data[i] = pattern
+			}
+			var ec OpusT_ec_ctx
+			Opus_ec_dec_init(nil, &ec, &data[0], 16)
+			ref := ec
+			wantTell := ref.Fnbits_total - int32(bits.Len32(ref.Frng))
+			wantSilence := int32(0)
+			if wantTell >= total {
+				wantSilence = 1
+			} else if wantTell == 1 {
+				wantSilence = Opus_ec_dec_bit_logp(nil, &ref, 15)
+			}
+			if wantSilence != 0 {
+				wantTell = total
+				ref.Fnbits_total += total - (ref.Fnbits_total - int32(bits.Len32(ref.Frng)))
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			s, tell := celtDecodeSilence(nil, &ec, total)
+			if s != wantSilence || tell != wantTell || ec != ref {
+				t.Fatal("silence header", pattern, total)
+			}
+		}
 	}
 }
 func TestCeltDecodePacketErrorPointers(t *testing.T) {

@@ -22,6 +22,11 @@ static int compare_decode_recovery_safety(int loss,int LM,float *safety) {*safet
 static void compare_decode_recover_energy(float *e,const float *l,const float *p,int bands,int start,int end,int LM,int intra,int loss) {if(!intra&&loss){int c=0;do{float safety;int missing=compare_decode_recovery_safety(loss,LM,&safety);for(int i=start;i<end;i++)compare_decode_recovery_band(e+c*bands+i,l+c*bands+i,p+c*bands+i,missing,safety);}while(++c<2);}}
 static void compare_decode_postfilter_finish(int *p,float *g,int period,float gain,int tapset,int LM) {p[1]=p[0];g[1]=g[0];p[3]=p[2];p[0]=period;g[0]=gain;p[2]=tapset;if(LM){p[1]=p[0];g[1]=g[0];p[3]=p[2];}}
 #include "entdec.h"
+static void compare_decode_header(unsigned *s,unsigned char *data,int op,int *a,float *gain) {
+ ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=(int)s[3];dec.nbits_total=(int)s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=(int)s[9];dec.error=(int)s[10];
+ if(op==0){int total=a[0],tell=ec_tell(&dec),silence=0;if(tell>=total)silence=1;else if(tell==1)silence=ec_dec_bit_logp(&dec,15);if(silence){tell=total;dec.nbits_total+=tell-ec_tell(&dec);}a[1]=silence;a[2]=tell;}
+ s[0]=dec.storage;s[1]=dec.end_offs;s[2]=dec.end_window;s[3]=dec.nend_bits;s[4]=dec.nbits_total;s[5]=dec.offs;s[6]=dec.rng;s[7]=dec.val;s[8]=dec.ext;s[9]=dec.rem;s[10]=dec.error;
+}
 static int compare_decode_packet_error(int *stateError,int nbits,unsigned rng,int error,int length) {ec_dec dec={0};dec.nbits_total=nbits;dec.rng=rng;dec.error=error;if(ec_tell(&dec)>8*length)return -3;if(dec.error)*stateError=1;return 0;}
 static int compare_decode_boosts(unsigned *s,unsigned char *data,short *e,int *cap,int *out,int start,int end,int C,int LM,int total,int *tell) {
  ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=(int)s[3];dec.nbits_total=(int)s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=(int)s[9];dec.error=(int)s[10];
@@ -86,6 +91,23 @@ func nativeCeltDecodePostfilterFinish(state *opuscc.OpusT_OpusCustomDecoder, per
 	state.Fpostfilter_tapset_old = int32(p[3])
 	state.Fpostfilter_gain = float32(g[0])
 	state.Fpostfilter_gain_old = float32(g[1])
+}
+func nativeCeltDecodeHeader(ec *opuscc.OpusT_ec_ctx, data []byte, op int32, a *[8]int32) float32 {
+	s := [11]C.uint{C.uint(ec.Fstorage), C.uint(ec.Fend_offs), C.uint(ec.Fend_window), C.uint(ec.Fnend_bits), C.uint(ec.Fnbits_total), C.uint(ec.Foffs), C.uint(ec.Frng), C.uint(ec.Fval), C.uint(ec.Fext), C.uint(ec.Frem), C.uint(ec.Ferror1)}
+	var gain C.float
+	C.compare_decode_header(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), C.int(op), (*C.int)(unsafe.Pointer(a)), &gain)
+	ec.Fstorage = uint32(s[0])
+	ec.Fend_offs = uint32(s[1])
+	ec.Fend_window = uint32(s[2])
+	ec.Fnend_bits = int32(s[3])
+	ec.Fnbits_total = int32(s[4])
+	ec.Foffs = uint32(s[5])
+	ec.Frng = uint32(s[6])
+	ec.Fval = uint32(s[7])
+	ec.Fext = uint32(s[8])
+	ec.Frem = int32(s[9])
+	ec.Ferror1 = int32(s[10])
+	return float32(gain)
 }
 func nativeCeltDecodePacketError(state *opuscc.OpusT_OpusCustomDecoder, ec *opuscc.OpusT_ec_ctx, length int32) int32 {
 	e := C.int(state.Ferror1)

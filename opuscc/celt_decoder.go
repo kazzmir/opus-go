@@ -423,6 +423,20 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeSilence(tls *libc.TLS, ec *OpusT_ec_ctx, total int32) (silence, tell int32) {
+	tell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	if tell >= total {
+		silence = 1
+	} else if tell == 1 {
+		silence = Opus_ec_dec_bit_logp(tls, ec, 15)
+	}
+	if silence != 0 {
+		tell = total
+		ec.Fnbits_total += tell - (ec.Fnbits_total - int32(bits.Len32(ec.Frng)))
+	}
+	return
+}
+
 func celtDecodePacketError(state *OpusT_OpusCustomDecoder, ec *OpusT_ec_ctx, length int32) int32 {
 	tell := ec.Fnbits_total - int32(bits.Len32(ec.Frng))
 	if tell > 8*length {
@@ -1222,25 +1236,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		celtDecodeEnergyMergeMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
 	}
 	total_bits = len1 * int32(8)
-	v1 = dec
-	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	tell = v28
-	if tell >= total_bits {
-		silence = int32(1)
-	} else {
-		if tell == int32(1) {
-			silence = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(15))
-		} else {
-			silence = 0
-		}
-	}
-	if silence != 0 {
-		/* Pretend we've read all the remaining bits */
-		tell = len1 * int32(8)
-		v1 = dec
-		v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-		(*OpusT_ec_ctx)(unsafe.Pointer(dec)).Fnbits_total += tell - v28
-	}
+	silence, tell = celtDecodeSilence(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), total_bits)
 	postfilter_gain = float32(0)
 	postfilter_pitch = 0
 	postfilter_tapset = 0
