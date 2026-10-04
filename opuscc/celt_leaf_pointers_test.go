@@ -191,6 +191,33 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeRedundancyResetPointers(t *testing.T) {
+	left, right := new(celtStateTestStorage), new(celtStateTestStorage)
+	opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, 1)
+	opus_custom_decoder_init(nil, &right.State, &mode48000_960_120, 1)
+	data := make([]byte, 71)
+	for i := 7; i < len(data); i++ {
+		data[i] = byte((i-7)*73 + 165)
+	}
+	a, b := make([]float32, 240), make([]float32, 240)
+	opusFrameCeltRedundant(nil, &left.State, &data[0], 7, 64, &a[0], 240)
+	if Opus_opus_custom_decoder_ctl_typed(nil, &left.State, OPUS_RESET_STATE, OpusDecoderCtlArgs{}) != 0 {
+		t.Fatal("redundancy reset")
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	ra := opusFrameCeltRedundant(nil, &left.State, &data[0], 7, 64, &a[0], 240)
+	rb := celt_decode_with_ec_dred(nil, &right.State, &data[7], 64, &b[0], 240, nil, 0)
+	if ra != 240 || rb != ra || left.State != right.State || left.State.Frng != right.State.Frng {
+		t.Fatal("reset/redundancy range order")
+	}
+	for i := range a {
+		if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+			t.Fatal("reset redundancy PCM", i)
+		}
+	}
+}
+
 func TestCeltDecodeSilenceDispatchPointers(t *testing.T) {
 	for _, accum := range []int32{0, 1} {
 		left, right := new(celtStateTestStorage), new(celtStateTestStorage)

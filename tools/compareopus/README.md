@@ -534,6 +534,26 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four Opus-frame CELT dispatch rounds forward typed decoder, payload, PCM and
+entropy owners to the internal decoder for the main/FEC call, CELT→SILK redundant
+frame, hybrid→SILK silence frame and SILK→CELT redundant frame. Redundant packet
+suffixes use numeric byte slices; length<=1 forms no unused interior and still
+selects loss through the original length predicate. Main FEC keeps nonzero→nil
+payload selection with the original length and provided entropy. Silence uses
+the live two-byte Go array, retains accumulation forwarding and no longer needs
+its frame Pinner slot. The other five legacy local pins remain. Existing CTL
+start-band/reset/range queries and redundancy fade ordering are unchanged.
+
+Grouped full typed-boundary checkptr/GC tests compare dispatch with direct CELT
+decoding for normal/FEC/loss, packet suffixes, silence accumulation, PCM guards,
+reset/redundancy state and final range; native suffix tests use scalar C window
+copies. Existing transition/redundancy frame references and native codec
+comparisons preserve all goldens/tolerances, with full amd64/386 and ARM64/QEMU
+validation each round and separate repeated typed-path/ordinary golden runs.
+These typed consumers do not prove enclosing Opus-frame checkptr: decoder offsets,
+PCM/redundancy allocation, varargs CTL/fades and other integer owners remain.
+Opaque byte-backed embedded-pointer scanning is still a separate blocker.
+
 Four outer CELT pseudostack cleanup rounds remove scratch initialization,
 lost-frame cursor restore, normal-frame cursor restore, then the remaining cursor
 snapshot/metadata allocation and dead temporaries. Decoder work remains ordered:
