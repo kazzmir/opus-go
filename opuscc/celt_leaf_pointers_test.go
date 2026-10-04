@@ -55,6 +55,48 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeRecoverEnergyPointers(t *testing.T) {
+	celtDecodeRecoverEnergy(nil, nil, nil, nil, 21, 0, 21, 0, 1)
+	celtDecodeRecoverEnergy(&OpusT_OpusCustomDecoder{}, nil, nil, nil, 21, 0, 21, 0, 0)
+	celtDecodeRecoverEnergy(&OpusT_OpusCustomDecoder{Floss_duration: 1}, nil, nil, nil, 21, 5, 5, 0, 0)
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, loss := range []int32{1, 10, 40} {
+			for _, start := range []int32{0, 2, 3} {
+				e, l, p := make([]float32, 8), make([]float32, 8), make([]float32, 8)
+				for i := range e {
+					e[i] = float32(i) - 10
+					l[i] = float32(i) - 8
+					p[i] = float32(i) - 6
+				}
+				want := append([]float32(nil), e...)
+				state := &OpusT_OpusCustomDecoder{Floss_duration: loss}
+				m, s := celtDecodeRecoverySafety(state, LM)
+				for c := 0; c < 2; c++ {
+					for i := int(start); i < 3; i++ {
+						idx := 1 + c*3 + i
+						celtDecodeRecoveryBand(&want[idx], &l[idx], &p[idx], m, s)
+					}
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDecodeRecoverEnergy(state, &e[1], &l[1], &p[1], 3, start, 3, LM, 0)
+				for i := range e {
+					if math.Float32bits(e[i]) != math.Float32bits(want[i]) {
+						t.Fatal("recovery loop", LM, loss, start, i)
+					}
+				}
+			}
+		}
+	}
+	// Go-only float/count alias: the second channel must reload loss_duration.
+	state := &OpusT_OpusCustomDecoder{Floss_duration: 1}
+	energy := (*float32)(unsafe.Pointer(&state.Floss_duration))
+	l, p := []float32{-1, 1}, []float32{-2, 2}
+	celtDecodeRecoverEnergy(state, energy, &l[0], &p[0], 1, 0, 1, 0, 0)
+	if math.Float32frombits(uint32(state.Floss_duration)) != -3.5 || math.Float32frombits(uint32(state.Fplc_duration)) != -1.5 {
+		t.Fatal("live per-channel recovery controls")
+	}
+}
 func TestCeltDecodeRecoveryBandPointers(t *testing.T) {
 	for _, tc := range []struct {
 		e, l, p float32

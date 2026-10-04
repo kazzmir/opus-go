@@ -11,6 +11,31 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeRecoverEnergyAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, loss := range []int32{0, 1, 10, 40} {
+			for _, intra := range []int32{0, 1, -1} {
+				for _, start := range []int32{0, 2, 3} {
+					e, l, p := make([]float32, 8), make([]float32, 8), make([]float32, 8)
+					for i := range e {
+						e[i] = float32(i) - 10
+						l[i] = float32(i) - 8
+						p[i] = float32(i) - 6
+					}
+					c := slices.Clone(e)
+					state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: loss}
+					opuscc.CompareCeltDecodeRecoverEnergy(&state, &e[1], &l[1], &p[1], 3, start, 3, LM, intra)
+					nativeCeltDecodeRecoverEnergy(c[1:], l[1:], p[1:], 3, start, 3, LM, intra, loss)
+					for i := range e {
+						if math.Float32bits(e[i]) != math.Float32bits(c[i]) {
+							t.Fatal("energy recovery loop", LM, loss, intra, start, i)
+						}
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeRecoveryBandAgainstC(t *testing.T) {
 	values := []float32{-25, -20, -10, -1, 0, math.Float32frombits(0x80000000), .1, 2, 4, math.Float32frombits(0x7fc12345), float32(math.Inf(1)), float32(math.Inf(-1))}
 	for _, e := range values {

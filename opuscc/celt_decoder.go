@@ -423,6 +423,26 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeRecoverEnergy(state *OpusT_OpusCustomDecoder, energy, log, previous *float32, bands, start, end, LM, intra int32) {
+	if intra != 0 || state.Floss_duration == 0 {
+		return
+	}
+	var e, l, p []float32
+	if start < end {
+		length := bands + end
+		e = unsafe.Slice(energy, length)
+		l = unsafe.Slice(log, length)
+		p = unsafe.Slice(previous, length)
+	}
+	for c := int32(0); c < 2; c++ {
+		missing, safety := celtDecodeRecoverySafety(state, LM)
+		for i := start; i < end; i++ {
+			index := c*bands + i
+			celtDecodeRecoveryBand(&e[index], &l[index], &p[index], missing, safety)
+		}
+	}
+}
+
 func celtDecodeRecoveryBand(energy, log, previous *float32, missing int32, safety float32) {
 	highest := *previous
 	if *log > highest {
@@ -978,7 +998,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 }
 
 func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
-	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, i, intra_ener, isTransient, missing, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, shortBlocks, silence, spread_decision, start, v28, v37 int32
+	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, i, intra_ener, isTransient, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, shortBlocks, silence, spread_decision, start, v28, v37 int32
 	var tf_res, cap1, offsets, fine_quant, pulses, fine_priority []int32
 	var X []float32
 	var collapse_masks []byte
@@ -986,7 +1006,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	var _saved_stack, backgroundLogE, mode, oldBandE, oldLogE, oldLogE2, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var bits, tell, total_bits OpusT_opus_int32
 	var decode_mem [2]uintptr
-	var safety, v35 OpusT_celt_glog
+	var v35 OpusT_celt_glog
 	var postfilter_gain OpusT_opus_val16
 	var _dec OpusT_ec_dec
 	var balance OpusT_opus_int32
@@ -1205,25 +1225,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	intra_ener = v28
 	/* If recovering from packet loss, make sure we make the energy prediction safe to reduce the
 	   risk of getting loud artifacts. */
-	if !(intra_ener != 0) && (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration != 0 {
-		c = 0
-		for {
-			missing, safety = celtDecodeRecoverySafety((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), LM)
-			i = start
-			for {
-				if !(i < end) {
-					break
-				}
-				celtDecodeRecoveryBand((*float32)(unsafe.Pointer(oldBandE+uintptr(c*nbEBands+i)*4)), (*float32)(unsafe.Pointer(oldLogE+uintptr(c*nbEBands+i)*4)), (*float32)(unsafe.Pointer(oldLogE2+uintptr(c*nbEBands+i)*4)), missing, safety)
-				i = i + 1
-			}
-			c = c + 1
-			v28 = c
-			if !(v28 < int32(2)) {
-				break
-			}
-		}
-	}
+	celtDecodeRecoverEnergy((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, start, end, LM, intra_ener)
 	/* Get band energies */
 	Opus_unquant_coarse_energy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*float32)(unsafe.Pointer(oldBandE)), intra_ener, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), C, LM)
 	tf_res = celtDecodeTFStorage(tls, nbEBands, start, end, isTransient, LM, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))

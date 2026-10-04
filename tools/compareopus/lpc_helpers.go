@@ -15,6 +15,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
 static void compare_decode_recovery_band(float *e,const float *l,const float *p,int missing,float safety) {if(*e<MAXG(*l,*p)){float E0=*e,E1=*l,E2=*p;float slope=MAX32(E1-E0,HALF32(E2-E0));slope=MING(slope,2.f);E0-=MAX32(0,(1+missing)*slope);*e=MAX32(-20.f,E0);}else *e=MING(MING(*e,*l),*p);*e-=safety;}
 static int compare_decode_recovery_safety(int loss,int LM,float *safety) {*safety=0;if(LM==0)*safety=1.5f;else if(LM==1)*safety=.5f;return IMIN(10,loss>>LM);}
+static void compare_decode_recover_energy(float *e,const float *l,const float *p,int bands,int start,int end,int LM,int intra,int loss) {if(!intra&&loss){int c=0;do{float safety;int missing=compare_decode_recovery_safety(loss,LM,&safety);for(int i=start;i<end;i++)compare_decode_recovery_band(e+c*bands+i,l+c*bands+i,p+c*bands+i,missing,safety);}while(++c<2);}}
 static void compare_decode_postfilter_finish(int *p,float *g,int period,float gain,int tapset,int LM) {p[1]=p[0];g[1]=g[0];p[3]=p[2];p[0]=period;g[0]=gain;p[2]=tapset;if(LM){p[1]=p[0];g[1]=g[0];p[3]=p[2];}}
 #include "entdec.h"
 static int compare_decode_boosts(unsigned *s,unsigned char *data,short *e,int *cap,int *out,int start,int end,int C,int LM,int total,int *tell) {
@@ -42,6 +43,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodeRecoverEnergy(e, l, p []float32, bands, start, end, LM, intra, loss int32) {
+	C.compare_decode_recover_energy((*C.float)(unsafe.Pointer(unsafe.SliceData(e))), (*C.float)(unsafe.Pointer(unsafe.SliceData(l))), (*C.float)(unsafe.Pointer(unsafe.SliceData(p))), C.int(bands), C.int(start), C.int(end), C.int(LM), C.int(intra), C.int(loss))
+}
 func nativeCeltDecodeRecoveryBand(e, l, p *float32, missing int32, safety float32) {
 	C.compare_decode_recovery_band((*C.float)(unsafe.Pointer(e)), (*C.float)(unsafe.Pointer(l)), (*C.float)(unsafe.Pointer(p)), C.int(missing), C.float(safety))
 }
