@@ -55,6 +55,42 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeDeemphasisPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, factor := range []int32{1, 2, 3, 6} {
+			for _, accum := range []int32{0, 1} {
+				mode := newSynthesisTestMode()
+				state := &OpusT_OpusCustomDecoder{Fmode: mode, Fdownsample: factor, Fpreemph_memD: [2]float32{.1, -.2}, Frng: 123}
+				left, right := make([]float32, 120), make([]float32, 120)
+				for i := range left {
+					left[i] = float32(i%13 - 6)
+					right[i] = float32(i%17 - 8)
+				}
+				in := [2]*float32{&left[0], nil}
+				if channels == 2 {
+					in[1] = &right[0]
+				}
+				pcm := make([]float32, (120/factor)*channels+2)
+				pcm[0] = 901
+				pcm[len(pcm)-1] = 902
+				want := append([]float32(nil), pcm...)
+				memory := state.Fpreemph_memD
+				deemphasis(nil, &in[0], &want[1], 120, channels, factor, &mode.Fpreemph[0], &memory[0], accum)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDecodeDeemphasis(nil, state, mode, &in[0], &pcm[1], 120, channels, accum)
+				if state.Fpreemph_memD != memory || state.Frng != 123 {
+					t.Fatal("deemphasis forwarding state")
+				}
+				for i := range pcm {
+					if math.Float32bits(pcm[i]) != math.Float32bits(want[i]) {
+						t.Fatal("decode deemphasis", channels, factor, accum, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePrefilterPointers(t *testing.T) {
 	celtDecodePrefilter(nil, &OpusT_OpusCustomDecoder{}, 120)
 	for _, channels := range []int32{1, 2} {

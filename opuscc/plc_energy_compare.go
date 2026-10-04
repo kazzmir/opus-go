@@ -7,6 +7,9 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltDecodeDeemphasis(state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, pcm *float32, N, channels, accum int32) {
+	celtDecodeDeemphasis(nil, state, mode, outputs, pcm, N, channels, accum)
+}
 func CompareCeltDecodePrefilterImage(data []byte, N int32) {
 	state := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
 	state.Fmode = &mode48000_960_120

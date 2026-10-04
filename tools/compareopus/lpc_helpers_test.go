@@ -11,6 +11,43 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeDeemphasisAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		for _, factor := range []int32{1, 2, 3, 6} {
+			for _, accum := range []int32{0, 1} {
+				state := opuscc.OpusT_OpusCustomDecoder{Fdownsample: factor, Fpreemph_memD: [2]float32{.1, -.2}}
+				left, right := make([]float32, 120), make([]float32, 120)
+				for i := range left {
+					left[i] = float32(i%13 - 6)
+					right[i] = float32(i%17 - 8)
+				}
+				in := [2]*float32{&left[0], nil}
+				if channels == 2 {
+					in[1] = &right[0]
+				}
+				pcm := make([]float32, (120/factor)*channels+2)
+				pcm[0] = 901
+				pcm[len(pcm)-1] = 902
+				c := slices.Clone(pcm)
+				memory := state.Fpreemph_memD
+				opuscc.CompareCeltDecodeDeemphasis(&state, mode, &in[0], &pcm[1], 120, channels, accum)
+				nativeDeemphasis(left, right, c[1:], 120, channels, factor, mode.Fpreemph[0], &memory, accum)
+				if state.Fpreemph_memD != memory {
+					t.Fatal("decode deemphasis memory")
+				}
+				for i := range pcm {
+					if math.Float32bits(pcm[i]) != math.Float32bits(c[i]) {
+						t.Fatal("decode deemphasis", channels, factor, accum, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePrefilterAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {

@@ -423,6 +423,10 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeDeemphasis(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, pcm *float32, N, channels, accum int32) {
+	deemphasis(tls, outputs, pcm, N, channels, state.Fdownsample, &mode.Fpreemph[0], &state.Fpreemph_memD[0], accum)
+}
+
 func celtDecodePrefilter(tls *libc.TLS, state *OpusT_OpusCustomDecoder, N int32) {
 	if state.Fprefilter_and_fold != 0 {
 		prefilter_and_fold(tls, state, N)
@@ -1066,7 +1070,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	var balance OpusT_opus_int32
 	var dual_stereo int32
 	var intensity int32
-	var out_syn [2]uintptr
+	var out_syn [2]*float32
 	CC = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fchannels
 	intensity = 0
 	dual_stereo = 0
@@ -1167,7 +1171,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	c = 0
 	for {
 		decode_mem[c] = st1 + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr(c*(decode_buffer_size+overlap))*4
-		out_syn[c] = decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4
+		out_syn[c] = (*float32)(unsafe.Pointer(decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4))
 		c = c + 1
 		v28 = c
 		if !(v28 < CC) {
@@ -1180,7 +1184,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	if data == uintptr(uint32(0)) || len1 <= int32(1) {
 		celt_decode_lost(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), N, LM)
-		deemphasis_legacy(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Fpreemph_memD), accum)
+		celtDecodeDeemphasis(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &out_syn[0], (*float32)(unsafe.Pointer(pcm)), N, CC, accum)
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 		if !(st != 0) {
 			v1 = libc.Xmalloc(tls, uint64(16))
@@ -1328,12 +1332,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		celtDecodeSilenceEnergy((*float32)(unsafe.Pointer(oldBandE)), nbEBands, C)
 	}
 	celtDecodePrefilter(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), N)
-	var synthesisOutputs [2]*float32
-	for channel := int32(0); channel < CC; channel++ {
-		synthesisOutputs[channel] = (*float32)(unsafe.Pointer(out_syn[channel]))
-	}
-	celt_synthesis(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), unsafe.SliceData(X), &synthesisOutputs[0], (*float32)(unsafe.Pointer(oldBandE)), start, effEnd, C, CC, isTransient, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, silence, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
-	celtDecodePostfilter(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &synthesisOutputs[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap)
+	celt_synthesis(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), unsafe.SliceData(X), &out_syn[0], (*float32)(unsafe.Pointer(oldBandE)), start, effEnd, C, CC, isTransient, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, silence, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+	celtDecodePostfilter(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &out_syn[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap)
 	celtDecodePostfilterFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), postfilter_pitch, postfilter_gain, postfilter_tapset, LM)
 	if C == 1 {
 		celtDecodeEnergyMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
@@ -1346,7 +1346,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	/* In case start or end were to change: energy, previous, log store order. */
 	celtDecodeEnergyClear((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, start, end)
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng = (*OpusT_ec_dec)(unsafe.Pointer(dec)).Frng
-	deemphasis_legacy(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Fpreemph_memD), accum)
+	celtDecodeDeemphasis(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &out_syn[0], (*float32)(unsafe.Pointer(pcm)), N, CC, accum)
 	celtDecodePacketFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
