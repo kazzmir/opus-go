@@ -55,6 +55,34 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePostfilterTailPointers(t *testing.T) {
+	for _, N := range []int32{240, 480, 960} {
+		for _, gain := range []float32{0, .3, .7} {
+			for tap := int32(0); tap < 3; tap++ {
+				mode := newSynthesisTestMode()
+				state := &OpusT_OpusCustomDecoder{Fmode: mode, Fpostfilter_period: 100, Fpostfilter_gain: .3, Fpostfilter_tapset: 2}
+				before := *state
+				h := make([]float32, 256+N+2)
+				for i := range h {
+					h[i] = float32(i%13-6) / 128
+				}
+				want := append([]float32(nil), h...)
+				Opus_comb_filter(nil, &want[377], &want[377], 100, 80, N-120, .3, gain, 2, tap, mode.Fwindow, 120, 0)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDecodePostfilterTail(nil, state, mode, &h[257], N, 80, gain, tap, 120)
+				if *state != before {
+					t.Fatal("tail postfilter state")
+				}
+				for i := range h {
+					if math.Float32bits(h[i]) != math.Float32bits(want[i]) {
+						t.Fatal("tail postfilter", N, gain, tap, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterFirstPointers(t *testing.T) {
 	for _, gain := range []float32{0, .3, .7} {
 		for tap := int32(0); tap < 3; tap++ {
