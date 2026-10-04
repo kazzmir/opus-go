@@ -423,6 +423,19 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeEnergyViews(state *OpusT_OpusCustomDecoder, bands, overlap, channels int32) (energy, log, previous, background *float32) {
+	if bands == 0 {
+		return
+	}
+	offset := (DEC_PITCH_BUF_SIZE + overlap) * channels
+	memory := unsafe.Slice(&state.F_decode_mem[0], offset+8*bands)
+	energy = &memory[offset]
+	log = &memory[offset+2*bands]
+	previous = &memory[offset+4*bands]
+	background = &memory[offset+6*bands]
+	return
+}
+
 func celtDecodeEntropy(tls *libc.TLS, provided, local *OpusT_ec_ctx, data *byte, length int32) *OpusT_ec_ctx {
 	if provided != nil {
 		return provided
@@ -1181,7 +1194,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	var collapse_masks []byte
 	var eBands *int16
 	var mode *OpusT_OpusCustomMode
-	var _saved_stack, backgroundLogE, oldBandE, oldLogE, oldLogE2, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
+	var backgroundLogE, oldBandE, oldLogE, oldLogE2 *float32
+	var _saved_stack, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var bits, tell, total_bits OpusT_opus_int32
 	var decode_mem [2]uintptr
 	var postfilter_gain OpusT_opus_val16
@@ -1262,10 +1276,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	start = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fstart
 	end = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fend
 	frame_size = frame_size * (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample
-	oldBandE = st1 + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr((decode_buffer_size+overlap)*CC)*4
-	oldLogE = oldBandE + uintptr(int32(2)*nbEBands)*4
-	oldLogE2 = oldLogE + uintptr(int32(2)*nbEBands)*4
-	backgroundLogE = oldLogE2 + uintptr(int32(2)*nbEBands)*4
+	oldBandE, oldLogE, oldLogE2, backgroundLogE = celtDecodeEnergyViews((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), nbEBands, overlap, CC)
 	LM = 0
 	for {
 		if !(LM <= (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FmaxLM) {

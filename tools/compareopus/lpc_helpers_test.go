@@ -11,6 +11,23 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeEnergyViewsAgainstC(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			memory := make([]float32, 5000)
+			state := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&memory[0]))
+			e, l, p, b := opuscc.CompareCeltDecodeEnergyViews(state, 21, overlap, channels)
+			base := unsafe.Pointer(&state.F_decode_mem[0])
+			views := []*float32{e, l, p, b}
+			offsets := nativeCeltDecodeViewOffsets(21, overlap, channels, 120)
+			for i, view := range views {
+				if uintptr(unsafe.Pointer(view))-uintptr(base) != uintptr(offsets[i+1])*4 {
+					t.Fatal("native energy view geometry", channels, overlap, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeEntropyAgainstC(t *testing.T) {
 	data := []byte{0, 71, 255, 13}
 	var local opuscc.OpusT_ec_ctx

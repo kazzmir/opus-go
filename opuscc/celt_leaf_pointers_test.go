@@ -56,6 +56,34 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeEnergyViewsPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			storage := new(celtStateTestStorage)
+			state := &storage.State
+			state.Fmode = newSynthesisTestMode()
+			e, l, p, b := celtDecodeEnergyViews(state, 21, overlap, channels)
+			memory := unsafe.Slice(&state.F_decode_mem[0], (2048+overlap)*channels+168)
+			offset := (2048 + overlap) * channels
+			if e != &memory[offset] || l != &memory[offset+42] || p != &memory[offset+84] || b != &memory[offset+126] {
+				t.Fatal("energy view offsets")
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			*e = 1
+			*l = 2
+			*p = 3
+			*b = 4
+			if memory[offset] != 1 || memory[offset+42] != 2 || memory[offset+84] != 3 || memory[offset+126] != 4 {
+				t.Fatal("retained energy view stores")
+			}
+		}
+	}
+	e, l, p, b := celtDecodeEnergyViews(nil, 0, 0, 1)
+	if e != nil || l != nil || p != nil || b != nil {
+		t.Fatal("unused energy views")
+	}
+}
 func TestCeltDecodeEntropyPointers(t *testing.T) {
 	data := []byte{0, 71, 255, 13}
 	local := new(OpusT_ec_ctx)
