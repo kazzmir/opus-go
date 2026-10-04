@@ -423,6 +423,23 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodePostfilterHeader(tls *libc.TLS, ec *OpusT_ec_ctx, start, total, tell int32) (pitch int32, gain float32, tapset, updatedTell int32) {
+	updatedTell = tell
+	if start == 0 && tell+16 <= total {
+		if Opus_ec_dec_bit_logp(tls, ec, 1) != 0 {
+			octave := int32(Opus_ec_dec_uint(tls, ec, 6))
+			pitch = int32(uint32(int32(16)<<octave) + Opus_ec_dec_bits(tls, ec, uint32(4+octave)) - 1)
+			qg := int32(Opus_ec_dec_bits(tls, ec, 3))
+			if ec.Fnbits_total-int32(bits.Len32(ec.Frng))+2 <= total {
+				tapset = Opus_ec_dec_icdf(tls, ec, &tapset_icdf9[0], 2)
+			}
+			gain = float32(.09375 * float32(qg+1))
+		}
+		updatedTell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	}
+	return
+}
+
 func celtDecodeSilence(tls *libc.TLS, ec *OpusT_ec_ctx, total int32) (silence, tell int32) {
 	tell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
 	if tell >= total {
@@ -1082,7 +1099,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 }
 
 func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
-	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, intra_ener, isTransient, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, shortBlocks, silence, spread_decision, start, v28 int32
+	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, intra_ener, isTransient, nbEBands, overlap, postfilter_pitch, postfilter_tapset, shortBlocks, silence, spread_decision, start, v28 int32
 	var tf_res, cap1, offsets, fine_quant, pulses, fine_priority []int32
 	var X []float32
 	var collapse_masks []byte
@@ -1237,25 +1254,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	total_bits = len1 * int32(8)
 	silence, tell = celtDecodeSilence(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), total_bits)
-	postfilter_gain = float32(0)
-	postfilter_pitch = 0
-	postfilter_tapset = 0
-	if start == 0 && tell+int32(16) <= total_bits {
-		if Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)) != 0 {
-			octave = int32(Opus_ec_dec_uint(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(6)))
-			postfilter_pitch = int32(uint32(int32(16)<<octave) + Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(int32(4)+octave)) - uint32(1))
-			qg = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3)))
-			v1 = dec
-			v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-			if v28+int32(2) <= total_bits {
-				postfilter_tapset = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &tapset_icdf9[0], uint32(2))
-			}
-			postfilter_gain = OpusT_opus_val16(float32(0.09375) * float32(qg+int32(1)))
-		}
-		v1 = dec
-		v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-		tell = v28
-	}
+	postfilter_pitch, postfilter_gain, postfilter_tapset, tell = celtDecodePostfilterHeader(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), start, total_bits, tell)
 	if LM > 0 && tell+int32(3) <= total_bits {
 		isTransient = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3))
 		v1 = dec

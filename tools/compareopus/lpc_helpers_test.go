@@ -11,6 +11,27 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePostfilterHeaderAgainstC(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 16, 17, 32, 128} {
+			for _, start := range []int32{0, 1} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				c := ec
+				a := [8]int32{start, 1, total}
+				p, g, tap, tell := opuscc.CompareCeltDecodePostfilterHeader(&ec, start, total, 1)
+				cg := nativeCeltDecodeHeader(&c, data, 1, &a)
+				if ec != c || p != a[3] || tap != a[4] || tell != a[5] || math.Float32bits(g) != math.Float32bits(cg) {
+					t.Fatal("postfilter header", pattern, total, start, p, g, tap, tell, a)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeSilenceAgainstC(t *testing.T) {
 	for _, pattern := range []byte{0, 71, 255} {
 		for _, total := range []int32{0, 1, 8, 16, 128} {

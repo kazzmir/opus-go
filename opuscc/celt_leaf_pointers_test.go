@@ -56,6 +56,31 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePostfilterHeaderPointers(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 16, 17, 32, 128} {
+			for _, start := range []int32{0, 1} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				before := ec
+				entropyInitGrowStack(12)
+				runtime.GC()
+				p, g, tap, tell := celtDecodePostfilterHeader(nil, &ec, start, total, 1)
+				if start != 0 || total < 17 {
+					if ec != before || p != 0 || g != 0 || tap != 0 || tell != 1 {
+						t.Fatal("postfilter header budget guard")
+					}
+				} else if p < 0 || p > 1022 || g < 0 || g > .75 || tap < 0 || tap > 2 || tell != ec.Fnbits_total-int32(bits.Len32(ec.Frng)) {
+					t.Fatal("postfilter header values", p, g, tap, tell)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeSilencePointers(t *testing.T) {
 	for _, pattern := range []byte{0, 71, 255} {
 		for _, total := range []int32{0, 1, 8, 16, 128} {
