@@ -11,6 +11,34 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeBoostsAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			for _, budget := range []int32{0, 8, 100, 500, 992} {
+				for _, start := range []int32{0, 2, 5} {
+					for _, pattern := range []byte{0, 255, 71} {
+						bands := []int16{0, 1, 3, 6, 10, 18}
+						caps := []int32{0, 8, 40, 128, 500}
+						out := []int32{901, -1, -2, -3, -4, -5, 902}
+						co := slices.Clone(out)
+						data := make([]byte, 128)
+						for i := range data {
+							data[i] = pattern
+						}
+						var ec opuscc.OpusT_ec_ctx
+						opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 128)
+						c := ec
+						r, tell := opuscc.CompareCeltDecodeBoosts(&bands[0], &caps[0], &out[1], start, 5, channels, LM, budget, &ec)
+						cr, ct := nativeCeltDecodeBoosts(&c, data, bands, caps, co[1:], start, 5, channels, LM, budget)
+						if ec != c || r != cr || tell != ct || !slices.Equal(out, co) {
+							t.Fatal("dynamic boosts", LM, channels, budget, start, pattern, r, cr, tell, ct)
+						}
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeSilenceEnergyAgainstC(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		for _, channels := range []int32{1, 2} {

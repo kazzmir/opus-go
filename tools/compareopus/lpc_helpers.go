@@ -13,6 +13,12 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+#include "entdec.h"
+static int compare_decode_boosts(unsigned *s,unsigned char *data,short *e,int *cap,int *out,int start,int end,int C,int LM,int total,int *tell) {
+ ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=(int)s[3];dec.nbits_total=(int)s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=(int)s[9];dec.error=(int)s[10];
+ int logp=6;total<<=BITRES;*tell=ec_tell_frac(&dec);for(int i=start;i<end;i++){int width=C*(e[i+1]-e[i])<<LM;int quanta=IMIN(width<<BITRES,IMAX(6<<BITRES,width));int loop_logp=logp,boost=0;while(*tell+(loop_logp<<BITRES)<total&&boost<cap[i]){int flag=ec_dec_bit_logp(&dec,loop_logp);*tell=ec_tell_frac(&dec);if(!flag)break;boost+=quanta;total-=quanta;loop_logp=1;}out[i]=boost;if(boost>0)logp=IMAX(2,logp-1);}
+ s[0]=dec.storage;s[1]=dec.end_offs;s[2]=dec.end_window;s[3]=dec.nend_bits;s[4]=dec.nbits_total;s[5]=dec.offs;s[6]=dec.rng;s[7]=dec.val;s[8]=dec.ext;s[9]=dec.rem;s[10]=dec.error;return total;
+}
 static void compare_decode_silence_energy(float *e,int bands,int channels) {for(int i=0;i<channels*bands;i++)e[i]=-28.f;}
 static void compare_decode_history_move(float *h,int N,int length) {if(length>0)memmove(h,h+N,length*sizeof(float));}
 static void compare_decode_energy_clear(float *e,float *l,float *p,int bands,int start,int end) {int c=0;do{for(int i=0;i<start;i++){e[c*bands+i]=0;l[c*bands+i]=p[c*bands+i]=-28.f;}for(int i=end;i<bands;i++){e[c*bands+i]=0;l[c*bands+i]=p[c*bands+i]=-28.f;}}while(++c<2);}
@@ -33,6 +39,23 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodeBoosts(ec *opuscc.OpusT_ec_ctx, data []byte, bands []int16, cap, out []int32, start, end, channels, LM, total int32) (int32, int32) {
+	s := [11]C.uint{C.uint(ec.Fstorage), C.uint(ec.Fend_offs), C.uint(ec.Fend_window), C.uint(ec.Fnend_bits), C.uint(ec.Fnbits_total), C.uint(ec.Foffs), C.uint(ec.Frng), C.uint(ec.Fval), C.uint(ec.Fext), C.uint(ec.Frem), C.uint(ec.Ferror1)}
+	var tell C.int
+	r := C.compare_decode_boosts(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), (*C.short)(unsafe.Pointer(unsafe.SliceData(bands))), (*C.int)(unsafe.Pointer(unsafe.SliceData(cap))), (*C.int)(unsafe.Pointer(unsafe.SliceData(out))), C.int(start), C.int(end), C.int(channels), C.int(LM), C.int(total), &tell)
+	ec.Fstorage = uint32(s[0])
+	ec.Fend_offs = uint32(s[1])
+	ec.Fend_window = uint32(s[2])
+	ec.Fnend_bits = int32(s[3])
+	ec.Fnbits_total = int32(s[4])
+	ec.Foffs = uint32(s[5])
+	ec.Frng = uint32(s[6])
+	ec.Fval = uint32(s[7])
+	ec.Fext = uint32(s[8])
+	ec.Frem = int32(s[9])
+	ec.Ferror1 = int32(s[10])
+	return int32(r), int32(tell)
+}
 func nativeCeltDecodeSilenceEnergy(e *float32, bands, channels int32) {
 	C.compare_decode_silence_energy((*C.float)(unsafe.Pointer(e)), C.int(bands), C.int(channels))
 }

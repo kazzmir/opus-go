@@ -55,6 +55,44 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeBoostsPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, C := range []int32{1, 2} {
+			for _, budget := range []int32{0, 8, 100, 500, 992} {
+				for _, start := range []int32{0, 5} {
+					bands := []int16{0, 1, 3, 6, 10, 18}
+					caps := []int32{0, 8, 40, 128, 500}
+					out := []int32{901, -1, -2, -3, -4, -5, 902}
+					data := make([]byte, 128)
+					var ec OpusT_ec_ctx
+					Opus_ec_dec_init(nil, &ec, &data[0], 128)
+					before := ec
+					entropyInitGrowStack(12)
+					runtime.GC()
+					remaining, tell := celtDecodeBoosts(nil, &bands[0], &caps[0], &out[1], start, 5, C, LM, budget, &ec)
+					if out[0] != 901 || out[6] != 902 || remaining > budget<<BITRES || tell != int32(Opus_ec_tell_frac(nil, &ec)) {
+						t.Fatal("boost scalar/guards", LM, C, budget, start)
+					}
+					if start == 5 && ec != before {
+						t.Fatal("empty boosts entropy")
+					}
+					for i := int(start); i < 5; i++ {
+						if out[i+1] < 0 {
+							t.Fatal("negative boost")
+						}
+					}
+				}
+			}
+		}
+	}
+	var ec OpusT_ec_ctx
+	data := []byte{0}
+	Opus_ec_dec_init(nil, &ec, &data[0], 1)
+	remaining, _ := celtDecodeBoosts(nil, nil, nil, nil, 0, 0, 1, 0, 0x20000000, &ec)
+	if remaining != 0 {
+		t.Fatal("Go-only total shift wrapping")
+	}
+}
 func TestCeltDecodeSilenceEnergyPointers(t *testing.T) {
 	celtDecodeSilenceEnergy(nil, 0, 2)
 	celtDecodeSilenceEnergy(nil, 25, 0)

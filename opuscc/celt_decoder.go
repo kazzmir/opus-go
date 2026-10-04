@@ -423,6 +423,39 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeBoosts(tls *libc.TLS, bands *int16, cap, offsets *int32, start, end, C, LM, total int32, ec *OpusT_ec_ctx) (remaining, tell int32) {
+	remaining = total << BITRES
+	tell = int32(Opus_ec_tell_frac(tls, ec))
+	if start >= end {
+		return
+	}
+	e := unsafe.Slice(bands, end+1)
+	caps := unsafe.Slice(cap, end)
+	out := unsafe.Slice(offsets, end)
+	logp := int32(6)
+	for i := start; i < end; i++ {
+		width := C * (int32(e[i+1]) - int32(e[i])) << LM
+		quanta := min(width<<BITRES, max(int32(6)<<BITRES, width))
+		loopLogp := logp
+		boost := int32(0)
+		for tell+(loopLogp<<BITRES) < remaining && boost < caps[i] {
+			flag := Opus_ec_dec_bit_logp(tls, ec, uint32(loopLogp))
+			tell = int32(Opus_ec_tell_frac(tls, ec))
+			if flag == 0 {
+				break
+			}
+			boost += quanta
+			remaining -= quanta
+			loopLogp = 1
+		}
+		out[i] = boost
+		if boost > 0 {
+			logp = max(int32(2), logp-1)
+		}
+	}
+	return
+}
+
 func celtDecodeSilenceEnergy(energy *float32, bands, channels int32) {
 	length := bands * channels
 	if length <= 0 {
@@ -883,12 +916,13 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 }
 
 func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
-	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, boost, c, codedBands, decode_buffer_size, dynalloc_logp, dynalloc_loop_logp, effEnd, end, flag, i, intra_ener, isTransient, missing, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, quanta, shortBlocks, silence, spread_decision, start, width, v28, v37, v40 int32
+	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, i, intra_ener, isTransient, missing, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, shortBlocks, silence, spread_decision, start, v28, v37 int32
 	var E0, E1, E2, slope, v57 OpusT_opus_val32
 	var tf_res, cap1, offsets, fine_quant, pulses, fine_priority []int32
 	var X []float32
 	var collapse_masks []byte
-	var _saved_stack, backgroundLogE, eBands, mode, oldBandE, oldLogE, oldLogE2, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
+	var eBands *int16
+	var _saved_stack, backgroundLogE, mode, oldBandE, oldLogE, oldLogE2, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var bits, tell, total_bits OpusT_opus_int32
 	var decode_mem [2]uintptr
 	var safety, v35, v56, v61 OpusT_celt_glog
@@ -970,7 +1004,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	mode = uintptr(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode))
 	nbEBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FnbEBands
 	overlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
-	eBands = uintptr(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeBands))
+	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeBands
 	start = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fstart
 	end = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fend
 	frame_size = frame_size * (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample
@@ -1208,57 +1242,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	cap1 = celtDecodeCapsStorage(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), nbEBands, LM, C)
 	offsets = celtDecodeOffsetsStorage(nbEBands)
-	dynalloc_logp = int32(6)
-	total_bits = total_bits << int32(BITRES)
-	tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec))))
-	i = start
-	for {
-		if !(i < end) {
-			break
-		}
-		width = C * (int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i+int32(1))*2))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(eBands + uintptr(i)*2)))) << LM
-		/* quanta is 6 bits, but no more than 1 bit/sample
-		   and no less than 1/8 bit/sample */
-		if int32(6)<<int32(BITRES) > width {
-			v37 = int32(6) << int32(BITRES)
-		} else {
-			v37 = width
-		}
-		if width<<int32(BITRES) < v37 {
-			v28 = width << int32(BITRES)
-		} else {
-			if int32(6)<<int32(BITRES) > width {
-				v40 = int32(6) << int32(BITRES)
-			} else {
-				v40 = width
-			}
-			v28 = v40
-		}
-		quanta = v28
-		dynalloc_loop_logp = dynalloc_logp
-		boost = 0
-		for tell+dynalloc_loop_logp<<int32(BITRES) < total_bits && boost < cap1[i] {
-			flag = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(dynalloc_loop_logp))
-			tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec))))
-			if !(flag != 0) {
-				break
-			}
-			boost = boost + quanta
-			total_bits = total_bits - quanta
-			dynalloc_loop_logp = int32(1)
-		}
-		offsets[i] = boost
-		/* Making dynalloc more likely */
-		if boost > 0 {
-			if int32(2) > dynalloc_logp-int32(1) {
-				v28 = int32(2)
-			} else {
-				v28 = dynalloc_logp - int32(1)
-			}
-			dynalloc_logp = v28
-		}
-		i = i + 1
-	}
+	total_bits, tell = celtDecodeBoosts(tls, eBands, unsafe.SliceData(cap1), unsafe.SliceData(offsets), start, end, C, LM, total_bits, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
 	fine_quant = celtDecodeFineStorage(nbEBands)
 	if tell+int32(6)<<int32(BITRES) <= total_bits {
 		v28 = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &trim_icdf9[0], uint32(7))
