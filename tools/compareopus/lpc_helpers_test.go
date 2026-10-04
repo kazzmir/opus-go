@@ -11,6 +11,19 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsSpectrumAgainstC(t *testing.T) {
+	bands := []int16{0, 4, 8}
+	for _, M := range []int32{1, 2, 4, 8} {
+		data := make([]float32, 12*M)
+		for band := int32(0); band < 3; band++ {
+			pointer := opuscc.CompareQuantAllBandsSpectrum(&data[0], &bands[0], band, M)
+			if pointer != &data[nativeQuantAllBandsLowband(&bands[0], band, M)] {
+				t.Fatal("native spectrum geometry", M, band)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsNormBufferAgainstC(t *testing.T) {
 	bands := []int16{0, 4, 8, 12}
 	for _, C := range []int32{1, 2} {

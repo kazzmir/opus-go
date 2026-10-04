@@ -2462,6 +2462,11 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsSpectrum(spectrum *float32, bands *int16, band, M int32) *float32 {
+	offset := M * quantAllBandsBoundary(bands, band)
+	return &unsafe.Slice(spectrum, offset+1)[offset]
+}
+
 func quantAllBandsNormBuffer(bands *int16, index, M, channels, offset int32) (memory []float32, left, right *float32) {
 	length := quantAllBandsNormLength(bands, index, M, channels, offset)
 	if length == 0 {
@@ -2623,14 +2628,14 @@ func quantAllBandsSetMode(ctx *band_ctx, mode *OpusT_OpusCustomMode) { ctx.Fm = 
 //
 //go:uintptrescapes
 func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, end int32, X_ uintptr, Y_ uintptr, collapse_masks uintptr, bandE uintptr, pulses uintptr, shortBlocks int32, spread int32, dual_stereo int32, intensity int32, tf_res uintptr, total_bits OpusT_opus_int32, balance OpusT_opus_int32, ec uintptr, LM int32, codedBands int32, seed uintptr, complexity int32, arch int32, disable_inv int32) {
-	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, X_, Y_, (*byte)(unsafe.Pointer(collapse_masks)), (*float32)(unsafe.Pointer(bandE)), (*int32)(unsafe.Pointer(pulses)), shortBlocks, spread, dual_stereo, intensity, (*int32)(unsafe.Pointer(tf_res)), total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
+	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, (*float32)(unsafe.Pointer(X_)), Y_, (*byte)(unsafe.Pointer(collapse_masks)), (*float32)(unsafe.Pointer(bandE)), (*int32)(unsafe.Pointer(pulses)), shortBlocks, spread, dual_stereo, intensity, (*int32)(unsafe.Pointer(tf_res)), total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
 }
 
 // Internal owners are migrated independently of the remaining legacy views.
 // The integer spectrum/mask/scratch arguments still require escape retention.
 //
 //go:uintptrescapes
-func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ uintptr, collapse_masks *byte, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_ *float32, Y_ uintptr, collapse_masks *byte, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
 	/* ctx keeps the transpiled uintptr calling convention into
 	   quant_band/quant_band_stereo, so it is allocated on the C heap:
 	   a Go stack local whose address is laundered
@@ -2726,7 +2731,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 		tf_change = 0
 		ctx.Fi = i1
 		last = libc.BoolInt32(i1 == end-int32(1))
-		X = X_ + uintptr(M*quantAllBandsBoundary(eBands, i1))*4
+		X = uintptr(unsafe.Pointer(quantAllBandsSpectrum(X_, eBands, i1, M)))
 		if Y_ != uintptr(uint32(0)) {
 			Y = Y_ + uintptr(M*quantAllBandsBoundary(eBands, i1))*4
 		} else {
