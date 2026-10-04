@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -31,6 +32,19 @@ import (
  * fine). */
 func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
+}
+
+func TestQuantAllBandsModePointers(t *testing.T) {
+	ctx := new(band_ctx)
+	ctx.Fseed = 123
+	mode := newSynthesisTestMode()
+	quantAllBandsSetMode(ctx, mode)
+	mode = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if ctx.Fm == nil || ctx.Fm.FnbEBands != 21 || unsafe.Slice(ctx.Fm.FeBands, 22)[21] != 100 || ctx.Fseed != 123 {
+		t.Fatal("quant-all-bands mode owner")
+	}
 }
 
 func TestQuantAllBandsCReference(t *testing.T) {
