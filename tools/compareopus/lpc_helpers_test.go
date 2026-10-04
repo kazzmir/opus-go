@@ -11,6 +11,22 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeAntiCollapseBitAgainstC(t *testing.T) {
+	for _, reserved := range []int32{-1, 0, 8} {
+		for _, pattern := range []byte{0, 71, 255} {
+			data := []byte{pattern, pattern, pattern, pattern}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 4)
+			c := ec
+			a := [8]int32{reserved}
+			got := opuscc.CompareCeltDecodeAntiCollapseBit(&ec, reserved)
+			nativeCeltDecodeHeader(&c, data, 6, &a)
+			if got != a[1] || ec != c {
+				t.Fatal("anti-collapse bit", reserved, pattern)
+			}
+		}
+	}
+}
 func TestCeltDecodeFinalEnergyAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {
@@ -556,7 +572,7 @@ func TestCeltDecodeMaskStorageAgainstC(t *testing.T) {
 			for i := range pulses {
 				pulses[i] = int32(i)*32 + 8
 			}
-			opuscc.Opus_anti_collapse(nil, mode.FeBands, 21, &s[0], &m[0], LM, channels, N, 0, 21, &energy[0], &previous[0], &older[0], &pulses[0], 123, 0, 0)
+			opuscc.CompareCeltDecodeAntiCollapse(&opuscc.OpusT_OpusCustomDecoder{Frng: 123}, mode, &s[0], &m[0], &pulses[0], &energy[0], &previous[0], &older[0], N, LM, channels, 0, 21, 1)
 			nativeAntiCollapse(bands, 21, c, m, LM, channels, N, 0, 21, energy, previous, older, pulses, 123, 0)
 			for i := range s {
 				if math.Float32bits(s[i]) != math.Float32bits(c[i]) {

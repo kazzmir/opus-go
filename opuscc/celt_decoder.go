@@ -423,6 +423,18 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeAntiCollapseBit(tls *libc.TLS, ec *OpusT_ec_ctx, reserved int32) int32 {
+	if reserved > 0 {
+		return int32(Opus_ec_dec_bits(tls, ec, 1))
+	}
+	return 0
+}
+func celtDecodeAntiCollapse(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, spectrum *float32, masks *byte, pulses *int32, energy, log, previous *float32, N, LM, channels, start, end, on int32) {
+	if on != 0 {
+		Opus_anti_collapse(tls, mode.FeBands, mode.FnbEBands, spectrum, masks, LM, channels, N, start, end, energy, log, previous, pulses, state.Frng, 0, state.Farch)
+	}
+}
+
 func celtDecodeFinalEnergy(tls *libc.TLS, mode *OpusT_OpusCustomMode, energy *float32, fine, priority *int32, start, end, length, channels int32, ec *OpusT_ec_ctx) {
 	tell := ec.Fnbits_total - int32(bits.Len32(ec.Frng))
 	Opus_unquant_energy_finalise(tls, mode, start, end, energy, fine, priority, length*8-tell, ec, channels)
@@ -1334,14 +1346,9 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	collapse_masks = celtDecodeMaskStorage(nbEBands, C)
 	spectralX, spectralY := celtDecodeSpectrumChannels(X, N, C)
 	Opus_quant_all_bands(tls, 0, mode, start, end, uintptr(unsafe.Pointer(spectralX)), uintptr(unsafe.Pointer(spectralY)), uintptr(unsafe.Pointer(unsafe.SliceData(collapse_masks))), uintptr(uint32(0)), uintptr(unsafe.Pointer(unsafe.SliceData(pulses))), shortBlocks, spread_decision, dual_stereo, intensity, uintptr(unsafe.Pointer(unsafe.SliceData(tf_res))), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Frng), 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdisable_inv)
-	if anti_collapse_rsv > 0 {
-		anti_collapse_on = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)))
-	}
+	anti_collapse_on = celtDecodeAntiCollapseBit(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), anti_collapse_rsv)
 	celtDecodeFinalEnergy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), (*float32)(unsafe.Pointer(oldBandE)), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), start, end, len1, C, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
-	if anti_collapse_on != 0 {
-		antiMode := (*OpusT_OpusCustomMode)(unsafe.Pointer(mode))
-		Opus_anti_collapse(tls, antiMode.FeBands, antiMode.FnbEBands, unsafe.SliceData(X), unsafe.SliceData(collapse_masks), LM, C, N, start, end, (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), unsafe.SliceData(pulses), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
-	}
+	celtDecodeAntiCollapse(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), unsafe.SliceData(X), unsafe.SliceData(collapse_masks), unsafe.SliceData(pulses), (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), N, LM, C, start, end, anti_collapse_on)
 	if silence != 0 {
 		celtDecodeSilenceEnergy((*float32)(unsafe.Pointer(oldBandE)), nbEBands, C)
 	}

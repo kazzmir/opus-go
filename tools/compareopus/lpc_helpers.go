@@ -28,6 +28,7 @@ static void compare_decode_header(unsigned *s,unsigned char *data,int op,int *a,
  ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=(int)s[3];dec.nbits_total=(int)s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=(int)s[9];dec.error=(int)s[10];
  if(op==0){int total=a[0],tell=ec_tell(&dec),silence=0;if(tell>=total)silence=1;else if(tell==1)silence=ec_dec_bit_logp(&dec,15);if(silence){tell=total;dec.nbits_total+=tell-ec_tell(&dec);}a[1]=silence;a[2]=tell;}
  if(op==2){int LM=a[0],M=a[1],tell=a[2],total=a[3],transient=0,shortBlocks=0,intra=0;if(LM>0&&tell+3<=total){transient=ec_dec_bit_logp(&dec,3);tell=ec_tell(&dec);}if(transient)shortBlocks=M;if(tell+3<=total)intra=ec_dec_bit_logp(&dec,3);a[4]=transient;a[5]=shortBlocks;a[6]=intra;a[7]=tell;}
+ if(op==6){a[1]=a[0]>0?ec_dec_bits(&dec,1):0;}
  if(op==5){int budget=(a[0]*8<<BITRES)-(int)ec_tell_frac(&dec)-1;int reserved=a[1]&&a[2]>=2&&budget>=((a[2]+2)<<BITRES)?1<<BITRES:0;a[3]=budget-reserved;a[4]=reserved;}
  if(op==4){a[2]=a[0]+(6<<BITRES)<=a[1]?ec_dec_icdf(&dec,trim_icdf,7):5;}
  if(op==3){int tell=ec_tell(&dec),spread=SPREAD_NORMAL;if(tell+4<=a[0])spread=ec_dec_icdf(&dec,spread_icdf,5);a[1]=spread;a[2]=tell;}

@@ -534,6 +534,26 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four allocation/finalization rounds type trim selection, fractional bit-budget
+and anti-collapse reservation, final-energy forwarding, and anti-collapse bit/
+dispatch boundaries. Trim keeps the cached fractional tell plus six-bit guard and
+default five without consuming unused entropy. Reservation keeps int32 length*8
+shift, tell-frac subtraction, minus one, nonzero-transient/LM>=2 threshold and
+one-bit refund before allocation. Final energy samples integer tell at its original
+position and forwards typed mode/energy/fine/priority/entropy owners. The reserved
+bit still decodes before final energy; conditional anti-collapse still runs after
+it with live seed/arch and typed spectra/masks/history/pulse owners.
+
+Grouped tests cover budget gates, negative/zero flags, nil unused entropy/mode/
+state inputs, mono/stereo final-energy guards and complete entropy state. Existing
+owned-mask pipelines now exercise the dispatch helper with full LM0..3 native
+scalar anti-collapse parity. C trim/reservation/raw-bit fixtures use actual
+celt.h tables/entropy kernels; final energy reuses actual quant_bands.c. Each
+round retains full amd64/386, ARM64/QEMU, scoped typed-helper/consumer checkptr,
+native, GC stress and unchanged encode/decode goldens/tolerances, followed by
+separate repeated ARM pointer and ordinary golden tests. These boundaries do not
+make the remaining outer CELT/quant-all-bands integer views globally GC-safe.
+
 Four header rounds type silence recognition/budget exhaustion, postfilter
 parameter decoding, transient/intra flags, and spreading selection. All retain
 typed entropy/payload owners and numeric int32 tell arithmetic. Silence keeps

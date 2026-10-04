@@ -56,6 +56,28 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeAntiCollapsePointers(t *testing.T) {
+	celtDecodeAntiCollapse(nil, nil, nil, nil, nil, nil, nil, nil, nil, 120, 0, 1, 0, 21, 0)
+	if celtDecodeAntiCollapseBit(nil, nil, 0) != 0 || celtDecodeAntiCollapseBit(nil, nil, -1) != 0 {
+		t.Fatal("unused anti-collapse entropy")
+	}
+	for _, reserved := range []int32{-1, 0, 8} {
+		data := []byte{0, 71, 255, 13}
+		var ec OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &ec, &data[0], 4)
+		ref := ec
+		want := int32(0)
+		if reserved > 0 {
+			want = int32(Opus_ec_dec_bits(nil, &ref, 1))
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := celtDecodeAntiCollapseBit(nil, &ec, reserved)
+		if got != want || ec != ref {
+			t.Fatal("anti-collapse reservation bit")
+		}
+	}
+}
 func TestCeltDecodeFinalEnergyPointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for _, length := range []int32{0, 1, 2, 16} {
@@ -757,7 +779,7 @@ func TestCeltDecodeMaskStoragePointers(t *testing.T) {
 			}
 			entropyInitGrowStack(12)
 			runtime.GC()
-			Opus_anti_collapse(nil, mode.FeBands, 21, &s[1], &m[0], LM, channels, N, 0, 21, &energy[0], &previous[0], &older[0], &pulses[0], 123, 0, 0)
+			celtDecodeAntiCollapse(nil, &OpusT_OpusCustomDecoder{Frng: 123}, mode, &s[1], &m[0], &pulses[0], &energy[0], &previous[0], &older[0], N, LM, channels, 0, 21, 1)
 			if s[0] != 901 || s[len(s)-1] != 902 {
 				t.Fatal("owned mask anti-collapse guards")
 			}
