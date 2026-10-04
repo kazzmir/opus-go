@@ -423,6 +423,14 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeEntropy(tls *libc.TLS, provided, local *OpusT_ec_ctx, data *byte, length int32) *OpusT_ec_ctx {
+	if provided != nil {
+		return provided
+	}
+	Opus_ec_dec_init(tls, local, data, uint32(length))
+	return local
+}
+
 func celtDecodeMode(state *OpusT_OpusCustomDecoder) (mode *OpusT_OpusCustomMode, bands, overlap int32, boundaries *int16) {
 	mode = state.Fmode
 	bands = mode.FnbEBands
@@ -1165,7 +1173,8 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 	celtPLCFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), loss_duration, LM, curr_frame_type)
 }
 
-func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
+func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, decAddress uintptr, accum int32) (r int32) {
+	dec := (*OpusT_ec_ctx)(unsafe.Pointer(decAddress))
 	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, intra_ener, isTransient, nbEBands, overlap, postfilter_pitch, postfilter_tapset, shortBlocks, silence, spread_decision, start, v28 int32
 	var tf_res, cap1, offsets, fine_quant, pulses, fine_priority []int32
 	var X []float32
@@ -1310,10 +1319,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration == 0 {
 		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fskip_plc = 0
 	}
-	if dec == uintptr(uint32(0)) {
-		Opus_ec_dec_init(tls, &_dec, (*byte)(unsafe.Pointer(data)), uint32(len1))
-		dec = uintptr(unsafe.Pointer(&_dec))
-	}
+	dec = celtDecodeEntropy(tls, dec, &_dec, (*byte)(unsafe.Pointer(data)), len1)
 	if C == 1 {
 		celtDecodeEnergyMergeMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
 	}
@@ -1351,7 +1357,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	// Decode fixed codebook using Go-owned per-channel collapse flags.
 	collapse_masks = celtDecodeMaskStorage(nbEBands, C)
 	spectralX, spectralY := celtDecodeSpectrumChannels(X, N, C)
-	Opus_quant_all_bands(tls, 0, uintptr(unsafe.Pointer(mode)), start, end, uintptr(unsafe.Pointer(spectralX)), uintptr(unsafe.Pointer(spectralY)), uintptr(unsafe.Pointer(unsafe.SliceData(collapse_masks))), uintptr(uint32(0)), uintptr(unsafe.Pointer(unsafe.SliceData(pulses))), shortBlocks, spread_decision, dual_stereo, intensity, uintptr(unsafe.Pointer(unsafe.SliceData(tf_res))), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Frng), 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdisable_inv)
+	Opus_quant_all_bands(tls, 0, uintptr(unsafe.Pointer(mode)), start, end, uintptr(unsafe.Pointer(spectralX)), uintptr(unsafe.Pointer(spectralY)), uintptr(unsafe.Pointer(unsafe.SliceData(collapse_masks))), uintptr(uint32(0)), uintptr(unsafe.Pointer(unsafe.SliceData(pulses))), shortBlocks, spread_decision, dual_stereo, intensity, uintptr(unsafe.Pointer(unsafe.SliceData(tf_res))), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, uintptr(unsafe.Pointer(dec)), LM, codedBands, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Frng), 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdisable_inv)
 	anti_collapse_on = celtDecodeAntiCollapseBit(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), anti_collapse_rsv)
 	celtDecodeFinalEnergy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), (*float32)(unsafe.Pointer(oldBandE)), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), start, end, len1, C, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
 	celtDecodeAntiCollapse(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), unsafe.SliceData(X), unsafe.SliceData(collapse_masks), unsafe.SliceData(pulses), (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), N, LM, C, start, end, anti_collapse_on)

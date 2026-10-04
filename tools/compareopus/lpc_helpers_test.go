@@ -11,6 +11,18 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeEntropyAgainstC(t *testing.T) {
+	data := []byte{0, 71, 255, 13}
+	var local opuscc.OpusT_ec_ctx
+	ec := opuscc.CompareCeltDecodeEntropy(nil, &local, &data[0], 4)
+	c := *ec
+	a := [8]int32{128}
+	s, tell := opuscc.CompareCeltDecodeSilence(ec, 128)
+	nativeCeltDecodeHeader(&c, data, 0, &a)
+	if *ec != c || s != a[1] || tell != a[2] {
+		t.Fatal("local entropy consumer parity")
+	}
+}
 func TestCeltDecodeModeAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {

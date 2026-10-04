@@ -56,6 +56,24 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeEntropyPointers(t *testing.T) {
+	data := []byte{0, 71, 255, 13}
+	local := new(OpusT_ec_ctx)
+	reference := new(OpusT_ec_ctx)
+	Opus_ec_dec_init(nil, reference, &data[0], 4)
+	ec := celtDecodeEntropy(nil, nil, local, &data[0], 4)
+	local = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *ec != *reference || ec.Fbuf != &data[0] {
+		t.Fatal("owned local decode entropy")
+	}
+	unused := OpusT_ec_ctx{Ferror1: 17}
+	before := unused
+	if celtDecodeEntropy(nil, ec, &unused, nil, -1) != ec || unused != before {
+		t.Fatal("provided entropy init ordering")
+	}
+}
 func TestCeltDecodeModePointers(t *testing.T) {
 	state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode()}
 	want := state.Fmode
