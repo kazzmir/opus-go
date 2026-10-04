@@ -34,6 +34,22 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsEntropyPointers(t *testing.T) {
+	ctx := new(band_ctx)
+	ctx.Fseed = 123
+	data := []byte{0, 71, 255, 13}
+	ec := new(OpusT_ec_ctx)
+	Opus_ec_dec_init(nil, ec, &data[0], 4)
+	quantAllBandsSetEntropy(ctx, ec)
+	ec = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if ctx.Fec == nil || ctx.Fec.Fbuf != &data[0] || ctx.Fec.Fstorage != 4 || ctx.Fseed != 123 {
+		t.Fatal("quant-all-bands entropy owner")
+	}
+	Opus_ec_dec_bit_logp(nil, ctx.Fec, 3)
+}
+
 func TestQuantAllBandsModePointers(t *testing.T) {
 	ctx := new(band_ctx)
 	ctx.Fseed = 123
