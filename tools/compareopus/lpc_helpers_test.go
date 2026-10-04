@@ -11,6 +11,30 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeSpectrumStorageAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			N := int32(120) << LM
+			s := opuscc.CompareCeltDecodeSpectrumStorage(N, channels)
+			for i := range s {
+				s[i] = float32(i%17-8) / 128
+			}
+			energy := make([]float32, 42)
+			for i := range energy {
+				energy[i] = -12
+			}
+			left, right := make([]float32, N+120), make([]float32, N+120)
+			cl, cr := slices.Clone(left), slices.Clone(right)
+			opuscc.CompareCeltSynthesis(nil, &s[0], &energy[0], &left[0], &right[0], 0, 21, channels, channels, 0, LM, 1, 0)
+			nativeCeltSynthesis(s, energy, cl, cr, 0, 21, channels, channels, 0, LM, 1, 0)
+			for i := range left {
+				if math.Float32bits(left[i]) != math.Float32bits(cl[i]) || math.Float32bits(right[i]) != math.Float32bits(cr[i]) {
+					t.Fatal("owned spectral synthesis", LM, channels, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeFineStorageAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {

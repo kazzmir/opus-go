@@ -55,6 +55,67 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeSpectrumStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 120, 240, 480, 960} {
+		for _, channels := range []int32{1, 2} {
+			s := celtDecodeSpectrumStorage(N, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			x, y := celtDecodeSpectrumChannels(s, N, channels)
+			if len(s) != int(N*channels) {
+				t.Fatal("spectral geometry")
+			}
+			if N == 0 {
+				if x != nil || y != nil {
+					t.Fatal("empty spectral views")
+				}
+				continue
+			}
+			if x != &s[0] || (channels == 1 && y != nil) || (channels == 2 && y != &s[N]) {
+				t.Fatal("spectral channel views")
+			}
+			for i, v := range s {
+				if v != 0 {
+					t.Fatal("spectral initialization")
+				}
+				s[i] = float32(i%17-8) / 128
+			}
+			runtime.GC()
+			if *x != s[0] || (y != nil && *y != s[N]) {
+				t.Fatal("spectral view retention")
+			}
+		}
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			N := int32(120) << LM
+			s := celtDecodeSpectrumStorage(N, channels)
+			for i := range s {
+				s[i] = float32(i%17-8) / 128
+			}
+			energy := make([]float32, 42)
+			for i := range energy {
+				energy[i] = -12
+			}
+			left, right := make([]float32, N+122), make([]float32, N+122)
+			left[0] = 901
+			left[len(left)-1] = 902
+			right[0] = 903
+			right[len(right)-1] = 904
+			out := [2]*float32{&left[1], nil}
+			if channels == 2 {
+				out[1] = &right[1]
+			}
+			mode := newSynthesisTestMode()
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celt_synthesis(nil, mode, &s[0], &out[0], &energy[0], 0, 21, channels, channels, 0, LM, 1, 0, 0)
+			if left[0] != 901 || left[len(left)-1] != 902 || right[0] != 903 || right[len(right)-1] != 904 {
+				t.Fatal("owned spectrum synthesis guards", LM, channels)
+			}
+		}
+	}
+}
 func TestCeltDecodePriorityStoragePointers(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		p := celtDecodePriorityStorage(bands)
