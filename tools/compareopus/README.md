@@ -534,6 +534,26 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four quant-all-bands owner rounds introduce a private quant_all_bands entry with
+typed mode, entropy, seed and band-energy pointers. The public uintptr escape ABI
+remains; the typed CELT decoder now forwards those owners directly rather than
+reconverting them through the public adapter. Integer spectrum/mask/pulse/TF
+arguments retain an explicit escape annotation on the private entry. Context
+mode/entropy/energy assignments occur at their original points, preserving the
+scanned band context's write barriers. Seed load and final store stay in place;
+channel-weight lane loads now use numeric indexing, left before right and before
+any output writes, including valid energy/weight aliases.
+
+Each round runs the existing whole-band scalar C-reference scenarios (including
+encoder theta-RDO entropy snapshots/rollback and final seed), full amd64/386,
+ARM64/QEMU, native comparisons and GC stress without changing encode/decode
+baselines. Grouped typed-owner/seed/weight tests force GC and stack growth; native
+weight comparisons use source-equivalent bands.c MIN32/ADD32 float branches and
+check aliases/guards. Scoped checkptr covers these helpers, not the whole-band
+legacy fixtures. Norm/lowband/RDO scratch, integer-addressed spectra and arrays,
+pseudostack setup/cursor restore remain unmigrated. Typed mode roots do not make
+opaque byte-backed allocations scan their embedded child pointers globally.
+
 Four internal-entry rounds introduce celt_decode_with_ec_dred with typed decoder,
 payload, entropy and float PCM arguments, behind the retained public uintptr
 adapters. Both public forwarding ABIs explicitly escape pointer arguments. The

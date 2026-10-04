@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	"math"
 	"runtime"
 	"testing"
 	"unsafe"
@@ -32,6 +33,37 @@ import (
  * fine). */
 func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
+}
+
+func TestQuantAllBandsEnergyPointers(t *testing.T) {
+	ctx := &band_ctx{Fseed: 123}
+	quantAllBandsSetEnergy(ctx, nil)
+	if ctx.FbandE != nil || ctx.Fseed != 123 {
+		t.Fatal("unused band energy")
+	}
+	energy := []float32{77, 2, 3, 4, 5, 6, 7, 88}
+	quantAllBandsSetEnergy(ctx, &energy[1])
+	mode := &OpusT_OpusCustomMode{FnbEBands: 3}
+	for band := int32(0); band < 3; band++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		var want, w [2]float32
+		compute_channel_weights(nil, energy[1+band], energy[4+band], &want)
+		quantAllBandsChannelWeights(nil, mode, ctx.FbandE, band, &w)
+		if w != want || energy[0] != 77 || energy[7] != 88 {
+			t.Fatal("band energy views")
+		}
+	}
+	left, right := energy[1], energy[4]
+	var want [2]float32
+	compute_channel_weights(nil, left, right, &want)
+	w := (*[2]float32)(unsafe.Pointer(&energy[1]))
+	quantAllBandsChannelWeights(nil, mode, ctx.FbandE, 0, w)
+	for i := range want {
+		if math.Float32bits(w[i]) != math.Float32bits(want[i]) {
+			t.Fatal("energy/weight alias")
+		}
+	}
 }
 
 func TestQuantAllBandsSeedPointers(t *testing.T) {

@@ -11,6 +11,34 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsWeightsAgainstC(t *testing.T) {
+	for _, alias := range []bool{false, true} {
+		for band := int32(0); band < 3; band++ {
+			g := []float32{77, 2, 3, 4, 5, 6, 7, 88}
+			c := append([]float32(nil), g...)
+			mode := opuscc.OpusT_OpusCustomMode{FnbEBands: 3}
+			var gw, cw [2]float32
+			gp, cp := &gw, &cw
+			if alias {
+				gp = (*[2]float32)(unsafe.Pointer(&g[1]))
+				cp = (*[2]float32)(unsafe.Pointer(&c[1]))
+			}
+			opuscc.CompareQuantAllBandsChannelWeights(&mode, &g[1], band, gp)
+			nativeQuantAllBandsWeights(&c[1], 3, band, cp)
+			for i := range gw {
+				if math.Float32bits(gp[i]) != math.Float32bits(cp[i]) {
+					t.Fatal("native band weights", alias, band, i)
+				}
+			}
+			for i := range g {
+				if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+					t.Fatal("native weight guards", alias, band, i)
+				}
+			}
+		}
+	}
+}
+
 func TestCeltDecodeFrameLMAgainstC(t *testing.T) {
 	for _, short := range []int32{60, 120, 240} {
 		for _, maximum := range []int32{-1, 0, 1, 3} {
