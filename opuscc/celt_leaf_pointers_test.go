@@ -55,6 +55,41 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePacketErrorPointers(t *testing.T) {
+	for _, nbits := range []int32{0, 1, 7, 8, 9, 100} {
+		for _, length := range []int32{0, 1, 8, 1275} {
+			for _, flag := range []int32{0, 1, -1} {
+				state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Ferror1: 7, Frng: 123}
+				ec := &OpusT_ec_ctx{Fnbits_total: nbits, Frng: 1, Ferror1: flag}
+				before := *ec
+				entropyInitGrowStack(12)
+				runtime.GC()
+				r := celtDecodePacketError(state, ec, length)
+				want := int32(0)
+				errorFlag := int32(7)
+				if nbits-1 > length*8 {
+					want = -3
+				} else if flag != 0 {
+					errorFlag = 1
+				}
+				if r != want || state.Ferror1 != errorFlag || state.Frng != 123 || *ec != before {
+					t.Fatal("packet error ordering", nbits, length, flag, r)
+				}
+			}
+		}
+	}
+	// Overflow and zero-range fixtures describe Go semantics, not C signed UB.
+	state := OpusT_OpusCustomDecoder{}
+	ec := OpusT_ec_ctx{Fnbits_total: -2147483648, Frng: 1, Ferror1: 1}
+	if celtDecodePacketError(&state, &ec, 1275) != -3 || state.Ferror1 != 0 {
+		t.Fatal("wrapped tell error ordering")
+	}
+	ec.Fnbits_total = 0
+	ec.Frng = 0
+	if celtDecodePacketError(&state, &ec, 0) != 0 || state.Ferror1 != 1 {
+		t.Fatal("zero-range tell")
+	}
+}
 func TestCeltDecodeDeemphasisPointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for _, factor := range []int32{1, 2, 3, 6} {

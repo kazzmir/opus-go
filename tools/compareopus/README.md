@@ -534,6 +534,29 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four subsequent boundary rounds type initial mono energy merging, conditional
+prefilter dispatch, decoder deemphasis forwarding and final entropy/error
+completion. Mono merging keeps MAXG's second-operand tie/NaN choice and only
+writes lane zero. Prefilter dispatch retains the live nonzero fold predicate and
+calls the fully typed prefilter directly. The decode output array is now scanned
+[2]*float32 storage shared by synthesis, postfilter and normal/lost deemphasis;
+coefficient and preemphasis memory pointers use actual mode/state fields rather
+than offsets. Terminal error handling retains int32 tell/length arithmetic,
+returns -3 before sticky-error writes, leaves entropy unchanged and only sets
+state error to one for a nonzero entropy error after passing the budget check.
+Its position after packet reset and legacy cursor restore is unchanged.
+
+Grouped tests cover mono NaNs/ties/infinities/guards, prefilter flags 0/1/-1/7,
+heap mode/history/state owners through GC/stack growth, mono/stereo deemphasis
+factors 1/2/3/6 and accumulation, and exact entropy budget/error ordering. Native
+prefilter comparisons reuse whole scalar folding for active flags, with unchanged
+images for zero flags; deemphasis reuses actual scalar decoder C. Packet-error
+fixtures use actual ec_tell for valid nonzero ranges; signed-overflow and zero-
+range edge fixtures are explicitly Go-only. Per-round full amd64/386,
+ARM64/QEMU, scoped typed-helper/consumer checkptr, native and GC stress retain
+all original encode/decode goldens/tolerances. Final ARM repeats are still not
+whole legacy CELT/quant-all-bands checkptr or a global opaque-scanning proof.
+
 Four postfilter rounds type period clamps, first-short-frame comb inputs,
 tail comb inputs and the channel driver. Clamping retains current-then-previous
 stores each channel. First and tail calls read live decoder gains/periods/tapsets,

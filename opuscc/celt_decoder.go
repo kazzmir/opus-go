@@ -423,6 +423,17 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodePacketError(state *OpusT_OpusCustomDecoder, ec *OpusT_ec_ctx, length int32) int32 {
+	tell := ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	if tell > 8*length {
+		return -3
+	}
+	if ec.Ferror1 != 0 {
+		state.Ferror1 = 1
+	}
+	return 0
+}
+
 func celtDecodeDeemphasis(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, pcm *float32, N, channels, accum int32) {
 	deemphasis(tls, outputs, pcm, N, channels, state.Fdownsample, &mode.Fpreemph[0], &state.Fpreemph_memD[0], accum)
 }
@@ -1359,14 +1370,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	v3 = st
 	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-	v1 = dec
-	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	if v28 > int32(8)*len1 {
-		return -int32(3)
-	}
-	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(dec)).Ferror1
-	if v28 != 0 {
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Ferror1 = int32(1)
+	if errorCode := celtDecodePacketError((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_ec_ctx)(unsafe.Pointer(dec)), len1); errorCode != 0 {
+		return errorCode
 	}
 	return frame_size / (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample
 }

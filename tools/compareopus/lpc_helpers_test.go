@@ -11,6 +11,24 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePacketErrorAgainstC(t *testing.T) {
+	for _, nbits := range []int32{0, 1, 7, 8, 9, 100} {
+		for _, rng := range []uint32{1, 2, 3, 0x80000000, 0xffffffff} {
+			for _, length := range []int32{0, 1, 8, 1275} {
+				for _, flag := range []int32{0, 1, -1} {
+					g := opuscc.OpusT_OpusCustomDecoder{Ferror1: 7, Frng: 123}
+					c := g
+					ec := opuscc.OpusT_ec_ctx{Fnbits_total: nbits, Frng: rng, Ferror1: flag}
+					r := opuscc.CompareCeltDecodePacketError(&g, &ec, length)
+					cr := nativeCeltDecodePacketError(&c, &ec, length)
+					if r != cr || g != c {
+						t.Fatal("packet error", nbits, rng, length, flag, r, cr)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeDeemphasisAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {
