@@ -7,6 +7,9 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltDecodePacketArguments(pcm *float32, length int32) bool {
+	return celtDecodePacketArguments(pcm, length)
+}
 func CompareCeltDecodePacketLost(data *byte, length int32) bool {
 	return celtDecodePacketLost(data, length)
 }

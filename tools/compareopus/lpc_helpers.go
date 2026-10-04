@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static int compare_decode_packet_arguments(const float *pcm,int length) {return !(length<0||length>1275||pcm==NULL);}
 static int compare_decode_packet_lost(const unsigned char *data,int length) {return data==NULL||length<=1;}
 static int compare_decode_packet_start(int loss,int skip) {if(loss==0)skip=0;return skip;}
 static void compare_decode_view_offsets(int *v,int bands,int overlap,int channels,int N) {v[0]=DEC_PITCH_BUF_SIZE+overlap;v[1]=v[0]*channels;v[2]=v[1]+2*bands;v[3]=v[2]+2*bands;v[4]=v[3]+2*bands;v[5]=DEC_PITCH_BUF_SIZE-N;}
@@ -64,6 +65,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodePacketArguments(pcm *float32, length int32) bool {
+	return C.compare_decode_packet_arguments((*C.float)(unsafe.Pointer(pcm)), C.int(length)) != 0
+}
 func nativeCeltDecodePacketLost(data *byte, length int32) bool {
 	return C.compare_decode_packet_lost((*C.uchar)(unsafe.Pointer(data)), C.int(length)) != 0
 }

@@ -11,6 +11,19 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePacketArgumentsAgainstC(t *testing.T) {
+	pcm := float32(123)
+	for _, length := range []int32{-2147483648, -1, 0, 1, 1275, 1276, 2147483647} {
+		for _, p := range []*float32{nil, &pcm} {
+			if opuscc.CompareCeltDecodePacketArguments(p, length) != nativeCeltDecodePacketArguments(p, length) {
+				t.Fatal("packet arguments", length)
+			}
+		}
+	}
+	if pcm != 123 {
+		t.Fatal("validation wrote PCM")
+	}
+}
 func TestCeltDecodePacketLostAgainstC(t *testing.T) {
 	data := []byte{0, 71, 255}
 	for _, length := range []int32{-1, 0, 1, 2, 1275} {
