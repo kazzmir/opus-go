@@ -423,6 +423,17 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeSilenceEnergy(energy *float32, bands, channels int32) {
+	length := bands * channels
+	if length <= 0 {
+		return
+	}
+	e := unsafe.Slice(energy, length)
+	for i := range e {
+		e[i] = -28
+	}
+}
+
 func celtDecodeHistoryMove(history *float32, N, length int32) {
 	if length == 0 {
 		return
@@ -1292,14 +1303,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		Opus_anti_collapse(tls, antiMode.FeBands, antiMode.FnbEBands, unsafe.SliceData(X), unsafe.SliceData(collapse_masks), LM, C, N, start, end, (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), unsafe.SliceData(pulses), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
 	}
 	if silence != 0 {
-		i = 0
-		for {
-			if !(i < C*nbEBands) {
-				break
-			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(i)*4)) = -float32(28)
-			i = i + 1
-		}
+		celtDecodeSilenceEnergy((*float32)(unsafe.Pointer(oldBandE)), nbEBands, C)
 	}
 	if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold != 0 {
 		prefilter_and_fold_legacy(tls, st1, N)

@@ -55,6 +55,33 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeSilenceEnergyPointers(t *testing.T) {
+	celtDecodeSilenceEnergy(nil, 0, 2)
+	celtDecodeSilenceEnergy(nil, 25, 0)
+	// The original Go count multiplication wraps; this is not a C-overflow oracle.
+	celtDecodeSilenceEnergy(nil, 0x7fffffff, 2)
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, channels := range []int32{1, 2} {
+			e := make([]float32, bands*channels+2)
+			for i := range e {
+				e[i] = math.Float32frombits(0x7fc12345)
+			}
+			e[0] = 901
+			e[len(e)-1] = -902
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodeSilenceEnergy(&e[1], bands, channels)
+			if e[0] != 901 || e[len(e)-1] != -902 {
+				t.Fatal("silence energy guards")
+			}
+			for _, v := range e[1 : len(e)-1] {
+				if math.Float32bits(v) != math.Float32bits(-28) {
+					t.Fatal("silence energy fill")
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeHistoryMovePointers(t *testing.T) {
 	celtDecodeHistoryMove(nil, 960, 0)
 	for _, N := range []int32{0, 1, 120, 240, 960} {

@@ -11,6 +11,26 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeSilenceEnergyAgainstC(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, channels := range []int32{1, 2} {
+			e := make([]float32, bands*channels+2)
+			for i := range e {
+				e[i] = math.Float32frombits(0x7fc12345)
+			}
+			e[0] = 901
+			e[len(e)-1] = -902
+			c := slices.Clone(e)
+			opuscc.CompareCeltDecodeSilenceEnergy(&e[1], bands, channels)
+			nativeCeltDecodeSilenceEnergy(&c[1], bands, channels)
+			for i := range e {
+				if math.Float32bits(e[i]) != math.Float32bits(c[i]) {
+					t.Fatal("silence energy", bands, channels, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeHistoryMoveAgainstC(t *testing.T) {
 	for _, N := range []int32{0, 1, 120, 240, 960} {
 		for _, length := range []int32{0, 1, 128, 2048} {
