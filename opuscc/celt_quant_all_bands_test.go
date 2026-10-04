@@ -35,6 +35,34 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsInitialStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 1, 4, 64, 960} {
+		x, y := quantAllBandsInitialStorage(N)
+		if len(x) != int(N) || len(y) != int(N) || N == 0 && (x != nil || y != nil) {
+			t.Fatal("initial snapshot size", N)
+		}
+		if N == 0 {
+			continue
+		}
+		src := make([]float32, N)
+		for i := range src {
+			src[i] = float32(i) + .25
+		}
+		quantAllBandsCopy(unsafe.SliceData(x), unsafe.SliceData(src), N)
+		src[0] = -7
+		quantAllBandsCopy(unsafe.SliceData(y), unsafe.SliceData(src), N)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if x[0] != .25 || y[0] != -7 {
+			t.Fatal("independent retained snapshots", N)
+		}
+		quantAllBandsCopy(unsafe.SliceData(src), unsafe.SliceData(x), N)
+		if src[0] != .25 {
+			t.Fatal("initial restoration")
+		}
+	}
+}
+
 func TestQuantAllBandsBytePointers(t *testing.T) {
 	if quantAllBandsByteStorage(0) != nil || len(quantAllBandsByteStorage(-1)) != 1275 {
 		t.Fatal("byte scratch predicate")
