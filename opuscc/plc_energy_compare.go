@@ -7,6 +7,55 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltDecodeFrameLM(mode *OpusT_OpusCustomMode, frameSize int32) int32 {
+	return celtDecodeFrameLM(mode, frameSize)
+}
+func CompareCeltDecodePacketArguments(pcm *float32, length int32) bool {
+	return celtDecodePacketArguments(pcm, length)
+}
+func CompareCeltDecodePacketLost(data *byte, length int32) bool {
+	return celtDecodePacketLost(data, length)
+}
+func CompareCeltDecodePacketStart(state *OpusT_OpusCustomDecoder) { celtDecodePacketStart(state) }
+func CompareCeltDecodeHistoryViews(state *OpusT_OpusCustomDecoder, overlap, channels, N int32) ([2][]float32, [2]*float32) {
+	return celtDecodeHistoryViews(state, overlap, channels, N)
+}
+func CompareCeltDecodeEnergyViews(state *OpusT_OpusCustomDecoder, bands, overlap, channels int32) (*float32, *float32, *float32, *float32) {
+	return celtDecodeEnergyViews(state, bands, overlap, channels)
+}
+func CompareCeltDecodeEntropy(provided, local *OpusT_ec_ctx, data *byte, length int32) *OpusT_ec_ctx {
+	return celtDecodeEntropy(nil, provided, local, data, length)
+}
+func CompareCeltDecodeMode(state *OpusT_OpusCustomDecoder) (*OpusT_OpusCustomMode, int32, int32, *int16) {
+	return celtDecodeMode(state)
+}
+func CompareCeltDecodeAntiCollapseBit(ec *OpusT_ec_ctx, reserved int32) int32 {
+	return celtDecodeAntiCollapseBit(nil, ec, reserved)
+}
+func CompareCeltDecodeAntiCollapse(state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, spectrum *float32, masks *byte, pulses *int32, energy, log, previous *float32, N, LM, channels, start, end, on int32) {
+	celtDecodeAntiCollapse(nil, state, mode, spectrum, masks, pulses, energy, log, previous, N, LM, channels, start, end, on)
+}
+func CompareCeltDecodeFinalEnergy(mode *OpusT_OpusCustomMode, energy *float32, fine, priority *int32, start, end, length, channels int32, ec *OpusT_ec_ctx) {
+	celtDecodeFinalEnergy(nil, mode, energy, fine, priority, start, end, length, channels, ec)
+}
+func CompareCeltDecodeAllocationBudget(ec *OpusT_ec_ctx, length, transient, LM int32) (int32, int32) {
+	return celtDecodeAllocationBudget(nil, ec, length, transient, LM)
+}
+func CompareCeltDecodeTrim(ec *OpusT_ec_ctx, tell, total int32) int32 {
+	return celtDecodeTrim(nil, ec, tell, total)
+}
+func CompareCeltDecodeSpread(ec *OpusT_ec_ctx, total int32) (int32, int32) {
+	return celtDecodeSpread(nil, ec, total)
+}
+func CompareCeltDecodeGlobalFlags(ec *OpusT_ec_ctx, LM, M, total, tell int32) (int32, int32, int32, int32) {
+	return celtDecodeGlobalFlags(nil, ec, LM, M, total, tell)
+}
+func CompareCeltDecodePostfilterHeader(ec *OpusT_ec_ctx, start, total, tell int32) (int32, float32, int32, int32) {
+	return celtDecodePostfilterHeader(nil, ec, start, total, tell)
+}
+func CompareCeltDecodeSilence(ec *OpusT_ec_ctx, total int32) (int32, int32) {
+	return celtDecodeSilence(nil, ec, total)
+}
 func CompareCeltDecodePacketError(state *OpusT_OpusCustomDecoder, ec *OpusT_ec_ctx, length int32) int32 {
 	return celtDecodePacketError(state, ec, length)
 }

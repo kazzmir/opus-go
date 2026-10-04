@@ -3,6 +3,7 @@ package opuscc
 import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 	"math"
+	"math/bits"
 	"runtime"
 	"testing"
 	"unsafe"
@@ -53,6 +54,373 @@ func TestCeltPLCModePointers(t *testing.T) {
 	runtime.GC()
 	if nb != 21 || overlap != 120 || m.FeBands != bands || unsafe.Slice(bands, nb+1)[nb] != 100 || m.Fmdct.Fkfft[0] == nil {
 		t.Fatal("typed mode/table owners", nb, overlap)
+	}
+}
+func TestCeltDecodeFrameLMPointers(t *testing.T) {
+	for _, short := range []int32{60, 120, 240} {
+		for _, maximum := range []int32{-1, 0, 1, 3} {
+			for _, frame := range []int32{-1, 0, 59, 60, 119, 120, 240, 480, 960, 1920} {
+				mode := &OpusT_OpusCustomMode{FshortMdctSize: short, FmaxLM: maximum}
+				want := int32(-1)
+				for LM := int32(0); LM <= maximum; LM++ {
+					if short<<LM == frame {
+						want = LM
+						break
+					}
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				if celtDecodeFrameLM(mode, frame) != want {
+					t.Fatal("frame-size matching", short, maximum, frame)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodePacketArgumentsPointers(t *testing.T) {
+	pcm := new(float32)
+	*pcm = 123
+	for _, length := range []int32{-2147483648, -1, 0, 1, 1275, 1276, 2147483647} {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if celtDecodePacketArguments(nil, length) || celtDecodePacketArguments(pcm, length) != (length >= 0 && length <= 1275) || *pcm != 123 {
+			t.Fatal("packet arguments", length)
+		}
+	}
+}
+func TestCeltDecodePacketLostPointers(t *testing.T) {
+	data := []byte{0, 71, 255}
+	for _, length := range []int32{-1, 0, 1, 2, 1275} {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if !celtDecodePacketLost(nil, length) || celtDecodePacketLost(&data[0], length) != (length <= 1) {
+			t.Fatal("loss packet predicate", length)
+		}
+	}
+}
+func TestCeltDecodePacketStartPointers(t *testing.T) {
+	for _, loss := range []int32{-1, 0, 1, 40} {
+		for _, skip := range []int32{-1, 0, 1, 7} {
+			state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Floss_duration: loss, Fskip_plc: skip, Frng: 123}
+			want := *state
+			if loss == 0 {
+				want.Fskip_plc = 0
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodePacketStart(state)
+			if *state != want {
+				t.Fatal("packet continuity", loss, skip)
+			}
+		}
+	}
+}
+func TestCeltDecodeHistoryViewsPointers(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			for _, N := range []int32{0, 120, 960} {
+				storage := new(celtStateTestStorage)
+				state := &storage.State
+				h, out := celtDecodeHistoryViews(state, overlap, channels, N)
+				base := unsafe.Slice(&state.F_decode_mem[0], (2048+overlap)*max(channels, 1))
+				entropyInitGrowStack(12)
+				runtime.GC()
+				for c := int32(0); c < max(channels, 1); c++ {
+					if len(h[c]) != int(2048+overlap) || &h[c][0] != &base[c*(2048+overlap)] {
+						t.Fatal("decode history geometry")
+					}
+					if N == 0 {
+						if out[c] != nil {
+							t.Fatal("unused zero-frame output")
+						}
+					} else if out[c] != &h[c][2048-N] {
+						t.Fatal("decode output geometry")
+					}
+					h[c][0] = float32(c + 1)
+				}
+				if channels < 2 && (h[1] != nil || out[1] != nil) {
+					t.Fatal("unused mono history")
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeEnergyViewsPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			storage := new(celtStateTestStorage)
+			state := &storage.State
+			state.Fmode = newSynthesisTestMode()
+			e, l, p, b := celtDecodeEnergyViews(state, 21, overlap, channels)
+			memory := unsafe.Slice(&state.F_decode_mem[0], (2048+overlap)*channels+168)
+			offset := (2048 + overlap) * channels
+			if e != &memory[offset] || l != &memory[offset+42] || p != &memory[offset+84] || b != &memory[offset+126] {
+				t.Fatal("energy view offsets")
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			*e = 1
+			*l = 2
+			*p = 3
+			*b = 4
+			if memory[offset] != 1 || memory[offset+42] != 2 || memory[offset+84] != 3 || memory[offset+126] != 4 {
+				t.Fatal("retained energy view stores")
+			}
+		}
+	}
+	e, l, p, b := celtDecodeEnergyViews(nil, 0, 0, 1)
+	if e != nil || l != nil || p != nil || b != nil {
+		t.Fatal("unused energy views")
+	}
+}
+func TestCeltDecodeEntropyPointers(t *testing.T) {
+	data := []byte{0, 71, 255, 13}
+	local := new(OpusT_ec_ctx)
+	reference := new(OpusT_ec_ctx)
+	Opus_ec_dec_init(nil, reference, &data[0], 4)
+	ec := celtDecodeEntropy(nil, nil, local, &data[0], 4)
+	local = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *ec != *reference || ec.Fbuf != &data[0] {
+		t.Fatal("owned local decode entropy")
+	}
+	unused := OpusT_ec_ctx{Ferror1: 17}
+	before := unused
+	if celtDecodeEntropy(nil, ec, &unused, nil, -1) != ec || unused != before {
+		t.Fatal("provided entropy init ordering")
+	}
+}
+func TestCeltDecodeModePointers(t *testing.T) {
+	state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode()}
+	want := state.Fmode
+	mode, bands, overlap, boundaries := celtDecodeMode(state)
+	state.Fmode = nil
+	state = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if mode != want || bands != 21 || overlap != 120 || boundaries != mode.FeBands || unsafe.Slice(boundaries, bands+1)[bands] != 100 {
+		t.Fatal("retained decode mode owner")
+	}
+}
+func TestCeltDecodeAntiCollapsePointers(t *testing.T) {
+	celtDecodeAntiCollapse(nil, nil, nil, nil, nil, nil, nil, nil, nil, 120, 0, 1, 0, 21, 0)
+	if celtDecodeAntiCollapseBit(nil, nil, 0) != 0 || celtDecodeAntiCollapseBit(nil, nil, -1) != 0 {
+		t.Fatal("unused anti-collapse entropy")
+	}
+	for _, reserved := range []int32{-1, 0, 8} {
+		data := []byte{0, 71, 255, 13}
+		var ec OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &ec, &data[0], 4)
+		ref := ec
+		want := int32(0)
+		if reserved > 0 {
+			want = int32(Opus_ec_dec_bits(nil, &ref, 1))
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := celtDecodeAntiCollapseBit(nil, &ec, reserved)
+		if got != want || ec != ref {
+			t.Fatal("anti-collapse reservation bit")
+		}
+	}
+}
+func TestCeltDecodeFinalEnergyPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, length := range []int32{0, 1, 2, 16} {
+			mode := newSynthesisTestMode()
+			e := make([]float32, 44)
+			for i := range e {
+				e[i] = -12
+			}
+			e[0] = 901
+			e[43] = 902
+			fine, priority := celtDecodeFineStorage(21), celtDecodePriorityStorage(21)
+			for i := range fine {
+				fine[i] = int32(i % 9)
+				priority[i] = int32(i % 2)
+			}
+			want := append([]float32(nil), e...)
+			data := []byte{0, 71, 255, 13, 40}
+			var ec OpusT_ec_ctx
+			Opus_ec_dec_init(nil, &ec, &data[0], 5)
+			ref := ec
+			tell := ref.Fnbits_total - int32(bits.Len32(ref.Frng))
+			Opus_unquant_energy_finalise(nil, mode, 0, 21, &want[1], &fine[0], &priority[0], length*8-tell, &ref, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodeFinalEnergy(nil, mode, &e[1], &fine[0], &priority[0], 0, 21, length, channels, &ec)
+			if ec != ref {
+				t.Fatal("final energy entropy")
+			}
+			for i := range e {
+				if math.Float32bits(e[i]) != math.Float32bits(want[i]) {
+					t.Fatal("final energy forwarding", channels, length, i)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeAllocationBudgetPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, tr := range []int32{0, 1, -1} {
+			for _, length := range []int32{0, 1, 2, 16, 1275} {
+				data := []byte{0, 71, 255, 13}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 4)
+				before := ec
+				want := (length*8)<<BITRES - int32(Opus_ec_tell_frac(nil, &ec)) - 1
+				reserve := int32(0)
+				if tr != 0 && LM >= 2 && want >= (LM+2)<<BITRES {
+					reserve = 1 << BITRES
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				budget, r := celtDecodeAllocationBudget(nil, &ec, length, tr, LM)
+				if budget != want-reserve || r != reserve || ec != before {
+					t.Fatal("allocation reservation", LM, tr, length)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeTrimPointers(t *testing.T) {
+	for _, tell := range []int32{0, 8, 49} {
+		for _, total := range []int32{0, 47, 48, 49, 128} {
+			for _, pattern := range []byte{0, 71, 255} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				ref := ec
+				want := int32(5)
+				if tell+48 <= total {
+					want = Opus_ec_dec_icdf(nil, &ref, &trim_icdf9[0], 7)
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				got := celtDecodeTrim(nil, &ec, tell, total)
+				if got != want || ec != ref {
+					t.Fatal("trim header", tell, total, pattern)
+				}
+			}
+		}
+	}
+	if celtDecodeTrim(nil, nil, 1, 0) != 5 {
+		t.Fatal("unused trim entropy")
+	}
+}
+func TestCeltDecodeSpreadPointers(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 4, 5, 8, 128} {
+			data := make([]byte, 16)
+			for i := range data {
+				data[i] = pattern
+			}
+			var ec OpusT_ec_ctx
+			Opus_ec_dec_init(nil, &ec, &data[0], 16)
+			ref := ec
+			wantTell := ref.Fnbits_total - int32(bits.Len32(ref.Frng))
+			want := int32(SPREAD_NORMAL)
+			if wantTell+4 <= total {
+				want = Opus_ec_dec_icdf(nil, &ref, &spread_icdf9[0], 5)
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			spread, tell := celtDecodeSpread(nil, &ec, total)
+			if ec != ref || spread != want || tell != wantTell {
+				t.Fatal("spreading cached tell", pattern, total)
+			}
+		}
+	}
+}
+func TestCeltDecodeGlobalFlagsPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, total := range []int32{0, 3, 4, 8, 128} {
+			for _, pattern := range []byte{0, 71, 255} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				ref := ec
+				wt, ws, wi, wtell := int32(0), int32(0), int32(0), int32(1)
+				if LM > 0 && wtell+3 <= total {
+					wt = Opus_ec_dec_bit_logp(nil, &ref, 3)
+					wtell = ref.Fnbits_total - int32(bits.Len32(ref.Frng))
+				}
+				if wt != 0 {
+					ws = 1 << LM
+				}
+				if wtell+3 <= total {
+					wi = Opus_ec_dec_bit_logp(nil, &ref, 3)
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				tr, short, intra, tell := celtDecodeGlobalFlags(nil, &ec, LM, 1<<LM, total, 1)
+				if ec != ref || tr != wt || short != ws || intra != wi || tell != wtell {
+					t.Fatal("global flags cached tell", LM, total, pattern)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodePostfilterHeaderPointers(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 16, 17, 32, 128} {
+			for _, start := range []int32{0, 1} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				before := ec
+				entropyInitGrowStack(12)
+				runtime.GC()
+				p, g, tap, tell := celtDecodePostfilterHeader(nil, &ec, start, total, 1)
+				if start != 0 || total < 17 {
+					if ec != before || p != 0 || g != 0 || tap != 0 || tell != 1 {
+						t.Fatal("postfilter header budget guard")
+					}
+				} else if p < 0 || p > 1022 || g < 0 || g > .75 || tap < 0 || tap > 2 || tell != ec.Fnbits_total-int32(bits.Len32(ec.Frng)) {
+					t.Fatal("postfilter header values", p, g, tap, tell)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeSilencePointers(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 1, 8, 16, 128} {
+			data := make([]byte, 16)
+			for i := range data {
+				data[i] = pattern
+			}
+			var ec OpusT_ec_ctx
+			Opus_ec_dec_init(nil, &ec, &data[0], 16)
+			ref := ec
+			wantTell := ref.Fnbits_total - int32(bits.Len32(ref.Frng))
+			wantSilence := int32(0)
+			if wantTell >= total {
+				wantSilence = 1
+			} else if wantTell == 1 {
+				wantSilence = Opus_ec_dec_bit_logp(nil, &ref, 15)
+			}
+			if wantSilence != 0 {
+				wantTell = total
+				ref.Fnbits_total += total - (ref.Fnbits_total - int32(bits.Len32(ref.Frng)))
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			s, tell := celtDecodeSilence(nil, &ec, total)
+			if s != wantSilence || tell != wantTell || ec != ref {
+				t.Fatal("silence header", pattern, total)
+			}
+		}
 	}
 }
 func TestCeltDecodePacketErrorPointers(t *testing.T) {
@@ -558,7 +926,7 @@ func TestCeltDecodeMaskStoragePointers(t *testing.T) {
 			}
 			entropyInitGrowStack(12)
 			runtime.GC()
-			Opus_anti_collapse(nil, mode.FeBands, 21, &s[1], &m[0], LM, channels, N, 0, 21, &energy[0], &previous[0], &older[0], &pulses[0], 123, 0, 0)
+			celtDecodeAntiCollapse(nil, &OpusT_OpusCustomDecoder{Frng: 123}, mode, &s[1], &m[0], &pulses[0], &energy[0], &previous[0], &older[0], N, LM, channels, 0, 21, 1)
 			if s[0] != 901 || s[len(s)-1] != 902 {
 				t.Fatal("owned mask anti-collapse guards")
 			}

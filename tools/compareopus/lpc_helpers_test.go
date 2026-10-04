@@ -11,6 +11,282 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeFrameLMAgainstC(t *testing.T) {
+	for _, short := range []int32{60, 120, 240} {
+		for _, maximum := range []int32{-1, 0, 1, 3} {
+			for _, frame := range []int32{-1, 0, 59, 60, 119, 120, 240, 480, 960, 1920} {
+				mode := opuscc.OpusT_OpusCustomMode{FshortMdctSize: short, FmaxLM: maximum}
+				if opuscc.CompareCeltDecodeFrameLM(&mode, frame) != nativeCeltDecodeFrameLM(short, maximum, frame) {
+					t.Fatal("frame-size matching", short, maximum, frame)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodePacketArgumentsAgainstC(t *testing.T) {
+	pcm := float32(123)
+	for _, length := range []int32{-2147483648, -1, 0, 1, 1275, 1276, 2147483647} {
+		for _, p := range []*float32{nil, &pcm} {
+			if opuscc.CompareCeltDecodePacketArguments(p, length) != nativeCeltDecodePacketArguments(p, length) {
+				t.Fatal("packet arguments", length)
+			}
+		}
+	}
+	if pcm != 123 {
+		t.Fatal("validation wrote PCM")
+	}
+}
+func TestCeltDecodePacketLostAgainstC(t *testing.T) {
+	data := []byte{0, 71, 255}
+	for _, length := range []int32{-1, 0, 1, 2, 1275} {
+		for _, p := range []*byte{nil, &data[0]} {
+			if opuscc.CompareCeltDecodePacketLost(p, length) != nativeCeltDecodePacketLost(p, length) {
+				t.Fatal("loss packet predicate", length)
+			}
+		}
+	}
+}
+func TestCeltDecodePacketStartAgainstC(t *testing.T) {
+	for _, loss := range []int32{-1, 0, 1, 40} {
+		for _, skip := range []int32{-1, 0, 1, 7} {
+			state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: loss, Fskip_plc: skip, Frng: 123}
+			opuscc.CompareCeltDecodePacketStart(&state)
+			if state.Fskip_plc != nativeCeltDecodePacketStart(loss, skip) || state.Floss_duration != loss || state.Frng != 123 {
+				t.Fatal("packet continuity", loss, skip)
+			}
+		}
+	}
+}
+func TestCeltDecodeHistoryViewsAgainstC(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			for _, N := range []int32{120, 960} {
+				memory := make([]float32, 5000)
+				state := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&memory[0]))
+				h, out := opuscc.CompareCeltDecodeHistoryViews(state, overlap, channels, N)
+				base := uintptr(unsafe.Pointer(&state.F_decode_mem[0]))
+				offsets := nativeCeltDecodeViewOffsets(21, overlap, channels, N)
+				for c := int32(0); c < channels; c++ {
+					if len(h[c]) != int(offsets[0]) || uintptr(unsafe.Pointer(&h[c][0]))-base != uintptr(c*offsets[0])*4 || uintptr(unsafe.Pointer(out[c]))-base != uintptr(c*offsets[0]+offsets[5])*4 {
+						t.Fatal("native history geometry", channels, overlap, N, c)
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeEnergyViewsAgainstC(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			memory := make([]float32, 5000)
+			state := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&memory[0]))
+			e, l, p, b := opuscc.CompareCeltDecodeEnergyViews(state, 21, overlap, channels)
+			base := unsafe.Pointer(&state.F_decode_mem[0])
+			views := []*float32{e, l, p, b}
+			offsets := nativeCeltDecodeViewOffsets(21, overlap, channels, 120)
+			for i, view := range views {
+				if uintptr(unsafe.Pointer(view))-uintptr(base) != uintptr(offsets[i+1])*4 {
+					t.Fatal("native energy view geometry", channels, overlap, i)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeEntropyAgainstC(t *testing.T) {
+	data := []byte{0, 71, 255, 13}
+	var local opuscc.OpusT_ec_ctx
+	ec := opuscc.CompareCeltDecodeEntropy(nil, &local, &data[0], 4)
+	c := *ec
+	a := [8]int32{128}
+	s, tell := opuscc.CompareCeltDecodeSilence(ec, 128)
+	nativeCeltDecodeHeader(&c, data, 0, &a)
+	if *ec != c || s != a[1] || tell != a[2] {
+		t.Fatal("local entropy consumer parity")
+	}
+}
+func TestCeltDecodeModeAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := opuscc.OpusT_OpusCustomDecoder{Fmode: mode}
+	owner, bands, overlap, boundaries := opuscc.CompareCeltDecodeMode(&state)
+	code, values := nativeCustomMode(48000, 960)
+	if code != 0 || owner != mode || bands != values[2] || overlap != values[1] || boundaries != mode.FeBands {
+		t.Fatal("decode mode metadata", values)
+	}
+}
+func TestCeltDecodeAntiCollapseBitAgainstC(t *testing.T) {
+	for _, reserved := range []int32{-1, 0, 8} {
+		for _, pattern := range []byte{0, 71, 255} {
+			data := []byte{pattern, pattern, pattern, pattern}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 4)
+			c := ec
+			a := [8]int32{reserved}
+			got := opuscc.CompareCeltDecodeAntiCollapseBit(&ec, reserved)
+			nativeCeltDecodeHeader(&c, data, 6, &a)
+			if got != a[1] || ec != c {
+				t.Fatal("anti-collapse bit", reserved, pattern)
+			}
+		}
+	}
+}
+func TestCeltDecodeFinalEnergyAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		for _, length := range []int32{0, 1, 2, 16} {
+			e := make([]float32, 44)
+			for i := range e {
+				e[i] = -12
+			}
+			e[0] = 901
+			e[43] = 902
+			cEnergy := slices.Clone(e)
+			fine, priority := opuscc.CompareCeltDecodeFineStorage(21), opuscc.CompareCeltDecodePriorityStorage(21)
+			for i := range fine {
+				fine[i] = int32(i % 9)
+				priority[i] = int32(i % 2)
+			}
+			data := []byte{0, 71, 255, 13, 40}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 5)
+			c := ec
+			opuscc.CompareCeltDecodeFinalEnergy(mode, &e[1], &fine[0], &priority[0], 0, 21, length, channels, &ec)
+			nativeEnergyDecode(&c, data, cEnergy[1:], 21, 0, 21, channels, 2, length*8-1, 0, fine, priority)
+			if ec != c {
+				t.Fatal("final energy forwarding entropy")
+			}
+			for i := range e {
+				if math.Float32bits(e[i]) != math.Float32bits(cEnergy[i]) {
+					t.Fatal("final energy forwarding", channels, length, i)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeAllocationBudgetAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, tr := range []int32{0, 1, -1} {
+			for _, length := range []int32{0, 1, 2, 16, 1275} {
+				data := []byte{0, 71, 255, 13}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 4)
+				c := ec
+				a := [8]int32{length, tr, LM}
+				budget, r := opuscc.CompareCeltDecodeAllocationBudget(&ec, length, tr, LM)
+				nativeCeltDecodeHeader(&c, data, 5, &a)
+				if ec != c || budget != a[3] || r != a[4] {
+					t.Fatal("allocation reservation", LM, tr, length)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeTrimAgainstC(t *testing.T) {
+	for _, tell := range []int32{0, 8, 49} {
+		for _, total := range []int32{0, 47, 48, 49, 128} {
+			for _, pattern := range []byte{0, 71, 255} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				c := ec
+				a := [8]int32{tell, total}
+				got := opuscc.CompareCeltDecodeTrim(&ec, tell, total)
+				nativeCeltDecodeHeader(&c, data, 4, &a)
+				if got != a[2] || ec != c {
+					t.Fatal("trim header", tell, total, pattern)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeSpreadAgainstC(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 4, 5, 8, 128} {
+			data := make([]byte, 16)
+			for i := range data {
+				data[i] = pattern
+			}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+			c := ec
+			a := [8]int32{total}
+			spread, tell := opuscc.CompareCeltDecodeSpread(&ec, total)
+			nativeCeltDecodeHeader(&c, data, 3, &a)
+			if ec != c || spread != a[1] || tell != a[2] {
+				t.Fatal("spreading header", pattern, total)
+			}
+		}
+	}
+}
+func TestCeltDecodeGlobalFlagsAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, total := range []int32{0, 3, 4, 8, 128} {
+			for _, pattern := range []byte{0, 71, 255} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				c := ec
+				a := [8]int32{LM, 1 << LM, 1, total}
+				tr, short, intra, tell := opuscc.CompareCeltDecodeGlobalFlags(&ec, LM, 1<<LM, total, 1)
+				nativeCeltDecodeHeader(&c, data, 2, &a)
+				if ec != c || tr != a[4] || short != a[5] || intra != a[6] || tell != a[7] {
+					t.Fatal("global flags", LM, total, pattern)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodePostfilterHeaderAgainstC(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 16, 17, 32, 128} {
+			for _, start := range []int32{0, 1} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				c := ec
+				a := [8]int32{start, 1, total}
+				p, g, tap, tell := opuscc.CompareCeltDecodePostfilterHeader(&ec, start, total, 1)
+				cg := nativeCeltDecodeHeader(&c, data, 1, &a)
+				if ec != c || p != a[3] || tap != a[4] || tell != a[5] || math.Float32bits(g) != math.Float32bits(cg) {
+					t.Fatal("postfilter header", pattern, total, start, p, g, tap, tell, a)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeSilenceAgainstC(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 1, 8, 16, 128} {
+			data := make([]byte, 16)
+			for i := range data {
+				data[i] = pattern
+			}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+			c := ec
+			a := [8]int32{total}
+			s, tell := opuscc.CompareCeltDecodeSilence(&ec, total)
+			nativeCeltDecodeHeader(&c, data, 0, &a)
+			if ec != c || s != a[1] || tell != a[2] {
+				t.Fatal("silence header", pattern, total)
+			}
+		}
+	}
+}
 func TestCeltDecodePacketErrorAgainstC(t *testing.T) {
 	for _, nbits := range []int32{0, 1, 7, 8, 9, 100} {
 		for _, rng := range []uint32{1, 2, 3, 0x80000000, 0xffffffff} {
@@ -401,7 +677,7 @@ func TestCeltDecodeMaskStorageAgainstC(t *testing.T) {
 			for i := range pulses {
 				pulses[i] = int32(i)*32 + 8
 			}
-			opuscc.Opus_anti_collapse(nil, mode.FeBands, 21, &s[0], &m[0], LM, channels, N, 0, 21, &energy[0], &previous[0], &older[0], &pulses[0], 123, 0, 0)
+			opuscc.CompareCeltDecodeAntiCollapse(&opuscc.OpusT_OpusCustomDecoder{Frng: 123}, mode, &s[0], &m[0], &pulses[0], &energy[0], &previous[0], &older[0], N, LM, channels, 0, 21, 1)
 			nativeAntiCollapse(bands, 21, c, m, LM, channels, N, 0, 21, energy, previous, older, pulses, 123, 0)
 			for i := range s {
 				if math.Float32bits(s[i]) != math.Float32bits(c[i]) {

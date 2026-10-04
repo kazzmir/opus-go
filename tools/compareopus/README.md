@@ -534,6 +534,85 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four internal-entry rounds introduce celt_decode_with_ec_dred with typed decoder,
+payload, entropy and float PCM arguments, behind the retained public uintptr
+adapters. Both public forwarding ABIs explicitly escape pointer arguments. The
+legacy quant-all-bands seed argument is now the direct address of the typed rng
+field, not a decoder-base integer offset. Packet continuity, loss-packet predicate
+and PCM/length validation helpers preserve their original ordering. Frame-size
+matching uses a typed mode and the same live maxLM/short-size loop, before packet
+argument validation and without moving N computation ahead of it.
+
+Per-round full amd64/386 and ARM64/QEMU suites, native comparisons, GC stress and
+unchanged encode/decode baselines exercise the private entry via the public ABI.
+Grouped scoped checkptr/native tests cover continuity, nil payload/PCM,
+length bounds, zero/one-byte loss predicates and frame-size matching. This is a
+typed entry/owner migration, not yet a full active-path checkptr proof: initial
+pseudostack setup/cursor restore and quant-all-bands still use legacy integer
+addresses. Existing redundant typed-pointer casts do not turn those owners back
+into integer addresses. Opaque byte-backed decoder allocations still do not scan
+embedded pointer fields; public ABI retention alone does not fix that storage.
+
+Four outer-owner rounds retain typed mode and entropy, replace energy-history
+integer addresses with typed numeric views, and replace decode-history integer
+addresses with scanned channel slices/output pointers. The mode getter snapshots
+bands/overlap/eBands at the same point after decoder validation. Entropy retains
+an existing context untouched or initializes a scanned local context with its
+typed payload pointer; only quant-all-bands reconverts mode/context at its escape
+ABI. Energy/log/previous/background views use stride*channels then 2*bands lane
+increments. History slices use (DEC_PITCH_BUF_SIZE+overlap) stride and outputs at
+DEC_PITCH_BUF_SIZE-N, preserving mono unused lanes and zero-frame nil outputs.
+
+Grouped tests force GC/stack growth with heap modes, scanned decoder-tail
+fixtures and typed entropy contexts, verify stores/owners/unused views, and
+compare mode metadata, entropy consumers and C-source numeric view geometry.
+Native view fixtures compare formulas, not a whole outer-frame pointer oracle;
+float-backed numeric images never acquire embedded Go owners. Full amd64/386,
+ARM64/QEMU, scoped typed-helper/consumer checkptr, native and GC stress preserve
+existing encode/decode goldens/tolerances. Repeated ARM checkptr remains scoped:
+public decoder/payload/PCM uintptr entry and legacy quant-all-bands/pseudostack
+remain, and opaque byte-backed embedded pointers are still not scanned globally.
+
+Four allocation/finalization rounds type trim selection, fractional bit-budget
+and anti-collapse reservation, final-energy forwarding, and anti-collapse bit/
+dispatch boundaries. Trim keeps the cached fractional tell plus six-bit guard and
+default five without consuming unused entropy. Reservation keeps int32 length*8
+shift, tell-frac subtraction, minus one, nonzero-transient/LM>=2 threshold and
+one-bit refund before allocation. Final energy samples integer tell at its original
+position and forwards typed mode/energy/fine/priority/entropy owners. The reserved
+bit still decodes before final energy; conditional anti-collapse still runs after
+it with live seed/arch and typed spectra/masks/history/pulse owners.
+
+Grouped tests cover budget gates, negative/zero flags, nil unused entropy/mode/
+state inputs, mono/stereo final-energy guards and complete entropy state. Existing
+owned-mask pipelines now exercise the dispatch helper with full LM0..3 native
+scalar anti-collapse parity. C trim/reservation/raw-bit fixtures use actual
+celt.h tables/entropy kernels; final energy reuses actual quant_bands.c. Each
+round retains full amd64/386, ARM64/QEMU, scoped typed-helper/consumer checkptr,
+native, GC stress and unchanged encode/decode goldens/tolerances, followed by
+separate repeated ARM pointer and ordinary golden tests. These boundaries do not
+make the remaining outer CELT/quant-all-bands integer views globally GC-safe.
+
+Four header rounds type silence recognition/budget exhaustion, postfilter
+parameter decoding, transient/intra flags, and spreading selection. All retain
+typed entropy/payload owners and numeric int32 tell arithmetic. Silence keeps
+the initial tell snapshot unless exhaustion advances total nbits. Postfilter
+retains the start/budget gate, octave uint/raw-bit/gain/tapset decoding order and
+unsigned pitch arithmetic, with a tell refresh only inside that gate. Global
+flags refresh tell after transient decoding but deliberately not after intra;
+spreading likewise returns its pre-ICDF tell snapshot. These cached values and
+exact inequalities remain unchanged at the outer call sites.
+
+Grouped GC/stack-growth/checkptr and native tests cover budgets immediately
+below/at/above gates, omitted postfilter for nonzero start, LM0..3, all eleven
+entropy fields and every scalar output. Source-equivalent C header fixtures use
+actual entropy kernels, celt.h tapset/spread tables and SPREAD_NORMAL. They remain
+leaf oracles rather than full enclosing CELT decoder checkptr coverage. Full
+amd64/386 and ARM64/QEMU, native comparisons, GC stress, unchanged encode/decode
+goldens/tolerances and repeated scoped ARM pointer/ordinary golden tests are
+retained per round/batch. Quant-all-bands and outer integer-addressed owners
+still require subsequent migration.
+
 Four subsequent boundary rounds type initial mono energy merging, conditional
 prefilter dispatch, decoder deemphasis forwarding and final entropy/error
 completion. Mono merging keeps MAXG's second-operand tie/NaN choice and only

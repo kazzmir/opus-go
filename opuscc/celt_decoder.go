@@ -423,6 +423,164 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeFrameLM(mode *OpusT_OpusCustomMode, frameSize int32) int32 {
+	LM := int32(0)
+	for LM <= mode.FmaxLM {
+		if mode.FshortMdctSize<<LM == frameSize {
+			break
+		}
+		LM++
+	}
+	if LM > mode.FmaxLM {
+		return -1
+	}
+	return LM
+}
+
+func celtDecodePacketArguments(pcm *float32, length int32) bool {
+	return length >= 0 && length <= 1275 && pcm != nil
+}
+
+func celtDecodePacketLost(data *byte, length int32) bool { return data == nil || length <= 1 }
+
+func celtDecodePacketStart(state *OpusT_OpusCustomDecoder) {
+	if state.Floss_duration == 0 {
+		state.Fskip_plc = 0
+	}
+}
+
+func celtDecodeHistoryViews(state *OpusT_OpusCustomDecoder, overlap, channels, N int32) (history [2][]float32, output [2]*float32) {
+	count := max(int32(1), channels)
+	stride := DEC_PITCH_BUF_SIZE + overlap
+	memory := unsafe.Slice(&state.F_decode_mem[0], count*stride)
+	for c := int32(0); c < count; c++ {
+		history[c] = memory[c*stride : (c+1)*stride]
+		if N > 0 {
+			output[c] = &history[c][DEC_PITCH_BUF_SIZE-N]
+		}
+	}
+	return
+}
+
+func celtDecodeEnergyViews(state *OpusT_OpusCustomDecoder, bands, overlap, channels int32) (energy, log, previous, background *float32) {
+	if bands == 0 {
+		return
+	}
+	offset := (DEC_PITCH_BUF_SIZE + overlap) * channels
+	memory := unsafe.Slice(&state.F_decode_mem[0], offset+8*bands)
+	energy = &memory[offset]
+	log = &memory[offset+2*bands]
+	previous = &memory[offset+4*bands]
+	background = &memory[offset+6*bands]
+	return
+}
+
+func celtDecodeEntropy(tls *libc.TLS, provided, local *OpusT_ec_ctx, data *byte, length int32) *OpusT_ec_ctx {
+	if provided != nil {
+		return provided
+	}
+	Opus_ec_dec_init(tls, local, data, uint32(length))
+	return local
+}
+
+func celtDecodeMode(state *OpusT_OpusCustomDecoder) (mode *OpusT_OpusCustomMode, bands, overlap int32, boundaries *int16) {
+	mode = state.Fmode
+	bands = mode.FnbEBands
+	overlap = mode.Foverlap
+	boundaries = mode.FeBands
+	return
+}
+
+func celtDecodeAntiCollapseBit(tls *libc.TLS, ec *OpusT_ec_ctx, reserved int32) int32 {
+	if reserved > 0 {
+		return int32(Opus_ec_dec_bits(tls, ec, 1))
+	}
+	return 0
+}
+func celtDecodeAntiCollapse(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, spectrum *float32, masks *byte, pulses *int32, energy, log, previous *float32, N, LM, channels, start, end, on int32) {
+	if on != 0 {
+		Opus_anti_collapse(tls, mode.FeBands, mode.FnbEBands, spectrum, masks, LM, channels, N, start, end, energy, log, previous, pulses, state.Frng, 0, state.Farch)
+	}
+}
+
+func celtDecodeFinalEnergy(tls *libc.TLS, mode *OpusT_OpusCustomMode, energy *float32, fine, priority *int32, start, end, length, channels int32, ec *OpusT_ec_ctx) {
+	tell := ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	Opus_unquant_energy_finalise(tls, mode, start, end, energy, fine, priority, length*8-tell, ec, channels)
+}
+
+func celtDecodeAllocationBudget(tls *libc.TLS, ec *OpusT_ec_ctx, length, transient, LM int32) (budget, reserved int32) {
+	budget = (length * 8) << BITRES
+	budget -= int32(Opus_ec_tell_frac(tls, ec))
+	budget -= 1
+	if transient != 0 && LM >= 2 && budget >= (LM+2)<<BITRES {
+		reserved = 1 << BITRES
+	}
+	budget -= reserved
+	return
+}
+
+func celtDecodeTrim(tls *libc.TLS, ec *OpusT_ec_ctx, tell, total int32) int32 {
+	if tell+(int32(6)<<BITRES) <= total {
+		return Opus_ec_dec_icdf(tls, ec, &trim_icdf9[0], 7)
+	}
+	return 5
+}
+
+func celtDecodeSpread(tls *libc.TLS, ec *OpusT_ec_ctx, total int32) (spread, tell int32) {
+	tell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	spread = SPREAD_NORMAL
+	if tell+4 <= total {
+		spread = Opus_ec_dec_icdf(tls, ec, &spread_icdf9[0], 5)
+	}
+	return
+}
+
+func celtDecodeGlobalFlags(tls *libc.TLS, ec *OpusT_ec_ctx, LM, M, total, tell int32) (transient, short, intra, updatedTell int32) {
+	updatedTell = tell
+	if LM > 0 && tell+3 <= total {
+		transient = Opus_ec_dec_bit_logp(tls, ec, 3)
+		updatedTell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	}
+	if transient != 0 {
+		short = M
+	}
+	if updatedTell+3 <= total {
+		intra = Opus_ec_dec_bit_logp(tls, ec, 3)
+	}
+	return
+}
+
+func celtDecodePostfilterHeader(tls *libc.TLS, ec *OpusT_ec_ctx, start, total, tell int32) (pitch int32, gain float32, tapset, updatedTell int32) {
+	updatedTell = tell
+	if start == 0 && tell+16 <= total {
+		if Opus_ec_dec_bit_logp(tls, ec, 1) != 0 {
+			octave := int32(Opus_ec_dec_uint(tls, ec, 6))
+			pitch = int32(uint32(int32(16)<<octave) + Opus_ec_dec_bits(tls, ec, uint32(4+octave)) - 1)
+			qg := int32(Opus_ec_dec_bits(tls, ec, 3))
+			if ec.Fnbits_total-int32(bits.Len32(ec.Frng))+2 <= total {
+				tapset = Opus_ec_dec_icdf(tls, ec, &tapset_icdf9[0], 2)
+			}
+			gain = float32(.09375 * float32(qg+1))
+		}
+		updatedTell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	}
+	return
+}
+
+func celtDecodeSilence(tls *libc.TLS, ec *OpusT_ec_ctx, total int32) (silence, tell int32) {
+	tell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	if tell >= total {
+		silence = 1
+	} else if tell == 1 {
+		silence = Opus_ec_dec_bit_logp(tls, ec, 15)
+	}
+	if silence != 0 {
+		tell = total
+		ec.Fnbits_total += tell - (ec.Fnbits_total - int32(bits.Len32(ec.Frng)))
+	}
+	return
+}
+
 func celtDecodePacketError(state *OpusT_OpusCustomDecoder, ec *OpusT_ec_ctx, length int32) int32 {
 	tell := ec.Fnbits_total - int32(bits.Len32(ec.Frng))
 	if tell > 8*length {
@@ -1067,15 +1225,22 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 	celtPLCFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), loss_duration, LM, curr_frame_type)
 }
 
-func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
-	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, intra_ener, isTransient, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, shortBlocks, silence, spread_decision, start, v28 int32
+//go:uintptrescapes
+func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, frame_size int32, decAddress uintptr, accum int32) int32 {
+	return celt_decode_with_ec_dred(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(pcm)), frame_size, (*OpusT_ec_ctx)(unsafe.Pointer(decAddress)), accum)
+}
+
+func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data *byte, len1 int32, pcm *float32, frame_size int32, dec *OpusT_ec_ctx, accum int32) (r int32) {
+	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, intra_ener, isTransient, nbEBands, overlap, postfilter_pitch, postfilter_tapset, shortBlocks, silence, spread_decision, start, v28 int32
 	var tf_res, cap1, offsets, fine_quant, pulses, fine_priority []int32
 	var X []float32
 	var collapse_masks []byte
 	var eBands *int16
-	var _saved_stack, backgroundLogE, mode, oldBandE, oldLogE, oldLogE2, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
+	var mode *OpusT_OpusCustomMode
+	var backgroundLogE, oldBandE, oldLogE, oldLogE2 *float32
+	var _saved_stack, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var bits, tell, total_bits OpusT_opus_int32
-	var decode_mem [2]uintptr
+	var decode_mem [2][]float32
 	var postfilter_gain OpusT_opus_val16
 	var _dec OpusT_ec_dec
 	var balance OpusT_opus_int32
@@ -1150,50 +1315,26 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
 	Opus_validate_celt_decoder(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
-	mode = uintptr(unsafe.Pointer((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fmode))
-	nbEBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FnbEBands
-	overlap = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).Foverlap
-	eBands = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeBands
+	mode, nbEBands, overlap, eBands = celtDecodeMode((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
 	start = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fstart
 	end = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fend
 	frame_size = frame_size * (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample
-	oldBandE = st1 + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr((decode_buffer_size+overlap)*CC)*4
-	oldLogE = oldBandE + uintptr(int32(2)*nbEBands)*4
-	oldLogE2 = oldLogE + uintptr(int32(2)*nbEBands)*4
-	backgroundLogE = oldLogE2 + uintptr(int32(2)*nbEBands)*4
-	LM = 0
-	for {
-		if !(LM <= (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FmaxLM) {
-			break
-		}
-		if (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize<<LM == frame_size {
-			break
-		}
-		LM = LM + 1
-	}
-	if LM > (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FmaxLM {
+	oldBandE, oldLogE, oldLogE2, backgroundLogE = celtDecodeEnergyViews((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), nbEBands, overlap, CC)
+	LM = celtDecodeFrameLM(mode, frame_size)
+	if LM < 0 {
 		return -int32(1)
 	}
 	M = int32(1) << LM
-	if len1 < 0 || len1 > int32(1275) || pcm == uintptr(uint32(0)) {
+	if !celtDecodePacketArguments(pcm, len1) {
 		return -int32(1)
 	}
 	N = M * (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize
-	c = 0
-	for {
-		decode_mem[c] = st1 + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr(c*(decode_buffer_size+overlap))*4
-		out_syn[c] = (*float32)(unsafe.Pointer(decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4))
-		c = c + 1
-		v28 = c
-		if !(v28 < CC) {
-			break
-		}
-	}
+	decode_mem, out_syn = celtDecodeHistoryViews((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), overlap, CC, N)
 	effEnd = end
 	if effEnd > (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands {
 		effEnd = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands
 	}
-	if data == uintptr(uint32(0)) || len1 <= int32(1) {
+	if celtDecodePacketLost(data, len1) {
 		celt_decode_lost(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), N, LM)
 		celtDecodeDeemphasis(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &out_syn[0], (*float32)(unsafe.Pointer(pcm)), N, CC, accum)
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -1211,106 +1352,28 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	}
 	/* Check if there are at least two packets received consecutively before
 	 * turning on the pitch-based PLC */
-	if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration == 0 {
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fskip_plc = 0
-	}
-	if dec == uintptr(uint32(0)) {
-		Opus_ec_dec_init(tls, &_dec, (*byte)(unsafe.Pointer(data)), uint32(len1))
-		dec = uintptr(unsafe.Pointer(&_dec))
-	}
+	celtDecodePacketStart(st1)
+	dec = celtDecodeEntropy(tls, dec, &_dec, (*byte)(unsafe.Pointer(data)), len1)
 	if C == 1 {
 		celtDecodeEnergyMergeMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
 	}
 	total_bits = len1 * int32(8)
-	v1 = dec
-	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	tell = v28
-	if tell >= total_bits {
-		silence = int32(1)
-	} else {
-		if tell == int32(1) {
-			silence = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(15))
-		} else {
-			silence = 0
-		}
-	}
-	if silence != 0 {
-		/* Pretend we've read all the remaining bits */
-		tell = len1 * int32(8)
-		v1 = dec
-		v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-		(*OpusT_ec_ctx)(unsafe.Pointer(dec)).Fnbits_total += tell - v28
-	}
-	postfilter_gain = float32(0)
-	postfilter_pitch = 0
-	postfilter_tapset = 0
-	if start == 0 && tell+int32(16) <= total_bits {
-		if Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)) != 0 {
-			octave = int32(Opus_ec_dec_uint(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(6)))
-			postfilter_pitch = int32(uint32(int32(16)<<octave) + Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(int32(4)+octave)) - uint32(1))
-			qg = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3)))
-			v1 = dec
-			v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-			if v28+int32(2) <= total_bits {
-				postfilter_tapset = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &tapset_icdf9[0], uint32(2))
-			}
-			postfilter_gain = OpusT_opus_val16(float32(0.09375) * float32(qg+int32(1)))
-		}
-		v1 = dec
-		v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-		tell = v28
-	}
-	if LM > 0 && tell+int32(3) <= total_bits {
-		isTransient = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3))
-		v1 = dec
-		v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-		tell = v28
-	} else {
-		isTransient = 0
-	}
-	if isTransient != 0 {
-		shortBlocks = M
-	} else {
-		shortBlocks = 0
-	}
-	/* Decode the global flags (first symbols in the stream) */
-	if tell+int32(3) <= total_bits {
-		v28 = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3))
-	} else {
-		v28 = 0
-	}
-	intra_ener = v28
+	silence, tell = celtDecodeSilence(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), total_bits)
+	postfilter_pitch, postfilter_gain, postfilter_tapset, tell = celtDecodePostfilterHeader(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), start, total_bits, tell)
+	isTransient, shortBlocks, intra_ener, tell = celtDecodeGlobalFlags(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), LM, M, total_bits, tell)
 	/* If recovering from packet loss, make sure we make the energy prediction safe to reduce the
 	   risk of getting loud artifacts. */
 	celtDecodeRecoverEnergy((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, start, end, LM, intra_ener)
 	/* Get band energies */
 	Opus_unquant_coarse_energy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*float32)(unsafe.Pointer(oldBandE)), intra_ener, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), C, LM)
 	tf_res = celtDecodeTFStorage(tls, nbEBands, start, end, isTransient, LM, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
-	v1 = dec
-	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	tell = v28
-	spread_decision = int32(SPREAD_NORMAL)
-	if tell+int32(4) <= total_bits {
-		spread_decision = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &spread_icdf9[0], uint32(5))
-	}
+	spread_decision, tell = celtDecodeSpread(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), total_bits)
 	cap1 = celtDecodeCapsStorage(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), nbEBands, LM, C)
 	offsets = celtDecodeOffsetsStorage(nbEBands)
 	total_bits, tell = celtDecodeBoosts(tls, eBands, unsafe.SliceData(cap1), unsafe.SliceData(offsets), start, end, C, LM, total_bits, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
 	fine_quant = celtDecodeFineStorage(nbEBands)
-	if tell+int32(6)<<int32(BITRES) <= total_bits {
-		v28 = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &trim_icdf9[0], uint32(7))
-	} else {
-		v28 = int32(5)
-	}
-	alloc_trim = v28
-	bits = len1*int32(8)<<int32(BITRES) - int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))) - int32(1)
-	if isTransient != 0 && LM >= int32(2) && bits >= (LM+int32(2))<<int32(BITRES) {
-		v28 = int32(1) << int32(BITRES)
-	} else {
-		v28 = 0
-	}
-	anti_collapse_rsv = v28
-	bits = bits - anti_collapse_rsv
+	alloc_trim = celtDecodeTrim(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), tell, total_bits)
+	bits, anti_collapse_rsv = celtDecodeAllocationBudget(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), len1, isTransient, LM)
 	pulses = celtDecodePulseStorage(nbEBands)
 	fine_priority = celtDecodePriorityStorage(nbEBands)
 	codedBands = clt_compute_allocation(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, unsafe.SliceData(offsets), unsafe.SliceData(cap1), alloc_trim, &intensity, &dual_stereo, bits, &balance, unsafe.SliceData(pulses), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), 0, 0, 0)
@@ -1318,7 +1381,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	X = celtDecodeSpectrumStorage(N, C) // Contiguous per-channel normalized MDCT spectra.
 	c = 0
 	for {
-		celtDecodeHistoryMove((*float32)(unsafe.Pointer(decode_mem[c])), N, decode_buffer_size-N+overlap)
+		celtDecodeHistoryMove(unsafe.SliceData(decode_mem[c]), N, decode_buffer_size-N+overlap)
 		c = c + 1
 		v28 = c
 		if !(v28 < CC) {
@@ -1328,17 +1391,10 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	// Decode fixed codebook using Go-owned per-channel collapse flags.
 	collapse_masks = celtDecodeMaskStorage(nbEBands, C)
 	spectralX, spectralY := celtDecodeSpectrumChannels(X, N, C)
-	Opus_quant_all_bands(tls, 0, mode, start, end, uintptr(unsafe.Pointer(spectralX)), uintptr(unsafe.Pointer(spectralY)), uintptr(unsafe.Pointer(unsafe.SliceData(collapse_masks))), uintptr(uint32(0)), uintptr(unsafe.Pointer(unsafe.SliceData(pulses))), shortBlocks, spread_decision, dual_stereo, intensity, uintptr(unsafe.Pointer(unsafe.SliceData(tf_res))), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Frng), 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdisable_inv)
-	if anti_collapse_rsv > 0 {
-		anti_collapse_on = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(1)))
-	}
-	v1 = dec
-	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	Opus_unquant_energy_finalise(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*OpusT_celt_glog)(unsafe.Pointer(oldBandE)), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), len1*int32(8)-v28, (*OpusT_ec_dec)(unsafe.Pointer(dec)), C)
-	if anti_collapse_on != 0 {
-		antiMode := (*OpusT_OpusCustomMode)(unsafe.Pointer(mode))
-		Opus_anti_collapse(tls, antiMode.FeBands, antiMode.FnbEBands, unsafe.SliceData(X), unsafe.SliceData(collapse_masks), LM, C, N, start, end, (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), unsafe.SliceData(pulses), (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
-	}
+	Opus_quant_all_bands(tls, 0, uintptr(unsafe.Pointer(mode)), start, end, uintptr(unsafe.Pointer(spectralX)), uintptr(unsafe.Pointer(spectralY)), uintptr(unsafe.Pointer(unsafe.SliceData(collapse_masks))), uintptr(uint32(0)), uintptr(unsafe.Pointer(unsafe.SliceData(pulses))), shortBlocks, spread_decision, dual_stereo, intensity, uintptr(unsafe.Pointer(unsafe.SliceData(tf_res))), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, uintptr(unsafe.Pointer(dec)), LM, codedBands, uintptr(unsafe.Pointer(&st1.Frng)), 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdisable_inv)
+	anti_collapse_on = celtDecodeAntiCollapseBit(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), anti_collapse_rsv)
+	celtDecodeFinalEnergy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), (*float32)(unsafe.Pointer(oldBandE)), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), start, end, len1, C, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
+	celtDecodeAntiCollapse(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), unsafe.SliceData(X), unsafe.SliceData(collapse_masks), unsafe.SliceData(pulses), (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), N, LM, C, start, end, anti_collapse_on)
 	if silence != 0 {
 		celtDecodeSilenceEnergy((*float32)(unsafe.Pointer(oldBandE)), nbEBands, C)
 	}
@@ -1376,6 +1432,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	return frame_size / (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample
 }
 
+//go:uintptrescapes
 func Opus_celt_decode_with_ec(tls *libc.TLS, st uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
 	return Opus_celt_decode_with_ec_dred(tls, st, data, len1, pcm, frame_size, dec, accum)
 }
