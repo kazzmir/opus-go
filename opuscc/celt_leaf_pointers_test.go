@@ -8,9 +8,582 @@ import (
 	"unsafe"
 )
 
-func TestCeltPLCLostScratch(t *testing.T) {
-	// Ordinary (not checkptr) integration: dispatcher state/history integer
-	// views are still legacy, while its complete active paths need no TLS scratch.
+func TestCeltPLCHistoryViewsPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			for _, N := range []int32{0, 120, 240, 480, 960} {
+				owner, _, _ := celtStateTestBuffer(newSynthesisTestMode(), channels)
+				h, out, e, b, a := celtPLCHistoryViews(&owner.State, overlap, 21, channels, N)
+				owner = nil
+				entropyInitGrowStack(12)
+				runtime.GC()
+				stride := int32(2048) + overlap
+				for c := int32(0); c < channels; c++ {
+					if len(h[c]) != int(stride) {
+						t.Fatal("history span")
+					}
+					h[c][0] = float32(c + 77)
+					if N == 0 && overlap == 0 {
+						if out[c] != nil {
+							t.Fatal("unused one-past output")
+						}
+					} else {
+						if out[c] != &h[c][2048-N] {
+							t.Fatal("output view")
+						}
+						*out[c] = 99
+					}
+				}
+				if channels == 1 && (h[1] != nil || out[1] != nil) {
+					t.Fatal("unused mono channel")
+				}
+				if uintptr(unsafe.Pointer(b))-uintptr(unsafe.Pointer(e)) != 6*21*4 || uintptr(unsafe.Pointer(a))-uintptr(unsafe.Pointer(e)) != 8*21*4 {
+					t.Fatal("energy/LPC offsets")
+				}
+				*e, *b, *a = -12, -28, .125
+			}
+		}
+	}
+}
+func TestCeltPLCModePointers(t *testing.T) {
+	state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode()}
+	m, nb, overlap, bands := celtPLCMode(state)
+	state = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if nb != 21 || overlap != 120 || m.FeBands != bands || unsafe.Slice(bands, nb+1)[nb] != 100 || m.Fmdct.Fkfft[0] == nil {
+		t.Fatal("typed mode/table owners", nb, overlap)
+	}
+}
+func TestCeltDecodeMaskStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, channels := range []int32{0, 1, 2} {
+			m := celtDecodeMaskStorage(bands, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if len(m) != int(bands*channels) {
+				t.Fatal("collapse mask geometry")
+			}
+			for i, v := range m {
+				if v != 0 {
+					t.Fatal("collapse mask initialization")
+				}
+				m[i] = byte(i)
+			}
+			runtime.GC()
+			for i, v := range m {
+				if v != byte(i) {
+					t.Fatal("collapse mask retention")
+				}
+			}
+		}
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			N := int32(120) << LM
+			mode := newSynthesisTestMode()
+			m := celtDecodeMaskStorage(21, channels)
+			for i := range m {
+				if i%2 != 0 {
+					m[i] = byte((1 << (1 << LM)) - 1)
+				}
+			}
+			saved := append([]byte(nil), m...)
+			s := make([]float32, N*channels+2)
+			s[0] = 901
+			s[len(s)-1] = 902
+			energy, previous, older := make([]float32, 42), make([]float32, 42), make([]float32, 42)
+			for i := range energy {
+				energy[i] = -12
+				previous[i] = -10
+				older[i] = -11
+			}
+			pulses := celtDecodePulseStorage(21)
+			for i := range pulses {
+				pulses[i] = int32(i)*32 + 8
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_anti_collapse(nil, mode.FeBands, 21, &s[1], &m[0], LM, channels, N, 0, 21, &energy[0], &previous[0], &older[0], &pulses[0], 123, 0, 0)
+			if s[0] != 901 || s[len(s)-1] != 902 {
+				t.Fatal("owned mask anti-collapse guards")
+			}
+			for i := range m {
+				if m[i] != saved[i] {
+					t.Fatal("mask consumer wrote input")
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeSpectrumStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 120, 240, 480, 960} {
+		for _, channels := range []int32{1, 2} {
+			s := celtDecodeSpectrumStorage(N, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			x, y := celtDecodeSpectrumChannels(s, N, channels)
+			if len(s) != int(N*channels) {
+				t.Fatal("spectral geometry")
+			}
+			if N == 0 {
+				if x != nil || y != nil {
+					t.Fatal("empty spectral views")
+				}
+				continue
+			}
+			if x != &s[0] || (channels == 1 && y != nil) || (channels == 2 && y != &s[N]) {
+				t.Fatal("spectral channel views")
+			}
+			for i, v := range s {
+				if v != 0 {
+					t.Fatal("spectral initialization")
+				}
+				s[i] = float32(i%17-8) / 128
+			}
+			runtime.GC()
+			if *x != s[0] || (y != nil && *y != s[N]) {
+				t.Fatal("spectral view retention")
+			}
+		}
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			N := int32(120) << LM
+			s := celtDecodeSpectrumStorage(N, channels)
+			for i := range s {
+				s[i] = float32(i%17-8) / 128
+			}
+			energy := make([]float32, 42)
+			for i := range energy {
+				energy[i] = -12
+			}
+			left, right := make([]float32, N+122), make([]float32, N+122)
+			left[0] = 901
+			left[len(left)-1] = 902
+			right[0] = 903
+			right[len(right)-1] = 904
+			out := [2]*float32{&left[1], nil}
+			if channels == 2 {
+				out[1] = &right[1]
+			}
+			mode := newSynthesisTestMode()
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celt_synthesis(nil, mode, &s[0], &out[0], &energy[0], 0, 21, channels, channels, 0, LM, 1, 0, 0)
+			if left[0] != 901 || left[len(left)-1] != 902 || right[0] != 903 || right[len(right)-1] != 904 {
+				t.Fatal("owned spectrum synthesis guards", LM, channels)
+			}
+		}
+	}
+}
+func TestCeltDecodePriorityStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		p := celtDecodePriorityStorage(bands)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(p) != int(bands) {
+			t.Fatal("priority geometry")
+		}
+		for i, v := range p {
+			if v != 0 {
+				t.Fatal("priority initialization")
+			}
+			p[i] = int32(i % 2)
+		}
+		runtime.GC()
+		for i, v := range p {
+			if v != int32(i%2) {
+				t.Fatal("priority retention")
+			}
+		}
+	}
+}
+func TestCeltDecodePulseStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		p := celtDecodePulseStorage(bands)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(p) != int(bands) {
+			t.Fatal("pulse geometry")
+		}
+		for i, v := range p {
+			if v != 0 {
+				t.Fatal("pulse initialization")
+			}
+			p[i] = int32(i) * 128
+		}
+		runtime.GC()
+		for i, v := range p {
+			if v != int32(i)*128 {
+				t.Fatal("pulse retention")
+			}
+		}
+	}
+}
+func TestCeltDecodeFineStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		q := celtDecodeFineStorage(bands)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(q) != int(bands) {
+			t.Fatal("fine storage geometry")
+		}
+		for _, v := range q {
+			if v != 0 {
+				t.Fatal("zero-owned fine storage")
+			}
+		}
+	}
+	for _, channels := range []int32{1, 2} {
+		mode := newSynthesisTestMode()
+		q := celtDecodeFineStorage(21)
+		priority := celtDecodePriorityStorage(21)
+		for i := range q {
+			q[i] = int32(i % 9)
+			priority[i] = int32(i % 2)
+		}
+		energy := make([]float32, 42)
+		for i := range energy {
+			energy[i] = -12
+		}
+		want := append([]float32(nil), energy...)
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*71 + 13)
+		}
+		var ec OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &ec, &data[0], 128)
+		c := ec
+		Opus_unquant_fine_energy(nil, mode, 0, 21, &want[0], nil, &q[0], &c, channels)
+		Opus_unquant_energy_finalise(nil, mode, 0, 21, &want[0], &q[0], &priority[0], 12, &c, channels)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus_unquant_fine_energy(nil, mode, 0, 21, &energy[0], nil, &q[0], &ec, channels)
+		Opus_unquant_energy_finalise(nil, mode, 0, 21, &energy[0], &q[0], &priority[0], 12, &ec, channels)
+		if ec != c {
+			t.Fatal("owned fine entropy")
+		}
+		for i := range energy {
+			if math.Float32bits(energy[i]) != math.Float32bits(want[i]) {
+				t.Fatal("owned fine consumers", channels, i)
+			}
+		}
+	}
+}
+func TestCeltDecodeOffsetsStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		got := celtDecodeOffsetsStorage(bands)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(got) != int(bands) {
+			t.Fatal("boost offset geometry")
+		}
+		for i, v := range got {
+			if v != 0 {
+				t.Fatal("zero-owned offsets")
+			}
+			got[i] = int32(i) * 16
+		}
+		runtime.GC()
+		for i, v := range got {
+			if v != int32(i)*16 {
+				t.Fatal("offset owner retention")
+			}
+		}
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		mode := newSynthesisTestMode()
+		offsets := celtDecodeOffsetsStorage(21)
+		for i := range offsets {
+			offsets[i] = int32(i%3) * 16
+		}
+		caps := celtDecodeCapsStorage(nil, mode, 21, LM, 2)
+		var intensity, dual, balance int32
+		pulses := celtDecodePulseStorage(21)
+		priority := celtDecodePriorityStorage(21)
+		var fine [21]int32
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*71 + 13)
+		}
+		var ec OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ret := clt_compute_allocation(nil, mode, 0, 21, &offsets[0], &caps[0], 5, &intensity, &dual, 512, &balance, &pulses[0], &fine[0], &priority[0], 2, LM, &ec, 0, 0, 0)
+		if ret < 0 || ret > 21 {
+			t.Fatal("owned offsets allocation consumer", LM, ret)
+		}
+	}
+}
+func TestCeltDecodeCapsStoragePointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			mode := newSynthesisTestMode()
+			want := make([]int32, mode.FnbEBands)
+			Opus_init_caps(nil, mode.FeBands, mode.Fcache.Fcaps, &want[0], mode.FnbEBands, LM, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := celtDecodeCapsStorage(nil, mode, mode.FnbEBands, LM, channels)
+			mode = nil
+			runtime.GC()
+			if len(got) != 21 {
+				t.Fatal("owned caps geometry")
+			}
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatal("owned caps", LM, channels, i)
+				}
+			}
+		}
+	}
+	if len(celtDecodeCapsStorage(nil, &OpusT_OpusCustomMode{}, 0, 0, 1)) != 0 {
+		t.Fatal("empty caps")
+	}
+}
+func TestCeltDecodeTFStoragePointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, transient := range []int32{0, 1} {
+			for _, start := range []int32{0, 5} {
+				data := make([]byte, 64)
+				for i := range data {
+					data[i] = byte(i*71 + 13)
+				}
+				ec := new(OpusT_ec_ctx)
+				Opus_ec_dec_init(nil, ec, &data[0], uint32(len(data)))
+				wantEC := *ec
+				want := make([]int32, 21)
+				tf_decode(nil, start, 21, transient, &want[0], LM, &wantEC)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				got := celtDecodeTFStorage(nil, 21, start, 21, transient, LM, ec)
+				runtime.GC()
+				if len(got) != 21 || *ec != wantEC {
+					t.Fatal("owned TF entropy/shape")
+				}
+				for i := range got {
+					if got[i] != want[i] {
+						t.Fatal("owned TF flags", LM, transient, start, i)
+					}
+				}
+			}
+		}
+	}
+	data := []byte{0}
+	var ec OpusT_ec_ctx
+	Opus_ec_dec_init(nil, &ec, &data[0], 1)
+	if len(celtDecodeTFStorage(nil, 0, 0, 0, 0, 0, &ec)) != 0 {
+		t.Fatal("empty TF storage")
+	}
+}
+func TestCeltDecodeEnergyClearPointers(t *testing.T) {
+	for _, bands := range []int32{1, 3, 21, 25} {
+		for _, start := range []int32{0, 1, bands} {
+			for _, end := range []int32{0, bands - 1, bands} {
+				e, l, p := make([]float32, 2*bands+2), make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+				for i := range e {
+					e[i] = float32(i + 1)
+					l[i] = float32(i + 2)
+					p[i] = float32(i + 3)
+				}
+				we, wl, wp := append([]float32(nil), e...), append([]float32(nil), l...), append([]float32(nil), p...)
+				for c := int32(0); c < 2; c++ {
+					for i := int32(0); i < bands; i++ {
+						if i < start || i >= end {
+							index := 1 + c*bands + i
+							we[index] = 0
+							wp[index] = -28
+							wl[index] = -28
+						}
+					}
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDecodeEnergyClear(&e[1], &l[1], &p[1], bands, start, end)
+				for i := range e {
+					if math.Float32bits(e[i]) != math.Float32bits(we[i]) || l[i] != wl[i] || p[i] != wp[i] {
+						t.Fatal("energy band clearing", bands, start, end, i)
+					}
+				}
+			}
+		}
+	}
+	celtDecodeEnergyClear(nil, nil, nil, 0, 0, 0)
+	celtDecodeEnergyClear(nil, nil, nil, 21, 0, 21)
+	// Go-only overlapping history views retain channel/band and nested-assignment
+	// order even when start/end ranges overlap.
+	a := []float32{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	want := append([]float32(nil), a...)
+	for c := 0; c < 2; c++ {
+		for i := 0; i < 2; i++ {
+			index := c*3 + i
+			want[index] = 0
+			want[index+2] = -28
+			want[index+1] = -28
+		}
+		for i := 1; i < 3; i++ {
+			index := c*3 + i
+			want[index] = 0
+			want[index+2] = -28
+			want[index+1] = -28
+		}
+	}
+	celtDecodeEnergyClear(&a[0], &a[1], &a[2], 3, 2, 1)
+	for i := range a {
+		if a[i] != want[i] {
+			t.Fatal("energy clearing store order", i)
+		}
+	}
+}
+func TestCeltDecodeEnergyBackgroundPointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, loss := range []int32{-1, 0, 40, 160, 10000} {
+			for _, M := range []int32{1, 2, 4, 8} {
+				b, e := make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+				for i := range b {
+					b[i] = float32(i%9 - 4)
+					e[i] = float32(i%7 - 3)
+				}
+				want := append([]float32(nil), b...)
+				increase := float32(min(int32(160), loss+M)) * float32(.001)
+				for i := int32(1); i <= 2*bands; i++ {
+					if want[i]+increase < e[i] {
+						want[i] += increase
+					} else {
+						want[i] = e[i]
+					}
+				}
+				state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Floss_duration: loss}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDecodeEnergyBackground(state, &b[1], &e[1], bands, M)
+				if state.Floss_duration != loss {
+					t.Fatal("background changed duration")
+				}
+				for i := range b {
+					if math.Float32bits(b[i]) != math.Float32bits(want[i]) {
+						t.Fatal("background energy", bands, loss, M, i)
+					}
+				}
+			}
+		}
+	}
+	state := &OpusT_OpusCustomDecoder{}
+	celtDecodeEnergyBackground(state, nil, nil, 0, 1)
+	b := []float32{float32(math.NaN()), 1}
+	e := []float32{3, float32(math.NaN())}
+	celtDecodeEnergyBackground(state, &b[0], &e[0], 1, 1)
+	if b[0] != 3 || !math.IsNaN(float64(b[1])) {
+		t.Fatal("background MING NaN selection")
+	}
+	state.Floss_duration = math.MaxInt32
+	b = []float32{0, 0}
+	e = []float32{1, 1}
+	celtDecodeEnergyBackground(state, &b[0], &e[0], 1, 1)
+	want := float32(int32(math.MinInt32)) * float32(.001)
+	if b[0] != want || b[1] != want {
+		t.Fatal("Go-only background int32 wrapping", b, want)
+	}
+}
+func TestCeltDecodeEnergyLogsPointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, transient := range []int32{-1, 0, 1, 7} {
+			e, l, p := make([]float32, 2*bands+2), make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+			for i := range e {
+				e[i] = float32(i%7 - 3)
+				l[i] = float32(i%9 - 4)
+				p[i] = float32(i%11 - 5)
+			}
+			wl, wp := append([]float32(nil), l...), append([]float32(nil), p...)
+			if transient == 0 {
+				copy(wp[1:1+2*bands], wl[1:1+2*bands])
+				copy(wl[1:1+2*bands], e[1:1+2*bands])
+			} else {
+				for i := int32(1); i <= 2*bands; i++ {
+					if !(wl[i] < e[i]) {
+						wl[i] = e[i]
+					}
+				}
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodeEnergyLogs(&e[1], &l[1], &p[1], bands, transient)
+			for i := range l {
+				if math.Float32bits(l[i]) != math.Float32bits(wl[i]) || math.Float32bits(p[i]) != math.Float32bits(wp[i]) {
+					t.Fatal("energy log order", bands, transient, i)
+				}
+			}
+		}
+	}
+	celtDecodeEnergyLogs(nil, nil, nil, 0, 0)
+	e := []float32{3, math.Float32frombits(0x80000000)}
+	l := []float32{float32(math.NaN()), 0}
+	celtDecodeEnergyLogs(&e[0], &l[0], nil, 1, 1)
+	if l[0] != 3 || math.Float32bits(l[1]) != 0x80000000 {
+		t.Fatal("MING tie/NaN selection")
+	}
+	// Go-only overlapping memcpy images: first previous<-log, then log<-energy.
+	a := []float32{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	want := append([]float32(nil), a...)
+	copy(want[3:7], want[1:5])
+	copy(want[1:5], want[:4])
+	celtDecodeEnergyLogs(&a[0], &a[1], &a[3], 2, 0)
+	for i := range a {
+		if a[i] != want[i] {
+			t.Fatal("log copy alias order")
+		}
+	}
+}
+func TestCeltDecodeEnergyMonoPointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		a := make([]float32, 2*bands+2)
+		a[0], a[len(a)-1] = 77, 88
+		for i := int32(0); i < bands; i++ {
+			a[1+i] = math.Float32frombits(uint32(i)*0x1234567 + 0x80000000)
+		}
+		want := append([]float32(nil), a...)
+		copy(want[1+bands:1+2*bands], want[1:1+bands])
+		entropyInitGrowStack(12)
+		runtime.GC()
+		celtDecodeEnergyMono(&a[1], bands)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+				t.Fatal("mono energy ownership", bands, i)
+			}
+		}
+	}
+	celtDecodeEnergyMono(nil, 0)
+	a := []float32{float32(math.NaN()), float32(math.Inf(1)), math.Float32frombits(0x80000000), 0, 0, 0}
+	celtDecodeEnergyMono(&a[0], 3)
+	for i := 0; i < 3; i++ {
+		if math.Float32bits(a[i]) != math.Float32bits(a[3+i]) {
+			t.Fatal("mono bit preservation")
+		}
+	}
+}
+func TestCeltPLCDispatchPointers(t *testing.T) {
+	for _, duration := range []int32{-1, 0, 39, 40, 10000} {
+		for _, start := range []int32{0, 1, 20} {
+			for _, skip := range []int32{-1, 0, 1} {
+				state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Floss_duration: 123, Fplc_duration: duration, Fstart: start, Fskip_plc: skip}
+				before := *state
+				entropyInitGrowStack(12)
+				runtime.GC()
+				loss, s, kind := celtPLCDispatch(state)
+				want := int32(FRAME_PLC_PERIODIC)
+				if duration >= 40 || start != 0 || skip != 0 {
+					want = FRAME_PLC_NOISE
+				}
+				if loss != 123 || s != start || kind != want || *state != before {
+					t.Fatal("typed dispatch", duration, start, skip)
+				}
+			}
+		}
+	}
+}
+func TestCeltPLCLostPointers(t *testing.T) {
+	// Complete active periodic/noise concealment with typed state/history owners.
 	for _, channels := range []int32{1, 2} {
 		for LM := int32(0); LM <= 3; LM++ {
 			for _, noise := range []bool{false, true} {
@@ -30,7 +603,7 @@ func TestCeltPLCLostScratch(t *testing.T) {
 				}
 				entropyInitGrowStack(12)
 				runtime.GC()
-				celt_decode_lost(nil, uintptr(unsafe.Pointer(state)), mode.FshortMdctSize<<LM, LM)
+				celt_decode_lost(nil, state, mode.FshortMdctSize<<LM, LM)
 				if state.Floss_duration != 1<<LM || state.Fplc_duration != 1<<LM {
 					t.Fatal("concealment durations", channels, LM, noise)
 				}
@@ -44,13 +617,53 @@ func TestCeltPLCLostScratch(t *testing.T) {
 				}
 				tls := libc.NewTLS()
 				libc.Xpthread_setspecific(tls, 0x6f707573, 123)
-				celt_decode_lost(tls, uintptr(unsafe.Pointer(state)), mode.FshortMdctSize<<LM, LM)
+				celt_decode_lost(tls, state, mode.FshortMdctSize<<LM, LM)
 				if libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
 					t.Fatal("concealment touched TLS")
 				}
 				tls.Close()
 				runtime.KeepAlive(owner)
 			}
+		}
+	}
+}
+func TestCeltPLCFirstLossPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			mode := newSynthesisTestMode()
+			owner, image, size := celtStateTestBuffer(mode, channels)
+			state := &owner.State
+			opus_custom_decoder_init(nil, state, mode, channels)
+			state.Fskip_plc = 0
+			state.Flast_frame_type = 0
+			state.Fpostfilter_period_old = 80
+			state.Fpostfilter_period = 96
+			state.Fpostfilter_gain_old = .13
+			state.Fpostfilter_gain = .2
+			state.Fpostfilter_tapset_old = 1
+			state.Fpostfilter_tapset = 2
+			h := unsafe.Slice(&state.F_decode_mem[0], (2048+120)*channels)
+			for i := range h {
+				h[i] = float32(math.Sin(float64(i)*.17) * .03)
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celt_decode_lost(nil, state, 120<<LM, LM)
+			if state.Flast_frame_type != FRAME_PLC_PERIODIC || state.Flast_pitch_index < PLC_PITCH_LAG_MIN || state.Flast_pitch_index > PLC_PITCH_LAG_MAX || state.Fprefilter_and_fold != 1 {
+				t.Fatal("first loss pitch/LPC")
+			}
+			state.Fskip_plc = 1
+			runtime.GC()
+			celt_decode_lost(nil, state, 120<<LM, LM)
+			if state.Flast_frame_type != FRAME_PLC_NOISE || state.Fprefilter_and_fold != 0 || state.Fskip_plc != 1 {
+				t.Fatal("periodic to folded noise")
+			}
+			for _, v := range image[size : size+16] {
+				if v != 165 {
+					t.Fatal("first loss guard")
+				}
+			}
+			runtime.KeepAlive(owner)
 		}
 	}
 }

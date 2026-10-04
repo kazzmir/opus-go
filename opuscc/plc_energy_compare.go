@@ -3,9 +3,56 @@
 package opuscc
 
 import "unsafe"
+import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltDecodeMaskStorage(bands, channels int32) []byte {
+	return celtDecodeMaskStorage(bands, channels)
+}
+func CompareCeltDecodeSpectrumStorage(N, channels int32) []float32 {
+	return celtDecodeSpectrumStorage(N, channels)
+}
+func CompareCeltDecodePriorityStorage(bands int32) []int32 { return celtDecodePriorityStorage(bands) }
+func CompareCeltDecodePulseStorage(bands int32) []int32    { return celtDecodePulseStorage(bands) }
+func CompareCeltDecodeFineStorage(bands int32) []int32     { return celtDecodeFineStorage(bands) }
+func CompareCeltDecodeOffsetsStorage(bands int32) []int32  { return celtDecodeOffsetsStorage(bands) }
+func CompareCeltDecodeOffsetsAllocation(mode *OpusT_OpusCustomMode, offsets, caps []int32, LM int32, ec *OpusT_ec_ctx) (coded int32, values [3]int32, outputs [3][21]int32) {
+	pulses := celtDecodePulseStorage(21)
+	priority := celtDecodePriorityStorage(21)
+	coded = clt_compute_allocation(nil, mode, 0, 21, unsafe.SliceData(offsets), unsafe.SliceData(caps), 5, &values[1], &values[2], 512, &values[0], unsafe.SliceData(pulses), &outputs[1][0], unsafe.SliceData(priority), 2, LM, ec, 0, 0, 0)
+	copy(outputs[0][:], pulses)
+	copy(outputs[2][:], priority)
+	return
+}
+func CompareCeltDecodeCapsStorage(mode *OpusT_OpusCustomMode, bands, LM, channels int32) []int32 {
+	return celtDecodeCapsStorage(nil, mode, bands, LM, channels)
+}
+func CompareCeltDecodeTFStorage(bands, start, end, transient, LM int32, ec *OpusT_ec_ctx) []int32 {
+	return celtDecodeTFStorage(nil, bands, start, end, transient, LM, ec)
+}
+func CompareCeltDecodeEnergyClear(energy, log, previous *float32, bands, start, end int32) {
+	celtDecodeEnergyClear(energy, log, previous, bands, start, end)
+}
+func CompareCeltDecodeEnergyBackground(state *OpusT_OpusCustomDecoder, background, energy *float32, bands, M int32) {
+	celtDecodeEnergyBackground(state, background, energy, bands, M)
+}
+func CompareCeltDecodeEnergyLogs(energy, log, previous *float32, bands, transient int32) {
+	celtDecodeEnergyLogs(energy, log, previous, bands, transient)
+}
+func CompareCeltDecodeEnergyMono(energy *float32, bands int32) { celtDecodeEnergyMono(energy, bands) }
+func CompareCeltPLCLost(tls *libc.TLS, state *OpusT_OpusCustomDecoder, N, LM int32) {
+	celt_decode_lost(tls, state, N, LM)
+}
+func CompareCeltPLCHistoryViews(state *OpusT_OpusCustomDecoder, overlap, bands, channels, N int32) ([2][]float32, [2]*float32, *float32, *float32, *float32) {
+	return celtPLCHistoryViews(state, overlap, bands, channels, N)
+}
+func CompareCeltPLCMode(state *OpusT_OpusCustomDecoder) (*OpusT_OpusCustomMode, int32, int32, *int16) {
+	return celtPLCMode(state)
+}
+func CompareCeltPLCDispatch(state *OpusT_OpusCustomDecoder) (int32, int32, int32) {
+	return celtPLCDispatch(state)
+}
 func CompareCeltPLCNoise(state *OpusT_OpusCustomDecoder, bands *int16, spectrum *float32, N, start, end, LM, channels int32) {
 	celtPLCNoise(nil, state, bands, spectrum, N, start, end, LM, channels)
 }

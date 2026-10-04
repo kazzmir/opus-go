@@ -11,6 +11,361 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeMaskStorageAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bands := unsafe.Slice(mode.FeBands, 22)
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			N := int32(120) << LM
+			m := opuscc.CompareCeltDecodeMaskStorage(21, channels)
+			for i := range m {
+				if i%2 != 0 {
+					m[i] = byte((1 << (1 << LM)) - 1)
+				}
+			}
+			s := make([]float32, N*channels)
+			c := slices.Clone(s)
+			energy, previous, older := make([]float32, 42), make([]float32, 42), make([]float32, 42)
+			for i := range energy {
+				energy[i] = -12
+				previous[i] = -10
+				older[i] = -11
+			}
+			pulses := opuscc.CompareCeltDecodePulseStorage(21)
+			for i := range pulses {
+				pulses[i] = int32(i)*32 + 8
+			}
+			opuscc.Opus_anti_collapse(nil, mode.FeBands, 21, &s[0], &m[0], LM, channels, N, 0, 21, &energy[0], &previous[0], &older[0], &pulses[0], 123, 0, 0)
+			nativeAntiCollapse(bands, 21, c, m, LM, channels, N, 0, 21, energy, previous, older, pulses, 123, 0)
+			for i := range s {
+				if math.Float32bits(s[i]) != math.Float32bits(c[i]) {
+					t.Fatal("owned mask anti-collapse", LM, channels, i)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeSpectrumStorageAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			N := int32(120) << LM
+			s := opuscc.CompareCeltDecodeSpectrumStorage(N, channels)
+			for i := range s {
+				s[i] = float32(i%17-8) / 128
+			}
+			energy := make([]float32, 42)
+			for i := range energy {
+				energy[i] = -12
+			}
+			left, right := make([]float32, N+120), make([]float32, N+120)
+			cl, cr := slices.Clone(left), slices.Clone(right)
+			opuscc.CompareCeltSynthesis(nil, &s[0], &energy[0], &left[0], &right[0], 0, 21, channels, channels, 0, LM, 1, 0)
+			nativeCeltSynthesis(s, energy, cl, cr, 0, 21, channels, channels, 0, LM, 1, 0)
+			for i := range left {
+				if math.Float32bits(left[i]) != math.Float32bits(cl[i]) || math.Float32bits(right[i]) != math.Float32bits(cr[i]) {
+					t.Fatal("owned spectral synthesis", LM, channels, i)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeFineStorageAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		q := opuscc.CompareCeltDecodeFineStorage(21)
+		priority := opuscc.CompareCeltDecodePriorityStorage(21)
+		for i := range q {
+			q[i] = int32(i % 9)
+			priority[i] = int32(i % 2)
+		}
+		energy := make([]float32, 42)
+		for i := range energy {
+			energy[i] = -12
+		}
+		cEnergy := slices.Clone(energy)
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*71 + 13)
+		}
+		var ec opuscc.OpusT_ec_ctx
+		opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 128)
+		c := ec
+		opuscc.Opus_unquant_fine_energy(nil, mode, 0, 21, &energy[0], nil, &q[0], &ec, channels)
+		opuscc.Opus_unquant_energy_finalise(nil, mode, 0, 21, &energy[0], &q[0], &priority[0], 12, &ec, channels)
+		nativeEnergyDecode(&c, data, cEnergy, 21, 0, 21, channels, 1, 0, 0, nil, q)
+		nativeEnergyDecode(&c, data, cEnergy, 21, 0, 21, channels, 2, 12, 0, q, priority)
+		if ec != c {
+			t.Fatal("owned fine entropy", channels)
+		}
+		for i := range energy {
+			if math.Float32bits(energy[i]) != math.Float32bits(cEnergy[i]) {
+				t.Fatal("owned fine energy", channels, i)
+			}
+		}
+	}
+}
+func TestCeltDecodeOffsetsStorageAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		offsets := opuscc.CompareCeltDecodeOffsetsStorage(21)
+		for i := range offsets {
+			offsets[i] = int32(i%3) * 16
+		}
+		caps := opuscc.CompareCeltDecodeCapsStorage(mode, 21, LM, 2)
+		var a [7][23]int32
+		copy(a[0][1:22], offsets)
+		copy(a[3][1:22], caps)
+		cfg := [12]int32{0, 21, 5, 512, 0, 0, 0, 2, LM, 0, 0, 0}
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*71 + 13)
+		}
+		var ec opuscc.OpusT_ec_ctx
+		opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+		c := ec
+		g, values, out := opuscc.CompareCeltDecodeOffsetsAllocation(mode, offsets, caps, LM, &ec)
+		var cv [3]int32
+		n := nativeAllocationDriver(&c, data, &a, &cv, &cfg)
+		if g != n || values != cv || ec != c {
+			t.Fatal("owned offsets allocation", LM, g, n, values, cv)
+		}
+		for k := range out {
+			if !slices.Equal(out[k][:], a[k+4][1:22]) {
+				t.Fatal("owned offsets results", LM, k)
+			}
+		}
+	}
+}
+func TestCeltDecodeCapsStorageAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bands := unsafe.Slice(mode.FeBands, mode.FnbEBands+1)
+	cache := unsafe.Slice(mode.Fcache.Fcaps, 8*mode.FnbEBands)
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			got := opuscc.CompareCeltDecodeCapsStorage(mode, mode.FnbEBands, LM, channels)
+			want := make([]int32, len(got))
+			nativeCaps(bands, cache, want, LM, channels)
+			if !slices.Equal(got, want) {
+				t.Fatal("owned caps", LM, channels)
+			}
+		}
+	}
+}
+func TestCeltDecodeTFStorageAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, transient := range []int32{0, 1} {
+			for _, start := range []int32{0, 5} {
+				data := make([]byte, 64)
+				for i := range data {
+					data[i] = byte(i*71 + 13)
+				}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], uint32(len(data)))
+				c := ec
+				want := make([]int32, 21)
+				got := opuscc.CompareCeltDecodeTFStorage(21, start, 21, transient, LM, &ec)
+				nativeTFDecode(&c, data, start, 21, transient, want, LM)
+				if ec != c || !slices.Equal(got, want) {
+					t.Fatal("owned TF storage", LM, transient, start)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeEnergyClearAgainstC(t *testing.T) {
+	for _, bands := range []int32{1, 3, 21, 25} {
+		for _, start := range []int32{0, 1, bands} {
+			for _, end := range []int32{0, bands - 1, bands} {
+				e, l, p := make([]float32, 2*bands+2), make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+				for i := range e {
+					e[i] = float32(i + 1)
+					l[i] = float32(i + 2)
+					p[i] = float32(i + 3)
+				}
+				ce, cl, cp := slices.Clone(e), slices.Clone(l), slices.Clone(p)
+				opuscc.CompareCeltDecodeEnergyClear(&e[1], &l[1], &p[1], bands, start, end)
+				nativeCeltDecodeEnergyClear(&ce[1], &cl[1], &cp[1], bands, start, end)
+				for i := range e {
+					if math.Float32bits(e[i]) != math.Float32bits(ce[i]) || l[i] != cl[i] || p[i] != cp[i] {
+						t.Fatal("energy clearing", bands, start, end, i)
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeEnergyBackgroundAgainstC(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, loss := range []int32{-1, 0, 40, 160, 10000} {
+			for _, M := range []int32{1, 2, 4, 8} {
+				b, e := make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+				for i := range b {
+					b[i] = float32(i%9 - 4)
+					e[i] = float32(i%7 - 3)
+				}
+				c := slices.Clone(b)
+				state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: loss}
+				opuscc.CompareCeltDecodeEnergyBackground(&state, &b[1], &e[1], bands, M)
+				nativeCeltDecodeEnergyBackground(&c[1], &e[1], bands, loss, M)
+				for i := range b {
+					if math.Float32bits(b[i]) != math.Float32bits(c[i]) {
+						t.Fatal("background energy", bands, loss, M, i)
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeEnergyLogsAgainstC(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, transient := range []int32{-1, 0, 1, 7} {
+			e, l, p := make([]float32, 2*bands+2), make([]float32, 2*bands+2), make([]float32, 2*bands+2)
+			for i := range e {
+				e[i] = float32(i%7 - 3)
+				l[i] = float32(i%9 - 4)
+				p[i] = float32(i%11 - 5)
+			}
+			cl, cp := slices.Clone(l), slices.Clone(p)
+			opuscc.CompareCeltDecodeEnergyLogs(&e[1], &l[1], &p[1], bands, transient)
+			nativeCeltDecodeEnergyLogs(&e[1], &cl[1], &cp[1], bands, transient)
+			for i := range l {
+				if math.Float32bits(l[i]) != math.Float32bits(cl[i]) || math.Float32bits(p[i]) != math.Float32bits(cp[i]) {
+					t.Fatal("energy logs", bands, transient, i)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeEnergyExceptionalAgainstC(t *testing.T) {
+	e := []float32{3, float32(math.NaN()), math.Float32frombits(0x80000000), 0}
+	l := []float32{float32(math.NaN()), 1, 0, math.Float32frombits(0x80000000)}
+	c := slices.Clone(l)
+	opuscc.CompareCeltDecodeEnergyLogs(&e[0], &l[0], nil, 2, 1)
+	nativeCeltDecodeEnergyLogs(&e[0], &c[0], nil, 2, 1)
+	for i := range l {
+		if math.Float32bits(l[i]) != math.Float32bits(c[i]) {
+			t.Fatal("MING NaN/zero selection", i)
+		}
+	}
+	b := []float32{float32(math.NaN()), 1, 0, float32(math.Inf(1))}
+	c = slices.Clone(b)
+	state := opuscc.OpusT_OpusCustomDecoder{}
+	opuscc.CompareCeltDecodeEnergyBackground(&state, &b[0], &e[0], 2, 1)
+	nativeCeltDecodeEnergyBackground(&c[0], &e[0], 2, 0, 1)
+	for i := range b {
+		if math.Float32bits(b[i]) != math.Float32bits(c[i]) {
+			t.Fatal("background NaN/zero/infinity", i)
+		}
+	}
+}
+func TestCeltDecodeEnergyMonoAgainstC(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		a := make([]float32, 2*bands+2)
+		a[0], a[len(a)-1] = 77, 88
+		for i := int32(0); i < bands; i++ {
+			a[1+i] = math.Float32frombits(uint32(i)*0x1234567 + 0x80000000)
+		}
+		b := slices.Clone(a)
+		opuscc.CompareCeltDecodeEnergyMono(&a[1], bands)
+		nativeCeltDecodeEnergyMono(&b[1], bands)
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("mono energy", bands, i)
+			}
+		}
+	}
+}
+func TestCeltPLCLostAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		for LM := int32(0); LM <= 3; LM++ {
+			for _, scenario := range []int{0, 1, 2, 3} {
+				noise := scenario == 1 || scenario == 3
+				size := int(opuscc.CompareCustomDecoderSize(mode, channels))
+				data := make([]byte, size+16)
+				st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&data[0]))
+				st.Fchannels = channels
+				st.Fstream_channels = channels
+				st.Foverlap = 120
+				st.Fdownsample = 1
+				st.Fend = 21
+				st.Flast_frame_type = opuscc.FRAME_PLC_PERIODIC
+				st.Flast_pitch_index = 100
+				st.Frng = 0xdeadbeef
+				if noise {
+					st.Fskip_plc = 1
+				}
+				if scenario == 2 {
+					st.Flast_frame_type = 0
+				}
+				if scenario == 3 {
+					st.Fprefilter_and_fold = 1
+					st.Fpostfilter_period_old = 80
+					st.Fpostfilter_period = 96
+					st.Fpostfilter_gain_old = .13
+					st.Fpostfilter_gain = .2
+					st.Fpostfilter_tapset_old = 1
+					st.Fpostfilter_tapset = 2
+				}
+				history := unsafe.Slice(&st.F_decode_mem[0], (2048+120)*channels)
+				for i := range history {
+					history[i] = float32(math.Sin(float64(i)*.17) * .03)
+				}
+				energies := unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(&st.F_decode_mem[0]), int((2048+120)*channels)*4)), 168)
+				for i := range energies {
+					energies[i] = -12
+				}
+				for i := size; i < len(data); i++ {
+					data[i] = 165
+				}
+				c := slices.Clone(data)
+				for call := 0; call < 3; call++ {
+					st.Fmode = mode
+					opuscc.CompareCeltPLCLost(nil, st, 120<<LM, LM)
+					st.Fmode = nil
+					if ret := nativeCeltLost(c, 120<<LM, LM); ret != 0 {
+						t.Fatal("native concealment", ret)
+					}
+					if !slices.Equal(data, c) {
+						for i := range data {
+							if data[i] != c[i] {
+								t.Fatal("whole concealment", channels, LM, scenario, call, i, data[i], c[i])
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltPLCDispatchAgainstC(t *testing.T) {
+	for _, duration := range []int32{-1, 0, 39, 40, 10000} {
+		for _, start := range []int32{0, 1, 20} {
+			for _, skip := range []int32{-1, 0, 1} {
+				state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: 123, Fplc_duration: duration, Fstart: start, Fskip_plc: skip}
+				loss, s, kind := opuscc.CompareCeltPLCDispatch(&state)
+				if loss != 123 || s != start || (kind == opuscc.FRAME_PLC_NOISE) != nativeCeltPLCDispatch(duration, start, skip) {
+					t.Fatal("dispatch", duration, start, skip)
+				}
+			}
+		}
+	}
+}
 func TestCeltPLCFIRStorageAgainstC(t *testing.T) {
 	for _, length := range []int32{80, 200, 1024} {
 		input := make([]float32, length+24)

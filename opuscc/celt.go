@@ -228,6 +228,10 @@ var gains = [3][3]OpusT_opus_val16{
 }
 
 func Opus_init_caps(tls *libc.TLS, bands *OpusT_opus_int16, cacheCaps *uint8, cap1 *int32, nbBands, LM, C int32) {
+	// The C loop consumes no table/output pointers for an empty band set.
+	if nbBands <= 0 {
+		return
+	}
 	eBands := unsafe.Slice(bands, nbBands+1)
 	cache := unsafe.Slice(cacheCaps, nbBands*(2*LM+C))
 	caps := unsafe.Slice(cap1, nbBands)

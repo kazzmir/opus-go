@@ -508,6 +508,96 @@ baselines/tolerances, and repeated ARM checks. Earlier mentions of concealment
 TLS scratch above are historical; opaque allocation scanning and outer CELT
 decoding remain unresolved, and host/QEMU coverage is not direct macOS CI.
 
+The next four rounds retain a typed decoder at the concealment entry, a typed
+cached mode/eBands owner, scanned history/output views, then typed LPC/window
+consumers. Channel geometry uses numeric offsets into the decoder's trailing
+float storage; only consumed interiors are materialized (including no unused
+mono channel or zero-overlap/N=0 one-past output). Noise and periodic history
+shifts use copy with their distinct overlap lengths. Synthesis, pitch search,
+comb filtering, autocorrelation, LPC, FIR and IIR now receive typed pointers;
+no integer-addressed view or private legacy adapter remains inside concealment.
+The surrounding public CELT decode ABI still converts its legacy state once.
+
+Focused checkptr now covers complete active concealment, with nil TLS, an
+untouched TLS sentinel, forced GC/stack growth, heap modes/FFT tables, mono/stereo,
+LM=0..3, first-loss pitch/LPC, repeated periodic/noise calls and folding into
+noise with nonzero postfilters. All prior packet/frame goldens are unchanged.
+The actual included celt_decoder.c oracle checks full numeric state/history
+images and guards across three calls, periodic reuse, first loss, noise and
+prefilter/postfilter cases. Native mode pointers are rebound locally and cleared
+before import; Go pointer bytes are never passed to C. Scalar normalization,
+FIR/IIR and autocorrelation are selected rather than the linked presumed-SSE
+build: an initial noise mismatch exposed this oracle-selection difference.
+All four rounds retain full amd64/386/ARM64-QEMU tests, native and GC stress,
+unchanged encode/decode baselines and tolerances, and repeated ARM checks.
+Earlier leaf-only checkptr limits and legacy concealment views above are now
+historical. Outer CELT decoding and opaque allocation pointer scanning still
+remain legacy; this is not global GC safety or direct macOS CI coverage.
+
+The next four scratch rounds migrate pulses, fine priorities, contiguous C*N
+spectra and C*nbEBands collapse masks into Go-owned slices. Allocation writes
+typed pulse/priority outputs, and final-energy decoding consumes typed priorities.
+Spectral channel views retain the base and stereo N offset with numeric indexing;
+mono and empty views never materialize an unused interior. The decode caller now
+uses typed anti-collapse and synthesis directly, with a scanned two-pointer
+synthesis output array; only quant-all-bands converts these scratch owners back
+to uintptr through its explicit escape ABI. Every outer decode temporary array
+is now Go-owned. Its initial pseudostack setup/save/restore is deliberately still
+present: the legacy quant-all-bands body expects an initialized scratch stack.
+This is not yet a complete typed outer CELT decode or quant-all-bands migration.
+
+Grouped tests cover empty/positive storage geometry, retained channel views,
+GC/stack growth, allocation pulse/priority writes, final-energy priority reads,
+mono/stereo LM0..3 synthesis and anti-collapse with guarded outputs. Native
+fixtures compare actual rate.c output/scalar/entropy state, quant_bands.c final
+energy, scalar synthesis and anti-collapse. All four rounds run full amd64/386,
+ARM64/QEMU, scoped helper/consumer checkptr, native comparisons and GC stress
+without changing goldens/tolerances. Final repeated ARM checkptr remains scoped
+to typed helper/consumer/PLC paths, separately from ordinary frame goldens.
+
+Four later outer CELT decode scratch rounds replace pseudostack allocations for
+TF flags, caps, boost offsets and fine-energy bits with Go-owned int32 slices.
+Each removes its TLS allocation/alignment/cursor block. TF and caps initialize
+through the existing typed kernels; caps reads and boost-offset stores use
+numeric indexing. Fine-energy allocation now calls the typed allocation driver
+with typed local outputs, followed by typed fine/final-energy consumers. Remaining
+pulses, priorities, spectra and collapse-mask storage are still pseudostack-backed.
+The quant-all-bands uintptr ABI explicitly escapes pointer arguments so new TF
+storage survives its recursive legacy consumers; this is a boundary adapter,
+not migration of the quant-all-bands body. Empty caps skip unused table views,
+matching the C zero-iteration loop and accepting nil unused pointers.
+
+Grouped owned-storage tests force GC/stack growth, cover empty and positive
+storage sizes, TF transient/LM/partial-band combinations, mono/stereo caps and
+fine/final-energy consumers. Native tests reuse actual TF/caps kernels, rate.c
+allocation and quant_bands.c energy decoding, including complete entropy state.
+Scoped checkptr covers these typed helper/consumer pipelines and migrated PLC,
+not the enclosing legacy CELT decode/quant-all-bands path. Full amd64/386,
+ARM64/QEMU, native, GC stress and unchanged encode/decode goldens/tolerances run
+per commit; repeated ARM pointer and ordinary golden tests follow the batch.
+
+Four subsequent outer CELT decode-history rounds type mono energy duplication,
+current/previous log-energy updates, background energy tracking and out-of-band
+clearing. Mono duplication copies the contiguous second lane; nontransient logs
+copy previous<-current before current<-energy. Transient updates retain MING's
+ordered comparison/tie/NaN selection, not Go's builtin floating minimum. The
+background increment keeps int32 loss_duration+M, the 160 cap, exact float32
+.001 scaling, and sequential live loads/stores. Clearing retains two channel
+passes, prefix then suffix ranges, energy positive-zero followed by previous-log
+then current-log -28 stores; overlapping ranges still execute in source order.
+
+Grouped Go/native tests cover bands 0/1/3/21/25, zero/nonzero/negative transient
+flags, loss/LM increments, full/empty/overlapping active bands, guards, GC/stack
+growth, quiet NaNs, signed zero and infinity. Copy/history aliases and signed
+overflow are explicitly Go-only, not memcpy-overlap or C-overflow parity claims.
+Native fixtures use source-equivalent celt_decoder.c snippets and its actual
+MING/IMIN macros; they are leaf oracles, not a new complete decode-frame oracle.
+Scoped checkptr covers these typed history helpers alongside full migrated
+concealment, not the still-legacy outer CELT decode dispatcher or quant-all-bands.
+Each round keeps full amd64/386/ARM64-QEMU tests, native and GC stress, unchanged
+packet/frame/encode/decode goldens/tolerances and repeated ARM checks. This does
+not resolve opaque pointer scanning, global GC safety or direct macOS CI.
+
 The outer SILK API now retains typed decoder/channel, control, entropy, float PCM
 and output-count pointers behind Opus_silk_Decode's explicit uintptr escape ABI.
 Packet-start frame counters use typed state and a live channel-count pointer.
