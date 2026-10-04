@@ -2314,7 +2314,8 @@ func opus_packet_get_mode(tls *libc.TLS, data *byte) (r int32) {
 
 func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
 	var F10, F20, F2_5, F5, audiosize, bandwidth, c, celt_accum, celt_frame_size, celt_ret, celt_to_silk, decoded_samples, endband, first_frame, i, lost_flag, mode, pcm_silk_size, pcm_too_small, pcm_transition_celt_size, pcm_transition_silk_size, redundancy, redundancy_bytes, redundant_audio_size, ret, silk_ret, start_band, transition, v31, v32 int32
-	var _saved_stack, celt_dec, pcm_ptr, pcm_silk, pcm_transition, pcm_transition_celt, pcm_transition_silk, redundant_audio, silk_dec, st, window, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
+	var window *float32
+	var _saved_stack, celt_dec, pcm_ptr, pcm_silk, pcm_transition, pcm_transition_celt, pcm_transition_silk, redundant_audio, silk_dec, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var frac, v175, v176 float32
 	var gain, x1 OpusT_opus_val32
 	var integer OpusT_opus_int32
@@ -2327,16 +2328,13 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	var silk_frame_size OpusT_opus_int32
 	var redundant_rng OpusT_opus_uint32
 	var silence [2]uint8
-	var celt_mode uintptr
-	var va uintptr /* va_list scratch for celt_decoder_ctl varargs */
-	// These locals still cross legacy SILK/CELT or CTL interfaces as uintptr.
+	var celt_mode *OpusT_OpusCustomMode
+	// These two locals still cross the legacy SILK frame interface as uintptr.
 	// Pinning forces heap allocation and stable addresses across stack growth.
 	// Remove individual pins as their complete call chains become typed.
 	var framePins runtime.Pinner
 	framePins.Pin(&dec)
 	framePins.Pin(&silk_frame_size)
-	framePins.Pin(&celt_mode)
-	framePins.Pin(&va)
 	defer framePins.Unpin()
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st1))
 	silk_ret = 0
@@ -3083,10 +3081,10 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		}
 		(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FrangeFinal = dec.Frng
 	}
-	if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(CELT_GET_MODE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), uintptr(unsafe.Pointer(&celt_mode)))) == int32(OPUS_OK)) {
+	if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &celt_mode}) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+1811, __ccgo_ts+57, int32(632))
 	}
-	window = uintptr(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(celt_mode)).Fwindow))
+	window = celt_mode.Fwindow
 	/* 5 ms redundant frame for SILK->CELT */
 	if redundancy != 0 && !(celt_to_silk != 0) {
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {

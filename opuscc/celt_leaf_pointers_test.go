@@ -191,6 +191,36 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeFrameModePointers(t *testing.T) {
+	mode := newSynthesisTestMode()
+	state := &OpusT_OpusCustomDecoder{Fmode: mode}
+	var output *OpusT_OpusCustomMode
+	if Opus_opus_custom_decoder_ctl_typed(nil, state, CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &output}) != 0 || output != mode {
+		t.Fatal("frame mode output")
+	}
+	window := output.Fwindow
+	state.Fmode = nil
+	state = nil
+	mode = nil
+	output = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if window == nil || unsafe.Slice(window, 120)[119] == 0 {
+		t.Fatal("frame window owner")
+	}
+	data := make([]float32, 122)
+	other := make([]float32, 122)
+	data[0], data[121] = 77, 88
+	for i := 1; i <= 120; i++ {
+		data[i] = 1
+		other[i] = 2
+	}
+	smooth_fade(nil, &data[1], &other[1], &data[1], 120, 1, window, 48000)
+	if data[0] != 77 || data[121] != 88 {
+		t.Fatal("typed frame window/fade guards")
+	}
+}
+
 func TestCeltDecodeFrameRangePointers(t *testing.T) {
 	state := &OpusT_OpusCustomDecoder{Fmode: &mode48000_960_120}
 	for _, value := range []uint32{0, 1, 0x80000000, 0xffffffff} {

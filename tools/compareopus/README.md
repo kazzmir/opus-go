@@ -534,6 +534,26 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four Opus-frame CELT CTL rounds replace all twelve legacy varargs calls with
+the existing typed CTL interface: six band/channel setters, two resets, three
+final-range outputs and mode retrieval. Setter values, reset/start-band order,
+assertion sites and the deliberately ignored main range-query return are
+unchanged. Redundant range outputs retain typed local pointers; main range output
+uses the actual outer decoder field rather than byte offset96. The retrieved
+mode and fade window are typed owners. Unused va_list scratch disappears, along
+with redundant_rng, celt_mode and va Pinner slots; only dec and silk_frame_size
+remain pinned for their legacy SILK crossings.
+
+Grouped scoped checkptr/GC tests cover setter validation/no partial writes,
+reset barriers/energy-log initialization, unsigned range extremes/live field
+aliases, mode retrieval, retained heap window ownership and fade guards. Existing
+actual-C custom CTL comparison fixtures and transition/frame goldens remain
+unchanged; full amd64/386, ARM64/QEMU, native comparisons, GC stress and codec
+baselines pass each round. Repeated ARM typed-consumer checkptr remains separate
+from ordinary enclosing Opus-frame goldens. This does not yet make frame decoder
+interiors, PCM/redundancy/fade offsets or remaining SILK uintptr arguments typed,
+and opaque allocation scanning remains unresolved.
+
 Four Opus-frame CELT dispatch rounds forward typed decoder, payload, PCM and
 entropy owners to the internal decoder for the main/FEC call, CELT→SILK redundant
 frame, hybrid→SILK silence frame and SILK→CELT redundant frame. Redundant packet
