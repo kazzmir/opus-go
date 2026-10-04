@@ -423,6 +423,17 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeAllocationBudget(tls *libc.TLS, ec *OpusT_ec_ctx, length, transient, LM int32) (budget, reserved int32) {
+	budget = (length * 8) << BITRES
+	budget -= int32(Opus_ec_tell_frac(tls, ec))
+	budget -= 1
+	if transient != 0 && LM >= 2 && budget >= (LM+2)<<BITRES {
+		reserved = 1 << BITRES
+	}
+	budget -= reserved
+	return
+}
+
 func celtDecodeTrim(tls *libc.TLS, ec *OpusT_ec_ctx, tell, total int32) int32 {
 	if tell+(int32(6)<<BITRES) <= total {
 		return Opus_ec_dec_icdf(tls, ec, &trim_icdf9[0], 7)
@@ -1299,14 +1310,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	total_bits, tell = celtDecodeBoosts(tls, eBands, unsafe.SliceData(cap1), unsafe.SliceData(offsets), start, end, C, LM, total_bits, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
 	fine_quant = celtDecodeFineStorage(nbEBands)
 	alloc_trim = celtDecodeTrim(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), tell, total_bits)
-	bits = len1*int32(8)<<int32(BITRES) - int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))) - int32(1)
-	if isTransient != 0 && LM >= int32(2) && bits >= (LM+int32(2))<<int32(BITRES) {
-		v28 = int32(1) << int32(BITRES)
-	} else {
-		v28 = 0
-	}
-	anti_collapse_rsv = v28
-	bits = bits - anti_collapse_rsv
+	bits, anti_collapse_rsv = celtDecodeAllocationBudget(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), len1, isTransient, LM)
 	pulses = celtDecodePulseStorage(nbEBands)
 	fine_priority = celtDecodePriorityStorage(nbEBands)
 	codedBands = clt_compute_allocation(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, unsafe.SliceData(offsets), unsafe.SliceData(cap1), alloc_trim, &intensity, &dual_stereo, bits, &balance, unsafe.SliceData(pulses), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), 0, 0, 0)

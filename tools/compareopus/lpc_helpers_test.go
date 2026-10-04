@@ -11,6 +11,24 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeAllocationBudgetAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, tr := range []int32{0, 1, -1} {
+			for _, length := range []int32{0, 1, 2, 16, 1275} {
+				data := []byte{0, 71, 255, 13}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 4)
+				c := ec
+				a := [8]int32{length, tr, LM}
+				budget, r := opuscc.CompareCeltDecodeAllocationBudget(&ec, length, tr, LM)
+				nativeCeltDecodeHeader(&c, data, 5, &a)
+				if ec != c || budget != a[3] || r != a[4] {
+					t.Fatal("allocation reservation", LM, tr, length)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeTrimAgainstC(t *testing.T) {
 	for _, tell := range []int32{0, 8, 49} {
 		for _, total := range []int32{0, 47, 48, 49, 128} {

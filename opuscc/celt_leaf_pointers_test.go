@@ -56,6 +56,29 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeAllocationBudgetPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, tr := range []int32{0, 1, -1} {
+			for _, length := range []int32{0, 1, 2, 16, 1275} {
+				data := []byte{0, 71, 255, 13}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 4)
+				before := ec
+				want := (length*8)<<BITRES - int32(Opus_ec_tell_frac(nil, &ec)) - 1
+				reserve := int32(0)
+				if tr != 0 && LM >= 2 && want >= (LM+2)<<BITRES {
+					reserve = 1 << BITRES
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				budget, r := celtDecodeAllocationBudget(nil, &ec, length, tr, LM)
+				if budget != want-reserve || r != reserve || ec != before {
+					t.Fatal("allocation reservation", LM, tr, length)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeTrimPointers(t *testing.T) {
 	for _, tell := range []int32{0, 8, 49} {
 		for _, total := range []int32{0, 47, 48, 49, 128} {
