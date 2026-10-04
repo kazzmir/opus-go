@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four quant-all-bands view rounds type TF flags, pulse budgets, collapse masks
+and the cached eBands owner. All accesses to these views in the driver now use
+numeric unsafe.Slice indexing, including allocation geometry, folding searches,
+RDO norm-copy offsets and the final balance reload. Private TF/pulse/mask arguments
+are forwarded directly by the typed CELT decoder; the public escape adapter is
+retained. Pulse loads stay live at every original comparison/reload rather than
+being cached across entropy work. Mask stores narrow to byte, first then last
+lane, so mono retains the original last-store-wins behavior. Band reads sign
+extend int16, with the same M multiplication, int32 narrowing and uintptr offsets
+for the still-legacy spectrum/norm consumers; arithmetic was not canonicalized.
+
+Grouped GC/stack-growth/checkptr tests cover live mutations, signed extremes,
+heap-mode endpoint ownership, mono/stereo narrowing/store order and guards.
+Native source-equivalent scalar array accesses/stores plus existing whole-band
+C-reference cases and native codec comparisons pass, as do full amd64/386 and
+ARM64/QEMU, GC stress and unchanged encode/decode goldens/tolerances. Repeated ARM
+checkptr is scoped to typed helpers/consumers; separate ordinary runs retain the
+whole-band and frame goldens. Spectrum/RDO/norm/lowband scratch, memcpy operations
+and pseudostack cursors remain legacy, so full quant-all-bands checkptr is not
+claimed. Opaque byte-backed pointer scanning remains a separate blocker.
+
 Four quant-all-bands owner rounds introduce a private quant_all_bands entry with
 typed mode, entropy, seed and band-energy pointers. The public uintptr escape ABI
 remains; the typed CELT decoder now forwards those owners directly rather than

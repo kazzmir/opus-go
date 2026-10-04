@@ -11,6 +11,29 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsNormLengthAgainstC(t *testing.T) {
+	bands := []int16{0, 4, 8, 12}
+	for _, C := range []int32{1, 2} {
+		for _, M := range []int32{1, 2, 4, 8} {
+			for _, start := range []int32{0, 1, 2} {
+				offset := M * int32(bands[start])
+				if opuscc.CompareQuantAllBandsNormLength(&bands[0], 2, M, C, offset) != nativeQuantAllBandsNormLength(&bands[0], 2, M, C, offset) {
+					t.Fatal("native norm geometry", C, M, start)
+				}
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsBoundaryAgainstC(t *testing.T) {
+	values := []int16{77, -32768, -1, 0, 32767, 88}
+	for i := int32(0); i < 4; i++ {
+		if opuscc.CompareQuantAllBandsBoundary(&values[1], i) != nativeQuantAllBandsBoundary(&values[1], i) {
+			t.Fatal("native signed boundary", i)
+		}
+	}
+}
+
 func TestQuantAllBandsMasksAgainstC(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for band := int32(0); band < 3; band++ {

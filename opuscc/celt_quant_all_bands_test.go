@@ -35,6 +35,47 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsNormLengthPointers(t *testing.T) {
+	bands := []int16{0, 4, 8, 12}
+	for _, C := range []int32{1, 2} {
+		for _, M := range []int32{1, 2, 4, 8} {
+			for _, start := range []int32{0, 1, 2} {
+				offset := M * int32(bands[start])
+				if quantAllBandsNormLength(&bands[0], 2, M, C, offset) != C*(M*8-offset) {
+					t.Fatal("channel-scaled offset", C, M, start)
+				}
+			}
+		}
+	}
+	bands[2] = 32767
+	if quantAllBandsNormLength(&bands[0], 2, 2147483647, 2, -2147483648) != -65534 {
+		t.Fatal("Go-only norm-size wrapping")
+	}
+}
+
+func TestQuantAllBandsBoundaryPointers(t *testing.T) {
+	bands := []int16{77, -32768, -1, 0, 32767, 88}
+	for i := int32(0); i < 4; i++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if quantAllBandsBoundary(&bands[1], i) != int32(bands[1+i]) {
+			t.Fatal("signed boundary view", i)
+		}
+		bands[1+i]++
+		if quantAllBandsBoundary(&bands[1], i) != int32(bands[1+i]) || bands[0] != 77 || bands[5] != 88 {
+			t.Fatal("live boundaries")
+		}
+	}
+	mode := newSynthesisTestMode()
+	owned := mode.FeBands
+	mode = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if quantAllBandsBoundary(owned, 21) != 100 {
+		t.Fatal("retained endpoint")
+	}
+}
+
 func TestQuantAllBandsMaskPointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		masks := []byte{77, 1, 2, 3, 4, 5, 6, 88}
