@@ -534,6 +534,30 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four further Opus-frame owner rounds retain the SILK interior as a typed
+pointer, represent SILK PCM with a typed base/current view plus numeric byte
+offset, call silk_Decode directly with typed control/entropy/PCM/sample-count
+arguments, then retain the CELT interior as a typed pointer throughout dispatch
+and CTLs. Interiors use unsafe.Add on the retained decoder and the original live
+signed offsets at the original derivation point. The PCM offset preserves native
+uintptr stride wrapping; only consumed loop views are formed, not an unused
+terminal EOF pointer. PLC error clears still reload the live channel bound and
+store in the original order. Entropy tell gates read the typed context fields at
+the original three points, with unchanged cached values/rounding/precedence.
+
+All frame-local Pinner slots are now removed: dec and silk_frame_size no longer
+cross integer interfaces, and the runtime import is gone. Public legacy adapters
+remain for other callers. Grouped scanned composite owner fixtures exercise both
+interiors, numeric PCM chunk views/guards, SILK PLC dispatch with typed count and
+untouched entropy, and active CELT decode/range/mode retrieval. Scoped checkptr,
+GC/stack growth, unchanged whole native SILK/CELT comparisons, enclosing frame
+references, full amd64/386 and ARM64/QEMU tests and codec baselines pass each
+round, with repeated ARM typed-consumer and separate ordinary golden runs.
+Removing pins is not an enclosing frame GC-safety/checkptr proof: the entry,
+payload/PCM/transition/redundancy owners, pseudostack storage/cursors and fades
+still include legacy representations. Byte-backed decoder allocation scanning
+also remains separate; these fixtures deliberately use scanned composite storage.
+
 Four Opus-frame CELT CTL rounds replace all twelve legacy varargs calls with
 the existing typed CTL interface: six band/channel setters, two resets, three
 final-range outputs and mode retrieval. Setter values, reset/start-band order,

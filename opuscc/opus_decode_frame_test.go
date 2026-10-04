@@ -14,6 +14,34 @@ type opusFrameOwnerTestStorage struct {
 	Celt    celtStateTestStorage
 }
 
+func TestOpusFrameCeltOwnerPointers(t *testing.T) {
+	storage := new(opusFrameOwnerTestStorage)
+	storage.Decoder.Fcelt_dec_offset = int32(unsafe.Offsetof(storage.Celt))
+	state := opusFrameCeltState(&storage.Decoder)
+	if state != &storage.Celt.State {
+		t.Fatal("CELT interior offset")
+	}
+	if Opus_celt_decoder_init(nil, state, 48000, 2) != 0 {
+		t.Fatal("CELT init")
+	}
+	data := make([]byte, 64)
+	for i := range data {
+		data[i] = byte(i*73 + 165)
+	}
+	pcm := make([]float32, 242)
+	pcm[0], pcm[241] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if opusFrameCelt(nil, state, &data[0], 64, &pcm[1], 120, nil, 0, 0) != 120 {
+		t.Fatal("CELT typed interior decode")
+	}
+	var mode *OpusT_OpusCustomMode
+	var rng uint32
+	if Opus_opus_custom_decoder_ctl_typed(nil, state, CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &mode}) != 0 || mode != &mode48000_960_120 || Opus_opus_custom_decoder_ctl_typed(nil, state, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &rng}) != 0 || rng != state.Frng || pcm[0] != 77 || pcm[241] != 88 {
+		t.Fatal("CELT interior range/mode/guards")
+	}
+}
+
 func TestOpusFrameSilkDispatchPointers(t *testing.T) {
 	storage := new(opusFrameOwnerTestStorage)
 	storage.Decoder.Fsilk_dec_offset = int32(unsafe.Offsetof(storage.Silk))

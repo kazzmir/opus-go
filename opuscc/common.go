@@ -2311,6 +2311,10 @@ func opus_packet_get_mode(tls *libc.TLS, data *byte) (r int32) {
 	return int32(MODE_SILK_ONLY)
 }
 
+func opusFrameCeltState(decoder *OpusT_OpusDecoder) *OpusT_OpusCustomDecoder {
+	return (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(decoder), decoder.Fcelt_dec_offset))
+}
+
 func opusFrameSilkPCM(base *float32, offset uintptr) *float32 {
 	if offset == 0 {
 		return base
@@ -2327,9 +2331,10 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	var F10, F20, F2_5, F5, audiosize, bandwidth, c, celt_accum, celt_frame_size, celt_ret, celt_to_silk, decoded_samples, endband, first_frame, i, lost_flag, mode, pcm_silk_size, pcm_too_small, pcm_transition_celt_size, pcm_transition_silk_size, redundancy, redundancy_bytes, redundant_audio_size, ret, silk_ret, start_band, transition, v31, v32 int32
 	var window *float32
 	var silk_dec *OpusT_silk_decoder
+	var celt_dec *OpusT_OpusCustomDecoder
 	var pcm_base, pcm_ptr *float32
 	var pcm_offset uintptr
-	var _saved_stack, celt_dec, pcm_silk, pcm_transition, pcm_transition_celt, pcm_transition_silk, redundant_audio, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
+	var _saved_stack, pcm_silk, pcm_transition, pcm_transition_celt, pcm_transition_silk, redundant_audio, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var frac, v175, v176 float32
 	var gain, x1 OpusT_opus_val32
 	var integer OpusT_opus_int32
@@ -2414,7 +2419,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	silk_dec = opusFrameSilkState(decoder)
-	celt_dec = st1 + uintptr(decoder.Fcelt_dec_offset)
+	celt_dec = opusFrameCeltState(decoder)
 	F20 = decoder.FFs / int32(50)
 	F10 = F20 >> int32(1)
 	F5 = F10 >> int32(1)
@@ -2943,12 +2948,12 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			break
 		}
 		_ = endband == int32(0)
-		if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), CELT_SET_END_BAND_REQUEST, OpusDecoderCtlArgs{Value: endband}) == int32(OPUS_OK)) {
+		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_END_BAND_REQUEST, OpusDecoderCtlArgs{Value: endband}) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1037, __ccgo_ts+57, int32(570))
 		}
 	}
 	_ = decoder.Fstream_channels == int32(0)
-	if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), CELT_SET_CHANNELS_REQUEST, OpusDecoderCtlArgs{Value: decoder.Fstream_channels}) == int32(OPUS_OK)) {
+	if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_CHANNELS_REQUEST, OpusDecoderCtlArgs{Value: decoder.Fstream_channels}) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+1172, __ccgo_ts+57, int32(572))
 	}
 	/* Only allocation memory for redundancy if/when needed */
@@ -3032,17 +3037,17 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		   the final range is still needed (for testing), so the redundancy is
 		   always decoded but the decoded audio may not be used */
 		_ = int32(0) == int32(0)
-		if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
+		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(586))
 		}
-		opusFrameCeltRedundant(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), (*byte)(unsafe.Pointer(data)), len1, redundancy_bytes, (*float32)(unsafe.Pointer(redundant_audio)), F5)
-		if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &redundant_rng}) == int32(OPUS_OK)) {
+		opusFrameCeltRedundant(tls, celt_dec, (*byte)(unsafe.Pointer(data)), len1, redundancy_bytes, (*float32)(unsafe.Pointer(redundant_audio)), F5)
+		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &redundant_rng}) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(589))
 		}
 	}
 	/* MUST be after PLC */
 	_ = start_band == int32(0)
-	if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: start_band}) == int32(OPUS_OK)) {
+	if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: start_band}) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+1599, __ccgo_ts+57, int32(593))
 	}
 	if mode != int32(MODE_SILK_ONLY) {
@@ -3054,13 +3059,13 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		celt_frame_size = v31
 		/* Make sure to discard any previous CELT state */
 		if mode != (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode && (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode > 0 && !((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_redundancy != 0) {
-			if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
+			if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
 				Opus_celt_fatal(tls, __ccgo_ts+1740, __ccgo_ts+57, int32(604))
 			}
 		}
 		/* Decode CELT */
-		celt_ret = opusFrameCelt(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(pcm)), celt_frame_size, &dec, decode_fec, celt_accum)
-		Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &decoder.FrangeFinal})
+		celt_ret = opusFrameCelt(tls, celt_dec, (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(pcm)), celt_frame_size, &dec, decode_fec, celt_accum)
+		Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &decoder.FrangeFinal})
 	} else {
 		silence = [2]uint8{
 			0: uint8(0xFF),
@@ -3080,28 +3085,28 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		   do a fade-out by decoding a silence frame */
 		if (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode == int32(MODE_HYBRID) && !(redundancy != 0 && celt_to_silk != 0 && (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_redundancy != 0) {
 			_ = int32(0) == int32(0)
-			if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
+			if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
 				Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(624))
 			}
-			opusFrameCeltSilence(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), &silence, (*float32)(unsafe.Pointer(pcm)), F2_5, celt_accum)
+			opusFrameCeltSilence(tls, celt_dec, &silence, (*float32)(unsafe.Pointer(pcm)), F2_5, celt_accum)
 		}
 		(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).FrangeFinal = dec.Frng
 	}
-	if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &celt_mode}) == int32(OPUS_OK)) {
+	if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &celt_mode}) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+1811, __ccgo_ts+57, int32(632))
 	}
 	window = celt_mode.Fwindow
 	/* 5 ms redundant frame for SILK->CELT */
 	if redundancy != 0 && !(celt_to_silk != 0) {
-		if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
+		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1740, __ccgo_ts+57, int32(639))
 		}
 		_ = int32(0) == int32(0)
-		if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
+		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(640))
 		}
-		opusFrameCeltRedundant(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), (*byte)(unsafe.Pointer(data)), len1, redundancy_bytes, (*float32)(unsafe.Pointer(redundant_audio)), F5)
-		if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &redundant_rng}) == int32(OPUS_OK)) {
+		opusFrameCeltRedundant(tls, celt_dec, (*byte)(unsafe.Pointer(data)), len1, redundancy_bytes, (*float32)(unsafe.Pointer(redundant_audio)), F5)
+		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &redundant_rng}) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(643))
 		}
 		smooth_fade(tls, (*float32)(unsafe.Pointer(pcm+uintptr(decoder.Fchannels*(frame_size-F2_5))*4)), (*float32)(unsafe.Pointer(redundant_audio+uintptr(decoder.Fchannels*F2_5)*4)), (*float32)(unsafe.Pointer(pcm+uintptr(decoder.Fchannels*(frame_size-F2_5))*4)), F2_5, decoder.Fchannels, (*float32)(unsafe.Pointer(window)), decoder.FFs)
