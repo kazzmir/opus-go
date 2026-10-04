@@ -11,6 +11,17 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePacketFinishAgainstC(t *testing.T) {
+	for _, v := range []int32{-2147483648, -1, 0, 1, 40, 2147483647} {
+		g := opuscc.OpusT_OpusCustomDecoder{Floss_duration: v, Fplc_duration: v, Flast_frame_type: v, Fprefilter_and_fold: v, Frng: 123, Ferror1: 7, Fpostfilter_period: 45}
+		c := g
+		opuscc.CompareCeltDecodePacketFinish(&g)
+		nativeCeltDecodePacketFinish(&c)
+		if g != c {
+			t.Fatal("packet finish", v)
+		}
+	}
+}
 func TestCeltDecodeRecoverEnergyAgainstC(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, loss := range []int32{0, 1, 10, 40} {

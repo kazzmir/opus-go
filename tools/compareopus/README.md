@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+The following four recovery/finalization rounds type per-channel missing/safety
+controls, individual loss-recovery energy prediction, the full two-channel
+recovery loop, and normal packet-state reset. Safety keeps signed loss_duration
+shift and the ten-frame cap. Prediction retains ordered MAXG/MING/MAX32 branches,
+NaN/tie selection, explicit float32 difference/half/product/subtraction rounding,
+the -20 clamp and the final post-store safety subtraction. Recovery uses typed
+numeric-indexed energy/log/history spans, the original intra/loss short circuit,
+exactly two channels (including mono), and a fresh loss-duration read per channel.
+The normal reset writes loss, PLC duration, frame type, then fold flag after
+deemphasis and before the unchanged cursor restore and entropy/error checks.
+
+Grouped pointer/native tests cover signed loss extremes, LM0..3, partial/empty
+bands, no-op nil inputs, finite/clamped branches, NaNs, infinities and signed
+zero, guards, GC/stack growth and unchanged unrelated decoder fields. The
+float/count alias that changes channel-two safety is Go-only, not a C effective-
+type claim. Native fixtures remain source-equivalent celt_decoder.c snippets
+using its actual comparison macros. Each commit retains full amd64/386,
+ARM64/QEMU, scoped typed helper/recovery/PLC checkptr, native, GC stress and
+unchanged encode/decode baselines/tolerances. Batch repeats separate typed-path
+ARM checkptr from ordinary frame goldens; enclosing CELT/quant-all-bands still
+contains legacy integer-addressed views and is not covered by that claim.
+
 Four further decode-operation rounds type history memmove, silence energy
 filling, dynamic boosts and postfilter finalization. History shifting uses one
 exact trailing-storage slice and overlapping copy; zero length consumes no view.

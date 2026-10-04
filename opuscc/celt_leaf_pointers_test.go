@@ -55,6 +55,22 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePacketFinishPointers(t *testing.T) {
+	for _, v := range []int32{-2147483648, -1, 0, 1, 40, 2147483647} {
+		state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Floss_duration: v, Fplc_duration: v, Flast_frame_type: v, Fprefilter_and_fold: v, Frng: 123, Ferror1: 7, Fpostfilter_period: 45}
+		want := *state
+		want.Floss_duration = 0
+		want.Fplc_duration = 0
+		want.Flast_frame_type = FRAME_NORMAL
+		want.Fprefilter_and_fold = 0
+		entropyInitGrowStack(12)
+		runtime.GC()
+		celtDecodePacketFinish(state)
+		if *state != want {
+			t.Fatal("packet finish changed unrelated state", v)
+		}
+	}
+}
 func TestCeltDecodeRecoverEnergyPointers(t *testing.T) {
 	celtDecodeRecoverEnergy(nil, nil, nil, nil, 21, 0, 21, 0, 1)
 	celtDecodeRecoverEnergy(&OpusT_OpusCustomDecoder{}, nil, nil, nil, 21, 0, 21, 0, 0)

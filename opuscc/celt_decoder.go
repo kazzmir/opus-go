@@ -423,6 +423,13 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodePacketFinish(state *OpusT_OpusCustomDecoder) {
+	state.Floss_duration = 0
+	state.Fplc_duration = 0
+	state.Flast_frame_type = FRAME_NORMAL
+	state.Fprefilter_and_fold = 0
+}
+
 func celtDecodeRecoverEnergy(state *OpusT_OpusCustomDecoder, energy, log, previous *float32, bands, start, end, LM, intra int32) {
 	if intra != 0 || state.Floss_duration == 0 {
 		return
@@ -1330,10 +1337,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	celtDecodeEnergyClear((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, start, end)
 	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng = (*OpusT_ec_dec)(unsafe.Pointer(dec)).Frng
 	deemphasis_legacy(tls, uintptr(unsafe.Pointer(&out_syn[0])), pcm, N, CC, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, mode+16, st1+unsafe.Offsetof(OpusT_OpusCustomDecoder{}.Fpreemph_memD), accum)
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration = 0
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fplc_duration = 0
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type = int32(FRAME_NORMAL)
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold = 0
+	celtDecodePacketFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v1 = libc.Xmalloc(tls, uint64(16))

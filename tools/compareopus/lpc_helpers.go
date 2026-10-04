@@ -13,6 +13,8 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+// celt_decoder.c defines FRAME_NORMAL as 1.
+static void compare_decode_packet_finish(int *state) {state[0]=0;state[1]=0;state[2]=1;state[3]=0;}
 static void compare_decode_recovery_band(float *e,const float *l,const float *p,int missing,float safety) {if(*e<MAXG(*l,*p)){float E0=*e,E1=*l,E2=*p;float slope=MAX32(E1-E0,HALF32(E2-E0));slope=MING(slope,2.f);E0-=MAX32(0,(1+missing)*slope);*e=MAX32(-20.f,E0);}else *e=MING(MING(*e,*l),*p);*e-=safety;}
 static int compare_decode_recovery_safety(int loss,int LM,float *safety) {*safety=0;if(LM==0)*safety=1.5f;else if(LM==1)*safety=.5f;return IMIN(10,loss>>LM);}
 static void compare_decode_recover_energy(float *e,const float *l,const float *p,int bands,int start,int end,int LM,int intra,int loss) {if(!intra&&loss){int c=0;do{float safety;int missing=compare_decode_recovery_safety(loss,LM,&safety);for(int i=start;i<end;i++)compare_decode_recovery_band(e+c*bands+i,l+c*bands+i,p+c*bands+i,missing,safety);}while(++c<2);}}
@@ -43,6 +45,14 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodePacketFinish(state *opuscc.OpusT_OpusCustomDecoder) {
+	v := [4]C.int{C.int(state.Floss_duration), C.int(state.Fplc_duration), C.int(state.Flast_frame_type), C.int(state.Fprefilter_and_fold)}
+	C.compare_decode_packet_finish(&v[0])
+	state.Floss_duration = int32(v[0])
+	state.Fplc_duration = int32(v[1])
+	state.Flast_frame_type = int32(v[2])
+	state.Fprefilter_and_fold = int32(v[3])
+}
 func nativeCeltDecodeRecoverEnergy(e, l, p []float32, bands, start, end, LM, intra, loss int32) {
 	C.compare_decode_recover_energy((*C.float)(unsafe.Pointer(unsafe.SliceData(e))), (*C.float)(unsafe.Pointer(unsafe.SliceData(l))), (*C.float)(unsafe.Pointer(unsafe.SliceData(p))), C.int(bands), C.int(start), C.int(end), C.int(LM), C.int(intra), C.int(loss))
 }

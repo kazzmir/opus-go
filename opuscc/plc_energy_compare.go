@@ -7,6 +7,7 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltDecodePacketFinish(state *OpusT_OpusCustomDecoder) { celtDecodePacketFinish(state) }
 func CompareCeltDecodeRecoverEnergy(state *OpusT_OpusCustomDecoder, e, l, p *float32, bands, start, end, LM, intra int32) {
 	celtDecodeRecoverEnergy(state, e, l, p, bands, start, end, LM, intra)
 }
