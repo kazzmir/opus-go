@@ -18,7 +18,7 @@ func TestCeltDecodeFineStorageAgainstC(t *testing.T) {
 	}
 	for _, channels := range []int32{1, 2} {
 		q := opuscc.CompareCeltDecodeFineStorage(21)
-		priority := make([]int32, 21)
+		priority := opuscc.CompareCeltDecodePriorityStorage(21)
 		for i := range q {
 			q[i] = int32(i % 9)
 			priority[i] = int32(i % 2)

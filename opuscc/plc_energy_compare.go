@@ -7,13 +7,16 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
-func CompareCeltDecodePulseStorage(bands int32) []int32   { return celtDecodePulseStorage(bands) }
-func CompareCeltDecodeFineStorage(bands int32) []int32    { return celtDecodeFineStorage(bands) }
-func CompareCeltDecodeOffsetsStorage(bands int32) []int32 { return celtDecodeOffsetsStorage(bands) }
+func CompareCeltDecodePriorityStorage(bands int32) []int32 { return celtDecodePriorityStorage(bands) }
+func CompareCeltDecodePulseStorage(bands int32) []int32    { return celtDecodePulseStorage(bands) }
+func CompareCeltDecodeFineStorage(bands int32) []int32     { return celtDecodeFineStorage(bands) }
+func CompareCeltDecodeOffsetsStorage(bands int32) []int32  { return celtDecodeOffsetsStorage(bands) }
 func CompareCeltDecodeOffsetsAllocation(mode *OpusT_OpusCustomMode, offsets, caps []int32, LM int32, ec *OpusT_ec_ctx) (coded int32, values [3]int32, outputs [3][21]int32) {
 	pulses := celtDecodePulseStorage(21)
-	coded = clt_compute_allocation(nil, mode, 0, 21, unsafe.SliceData(offsets), unsafe.SliceData(caps), 5, &values[1], &values[2], 512, &values[0], unsafe.SliceData(pulses), &outputs[1][0], &outputs[2][0], 2, LM, ec, 0, 0, 0)
+	priority := celtDecodePriorityStorage(21)
+	coded = clt_compute_allocation(nil, mode, 0, 21, unsafe.SliceData(offsets), unsafe.SliceData(caps), 5, &values[1], &values[2], 512, &values[0], unsafe.SliceData(pulses), &outputs[1][0], unsafe.SliceData(priority), 2, LM, ec, 0, 0, 0)
 	copy(outputs[0][:], pulses)
+	copy(outputs[2][:], priority)
 	return
 }
 func CompareCeltDecodeCapsStorage(mode *OpusT_OpusCustomMode, bands, LM, channels int32) []int32 {

@@ -55,6 +55,28 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePriorityStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		p := celtDecodePriorityStorage(bands)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(p) != int(bands) {
+			t.Fatal("priority geometry")
+		}
+		for i, v := range p {
+			if v != 0 {
+				t.Fatal("priority initialization")
+			}
+			p[i] = int32(i % 2)
+		}
+		runtime.GC()
+		for i, v := range p {
+			if v != int32(i%2) {
+				t.Fatal("priority retention")
+			}
+		}
+	}
+}
 func TestCeltDecodePulseStoragePointers(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		p := celtDecodePulseStorage(bands)
@@ -94,7 +116,7 @@ func TestCeltDecodeFineStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		mode := newSynthesisTestMode()
 		q := celtDecodeFineStorage(21)
-		priority := make([]int32, 21)
+		priority := celtDecodePriorityStorage(21)
 		for i := range q {
 			q[i] = int32(i % 9)
 			priority[i] = int32(i % 2)
@@ -157,7 +179,8 @@ func TestCeltDecodeOffsetsStoragePointers(t *testing.T) {
 		caps := celtDecodeCapsStorage(nil, mode, 21, LM, 2)
 		var intensity, dual, balance int32
 		pulses := celtDecodePulseStorage(21)
-		var fine, priority [21]int32
+		priority := celtDecodePriorityStorage(21)
+		var fine [21]int32
 		data := make([]byte, 128)
 		for i := range data {
 			data[i] = byte(i*71 + 13)
