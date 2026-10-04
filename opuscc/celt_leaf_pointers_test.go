@@ -191,6 +191,32 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeSilenceDispatchPointers(t *testing.T) {
+	for _, accum := range []int32{0, 1} {
+		left, right := new(celtStateTestStorage), new(celtStateTestStorage)
+		opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, 1)
+		opus_custom_decoder_init(nil, &right.State, &mode48000_960_120, 1)
+		silence := &[2]byte{255, 255}
+		a, b := make([]float32, 122), make([]float32, 122)
+		for i := range a {
+			a[i] = float32(i) / 128
+			b[i] = a[i]
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ra := opusFrameCeltSilence(nil, &left.State, silence, &a[1], 120, accum)
+		rb := celt_decode_with_ec_dred(nil, &right.State, &silence[0], 2, &b[1], 120, nil, accum)
+		if ra != 120 || rb != ra || left.State != right.State || *silence != [2]byte{255, 255} {
+			t.Fatal("silence dispatch", accum)
+		}
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("silence PCM/guards", accum, i)
+			}
+		}
+	}
+}
+
 func TestCeltDecodeRedundantPacketPointers(t *testing.T) {
 	if opusFrameRedundantPacket(nil, 99, 0) != nil || opusFrameRedundantPacket(nil, 99, 1) != nil {
 		t.Fatal("unused redundant packet")

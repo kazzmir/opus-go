@@ -423,6 +423,10 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func opusFrameCeltSilence(tls *libc.TLS, state *OpusT_OpusCustomDecoder, silence *[2]byte, pcm *float32, frame, accum int32) int32 {
+	return celt_decode_with_ec_dred(tls, state, &silence[0], 2, pcm, frame, nil, accum)
+}
+
 func opusFrameRedundantPacket(data *byte, offset, length int32) *byte {
 	if length <= 1 {
 		return nil
