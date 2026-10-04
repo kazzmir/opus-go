@@ -55,6 +55,26 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePostfilterClampPointers(t *testing.T) {
+	for _, a := range []int32{-2147483648, -1, 0, 15, 16, 100, 2147483647} {
+		for _, b := range []int32{-1, 0, 15, 16, 2147483647} {
+			state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Fpostfilter_period: a, Fpostfilter_period_old: b, Frng: 123, Fpostfilter_gain: .5}
+			want := *state
+			if a < COMBFILTER_MINPERIOD {
+				want.Fpostfilter_period = COMBFILTER_MINPERIOD
+			}
+			if b < COMBFILTER_MINPERIOD {
+				want.Fpostfilter_period_old = COMBFILTER_MINPERIOD
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodePostfilterClamp(state)
+			if *state != want {
+				t.Fatal("postfilter clamp", a, b)
+			}
+		}
+	}
+}
 func TestCeltDecodePacketFinishPointers(t *testing.T) {
 	for _, v := range []int32{-2147483648, -1, 0, 1, 40, 2147483647} {
 		state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Floss_duration: v, Fplc_duration: v, Flast_frame_type: v, Fprefilter_and_fold: v, Frng: 123, Ferror1: 7, Fpostfilter_period: 45}

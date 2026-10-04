@@ -11,6 +11,19 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePostfilterClampAgainstC(t *testing.T) {
+	for _, a := range []int32{-2147483648, -1, 0, 15, 16, 100, 2147483647} {
+		for _, b := range []int32{-1, 0, 15, 16, 2147483647} {
+			g := opuscc.OpusT_OpusCustomDecoder{Fpostfilter_period: a, Fpostfilter_period_old: b, Frng: 123, Fpostfilter_gain: .5}
+			c := g
+			opuscc.CompareCeltDecodePostfilterClamp(&g)
+			nativeCeltDecodePostfilterClamp(&c)
+			if g != c {
+				t.Fatal("postfilter clamp", a, b)
+			}
+		}
+	}
+}
 func TestCeltDecodePacketFinishAgainstC(t *testing.T) {
 	for _, v := range []int32{-2147483648, -1, 0, 1, 40, 2147483647} {
 		g := opuscc.OpusT_OpusCustomDecoder{Floss_duration: v, Fplc_duration: v, Flast_frame_type: v, Fprefilter_and_fold: v, Frng: 123, Ferror1: 7, Fpostfilter_period: 45}

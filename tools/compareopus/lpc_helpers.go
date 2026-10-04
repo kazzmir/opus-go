@@ -14,6 +14,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
 // celt_decoder.c defines FRAME_NORMAL as 1.
+static void compare_decode_postfilter_clamp(int *p,int minimum) {p[0]=IMAX(minimum,p[0]);p[1]=IMAX(minimum,p[1]);}
 static void compare_decode_packet_finish(int *state) {state[0]=0;state[1]=0;state[2]=1;state[3]=0;}
 static void compare_decode_recovery_band(float *e,const float *l,const float *p,int missing,float safety) {if(*e<MAXG(*l,*p)){float E0=*e,E1=*l,E2=*p;float slope=MAX32(E1-E0,HALF32(E2-E0));slope=MING(slope,2.f);E0-=MAX32(0,(1+missing)*slope);*e=MAX32(-20.f,E0);}else *e=MING(MING(*e,*l),*p);*e-=safety;}
 static int compare_decode_recovery_safety(int loss,int LM,float *safety) {*safety=0;if(LM==0)*safety=1.5f;else if(LM==1)*safety=.5f;return IMIN(10,loss>>LM);}
@@ -45,6 +46,12 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodePostfilterClamp(state *opuscc.OpusT_OpusCustomDecoder) {
+	p := [2]C.int{C.int(state.Fpostfilter_period), C.int(state.Fpostfilter_period_old)}
+	C.compare_decode_postfilter_clamp(&p[0], C.int(opuscc.COMBFILTER_MINPERIOD))
+	state.Fpostfilter_period = int32(p[0])
+	state.Fpostfilter_period_old = int32(p[1])
+}
 func nativeCeltDecodePacketFinish(state *opuscc.OpusT_OpusCustomDecoder) {
 	v := [4]C.int{C.int(state.Floss_duration), C.int(state.Fplc_duration), C.int(state.Flast_frame_type), C.int(state.Fprefilter_and_fold)}
 	C.compare_decode_packet_finish(&v[0])
