@@ -11,6 +11,17 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePacketStartAgainstC(t *testing.T) {
+	for _, loss := range []int32{-1, 0, 1, 40} {
+		for _, skip := range []int32{-1, 0, 1, 7} {
+			state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: loss, Fskip_plc: skip, Frng: 123}
+			opuscc.CompareCeltDecodePacketStart(&state)
+			if state.Fskip_plc != nativeCeltDecodePacketStart(loss, skip) || state.Floss_duration != loss || state.Frng != 123 {
+				t.Fatal("packet continuity", loss, skip)
+			}
+		}
+	}
+}
 func TestCeltDecodeHistoryViewsAgainstC(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for _, overlap := range []int32{0, 120} {

@@ -56,6 +56,23 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePacketStartPointers(t *testing.T) {
+	for _, loss := range []int32{-1, 0, 1, 40} {
+		for _, skip := range []int32{-1, 0, 1, 7} {
+			state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Floss_duration: loss, Fskip_plc: skip, Frng: 123}
+			want := *state
+			if loss == 0 {
+				want.Fskip_plc = 0
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodePacketStart(state)
+			if *state != want {
+				t.Fatal("packet continuity", loss, skip)
+			}
+		}
+	}
+}
 func TestCeltDecodeHistoryViewsPointers(t *testing.T) {
 	for _, channels := range []int32{0, 1, 2} {
 		for _, overlap := range []int32{0, 120} {

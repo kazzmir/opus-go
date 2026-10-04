@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static int compare_decode_packet_start(int loss,int skip) {if(loss==0)skip=0;return skip;}
 static void compare_decode_view_offsets(int *v,int bands,int overlap,int channels,int N) {v[0]=DEC_PITCH_BUF_SIZE+overlap;v[1]=v[0]*channels;v[2]=v[1]+2*bands;v[3]=v[2]+2*bands;v[4]=v[3]+2*bands;v[5]=DEC_PITCH_BUF_SIZE-N;}
 static void compare_decode_energy_merge_mono(float *e,int bands) {for(int i=0;i<bands;i++)e[i]=MAXG(e[i],e[bands+i]);}
 // celt_decoder.c defines FRAME_NORMAL as 1.
@@ -62,6 +63,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodePacketStart(loss, skip int32) int32 {
+	return int32(C.compare_decode_packet_start(C.int(loss), C.int(skip)))
+}
 func nativeCeltDecodeViewOffsets(bands, overlap, channels, N int32) (v [6]int32) {
 	C.compare_decode_view_offsets((*C.int)(unsafe.Pointer(&v[0])), C.int(bands), C.int(overlap), C.int(channels), C.int(N))
 	return
