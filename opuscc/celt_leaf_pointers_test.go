@@ -191,6 +191,41 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeFrameSettersPointers(t *testing.T) {
+	storage := new(celtStateTestStorage)
+	state := &storage.State
+	opus_custom_decoder_init(nil, state, &mode48000_960_120, 2)
+	for _, tc := range []struct{ request, value int32 }{{CELT_SET_END_BAND_REQUEST, 19}, {CELT_SET_CHANNELS_REQUEST, 1}, {CELT_SET_START_BAND_REQUEST, 17}, {CELT_SET_START_BAND_REQUEST, 0}, {CELT_SET_END_BAND_REQUEST, -1}, {CELT_SET_CHANNELS_REQUEST, 3}} {
+		before := *state
+		entropyInitGrowStack(12)
+		runtime.GC()
+		result := Opus_opus_custom_decoder_ctl_typed(nil, state, tc.request, OpusDecoderCtlArgs{Value: tc.value})
+		if tc.value < 0 || tc.value == 3 && tc.request == CELT_SET_CHANNELS_REQUEST {
+			if result != -1 || *state != before {
+				t.Fatal("frame setter validation")
+			}
+			continue
+		}
+		if result != 0 || state.Fmode != before.Fmode || state.Fchannels != 2 {
+			t.Fatal("frame setter owners")
+		}
+		switch tc.request {
+		case CELT_SET_START_BAND_REQUEST:
+			if state.Fstart != tc.value {
+				t.Fatal("start band")
+			}
+		case CELT_SET_END_BAND_REQUEST:
+			if state.Fend != tc.value {
+				t.Fatal("end band")
+			}
+		case CELT_SET_CHANNELS_REQUEST:
+			if state.Fstream_channels != tc.value {
+				t.Fatal("stream channels")
+			}
+		}
+	}
+}
+
 func TestCeltDecodeRedundancyResetPointers(t *testing.T) {
 	left, right := new(celtStateTestStorage), new(celtStateTestStorage)
 	opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, 1)
