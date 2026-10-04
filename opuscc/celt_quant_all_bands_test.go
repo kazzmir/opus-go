@@ -34,6 +34,31 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsSeedPointers(t *testing.T) {
+	for _, initial := range []uint32{0, 1, 0x80000000, 0xffffffff} {
+		seed := new(uint32)
+		*seed = initial
+		ctx := &band_ctx{Fremaining_bits: 17}
+		quantAllBandsReadSeed(ctx, seed)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if ctx.Fseed != initial || ctx.Fremaining_bits != 17 || *seed != initial {
+			t.Fatal("seed initialization")
+		}
+		ctx.Fseed = Opus_celt_lcg_rand(nil, ctx.Fseed)
+		*seed = 7
+		quantAllBandsWriteSeed(seed, ctx)
+		if *seed != initial*1664525+1013904223 {
+			t.Fatal("final seed store")
+		}
+		quantAllBandsReadSeed(ctx, &ctx.Fseed)
+		quantAllBandsWriteSeed(&ctx.Fseed, ctx)
+		if ctx.Fremaining_bits != 17 {
+			t.Fatal("seed field alias")
+		}
+	}
+}
+
 func TestQuantAllBandsEntropyPointers(t *testing.T) {
 	ctx := new(band_ctx)
 	ctx.Fseed = 123

@@ -2470,6 +2470,9 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsReadSeed(ctx *band_ctx, seed *uint32)  { ctx.Fseed = *seed }
+func quantAllBandsWriteSeed(seed *uint32, ctx *band_ctx) { *seed = ctx.Fseed }
+
 func quantAllBandsSetEntropy(ctx *band_ctx, ec *OpusT_ec_ctx) { ctx.Fec = ec }
 
 func quantAllBandsSetMode(ctx *band_ctx, mode *OpusT_OpusCustomMode) { ctx.Fm = mode }
@@ -2478,11 +2481,11 @@ func quantAllBandsSetMode(ctx *band_ctx, mode *OpusT_OpusCustomMode) { ctx.Fm = 
 //
 //go:uintptrescapes
 func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, end int32, X_ uintptr, Y_ uintptr, collapse_masks uintptr, bandE uintptr, pulses uintptr, shortBlocks int32, spread int32, dual_stereo int32, intensity int32, tf_res uintptr, total_bits OpusT_opus_int32, balance OpusT_opus_int32, ec uintptr, LM int32, codedBands int32, seed uintptr, complexity int32, arch int32, disable_inv int32) {
-	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, X_, Y_, collapse_masks, bandE, pulses, shortBlocks, spread, dual_stereo, intensity, tf_res, total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, seed, complexity, arch, disable_inv)
+	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, X_, Y_, collapse_masks, bandE, pulses, shortBlocks, spread, dual_stereo, intensity, tf_res, total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
 }
 
 // Internal owners are migrated independently of the remaining legacy views.
-func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_, collapse_masks, bandE, pulses uintptr, shortBlocks, spread, dual_stereo, intensity int32, tf_res uintptr, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed uintptr, complexity, arch, disable_inv int32) {
+func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_, collapse_masks, bandE, pulses uintptr, shortBlocks, spread, dual_stereo, intensity int32, tf_res uintptr, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
 	/* ctx keeps the transpiled uintptr calling convention into
 	   quant_band/quant_band_stereo, so it is allocated on the C heap:
 	   a Go stack local whose address is laundered
@@ -3014,7 +3017,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 	ctx.Fencode = encode
 	ctx.Fintensity = intensity
 	quantAllBandsSetMode(ctx, m)
-	ctx.Fseed = *(*OpusT_opus_uint32)(unsafe.Pointer(seed))
+	quantAllBandsReadSeed(ctx, seed)
 	ctx.Fspread = spread
 	ctx.Farch = arch
 	ctx.Fdisable_inv = disable_inv
@@ -3431,7 +3434,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 		ctx.Favoid_split_noise = 0
 		i1 = i1 + 1
 	}
-	*(*OpusT_opus_uint32)(unsafe.Pointer(seed)) = ctx.Fseed
+	quantAllBandsWriteSeed(seed, ctx)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
 		v2 = libc.Xmalloc(tls, uint64(16))
