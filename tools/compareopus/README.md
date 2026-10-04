@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four further decode-operation rounds type history memmove, silence energy
+filling, dynamic boosts and postfilter finalization. History shifting uses one
+exact trailing-storage slice and overlapping copy; zero length consumes no view.
+Silence writes -28 in cached C*nbEBands order (Go count overflow cases are not C
+parity claims). Dynamic boosts retain a typed cached eBands owner, typed live
+cap/offset/entropy pointers, six-bit quanta bounds, logp evolution, strict budget
+and cap checks, and tell reload after every flag. The helper returns both budget
+and tell to the unchanged trim decision. Postfilter finalization preserves the
+three previous-state stores, three new-state stores and nonzero-LM previous-state
+reload/stores, with no float arithmetic or NaN/signed-zero selection changes.
+
+Grouped tests force GC/stack growth, verify guards/exact history spans and nil
+unused inputs, exercise boost budgets/partial and empty bands/caps/LM0..3/mono
+and stereo, and cover postfilter negative/nonzero LM and exceptional gain bits.
+Source-equivalent celt_decoder.c C snippets use actual IMIN/IMAX and entropy
+kernels; boost comparisons include all eleven entropy fields, offsets and both
+returned scalars. These are leaf-operation oracles, not a new whole-decode
+comparison or enclosing checkptr proof. Per-round full amd64/386, ARM64/QEMU,
+native, GC stress and unchanged encode/decode goldens/tolerances are retained;
+repeated ARM typed-operation checkptr and ordinary golden runs remain separate.
+
 The next four scratch rounds migrate pulses, fine priorities, contiguous C*N
 spectra and C*nbEBands collapse masks into Go-owned slices. Allocation writes
 typed pulse/priority outputs, and final-energy decoding consumes typed priorities.

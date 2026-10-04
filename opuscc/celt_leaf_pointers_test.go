@@ -55,6 +55,26 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePostfilterFinishPointers(t *testing.T) {
+	for _, LM := range []int32{-1, 0, 1, 3} {
+		for _, period := range []int32{-2147483648, -1, 0, 15, 2147483647} {
+			for _, bits := range []uint32{0, 0x80000000, 0x3f400000, 0x7fc12345, 0x7f800000} {
+				state := &OpusT_OpusCustomDecoder{Fmode: newSynthesisTestMode(), Fpostfilter_period: 45, Fpostfilter_period_old: 99, Fpostfilter_gain: math.Float32frombits(0x80000000), Fpostfilter_gain_old: 1, Fpostfilter_tapset: 2, Fpostfilter_tapset_old: 1, Frng: 123, Floss_duration: 7}
+				owner := state.Fmode
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDecodePostfilterFinish(state, period, math.Float32frombits(bits), -3, LM)
+				oldPeriod, oldBits, oldTap := int32(45), uint32(0x80000000), int32(2)
+				if LM != 0 {
+					oldPeriod, oldBits, oldTap = period, bits, -3
+				}
+				if state.Fpostfilter_period != period || math.Float32bits(state.Fpostfilter_gain) != bits || state.Fpostfilter_tapset != -3 || state.Fpostfilter_period_old != oldPeriod || math.Float32bits(state.Fpostfilter_gain_old) != oldBits || state.Fpostfilter_tapset_old != oldTap || state.Fmode != owner || state.Frng != 123 || state.Floss_duration != 7 {
+					t.Fatal("postfilter finalization", LM, period, bits)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeBoostsPointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, C := range []int32{1, 2} {

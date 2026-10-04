@@ -11,6 +11,22 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePostfilterFinishAgainstC(t *testing.T) {
+	for _, LM := range []int32{-1, 0, 1, 3} {
+		for _, period := range []int32{-2147483648, -1, 0, 15, 2147483647} {
+			for _, bits := range []uint32{0, 0x80000000, 0x3f400000, 0x7fc12345, 0x7f800000} {
+				g := opuscc.OpusT_OpusCustomDecoder{Fpostfilter_period: 45, Fpostfilter_period_old: 99, Fpostfilter_gain: math.Float32frombits(0x80000000), Fpostfilter_gain_old: 1, Fpostfilter_tapset: 2, Fpostfilter_tapset_old: 1, Frng: 123, Floss_duration: 7}
+				c := g
+				gain := math.Float32frombits(bits)
+				opuscc.CompareCeltDecodePostfilterFinish(&g, period, gain, -3, LM)
+				nativeCeltDecodePostfilterFinish(&c, period, gain, -3, LM)
+				if g.Fpostfilter_period != c.Fpostfilter_period || g.Fpostfilter_period_old != c.Fpostfilter_period_old || g.Fpostfilter_tapset != c.Fpostfilter_tapset || g.Fpostfilter_tapset_old != c.Fpostfilter_tapset_old || math.Float32bits(g.Fpostfilter_gain) != math.Float32bits(c.Fpostfilter_gain) || math.Float32bits(g.Fpostfilter_gain_old) != math.Float32bits(c.Fpostfilter_gain_old) || g.Frng != c.Frng || g.Floss_duration != c.Floss_duration {
+					t.Fatal("postfilter state", LM, period, bits)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeBoostsAgainstC(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, channels := range []int32{1, 2} {
