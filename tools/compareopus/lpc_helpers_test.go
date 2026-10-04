@@ -11,6 +11,26 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsBandViewsAgainstC(t *testing.T) {
+	bands := []int16{0, 2, 4}
+	norm := make([]float32, 16)
+	for _, last := range []int32{0, 1} {
+		for _, effective := range []int32{-1, 0, 2} {
+			input, output := opuscc.CompareQuantAllBandsBandViews(unsafe.SliceData(norm), &bands[0], 1, 2, 1, 2, effective, last)
+			var wantInput, wantOutput *float32
+			if effective != -1 {
+				wantInput = &norm[effective]
+			}
+			if last == 0 {
+				wantOutput = &norm[nativeQuantAllBandsLowband(&bands[0], 1, 2)-1]
+			}
+			if input != wantInput || output != wantOutput {
+				t.Fatal("native optional band views", last, effective)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsFoldAgainstC(t *testing.T) {
 	bands := []int16{0, 2, 4}
 	data := make([]float32, 24)

@@ -2470,6 +2470,12 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsBandViews(norm *float32, bands *int16, band, M, offset, N, effective, last int32) (input, output *float32) {
+	input = quantAllBandsFoldInput(norm, effective, N)
+	output = quantAllBandsFoldOutput(norm, bands, band, M, offset, N, last)
+	return
+}
+
 func quantAllBandsFoldInput(norm *float32, offset, N int32) *float32 {
 	if offset == -1 || N == 0 {
 		return nil
@@ -3000,30 +3006,12 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					}
 				} else {
 					ctx.Ftheta_round = 0
-					if effective_lowband != -int32(1) {
-						v2 = norm + uintptr(effective_lowband)*4
-					} else {
-						v2 = uintptr(uint32(0))
-					}
-					if last != 0 {
-						v4 = uintptr(uint32(0))
-					} else {
-						v4 = norm + uintptr(M*quantAllBandsBoundary(eBands, i1))*4 - uintptr(norm_offset)*4
-					}
-					x_cm = quant_band_stereo_legacy(tls, ctx, X, Y, N1, b, B, v2, LM, v4, lowband_scratch, int32(x_cm|y_cm))
+					input, output := quantAllBandsBandViews((*float32)(unsafe.Pointer(norm)), eBands, i1, M, norm_offset, N1, effective_lowband, last)
+					x_cm = quant_band_stereo(tls, ctx, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), N1, b, B, input, LM, output, lowband_scratch, int32(x_cm|y_cm))
 				}
 			} else {
-				if effective_lowband != -int32(1) {
-					v2 = norm + uintptr(effective_lowband)*4
-				} else {
-					v2 = uintptr(uint32(0))
-				}
-				if last != 0 {
-					v4 = uintptr(uint32(0))
-				} else {
-					v4 = norm + uintptr(M*quantAllBandsBoundary(eBands, i1))*4 - uintptr(norm_offset)*4
-				}
-				x_cm = quant_band_legacy(tls, ctx, X, N1, b, B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm|y_cm))
+				input, output := quantAllBandsBandViews((*float32)(unsafe.Pointer(norm)), eBands, i1, M, norm_offset, N1, effective_lowband, last)
+				x_cm = quant_band(tls, ctx, (*float32)(unsafe.Pointer(X)), N1, b, B, input, LM, output, 1, lowband_scratch, int32(x_cm|y_cm))
 			}
 			y_cm = x_cm
 		}

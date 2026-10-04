@@ -35,6 +35,36 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsBandViewsPointers(t *testing.T) {
+	input, output := quantAllBandsBandViews(nil, nil, 99, 1, 0, 4, -1, 1)
+	if input != nil || output != nil {
+		t.Fatal("nil unused band views")
+	}
+	bands := []int16{0, 2, 4}
+	norm := make([]float32, 16)
+	for _, last := range []int32{0, 1} {
+		for _, effective := range []int32{-1, 0, 2} {
+			input, output := quantAllBandsBandViews(unsafe.SliceData(norm), &bands[0], 1, 2, 1, 2, effective, last)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if effective == -1 {
+				if input != nil {
+					t.Fatal("unused input")
+				}
+			} else if input != &norm[effective] {
+				t.Fatal("input forwarding")
+			}
+			if last != 0 {
+				if output != nil {
+					t.Fatal("last band output")
+				}
+			} else if output != &norm[3] {
+				t.Fatal("output forwarding")
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsFoldPointers(t *testing.T) {
 	if quantAllBandsFoldInput(nil, -1, 3) != nil || quantAllBandsFoldInput(nil, 99, 0) != nil || quantAllBandsFoldOutput(nil, nil, 99, 1, 0, 4, 1) != nil {
 		t.Fatal("unused fold views")
