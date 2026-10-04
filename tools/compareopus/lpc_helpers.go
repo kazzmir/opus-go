@@ -13,6 +13,17 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+// bands.c compute_channel_weights, float branch, with original lane loads.
+static int compare_quant_all_lowband(short *bands,int index,int M) {return M*bands[index];}
+static void compare_quant_all_bytes(unsigned char *saved,unsigned char *buffer,int start,int count,int restore) {if(count){if(restore)memcpy(buffer+start,saved,count);else memcpy(saved,buffer+start,count);}}
+static void compare_quant_all_norm_copy(float *saved,float *norm,int offset,int N,int restore) {if(N){if(restore)memcpy(norm+offset,saved,N*sizeof(float));else memcpy(saved,norm+offset,N*sizeof(float));}}
+static float compare_quant_all_dot(const float *x,const float *y,int N) {float sum=0;for(int i=0;i<N;i++){volatile float product=x[i]*y[i];sum=sum+product;}return sum;}
+static void compare_quant_all_copy(float *dst,const float *src,int N) {if(N)memcpy(dst,src,N*sizeof(float));}
+static int compare_quant_all_norm_length(const short *bands,int index,int M,int channels,int offset) {return channels*(M*bands[index]-offset);}
+static int compare_quant_all_boundary(const short *bands,int index) {return bands[index];}
+static void compare_quant_all_masks(unsigned char *masks,int band,int channels,unsigned left,unsigned right) {masks[band*channels+0]=(unsigned char)left;masks[band*channels+channels-1]=(unsigned char)right;}
+static int compare_quant_all_word(const int *values,int band) {return values[band];}
+static void compare_quant_all_weights(float *energy,int bands,int band,float *w) {float Ex=energy[band],Ey=energy[band+bands],minE=MIN32(Ex,Ey);Ex=ADD32(Ex,minE/3);Ey=ADD32(Ey,minE/3);w[0]=Ex;w[1]=Ey;}
 static int compare_decode_frame_lm(int shortSize,int maximum,int frameSize) {int LM;for(LM=0;LM<=maximum;LM++)if(shortSize<<LM==frameSize)break;return LM>maximum?-1:LM;}
 static int compare_decode_packet_arguments(const float *pcm,int length) {return !(length<0||length>1275||pcm==NULL);}
 static int compare_decode_packet_lost(const unsigned char *data,int length) {return data==NULL||length<=1;}
@@ -66,6 +77,44 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeQuantAllBandsLowband(bands *int16, index, M int32) int32 {
+	return int32(C.compare_quant_all_lowband((*C.short)(unsafe.Pointer(bands)), C.int(index), C.int(M)))
+}
+func nativeQuantAllBandsBytes(saved, buffer *byte, start, count int32, restore bool) {
+	r := C.int(0)
+	if restore {
+		r = 1
+	}
+	C.compare_quant_all_bytes((*C.uchar)(unsafe.Pointer(saved)), (*C.uchar)(unsafe.Pointer(buffer)), C.int(start), C.int(count), r)
+}
+func nativeQuantAllBandsNormCopy(saved, norm *float32, offset, N int32, restore bool) {
+	r := C.int(0)
+	if restore {
+		r = 1
+	}
+	C.compare_quant_all_norm_copy((*C.float)(unsafe.Pointer(saved)), (*C.float)(unsafe.Pointer(norm)), C.int(offset), C.int(N), r)
+}
+func nativeQuantAllBandsDot(left, right *float32, N int32) float32 {
+	return float32(C.compare_quant_all_dot((*C.float)(unsafe.Pointer(left)), (*C.float)(unsafe.Pointer(right)), C.int(N)))
+}
+func nativeQuantAllBandsCopy(dst, src *float32, N int32) {
+	C.compare_quant_all_copy((*C.float)(unsafe.Pointer(dst)), (*C.float)(unsafe.Pointer(src)), C.int(N))
+}
+func nativeQuantAllBandsNormLength(bands *int16, index, M, channels, offset int32) int32 {
+	return int32(C.compare_quant_all_norm_length((*C.short)(unsafe.Pointer(bands)), C.int(index), C.int(M), C.int(channels), C.int(offset)))
+}
+func nativeQuantAllBandsBoundary(bands *int16, index int32) int32 {
+	return int32(C.compare_quant_all_boundary((*C.short)(unsafe.Pointer(bands)), C.int(index)))
+}
+func nativeQuantAllBandsMasks(masks *byte, band, channels int32, left, right uint32) {
+	C.compare_quant_all_masks((*C.uchar)(unsafe.Pointer(masks)), C.int(band), C.int(channels), C.uint(left), C.uint(right))
+}
+func nativeQuantAllBandsWord(values *int32, band int32) int32 {
+	return int32(C.compare_quant_all_word((*C.int)(unsafe.Pointer(values)), C.int(band)))
+}
+func nativeQuantAllBandsWeights(energy *float32, bands, band int32, w *[2]float32) {
+	C.compare_quant_all_weights((*C.float)(unsafe.Pointer(energy)), C.int(bands), C.int(band), (*C.float)(unsafe.Pointer(w)))
+}
 func nativeCeltDecodeFrameLM(short, maximum, frame int32) int32 {
 	return int32(C.compare_decode_frame_lm(C.int(short), C.int(maximum), C.int(frame)))
 }

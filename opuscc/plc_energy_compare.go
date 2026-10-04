@@ -7,6 +7,52 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareQuantAllBandsLowbandStorage(length int32) []float32 {
+	return quantAllBandsLowbandStorage(length)
+}
+func CompareQuantAllBandsLowbandView(spectrum *float32, bands *int16, index, M int32) *float32 {
+	return quantAllBandsLowbandView(spectrum, bands, index, M)
+}
+func CompareQuantAllBandsNormStorage(length int32) []float32 { return quantAllBandsNormStorage(length) }
+func CompareQuantAllBandsTrialStorage(length int32) ([]float32, []float32) {
+	return quantAllBandsTrialStorage(length)
+}
+func CompareQuantAllBandsInitialStorage(length int32) ([]float32, []float32) {
+	return quantAllBandsInitialStorage(length)
+}
+func CompareQuantAllBandsByteStorage(enabled int32) []byte { return quantAllBandsByteStorage(enabled) }
+func CompareQuantAllBandsByteSave(saved []byte, ec *OpusT_ec_ctx, start, count int32) []byte {
+	return quantAllBandsByteSave(saved, ec, start, count)
+}
+func CompareQuantAllBandsByteRestore(window, saved []byte, count int32) {
+	quantAllBandsByteRestore(window, saved, count)
+}
+func CompareQuantAllBandsNormCopy(saved, norm *float32, offset, N int32, restore bool) {
+	quantAllBandsNormCopy(saved, norm, offset, N, restore)
+}
+func CompareQuantAllBandsDot(left, right *float32, N int32) float32 {
+	return quantAllBandsDot(left, right, N)
+}
+func CompareQuantAllBandsCopy(dst, src *float32, N int32) { quantAllBandsCopy(dst, src, N) }
+func CompareQuantAllBandsNormLength(bands *int16, index, M, channels, offset int32) int32 {
+	return quantAllBandsNormLength(bands, index, M, channels, offset)
+}
+func CompareQuantAllBandsBoundary(bands *int16, index int32) int32 {
+	return quantAllBandsBoundary(bands, index)
+}
+func CompareQuantAllBandsMask(masks *byte, index int32) uint32 {
+	return quantAllBandsMask(masks, index)
+}
+func CompareQuantAllBandsMaskStore(masks *byte, band, channels int32, left, right uint32) {
+	quantAllBandsMaskStore(masks, band, channels, left, right)
+}
+func CompareQuantAllBandsPulse(pulses *int32, band int32) int32 {
+	return quantAllBandsPulse(pulses, band)
+}
+func CompareQuantAllBandsTF(flags *int32, band int32) int32 { return quantAllBandsTF(flags, band) }
+func CompareQuantAllBandsChannelWeights(mode *OpusT_OpusCustomMode, energy *float32, band int32, w *[2]float32) {
+	quantAllBandsChannelWeights(nil, mode, energy, band, w)
+}
 func CompareCeltDecodeFrameLM(mode *OpusT_OpusCustomMode, frameSize int32) int32 {
 	return celtDecodeFrameLM(mode, frameSize)
 }

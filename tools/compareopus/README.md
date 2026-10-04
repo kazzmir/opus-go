@@ -534,6 +534,90 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four quant-all-bands float-storage rounds replace initial X/Y snapshots,
+trial X/Y snapshots, the norm snapshot and encoder lowband scratch with separate
+Go-owned float slices of the original resynth_alloc length. Zero length yields
+nil unused storage. All six float scratch TLS allocation/alignment/capacity
+blocks are removed; snapshots and dot/norm consumers now receive SliceData
+pointers directly, never a reconverted snapshot integer address. Lowband scratch
+is a typed pointer forwarded through the remaining mono/stereo legacy adapters.
+On decode/non-resynthesis it preserves the live last-band spectrum alias using
+numeric indexing; an empty band loop does not form an unused interior view.
+
+Grouped GC/stack-growth/checkptr tests check zero/1/4/64/960 lengths, independent
+initial/trial lanes, exact snapshot/restore consumers, norm offsets/guards and
+LM0..3 last-band scratch aliases. Native storage pipeline checks use actual owned
+Go storage with scalar C copy/norm operations and source-equivalent band offset
+geometry; they are not a whole-driver pointer oracle. Existing whole-band scalar
+C-reference cases still verify theta-RDO bytes, spectra, entropy and seed. Each
+round passes full amd64/386, ARM64/QEMU, scoped checkptr, native codec comparison
+and GC stress without changing goldens/tolerances. Only the main norm buffer
+still allocates quantizer TLS scratch; spectrum/folding/norm views and initial
+pseudostack setup/final cursor restore remain legacy. Full driver checkptr and
+opaque byte-backed embedded-pointer scanning are still not claimed.
+
+Four quant-all-bands RDO rounds replace spectrum snapshot/restore memcpy calls
+with typed float copy consumers; replace four integer-addressed distortion loops
+with numeric, ordered scalar dot products and explicitly rounded float32
+products; replace norm snapshot/restore memcpy with typed numeric-offset views;
+and replace entropy byte scratch with Go-owned 1275-byte storage when theta-RDO
+is nonzero. The original entropy offs/storage snapshot selects a retained byte
+window; later context rollback does not rederive its owner. Zero-byte windows
+remain nil and never form unused one-past pointers. Only the byte scratch TLS
+allocation/alignment/capacity block is removed; float scratch still uses TLS.
+
+Grouped tests cover exact float bits, NaN/signed-zero copies, ordered products,
+guards, zero-length nil inputs, byte offsets/full extent/EOF and retained payload
+owners across GC/stack growth. Overlapping float/norm copy cases are explicitly
+Go-only (C OPUS_COPY's memcpy overlap is invalid). Native copy/window fixtures use
+the source-equivalent OPUS_COPY operations; dot fixtures use scalar ordered
+products, not libopus SIMD reduction. Whole-band scalar C-reference scenarios
+still check theta-RDO rollback/bytes/spectra/entropy/seed. Each round passes full
+amd64/386, ARM64/QEMU, scoped helper checkptr, native comparisons and GC stress
+with unchanged encode/decode goldens/tolerances. Full driver checkptr is not
+claimed: float scratch owners and spectral/lowband views remain integer-addressed.
+
+Four quant-all-bands view rounds type TF flags, pulse budgets, collapse masks
+and the cached eBands owner. All accesses to these views in the driver now use
+numeric unsafe.Slice indexing, including allocation geometry, folding searches,
+RDO norm-copy offsets and the final balance reload. Private TF/pulse/mask arguments
+are forwarded directly by the typed CELT decoder; the public escape adapter is
+retained. Pulse loads stay live at every original comparison/reload rather than
+being cached across entropy work. Mask stores narrow to byte, first then last
+lane, so mono retains the original last-store-wins behavior. Band reads sign
+extend int16, with the same M multiplication, int32 narrowing and uintptr offsets
+for the still-legacy spectrum/norm consumers; arithmetic was not canonicalized.
+
+Grouped GC/stack-growth/checkptr tests cover live mutations, signed extremes,
+heap-mode endpoint ownership, mono/stereo narrowing/store order and guards.
+Native source-equivalent scalar array accesses/stores plus existing whole-band
+C-reference cases and native codec comparisons pass, as do full amd64/386 and
+ARM64/QEMU, GC stress and unchanged encode/decode goldens/tolerances. Repeated ARM
+checkptr is scoped to typed helpers/consumers; separate ordinary runs retain the
+whole-band and frame goldens. Spectrum/RDO/norm/lowband scratch, memcpy operations
+and pseudostack cursors remain legacy, so full quant-all-bands checkptr is not
+claimed. Opaque byte-backed pointer scanning remains a separate blocker.
+
+Four quant-all-bands owner rounds introduce a private quant_all_bands entry with
+typed mode, entropy, seed and band-energy pointers. The public uintptr escape ABI
+remains; the typed CELT decoder now forwards those owners directly rather than
+reconverting them through the public adapter. Integer spectrum/mask/pulse/TF
+arguments retain an explicit escape annotation on the private entry. Context
+mode/entropy/energy assignments occur at their original points, preserving the
+scanned band context's write barriers. Seed load and final store stay in place;
+channel-weight lane loads now use numeric indexing, left before right and before
+any output writes, including valid energy/weight aliases.
+
+Each round runs the existing whole-band scalar C-reference scenarios (including
+encoder theta-RDO entropy snapshots/rollback and final seed), full amd64/386,
+ARM64/QEMU, native comparisons and GC stress without changing encode/decode
+baselines. Grouped typed-owner/seed/weight tests force GC and stack growth; native
+weight comparisons use source-equivalent bands.c MIN32/ADD32 float branches and
+check aliases/guards. Scoped checkptr covers these helpers, not the whole-band
+legacy fixtures. Norm/lowband/RDO scratch, integer-addressed spectra and arrays,
+pseudostack setup/cursor restore remain unmigrated. Typed mode roots do not make
+opaque byte-backed allocations scan their embedded child pointers globally.
+
 Four internal-entry rounds introduce celt_decode_with_ec_dred with typed decoder,
 payload, entropy and float PCM arguments, behind the retained public uintptr
 adapters. Both public forwarding ABIs explicitly escape pointer arguments. The

@@ -1,6 +1,8 @@
 package opuscc
 
 import (
+	"math"
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -31,6 +33,406 @@ import (
  * fine). */
 func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
+}
+
+func TestQuantAllBandsLowbandStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 1, 4, 64, 960} {
+		owned := quantAllBandsLowbandStorage(N)
+		if len(owned) != int(N) || N == 0 && owned != nil {
+			t.Fatal("lowband size")
+		}
+		if N == 0 {
+			continue
+		}
+		pointer := unsafe.SliceData(owned)
+		owned = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		values := unsafe.Slice(pointer, N)
+		values[N-1] = .75
+		if values[N-1] != .75 {
+			t.Fatal("retained lowband")
+		}
+	}
+	bands := []int16{0, 4, 8}
+	for _, M := range []int32{1, 2, 4, 8} {
+		spectrum := make([]float32, 12*M+2)
+		spectrum[0], spectrum[len(spectrum)-1] = 77, 88
+		view := quantAllBandsLowbandView(&spectrum[1], &bands[0], 2, M)
+		if view != &spectrum[1+8*M] {
+			t.Fatal("last-band scratch alias")
+		}
+		*view = .25
+		if spectrum[1+8*M] != .25 || spectrum[0] != 77 || spectrum[len(spectrum)-1] != 88 {
+			t.Fatal("live last-band scratch")
+		}
+	}
+}
+
+func TestQuantAllBandsNormStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 1, 4, 64, 960} {
+		saved := quantAllBandsNormStorage(N)
+		if len(saved) != int(N) || N == 0 && saved != nil {
+			t.Fatal("norm snapshot size")
+		}
+		if N == 0 {
+			continue
+		}
+		norm := make([]float32, N+4)
+		norm[0], norm[len(norm)-1] = 77, 88
+		for i := int32(0); i < N; i++ {
+			norm[2+i] = float32(i) + .75
+		}
+		quantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(norm), 2, N, false)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		clear(norm[2 : 2+N])
+		quantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(norm), 2, N, true)
+		for i := int32(0); i < N; i++ {
+			if norm[2+i] != float32(i)+.75 {
+				t.Fatal("owned norm restore", N, i)
+			}
+		}
+		if norm[0] != 77 || norm[len(norm)-1] != 88 {
+			t.Fatal("owned norm guards")
+		}
+	}
+}
+
+func TestQuantAllBandsTrialStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 1, 4, 64, 960} {
+		x, y := quantAllBandsTrialStorage(N)
+		initialX, initialY := quantAllBandsInitialStorage(N)
+		if len(x) != int(N) || len(y) != int(N) || N == 0 && (x != nil || y != nil) {
+			t.Fatal("trial snapshot size", N)
+		}
+		if N == 0 {
+			continue
+		}
+		for i := range x {
+			x[i] = float32(i) + .5
+			y[i] = -float32(i) - .25
+			initialX[i] = 7
+			initialY[i] = 8
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		dx, dy := make([]float32, N), make([]float32, N)
+		quantAllBandsCopy(unsafe.SliceData(dx), unsafe.SliceData(x), N)
+		quantAllBandsCopy(unsafe.SliceData(dy), unsafe.SliceData(y), N)
+		for i := range x {
+			if dx[i] != float32(i)+.5 || dy[i] != -float32(i)-.25 || initialX[i] != 7 || initialY[i] != 8 {
+				t.Fatal("trial restoration/initial independence", N, i)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsInitialStoragePointers(t *testing.T) {
+	for _, N := range []int32{0, 1, 4, 64, 960} {
+		x, y := quantAllBandsInitialStorage(N)
+		if len(x) != int(N) || len(y) != int(N) || N == 0 && (x != nil || y != nil) {
+			t.Fatal("initial snapshot size", N)
+		}
+		if N == 0 {
+			continue
+		}
+		src := make([]float32, N)
+		for i := range src {
+			src[i] = float32(i) + .25
+		}
+		quantAllBandsCopy(unsafe.SliceData(x), unsafe.SliceData(src), N)
+		src[0] = -7
+		quantAllBandsCopy(unsafe.SliceData(y), unsafe.SliceData(src), N)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if x[0] != .25 || y[0] != -7 {
+			t.Fatal("independent retained snapshots", N)
+		}
+		quantAllBandsCopy(unsafe.SliceData(src), unsafe.SliceData(x), N)
+		if src[0] != .25 {
+			t.Fatal("initial restoration")
+		}
+	}
+}
+
+func TestQuantAllBandsBytePointers(t *testing.T) {
+	if quantAllBandsByteStorage(0) != nil || len(quantAllBandsByteStorage(-1)) != 1275 {
+		t.Fatal("byte scratch predicate")
+	}
+	if quantAllBandsByteSave(nil, nil, 99, 0) != nil {
+		t.Fatal("unused byte window")
+	}
+	quantAllBandsByteRestore(nil, nil, 0)
+	for _, start := range []int32{0, 1, 5, 1275} {
+		data := make([]byte, 1277)
+		data[0], data[1276] = 77, 88
+		for i := 1; i < 1276; i++ {
+			data[i] = byte(i)
+		}
+		ec := &OpusT_ec_ctx{Fbuf: &data[1], Fstorage: 1275, Foffs: uint32(start), Ferror1: 17}
+		before := *ec
+		saved := quantAllBandsByteStorage(1)
+		window := quantAllBandsByteSave(saved, ec, start, 1275-start)
+		if *ec != before {
+			t.Fatal("snapshot entropy mutated")
+		}
+		ec.Fbuf = nil
+		ec = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for i := range window {
+			window[i] = 0
+		}
+		quantAllBandsByteRestore(window, saved, 1275-start)
+		for i := range window {
+			if window[i] != byte(int(start)+i+1) {
+				t.Fatal("retained original byte window", start, i)
+			}
+		}
+		if data[0] != 77 || data[1276] != 88 {
+			t.Fatal("byte guards")
+		}
+	}
+}
+
+func TestQuantAllBandsNormCopyPointers(t *testing.T) {
+	quantAllBandsNormCopy(nil, nil, 99, 0, false)
+	quantAllBandsNormCopy(nil, nil, 99, 0, true)
+	norm := []float32{77, 1, 2, 3, 4, 88}
+	saved := []float32{55, 0, 0, 66}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	quantAllBandsNormCopy(&saved[1], &norm[1], 1, 2, false)
+	if saved[1] != 2 || saved[2] != 3 || saved[0] != 55 || saved[3] != 66 {
+		t.Fatal("norm snapshot")
+	}
+	norm[2], norm[3] = -7, -8
+	quantAllBandsNormCopy(&saved[1], &norm[1], 1, 2, true)
+	if norm[2] != 2 || norm[3] != 3 || norm[0] != 77 || norm[1] != 1 || norm[4] != 4 || norm[5] != 88 {
+		t.Fatal("norm restore guards")
+	}
+	quantAllBandsNormCopy(&norm[1], &norm[1], 1, 3, false)
+	if norm[1] != 2 || norm[2] != 3 || norm[3] != 4 {
+		t.Fatal("Go-only norm overlap")
+	}
+}
+
+func TestQuantAllBandsDotPointers(t *testing.T) {
+	if math.Float32bits(quantAllBandsDot(nil, nil, 0)) != 0 {
+		t.Fatal("empty RDO dot")
+	}
+	x := []float32{77, 1.00001, 10000, -10000, 0.12345, 88}
+	y := []float32{1.33333, 2, 2, -0.23456}
+	sum := float32(0)
+	for i := range y {
+		sum = sum + float32(x[i+1]*y[i])
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if math.Float32bits(quantAllBandsDot(&x[1], &y[0], 4)) != math.Float32bits(sum) || x[0] != 77 || x[5] != 88 {
+		t.Fatal("ordered RDO dot")
+	}
+	want := float32(0)
+	for i := 0; i < 4; i++ {
+		want += float32(x[i+1] * x[i+1])
+	}
+	if quantAllBandsDot(&x[1], &x[1], 4) != want {
+		t.Fatal("dot input alias")
+	}
+}
+
+func TestQuantAllBandsCopyPointers(t *testing.T) {
+	quantAllBandsCopy(nil, nil, 0)
+	src := []float32{math.Float32frombits(0x80000000), math.Float32frombits(0x7fc00123), 3}
+	dst := []float32{77, 0, 0, 0, 88}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	quantAllBandsCopy(&dst[1], &src[0], 3)
+	for i := range src {
+		if math.Float32bits(dst[i+1]) != math.Float32bits(src[i]) {
+			t.Fatal("RDO snapshot bits", i)
+		}
+	}
+	if dst[0] != 77 || dst[4] != 88 {
+		t.Fatal("RDO copy guards")
+	}
+	alias := []float32{1, 2, 3, 4}
+	quantAllBandsCopy(&alias[1], &alias[0], 3)
+	if alias[1] != 1 || alias[2] != 2 || alias[3] != 3 {
+		t.Fatal("Go-only overlapping copy")
+	}
+}
+
+func TestQuantAllBandsNormLengthPointers(t *testing.T) {
+	bands := []int16{0, 4, 8, 12}
+	for _, C := range []int32{1, 2} {
+		for _, M := range []int32{1, 2, 4, 8} {
+			for _, start := range []int32{0, 1, 2} {
+				offset := M * int32(bands[start])
+				if quantAllBandsNormLength(&bands[0], 2, M, C, offset) != C*(M*8-offset) {
+					t.Fatal("channel-scaled offset", C, M, start)
+				}
+			}
+		}
+	}
+	bands[2] = 32767
+	if quantAllBandsNormLength(&bands[0], 2, 2147483647, 2, -2147483648) != -65534 {
+		t.Fatal("Go-only norm-size wrapping")
+	}
+}
+
+func TestQuantAllBandsBoundaryPointers(t *testing.T) {
+	bands := []int16{77, -32768, -1, 0, 32767, 88}
+	for i := int32(0); i < 4; i++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if quantAllBandsBoundary(&bands[1], i) != int32(bands[1+i]) {
+			t.Fatal("signed boundary view", i)
+		}
+		bands[1+i]++
+		if quantAllBandsBoundary(&bands[1], i) != int32(bands[1+i]) || bands[0] != 77 || bands[5] != 88 {
+			t.Fatal("live boundaries")
+		}
+	}
+	mode := newSynthesisTestMode()
+	owned := mode.FeBands
+	mode = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if quantAllBandsBoundary(owned, 21) != 100 {
+		t.Fatal("retained endpoint")
+	}
+}
+
+func TestQuantAllBandsMaskPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		masks := []byte{77, 1, 2, 3, 4, 5, 6, 88}
+		for band := int32(0); band < 3; band++ {
+			entropyInitGrowStack(12)
+			runtime.GC()
+			left, right := uint32(0x1234), uint32(0x5678)
+			quantAllBandsMaskStore(&masks[1], band, channels, left, right)
+			if quantAllBandsMask(&masks[1], band*channels+channels-1) != uint32(uint8(right)) || channels == 2 && quantAllBandsMask(&masks[1], band*channels) != uint32(uint8(left)) || masks[0] != 77 || masks[7] != 88 {
+				t.Fatal("mask narrowing/order", channels, band)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsPulsePointers(t *testing.T) {
+	pulses := []int32{77, -2147483648, -1, 0, 16383, 2147483647, 88}
+	for band := int32(0); band < 5; band++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if quantAllBandsPulse(&pulses[1], band) != pulses[1+band] {
+			t.Fatal("pulse view", band)
+		}
+		pulses[1+band]++
+		if quantAllBandsPulse(&pulses[1], band) != pulses[1+band] || pulses[0] != 77 || pulses[6] != 88 {
+			t.Fatal("live pulse budget")
+		}
+	}
+}
+
+func TestQuantAllBandsTFPointers(t *testing.T) {
+	flags := []int32{77, -3, 0, 2, 88}
+	for band := int32(0); band < 3; band++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if quantAllBandsTF(&flags[1], band) != flags[band+1] {
+			t.Fatal("TF view", band)
+		}
+		flags[band+1]++
+		if quantAllBandsTF(&flags[1], band) != flags[band+1] || flags[0] != 77 || flags[4] != 88 {
+			t.Fatal("live TF flags")
+		}
+	}
+}
+
+func TestQuantAllBandsEnergyPointers(t *testing.T) {
+	ctx := &band_ctx{Fseed: 123}
+	quantAllBandsSetEnergy(ctx, nil)
+	if ctx.FbandE != nil || ctx.Fseed != 123 {
+		t.Fatal("unused band energy")
+	}
+	energy := []float32{77, 2, 3, 4, 5, 6, 7, 88}
+	quantAllBandsSetEnergy(ctx, &energy[1])
+	mode := &OpusT_OpusCustomMode{FnbEBands: 3}
+	for band := int32(0); band < 3; band++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		var want, w [2]float32
+		compute_channel_weights(nil, energy[1+band], energy[4+band], &want)
+		quantAllBandsChannelWeights(nil, mode, ctx.FbandE, band, &w)
+		if w != want || energy[0] != 77 || energy[7] != 88 {
+			t.Fatal("band energy views")
+		}
+	}
+	left, right := energy[1], energy[4]
+	var want [2]float32
+	compute_channel_weights(nil, left, right, &want)
+	w := (*[2]float32)(unsafe.Pointer(&energy[1]))
+	quantAllBandsChannelWeights(nil, mode, ctx.FbandE, 0, w)
+	for i := range want {
+		if math.Float32bits(w[i]) != math.Float32bits(want[i]) {
+			t.Fatal("energy/weight alias")
+		}
+	}
+}
+
+func TestQuantAllBandsSeedPointers(t *testing.T) {
+	for _, initial := range []uint32{0, 1, 0x80000000, 0xffffffff} {
+		seed := new(uint32)
+		*seed = initial
+		ctx := &band_ctx{Fremaining_bits: 17}
+		quantAllBandsReadSeed(ctx, seed)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if ctx.Fseed != initial || ctx.Fremaining_bits != 17 || *seed != initial {
+			t.Fatal("seed initialization")
+		}
+		ctx.Fseed = Opus_celt_lcg_rand(nil, ctx.Fseed)
+		*seed = 7
+		quantAllBandsWriteSeed(seed, ctx)
+		if *seed != initial*1664525+1013904223 {
+			t.Fatal("final seed store")
+		}
+		quantAllBandsReadSeed(ctx, &ctx.Fseed)
+		quantAllBandsWriteSeed(&ctx.Fseed, ctx)
+		if ctx.Fremaining_bits != 17 {
+			t.Fatal("seed field alias")
+		}
+	}
+}
+
+func TestQuantAllBandsEntropyPointers(t *testing.T) {
+	ctx := new(band_ctx)
+	ctx.Fseed = 123
+	data := []byte{0, 71, 255, 13}
+	ec := new(OpusT_ec_ctx)
+	Opus_ec_dec_init(nil, ec, &data[0], 4)
+	quantAllBandsSetEntropy(ctx, ec)
+	ec = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if ctx.Fec == nil || ctx.Fec.Fbuf != &data[0] || ctx.Fec.Fstorage != 4 || ctx.Fseed != 123 {
+		t.Fatal("quant-all-bands entropy owner")
+	}
+	Opus_ec_dec_bit_logp(nil, ctx.Fec, 3)
+}
+
+func TestQuantAllBandsModePointers(t *testing.T) {
+	ctx := new(band_ctx)
+	ctx.Fseed = 123
+	mode := newSynthesisTestMode()
+	quantAllBandsSetMode(ctx, mode)
+	mode = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if ctx.Fm == nil || ctx.Fm.FnbEBands != 21 || unsafe.Slice(ctx.Fm.FeBands, 22)[21] != 100 || ctx.Fseed != 123 {
+		t.Fatal("quant-all-bands mode owner")
+	}
 }
 
 func TestQuantAllBandsCReference(t *testing.T) {

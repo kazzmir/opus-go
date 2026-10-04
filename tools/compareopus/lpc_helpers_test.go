@@ -11,6 +11,267 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsLowbandStorageAgainstC(t *testing.T) {
+	bands := []int16{0, 4, 8}
+	for _, M := range []int32{1, 2, 4, 8} {
+		spectrum := make([]float32, 12*M)
+		view := opuscc.CompareQuantAllBandsLowbandView(unsafe.SliceData(spectrum), unsafe.SliceData(bands), 2, M)
+		index := nativeQuantAllBandsLowband(unsafe.SliceData(bands), 2, M)
+		if view != &spectrum[index] {
+			t.Fatal("native last-band view", M)
+		}
+		owned := opuscc.CompareQuantAllBandsLowbandStorage(4 * M)
+		src := spectrum[index:]
+		for i := range src {
+			src[i] = float32(i) + .25
+		}
+		native := make([]float32, len(owned))
+		opuscc.CompareQuantAllBandsCopy(unsafe.SliceData(owned), view, 4*M)
+		nativeQuantAllBandsCopy(unsafe.SliceData(native), view, 4*M)
+		for i := range owned {
+			if math.Float32bits(owned[i]) != math.Float32bits(native[i]) {
+				t.Fatal("owned lowband/native copy", M, i)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsNormStorageAgainstC(t *testing.T) {
+	for _, N := range []int32{1, 4, 64, 960} {
+		saved := opuscc.CompareQuantAllBandsNormStorage(N)
+		cs := make([]float32, N)
+		g := make([]float32, N+4)
+		for i := range g {
+			g[i] = float32(i) + .75
+		}
+		c := append([]float32(nil), g...)
+		opuscc.CompareQuantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(g), 2, N, false)
+		nativeQuantAllBandsNormCopy(unsafe.SliceData(cs), unsafe.SliceData(c), 2, N, false)
+		clear(g[2 : 2+N])
+		clear(c[2 : 2+N])
+		opuscc.CompareQuantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(g), 2, N, true)
+		nativeQuantAllBandsNormCopy(unsafe.SliceData(cs), unsafe.SliceData(c), 2, N, true)
+		for i := range g {
+			if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+				t.Fatal("owned norm/native restore", N, i)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsTrialStorageAgainstC(t *testing.T) {
+	for _, N := range []int32{1, 4, 64, 960} {
+		x, y := opuscc.CompareQuantAllBandsTrialStorage(N)
+		for i := range x {
+			x[i] = float32(i) + .5
+			y[i] = -float32(i) - .25
+		}
+		gx, gy, cx, cy := make([]float32, N), make([]float32, N), make([]float32, N), make([]float32, N)
+		opuscc.CompareQuantAllBandsCopy(unsafe.SliceData(gx), unsafe.SliceData(x), N)
+		opuscc.CompareQuantAllBandsCopy(unsafe.SliceData(gy), unsafe.SliceData(y), N)
+		nativeQuantAllBandsCopy(unsafe.SliceData(cx), unsafe.SliceData(x), N)
+		nativeQuantAllBandsCopy(unsafe.SliceData(cy), unsafe.SliceData(y), N)
+		for i := range x {
+			if math.Float32bits(gx[i]) != math.Float32bits(cx[i]) || math.Float32bits(gy[i]) != math.Float32bits(cy[i]) {
+				t.Fatal("owned trial/native restore", N, i)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsInitialStorageAgainstC(t *testing.T) {
+	for _, N := range []int32{1, 4, 64, 960} {
+		x, y := opuscc.CompareQuantAllBandsInitialStorage(N)
+		src := make([]float32, N)
+		cx, cy := make([]float32, N), make([]float32, N)
+		for i := range src {
+			src[i] = float32(i) + .25
+		}
+		opuscc.CompareQuantAllBandsCopy(unsafe.SliceData(x), unsafe.SliceData(src), N)
+		nativeQuantAllBandsCopy(unsafe.SliceData(cx), unsafe.SliceData(src), N)
+		src[0] = -7
+		opuscc.CompareQuantAllBandsCopy(unsafe.SliceData(y), unsafe.SliceData(src), N)
+		nativeQuantAllBandsCopy(unsafe.SliceData(cy), unsafe.SliceData(src), N)
+		for i := range x {
+			if math.Float32bits(x[i]) != math.Float32bits(cx[i]) || math.Float32bits(y[i]) != math.Float32bits(cy[i]) {
+				t.Fatal("owned snapshot/native copy", N, i)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsBytesAgainstC(t *testing.T) {
+	for _, start := range []int32{0, 1, 5, 1275} {
+		g := make([]byte, 1277)
+		g[0], g[1276] = 77, 88
+		for i := 1; i < 1276; i++ {
+			g[i] = byte(i)
+		}
+		c := append([]byte(nil), g...)
+		gs := opuscc.CompareQuantAllBandsByteStorage(1)
+		cs := make([]byte, 1275)
+		ec := opuscc.OpusT_ec_ctx{Fbuf: &g[1], Fstorage: 1275, Foffs: uint32(start)}
+		window := opuscc.CompareQuantAllBandsByteSave(gs, &ec, start, 1275-start)
+		nativeQuantAllBandsBytes(&cs[0], &c[1], start, 1275-start, false)
+		for i := range gs {
+			if gs[i] != cs[i] {
+				t.Fatal("native byte snapshot", start, i)
+			}
+		}
+		for i := range window {
+			window[i] = 0
+			c[int(start)+1+i] = 0
+		}
+		opuscc.CompareQuantAllBandsByteRestore(window, gs, 1275-start)
+		nativeQuantAllBandsBytes(&cs[0], &c[1], start, 1275-start, true)
+		for i := range g {
+			if g[i] != c[i] {
+				t.Fatal("native byte restoration", start, i)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsNormCopyAgainstC(t *testing.T) {
+	for _, restore := range []bool{false, true} {
+		for offset := int32(0); offset < 3; offset++ {
+			g := []float32{77, 1, 2, 3, 4, 88}
+			c := append([]float32(nil), g...)
+			gs := []float32{55, -7, -8, 66}
+			cs := append([]float32(nil), gs...)
+			opuscc.CompareQuantAllBandsNormCopy(&gs[1], &g[1], offset, 2, restore)
+			nativeQuantAllBandsNormCopy(&cs[1], &c[1], offset, 2, restore)
+			for i := range g {
+				if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+					t.Fatal("native norm copy", restore, offset, i)
+				}
+			}
+			for i := range gs {
+				if math.Float32bits(gs[i]) != math.Float32bits(cs[i]) {
+					t.Fatal("native norm save", restore, offset, i)
+				}
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsDotAgainstC(t *testing.T) {
+	x := []float32{1.00001, 10000, -10000, 0.12345}
+	y := []float32{1.33333, 2, 2, -0.23456}
+	for N := int32(0); N <= 4; N++ {
+		g := opuscc.CompareQuantAllBandsDot(&x[0], &y[0], N)
+		c := nativeQuantAllBandsDot(&x[0], &y[0], N)
+		if math.Float32bits(g) != math.Float32bits(c) {
+			t.Fatal("native ordered dot", N, g, c)
+		}
+	}
+}
+
+func TestQuantAllBandsCopyAgainstC(t *testing.T) {
+	src := []float32{math.Float32frombits(0x80000000), math.Float32frombits(0x7fc00123), 3}
+	for N := int32(0); N <= 3; N++ {
+		g := []float32{77, 0, 0, 0, 88}
+		c := append([]float32(nil), g...)
+		opuscc.CompareQuantAllBandsCopy(&g[1], &src[0], N)
+		nativeQuantAllBandsCopy(&c[1], &src[0], N)
+		for i := range g {
+			if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+				t.Fatal("native RDO copy", N, i)
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsNormLengthAgainstC(t *testing.T) {
+	bands := []int16{0, 4, 8, 12}
+	for _, C := range []int32{1, 2} {
+		for _, M := range []int32{1, 2, 4, 8} {
+			for _, start := range []int32{0, 1, 2} {
+				offset := M * int32(bands[start])
+				if opuscc.CompareQuantAllBandsNormLength(&bands[0], 2, M, C, offset) != nativeQuantAllBandsNormLength(&bands[0], 2, M, C, offset) {
+					t.Fatal("native norm geometry", C, M, start)
+				}
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsBoundaryAgainstC(t *testing.T) {
+	values := []int16{77, -32768, -1, 0, 32767, 88}
+	for i := int32(0); i < 4; i++ {
+		if opuscc.CompareQuantAllBandsBoundary(&values[1], i) != nativeQuantAllBandsBoundary(&values[1], i) {
+			t.Fatal("native signed boundary", i)
+		}
+	}
+}
+
+func TestQuantAllBandsMasksAgainstC(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for band := int32(0); band < 3; band++ {
+			g := []byte{77, 1, 2, 3, 4, 5, 6, 88}
+			c := append([]byte(nil), g...)
+			opuscc.CompareQuantAllBandsMaskStore(&g[1], band, channels, 0x1234, 0x5678)
+			nativeQuantAllBandsMasks(&c[1], band, channels, 0x1234, 0x5678)
+			for i := range g {
+				if g[i] != c[i] {
+					t.Fatal("native mask store", channels, band, i)
+				}
+			}
+			for i := int32(0); i < 6; i++ {
+				if opuscc.CompareQuantAllBandsMask(&g[1], i) != uint32(c[1+i]) {
+					t.Fatal("native mask read", i)
+				}
+			}
+		}
+	}
+}
+
+func TestQuantAllBandsPulseAgainstC(t *testing.T) {
+	values := []int32{77, -2147483648, -1, 0, 16383, 2147483647, 88}
+	for i := int32(0); i < 5; i++ {
+		if opuscc.CompareQuantAllBandsPulse(&values[1], i) != nativeQuantAllBandsWord(&values[1], i) {
+			t.Fatal("native pulse budget", i)
+		}
+	}
+}
+
+func TestQuantAllBandsTFAgainstC(t *testing.T) {
+	values := []int32{77, -3, 0, 2, 88}
+	for i := int32(0); i < 3; i++ {
+		if opuscc.CompareQuantAllBandsTF(&values[1], i) != nativeQuantAllBandsWord(&values[1], i) {
+			t.Fatal("native TF flags", i)
+		}
+	}
+}
+
+func TestQuantAllBandsWeightsAgainstC(t *testing.T) {
+	for _, alias := range []bool{false, true} {
+		for band := int32(0); band < 3; band++ {
+			g := []float32{77, 2, 3, 4, 5, 6, 7, 88}
+			c := append([]float32(nil), g...)
+			mode := opuscc.OpusT_OpusCustomMode{FnbEBands: 3}
+			var gw, cw [2]float32
+			gp, cp := &gw, &cw
+			if alias {
+				gp = (*[2]float32)(unsafe.Pointer(&g[1]))
+				cp = (*[2]float32)(unsafe.Pointer(&c[1]))
+			}
+			opuscc.CompareQuantAllBandsChannelWeights(&mode, &g[1], band, gp)
+			nativeQuantAllBandsWeights(&c[1], 3, band, cp)
+			for i := range gw {
+				if math.Float32bits(gp[i]) != math.Float32bits(cp[i]) {
+					t.Fatal("native band weights", alias, band, i)
+				}
+			}
+			for i := range g {
+				if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+					t.Fatal("native weight guards", alias, band, i)
+				}
+			}
+		}
+	}
+}
+
 func TestCeltDecodeFrameLMAgainstC(t *testing.T) {
 	for _, short := range []int32{60, 120, 240} {
 		for _, maximum := range []int32{-1, 0, 1, 3} {
