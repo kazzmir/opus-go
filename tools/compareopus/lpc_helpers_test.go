@@ -11,6 +11,25 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeSpreadAgainstC(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 4, 5, 8, 128} {
+			data := make([]byte, 16)
+			for i := range data {
+				data[i] = pattern
+			}
+			var ec opuscc.OpusT_ec_ctx
+			opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+			c := ec
+			a := [8]int32{total}
+			spread, tell := opuscc.CompareCeltDecodeSpread(&ec, total)
+			nativeCeltDecodeHeader(&c, data, 3, &a)
+			if ec != c || spread != a[1] || tell != a[2] {
+				t.Fatal("spreading header", pattern, total)
+			}
+		}
+	}
+}
 func TestCeltDecodeGlobalFlagsAgainstC(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, total := range []int32{0, 3, 4, 8, 128} {

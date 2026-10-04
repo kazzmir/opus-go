@@ -534,6 +534,26 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four header rounds type silence recognition/budget exhaustion, postfilter
+parameter decoding, transient/intra flags, and spreading selection. All retain
+typed entropy/payload owners and numeric int32 tell arithmetic. Silence keeps
+the initial tell snapshot unless exhaustion advances total nbits. Postfilter
+retains the start/budget gate, octave uint/raw-bit/gain/tapset decoding order and
+unsigned pitch arithmetic, with a tell refresh only inside that gate. Global
+flags refresh tell after transient decoding but deliberately not after intra;
+spreading likewise returns its pre-ICDF tell snapshot. These cached values and
+exact inequalities remain unchanged at the outer call sites.
+
+Grouped GC/stack-growth/checkptr and native tests cover budgets immediately
+below/at/above gates, omitted postfilter for nonzero start, LM0..3, all eleven
+entropy fields and every scalar output. Source-equivalent C header fixtures use
+actual entropy kernels, celt.h tapset/spread tables and SPREAD_NORMAL. They remain
+leaf oracles rather than full enclosing CELT decoder checkptr coverage. Full
+amd64/386 and ARM64/QEMU, native comparisons, GC stress, unchanged encode/decode
+goldens/tolerances and repeated scoped ARM pointer/ordinary golden tests are
+retained per round/batch. Quant-all-bands and outer integer-addressed owners
+still require subsequent migration.
+
 Four subsequent boundary rounds type initial mono energy merging, conditional
 prefilter dispatch, decoder deemphasis forwarding and final entropy/error
 completion. Mono merging keeps MAXG's second-operand tie/NaN choice and only

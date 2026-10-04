@@ -56,6 +56,30 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeSpreadPointers(t *testing.T) {
+	for _, pattern := range []byte{0, 71, 255} {
+		for _, total := range []int32{0, 4, 5, 8, 128} {
+			data := make([]byte, 16)
+			for i := range data {
+				data[i] = pattern
+			}
+			var ec OpusT_ec_ctx
+			Opus_ec_dec_init(nil, &ec, &data[0], 16)
+			ref := ec
+			wantTell := ref.Fnbits_total - int32(bits.Len32(ref.Frng))
+			want := int32(SPREAD_NORMAL)
+			if wantTell+4 <= total {
+				want = Opus_ec_dec_icdf(nil, &ref, &spread_icdf9[0], 5)
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			spread, tell := celtDecodeSpread(nil, &ec, total)
+			if ec != ref || spread != want || tell != wantTell {
+				t.Fatal("spreading cached tell", pattern, total)
+			}
+		}
+	}
+}
 func TestCeltDecodeGlobalFlagsPointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, total := range []int32{0, 3, 4, 8, 128} {

@@ -423,6 +423,15 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeSpread(tls *libc.TLS, ec *OpusT_ec_ctx, total int32) (spread, tell int32) {
+	tell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	spread = SPREAD_NORMAL
+	if tell+4 <= total {
+		spread = Opus_ec_dec_icdf(tls, ec, &spread_icdf9[0], 5)
+	}
+	return
+}
+
 func celtDecodeGlobalFlags(tls *libc.TLS, ec *OpusT_ec_ctx, LM, M, total, tell int32) (transient, short, intra, updatedTell int32) {
 	updatedTell = tell
 	if LM > 0 && tell+3 <= total {
@@ -1277,13 +1286,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	/* Get band energies */
 	Opus_unquant_coarse_energy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*float32)(unsafe.Pointer(oldBandE)), intra_ener, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), C, LM)
 	tf_res = celtDecodeTFStorage(tls, nbEBands, start, end, isTransient, LM, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
-	v1 = dec
-	v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-	tell = v28
-	spread_decision = int32(SPREAD_NORMAL)
-	if tell+int32(4) <= total_bits {
-		spread_decision = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &spread_icdf9[0], uint32(5))
-	}
+	spread_decision, tell = celtDecodeSpread(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), total_bits)
 	cap1 = celtDecodeCapsStorage(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), nbEBands, LM, C)
 	offsets = celtDecodeOffsetsStorage(nbEBands)
 	total_bits, tell = celtDecodeBoosts(tls, eBands, unsafe.SliceData(cap1), unsafe.SliceData(offsets), start, end, C, LM, total_bits, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
