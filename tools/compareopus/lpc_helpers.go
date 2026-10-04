@@ -14,6 +14,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
 // bands.c compute_channel_weights, float branch, with original lane loads.
+static int compare_quant_all_word(const int *values,int band) {return values[band];}
 static void compare_quant_all_weights(float *energy,int bands,int band,float *w) {float Ex=energy[band],Ey=energy[band+bands],minE=MIN32(Ex,Ey);Ex=ADD32(Ex,minE/3);Ey=ADD32(Ey,minE/3);w[0]=Ex;w[1]=Ey;}
 static int compare_decode_frame_lm(int shortSize,int maximum,int frameSize) {int LM;for(LM=0;LM<=maximum;LM++)if(shortSize<<LM==frameSize)break;return LM>maximum?-1:LM;}
 static int compare_decode_packet_arguments(const float *pcm,int length) {return !(length<0||length>1275||pcm==NULL);}
@@ -68,6 +69,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeQuantAllBandsWord(values *int32, band int32) int32 {
+	return int32(C.compare_quant_all_word((*C.int)(unsafe.Pointer(values)), C.int(band)))
+}
 func nativeQuantAllBandsWeights(energy *float32, bands, band int32, w *[2]float32) {
 	C.compare_quant_all_weights((*C.float)(unsafe.Pointer(energy)), C.int(bands), C.int(band), (*C.float)(unsafe.Pointer(w)))
 }

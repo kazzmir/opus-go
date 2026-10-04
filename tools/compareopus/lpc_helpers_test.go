@@ -11,6 +11,15 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsTFAgainstC(t *testing.T) {
+	values := []int32{77, -3, 0, 2, 88}
+	for i := int32(0); i < 3; i++ {
+		if opuscc.CompareQuantAllBandsTF(&values[1], i) != nativeQuantAllBandsWord(&values[1], i) {
+			t.Fatal("native TF flags", i)
+		}
+	}
+}
+
 func TestQuantAllBandsWeightsAgainstC(t *testing.T) {
 	for _, alias := range []bool{false, true} {
 		for band := int32(0); band < 3; band++ {
