@@ -423,6 +423,44 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeRecoveryBand(energy, log, previous *float32, missing int32, safety float32) {
+	highest := *previous
+	if *log > highest {
+		highest = *log
+	}
+	if *energy < highest {
+		E0, E1, E2 := *energy, *log, *previous
+		delta := float32(E1 - E0)
+		half := float32(.5 * float32(E2-E0))
+		slope := half
+		if delta > half {
+			slope = delta
+		}
+		if !(slope < 2) {
+			slope = 2
+		}
+		decrease := float32(float32(1+missing) * slope)
+		if 0 > decrease {
+			decrease = 0
+		}
+		E0 = float32(E0 - decrease)
+		if -20 > E0 {
+			E0 = -20
+		}
+		*energy = E0
+	} else {
+		lowest := *log
+		if *energy < lowest {
+			lowest = *energy
+		}
+		if !(lowest < *previous) {
+			lowest = *previous
+		}
+		*energy = lowest
+	}
+	*energy = float32(*energy - safety)
+}
+
 func celtDecodeRecoverySafety(state *OpusT_OpusCustomDecoder, LM int32) (missing int32, safety float32) {
 	missing = min(int32(10), state.Floss_duration>>LM)
 	if LM == 0 {
@@ -941,7 +979,6 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 
 func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
 	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, i, intra_ener, isTransient, missing, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, shortBlocks, silence, spread_decision, start, v28, v37 int32
-	var E0, E1, E2, slope, v57 OpusT_opus_val32
 	var tf_res, cap1, offsets, fine_quant, pulses, fine_priority []int32
 	var X []float32
 	var collapse_masks []byte
@@ -949,9 +986,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	var _saved_stack, backgroundLogE, mode, oldBandE, oldLogE, oldLogE2, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var bits, tell, total_bits OpusT_opus_int32
 	var decode_mem [2]uintptr
-	var safety, v35, v56, v61 OpusT_celt_glog
+	var safety, v35 OpusT_celt_glog
 	var postfilter_gain OpusT_opus_val16
-	var v60 float32
 	var _dec OpusT_ec_dec
 	var balance OpusT_opus_int32
 	var dual_stereo int32
@@ -1178,60 +1214,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 				if !(i < end) {
 					break
 				}
-				if *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(c*nbEBands+i)*4)) > *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE2 + uintptr(c*nbEBands+i)*4)) {
-					v35 = *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(c*nbEBands+i)*4))
-				} else {
-					v35 = *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE2 + uintptr(c*nbEBands+i)*4))
-				}
-				if *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) < v35 {
-					E0 = *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4))
-					E1 = *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(c*nbEBands+i)*4))
-					E2 = *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE2 + uintptr(c*nbEBands+i)*4))
-					if E1-E0 > float32(float32(0.5)*(E2-E0)) {
-						v57 = E1 - E0
-					} else {
-						v57 = float32(float32(0.5) * (E2 - E0))
-					}
-					slope = v57
-					if slope < float32(2) {
-						v57 = slope
-					} else {
-						v57 = float32(2)
-					}
-					slope = v57
-					if float32(int32(0)) > OpusT_opus_val32(float32(int32(1)+missing)*slope) {
-						v57 = float32(int32(0))
-					} else {
-						v57 = OpusT_opus_val32(float32(int32(1)+missing) * slope)
-					}
-					E0 = E0 - v57
-					if -float32(20) > E0 {
-						v60 = -float32(20)
-					} else {
-						v60 = E0
-					}
-					*(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) = v60
-				} else {
-					/* Otherwise take the min of the last frames. */
-					if *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) < *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(c*nbEBands+i)*4)) {
-						v56 = *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4))
-					} else {
-						v56 = *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(c*nbEBands+i)*4))
-					}
-					if v56 < *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE2 + uintptr(c*nbEBands+i)*4)) {
-						if *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) < *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(c*nbEBands+i)*4)) {
-							v61 = *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4))
-						} else {
-							v61 = *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE + uintptr(c*nbEBands+i)*4))
-						}
-						v35 = v61
-					} else {
-						v35 = *(*OpusT_celt_glog)(unsafe.Pointer(oldLogE2 + uintptr(c*nbEBands+i)*4))
-					}
-					*(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) = v35
-				}
-				/* Shorter frames have more natural fluctuations -- play it safe. */
-				*(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(c*nbEBands+i)*4)) -= safety
+				celtDecodeRecoveryBand((*float32)(unsafe.Pointer(oldBandE+uintptr(c*nbEBands+i)*4)), (*float32)(unsafe.Pointer(oldLogE+uintptr(c*nbEBands+i)*4)), (*float32)(unsafe.Pointer(oldLogE2+uintptr(c*nbEBands+i)*4)), missing, safety)
 				i = i + 1
 			}
 			c = c + 1

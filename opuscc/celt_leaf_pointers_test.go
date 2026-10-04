@@ -55,6 +55,31 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeRecoveryBandPointers(t *testing.T) {
+	for _, tc := range []struct {
+		e, l, p float32
+		m       int32
+		s, w    float32
+	}{{-10, -8, -6, 2, .5, -16.5}, {-1, -4, -5, 1, 1.5, -6.5}, {-19, 0, 1, 10, 1.5, -21.5}} {
+		v := []float32{901, tc.e, tc.l, tc.p, 902}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		celtDecodeRecoveryBand(&v[1], &v[2], &v[3], tc.m, tc.s)
+		if v[1] != tc.w || v[0] != 901 || v[4] != 902 || v[2] != tc.l || v[3] != tc.p {
+			t.Fatal("energy recovery", tc, v)
+		}
+	}
+	x := float32(4)
+	celtDecodeRecoveryBand(&x, &x, &x, 3, .5)
+	if x != 3.5 {
+		t.Fatal("live energy aliases")
+	}
+	e, l, p := float32(0), float32(0), math.Float32frombits(0x80000000)
+	celtDecodeRecoveryBand(&e, &l, &p, 0, 0)
+	if math.Float32bits(e) != 0x80000000 {
+		t.Fatal("signed-zero selection")
+	}
+}
 func TestCeltDecodeRecoverySafetyPointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, loss := range []int32{-2147483648, -1, 0, 1, 10, 11, 40, 2147483647} {

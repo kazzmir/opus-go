@@ -11,6 +11,25 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeRecoveryBandAgainstC(t *testing.T) {
+	values := []float32{-25, -20, -10, -1, 0, math.Float32frombits(0x80000000), .1, 2, 4, math.Float32frombits(0x7fc12345), float32(math.Inf(1)), float32(math.Inf(-1))}
+	for _, e := range values {
+		for _, l := range values {
+			for _, p := range values {
+				for _, missing := range []int32{0, 1, 10} {
+					for _, safety := range []float32{0, .5, 1.5} {
+						g, c := e, e
+						opuscc.CompareCeltDecodeRecoveryBand(&g, &l, &p, missing, safety)
+						nativeCeltDecodeRecoveryBand(&c, &l, &p, missing, safety)
+						if math.Float32bits(g) != math.Float32bits(c) {
+							t.Fatal("recovery band", e, l, p, missing, safety, g, c)
+						}
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeRecoverySafetyAgainstC(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, loss := range []int32{-2147483648, -1, 0, 1, 10, 11, 40, 2147483647} {
