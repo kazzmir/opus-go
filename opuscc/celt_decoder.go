@@ -423,6 +423,16 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeRecoverySafety(state *OpusT_OpusCustomDecoder, LM int32) (missing int32, safety float32) {
+	missing = min(int32(10), state.Floss_duration>>LM)
+	if LM == 0 {
+		safety = 1.5
+	} else if LM == 1 {
+		safety = .5
+	}
+	return
+}
+
 func celtDecodePostfilterFinish(state *OpusT_OpusCustomDecoder, period int32, gain float32, tapset, LM int32) {
 	state.Fpostfilter_period_old = state.Fpostfilter_period
 	state.Fpostfilter_gain_old = state.Fpostfilter_gain
@@ -1162,20 +1172,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	if !(intra_ener != 0) && (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration != 0 {
 		c = 0
 		for {
-			safety = float32(0)
-			if int32(10) < (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration>>LM {
-				v37 = int32(10)
-			} else {
-				v37 = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Floss_duration >> LM
-			}
-			missing = v37
-			if LM == 0 {
-				safety = float32(1.5)
-			} else {
-				if LM == int32(1) {
-					safety = float32(0.5)
-				}
-			}
+			missing, safety = celtDecodeRecoverySafety((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), LM)
 			i = start
 			for {
 				if !(i < end) {

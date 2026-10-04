@@ -55,6 +55,29 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeRecoverySafetyPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, loss := range []int32{-2147483648, -1, 0, 1, 10, 11, 40, 2147483647} {
+			state := &OpusT_OpusCustomDecoder{Floss_duration: loss, Frng: 123}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			missing, safety := celtDecodeRecoverySafety(state, LM)
+			want := loss >> LM
+			if want > 10 {
+				want = 10
+			}
+			ws := float32(0)
+			if LM == 0 {
+				ws = 1.5
+			} else if LM == 1 {
+				ws = .5
+			}
+			if missing != want || math.Float32bits(safety) != math.Float32bits(ws) || state.Floss_duration != loss || state.Frng != 123 {
+				t.Fatal("recovery safety", LM, loss)
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterFinishPointers(t *testing.T) {
 	for _, LM := range []int32{-1, 0, 1, 3} {
 		for _, period := range []int32{-2147483648, -1, 0, 15, 2147483647} {

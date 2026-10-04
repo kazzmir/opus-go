@@ -11,6 +11,18 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeRecoverySafetyAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, loss := range []int32{-2147483648, -1, 0, 1, 10, 11, 40, 2147483647} {
+			state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: loss}
+			m, s := opuscc.CompareCeltDecodeRecoverySafety(&state, LM)
+			cm, cs := nativeCeltDecodeRecoverySafety(loss, LM)
+			if m != cm || math.Float32bits(s) != math.Float32bits(cs) {
+				t.Fatal("recovery safety", LM, loss)
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterFinishAgainstC(t *testing.T) {
 	for _, LM := range []int32{-1, 0, 1, 3} {
 		for _, period := range []int32{-2147483648, -1, 0, 15, 2147483647} {

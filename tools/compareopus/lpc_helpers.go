@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static int compare_decode_recovery_safety(int loss,int LM,float *safety) {*safety=0;if(LM==0)*safety=1.5f;else if(LM==1)*safety=.5f;return IMIN(10,loss>>LM);}
 static void compare_decode_postfilter_finish(int *p,float *g,int period,float gain,int tapset,int LM) {p[1]=p[0];g[1]=g[0];p[3]=p[2];p[0]=period;g[0]=gain;p[2]=tapset;if(LM){p[1]=p[0];g[1]=g[0];p[3]=p[2];}}
 #include "entdec.h"
 static int compare_decode_boosts(unsigned *s,unsigned char *data,short *e,int *cap,int *out,int start,int end,int C,int LM,int total,int *tell) {
@@ -40,6 +41,11 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodeRecoverySafety(loss, LM int32) (int32, float32) {
+	var safety C.float
+	m := C.compare_decode_recovery_safety(C.int(loss), C.int(LM), &safety)
+	return int32(m), float32(safety)
+}
 func nativeCeltDecodePostfilterFinish(state *opuscc.OpusT_OpusCustomDecoder, period int32, gain float32, tapset, LM int32) {
 	p := [4]C.int{C.int(state.Fpostfilter_period), C.int(state.Fpostfilter_period_old), C.int(state.Fpostfilter_tapset), C.int(state.Fpostfilter_tapset_old)}
 	g := [2]C.float{C.float(state.Fpostfilter_gain), C.float(state.Fpostfilter_gain_old)}
