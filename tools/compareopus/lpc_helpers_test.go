@@ -11,6 +11,27 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeTrimAgainstC(t *testing.T) {
+	for _, tell := range []int32{0, 8, 49} {
+		for _, total := range []int32{0, 47, 48, 49, 128} {
+			for _, pattern := range []byte{0, 71, 255} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				c := ec
+				a := [8]int32{tell, total}
+				got := opuscc.CompareCeltDecodeTrim(&ec, tell, total)
+				nativeCeltDecodeHeader(&c, data, 4, &a)
+				if got != a[2] || ec != c {
+					t.Fatal("trim header", tell, total, pattern)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeSpreadAgainstC(t *testing.T) {
 	for _, pattern := range []byte{0, 71, 255} {
 		for _, total := range []int32{0, 4, 5, 8, 128} {

@@ -56,6 +56,34 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeTrimPointers(t *testing.T) {
+	for _, tell := range []int32{0, 8, 49} {
+		for _, total := range []int32{0, 47, 48, 49, 128} {
+			for _, pattern := range []byte{0, 71, 255} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				ref := ec
+				want := int32(5)
+				if tell+48 <= total {
+					want = Opus_ec_dec_icdf(nil, &ref, &trim_icdf9[0], 7)
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				got := celtDecodeTrim(nil, &ec, tell, total)
+				if got != want || ec != ref {
+					t.Fatal("trim header", tell, total, pattern)
+				}
+			}
+		}
+	}
+	if celtDecodeTrim(nil, nil, 1, 0) != 5 {
+		t.Fatal("unused trim entropy")
+	}
+}
 func TestCeltDecodeSpreadPointers(t *testing.T) {
 	for _, pattern := range []byte{0, 71, 255} {
 		for _, total := range []int32{0, 4, 5, 8, 128} {

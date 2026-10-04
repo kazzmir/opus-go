@@ -423,6 +423,13 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeTrim(tls *libc.TLS, ec *OpusT_ec_ctx, tell, total int32) int32 {
+	if tell+(int32(6)<<BITRES) <= total {
+		return Opus_ec_dec_icdf(tls, ec, &trim_icdf9[0], 7)
+	}
+	return 5
+}
+
 func celtDecodeSpread(tls *libc.TLS, ec *OpusT_ec_ctx, total int32) (spread, tell int32) {
 	tell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
 	spread = SPREAD_NORMAL
@@ -1291,12 +1298,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	offsets = celtDecodeOffsetsStorage(nbEBands)
 	total_bits, tell = celtDecodeBoosts(tls, eBands, unsafe.SliceData(cap1), unsafe.SliceData(offsets), start, end, C, LM, total_bits, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
 	fine_quant = celtDecodeFineStorage(nbEBands)
-	if tell+int32(6)<<int32(BITRES) <= total_bits {
-		v28 = Opus_ec_dec_icdf(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), &trim_icdf9[0], uint32(7))
-	} else {
-		v28 = int32(5)
-	}
-	alloc_trim = v28
+	alloc_trim = celtDecodeTrim(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), tell, total_bits)
 	bits = len1*int32(8)<<int32(BITRES) - int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))) - int32(1)
 	if isTransient != 0 && LM >= int32(2) && bits >= (LM+int32(2))<<int32(BITRES) {
 		v28 = int32(1) << int32(BITRES)
