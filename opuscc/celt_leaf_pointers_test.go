@@ -56,6 +56,16 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePacketLostPointers(t *testing.T) {
+	data := []byte{0, 71, 255}
+	for _, length := range []int32{-1, 0, 1, 2, 1275} {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if !celtDecodePacketLost(nil, length) || celtDecodePacketLost(&data[0], length) != (length <= 1) {
+			t.Fatal("loss packet predicate", length)
+		}
+	}
+}
 func TestCeltDecodePacketStartPointers(t *testing.T) {
 	for _, loss := range []int32{-1, 0, 1, 40} {
 		for _, skip := range []int32{-1, 0, 1, 7} {

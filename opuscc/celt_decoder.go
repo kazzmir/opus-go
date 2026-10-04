@@ -423,6 +423,8 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodePacketLost(data *byte, length int32) bool { return data == nil || length <= 1 }
+
 func celtDecodePacketStart(state *OpusT_OpusCustomDecoder) {
 	if state.Floss_duration == 0 {
 		state.Fskip_plc = 0
@@ -1207,11 +1209,10 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 
 //go:uintptrescapes
 func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, frame_size int32, decAddress uintptr, accum int32) int32 {
-	return celt_decode_with_ec_dred(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), data, len1, pcm, frame_size, decAddress, accum)
+	return celt_decode_with_ec_dred(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, pcm, frame_size, (*OpusT_ec_ctx)(unsafe.Pointer(decAddress)), accum)
 }
 
-func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data uintptr, len1 int32, pcm uintptr, frame_size int32, decAddress uintptr, accum int32) (r int32) {
-	dec := (*OpusT_ec_ctx)(unsafe.Pointer(decAddress))
+func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data *byte, len1 int32, pcm uintptr, frame_size int32, dec *OpusT_ec_ctx, accum int32) (r int32) {
 	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, intra_ener, isTransient, nbEBands, overlap, postfilter_pitch, postfilter_tapset, shortBlocks, silence, spread_decision, start, v28 int32
 	var tf_res, cap1, offsets, fine_quant, pulses, fine_priority []int32
 	var X []float32
@@ -1324,7 +1325,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	if effEnd > (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands {
 		effEnd = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands
 	}
-	if data == uintptr(uint32(0)) || len1 <= int32(1) {
+	if celtDecodePacketLost(data, len1) {
 		celt_decode_lost(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), N, LM)
 		celtDecodeDeemphasis(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &out_syn[0], (*float32)(unsafe.Pointer(pcm)), N, CC, accum)
 		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
