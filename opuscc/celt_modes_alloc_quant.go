@@ -2470,6 +2470,18 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsNormCopy(saved, norm *float32, offset, N int32, restore bool) {
+	if N == 0 {
+		return
+	}
+	values := unsafe.Slice(norm, offset+N)[offset : offset+N]
+	if restore {
+		copy(values, unsafe.Slice(saved, N))
+	} else {
+		copy(unsafe.Slice(saved, N), values)
+	}
+}
+
 func quantAllBandsDot(left, right *float32, N int32) float32 {
 	if N == 0 {
 		return 0
@@ -3367,7 +3379,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					quantAllBandsCopy((*float32)(unsafe.Pointer(X_save2)), (*float32)(unsafe.Pointer(X)), N1)
 					quantAllBandsCopy((*float32)(unsafe.Pointer(Y_save2)), (*float32)(unsafe.Pointer(Y)), N1)
 					if !(last != 0) {
-						libc.Xmemcpy(tls, norm_save2, norm+uintptr(M*quantAllBandsBoundary(eBands, i1))*4-uintptr(norm_offset)*4, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(norm_save2)-int64(norm+uintptr(M*quantAllBandsBoundary(eBands, i1))*4-uintptr(norm_offset)*4))/4)))
+						quantAllBandsNormCopy((*float32)(unsafe.Pointer(norm_save2)), (*float32)(unsafe.Pointer(norm)), M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
 					}
 					nstart_bytes = int32(ec_save.Foffs)
 					nend_bytes = int32(ec_save.Fstorage)
@@ -3406,7 +3418,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 						quantAllBandsCopy((*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(X_save2)), N1)
 						quantAllBandsCopy((*float32)(unsafe.Pointer(Y)), (*float32)(unsafe.Pointer(Y_save2)), N1)
 						if !(last != 0) {
-							libc.Xmemcpy(tls, norm+uintptr(M*quantAllBandsBoundary(eBands, i1))*4-uintptr(norm_offset)*4, norm_save2, uint64(uint32(N1))*uint64(4)+uint64(0*((int64(norm+uintptr(M*quantAllBandsBoundary(eBands, i1))*4-uintptr(norm_offset)*4)-int64(norm_save2))/4)))
+							quantAllBandsNormCopy((*float32)(unsafe.Pointer(norm_save2)), (*float32)(unsafe.Pointer(norm)), M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
 						}
 						libc.Xmemcpy(tls, bytes_buf, bytes_save, uint64(uint32(save_bytes))*uint64(1)+uint64(0*(int64(bytes_buf)-int64(bytes_save))))
 					}

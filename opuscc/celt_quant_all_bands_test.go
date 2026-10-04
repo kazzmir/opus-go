@@ -35,6 +35,28 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsNormCopyPointers(t *testing.T) {
+	quantAllBandsNormCopy(nil, nil, 99, 0, false)
+	quantAllBandsNormCopy(nil, nil, 99, 0, true)
+	norm := []float32{77, 1, 2, 3, 4, 88}
+	saved := []float32{55, 0, 0, 66}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	quantAllBandsNormCopy(&saved[1], &norm[1], 1, 2, false)
+	if saved[1] != 2 || saved[2] != 3 || saved[0] != 55 || saved[3] != 66 {
+		t.Fatal("norm snapshot")
+	}
+	norm[2], norm[3] = -7, -8
+	quantAllBandsNormCopy(&saved[1], &norm[1], 1, 2, true)
+	if norm[2] != 2 || norm[3] != 3 || norm[0] != 77 || norm[1] != 1 || norm[4] != 4 || norm[5] != 88 {
+		t.Fatal("norm restore guards")
+	}
+	quantAllBandsNormCopy(&norm[1], &norm[1], 1, 3, false)
+	if norm[1] != 2 || norm[2] != 3 || norm[3] != 4 {
+		t.Fatal("Go-only norm overlap")
+	}
+}
+
 func TestQuantAllBandsDotPointers(t *testing.T) {
 	if math.Float32bits(quantAllBandsDot(nil, nil, 0)) != 0 {
 		t.Fatal("empty RDO dot")

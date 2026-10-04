@@ -11,6 +11,29 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsNormCopyAgainstC(t *testing.T) {
+	for _, restore := range []bool{false, true} {
+		for offset := int32(0); offset < 3; offset++ {
+			g := []float32{77, 1, 2, 3, 4, 88}
+			c := append([]float32(nil), g...)
+			gs := []float32{55, -7, -8, 66}
+			cs := append([]float32(nil), gs...)
+			opuscc.CompareQuantAllBandsNormCopy(&gs[1], &g[1], offset, 2, restore)
+			nativeQuantAllBandsNormCopy(&cs[1], &c[1], offset, 2, restore)
+			for i := range g {
+				if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+					t.Fatal("native norm copy", restore, offset, i)
+				}
+			}
+			for i := range gs {
+				if math.Float32bits(gs[i]) != math.Float32bits(cs[i]) {
+					t.Fatal("native norm save", restore, offset, i)
+				}
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsDotAgainstC(t *testing.T) {
 	x := []float32{1.00001, 10000, -10000, 0.12345}
 	y := []float32{1.33333, 2, 2, -0.23456}
