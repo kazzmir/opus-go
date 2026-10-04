@@ -11,6 +11,29 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePostfilterFirstAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, gain := range []float32{0, .3, .7} {
+		for tap := int32(0); tap < 3; tap++ {
+			state := opuscc.OpusT_OpusCustomDecoder{Fpostfilter_period_old: 45, Fpostfilter_period: 100, Fpostfilter_gain_old: gain, Fpostfilter_gain: .3, Fpostfilter_tapset_old: tap, Fpostfilter_tapset: 2}
+			h := make([]float32, 256+120+2)
+			for i := range h {
+				h[i] = float32(i%13-6) / 128
+			}
+			c := slices.Clone(h)
+			opuscc.CompareCeltDecodePostfilterFirst(&state, mode, &h[257], 120)
+			nativeComb(&c[257], &c[257], 45, 100, 120, gain, .3, tap, 2, mode.Fwindow, 120)
+			for i := range h {
+				if math.Float32bits(h[i]) != math.Float32bits(c[i]) {
+					t.Fatal("first postfilter", gain, tap, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterClampAgainstC(t *testing.T) {
 	for _, a := range []int32{-2147483648, -1, 0, 15, 16, 100, 2147483647} {
 		for _, b := range []int32{-1, 0, 15, 16, 2147483647} {
