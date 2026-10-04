@@ -11,6 +11,30 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeEnergyMergeMonoAgainstC(t *testing.T) {
+	values := []float32{-28, -1, 0, math.Float32frombits(0x80000000), 1, math.Float32frombits(0x7fc12345), float32(math.Inf(1)), float32(math.Inf(-1))}
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, a := range values {
+			for _, b := range values {
+				e := make([]float32, 2*bands+2)
+				e[0] = 901
+				e[len(e)-1] = 902
+				for i := int32(0); i < bands; i++ {
+					e[1+i] = a
+					e[1+bands+i] = b
+				}
+				c := slices.Clone(e)
+				opuscc.CompareCeltDecodeEnergyMergeMono(&e[1], bands)
+				nativeCeltDecodeEnergyMergeMono(&c[1], bands)
+				for i := range e {
+					if math.Float32bits(e[i]) != math.Float32bits(c[i]) {
+						t.Fatal("mono merge", bands, a, b, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {

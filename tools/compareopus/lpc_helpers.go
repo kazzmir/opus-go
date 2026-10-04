@@ -13,6 +13,7 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static void compare_decode_energy_merge_mono(float *e,int bands) {for(int i=0;i<bands;i++)e[i]=MAXG(e[i],e[bands+i]);}
 // celt_decoder.c defines FRAME_NORMAL as 1.
 static void compare_decode_postfilter_clamp(int *p,int minimum) {p[0]=IMAX(minimum,p[0]);p[1]=IMAX(minimum,p[1]);}
 static void compare_decode_packet_finish(int *state) {state[0]=0;state[1]=0;state[2]=1;state[3]=0;}
@@ -46,6 +47,9 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodeEnergyMergeMono(e *float32, bands int32) {
+	C.compare_decode_energy_merge_mono((*C.float)(unsafe.Pointer(e)), C.int(bands))
+}
 func nativeCeltDecodePostfilterClamp(state *opuscc.OpusT_OpusCustomDecoder) {
 	p := [2]C.int{C.int(state.Fpostfilter_period), C.int(state.Fpostfilter_period_old)}
 	C.compare_decode_postfilter_clamp(&p[0], C.int(opuscc.COMBFILTER_MINPERIOD))

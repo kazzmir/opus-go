@@ -423,6 +423,20 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeEnergyMergeMono(energy *float32, bands int32) {
+	if bands <= 0 {
+		return
+	}
+	e := unsafe.Slice(energy, 2*bands)
+	for i := int32(0); i < bands; i++ {
+		value := e[bands+i]
+		if e[i] > value {
+			value = e[i]
+		}
+		e[i] = value
+	}
+}
+
 func celtDecodePostfilter(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, channels, N, LM, period int32, gain float32, tapset, overlap int32) {
 	out := unsafe.Slice(outputs, max(int32(1), channels))
 	for c := int32(0); ; c++ {
@@ -1033,7 +1047,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 }
 
 func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
-	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, i, intra_ener, isTransient, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, shortBlocks, silence, spread_decision, start, v28 int32
+	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, intra_ener, isTransient, nbEBands, octave, overlap, postfilter_pitch, postfilter_tapset, qg, shortBlocks, silence, spread_decision, start, v28 int32
 	var tf_res, cap1, offsets, fine_quant, pulses, fine_priority []int32
 	var X []float32
 	var collapse_masks []byte
@@ -1041,7 +1055,6 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	var _saved_stack, backgroundLogE, mode, oldBandE, oldLogE, oldLogE2, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var bits, tell, total_bits OpusT_opus_int32
 	var decode_mem [2]uintptr
-	var v35 OpusT_celt_glog
 	var postfilter_gain OpusT_opus_val16
 	var _dec OpusT_ec_dec
 	var balance OpusT_opus_int32
@@ -1184,20 +1197,8 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		Opus_ec_dec_init(tls, &_dec, (*byte)(unsafe.Pointer(data)), uint32(len1))
 		dec = uintptr(unsafe.Pointer(&_dec))
 	}
-	if C == int32(1) {
-		i = 0
-		for {
-			if !(i < nbEBands) {
-				break
-			}
-			if *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(i)*4)) > *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(nbEBands+i)*4)) {
-				v35 = *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(i)*4))
-			} else {
-				v35 = *(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(nbEBands+i)*4))
-			}
-			*(*OpusT_celt_glog)(unsafe.Pointer(oldBandE + uintptr(i)*4)) = v35
-			i = i + 1
-		}
+	if C == 1 {
+		celtDecodeEnergyMergeMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
 	}
 	total_bits = len1 * int32(8)
 	v1 = dec

@@ -55,6 +55,25 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeEnergyMergeMonoPointers(t *testing.T) {
+	celtDecodeEnergyMergeMono(nil, 0)
+	values := []float32{-28, -1, 0, math.Float32frombits(0x80000000), 1, math.Float32frombits(0x7fc12345)}
+	for _, a := range values {
+		for _, b := range values {
+			e := []float32{901, a, b, 902}
+			want := b
+			if a > b {
+				want = a
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodeEnergyMergeMono(&e[1], 1)
+			if math.Float32bits(e[1]) != math.Float32bits(want) || math.Float32bits(e[2]) != math.Float32bits(b) || e[0] != 901 || e[3] != 902 {
+				t.Fatal("mono energy merge", a, b)
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterPointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, channels := range []int32{0, 1, 2} {
