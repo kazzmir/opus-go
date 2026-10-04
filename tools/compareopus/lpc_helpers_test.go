@@ -359,6 +359,21 @@ func TestQuantAllBandsWeightsAgainstC(t *testing.T) {
 	}
 }
 
+func TestOpusFrameRedundantPacketAgainstC(t *testing.T) {
+	data := make([]byte, 71)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	window := opuscc.CompareOpusFrameRedundantPacket(&data[0], 7, 64)
+	native := make([]byte, 64)
+	nativeQuantAllBandsBytes(&native[0], &data[0], 7, 64, false)
+	for i := range native {
+		if unsafe.Slice(window, 64)[i] != native[i] {
+			t.Fatal("native packet suffix", i)
+		}
+	}
+}
+
 func TestCeltDecodeFrameLMAgainstC(t *testing.T) {
 	for _, short := range []int32{60, 120, 240} {
 		for _, maximum := range []int32{-1, 0, 1, 3} {

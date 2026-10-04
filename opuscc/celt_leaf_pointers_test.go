@@ -191,6 +191,46 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeRedundantPacketPointers(t *testing.T) {
+	if opusFrameRedundantPacket(nil, 99, 0) != nil || opusFrameRedundantPacket(nil, 99, 1) != nil {
+		t.Fatal("unused redundant packet")
+	}
+	data := make([]byte, 71)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	pointer := opusFrameRedundantPacket(&data[0], 7, 64)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if pointer != &data[7] || unsafe.Slice(pointer, 64)[63] != 70 {
+		t.Fatal("redundancy suffix owner")
+	}
+}
+
+func TestCeltDecodeRedundancyDispatchPointers(t *testing.T) {
+	left, right := new(celtStateTestStorage), new(celtStateTestStorage)
+	opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, 1)
+	opus_custom_decoder_init(nil, &right.State, &mode48000_960_120, 1)
+	data := make([]byte, 71)
+	for i := 7; i < len(data); i++ {
+		data[i] = byte((i-7)*73 + 165)
+	}
+	a, b := make([]float32, 242), make([]float32, 242)
+	a[0], a[241], b[0], b[241] = 77, 88, 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	ra := opusFrameCeltRedundant(nil, &left.State, &data[0], 7, 64, &a[1], 240)
+	rb := celt_decode_with_ec_dred(nil, &right.State, &data[7], 64, &b[1], 240, nil, 0)
+	if ra != 240 || rb != ra || left.State != right.State {
+		t.Fatal("redundancy dispatch")
+	}
+	for i := range a {
+		if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+			t.Fatal("redundancy PCM/guards", i)
+		}
+	}
+}
+
 func TestCeltDecodeFrameDispatchPointers(t *testing.T) {
 	for _, fec := range []int32{-1, 0, 1} {
 		left, right := new(celtStateTestStorage), new(celtStateTestStorage)

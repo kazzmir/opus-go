@@ -71,6 +71,9 @@ func CompareQuantAllBandsTF(flags *int32, band int32) int32 { return quantAllBan
 func CompareQuantAllBandsChannelWeights(mode *OpusT_OpusCustomMode, energy *float32, band int32, w *[2]float32) {
 	quantAllBandsChannelWeights(nil, mode, energy, band, w)
 }
+func CompareOpusFrameRedundantPacket(data *byte, offset, length int32) *byte {
+	return opusFrameRedundantPacket(data, offset, length)
+}
 func CompareCeltDecodeFrameLM(mode *OpusT_OpusCustomMode, frameSize int32) int32 {
 	return celtDecodeFrameLM(mode, frameSize)
 }
