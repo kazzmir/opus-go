@@ -1,11 +1,37 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+type opusFrameOwnerTestStorage struct {
+	Decoder OpusT_OpusDecoder
+	Silk    OpusT_silk_decoder
+	Celt    celtStateTestStorage
+}
+
+func TestOpusFrameSilkOwnerPointers(t *testing.T) {
+	storage := new(opusFrameOwnerTestStorage)
+	storage.Decoder.Fsilk_dec_offset = int32(unsafe.Offsetof(storage.Silk))
+	pointer := opusFrameSilkState(&storage.Decoder)
+	if pointer != &storage.Silk {
+		t.Fatal("SILK interior offset")
+	}
+	pointer.Fchannel_state[0].FnFramesDecoded = 7
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if pointer.Fchannel_state[0].FnFramesDecoded != 7 || storage.Silk.Fchannel_state[0].FnFramesDecoded != 7 {
+		t.Fatal("SILK scanned owner")
+	}
+	Opus_silk_ResetDecoder(nil, pointer)
+	if pointer.Fchannel_state[0].FnFramesDecoded != 0 {
+		t.Fatal("SILK reset through typed frame interior")
+	}
+}
 
 func TestOpusDecodeFrameFieldAccesses(t *testing.T) {
 	tls := libc.NewTLS()

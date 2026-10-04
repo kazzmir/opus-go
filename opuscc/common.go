@@ -2312,10 +2312,15 @@ func opus_packet_get_mode(tls *libc.TLS, data *byte) (r int32) {
 	return int32(MODE_SILK_ONLY)
 }
 
+func opusFrameSilkState(decoder *OpusT_OpusDecoder) *OpusT_silk_decoder {
+	return (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(decoder), decoder.Fsilk_dec_offset))
+}
+
 func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
 	var F10, F20, F2_5, F5, audiosize, bandwidth, c, celt_accum, celt_frame_size, celt_ret, celt_to_silk, decoded_samples, endband, first_frame, i, lost_flag, mode, pcm_silk_size, pcm_too_small, pcm_transition_celt_size, pcm_transition_silk_size, redundancy, redundancy_bytes, redundant_audio_size, ret, silk_ret, start_band, transition, v31, v32 int32
 	var window *float32
-	var _saved_stack, celt_dec, pcm_ptr, pcm_silk, pcm_transition, pcm_transition_celt, pcm_transition_silk, redundant_audio, silk_dec, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
+	var silk_dec *OpusT_silk_decoder
+	var _saved_stack, celt_dec, pcm_ptr, pcm_silk, pcm_transition, pcm_transition_celt, pcm_transition_silk, redundant_audio, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var frac, v175, v176 float32
 	var gain, x1 OpusT_opus_val32
 	var integer OpusT_opus_int32
@@ -2406,7 +2411,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	}
 	v3 = st
 	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	silk_dec = st1 + uintptr(decoder.Fsilk_dec_offset)
+	silk_dec = opusFrameSilkState(decoder)
 	celt_dec = st1 + uintptr(decoder.Fcelt_dec_offset)
 	F20 = decoder.FFs / int32(50)
 	F10 = F20 >> int32(1)
@@ -2718,7 +2723,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			pcm_ptr = pcm
 		}
 		if decoder.Fprev_mode == int32(MODE_CELT_ONLY) {
-			Opus_silk_ResetDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(silk_dec)))
+			Opus_silk_ResetDecoder(tls, silk_dec)
 		}
 		/* The SILK PLC cannot produce frames of less than 10 ms */
 		if int32(10) > int32(1000)*audiosize/decoder.FFs {
@@ -2762,7 +2767,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		for cond := true; cond; cond = decoded_samples < frame_size {
 			/* Call SILK decoder */
 			first_frame = libc.BoolInt32(decoded_samples == 0)
-			silk_ret = Opus_silk_Decode(tls, silk_dec, uintptr(unsafe.Pointer(&decoder.FDecControl)), lost_flag, first_frame, uintptr(unsafe.Pointer(&dec)), pcm_ptr, uintptr(unsafe.Pointer(&silk_frame_size)), decoder.Farch)
+			silk_ret = Opus_silk_Decode(tls, uintptr(unsafe.Pointer(silk_dec)), uintptr(unsafe.Pointer(&decoder.FDecControl)), lost_flag, first_frame, uintptr(unsafe.Pointer(&dec)), pcm_ptr, uintptr(unsafe.Pointer(&silk_frame_size)), decoder.Farch)
 			if silk_ret != 0 {
 				if lost_flag != 0 {
 					/* PLC failure should not be fatal */
