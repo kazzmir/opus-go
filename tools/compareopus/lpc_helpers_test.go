@@ -11,6 +11,27 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsMasksAgainstC(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for band := int32(0); band < 3; band++ {
+			g := []byte{77, 1, 2, 3, 4, 5, 6, 88}
+			c := append([]byte(nil), g...)
+			opuscc.CompareQuantAllBandsMaskStore(&g[1], band, channels, 0x1234, 0x5678)
+			nativeQuantAllBandsMasks(&c[1], band, channels, 0x1234, 0x5678)
+			for i := range g {
+				if g[i] != c[i] {
+					t.Fatal("native mask store", channels, band, i)
+				}
+			}
+			for i := int32(0); i < 6; i++ {
+				if opuscc.CompareQuantAllBandsMask(&g[1], i) != uint32(c[1+i]) {
+					t.Fatal("native mask read", i)
+				}
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsPulseAgainstC(t *testing.T) {
 	values := []int32{77, -2147483648, -1, 0, 16383, 2147483647, 88}
 	for i := int32(0); i < 5; i++ {

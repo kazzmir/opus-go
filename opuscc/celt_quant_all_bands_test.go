@@ -35,6 +35,21 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsMaskPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		masks := []byte{77, 1, 2, 3, 4, 5, 6, 88}
+		for band := int32(0); band < 3; band++ {
+			entropyInitGrowStack(12)
+			runtime.GC()
+			left, right := uint32(0x1234), uint32(0x5678)
+			quantAllBandsMaskStore(&masks[1], band, channels, left, right)
+			if quantAllBandsMask(&masks[1], band*channels+channels-1) != uint32(uint8(right)) || channels == 2 && quantAllBandsMask(&masks[1], band*channels) != uint32(uint8(left)) || masks[0] != 77 || masks[7] != 88 {
+				t.Fatal("mask narrowing/order", channels, band)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsPulsePointers(t *testing.T) {
 	pulses := []int32{77, -2147483648, -1, 0, 16383, 2147483647, 88}
 	for band := int32(0); band < 5; band++ {

@@ -2470,6 +2470,16 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsMask(masks *byte, index int32) uint32 {
+	return uint32(unsafe.Slice(masks, index+1)[index])
+}
+func quantAllBandsMaskStore(masks *byte, band, channels int32, left, right uint32) {
+	first := band * channels
+	unsafe.Slice(masks, first+1)[first] = uint8(left)
+	last := first + channels - 1
+	unsafe.Slice(masks, last+1)[last] = uint8(right)
+}
+
 func quantAllBandsPulse(pulses *int32, band int32) int32 { return unsafe.Slice(pulses, band+1)[band] }
 
 func quantAllBandsTF(flags *int32, band int32) int32 { return unsafe.Slice(flags, band+1)[band] }
@@ -2493,14 +2503,14 @@ func quantAllBandsSetMode(ctx *band_ctx, mode *OpusT_OpusCustomMode) { ctx.Fm = 
 //
 //go:uintptrescapes
 func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, end int32, X_ uintptr, Y_ uintptr, collapse_masks uintptr, bandE uintptr, pulses uintptr, shortBlocks int32, spread int32, dual_stereo int32, intensity int32, tf_res uintptr, total_bits OpusT_opus_int32, balance OpusT_opus_int32, ec uintptr, LM int32, codedBands int32, seed uintptr, complexity int32, arch int32, disable_inv int32) {
-	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, X_, Y_, collapse_masks, (*float32)(unsafe.Pointer(bandE)), (*int32)(unsafe.Pointer(pulses)), shortBlocks, spread, dual_stereo, intensity, (*int32)(unsafe.Pointer(tf_res)), total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
+	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, X_, Y_, (*byte)(unsafe.Pointer(collapse_masks)), (*float32)(unsafe.Pointer(bandE)), (*int32)(unsafe.Pointer(pulses)), shortBlocks, spread, dual_stereo, intensity, (*int32)(unsafe.Pointer(tf_res)), total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
 }
 
 // Internal owners are migrated independently of the remaining legacy views.
 // The integer spectrum/mask/scratch arguments still require escape retention.
 //
 //go:uintptrescapes
-func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_, collapse_masks uintptr, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ uintptr, collapse_masks *byte, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
 	/* ctx keeps the transpiled uintptr calling convention into
 	   quant_band/quant_band_stereo, so it is allocated on the C heap:
 	   a Go stack local whose address is laundered
@@ -3245,8 +3255,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			x_cm = v217
 			fold_i = fold_start
 			for {
-				x_cm = x_cm | uint32(*(*uint8)(unsafe.Pointer(collapse_masks + uintptr(fold_i*C+0))))
-				y_cm = y_cm | uint32(*(*uint8)(unsafe.Pointer(collapse_masks + uintptr(fold_i*C+C-int32(1)))))
+				x_cm = x_cm | quantAllBandsMask(collapse_masks, fold_i*C)
+				y_cm = y_cm | quantAllBandsMask(collapse_masks, fold_i*C+C-1)
 				fold_i = fold_i + 1
 				v1 = fold_i
 				if !(v1 < fold_end) {
@@ -3439,8 +3449,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			}
 			y_cm = x_cm
 		}
-		*(*uint8)(unsafe.Pointer(collapse_masks + uintptr(i1*C+0))) = uint8(x_cm)
-		*(*uint8)(unsafe.Pointer(collapse_masks + uintptr(i1*C+C-int32(1)))) = uint8(y_cm)
+		quantAllBandsMaskStore(collapse_masks, i1, C, x_cm, y_cm)
 		balance = balance + (quantAllBandsPulse(pulses, i1) + tell)
 		/* Update the folding position only as long as we have 1 bit/sample depth. */
 		update_lowband = libc.BoolInt32(b > N1<<int32(BITRES))
