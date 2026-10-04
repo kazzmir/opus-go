@@ -14,6 +14,28 @@ type opusFrameOwnerTestStorage struct {
 	Celt    celtStateTestStorage
 }
 
+func TestOpusFrameSilkPCMPointers(t *testing.T) {
+	if opusFrameSilkPCM(nil, 0) != nil {
+		t.Fatal("unused nil PCM")
+	}
+	data := make([]float32, 242)
+	data[0], data[241] = 77, 88
+	base := &data[1]
+	offset := uintptr(0)
+	for chunk := 0; chunk < 2; chunk++ {
+		pointer := opusFrameSilkPCM(base, offset)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for i := 0; i < 120; i++ {
+			*opusFrameSilkPCM(pointer, uintptr(i)*4) = float32(chunk + 1)
+		}
+		offset += 120 * 4
+	}
+	if offset != 240*4 || data[0] != 77 || data[241] != 88 || data[120] != 1 || data[121] != 2 {
+		t.Fatal("numeric PCM cursor/guards")
+	} /* The terminal offset is numeric only: do not form an unused EOF view. */
+}
+
 func TestOpusFrameSilkOwnerPointers(t *testing.T) {
 	storage := new(opusFrameOwnerTestStorage)
 	storage.Decoder.Fsilk_dec_offset = int32(unsafe.Offsetof(storage.Silk))
