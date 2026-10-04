@@ -11,6 +11,26 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsMergeAgainstC(t *testing.T) {
+	for _, alias := range []bool{false, true} {
+		bands := []int16{0, 3}
+		g := []float32{77, 1, 2, 3, 88}
+		c := append([]float32(nil), g...)
+		other := []float32{4, 5, 6}
+		goOther, cOther := &other[0], &other[0]
+		if alias {
+			goOther, cOther = &g[0], &c[0]
+		}
+		opuscc.CompareQuantAllBandsMerge(&g[1], goOther, &bands[0], 1, 1, 0)
+		nativeQuantAllBandsMerge(&c[1], cOther, &bands[0], 1, 1, 0)
+		for i := range g {
+			if math.Float32bits(g[i]) != math.Float32bits(c[i]) {
+				t.Fatal("native merge", alias, i)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsLowbandStorageAgainstC(t *testing.T) {
 	bands := []int16{0, 4, 8}
 	for _, M := range []int32{1, 2, 4, 8} {

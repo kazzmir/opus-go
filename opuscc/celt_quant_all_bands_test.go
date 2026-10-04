@@ -35,6 +35,31 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsMergePointers(t *testing.T) {
+	bands := []int16{0, 3}
+	norm := []float32{77, 1, 2, 3, 88}
+	other := []float32{4, 5, 6}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	quantAllBandsMerge(&norm[1], &other[0], &bands[0], 1, 1, 0)
+	if norm[1] != 2.5 || norm[2] != 3.5 || norm[3] != 4.5 || norm[0] != 77 || norm[4] != 88 {
+		t.Fatal("ordered norm merge")
+	}
+	quantAllBandsMerge(nil, nil, &bands[0], 0, 1, 0)
+	alias := []float32{1, 2, 3, 4}
+	quantAllBandsMerge(&alias[1], &alias[0], &bands[0], 1, 1, 0)
+	if alias[1] != 1.5 || alias[2] != 2.25 || alias[3] != 3.125 {
+		t.Fatal("live merge aliases")
+	}
+	live := []float32{math.Float32frombits(3), 2, 77}
+	bound := (*int16)(unsafe.Pointer(&live[0]))
+	zero := []float32{0, 0, 0}
+	quantAllBandsMerge(&live[0], &zero[0], bound, 0, 1, 0)
+	if math.Float32bits(live[0]) != 2 || live[1] != 1 || live[2] != 77 {
+		t.Fatal("Go-only live bound reload")
+	}
+}
+
 func TestQuantAllBandsLowbandStoragePointers(t *testing.T) {
 	for _, N := range []int32{0, 1, 4, 64, 960} {
 		owned := quantAllBandsLowbandStorage(N)

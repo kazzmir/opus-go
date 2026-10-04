@@ -2470,6 +2470,13 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsMerge(norm, other *float32, bands *int16, band, M, offset int32) {
+	for j := int32(0); j < M*quantAllBandsBoundary(bands, band)-offset; j++ {
+		left, right := unsafe.Slice(norm, j+1), unsafe.Slice(other, j+1)
+		left[j] = float32(float32(.5) * (left[j] + right[j]))
+	}
+}
+
 func quantAllBandsLowbandStorage(length int32) []float32 {
 	if length == 0 {
 		return nil
@@ -2891,14 +2898,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			/* Switch off dual stereo to do intensity. */
 			dual_stereo = 0
 			if resynth != 0 {
-				j = 0
-				for {
-					if !(j < M*quantAllBandsBoundary(eBands, i1)-norm_offset) {
-						break
-					}
-					*(*OpusT_celt_norm)(unsafe.Pointer(norm + uintptr(j)*4)) = float32(float32(0.5) * (*(*OpusT_celt_norm)(unsafe.Pointer(norm + uintptr(j)*4)) + *(*OpusT_celt_norm)(unsafe.Pointer(norm2 + uintptr(j)*4))))
-					j = j + 1
-				}
+				quantAllBandsMerge((*float32)(unsafe.Pointer(norm)), (*float32)(unsafe.Pointer(norm2)), eBands, i1, M, norm_offset)
 			}
 		}
 		if dual_stereo != 0 {
