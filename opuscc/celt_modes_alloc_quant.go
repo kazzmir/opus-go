@@ -2470,6 +2470,20 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsFoldInput(norm *float32, offset, N int32) *float32 {
+	if offset == -1 || N == 0 {
+		return nil
+	}
+	return unsafe.SliceData(unsafe.Slice(norm, offset+N)[offset : offset+N])
+}
+func quantAllBandsFoldOutput(norm *float32, bands *int16, band, M, offset, N, last int32) *float32 {
+	if last != 0 || N == 0 {
+		return nil
+	}
+	index := M*quantAllBandsBoundary(bands, band) - offset
+	return unsafe.SliceData(unsafe.Slice(norm, index+N)[index : index+N])
+}
+
 func quantAllBandsMerge(norm, other *float32, bands *int16, band, M, offset int32) {
 	for j := int32(0); j < M*quantAllBandsBoundary(bands, band)-offset; j++ {
 		left, right := unsafe.Slice(norm, j+1), unsafe.Slice(other, j+1)
@@ -2902,28 +2916,12 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			}
 		}
 		if dual_stereo != 0 {
-			if effective_lowband != -int32(1) {
-				v2 = norm + uintptr(effective_lowband)*4
-			} else {
-				v2 = uintptr(uint32(0))
-			}
-			if last != 0 {
-				v4 = uintptr(uint32(0))
-			} else {
-				v4 = norm + uintptr(M*quantAllBandsBoundary(eBands, i1))*4 - uintptr(norm_offset)*4
-			}
-			x_cm = quant_band_legacy(tls, ctx, X, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(x_cm))
-			if effective_lowband != -int32(1) {
-				v2 = norm2 + uintptr(effective_lowband)*4
-			} else {
-				v2 = uintptr(uint32(0))
-			}
-			if last != 0 {
-				v4 = uintptr(uint32(0))
-			} else {
-				v4 = norm2 + uintptr(M*quantAllBandsBoundary(eBands, i1))*4 - uintptr(norm_offset)*4
-			}
-			y_cm = quant_band_legacy(tls, ctx, Y, N1, b/int32(2), B, v2, LM, v4, float32(1), lowband_scratch, int32(y_cm))
+			input := quantAllBandsFoldInput((*float32)(unsafe.Pointer(norm)), effective_lowband, N1)
+			output := quantAllBandsFoldOutput((*float32)(unsafe.Pointer(norm)), eBands, i1, M, norm_offset, N1, last)
+			x_cm = quant_band(tls, ctx, (*float32)(unsafe.Pointer(X)), N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(x_cm))
+			input = quantAllBandsFoldInput((*float32)(unsafe.Pointer(norm2)), effective_lowband, N1)
+			output = quantAllBandsFoldOutput((*float32)(unsafe.Pointer(norm2)), eBands, i1, M, norm_offset, N1, last)
+			y_cm = quant_band(tls, ctx, (*float32)(unsafe.Pointer(Y)), N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(y_cm))
 		} else {
 			if Y != uintptr(uint32(0)) {
 				if theta_rdo != 0 && i1 < intensity {

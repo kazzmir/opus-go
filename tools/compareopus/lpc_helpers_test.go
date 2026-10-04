@@ -11,6 +11,21 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsFoldAgainstC(t *testing.T) {
+	bands := []int16{0, 2, 4}
+	data := make([]float32, 24)
+	for _, M := range []int32{1, 2, 4} {
+		for offset := int32(0); offset <= 2; offset++ {
+			input := opuscc.CompareQuantAllBandsFoldInput(&data[0], offset, 2)
+			output := opuscc.CompareQuantAllBandsFoldOutput(&data[0], &bands[0], 1, M, offset, 2, 0)
+			index := nativeQuantAllBandsLowband(&bands[0], 1, M) - offset
+			if input != &data[offset] || output != &data[index] {
+				t.Fatal("native fold geometry", M, offset)
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsMergeAgainstC(t *testing.T) {
 	for _, alias := range []bool{false, true} {
 		bands := []int16{0, 3}

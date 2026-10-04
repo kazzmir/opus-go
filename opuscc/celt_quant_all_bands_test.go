@@ -35,6 +35,30 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsFoldPointers(t *testing.T) {
+	if quantAllBandsFoldInput(nil, -1, 3) != nil || quantAllBandsFoldInput(nil, 99, 0) != nil || quantAllBandsFoldOutput(nil, nil, 99, 1, 0, 4, 1) != nil {
+		t.Fatal("unused fold views")
+	}
+	data := []float32{77, 1, 2, 3, 4, 5, 6, 88}
+	bands := []int16{0, 2, 4}
+	for _, offset := range []int32{0, 1, 3} {
+		input := quantAllBandsFoldInput(&data[1], offset, 2)
+		if input != &data[1+offset] {
+			t.Fatal("fold input geometry")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+	}
+	output := quantAllBandsFoldOutput(&data[1], &bands[0], 1, 2, 1, 2, 0)
+	if output != &data[4] {
+		t.Fatal("fold output geometry")
+	}
+	*output = 7
+	if data[4] != 7 || data[0] != 77 || data[7] != 88 {
+		t.Fatal("retained fold view/guards")
+	}
+}
+
 func TestQuantAllBandsMergePointers(t *testing.T) {
 	bands := []int16{0, 3}
 	norm := []float32{77, 1, 2, 3, 88}
