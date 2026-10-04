@@ -55,6 +55,45 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePrefilterPointers(t *testing.T) {
+	celtDecodePrefilter(nil, &OpusT_OpusCustomDecoder{}, 120)
+	for _, channels := range []int32{1, 2} {
+		for _, N := range []int32{120, 960} {
+			for _, flag := range []int32{0, 1, -1, 7} {
+				storage, image, _ := celtStateTestBuffer(newSynthesisTestMode(), channels)
+				st := &storage.State
+				st.Fchannels = channels
+				st.Foverlap = 120
+				st.Fprefilter_and_fold = flag
+				st.Fpostfilter_period_old = 31
+				st.Fpostfilter_period = 128
+				st.Fpostfilter_gain_old = .25
+				st.Fpostfilter_gain = .5
+				st.Fpostfilter_tapset_old = 1
+				st.Fpostfilter_tapset = 2
+				st.Farch = 0
+				h := unsafe.Slice(&st.F_decode_mem[0], (DEC_PITCH_BUF_SIZE+120)*channels)
+				for i := range h {
+					h[i] = float32(i%29-14) * 173
+				}
+				reference := new(celtStateTestStorage)
+				*reference = *storage
+				if flag != 0 {
+					prefilter_and_fold(nil, &reference.State, N)
+				}
+				want := unsafe.Slice((*byte)(unsafe.Pointer(&reference.State)), len(image))
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDecodePrefilter(nil, st, N)
+				for i := range image {
+					if image[i] != want[i] {
+						t.Fatal("prefilter dispatch", channels, N, flag, i)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeEnergyMergeMonoPointers(t *testing.T) {
 	celtDecodeEnergyMergeMono(nil, 0)
 	values := []float32{-28, -1, 0, math.Float32frombits(0x80000000), 1, math.Float32frombits(0x7fc12345)}

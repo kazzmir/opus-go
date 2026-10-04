@@ -11,6 +11,45 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePrefilterAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		for _, N := range []int32{120, 960} {
+			for _, flag := range []int32{0, 1, -1, 7} {
+				size := int(opuscc.CompareCustomDecoderSize(mode, channels))
+				data := make([]byte, size+16)
+				st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&data[0]))
+				st.Fchannels = channels
+				st.Foverlap = 120
+				st.Fprefilter_and_fold = flag
+				st.Fpostfilter_period_old = 31
+				st.Fpostfilter_period = 128
+				st.Fpostfilter_gain_old = .25
+				st.Fpostfilter_gain = .5
+				st.Fpostfilter_tapset_old = 1
+				st.Fpostfilter_tapset = 2
+				h := unsafe.Slice(&st.F_decode_mem[0], (2048+120)*channels)
+				for i := range h {
+					h[i] = float32(i%29-14) * 173
+				}
+				for i := size; i < len(data); i++ {
+					data[i] = 165
+				}
+				c := slices.Clone(data)
+				opuscc.CompareCeltDecodePrefilterImage(data, N)
+				if flag != 0 {
+					nativePrefilterFold(c, N)
+				}
+				if !slices.Equal(data, c) {
+					t.Fatal("prefilter dispatch", channels, N, flag)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeEnergyMergeMonoAgainstC(t *testing.T) {
 	values := []float32{-28, -1, 0, math.Float32frombits(0x80000000), 1, math.Float32frombits(0x7fc12345), float32(math.Inf(1)), float32(math.Inf(-1))}
 	for _, bands := range []int32{0, 1, 3, 21, 25} {

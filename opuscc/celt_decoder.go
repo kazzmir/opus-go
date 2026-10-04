@@ -423,6 +423,12 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodePrefilter(tls *libc.TLS, state *OpusT_OpusCustomDecoder, N int32) {
+	if state.Fprefilter_and_fold != 0 {
+		prefilter_and_fold(tls, state, N)
+	}
+}
+
 func celtDecodeEnergyMergeMono(energy *float32, bands int32) {
 	if bands <= 0 {
 		return
@@ -1321,9 +1327,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	if silence != 0 {
 		celtDecodeSilenceEnergy((*float32)(unsafe.Pointer(oldBandE)), nbEBands, C)
 	}
-	if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold != 0 {
-		prefilter_and_fold_legacy(tls, st1, N)
-	}
+	celtDecodePrefilter(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), N)
 	var synthesisOutputs [2]*float32
 	for channel := int32(0); channel < CC; channel++ {
 		synthesisOutputs[channel] = (*float32)(unsafe.Pointer(out_syn[channel]))
