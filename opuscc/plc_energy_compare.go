@@ -7,6 +7,53 @@ import libc "github.com/kazzmir/opus-go/libcshim"
 
 // ComparePLCEnergy exposes the internal helper only to the native-comparison build.
 // The normal codec build does not export this test bridge.
+func CompareCeltDecodePacketError(state *OpusT_OpusCustomDecoder, ec *OpusT_ec_ctx, length int32) int32 {
+	return celtDecodePacketError(state, ec, length)
+}
+func CompareCeltDecodeDeemphasis(state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, pcm *float32, N, channels, accum int32) {
+	celtDecodeDeemphasis(nil, state, mode, outputs, pcm, N, channels, accum)
+}
+func CompareCeltDecodePrefilterImage(data []byte, N int32) {
+	state := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+	state.Fmode = &mode48000_960_120
+	celtDecodePrefilter(nil, state, N)
+	state.Fmode = nil
+}
+func CompareCeltDecodeEnergyMergeMono(e *float32, bands int32) { celtDecodeEnergyMergeMono(e, bands) }
+func CompareCeltDecodePostfilter(state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, channels, N, LM, period int32, gain float32, tapset, overlap int32) {
+	celtDecodePostfilter(nil, state, mode, outputs, channels, N, LM, period, gain, tapset, overlap)
+}
+func CompareCeltDecodePostfilterTail(state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, N, period int32, gain float32, tapset, overlap int32) {
+	celtDecodePostfilterTail(nil, state, mode, output, N, period, gain, tapset, overlap)
+}
+func CompareCeltDecodePostfilterFirst(state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, overlap int32) {
+	celtDecodePostfilterFirst(nil, state, mode, output, overlap)
+}
+func CompareCeltDecodePostfilterClamp(state *OpusT_OpusCustomDecoder) {
+	celtDecodePostfilterClamp(state)
+}
+func CompareCeltDecodePacketFinish(state *OpusT_OpusCustomDecoder) { celtDecodePacketFinish(state) }
+func CompareCeltDecodeRecoverEnergy(state *OpusT_OpusCustomDecoder, e, l, p *float32, bands, start, end, LM, intra int32) {
+	celtDecodeRecoverEnergy(state, e, l, p, bands, start, end, LM, intra)
+}
+func CompareCeltDecodeRecoveryBand(e, l, p *float32, missing int32, safety float32) {
+	celtDecodeRecoveryBand(e, l, p, missing, safety)
+}
+func CompareCeltDecodeRecoverySafety(state *OpusT_OpusCustomDecoder, LM int32) (int32, float32) {
+	return celtDecodeRecoverySafety(state, LM)
+}
+func CompareCeltDecodePostfilterFinish(state *OpusT_OpusCustomDecoder, period int32, gain float32, tapset, LM int32) {
+	celtDecodePostfilterFinish(state, period, gain, tapset, LM)
+}
+func CompareCeltDecodeBoosts(bands *int16, cap, offsets *int32, start, end, C, LM, total int32, ec *OpusT_ec_ctx) (int32, int32) {
+	return celtDecodeBoosts(nil, bands, cap, offsets, start, end, C, LM, total, ec)
+}
+func CompareCeltDecodeSilenceEnergy(energy *float32, bands, channels int32) {
+	celtDecodeSilenceEnergy(energy, bands, channels)
+}
+func CompareCeltDecodeHistoryMove(history *float32, N, length int32) {
+	celtDecodeHistoryMove(history, N, length)
+}
 func CompareCeltDecodeMaskStorage(bands, channels int32) []byte {
 	return celtDecodeMaskStorage(bands, channels)
 }

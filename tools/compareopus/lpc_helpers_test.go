@@ -11,6 +11,369 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePacketErrorAgainstC(t *testing.T) {
+	for _, nbits := range []int32{0, 1, 7, 8, 9, 100} {
+		for _, rng := range []uint32{1, 2, 3, 0x80000000, 0xffffffff} {
+			for _, length := range []int32{0, 1, 8, 1275} {
+				for _, flag := range []int32{0, 1, -1} {
+					g := opuscc.OpusT_OpusCustomDecoder{Ferror1: 7, Frng: 123}
+					c := g
+					ec := opuscc.OpusT_ec_ctx{Fnbits_total: nbits, Frng: rng, Ferror1: flag}
+					r := opuscc.CompareCeltDecodePacketError(&g, &ec, length)
+					cr := nativeCeltDecodePacketError(&c, &ec, length)
+					if r != cr || g != c {
+						t.Fatal("packet error", nbits, rng, length, flag, r, cr)
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeDeemphasisAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		for _, factor := range []int32{1, 2, 3, 6} {
+			for _, accum := range []int32{0, 1} {
+				state := opuscc.OpusT_OpusCustomDecoder{Fdownsample: factor, Fpreemph_memD: [2]float32{.1, -.2}}
+				left, right := make([]float32, 120), make([]float32, 120)
+				for i := range left {
+					left[i] = float32(i%13 - 6)
+					right[i] = float32(i%17 - 8)
+				}
+				in := [2]*float32{&left[0], nil}
+				if channels == 2 {
+					in[1] = &right[0]
+				}
+				pcm := make([]float32, (120/factor)*channels+2)
+				pcm[0] = 901
+				pcm[len(pcm)-1] = 902
+				c := slices.Clone(pcm)
+				memory := state.Fpreemph_memD
+				opuscc.CompareCeltDecodeDeemphasis(&state, mode, &in[0], &pcm[1], 120, channels, accum)
+				nativeDeemphasis(left, right, c[1:], 120, channels, factor, mode.Fpreemph[0], &memory, accum)
+				if state.Fpreemph_memD != memory {
+					t.Fatal("decode deemphasis memory")
+				}
+				for i := range pcm {
+					if math.Float32bits(pcm[i]) != math.Float32bits(c[i]) {
+						t.Fatal("decode deemphasis", channels, factor, accum, i)
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodePrefilterAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, channels := range []int32{1, 2} {
+		for _, N := range []int32{120, 960} {
+			for _, flag := range []int32{0, 1, -1, 7} {
+				size := int(opuscc.CompareCustomDecoderSize(mode, channels))
+				data := make([]byte, size+16)
+				st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&data[0]))
+				st.Fchannels = channels
+				st.Foverlap = 120
+				st.Fprefilter_and_fold = flag
+				st.Fpostfilter_period_old = 31
+				st.Fpostfilter_period = 128
+				st.Fpostfilter_gain_old = .25
+				st.Fpostfilter_gain = .5
+				st.Fpostfilter_tapset_old = 1
+				st.Fpostfilter_tapset = 2
+				h := unsafe.Slice(&st.F_decode_mem[0], (2048+120)*channels)
+				for i := range h {
+					h[i] = float32(i%29-14) * 173
+				}
+				for i := size; i < len(data); i++ {
+					data[i] = 165
+				}
+				c := slices.Clone(data)
+				opuscc.CompareCeltDecodePrefilterImage(data, N)
+				if flag != 0 {
+					nativePrefilterFold(c, N)
+				}
+				if !slices.Equal(data, c) {
+					t.Fatal("prefilter dispatch", channels, N, flag)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeEnergyMergeMonoAgainstC(t *testing.T) {
+	values := []float32{-28, -1, 0, math.Float32frombits(0x80000000), 1, math.Float32frombits(0x7fc12345), float32(math.Inf(1)), float32(math.Inf(-1))}
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, a := range values {
+			for _, b := range values {
+				e := make([]float32, 2*bands+2)
+				e[0] = 901
+				e[len(e)-1] = 902
+				for i := int32(0); i < bands; i++ {
+					e[1+i] = a
+					e[1+bands+i] = b
+				}
+				c := slices.Clone(e)
+				opuscc.CompareCeltDecodeEnergyMergeMono(&e[1], bands)
+				nativeCeltDecodeEnergyMergeMono(&c[1], bands)
+				for i := range e {
+					if math.Float32bits(e[i]) != math.Float32bits(c[i]) {
+						t.Fatal("mono merge", bands, a, b, i)
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodePostfilterAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{0, 1, 2} {
+			N := int32(120) << LM
+			g := opuscc.OpusT_OpusCustomDecoder{Fpostfilter_period: -1, Fpostfilter_period_old: 0, Fpostfilter_gain: .3, Fpostfilter_gain_old: .5, Fpostfilter_tapset: 2, Fpostfilter_tapset_old: 1, Frng: 123}
+			c := g
+			left, right := make([]float32, 256+N+2), make([]float32, 256+N+2)
+			for i := range left {
+				left[i] = float32(i%13-6) / 128
+				right[i] = float32(i%17-8) / 256
+			}
+			cl, cr := slices.Clone(left), slices.Clone(right)
+			out := [2]*float32{&left[257], nil}
+			var cp *float32
+			if channels == 2 {
+				out[1] = &right[257]
+				cp = &cr[257]
+			}
+			opuscc.CompareCeltDecodePostfilter(&g, mode, &out[0], channels, N, LM, 80, .7, 0, 120)
+			nativeCeltDecodePostfilter(&c, mode, &cl[257], cp, channels, N, LM, 80, .7, 0, 120)
+			if g != c {
+				t.Fatal("postfilter driver state", LM, channels)
+			}
+			for i := range left {
+				if math.Float32bits(left[i]) != math.Float32bits(cl[i]) || math.Float32bits(right[i]) != math.Float32bits(cr[i]) {
+					t.Fatal("postfilter driver output", LM, channels, i)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodePostfilterTailAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, N := range []int32{240, 480, 960} {
+		for _, gain := range []float32{0, .3, .7} {
+			for tap := int32(0); tap < 3; tap++ {
+				state := opuscc.OpusT_OpusCustomDecoder{Fpostfilter_period: 100, Fpostfilter_gain: .3, Fpostfilter_tapset: 2}
+				h := make([]float32, 256+N+2)
+				for i := range h {
+					h[i] = float32(i%13-6) / 128
+				}
+				c := slices.Clone(h)
+				opuscc.CompareCeltDecodePostfilterTail(&state, mode, &h[257], N, 80, gain, tap, 120)
+				nativeComb(&c[377], &c[377], 100, 80, N-120, .3, gain, 2, tap, mode.Fwindow, 120)
+				for i := range h {
+					if math.Float32bits(h[i]) != math.Float32bits(c[i]) {
+						t.Fatal("tail postfilter", N, gain, tap, i)
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodePostfilterFirstAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, gain := range []float32{0, .3, .7} {
+		for tap := int32(0); tap < 3; tap++ {
+			state := opuscc.OpusT_OpusCustomDecoder{Fpostfilter_period_old: 45, Fpostfilter_period: 100, Fpostfilter_gain_old: gain, Fpostfilter_gain: .3, Fpostfilter_tapset_old: tap, Fpostfilter_tapset: 2}
+			h := make([]float32, 256+120+2)
+			for i := range h {
+				h[i] = float32(i%13-6) / 128
+			}
+			c := slices.Clone(h)
+			opuscc.CompareCeltDecodePostfilterFirst(&state, mode, &h[257], 120)
+			nativeComb(&c[257], &c[257], 45, 100, 120, gain, .3, tap, 2, mode.Fwindow, 120)
+			for i := range h {
+				if math.Float32bits(h[i]) != math.Float32bits(c[i]) {
+					t.Fatal("first postfilter", gain, tap, i)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodePostfilterClampAgainstC(t *testing.T) {
+	for _, a := range []int32{-2147483648, -1, 0, 15, 16, 100, 2147483647} {
+		for _, b := range []int32{-1, 0, 15, 16, 2147483647} {
+			g := opuscc.OpusT_OpusCustomDecoder{Fpostfilter_period: a, Fpostfilter_period_old: b, Frng: 123, Fpostfilter_gain: .5}
+			c := g
+			opuscc.CompareCeltDecodePostfilterClamp(&g)
+			nativeCeltDecodePostfilterClamp(&c)
+			if g != c {
+				t.Fatal("postfilter clamp", a, b)
+			}
+		}
+	}
+}
+func TestCeltDecodePacketFinishAgainstC(t *testing.T) {
+	for _, v := range []int32{-2147483648, -1, 0, 1, 40, 2147483647} {
+		g := opuscc.OpusT_OpusCustomDecoder{Floss_duration: v, Fplc_duration: v, Flast_frame_type: v, Fprefilter_and_fold: v, Frng: 123, Ferror1: 7, Fpostfilter_period: 45}
+		c := g
+		opuscc.CompareCeltDecodePacketFinish(&g)
+		nativeCeltDecodePacketFinish(&c)
+		if g != c {
+			t.Fatal("packet finish", v)
+		}
+	}
+}
+func TestCeltDecodeRecoverEnergyAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, loss := range []int32{0, 1, 10, 40} {
+			for _, intra := range []int32{0, 1, -1} {
+				for _, start := range []int32{0, 2, 3} {
+					e, l, p := make([]float32, 8), make([]float32, 8), make([]float32, 8)
+					for i := range e {
+						e[i] = float32(i) - 10
+						l[i] = float32(i) - 8
+						p[i] = float32(i) - 6
+					}
+					c := slices.Clone(e)
+					state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: loss}
+					opuscc.CompareCeltDecodeRecoverEnergy(&state, &e[1], &l[1], &p[1], 3, start, 3, LM, intra)
+					nativeCeltDecodeRecoverEnergy(c[1:], l[1:], p[1:], 3, start, 3, LM, intra, loss)
+					for i := range e {
+						if math.Float32bits(e[i]) != math.Float32bits(c[i]) {
+							t.Fatal("energy recovery loop", LM, loss, intra, start, i)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeRecoveryBandAgainstC(t *testing.T) {
+	values := []float32{-25, -20, -10, -1, 0, math.Float32frombits(0x80000000), .1, 2, 4, math.Float32frombits(0x7fc12345), float32(math.Inf(1)), float32(math.Inf(-1))}
+	for _, e := range values {
+		for _, l := range values {
+			for _, p := range values {
+				for _, missing := range []int32{0, 1, 10} {
+					for _, safety := range []float32{0, .5, 1.5} {
+						g, c := e, e
+						opuscc.CompareCeltDecodeRecoveryBand(&g, &l, &p, missing, safety)
+						nativeCeltDecodeRecoveryBand(&c, &l, &p, missing, safety)
+						if math.Float32bits(g) != math.Float32bits(c) {
+							t.Fatal("recovery band", e, l, p, missing, safety, g, c)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeRecoverySafetyAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, loss := range []int32{-2147483648, -1, 0, 1, 10, 11, 40, 2147483647} {
+			state := opuscc.OpusT_OpusCustomDecoder{Floss_duration: loss}
+			m, s := opuscc.CompareCeltDecodeRecoverySafety(&state, LM)
+			cm, cs := nativeCeltDecodeRecoverySafety(loss, LM)
+			if m != cm || math.Float32bits(s) != math.Float32bits(cs) {
+				t.Fatal("recovery safety", LM, loss)
+			}
+		}
+	}
+}
+func TestCeltDecodePostfilterFinishAgainstC(t *testing.T) {
+	for _, LM := range []int32{-1, 0, 1, 3} {
+		for _, period := range []int32{-2147483648, -1, 0, 15, 2147483647} {
+			for _, bits := range []uint32{0, 0x80000000, 0x3f400000, 0x7fc12345, 0x7f800000} {
+				g := opuscc.OpusT_OpusCustomDecoder{Fpostfilter_period: 45, Fpostfilter_period_old: 99, Fpostfilter_gain: math.Float32frombits(0x80000000), Fpostfilter_gain_old: 1, Fpostfilter_tapset: 2, Fpostfilter_tapset_old: 1, Frng: 123, Floss_duration: 7}
+				c := g
+				gain := math.Float32frombits(bits)
+				opuscc.CompareCeltDecodePostfilterFinish(&g, period, gain, -3, LM)
+				nativeCeltDecodePostfilterFinish(&c, period, gain, -3, LM)
+				if g.Fpostfilter_period != c.Fpostfilter_period || g.Fpostfilter_period_old != c.Fpostfilter_period_old || g.Fpostfilter_tapset != c.Fpostfilter_tapset || g.Fpostfilter_tapset_old != c.Fpostfilter_tapset_old || math.Float32bits(g.Fpostfilter_gain) != math.Float32bits(c.Fpostfilter_gain) || math.Float32bits(g.Fpostfilter_gain_old) != math.Float32bits(c.Fpostfilter_gain_old) || g.Frng != c.Frng || g.Floss_duration != c.Floss_duration {
+					t.Fatal("postfilter state", LM, period, bits)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeBoostsAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{1, 2} {
+			for _, budget := range []int32{0, 8, 100, 500, 992} {
+				for _, start := range []int32{0, 2, 5} {
+					for _, pattern := range []byte{0, 255, 71} {
+						bands := []int16{0, 1, 3, 6, 10, 18}
+						caps := []int32{0, 8, 40, 128, 500}
+						out := []int32{901, -1, -2, -3, -4, -5, 902}
+						co := slices.Clone(out)
+						data := make([]byte, 128)
+						for i := range data {
+							data[i] = pattern
+						}
+						var ec opuscc.OpusT_ec_ctx
+						opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 128)
+						c := ec
+						r, tell := opuscc.CompareCeltDecodeBoosts(&bands[0], &caps[0], &out[1], start, 5, channels, LM, budget, &ec)
+						cr, ct := nativeCeltDecodeBoosts(&c, data, bands, caps, co[1:], start, 5, channels, LM, budget)
+						if ec != c || r != cr || tell != ct || !slices.Equal(out, co) {
+							t.Fatal("dynamic boosts", LM, channels, budget, start, pattern, r, cr, tell, ct)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeSilenceEnergyAgainstC(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		for _, channels := range []int32{1, 2} {
+			e := make([]float32, bands*channels+2)
+			for i := range e {
+				e[i] = math.Float32frombits(0x7fc12345)
+			}
+			e[0] = 901
+			e[len(e)-1] = -902
+			c := slices.Clone(e)
+			opuscc.CompareCeltDecodeSilenceEnergy(&e[1], bands, channels)
+			nativeCeltDecodeSilenceEnergy(&c[1], bands, channels)
+			for i := range e {
+				if math.Float32bits(e[i]) != math.Float32bits(c[i]) {
+					t.Fatal("silence energy", bands, channels, i)
+				}
+			}
+		}
+	}
+}
+func TestCeltDecodeHistoryMoveAgainstC(t *testing.T) {
+	for _, N := range []int32{0, 1, 120, 240, 960} {
+		for _, length := range []int32{0, 1, 128, 2048} {
+			h := make([]float32, N+length+2)
+			for i := range h {
+				h[i] = math.Float32frombits(uint32(i)*7717 + 0x80000000)
+			}
+			c := slices.Clone(h)
+			opuscc.CompareCeltDecodeHistoryMove(&h[1], N, length)
+			nativeCeltDecodeHistoryMove(&c[1], N, length)
+			for i := range h {
+				if math.Float32bits(h[i]) != math.Float32bits(c[i]) {
+					t.Fatal("history move", N, length, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeMaskStorageAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {

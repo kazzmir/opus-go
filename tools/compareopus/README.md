@@ -534,6 +534,93 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four subsequent boundary rounds type initial mono energy merging, conditional
+prefilter dispatch, decoder deemphasis forwarding and final entropy/error
+completion. Mono merging keeps MAXG's second-operand tie/NaN choice and only
+writes lane zero. Prefilter dispatch retains the live nonzero fold predicate and
+calls the fully typed prefilter directly. The decode output array is now scanned
+[2]*float32 storage shared by synthesis, postfilter and normal/lost deemphasis;
+coefficient and preemphasis memory pointers use actual mode/state fields rather
+than offsets. Terminal error handling retains int32 tell/length arithmetic,
+returns -3 before sticky-error writes, leaves entropy unchanged and only sets
+state error to one for a nonzero entropy error after passing the budget check.
+Its position after packet reset and legacy cursor restore is unchanged.
+
+Grouped tests cover mono NaNs/ties/infinities/guards, prefilter flags 0/1/-1/7,
+heap mode/history/state owners through GC/stack growth, mono/stereo deemphasis
+factors 1/2/3/6 and accumulation, and exact entropy budget/error ordering. Native
+prefilter comparisons reuse whole scalar folding for active flags, with unchanged
+images for zero flags; deemphasis reuses actual scalar decoder C. Packet-error
+fixtures use actual ec_tell for valid nonzero ranges; signed-overflow and zero-
+range edge fixtures are explicitly Go-only. Per-round full amd64/386,
+ARM64/QEMU, scoped typed-helper/consumer checkptr, native and GC stress retain
+all original encode/decode goldens/tolerances. Final ARM repeats are still not
+whole legacy CELT/quant-all-bands checkptr or a global opaque-scanning proof.
+
+Four postfilter rounds type period clamps, first-short-frame comb inputs,
+tail comb inputs and the channel driver. Clamping retains current-then-previous
+stores each channel. First and tail calls read live decoder gains/periods/tapsets,
+mode short size/window and arch separately; the tail uses numeric indexing into
+the retained N-sample output span, and is only invoked for nonzero LM. The driver
+uses the scanned synthesis output-pointer array, reloads each channel pointer for
+each call, and preserves the original do-while channel semantics. The outer
+caller no longer uses comb_filter_legacy in this path; postfilter-state finalization
+remains after the complete channel loop.
+
+Grouped tests retain heap mode/state/history/window owners through GC and stack
+growth; compare full guarded histories, untouched state fields, gain/tap choices,
+mono/stereo LM0..3, and zero-channel leaf do-while behavior (not a claim that a
+zero-channel decoder passes validation). Native first/tail tests use the actual
+scalar celt.c comb implementation. The source-equivalent C channel driver uses
+that same kernel and compares resulting periods and complete sample buffers.
+Each commit passes full amd64/386, ARM64/QEMU, native and GC stress with original
+goldens/tolerances. Final ARM repeats keep scoped typed postfilter/helper/PLC
+checkptr separate from ordinary golden runs. Legacy enclosing decoder views,
+quant-all-bands scratch and opaque pointer scanning remain outside that proof.
+
+The following four recovery/finalization rounds type per-channel missing/safety
+controls, individual loss-recovery energy prediction, the full two-channel
+recovery loop, and normal packet-state reset. Safety keeps signed loss_duration
+shift and the ten-frame cap. Prediction retains ordered MAXG/MING/MAX32 branches,
+NaN/tie selection, explicit float32 difference/half/product/subtraction rounding,
+the -20 clamp and the final post-store safety subtraction. Recovery uses typed
+numeric-indexed energy/log/history spans, the original intra/loss short circuit,
+exactly two channels (including mono), and a fresh loss-duration read per channel.
+The normal reset writes loss, PLC duration, frame type, then fold flag after
+deemphasis and before the unchanged cursor restore and entropy/error checks.
+
+Grouped pointer/native tests cover signed loss extremes, LM0..3, partial/empty
+bands, no-op nil inputs, finite/clamped branches, NaNs, infinities and signed
+zero, guards, GC/stack growth and unchanged unrelated decoder fields. The
+float/count alias that changes channel-two safety is Go-only, not a C effective-
+type claim. Native fixtures remain source-equivalent celt_decoder.c snippets
+using its actual comparison macros. Each commit retains full amd64/386,
+ARM64/QEMU, scoped typed helper/recovery/PLC checkptr, native, GC stress and
+unchanged encode/decode baselines/tolerances. Batch repeats separate typed-path
+ARM checkptr from ordinary frame goldens; enclosing CELT/quant-all-bands still
+contains legacy integer-addressed views and is not covered by that claim.
+
+Four further decode-operation rounds type history memmove, silence energy
+filling, dynamic boosts and postfilter finalization. History shifting uses one
+exact trailing-storage slice and overlapping copy; zero length consumes no view.
+Silence writes -28 in cached C*nbEBands order (Go count overflow cases are not C
+parity claims). Dynamic boosts retain a typed cached eBands owner, typed live
+cap/offset/entropy pointers, six-bit quanta bounds, logp evolution, strict budget
+and cap checks, and tell reload after every flag. The helper returns both budget
+and tell to the unchanged trim decision. Postfilter finalization preserves the
+three previous-state stores, three new-state stores and nonzero-LM previous-state
+reload/stores, with no float arithmetic or NaN/signed-zero selection changes.
+
+Grouped tests force GC/stack growth, verify guards/exact history spans and nil
+unused inputs, exercise boost budgets/partial and empty bands/caps/LM0..3/mono
+and stereo, and cover postfilter negative/nonzero LM and exceptional gain bits.
+Source-equivalent celt_decoder.c C snippets use actual IMIN/IMAX and entropy
+kernels; boost comparisons include all eleven entropy fields, offsets and both
+returned scalars. These are leaf-operation oracles, not a new whole-decode
+comparison or enclosing checkptr proof. Per-round full amd64/386, ARM64/QEMU,
+native, GC stress and unchanged encode/decode goldens/tolerances are retained;
+repeated ARM typed-operation checkptr and ordinary golden runs remain separate.
+
 The next four scratch rounds migrate pulses, fine priorities, contiguous C*N
 spectra and C*nbEBands collapse masks into Go-owned slices. Allocation writes
 typed pulse/priority outputs, and final-energy decoding consumes typed priorities.

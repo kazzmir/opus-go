@@ -13,6 +13,23 @@ void _celt_lpc(float *lpc, const float *ac, int p);
 #define celt_pitch_xcorr_c compare_pitch_xcorr
 #include "../../../opus/celt/celt_lpc.c"
 // Source-equivalent leaf from celt_decoder.c, using its actual MAXG macro.
+static void compare_decode_energy_merge_mono(float *e,int bands) {for(int i=0;i<bands;i++)e[i]=MAXG(e[i],e[bands+i]);}
+// celt_decoder.c defines FRAME_NORMAL as 1.
+static void compare_decode_postfilter_clamp(int *p,int minimum) {p[0]=IMAX(minimum,p[0]);p[1]=IMAX(minimum,p[1]);}
+static void compare_decode_packet_finish(int *state) {state[0]=0;state[1]=0;state[2]=1;state[3]=0;}
+static void compare_decode_recovery_band(float *e,const float *l,const float *p,int missing,float safety) {if(*e<MAXG(*l,*p)){float E0=*e,E1=*l,E2=*p;float slope=MAX32(E1-E0,HALF32(E2-E0));slope=MING(slope,2.f);E0-=MAX32(0,(1+missing)*slope);*e=MAX32(-20.f,E0);}else *e=MING(MING(*e,*l),*p);*e-=safety;}
+static int compare_decode_recovery_safety(int loss,int LM,float *safety) {*safety=0;if(LM==0)*safety=1.5f;else if(LM==1)*safety=.5f;return IMIN(10,loss>>LM);}
+static void compare_decode_recover_energy(float *e,const float *l,const float *p,int bands,int start,int end,int LM,int intra,int loss) {if(!intra&&loss){int c=0;do{float safety;int missing=compare_decode_recovery_safety(loss,LM,&safety);for(int i=start;i<end;i++)compare_decode_recovery_band(e+c*bands+i,l+c*bands+i,p+c*bands+i,missing,safety);}while(++c<2);}}
+static void compare_decode_postfilter_finish(int *p,float *g,int period,float gain,int tapset,int LM) {p[1]=p[0];g[1]=g[0];p[3]=p[2];p[0]=period;g[0]=gain;p[2]=tapset;if(LM){p[1]=p[0];g[1]=g[0];p[3]=p[2];}}
+#include "entdec.h"
+static int compare_decode_packet_error(int *stateError,int nbits,unsigned rng,int error,int length) {ec_dec dec={0};dec.nbits_total=nbits;dec.rng=rng;dec.error=error;if(ec_tell(&dec)>8*length)return -3;if(dec.error)*stateError=1;return 0;}
+static int compare_decode_boosts(unsigned *s,unsigned char *data,short *e,int *cap,int *out,int start,int end,int C,int LM,int total,int *tell) {
+ ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=(int)s[3];dec.nbits_total=(int)s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=(int)s[9];dec.error=(int)s[10];
+ int logp=6;total<<=BITRES;*tell=ec_tell_frac(&dec);for(int i=start;i<end;i++){int width=C*(e[i+1]-e[i])<<LM;int quanta=IMIN(width<<BITRES,IMAX(6<<BITRES,width));int loop_logp=logp,boost=0;while(*tell+(loop_logp<<BITRES)<total&&boost<cap[i]){int flag=ec_dec_bit_logp(&dec,loop_logp);*tell=ec_tell_frac(&dec);if(!flag)break;boost+=quanta;total-=quanta;loop_logp=1;}out[i]=boost;if(boost>0)logp=IMAX(2,logp-1);}
+ s[0]=dec.storage;s[1]=dec.end_offs;s[2]=dec.end_window;s[3]=dec.nend_bits;s[4]=dec.nbits_total;s[5]=dec.offs;s[6]=dec.rng;s[7]=dec.val;s[8]=dec.ext;s[9]=dec.rem;s[10]=dec.error;return total;
+}
+static void compare_decode_silence_energy(float *e,int bands,int channels) {for(int i=0;i<channels*bands;i++)e[i]=-28.f;}
+static void compare_decode_history_move(float *h,int N,int length) {if(length>0)memmove(h,h+N,length*sizeof(float));}
 static void compare_decode_energy_clear(float *e,float *l,float *p,int bands,int start,int end) {int c=0;do{for(int i=0;i<start;i++){e[c*bands+i]=0;l[c*bands+i]=p[c*bands+i]=-28.f;}for(int i=end;i<bands;i++){e[c*bands+i]=0;l[c*bands+i]=p[c*bands+i]=-28.f;}}while(++c<2);}
 static void compare_decode_energy_background(float *b,const float *e,int bands,int loss,int M) {float increase=IMIN(160,loss+M)*.001f;for(int i=0;i<2*bands;i++)b[i]=MING(b[i]+increase,e[i]);}
 static void compare_decode_energy_logs(const float *e,float *l,float *p,int bands,int transient) {if(!transient){memcpy(p,l,2*bands*sizeof(float));memcpy(l,e,2*bands*sizeof(float));}else for(int i=0;i<2*bands;i++)l[i]=MING(l[i],e[i]);}
@@ -31,6 +48,74 @@ import "C"
 import "unsafe"
 import "github.com/kazzmir/opus-go/opuscc"
 
+func nativeCeltDecodeEnergyMergeMono(e *float32, bands int32) {
+	C.compare_decode_energy_merge_mono((*C.float)(unsafe.Pointer(e)), C.int(bands))
+}
+func nativeCeltDecodePostfilterClamp(state *opuscc.OpusT_OpusCustomDecoder) {
+	p := [2]C.int{C.int(state.Fpostfilter_period), C.int(state.Fpostfilter_period_old)}
+	C.compare_decode_postfilter_clamp(&p[0], C.int(opuscc.COMBFILTER_MINPERIOD))
+	state.Fpostfilter_period = int32(p[0])
+	state.Fpostfilter_period_old = int32(p[1])
+}
+func nativeCeltDecodePacketFinish(state *opuscc.OpusT_OpusCustomDecoder) {
+	v := [4]C.int{C.int(state.Floss_duration), C.int(state.Fplc_duration), C.int(state.Flast_frame_type), C.int(state.Fprefilter_and_fold)}
+	C.compare_decode_packet_finish(&v[0])
+	state.Floss_duration = int32(v[0])
+	state.Fplc_duration = int32(v[1])
+	state.Flast_frame_type = int32(v[2])
+	state.Fprefilter_and_fold = int32(v[3])
+}
+func nativeCeltDecodeRecoverEnergy(e, l, p []float32, bands, start, end, LM, intra, loss int32) {
+	C.compare_decode_recover_energy((*C.float)(unsafe.Pointer(unsafe.SliceData(e))), (*C.float)(unsafe.Pointer(unsafe.SliceData(l))), (*C.float)(unsafe.Pointer(unsafe.SliceData(p))), C.int(bands), C.int(start), C.int(end), C.int(LM), C.int(intra), C.int(loss))
+}
+func nativeCeltDecodeRecoveryBand(e, l, p *float32, missing int32, safety float32) {
+	C.compare_decode_recovery_band((*C.float)(unsafe.Pointer(e)), (*C.float)(unsafe.Pointer(l)), (*C.float)(unsafe.Pointer(p)), C.int(missing), C.float(safety))
+}
+func nativeCeltDecodeRecoverySafety(loss, LM int32) (int32, float32) {
+	var safety C.float
+	m := C.compare_decode_recovery_safety(C.int(loss), C.int(LM), &safety)
+	return int32(m), float32(safety)
+}
+func nativeCeltDecodePostfilterFinish(state *opuscc.OpusT_OpusCustomDecoder, period int32, gain float32, tapset, LM int32) {
+	p := [4]C.int{C.int(state.Fpostfilter_period), C.int(state.Fpostfilter_period_old), C.int(state.Fpostfilter_tapset), C.int(state.Fpostfilter_tapset_old)}
+	g := [2]C.float{C.float(state.Fpostfilter_gain), C.float(state.Fpostfilter_gain_old)}
+	C.compare_decode_postfilter_finish(&p[0], &g[0], C.int(period), C.float(gain), C.int(tapset), C.int(LM))
+	state.Fpostfilter_period = int32(p[0])
+	state.Fpostfilter_period_old = int32(p[1])
+	state.Fpostfilter_tapset = int32(p[2])
+	state.Fpostfilter_tapset_old = int32(p[3])
+	state.Fpostfilter_gain = float32(g[0])
+	state.Fpostfilter_gain_old = float32(g[1])
+}
+func nativeCeltDecodePacketError(state *opuscc.OpusT_OpusCustomDecoder, ec *opuscc.OpusT_ec_ctx, length int32) int32 {
+	e := C.int(state.Ferror1)
+	r := C.compare_decode_packet_error(&e, C.int(ec.Fnbits_total), C.uint(ec.Frng), C.int(ec.Ferror1), C.int(length))
+	state.Ferror1 = int32(e)
+	return int32(r)
+}
+func nativeCeltDecodeBoosts(ec *opuscc.OpusT_ec_ctx, data []byte, bands []int16, cap, out []int32, start, end, channels, LM, total int32) (int32, int32) {
+	s := [11]C.uint{C.uint(ec.Fstorage), C.uint(ec.Fend_offs), C.uint(ec.Fend_window), C.uint(ec.Fnend_bits), C.uint(ec.Fnbits_total), C.uint(ec.Foffs), C.uint(ec.Frng), C.uint(ec.Fval), C.uint(ec.Fext), C.uint(ec.Frem), C.uint(ec.Ferror1)}
+	var tell C.int
+	r := C.compare_decode_boosts(&s[0], (*C.uchar)(unsafe.Pointer(unsafe.SliceData(data))), (*C.short)(unsafe.Pointer(unsafe.SliceData(bands))), (*C.int)(unsafe.Pointer(unsafe.SliceData(cap))), (*C.int)(unsafe.Pointer(unsafe.SliceData(out))), C.int(start), C.int(end), C.int(channels), C.int(LM), C.int(total), &tell)
+	ec.Fstorage = uint32(s[0])
+	ec.Fend_offs = uint32(s[1])
+	ec.Fend_window = uint32(s[2])
+	ec.Fnend_bits = int32(s[3])
+	ec.Fnbits_total = int32(s[4])
+	ec.Foffs = uint32(s[5])
+	ec.Frng = uint32(s[6])
+	ec.Fval = uint32(s[7])
+	ec.Fext = uint32(s[8])
+	ec.Frem = int32(s[9])
+	ec.Ferror1 = int32(s[10])
+	return int32(r), int32(tell)
+}
+func nativeCeltDecodeSilenceEnergy(e *float32, bands, channels int32) {
+	C.compare_decode_silence_energy((*C.float)(unsafe.Pointer(e)), C.int(bands), C.int(channels))
+}
+func nativeCeltDecodeHistoryMove(h *float32, N, length int32) {
+	C.compare_decode_history_move((*C.float)(unsafe.Pointer(h)), C.int(N), C.int(length))
+}
 func nativeCeltDecodeEnergyClear(e, l, p *float32, bands, start, end int32) {
 	C.compare_decode_energy_clear((*C.float)(unsafe.Pointer(e)), (*C.float)(unsafe.Pointer(l)), (*C.float)(unsafe.Pointer(p)), C.int(bands), C.int(start), C.int(end))
 }
