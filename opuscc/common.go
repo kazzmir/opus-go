@@ -4,7 +4,6 @@ package opuscc
 
 import (
 	"reflect"
-	"runtime"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
@@ -2344,13 +2343,6 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	var redundant_rng OpusT_opus_uint32
 	var silence [2]uint8
 	var celt_mode *OpusT_OpusCustomMode
-	// These two locals still cross the legacy SILK frame interface as uintptr.
-	// Pinning forces heap allocation and stable addresses across stack growth.
-	// Remove individual pins as their complete call chains become typed.
-	var framePins runtime.Pinner
-	framePins.Pin(&dec)
-	framePins.Pin(&silk_frame_size)
-	defer framePins.Unpin()
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st1))
 	silk_ret = 0
 	celt_ret = 0
@@ -2779,7 +2771,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			pcm_ptr = opusFrameSilkPCM(pcm_base, pcm_offset)
 			/* Call SILK decoder */
 			first_frame = libc.BoolInt32(decoded_samples == 0)
-			silk_ret = Opus_silk_Decode(tls, uintptr(unsafe.Pointer(silk_dec)), uintptr(unsafe.Pointer(&decoder.FDecControl)), lost_flag, first_frame, uintptr(unsafe.Pointer(&dec)), uintptr(unsafe.Pointer(pcm_ptr)), uintptr(unsafe.Pointer(&silk_frame_size)), decoder.Farch)
+			silk_ret = silk_Decode(tls, silk_dec, &decoder.FDecControl, lost_flag, first_frame, &dec, pcm_ptr, &silk_frame_size, decoder.Farch)
 			if silk_ret != 0 {
 				if lost_flag != 0 {
 					/* PLC failure should not be fatal */
@@ -2816,8 +2808,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	}
 	start_band = 0
 	if v111 = !(decode_fec != 0) && mode != int32(MODE_CELT_ONLY) && data != uintptr(uint32(0)); v111 {
-		v1 = uintptr(unsafe.Pointer(&dec))
-		v31 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
+		v31 = dec.Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, dec.Frng))
 	}
 	if v111 && v31+int32(17)+int32(20)*libc.BoolInt32(mode == int32(MODE_HYBRID)) <= int32(8)*len1 {
 		/* Check if we have a redundant 0-8 kHz band */
@@ -2833,16 +2824,14 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			if mode == int32(MODE_HYBRID) {
 				v31 = int32(Opus_ec_dec_uint(tls, &dec, uint32(256))) + int32(2)
 			} else {
-				v1 = uintptr(unsafe.Pointer(&dec))
-				v32 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
+				v32 = dec.Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, dec.Frng))
 				v31 = len1 - (v32+int32(7))>>int32(3)
 			}
 			redundancy_bytes = v31
 			len1 = len1 - redundancy_bytes
 			/* This is a sanity check. It should never happen for a valid
 			   packet, so the exact behaviour is not normative. */
-			v1 = uintptr(unsafe.Pointer(&dec))
-			v31 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
+			v31 = dec.Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, dec.Frng))
 			if len1*int32(8) < v31 {
 				len1 = 0
 				redundancy_bytes = 0

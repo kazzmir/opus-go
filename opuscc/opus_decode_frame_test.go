@@ -14,6 +14,29 @@ type opusFrameOwnerTestStorage struct {
 	Celt    celtStateTestStorage
 }
 
+func TestOpusFrameSilkDispatchPointers(t *testing.T) {
+	storage := new(opusFrameOwnerTestStorage)
+	storage.Decoder.Fsilk_dec_offset = int32(unsafe.Offsetof(storage.Silk))
+	decoder := &storage.Decoder
+	decoder.FDecControl = OpusT_silk_DecControlStruct{FnChannelsAPI: 1, FnChannelsInternal: 1, FAPI_sampleRate: 48000, FinternalSampleRate: 16000, FpayloadSize_ms: 20}
+	state := opusFrameSilkState(decoder)
+	Opus_silk_InitDecoder(nil, state)
+	var ec OpusT_ec_ctx
+	var count int32
+	pcm := make([]float32, 962)
+	pcm[0], pcm[961] = 77, 88
+	for call := 0; call < 3; call++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if silk_Decode(nil, state, &decoder.FDecControl, 1, 1, &ec, &pcm[1], &count, decoder.Farch) != 0 || count != 960 || pcm[0] != 77 || pcm[961] != 88 {
+			t.Fatal("frame typed SILK dispatch", call, count)
+		}
+		if ec != (OpusT_ec_ctx{}) {
+			t.Fatal("PLC consumed frame entropy")
+		}
+	}
+}
+
 func TestOpusFrameSilkPCMPointers(t *testing.T) {
 	if opusFrameSilkPCM(nil, 0) != nil {
 		t.Fatal("unused nil PCM")
