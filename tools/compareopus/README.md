@@ -534,6 +534,29 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four final quant-all-bands owner rounds type the left spectrum base, right
+spectrum base and per-band/fallback X/Y pointers, then remove the unused TLS
+pseudostack setup/save/final restore and its dead translated temporaries. The
+public uintptr escape ABI remains, but the private quantizer has only typed
+pointer arguments and no integer-addressed owners or views. The typed CELT
+caller forwards both spectrum channels directly; the private escape annotation
+is no longer necessary. All band offsets use numeric indexing; fallback X/Y
+remain live aliases of the typed norm lane. No private call allocates or touches
+pseudostack storage, and valid paths accept nil TLS.
+
+Full active typed-quantizer checkptr now runs with scanned heap mode/cache/table
+owners, Go arrays/entropy/buffers and nil TLS. The new grouped whole fixture
+reuses unchanged scalar C goldens for four encoder scenarios (mono, stereo,
+dual stereo and theta-RDO) plus decoder resynthesis, including encoded bytes,
+bit counts, spectra, masks, guards and seeds. An additional active mono/stereo
+LM0..3 fixture exercises pulse/noise bands, TF changes, heap modes, GC/stack growth
+and guards; one case supplies an untouched legacy TLS cursor sentinel. Other
+legacy C-reference fixtures remain ordinary tests; this expanded checkptr claim
+is for the typed quantizer, not the enclosing outer CELT decoder's still-legacy
+pseudostack or public decoder storage. Full per-round amd64/386, ARM64/QEMU,
+native comparisons and GC stress preserve encode/decode goldens/tolerances.
+Opaque byte-backed allocations still do not scan embedded pointers globally.
+
 Four main-norm rounds type the dual-stereo-to-intensity merge with live eBands
 bound reloads and ordered float stores, then switch dual-stereo and normal
 mono/stereo dispatch to typed quant_band/quant_band_stereo calls with numeric
