@@ -534,6 +534,29 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four main-norm rounds type the dual-stereo-to-intensity merge with live eBands
+bound reloads and ordered float stores, then switch dual-stereo and normal
+mono/stereo dispatch to typed quant_band/quant_band_stereo calls with numeric
+optional folding views. The final round allocates the main norm buffer in Go,
+retains typed left/right pointers, skips unused mono/empty second-lane interiors,
+and switches RDO dispatch to the same typed band views. Obsolete private mono
+and stereo uintptr adapters are removed. Quant-all-bands no longer allocates any
+TLS scratch; initial pseudostack setup/save and final cursor restore remain for
+a later boundary cleanup. Spectral bases/X/Y fallback still have explicit integer
+views; all norm offsets/merges/copies/folding consumers are now numeric/typed.
+
+Grouped scoped checkptr tests cover optional -1 inputs, last-band nil outputs,
+zero/nonzero norm extents, channels1/2, LM0..3, nonzero offsets, live merge aliases
+and retained lane owners across GC/stack growth. An int16/float merge-bound alias
+is explicitly Go-only, because C effective-type rules exclude it. Native fixtures
+compare scalar merge operations and source-equivalent folding/allocation geometry,
+not a whole-driver pointer oracle. Whole-band scalar C references still verify
+mono/stereo/dual/intensity/theta-RDO entropy/spectra/seed. Each round passes full
+amd64/386, ARM64/QEMU, native comparisons and GC stress with unchanged baselines;
+repeated ARM checkptr stays scoped to typed helpers/consumers, separate from
+ordinary whole-band/frame goldens. Spectrum integer views and byte-backed
+embedded-pointer scanning still prevent a global GC-safety claim.
+
 Four quant-all-bands float-storage rounds replace initial X/Y snapshots,
 trial X/Y snapshots, the norm snapshot and encoder lowband scratch with separate
 Go-owned float slices of the original resynth_alloc length. Zero length yields

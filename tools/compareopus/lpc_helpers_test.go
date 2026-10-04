@@ -11,6 +11,25 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsNormBufferAgainstC(t *testing.T) {
+	bands := []int16{0, 4, 8, 12}
+	for _, C := range []int32{1, 2} {
+		for _, M := range []int32{1, 2, 4, 8} {
+			for _, start := range []int32{0, 1, 2} {
+				offset := M * int32(bands[start])
+				memory, left, right := opuscc.CompareQuantAllBandsNormBuffer(&bands[0], 2, M, C, offset)
+				length := nativeQuantAllBandsNormLength(&bands[0], 2, M, C, offset)
+				if len(memory) != int(length) {
+					t.Fatal("native norm allocation geometry")
+				}
+				if length != 0 && (left != &memory[0] || C == 1 && right != nil || C == 2 && right != &memory[length/C]) {
+					t.Fatal("native norm lanes")
+				}
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsBandViewsAgainstC(t *testing.T) {
 	bands := []int16{0, 2, 4}
 	norm := make([]float32, 16)

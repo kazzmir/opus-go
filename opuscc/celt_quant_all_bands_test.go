@@ -35,6 +35,41 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsNormBufferPointers(t *testing.T) {
+	bands := []int16{0, 4, 8, 12}
+	for _, C := range []int32{1, 2} {
+		for _, M := range []int32{1, 2, 4, 8} {
+			for _, start := range []int32{0, 1, 2} {
+				offset := M * int32(bands[start])
+				memory, left, right := quantAllBandsNormBuffer(&bands[0], 2, M, C, offset)
+				lane := M*8 - offset
+				if len(memory) != int(C*lane) {
+					t.Fatal("owned norm length")
+				}
+				if lane == 0 {
+					if memory != nil || left != nil || right != nil {
+						t.Fatal("unused empty norm")
+					}
+					continue
+				}
+				if left != &memory[0] || C == 1 && right != nil || C == 2 && right != &memory[lane] {
+					t.Fatal("norm lane geometry")
+				}
+				memory = nil
+				entropyInitGrowStack(12)
+				runtime.GC()
+				*left = 1
+				if C == 2 {
+					*right = 2
+					if *left != 1 {
+						t.Fatal("independent norm lanes")
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestQuantAllBandsBandViewsPointers(t *testing.T) {
 	input, output := quantAllBandsBandViews(nil, nil, 99, 1, 0, 4, -1, 1)
 	if input != nil || output != nil {
