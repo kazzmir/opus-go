@@ -25,6 +25,7 @@ static void compare_decode_postfilter_finish(int *p,float *g,int period,float ga
 static void compare_decode_header(unsigned *s,unsigned char *data,int op,int *a,float *gain) {
  ec_dec dec={0};dec.buf=data;dec.storage=s[0];dec.end_offs=s[1];dec.end_window=s[2];dec.nend_bits=(int)s[3];dec.nbits_total=(int)s[4];dec.offs=s[5];dec.rng=s[6];dec.val=s[7];dec.ext=s[8];dec.rem=(int)s[9];dec.error=(int)s[10];
  if(op==0){int total=a[0],tell=ec_tell(&dec),silence=0;if(tell>=total)silence=1;else if(tell==1)silence=ec_dec_bit_logp(&dec,15);if(silence){tell=total;dec.nbits_total+=tell-ec_tell(&dec);}a[1]=silence;a[2]=tell;}
+ if(op==2){int LM=a[0],M=a[1],tell=a[2],total=a[3],transient=0,shortBlocks=0,intra=0;if(LM>0&&tell+3<=total){transient=ec_dec_bit_logp(&dec,3);tell=ec_tell(&dec);}if(transient)shortBlocks=M;if(tell+3<=total)intra=ec_dec_bit_logp(&dec,3);a[4]=transient;a[5]=shortBlocks;a[6]=intra;a[7]=tell;}
  if(op==1){static const unsigned char tapset[3]={2,1,0};int start=a[0],tell=a[1],total=a[2],pitch=0,tap=0;*gain=0;if(start==0&&tell+16<=total){if(ec_dec_bit_logp(&dec,1)){int octave=ec_dec_uint(&dec,6);pitch=(16<<octave)+ec_dec_bits(&dec,4+octave)-1;int qg=ec_dec_bits(&dec,3);if(ec_tell(&dec)+2<=total)tap=ec_dec_icdf(&dec,tapset,2);*gain=.09375f*(qg+1);}tell=ec_tell(&dec);}a[3]=pitch;a[4]=tap;a[5]=tell;}
  s[0]=dec.storage;s[1]=dec.end_offs;s[2]=dec.end_window;s[3]=dec.nend_bits;s[4]=dec.nbits_total;s[5]=dec.offs;s[6]=dec.rng;s[7]=dec.val;s[8]=dec.ext;s[9]=dec.rem;s[10]=dec.error;
 }

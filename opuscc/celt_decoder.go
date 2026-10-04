@@ -423,6 +423,21 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeGlobalFlags(tls *libc.TLS, ec *OpusT_ec_ctx, LM, M, total, tell int32) (transient, short, intra, updatedTell int32) {
+	updatedTell = tell
+	if LM > 0 && tell+3 <= total {
+		transient = Opus_ec_dec_bit_logp(tls, ec, 3)
+		updatedTell = ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	}
+	if transient != 0 {
+		short = M
+	}
+	if updatedTell+3 <= total {
+		intra = Opus_ec_dec_bit_logp(tls, ec, 3)
+	}
+	return
+}
+
 func celtDecodePostfilterHeader(tls *libc.TLS, ec *OpusT_ec_ctx, start, total, tell int32) (pitch int32, gain float32, tapset, updatedTell int32) {
 	updatedTell = tell
 	if start == 0 && tell+16 <= total {
@@ -1255,26 +1270,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	total_bits = len1 * int32(8)
 	silence, tell = celtDecodeSilence(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), total_bits)
 	postfilter_pitch, postfilter_gain, postfilter_tapset, tell = celtDecodePostfilterHeader(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), start, total_bits, tell)
-	if LM > 0 && tell+int32(3) <= total_bits {
-		isTransient = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3))
-		v1 = dec
-		v28 = (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Fnbits_total - (int32(4)*int32(CHAR_BIT) - libc.X__builtin_clz(tls, (*OpusT_ec_ctx)(unsafe.Pointer(v1)).Frng))
-		tell = v28
-	} else {
-		isTransient = 0
-	}
-	if isTransient != 0 {
-		shortBlocks = M
-	} else {
-		shortBlocks = 0
-	}
-	/* Decode the global flags (first symbols in the stream) */
-	if tell+int32(3) <= total_bits {
-		v28 = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(dec)), uint32(3))
-	} else {
-		v28 = 0
-	}
-	intra_ener = v28
+	isTransient, shortBlocks, intra_ener, tell = celtDecodeGlobalFlags(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), LM, M, total_bits, tell)
 	/* If recovering from packet loss, make sure we make the energy prediction safe to reduce the
 	   risk of getting loud artifacts. */
 	celtDecodeRecoverEnergy((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, start, end, LM, intra_ener)

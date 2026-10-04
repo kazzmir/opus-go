@@ -11,6 +11,27 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeGlobalFlagsAgainstC(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, total := range []int32{0, 3, 4, 8, 128} {
+			for _, pattern := range []byte{0, 71, 255} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec opuscc.OpusT_ec_ctx
+				opuscc.Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				c := ec
+				a := [8]int32{LM, 1 << LM, 1, total}
+				tr, short, intra, tell := opuscc.CompareCeltDecodeGlobalFlags(&ec, LM, 1<<LM, total, 1)
+				nativeCeltDecodeHeader(&c, data, 2, &a)
+				if ec != c || tr != a[4] || short != a[5] || intra != a[6] || tell != a[7] {
+					t.Fatal("global flags", LM, total, pattern)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterHeaderAgainstC(t *testing.T) {
 	for _, pattern := range []byte{0, 71, 255} {
 		for _, total := range []int32{0, 16, 17, 32, 128} {

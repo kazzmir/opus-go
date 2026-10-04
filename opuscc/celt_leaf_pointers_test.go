@@ -56,6 +56,38 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeGlobalFlagsPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, total := range []int32{0, 3, 4, 8, 128} {
+			for _, pattern := range []byte{0, 71, 255} {
+				data := make([]byte, 16)
+				for i := range data {
+					data[i] = pattern
+				}
+				var ec OpusT_ec_ctx
+				Opus_ec_dec_init(nil, &ec, &data[0], 16)
+				ref := ec
+				wt, ws, wi, wtell := int32(0), int32(0), int32(0), int32(1)
+				if LM > 0 && wtell+3 <= total {
+					wt = Opus_ec_dec_bit_logp(nil, &ref, 3)
+					wtell = ref.Fnbits_total - int32(bits.Len32(ref.Frng))
+				}
+				if wt != 0 {
+					ws = 1 << LM
+				}
+				if wtell+3 <= total {
+					wi = Opus_ec_dec_bit_logp(nil, &ref, 3)
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				tr, short, intra, tell := celtDecodeGlobalFlags(nil, &ec, LM, 1<<LM, total, 1)
+				if ec != ref || tr != wt || short != ws || intra != wi || tell != wtell {
+					t.Fatal("global flags cached tell", LM, total, pattern)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterHeaderPointers(t *testing.T) {
 	for _, pattern := range []byte{0, 71, 255} {
 		for _, total := range []int32{0, 16, 17, 32, 128} {
