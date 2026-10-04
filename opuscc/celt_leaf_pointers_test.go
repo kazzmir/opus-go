@@ -55,6 +55,28 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePulseStoragePointers(t *testing.T) {
+	for _, bands := range []int32{0, 1, 3, 21, 25} {
+		p := celtDecodePulseStorage(bands)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(p) != int(bands) {
+			t.Fatal("pulse geometry")
+		}
+		for i, v := range p {
+			if v != 0 {
+				t.Fatal("pulse initialization")
+			}
+			p[i] = int32(i) * 128
+		}
+		runtime.GC()
+		for i, v := range p {
+			if v != int32(i)*128 {
+				t.Fatal("pulse retention")
+			}
+		}
+	}
+}
 func TestCeltDecodeFineStoragePointers(t *testing.T) {
 	for _, bands := range []int32{0, 1, 3, 21, 25} {
 		q := celtDecodeFineStorage(bands)
@@ -134,7 +156,8 @@ func TestCeltDecodeOffsetsStoragePointers(t *testing.T) {
 		}
 		caps := celtDecodeCapsStorage(nil, mode, 21, LM, 2)
 		var intensity, dual, balance int32
-		var pulses, fine, priority [21]int32
+		pulses := celtDecodePulseStorage(21)
+		var fine, priority [21]int32
 		data := make([]byte, 128)
 		for i := range data {
 			data[i] = byte(i*71 + 13)
