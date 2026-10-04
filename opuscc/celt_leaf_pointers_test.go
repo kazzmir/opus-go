@@ -55,6 +55,45 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodePostfilterPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{0, 1, 2} {
+			N := int32(120) << LM
+			mode := newSynthesisTestMode()
+			state := &OpusT_OpusCustomDecoder{Fmode: mode, Fpostfilter_period: -1, Fpostfilter_period_old: 0, Fpostfilter_gain: .3, Fpostfilter_gain_old: .5, Fpostfilter_tapset: 2, Fpostfilter_tapset_old: 1, Frng: 123}
+			wantState := *state
+			left, right := make([]float32, 256+N+2), make([]float32, 256+N+2)
+			for i := range left {
+				left[i] = float32(i%13-6) / 128
+				right[i] = float32(i%17-8) / 256
+			}
+			wl, wr := append([]float32(nil), left...), append([]float32(nil), right...)
+			out := [2]*float32{&left[257], nil}
+			if channels == 2 {
+				out[1] = &right[257]
+			}
+			wo := [2]*float32{&wl[257], &wr[257]}
+			for c := int32(0); c < max(int32(1), channels); c++ {
+				celtDecodePostfilterClamp(&wantState)
+				celtDecodePostfilterFirst(nil, &wantState, mode, wo[c], 120)
+				if LM != 0 {
+					celtDecodePostfilterTail(nil, &wantState, mode, wo[c], N, 80, .7, 0, 120)
+				}
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodePostfilter(nil, state, mode, &out[0], channels, N, LM, 80, .7, 0, 120)
+			if *state != wantState {
+				t.Fatal("postfilter driver state")
+			}
+			for i := range left {
+				if math.Float32bits(left[i]) != math.Float32bits(wl[i]) || math.Float32bits(right[i]) != math.Float32bits(wr[i]) {
+					t.Fatal("postfilter driver", LM, channels, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterTailPointers(t *testing.T) {
 	for _, N := range []int32{240, 480, 960} {
 		for _, gain := range []float32{0, .3, .7} {

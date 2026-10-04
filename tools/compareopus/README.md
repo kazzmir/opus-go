@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four postfilter rounds type period clamps, first-short-frame comb inputs,
+tail comb inputs and the channel driver. Clamping retains current-then-previous
+stores each channel. First and tail calls read live decoder gains/periods/tapsets,
+mode short size/window and arch separately; the tail uses numeric indexing into
+the retained N-sample output span, and is only invoked for nonzero LM. The driver
+uses the scanned synthesis output-pointer array, reloads each channel pointer for
+each call, and preserves the original do-while channel semantics. The outer
+caller no longer uses comb_filter_legacy in this path; postfilter-state finalization
+remains after the complete channel loop.
+
+Grouped tests retain heap mode/state/history/window owners through GC and stack
+growth; compare full guarded histories, untouched state fields, gain/tap choices,
+mono/stereo LM0..3, and zero-channel leaf do-while behavior (not a claim that a
+zero-channel decoder passes validation). Native first/tail tests use the actual
+scalar celt.c comb implementation. The source-equivalent C channel driver uses
+that same kernel and compares resulting periods and complete sample buffers.
+Each commit passes full amd64/386, ARM64/QEMU, native and GC stress with original
+goldens/tolerances. Final ARM repeats keep scoped typed postfilter/helper/PLC
+checkptr separate from ordinary golden runs. Legacy enclosing decoder views,
+quant-all-bands scratch and opaque pointer scanning remain outside that proof.
+
 The following four recovery/finalization rounds type per-channel missing/safety
 controls, individual loss-recovery energy prediction, the full two-channel
 recovery loop, and normal packet-state reset. Safety keeps signed loss_duration

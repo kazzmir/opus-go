@@ -423,6 +423,20 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodePostfilter(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, channels, N, LM, period int32, gain float32, tapset, overlap int32) {
+	out := unsafe.Slice(outputs, max(int32(1), channels))
+	for c := int32(0); ; c++ {
+		celtDecodePostfilterClamp(state)
+		celtDecodePostfilterFirst(tls, state, mode, out[c], overlap)
+		if LM != 0 {
+			celtDecodePostfilterTail(tls, state, mode, out[c], N, period, gain, tapset, overlap)
+		}
+		if c+1 >= channels {
+			break
+		}
+	}
+}
+
 func celtDecodePostfilterTail(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, N, period int32, gain float32, tapset, overlap int32) {
 	tail := &unsafe.Slice(output, N)[mode.FshortMdctSize]
 	Opus_comb_filter(tls, tail, tail, state.Fpostfilter_period, period, N-mode.FshortMdctSize, state.Fpostfilter_gain, gain, state.Fpostfilter_tapset, tapset, mode.Fwindow, overlap, state.Farch)
@@ -1314,19 +1328,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		synthesisOutputs[channel] = (*float32)(unsafe.Pointer(out_syn[channel]))
 	}
 	celt_synthesis(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), unsafe.SliceData(X), &synthesisOutputs[0], (*float32)(unsafe.Pointer(oldBandE)), start, effEnd, C, CC, isTransient, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, silence, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
-	c = 0
-	for {
-		celtDecodePostfilterClamp((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
-		celtDecodePostfilterFirst(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), (*float32)(unsafe.Pointer(out_syn[c])), overlap)
-		if LM != 0 {
-			celtDecodePostfilterTail(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), (*float32)(unsafe.Pointer(out_syn[c])), N, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap)
-		}
-		c = c + 1
-		v28 = c
-		if !(v28 < CC) {
-			break
-		}
-	}
+	celtDecodePostfilter(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &synthesisOutputs[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap)
 	celtDecodePostfilterFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), postfilter_pitch, postfilter_gain, postfilter_tapset, LM)
 	if C == 1 {
 		celtDecodeEnergyMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)

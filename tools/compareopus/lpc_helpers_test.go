@@ -11,6 +11,41 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodePostfilterAgainstC(t *testing.T) {
+	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{0, 1, 2} {
+			N := int32(120) << LM
+			g := opuscc.OpusT_OpusCustomDecoder{Fpostfilter_period: -1, Fpostfilter_period_old: 0, Fpostfilter_gain: .3, Fpostfilter_gain_old: .5, Fpostfilter_tapset: 2, Fpostfilter_tapset_old: 1, Frng: 123}
+			c := g
+			left, right := make([]float32, 256+N+2), make([]float32, 256+N+2)
+			for i := range left {
+				left[i] = float32(i%13-6) / 128
+				right[i] = float32(i%17-8) / 256
+			}
+			cl, cr := slices.Clone(left), slices.Clone(right)
+			out := [2]*float32{&left[257], nil}
+			var cp *float32
+			if channels == 2 {
+				out[1] = &right[257]
+				cp = &cr[257]
+			}
+			opuscc.CompareCeltDecodePostfilter(&g, mode, &out[0], channels, N, LM, 80, .7, 0, 120)
+			nativeCeltDecodePostfilter(&c, mode, &cl[257], cp, channels, N, LM, 80, .7, 0, 120)
+			if g != c {
+				t.Fatal("postfilter driver state", LM, channels)
+			}
+			for i := range left {
+				if math.Float32bits(left[i]) != math.Float32bits(cl[i]) || math.Float32bits(right[i]) != math.Float32bits(cr[i]) {
+					t.Fatal("postfilter driver output", LM, channels, i)
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodePostfilterTailAgainstC(t *testing.T) {
 	mode, err := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	if err != nil {
