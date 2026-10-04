@@ -191,6 +191,39 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeFrameDispatchPointers(t *testing.T) {
+	for _, fec := range []int32{-1, 0, 1} {
+		left, right := new(celtStateTestStorage), new(celtStateTestStorage)
+		opus_custom_decoder_init(nil, &left.State, &mode48000_960_120, 1)
+		opus_custom_decoder_init(nil, &right.State, &mode48000_960_120, 1)
+		data := make([]byte, 64)
+		for i := range data {
+			data[i] = byte(i*73 + 165)
+		}
+		var aec, bec OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &aec, &data[0], 64)
+		bec = aec
+		before := aec
+		a, b := make([]float32, 120), make([]float32, 120)
+		packet := &data[0]
+		if fec != 0 {
+			packet = nil
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ra := opusFrameCelt(nil, &left.State, &data[0], 64, &a[0], 120, &aec, fec, 0)
+		rb := celt_decode_with_ec_dred(nil, &right.State, packet, 64, &b[0], 120, &bec, 0)
+		if ra != 120 || ra != rb || aec != bec || left.State != right.State || fec != 0 && aec != before {
+			t.Fatal("frame CELT FEC dispatch", fec)
+		}
+		for i := range a {
+			if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+				t.Fatal("frame CELT PCM", fec, i)
+			}
+		}
+	}
+}
+
 func TestCeltDecodeWholePointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, C := range []int32{1, 2} {

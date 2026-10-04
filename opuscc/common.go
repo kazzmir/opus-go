@@ -3057,12 +3057,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			}
 		}
 		/* Decode CELT */
-		if decode_fec != 0 {
-			v1 = uintptr(uint32(0))
-		} else {
-			v1 = data
-		}
-		celt_ret = Opus_celt_decode_with_ec_dred(tls, celt_dec, v1, len1, pcm, celt_frame_size, uintptr(unsafe.Pointer(&dec)), celt_accum)
+		celt_ret = opusFrameCelt(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(pcm)), celt_frame_size, &dec, decode_fec, celt_accum)
 		Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_GET_FINAL_RANGE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&va)), st1+96))
 	} else {
 		silence = [2]uint8{

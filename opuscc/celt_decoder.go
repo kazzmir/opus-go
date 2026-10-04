@@ -423,6 +423,13 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func opusFrameCelt(tls *libc.TLS, state *OpusT_OpusCustomDecoder, data *byte, length int32, pcm *float32, frame int32, ec *OpusT_ec_ctx, fec, accum int32) int32 {
+	if fec != 0 {
+		data = nil
+	}
+	return celt_decode_with_ec_dred(tls, state, data, length, pcm, frame, ec, accum)
+}
+
 func celtDecodeFrameLM(mode *OpusT_OpusCustomMode, frameSize int32) int32 {
 	LM := int32(0)
 	for LM <= mode.FmaxLM {
