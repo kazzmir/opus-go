@@ -35,6 +35,22 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsStereoSpectrumPointers(t *testing.T) {
+	bands := []int16{0, 4, 8}
+	left, right := make([]float32, 12), make([]float32, 12)
+	for band := int32(0); band < 3; band++ {
+		x := quantAllBandsSpectrum(&left[0], &bands[0], band, 1)
+		y := quantAllBandsSpectrum(&right[0], &bands[0], band, 1)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		*x = 1
+		*y = 2
+		if left[bands[band]] != 1 || right[bands[band]] != 2 {
+			t.Fatal("independent stereo spectrum owners")
+		}
+	}
+}
+
 func TestQuantAllBandsSpectrumPointers(t *testing.T) {
 	bands := []int16{0, 4, 8}
 	for _, M := range []int32{1, 2, 4, 8} {

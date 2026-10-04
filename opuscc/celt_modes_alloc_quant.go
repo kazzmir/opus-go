@@ -2628,14 +2628,14 @@ func quantAllBandsSetMode(ctx *band_ctx, mode *OpusT_OpusCustomMode) { ctx.Fm = 
 //
 //go:uintptrescapes
 func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, end int32, X_ uintptr, Y_ uintptr, collapse_masks uintptr, bandE uintptr, pulses uintptr, shortBlocks int32, spread int32, dual_stereo int32, intensity int32, tf_res uintptr, total_bits OpusT_opus_int32, balance OpusT_opus_int32, ec uintptr, LM int32, codedBands int32, seed uintptr, complexity int32, arch int32, disable_inv int32) {
-	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, (*float32)(unsafe.Pointer(X_)), Y_, (*byte)(unsafe.Pointer(collapse_masks)), (*float32)(unsafe.Pointer(bandE)), (*int32)(unsafe.Pointer(pulses)), shortBlocks, spread, dual_stereo, intensity, (*int32)(unsafe.Pointer(tf_res)), total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
+	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, (*float32)(unsafe.Pointer(X_)), (*float32)(unsafe.Pointer(Y_)), (*byte)(unsafe.Pointer(collapse_masks)), (*float32)(unsafe.Pointer(bandE)), (*int32)(unsafe.Pointer(pulses)), shortBlocks, spread, dual_stereo, intensity, (*int32)(unsafe.Pointer(tf_res)), total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
 }
 
 // Internal owners are migrated independently of the remaining legacy views.
 // The integer spectrum/mask/scratch arguments still require escape retention.
 //
 //go:uintptrescapes
-func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_ *float32, Y_ uintptr, collapse_masks *byte, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ *float32, collapse_masks *byte, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
 	/* ctx keeps the transpiled uintptr calling convention into
 	   quant_band/quant_band_stereo, so it is allocated on the C heap:
 	   a Go stack local whose address is laundered
@@ -2660,13 +2660,13 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B, C, M, N1, X, X_save, X_save2, Y, Y_save, Y_save2, _lowband_scratch, _norm, _saved_stack, b, bytes_buf, bytes_save, cm, cm2, ctx_save, ctx_save2, curr_balance, dist0, dist1, eBands, ec_save, ec_save2, effective_lowband, fold_end, fold_i, fold_start, i, i1, j, last, lowband_offset, lowband_scratch, nend_bytes, norm, norm2, norm_offset, norm_save2, nstart_bytes, remaining_bits, resynth, resynth_alloc, save_bytes, st, tell, tf_change, theta_rdo, update_lowband, x_cm, xy, y_cm, v1, v11, v13, v15, v17, v183, v19, v196, v2, v201, v203, v204, v205, v207, v21, v217, v229, v23, v232, v25, v4, v6, v7, v9
 	eBands = m.FeBands
 	update_lowband = int32(1)
-	if Y_ != uintptr(uint32(0)) {
+	if Y_ != nil {
 		v1 = int32(2)
 	} else {
 		v1 = int32(1)
 	}
 	C = v1
-	theta_rdo = libc.BoolInt32(encode != 0 && Y_ != uintptr(uint32(0)) && !(dual_stereo != 0) && complexity >= int32(8))
+	theta_rdo = libc.BoolInt32(encode != 0 && Y_ != nil && !(dual_stereo != 0) && complexity >= 8)
 	resynth = libc.BoolInt32(!(encode != 0) || theta_rdo != 0)
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -2732,8 +2732,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 		ctx.Fi = i1
 		last = libc.BoolInt32(i1 == end-int32(1))
 		X = uintptr(unsafe.Pointer(quantAllBandsSpectrum(X_, eBands, i1, M)))
-		if Y_ != uintptr(uint32(0)) {
-			Y = Y_ + uintptr(M*quantAllBandsBoundary(eBands, i1))*4
+		if Y_ != nil {
+			Y = uintptr(unsafe.Pointer(quantAllBandsSpectrum(Y_, eBands, i1, M)))
 		} else {
 			Y = uintptr(uint32(0))
 		}
@@ -2807,7 +2807,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 		ctx.Ftf_change = tf_change
 		if i1 >= (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeffEBands {
 			X = uintptr(unsafe.Pointer(norm))
-			if Y_ != uintptr(uint32(0)) {
+			if Y_ != nil {
 				Y = uintptr(unsafe.Pointer(norm))
 			}
 			lowband_scratch = nil
