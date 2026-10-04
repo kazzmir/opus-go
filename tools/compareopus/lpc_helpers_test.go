@@ -11,6 +11,15 @@ import (
 	"unsafe"
 )
 
+func TestQuantAllBandsPulseAgainstC(t *testing.T) {
+	values := []int32{77, -2147483648, -1, 0, 16383, 2147483647, 88}
+	for i := int32(0); i < 5; i++ {
+		if opuscc.CompareQuantAllBandsPulse(&values[1], i) != nativeQuantAllBandsWord(&values[1], i) {
+			t.Fatal("native pulse budget", i)
+		}
+	}
+}
+
 func TestQuantAllBandsTFAgainstC(t *testing.T) {
 	values := []int32{77, -3, 0, 2, 88}
 	for i := int32(0); i < 3; i++ {

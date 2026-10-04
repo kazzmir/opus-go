@@ -35,6 +35,21 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsPulsePointers(t *testing.T) {
+	pulses := []int32{77, -2147483648, -1, 0, 16383, 2147483647, 88}
+	for band := int32(0); band < 5; band++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if quantAllBandsPulse(&pulses[1], band) != pulses[1+band] {
+			t.Fatal("pulse view", band)
+		}
+		pulses[1+band]++
+		if quantAllBandsPulse(&pulses[1], band) != pulses[1+band] || pulses[0] != 77 || pulses[6] != 88 {
+			t.Fatal("live pulse budget")
+		}
+	}
+}
+
 func TestQuantAllBandsTFPointers(t *testing.T) {
 	flags := []int32{77, -3, 0, 2, 88}
 	for band := int32(0); band < 3; band++ {

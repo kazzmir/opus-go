@@ -2470,6 +2470,8 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	}
 }
 
+func quantAllBandsPulse(pulses *int32, band int32) int32 { return unsafe.Slice(pulses, band+1)[band] }
+
 func quantAllBandsTF(flags *int32, band int32) int32 { return unsafe.Slice(flags, band+1)[band] }
 
 func quantAllBandsSetEnergy(ctx *band_ctx, energy *float32) { ctx.FbandE = energy }
@@ -2491,14 +2493,14 @@ func quantAllBandsSetMode(ctx *band_ctx, mode *OpusT_OpusCustomMode) { ctx.Fm = 
 //
 //go:uintptrescapes
 func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, end int32, X_ uintptr, Y_ uintptr, collapse_masks uintptr, bandE uintptr, pulses uintptr, shortBlocks int32, spread int32, dual_stereo int32, intensity int32, tf_res uintptr, total_bits OpusT_opus_int32, balance OpusT_opus_int32, ec uintptr, LM int32, codedBands int32, seed uintptr, complexity int32, arch int32, disable_inv int32) {
-	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, X_, Y_, collapse_masks, (*float32)(unsafe.Pointer(bandE)), pulses, shortBlocks, spread, dual_stereo, intensity, (*int32)(unsafe.Pointer(tf_res)), total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
+	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, X_, Y_, collapse_masks, (*float32)(unsafe.Pointer(bandE)), (*int32)(unsafe.Pointer(pulses)), shortBlocks, spread, dual_stereo, intensity, (*int32)(unsafe.Pointer(tf_res)), total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
 }
 
 // Internal owners are migrated independently of the remaining legacy views.
 // The integer spectrum/mask/scratch arguments still require escape retention.
 //
 //go:uintptrescapes
-func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_, collapse_masks uintptr, bandE *float32, pulses uintptr, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_, collapse_masks uintptr, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
 	/* ctx keeps the transpiled uintptr calling convention into
 	   quant_band/quant_band_stereo, so it is allocated on the C heap:
 	   a Go stack local whose address is laundered
@@ -3155,36 +3157,36 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			_ = v204 > int32(0)
 			v205 = balance / v204
 			curr_balance = v205
-			if remaining_bits+int32(1) < *(*int32)(unsafe.Pointer(pulses + uintptr(i1)*4))+curr_balance {
-				v183 = remaining_bits + int32(1)
+			if remaining_bits+1 < quantAllBandsPulse(pulses, i1)+curr_balance {
+				v183 = remaining_bits + 1
 			} else {
-				v183 = *(*int32)(unsafe.Pointer(pulses + uintptr(i1)*4)) + curr_balance
+				v183 = quantAllBandsPulse(pulses, i1) + curr_balance
 			}
-			if int32(16383) < v183 {
-				v6 = int32(16383)
+			if 16383 < v183 {
+				v6 = 16383
 			} else {
-				if remaining_bits+int32(1) < *(*int32)(unsafe.Pointer(pulses + uintptr(i1)*4))+curr_balance {
-					v196 = remaining_bits + int32(1)
+				if remaining_bits+1 < quantAllBandsPulse(pulses, i1)+curr_balance {
+					v196 = remaining_bits + 1
 				} else {
-					v196 = *(*int32)(unsafe.Pointer(pulses + uintptr(i1)*4)) + curr_balance
+					v196 = quantAllBandsPulse(pulses, i1) + curr_balance
 				}
 				v6 = v196
 			}
 			if 0 > v6 {
 				v1 = 0
 			} else {
-				if remaining_bits+int32(1) < *(*int32)(unsafe.Pointer(pulses + uintptr(i1)*4))+curr_balance {
-					v203 = remaining_bits + int32(1)
+				if remaining_bits+1 < quantAllBandsPulse(pulses, i1)+curr_balance {
+					v203 = remaining_bits + 1
 				} else {
-					v203 = *(*int32)(unsafe.Pointer(pulses + uintptr(i1)*4)) + curr_balance
+					v203 = quantAllBandsPulse(pulses, i1) + curr_balance
 				}
-				if int32(16383) < v203 {
-					v201 = int32(16383)
+				if 16383 < v203 {
+					v201 = 16383
 				} else {
-					if remaining_bits+int32(1) < *(*int32)(unsafe.Pointer(pulses + uintptr(i1)*4))+curr_balance {
-						v207 = remaining_bits + int32(1)
+					if remaining_bits+1 < quantAllBandsPulse(pulses, i1)+curr_balance {
+						v207 = remaining_bits + 1
 					} else {
-						v207 = *(*int32)(unsafe.Pointer(pulses + uintptr(i1)*4)) + curr_balance
+						v207 = quantAllBandsPulse(pulses, i1) + curr_balance
 					}
 					v201 = v207
 				}
@@ -3439,7 +3441,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 		}
 		*(*uint8)(unsafe.Pointer(collapse_masks + uintptr(i1*C+0))) = uint8(x_cm)
 		*(*uint8)(unsafe.Pointer(collapse_masks + uintptr(i1*C+C-int32(1)))) = uint8(y_cm)
-		balance = balance + (*(*int32)(unsafe.Pointer(pulses + uintptr(i1)*4)) + tell)
+		balance = balance + (quantAllBandsPulse(pulses, i1) + tell)
 		/* Update the folding position only as long as we have 1 bit/sample depth. */
 		update_lowband = libc.BoolInt32(b > N1<<int32(BITRES))
 		/* We only need to avoid noise on a split for the first band. After that, we
