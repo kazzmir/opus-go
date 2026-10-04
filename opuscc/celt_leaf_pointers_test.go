@@ -191,6 +191,33 @@ func TestCeltDecodeEntropyPointers(t *testing.T) {
 		t.Fatal("provided entropy init ordering")
 	}
 }
+func TestCeltDecodeFrameResetPointers(t *testing.T) {
+	for _, C := range []int32{1, 2} {
+		storage := new(celtStateTestStorage)
+		state := &storage.State
+		opus_custom_decoder_init(nil, state, &mode48000_960_120, C)
+		Opus_opus_custom_decoder_ctl_typed(nil, state, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 17})
+		state.Frng = 123
+		state.Floss_duration = 7
+		state.Ferror1 = 1
+		memory := unsafe.Slice(&state.F_decode_mem[0], (2048+120)*C+8*21)
+		for i := range memory {
+			memory[i] = .25
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_custom_decoder_ctl_typed(nil, state, OPUS_RESET_STATE, OpusDecoderCtlArgs{}) != 0 || state.Fstart != 17 || state.Fmode != &mode48000_960_120 || state.Frng != 0 || state.Floss_duration != 0 || state.Ferror1 != 0 {
+			t.Fatal("frame reset barriers")
+		}
+		offset := (2048 + 120) * C
+		for i := int32(0); i < 2*21; i++ {
+			if memory[offset+i] != 0 || memory[offset+2*21+i] != -28 || memory[offset+4*21+i] != -28 {
+				t.Fatal("reset energy/log ordering", C, i)
+			}
+		}
+	}
+}
+
 func TestCeltDecodeFrameSettersPointers(t *testing.T) {
 	storage := new(celtStateTestStorage)
 	state := &storage.State

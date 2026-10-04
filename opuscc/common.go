@@ -3051,7 +3051,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		celt_frame_size = v31
 		/* Make sure to discard any previous CELT state */
 		if mode != (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode && (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_mode > 0 && !((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fprev_redundancy != 0) {
-			if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_RESET_STATE), 0) == int32(OPUS_OK)) {
+			if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
 				Opus_celt_fatal(tls, __ccgo_ts+1740, __ccgo_ts+57, int32(604))
 			}
 		}
@@ -3090,7 +3090,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	window = uintptr(unsafe.Pointer((*OpusT_OpusCustomMode)(unsafe.Pointer(celt_mode)).Fwindow))
 	/* 5 ms redundant frame for SILK->CELT */
 	if redundancy != 0 && !(celt_to_silk != 0) {
-		if !(Opus_opus_custom_decoder_ctl(tls, celt_dec, int32(OPUS_RESET_STATE), 0) == int32(OPUS_OK)) {
+		if !(Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(celt_dec)), OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1740, __ccgo_ts+57, int32(639))
 		}
 		_ = int32(0) == int32(0)
