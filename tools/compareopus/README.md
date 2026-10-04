@@ -534,6 +534,26 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four outer-owner rounds retain typed mode and entropy, replace energy-history
+integer addresses with typed numeric views, and replace decode-history integer
+addresses with scanned channel slices/output pointers. The mode getter snapshots
+bands/overlap/eBands at the same point after decoder validation. Entropy retains
+an existing context untouched or initializes a scanned local context with its
+typed payload pointer; only quant-all-bands reconverts mode/context at its escape
+ABI. Energy/log/previous/background views use stride*channels then 2*bands lane
+increments. History slices use (DEC_PITCH_BUF_SIZE+overlap) stride and outputs at
+DEC_PITCH_BUF_SIZE-N, preserving mono unused lanes and zero-frame nil outputs.
+
+Grouped tests force GC/stack growth with heap modes, scanned decoder-tail
+fixtures and typed entropy contexts, verify stores/owners/unused views, and
+compare mode metadata, entropy consumers and C-source numeric view geometry.
+Native view fixtures compare formulas, not a whole outer-frame pointer oracle;
+float-backed numeric images never acquire embedded Go owners. Full amd64/386,
+ARM64/QEMU, scoped typed-helper/consumer checkptr, native and GC stress preserve
+existing encode/decode goldens/tolerances. Repeated ARM checkptr remains scoped:
+public decoder/payload/PCM uintptr entry and legacy quant-all-bands/pseudostack
+remain, and opaque byte-backed embedded pointers are still not scanned globally.
+
 Four allocation/finalization rounds type trim selection, fractional bit-budget
 and anti-collapse reservation, final-energy forwarding, and anti-collapse bit/
 dispatch boundaries. Trim keeps the cached fractional tell plus six-bit guard and

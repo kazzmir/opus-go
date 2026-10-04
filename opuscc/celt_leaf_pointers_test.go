@@ -56,6 +56,36 @@ func TestCeltPLCModePointers(t *testing.T) {
 		t.Fatal("typed mode/table owners", nb, overlap)
 	}
 }
+func TestCeltDecodeHistoryViewsPointers(t *testing.T) {
+	for _, channels := range []int32{0, 1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			for _, N := range []int32{0, 120, 960} {
+				storage := new(celtStateTestStorage)
+				state := &storage.State
+				h, out := celtDecodeHistoryViews(state, overlap, channels, N)
+				base := unsafe.Slice(&state.F_decode_mem[0], (2048+overlap)*max(channels, 1))
+				entropyInitGrowStack(12)
+				runtime.GC()
+				for c := int32(0); c < max(channels, 1); c++ {
+					if len(h[c]) != int(2048+overlap) || &h[c][0] != &base[c*(2048+overlap)] {
+						t.Fatal("decode history geometry")
+					}
+					if N == 0 {
+						if out[c] != nil {
+							t.Fatal("unused zero-frame output")
+						}
+					} else if out[c] != &h[c][2048-N] {
+						t.Fatal("decode output geometry")
+					}
+					h[c][0] = float32(c + 1)
+				}
+				if channels < 2 && (h[1] != nil || out[1] != nil) {
+					t.Fatal("unused mono history")
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeEnergyViewsPointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for _, overlap := range []int32{0, 120} {

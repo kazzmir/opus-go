@@ -11,6 +11,24 @@ import (
 	"unsafe"
 )
 
+func TestCeltDecodeHistoryViewsAgainstC(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, overlap := range []int32{0, 120} {
+			for _, N := range []int32{120, 960} {
+				memory := make([]float32, 5000)
+				state := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&memory[0]))
+				h, out := opuscc.CompareCeltDecodeHistoryViews(state, overlap, channels, N)
+				base := uintptr(unsafe.Pointer(&state.F_decode_mem[0]))
+				offsets := nativeCeltDecodeViewOffsets(21, overlap, channels, N)
+				for c := int32(0); c < channels; c++ {
+					if len(h[c]) != int(offsets[0]) || uintptr(unsafe.Pointer(&h[c][0]))-base != uintptr(c*offsets[0])*4 || uintptr(unsafe.Pointer(out[c]))-base != uintptr(c*offsets[0]+offsets[5])*4 {
+						t.Fatal("native history geometry", channels, overlap, N, c)
+					}
+				}
+			}
+		}
+	}
+}
 func TestCeltDecodeEnergyViewsAgainstC(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for _, overlap := range []int32{0, 120} {

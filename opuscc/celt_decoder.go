@@ -423,6 +423,19 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 }
 
+func celtDecodeHistoryViews(state *OpusT_OpusCustomDecoder, overlap, channels, N int32) (history [2][]float32, output [2]*float32) {
+	count := max(int32(1), channels)
+	stride := DEC_PITCH_BUF_SIZE + overlap
+	memory := unsafe.Slice(&state.F_decode_mem[0], count*stride)
+	for c := int32(0); c < count; c++ {
+		history[c] = memory[c*stride : (c+1)*stride]
+		if N > 0 {
+			output[c] = &history[c][DEC_PITCH_BUF_SIZE-N]
+		}
+	}
+	return
+}
+
 func celtDecodeEnergyViews(state *OpusT_OpusCustomDecoder, bands, overlap, channels int32) (energy, log, previous, background *float32) {
 	if bands == 0 {
 		return
@@ -1197,7 +1210,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	var backgroundLogE, oldBandE, oldLogE, oldLogE2 *float32
 	var _saved_stack, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var bits, tell, total_bits OpusT_opus_int32
-	var decode_mem [2]uintptr
+	var decode_mem [2][]float32
 	var postfilter_gain OpusT_opus_val16
 	var _dec OpusT_ec_dec
 	var balance OpusT_opus_int32
@@ -1295,16 +1308,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 		return -int32(1)
 	}
 	N = M * (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize
-	c = 0
-	for {
-		decode_mem[c] = st1 + unsafe.Offsetof(OpusT_OpusCustomDecoder{}.F_decode_mem) + uintptr(c*(decode_buffer_size+overlap))*4
-		out_syn[c] = (*float32)(unsafe.Pointer(decode_mem[c] + uintptr(decode_buffer_size)*4 - uintptr(N)*4))
-		c = c + 1
-		v28 = c
-		if !(v28 < CC) {
-			break
-		}
-	}
+	decode_mem, out_syn = celtDecodeHistoryViews((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), overlap, CC, N)
 	effEnd = end
 	if effEnd > (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands {
 		effEnd = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands
@@ -1358,7 +1362,7 @@ func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1 uintptr, data uintptr, len
 	X = celtDecodeSpectrumStorage(N, C) // Contiguous per-channel normalized MDCT spectra.
 	c = 0
 	for {
-		celtDecodeHistoryMove((*float32)(unsafe.Pointer(decode_mem[c])), N, decode_buffer_size-N+overlap)
+		celtDecodeHistoryMove(unsafe.SliceData(decode_mem[c]), N, decode_buffer_size-N+overlap)
 		c = c + 1
 		v28 = c
 		if !(v28 < CC) {
