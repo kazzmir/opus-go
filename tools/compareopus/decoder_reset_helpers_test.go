@@ -10,6 +10,14 @@ import (
 	"unsafe"
 )
 
+func TestLTPBitTablesAgainstC(t *testing.T) {
+	for i, p := range opuscc.Opus_silk_LTP_gain_BITS_Q5_ptrs {
+		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(0, i)) {
+			t.Fatal("LTP bit table", i)
+		}
+	}
+}
+
 func TestDecoderSetFSAgainstC(t *testing.T) {
 	for _, initial := range []int32{0, 8, 12, 16} {
 		for _, subframes := range []int32{2, 4} {

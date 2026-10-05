@@ -5,6 +5,12 @@ package main
 /*
 #include <string.h>
 #include "main.h"
+#include "tables.h"
+static void native_ltp_table(int kind,int index,unsigned char *out) {
+ const void *table;
+ switch(kind) {case 0:table=silk_LTP_gain_BITS_Q5_ptrs[index];break;case 1:table=silk_LTP_gain_iCDF_ptrs[index];break;case 2:table=silk_LTP_vq_gain_ptrs_Q7[index];break;default:table=silk_LTP_vq_ptrs_Q7[index];break;}
+ memcpy(out,table,(8<<index)*(kind==3?5:1));
+}
 static int native_decoder_reset(silk_decoder_state *s, int init) {
  memset(s,0xa5,sizeof(*s));
  return init ? silk_init_decoder(s) : silk_reset_decoder(s);
@@ -61,6 +67,16 @@ static void native_whole_cng(void *state,void *control,short *frame,int length) 
 import "C"
 import "github.com/kazzmir/opus-go/opuscc"
 import "unsafe"
+
+func nativeLTPTable(kind, index int) []byte {
+	N := 8 << index
+	if kind == 3 {
+		N *= 5
+	}
+	out := make([]byte, N)
+	C.native_ltp_table(C.int(kind), C.int(index), (*C.uchar)(unsafe.Pointer(&out[0])))
+	return out
+}
 
 func nativeWholeCNG(st *opuscc.OpusT_silk_decoder_state, control *opuscc.OpusT_silk_decoder_control, frame []int16) {
 	C.native_whole_cng(unsafe.Pointer(st), unsafe.Pointer(control), (*C.short)(unsafe.Pointer(unsafe.SliceData(frame))), C.int(len(frame)))

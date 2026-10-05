@@ -3,9 +3,30 @@ package opuscc
 import (
 	"runtime"
 	"testing"
+	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestLTPBitTablePointers(t *testing.T) {
+	original := Opus_silk_LTP_gain_BITS_Q5_ptrs
+	defer func() { Opus_silk_LTP_gain_BITS_Q5_ptrs = original }()
+	for i := range original {
+		N := 8 << i
+		want := append([]byte(nil), unsafe.Slice(original[i], N)...)
+		clone := append([]byte(nil), want...)
+		Opus_silk_LTP_gain_BITS_Q5_ptrs[i] = &clone[0]
+		clone = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := unsafe.Slice(Opus_silk_LTP_gain_BITS_Q5_ptrs[i], N)
+		for j := range want {
+			if got[j] != want[j] {
+				t.Fatal("typed LTP bit table owner", i, j)
+			}
+		}
+	}
+}
 
 func TestDecodeParametersPointers(t *testing.T) {
 	for _, fs := range []int32{8, 12, 16} {
