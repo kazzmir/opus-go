@@ -51,6 +51,48 @@ func TestLTPVectorGainTablePointers(t *testing.T) {
 	}
 }
 
+func TestLTPVectorTablePointers(t *testing.T) {
+	original := Opus_silk_LTP_vq_ptrs_Q7
+	defer func() { Opus_silk_LTP_vq_ptrs_Q7 = original }()
+	for i := range original {
+		N := 8 << i
+		want := append([][LTP_ORDER]int8(nil), unsafe.Slice(original[i], N)...)
+		clone := append([][LTP_ORDER]int8(nil), want...)
+		Opus_silk_LTP_vq_ptrs_Q7[i] = &clone[0]
+		clone = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := unsafe.Slice(Opus_silk_LTP_vq_ptrs_Q7[i], N)
+		for j := range want {
+			if got[j] != want[j] {
+				t.Fatal("typed LTP vector table owner", i, j)
+			}
+		}
+		for row := 0; row < N; row++ {
+			var st OpusT_silk_decoder_state
+			st.Fnb_subfr = 4
+			Opus_silk_decoder_set_fs(nil, &st, 8, 8000)
+			st.Findices.FsignalType = TYPE_VOICED
+			st.Findices.FNLSFInterpCoef_Q2 = 4
+			st.Findices.FPERIndex = int8(i)
+			st.Findices.FGainsIndices = [4]int8{9, 3, 5, 7}
+			st.FLastGainIndex = 12
+			for k := range st.Findices.FLTPIndex {
+				st.Findices.FLTPIndex[k] = int8(row)
+			}
+			var control OpusT_silk_decoder_control
+			Opus_silk_decode_parameters(nil, &st, &control, CODE_INDEPENDENTLY)
+			for k := 0; k < 4; k++ {
+				for tap := 0; tap < LTP_ORDER; tap++ {
+					if control.FLTPCoef_Q14[k*LTP_ORDER+tap] != int16(int32(want[row][tap])<<7) {
+						t.Fatal("typed LTP vector decode", i, row, k, tap)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestLTPBitTablePointers(t *testing.T) {
 	original := Opus_silk_LTP_gain_BITS_Q5_ptrs
 	defer func() { Opus_silk_LTP_gain_BITS_Q5_ptrs = original }()

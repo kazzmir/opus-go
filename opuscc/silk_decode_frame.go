@@ -133,8 +133,8 @@ func Opus_silk_decode_parameters(tls *libc.TLS, decoder *OpusT_silk_decoder_stat
 	}
 	if decoder.Findices.FsignalType == TYPE_VOICED {
 		Opus_silk_decode_pitch(tls, decoder.Findices.FlagIndex, decoder.Findices.FcontourIndex, &control.FpitchL[0], decoder.Ffs_kHz, decoder.Fnb_subfr)
-		tables := [3][][5]int8{silk_LTP_gain_vq_0[:], silk_LTP_gain_vq_1[:], silk_LTP_gain_vq_2[:]}
-		table := tables[decoder.Findices.FPERIndex]
+		periodicity := decoder.Findices.FPERIndex
+		table := unsafe.Slice(Opus_silk_LTP_vq_ptrs_Q7[periodicity], 8<<uint(periodicity))
 		for k := int32(0); k < decoder.Fnb_subfr; k++ {
 			row := table[decoder.Findices.FLTPIndex[k]]
 			for i := int32(0); i < LTP_ORDER; i++ {

@@ -26,6 +26,14 @@ func TestLTPVectorGainTablesAgainstC(t *testing.T) {
 	}
 }
 
+func TestLTPVectorTablesAgainstC(t *testing.T) {
+	for i, p := range opuscc.Opus_silk_LTP_vq_ptrs_Q7 {
+		if !slices.Equal(unsafe.Slice((*byte)(unsafe.Pointer(p)), (8<<i)*opuscc.LTP_ORDER), nativeLTPTable(3, i)) {
+			t.Fatal("LTP signed vector table", i)
+		}
+	}
+}
+
 func TestLTPBitTablesAgainstC(t *testing.T) {
 	for i, p := range opuscc.Opus_silk_LTP_gain_BITS_Q5_ptrs {
 		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(0, i)) {

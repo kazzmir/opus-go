@@ -534,6 +534,31 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four SILK LTP ownership rounds replace all four [3]uintptr pointer tables with
+GC-scanned typed arrays: bit-cost/ICDF/vector-gain [3]*byte, and coefficient
+[3]*[LTP_ORDER]int8 row pointers. The active index decoder forwards the typed
+ICDF directly, and the parameter decoder consumes the typed coefficient owner
+using fixed 8/16/32-row geometry. Signed int8 row snapshots, per-subframe index
+reloads, tap order and int32 shift→int16 Q14 narrowing remain unchanged. Bit-cost
+and vector-gain tables have no active opuscc decoder consumer; their migration
+removes dormant integer-address owners rather than claiming new decode coverage.
+The separate opusccenc copies are unchanged.
+
+Grouped existing parameter-test files rebind each table slot to a heap clone,
+drop the original clone slice, then force stack growth/GC before consumption and
+restore table slots after the test. ICDF entropy symbols/all context fields match
+an independent original byte copy; every 8/16/32 vector row decodes all four
+subframes with signed Q14 coefficients checked. Native tests copy all 56 bit
+costs, 56 ICDF entries, 56 vector gains and 280 signed coefficient bytes from the
+actual upstream libopus tables and compare exactly. Existing renamed upstream
+indices/parameters source comparisons, whole packet/concealment references,
+full amd64/386 and ARM64/QEMU tests, scoped checkptr and GC stress pass each
+round with unchanged codec goldens/tolerances, plus repeated scoped/ordinary ARM
+runs. Production opuscc uintptr tokens decrease 349→333 (16 removed); the four
+exported Go table variables intentionally acquire typed-pointer element types.
+Public legacy decoder escape adapters are retained; opaque allocations/raw custom
+callback addresses and extension EOF remain separate unresolved boundaries.
+
 Four uintptr-reduction rounds type projection int16 and int24 forwarding with
 captured matrix owners, delete all three unused private integer projection
 callbacks and get_multistream_decoder_legacy (plus the redundant integer callback
