@@ -28,6 +28,24 @@ func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage 
 	return storage
 }
 
+func TestOpusFrameTypedDecoderEntry(t *testing.T) {
+	left, right := newOpusFrameOwnerDecoder(t, 1), newOpusFrameOwnerDecoder(t, 1)
+	a, b := make([]float32, 122), make([]float32, 122)
+	a[0], a[121], b[0], b[121] = 77, 88, 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	ra := opusDecodeFrame(nil, &left.Decoder, 0, 0, uintptr(unsafe.Pointer(&a[1])), 120, 0)
+	rb := opus_decode_frame(nil, uintptr(unsafe.Pointer(&right.Decoder)), 0, 0, uintptr(unsafe.Pointer(&b[1])), 120, 0)
+	if ra != 120 || rb != ra || left.Decoder != right.Decoder {
+		t.Fatal("typed/legacy decoder entry")
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			t.Fatal("typed decoder PCM/guards")
+		}
+	}
+}
+
 // This whole frame fixture is ordinary (not checkptr): the entry/PCM are still uintptr.
 func TestOpusFrameNoPseudostack(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
