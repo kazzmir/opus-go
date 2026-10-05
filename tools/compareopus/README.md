@@ -534,6 +534,37 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four uintptr-reduction rounds type projection int16 and int24 forwarding with
+captured matrix owners, delete all three unused private integer projection
+callbacks and get_multistream_decoder_legacy (plus the redundant integer callback
+bridge), and remove integer user-data from opusMSChannelCopy/opusMSDecodeNative
+and every standard/projection private callback/call site. All standard and
+projection format wrappers now call the typed multistream core; only public
+legacy signatures and the custom callback escape binder retain integer data
+addresses. The binder captures legacy user-data once at the public boundary,
+without piping it through the decode loop. Standard callbacks still ignore it;
+custom callbacks still receive its exact original value. Numeric byte offsets
+remain numeric rather than being misclassified as pointer-valued uintptr.
+
+Compared to this batch's initial tree, common.go uintptr tokens fall 207→180;
+all opuscc production .go files (excluding *_test.go) fall 376→349, measured
+consistently with rg -o '\\buintptr\\b'. This is a lexical reduction, not a proof
+that all remaining integer words are unsafe or that all ownership is solved.
+Projection int16 retains OPTIONAL_CLIP (tested with amplified CELT output),
+projection int24 retains zero clipping, and both retain pointer-derivation,
+callback clear/accumulation, rounding and validation ordering. Existing grouped
+full scanned-state/nil-TLS/checkptr tests cover normal/PLC/FEC, independent
+existing-entry PCM/state/count parity, errors, guards and GC/stack growth. Custom
+callback retention/argument tests verify the captured user-data value after GC;
+standard binding tests verify nonzero user-data is still ignored. No C golden,
+tolerance, assertion, public ABI or custom callback contract changed.
+
+Every round passes full amd64/386, ARM64/QEMU, applicable scoped checkptr, existing
+native mapping/callback/codec comparisons, multistream C references and GC stress,
+with repeated scoped/ordinary ARM runs after completion. Opaque byte-backed
+allocation scanning and the raw custom function-address boundary remain separate
+legacy issues; no global GC-safety/direct macOS CI claim is implied.
+
 Four format-wrapper rounds introduce typed private multistream float/int16/
 int24 entries, each forwarding directly to opusMSDecodeNative with a typed
 standard callback (no integer function-address binding), followed by a typed

@@ -35,10 +35,10 @@ func TestProjectionShortWrapperPointers(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		got := opusProjectionDecodeShort(nil, &owner.Projection, data, length, &out[1], 5760, fec)
-		copyOut := func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+		copyOut := func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 			opus_projection_copy_channel_out_short(tls, (*int16)(dst), ds, dc, src, ss, n, &baseline.Matrix)
 		}
-		expected := opusMSDecodeNative(nil, &baseline.MS.MS, data, length, unsafe.Pointer(&want[1]), copyOut, 5760, fec, OPTIONAL_CLIP, 0)
+		expected := opusMSDecodeNative(nil, &baseline.MS.MS, data, length, unsafe.Pointer(&want[1]), copyOut, 5760, fec, OPTIONAL_CLIP)
 		if got != expected || got <= 0 || owner.MS.Children[0].Decoder != baseline.MS.Children[0].Decoder || owner.MS.Children[1].Decoder != baseline.MS.Children[1].Decoder || out[0] != 77 || out[len(out)-1] != 88 {
 			t.Fatal("projection short dispatch/clipping/state")
 		}

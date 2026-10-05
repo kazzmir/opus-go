@@ -31,10 +31,10 @@ func TestProjectionInt24WrapperPointers(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		got := opusProjectionDecodeInt24(nil, &owner.Projection, data, length, &out[1], 5760, fec)
-		copyOut := func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+		copyOut := func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 			opus_projection_copy_channel_out_int24(tls, (*int32)(dst), ds, dc, src, ss, n, &baseline.Matrix)
 		}
-		expected := opusMSDecodeNative(nil, &baseline.MS.MS, data, length, unsafe.Pointer(&want[1]), copyOut, 5760, fec, 0, 0)
+		expected := opusMSDecodeNative(nil, &baseline.MS.MS, data, length, unsafe.Pointer(&want[1]), copyOut, 5760, fec, 0)
 		if got != expected || got <= 0 || owner.MS.Children[0].Decoder != baseline.MS.Children[0].Decoder || owner.MS.Children[1].Decoder != baseline.MS.Children[1].Decoder || out[0] != 77 || out[len(out)-1] != 88 {
 			t.Fatal("projection int24 dispatch/state")
 		}

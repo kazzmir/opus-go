@@ -55,10 +55,10 @@ func TestProjectionFloatWrapperPointers(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		got := opusProjectionDecodeFloat(nil, &owner.Projection, data, length, &out[1], 5760, fec)
-		copyOut := func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+		copyOut := func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 			opus_projection_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n, &baseline.Matrix)
 		}
-		expected := opusMSDecodeNative(nil, &baseline.MS.MS, data, length, unsafe.Pointer(&want[1]), copyOut, 5760, fec, 0, 0)
+		expected := opusMSDecodeNative(nil, &baseline.MS.MS, data, length, unsafe.Pointer(&want[1]), copyOut, 5760, fec, 0)
 		if got != expected || got <= 0 || owner.MS.Children[0].Decoder != baseline.MS.Children[0].Decoder || owner.MS.Children[1].Decoder != baseline.MS.Children[1].Decoder || out[0] != 77 || out[len(out)-1] != 88 {
 			t.Fatal("projection float dispatch/state")
 		}
@@ -86,11 +86,11 @@ func TestProjectionFloatCallbackOwnerPointers(t *testing.T) {
 	runtime.GC()
 	src := []float32{1, 2}
 	dst := []float32{77, 9, 9, 9, 9, 9, 9, 9, 9, 88}
-	copyOut(nil, unsafe.Pointer(&dst[1]), 4, 0, &src[0], 1, 2, 0)
+	copyOut(nil, unsafe.Pointer(&dst[1]), 4, 0, &src[0], 1, 2)
 	if dst[0] != 77 || dst[9] != 88 || dst[1] != .5 || dst[2] != .125 || dst[3] != -.25 || dst[4] != .0625 || dst[5] != 1 || dst[6] != .25 || dst[7] != -.5 || dst[8] != .125 {
 		t.Fatal("captured projection matrix", dst)
 	}
-	copyOut(nil, unsafe.Pointer(&dst[1]), 4, 0, nil, 0, 2, 0)
+	copyOut(nil, unsafe.Pointer(&dst[1]), 4, 0, nil, 0, 2)
 	for _, value := range dst[1:9] {
 		if value != 0 {
 			t.Fatal("projection nil source clear")
