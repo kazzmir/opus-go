@@ -3631,7 +3631,6 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 	type decodeScratch struct {
 		Fs           OpusT_opus_int32
 		packetOffset OpusT_opus_int32
-		va           uintptr
 	}
 	storage := libc.Xmalloc(tls, uint64(unsafe.Sizeof(decodeScratch{})))
 	defer libc.Xfree(tls, storage)
@@ -3722,7 +3721,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 		return -int32(1)
 	}
 	/* Limit frame_size to avoid excessive stack allocations. */
-	if !(Opus_opus_multistream_decoder_ctl(tls, st1, int32(OPUS_GET_SAMPLE_RATE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&scratch.va)), uintptr(unsafe.Pointer(&scratch.Fs)))) == int32(OPUS_OK)) {
+	if !(Opus_opus_multistream_decoder_ctl_typed(tls, decoder, OPUS_GET_SAMPLE_RATE_REQUEST, OpusDecoderCtlArgs{I32: &scratch.Fs}) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+2090, __ccgo_ts+2200, int32(206))
 	}
 	if frame_size < scratch.Fs/int32(25)*int32(3) {

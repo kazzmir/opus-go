@@ -12,6 +12,24 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestMultistreamSampleRatePointers(t *testing.T) {
+	type owner struct {
+		MS      OpusT_OpusMSDecoder
+		Padding [(8 - unsafe.Sizeof(OpusT_OpusMSDecoder{})%8) % 8]byte
+		Child   opusFrameOwnerTestStorage
+	}
+	storage := new(owner)
+	storage.Child = *newOpusFrameOwnerDecoder(t, 2)
+	storage.MS.Flayout.Fnb_streams = 1
+	storage.MS.Flayout.Fnb_coupled_streams = 1
+	slots := []int32{77, -1, 88}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_multistream_decoder_ctl_typed(nil, &storage.MS, OPUS_GET_SAMPLE_RATE_REQUEST, OpusDecoderCtlArgs{I32: &slots[1]}) != 0 || slots[1] != 48000 || slots[0] != 77 || slots[2] != 88 {
+		t.Fatal("MS typed sample rate")
+	}
+}
+
 func TestMultistreamCopyBindingPointers(t *testing.T) {
 	src := []float32{0.25, -0.25, 0.5, -0.5, 0.75, -0.75}
 	floats := make([]float32, 11)
