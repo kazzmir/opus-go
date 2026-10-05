@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four frame pseudostack cleanup rounds remove scratch initialization, all six
+early-return cursor restores, normal-return restore, then snapshot/metadata
+allocation and dead temporaries. No frame pseudostack/TLS cursor access remains;
+codec work/validation/recursive PLC/CTL/final-range/error ordering is unchanged.
+Scratch initialization and cursor metadata side effects are intentionally gone.
+The legacy uintptrescapes entry still forwards integer input/output arguments.
+
+Whole ordinary frame fixtures now exercise nil TLS on scanned composite storage:
+mono/stereo CELT LM0..3 packet→PLC→PLC→packet, recursive 40ms PLC, short/10/20ms
+SILK PLC, validation gates and untouched TLS sentinels. The test composite includes
+explicit computed 8-byte decoder/SILK padding: the initial 386 geometry assertion
+caught native alignment vs Go's 4-byte struct alignment, which was fixed rather
+than skipped. Packet pointers stay typed across forced stack growth/GC until the
+annotated call boundary. Existing whole native comparisons, frame references,
+codec baselines/goldens/tolerances, full amd64/386 and ARM64/QEMU tests and GC
+stress pass every round. ARM repeated scoped typed-consumer checkptr and ordinary
+whole-frame/golden repetitions are run separately: whole legacy frame uintptr
+entry/PCM operations are not claimed to pass checkptr. Opaque byte-backed scanning
+and outer decode-native ownership remain unresolved; next work can migrate the
+frame entry and its payload/output operations to typed views.
+
 Four frame scratch rounds replace SILK short-frame PCM, CELT transition PCM,
 SILK transition PCM and redundant audio pseudostack allocation blocks with
 independent Go float32 storage at the original allocation points. Zero sizes

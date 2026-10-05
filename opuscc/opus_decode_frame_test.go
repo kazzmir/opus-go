@@ -28,6 +28,69 @@ func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage 
 	return storage
 }
 
+// This whole frame fixture is ordinary (not checkptr): the entry/PCM are still uintptr.
+func TestOpusFrameNoPseudostack(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, C := range []int32{1, 2} {
+			storage := newOpusFrameOwnerDecoder(t, C)
+			decoder := &storage.Decoder
+			N := int32(120) << LM
+			decoder.Fmode = MODE_CELT_ONLY
+			decoder.Fframe_size = N
+			decoder.Fbandwidth = OPUS_BANDWIDTH_FULLBAND
+			data := make([]byte, 128)
+			for i := range data {
+				data[i] = byte(i*73 + 165)
+			}
+			pcm := make([]float32, N*C+2)
+			pcm[0], pcm[len(pcm)-1] = 77, 88
+			for step := 0; step < 4; step++ {
+				var packet *byte
+				length := int32(0)
+				if step == 0 || step == 3 {
+					packet = &data[0]
+					length = 128
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				if got := opus_decode_frame(nil, uintptr(unsafe.Pointer(decoder)), uintptr(unsafe.Pointer(packet)), length, uintptr(unsafe.Pointer(&pcm[1])), N, 0); got != N {
+					t.Fatal("nil TLS frame", LM, C, step, got)
+				}
+				if pcm[0] != 77 || pcm[len(pcm)-1] != 88 || decoder.Fprev_mode != MODE_CELT_ONLY {
+					t.Fatal("nil TLS frame guards/finalization")
+				}
+			}
+			decoder.Fframe_size = 1920
+			long := make([]float32, 1920*C+2)
+			long[0], long[len(long)-1] = 77, 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if opus_decode_frame(nil, uintptr(unsafe.Pointer(decoder)), 0, 0, uintptr(unsafe.Pointer(&long[1])), 1920, 0) != 1920 || long[0] != 77 || long[len(long)-1] != 88 || decoder.FrangeFinal != 0 {
+				t.Fatal("nil TLS recursive PLC")
+			}
+		}
+	}
+}
+
+func TestOpusFrameSilkNoPseudostack(t *testing.T) {
+	storage := newOpusFrameOwnerDecoder(t, 1)
+	decoder := &storage.Decoder
+	decoder.Fprev_mode = MODE_SILK_ONLY
+	decoder.Fframe_size = 480
+	decoder.FDecControl.FnChannelsInternal = 1
+	decoder.FDecControl.FinternalSampleRate = 16000
+	for _, N := range []int32{120, 480, 960} {
+		decoder.Fframe_size = N
+		pcm := make([]float32, N+2)
+		pcm[0], pcm[N+1] = 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opus_decode_frame(nil, uintptr(unsafe.Pointer(decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), N, 0) != N || pcm[0] != 77 || pcm[N+1] != 88 {
+			t.Fatal("nil TLS SILK PLC/short scratch", N)
+		}
+	}
+}
+
 func TestOpusFrameNormalReturnCursor(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
