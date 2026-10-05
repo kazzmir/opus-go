@@ -9,9 +9,38 @@ import (
 )
 
 type opusFrameOwnerTestStorage struct {
-	Decoder OpusT_OpusDecoder
-	Silk    OpusT_silk_decoder
-	Celt    celtStateTestStorage
+	Decoder        OpusT_OpusDecoder
+	DecoderPadding [(8 - unsafe.Sizeof(OpusT_OpusDecoder{})%8) % 8]byte
+	Silk           OpusT_silk_decoder
+	SilkPadding    [(8 - unsafe.Sizeof(OpusT_silk_decoder{})%8) % 8]byte
+	Celt           celtStateTestStorage
+}
+
+func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage {
+	t.Helper()
+	storage := new(opusFrameOwnerTestStorage)
+	if Opus_opus_decoder_init(nil, &storage.Decoder, 48000, C) != 0 {
+		t.Fatal("frame init")
+	}
+	if storage.Decoder.Fsilk_dec_offset != int32(unsafe.Offsetof(storage.Silk)) || storage.Decoder.Fcelt_dec_offset != int32(unsafe.Offsetof(storage.Celt)) {
+		t.Fatal("scanned frame geometry")
+	}
+	return storage
+}
+
+func TestOpusFrameNoScratchInitialization(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	raw := libc.Xmalloc(tls, 16)
+	defer libc.Xfree(tls, raw)
+	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
+	*cursor = OpusT_opus_ccgo_pseudostack_state{}
+	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
+	storage := newOpusFrameOwnerDecoder(t, 1)
+	sample := float32(77)
+	if opus_decode_frame(tls, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&sample)), 119, 0) != -2 || sample != 77 || cursor.Fscratch_ptr != 0 || cursor.Fglobal_stack != 0 {
+		t.Fatal("frame scratch/early validation")
+	}
 }
 
 func TestOpusFrameRedundancyStoragePointers(t *testing.T) {
