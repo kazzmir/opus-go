@@ -8,6 +8,26 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusInt24NoPseudostack(t *testing.T) {
+	if Opus_opus_decode24(nil, 0, 0, 0, 0, 0, 2) != -1 {
+		t.Fatal("int24 validation order")
+	}
+	for _, C := range []int32{1, 2} {
+		storage := newOpusFrameOwnerDecoder(t, C)
+		packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+		pcm := make([]int32, 5760*C+2)
+		pcm[0], pcm[len(pcm)-1] = 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_decode24(nil, uintptr(unsafe.Pointer(&storage.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&pcm[1])), 5760, 0) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+			t.Fatal("int24 nil TLS", C)
+		}
+		if Opus_opus_decode24(nil, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+			t.Fatal("int24 short PLC")
+		}
+	}
+}
+
 func TestOpusInt16NoPseudostack(t *testing.T) {
 	if Opus_opus_decode(nil, 0, 0, 0, 0, 0, 2) != -1 {
 		t.Fatal("int16 validation order")
