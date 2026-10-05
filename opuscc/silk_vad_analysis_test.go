@@ -8,10 +8,7 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
-func TestVADAnalysisTypedOwners(t *testing.T) {
-	tls := libc.NewTLS()
-	defer tls.Close()
-	setupResamplerPseudostack(tls)
+func TestVADAnalysisTypedOwnersPointers(t *testing.T) {
 	state := new(OpusT_silk_encoder_state)
 	state.Fframe_length = 160
 	Opus_silk_VAD_Init(nil, &state.FsVAD)
@@ -21,8 +18,43 @@ func TestVADAnalysisTypedOwners(t *testing.T) {
 	}
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if silkVADAnalysis(tls, state, &input[0]) != 0 || state.FsVAD.Fcounter != 16 {
+	if silkVADAnalysis(nil, state, &input[0]) != 0 || state.FsVAD.Fcounter != 16 {
 		t.Fatal("typed VAD owners")
+	}
+}
+
+func TestVADAnalysisWholePointers(t *testing.T) {
+	for _, N := range []int{80, 120, 160, 240, 320} {
+		state := new(OpusT_silk_encoder_state)
+		state.Fframe_length = int32(N)
+		Opus_silk_VAD_Init(nil, &state.FsVAD)
+		for step := 0; step < 4; step++ {
+			input := make([]int16, N+2)
+			input[0], input[N+1] = 77, 88
+			for i := 1; i <= N; i++ {
+				input[i] = int16((i*137+step*997)%12000 - 6000)
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if silkVADAnalysis(nil, state, &input[1]) != 0 || input[0] != 77 || input[N+1] != 88 || state.FsVAD.Fcounter != int32(16+step) {
+				t.Fatal("whole VAD analysis", N, step)
+			}
+		}
+	}
+	state := new(OpusT_silk_encoder_state)
+	state.Fframe_length = 321
+	Opus_silk_VAD_Init(nil, &state.FsVAD)
+	before := state.FsVAD
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("VAD assertion missing")
+			}
+		}()
+		silkVADAnalysis(nil, state, nil)
+	}()
+	if state.FsVAD != before {
+		t.Fatal("VAD assertion mutated state")
 	}
 }
 

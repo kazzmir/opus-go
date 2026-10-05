@@ -534,6 +534,33 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four VAD analysis rounds introduce typed encoder/input ownership behind the
+public escape adapter, replace integer sample-buffer addressing with typed slices
+and numeric band offsets, allocate the reusable decimation/energy samples in Go,
+then remove obsolete TLS cursor setup/snapshot/restore and dead integer locals.
+The private silkVADAnalysis path has no pointer-valued uintptr or pseudostack
+operation. Production opuscc uintptr tokens decrease 273→255 (18 removed).
+Assertions retain their original order/sites; live frame-length reads, overlapping
+filter-bank passes, reverse HP differentiation, per-store int16 narrowing,
+energy accumulation/saturation, noise update and output-field ordering are
+unchanged. This standalone opuscc VAD analysis is not an active decoder call;
+opusccenc retains its separate implementation.
+
+Grouped existing VAD analysis tests retain original field goldens, add typed
+heap-state/input lifetime checks, and complete nil-TLS/checkptr paths at lengths
+80/120/160/240/320 across four calls with stack growth/GC/input guards and
+assertion-before-mutation coverage. A native bridge invokes actual upstream
+silk_VAD_GetSA_Q8_c with a numeric VAD state image and compares the entire VAD
+state plus speech activity, tilt and all quality bands for the same lengths and
+four consecutive calls. Full amd64/386, ARM64/QEMU, applicable scoped checkptr,
+native comparisons, codec references and GC stress pass each round with unchanged
+goldens/tolerances, plus repeated scoped/ordinary ARM runs after completion.
+The final initial validation attempt again hit runtime 'sweep increased allocation
+count' in the ordinary native suite, with TestExtensionNextAgainstC on the stack;
+this is retained in the log and not attributed to VAD or claimed globally fixed.
+A complete rerun and VAD-specific native repetitions pass. Opaque allocation
+scanning/raw callback/extension EOF issues remain separate.
+
 Four delayed-decision NLSF quantizer rounds replace integer-address input
 loads with typed live x/weight/predictor/rate-index views, use typed nine-byte
 rate-row views, type index output/final adjustment stores, then introduce the
