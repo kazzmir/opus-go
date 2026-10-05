@@ -1305,11 +1305,6 @@ func Opus_anti_collapse(tls *libc.TLS, bands *int16, nbBands int32, X *float32, 
 	}
 }
 
-func anti_collapse_legacy(tls *libc.TLS, m, X, masks uintptr, LM, C, size, start, end int32, logE, p1, p2, pulses uintptr, seed uint32, encode, arch int32) {
-	mode := (*OpusT_OpusCustomMode)(unsafe.Pointer(m))
-	Opus_anti_collapse(tls, mode.FeBands, mode.FnbEBands, (*float32)(unsafe.Pointer(X)), (*byte)(unsafe.Pointer(masks)), LM, C, size, start, end, (*float32)(unsafe.Pointer(logE)), (*float32)(unsafe.Pointer(p1)), (*float32)(unsafe.Pointer(p2)), (*int32)(unsafe.Pointer(pulses)), seed, encode, arch)
-}
-
 // C documentation
 //
 //	/* Compute the weights to use for optimizing normalized distortion across

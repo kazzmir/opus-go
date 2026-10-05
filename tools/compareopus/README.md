@@ -534,6 +534,26 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT cleanup rounds delete the unused CELT_PVQ_U_ROW integer-address
+array (active PVQ already uses numeric offsets), unused comb/prefilter adapters,
+unused deemphasis/synthesis integer channel-array adapters, and unused inverse
+MDCT/anti-collapse adapters. Repository-wide Go reference searches found only
+the deleted definitions; active typed helpers/numeric row data and consumers are
+unchanged. Production opuscc uintptr tokens decrease 333→292 (41 removed).
+The obsolete exported Go row variable is removed; public decoder legacy escape
+adapters remain. This deletes duplicate representations rather than introducing
+new arithmetic, allocations, validation or decode coverage.
+
+Existing native PVQ/filter/MDCT/synthesis/anti-collapse comparisons, complete
+scanned-state pointer tests and packet/concealment references cover the remaining
+implementations. Full amd64/386, ARM64/QEMU, scoped checkptr, GC stress and
+unchanged codec goldens/tolerances pass each round; repeated scoped/ordinary ARM
+runs and repeated native comparisons complete the batch. The synthesis cleanup's
+first validation attempt hit a runtime 'sweep increased allocation count' in the
+ordinary compareopus suite; a complete rerun passed. This is recorded rather than
+claiming every first attempt passed or that deleting unused code globally repairs
+legacy unsafe fixtures/opaque allocation scanning.
+
 Four SILK LTP ownership rounds replace all four [3]uintptr pointer tables with
 GC-scanned typed arrays: bit-cost/ICDF/vector-gain [3]*byte, and coefficient
 [3]*[LTP_ORDER]int8 row pointers. The active index decoder forwards the typed
