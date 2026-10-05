@@ -12,6 +12,38 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+type multistreamOwnerTestStorage struct {
+	MS      OpusT_OpusMSDecoder
+	Padding [(8 - unsafe.Sizeof(OpusT_OpusMSDecoder{})%8) % 8]byte
+	Child   opusFrameOwnerTestStorage
+}
+
+func newMultistreamOwner(t *testing.T) *multistreamOwnerTestStorage {
+	owner := new(multistreamOwnerTestStorage)
+	owner.Child = *newOpusFrameOwnerDecoder(t, 2)
+	owner.MS.Flayout.Fnb_channels = 4
+	owner.MS.Flayout.Fnb_streams = 1
+	owner.MS.Flayout.Fnb_coupled_streams = 1
+	copy(owner.MS.Flayout.Fmapping[:], []byte{0, 1, 0, 255})
+	return owner
+}
+
+func TestMultistreamNoPseudostack(t *testing.T) {
+	owner := newMultistreamOwner(t)
+	packet := []byte{4}
+	pcm := make([]float32, 5760*4+2)
+	pcm[0], pcm[len(pcm)-1] = 77, 88
+	callback := __ccgo_fp(opus_copy_channel_out_float_legacy)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_multistream_decode_native(nil, uintptr(unsafe.Pointer(&owner.MS)), uintptr(unsafe.Pointer(&packet[0])), 1, uintptr(unsafe.Pointer(&pcm[1])), callback, 10000, 0, 0, 0) != 480 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+		t.Fatal("nil TLS MS entry")
+	}
+	if Opus_opus_multistream_decode_native(nil, uintptr(unsafe.Pointer(&owner.MS)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), callback, 10000, 0, 0, 0) != 5760 {
+		t.Fatal("nil TLS MS capped PLC")
+	}
+}
+
 func TestMultistreamScalarScratchPointers(t *testing.T) {
 	storage := newOpusFrameOwnerDecoder(t, 1)
 	var slots struct{ Before, Fs, Offset, After int32 }
