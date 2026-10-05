@@ -28,6 +28,33 @@ func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage 
 	return storage
 }
 
+func TestOpusFrameNormalReturnCursor(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	raw := libc.Xmalloc(tls, 16)
+	defer libc.Xfree(tls, raw)
+	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	before := *cursor
+	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
+	storage := newOpusFrameOwnerDecoder(t, 1)
+	decoder := &storage.Decoder
+	decoder.Fmode = MODE_CELT_ONLY
+	decoder.Fframe_size = 120
+	decoder.Fbandwidth = OPUS_BANDWIDTH_FULLBAND
+	data := make([]byte, 128)
+	for i := range data {
+		data[i] = byte(i*73 + 165)
+	}
+	pcm := make([]float32, 122)
+	pcm[0], pcm[121] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if opus_decode_frame(tls, uintptr(unsafe.Pointer(decoder)), uintptr(unsafe.Pointer(&data[0])), 128, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || decoder.Fprev_mode != MODE_CELT_ONLY || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
+		t.Fatal("normal frame cursor/finalization")
+	}
+}
+
 func TestOpusFrameEarlyReturnCursor(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
