@@ -48,6 +48,49 @@ func newTwoStreamMSOwner(t *testing.T) *msTwoStreamTestOwner {
 	return owner
 }
 
+func TestMultistreamShortWrapperPointers(t *testing.T) {
+	owner, baseline := newTwoStreamMSOwner(t), newTwoStreamMSOwner(t)
+	packet := make([]byte, 129)
+	packet[0] = 252
+	for i := 1; i < len(packet); i++ {
+		packet[i] = byte((i-1)*73 + 165)
+	}
+	combined := append([]byte{packet[0], 128}, packet[1:]...)
+	combined = append(combined, packet...)
+	for i := range owner.Children {
+		owner.Children[i].Decoder.Fdecode_gain = 32767
+		baseline.Children[i].Decoder.Fdecode_gain = 32767
+	}
+	out, want := make([]int16, 5760*6+2), make([]int16, 5760*6+2)
+	out[0], out[len(out)-1] = 77, 88
+	for _, step := range []int{0, 1, 2} {
+		var data *byte
+		length, fec := int32(0), int32(0)
+		if step != 1 {
+			data = &combined[0]
+			length = int32(len(combined))
+		}
+		if step == 2 {
+			fec = 1
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := opusMSDecodeShort(nil, &owner.MS, data, length, &out[1], 5760, fec)
+		expected := opusMSDecodeNative(nil, &baseline.MS, data, length, unsafe.Pointer(&want[1]), opusMSCopyShort, 5760, fec, OPTIONAL_CLIP, 0)
+		if got != expected || got <= 0 || owner.Children[0].Decoder != baseline.Children[0].Decoder || owner.Children[1].Decoder != baseline.Children[1].Decoder || out[0] != 77 || out[len(out)-1] != 88 {
+			t.Fatal("short wrapper dispatch/clipping/state")
+		}
+		for i := int32(0); i < got*6; i++ {
+			if out[i+1] != want[i+1] {
+				t.Fatal("short wrapper PCM", i)
+			}
+		}
+	}
+	if opusMSDecodeShort(nil, &owner.MS, nil, 0, nil, 0, 0) != -1 {
+		t.Fatal("short wrapper validation")
+	}
+}
+
 func TestMultistreamFloatWrapperPointers(t *testing.T) {
 	owner, baseline := newTwoStreamMSOwner(t), newTwoStreamMSOwner(t)
 	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
