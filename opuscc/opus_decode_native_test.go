@@ -8,13 +8,49 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusNativeTypedPayloadEntry(t *testing.T) {
+	for _, packet := range [][]byte{{16}, mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")} {
+		left, right := newOpusFrameOwnerDecoder(t, 2), newOpusFrameOwnerDecoder(t, 2)
+		a, b := make([]float32, 5762), make([]float32, 5762)
+		a[0], a[5761], b[0], b[5761] = 77, 88, 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ra := opusDecodeNative(nil, &left.Decoder, &packet[0], int32(len(packet)), uintptr(unsafe.Pointer(&a[1])), 2880, 0, 0, 0, 0)
+		rb := Opus_opus_decode_native(nil, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&b[1])), 2880, 0, 0, 0, 0, 0, 0)
+		if ra <= 0 || rb != ra || left.Decoder != right.Decoder || a[0] != 77 || a[5761] != 88 {
+			t.Fatal("native typed payload")
+		}
+		for i := range a {
+			if a[i] != b[i] {
+				t.Fatal("native typed payload PCM")
+			}
+		}
+	}
+}
+
+func TestOpusNativePayloadPointers(t *testing.T) {
+	if opusNativePayload(nil, 99, 0) != nil || opusNativePayload(nil, 99, 1) != nil {
+		t.Fatal("unused payload view")
+	}
+	packet := []byte{77, 88, 10, 11, 12}
+	view := opusNativePayload(&packet[0], 2, 3)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if view != &packet[2] || unsafe.Slice(view, 3)[2] != 12 {
+		t.Fatal("numeric packet cursor")
+	}
+	if opusNativePayload(&packet[0], 5, 0) != nil {
+		t.Fatal("unused exact EOF view")
+	}
+}
+
 func TestOpusNativeTypedDecoderEntry(t *testing.T) {
 	left, right := newOpusFrameOwnerDecoder(t, 1), newOpusFrameOwnerDecoder(t, 1)
 	a, b := make([]float32, 122), make([]float32, 122)
 	a[0], a[121], b[0], b[121] = 77, 88, 77, 88
 	entropyInitGrowStack(12)
 	runtime.GC()
-	ra := opusDecodeNative(nil, &left.Decoder, 0, 0, uintptr(unsafe.Pointer(&a[1])), 120, 0, 0, 0, 0)
+	ra := opusDecodeNative(nil, &left.Decoder, nil, 0, uintptr(unsafe.Pointer(&a[1])), 120, 0, 0, 0, 0)
 	rb := Opus_opus_decode_native(nil, uintptr(unsafe.Pointer(&right.Decoder)), 0, 0, uintptr(unsafe.Pointer(&b[1])), 120, 0, 0, 0, 0, 0, 0)
 	if ra != 120 || rb != ra || left.Decoder != right.Decoder || a[0] != 77 || a[121] != 88 {
 		t.Fatal("native typed decoder entry")

@@ -2822,6 +2822,13 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 	return v31
 }
 
+func opusNativePayload(packet *byte, offset uintptr, length int32) *byte {
+	if length <= 1 {
+		return nil
+	}
+	return &unsafe.Slice(packet, offset+uintptr(length))[offset]
+}
+
 func opusNativePacketFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, count, total int32) int32 {
 	return opusDecodeFrame(tls, decoder, data, length, opusFrameSilkPCM(pcm, uintptr(count*decoder.Fchannels)*4), total-count, 0)
 }
@@ -2836,11 +2843,11 @@ func opusNativePLCFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, pcm *float32,
 
 //go:uintptrescapes
 func Opus_opus_decode_native(tls *libc.TLS, st, data uintptr, len1 int32, pcm uintptr, frame_size, decode_fec, self_delimited int32, packet_offset uintptr, soft_clip int32, dred uintptr, dred_offset int32) int32 {
-	return opusDecodeNative(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), data, len1, pcm, frame_size, decode_fec, self_delimited, packet_offset, soft_clip)
+	return opusDecodeNative(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), len1, pcm, frame_size, decode_fec, self_delimited, packet_offset, soft_clip)
 }
 
 //go:uintptrescapes
-func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data uintptr, len1 int32, pcm uintptr, frame_size, decode_fec, self_delimited int32, packet_offset uintptr, soft_clip int32) (r int32) {
+func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len1 int32, pcm uintptr, frame_size, decode_fec, self_delimited int32, packet_offset uintptr, soft_clip int32) (r int32) {
 	var count, duration_copy, i, nb_samples, packet_bandwidth, packet_frame_size, packet_mode, packet_stream_channels, pcm_count, ret, ret1, ret2, v1 int32
 	var v8 OpusT_opus_val16
 	var toc uint8
@@ -2854,10 +2861,10 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data uintptr, l
 		return -int32(1)
 	}
 	/* For FEC/PLC, frame_size has to be to have a multiple of 2.5 ms */
-	if (decode_fec != 0 || len1 == 0 || data == uintptr(uint32(0))) && frame_size%(decoder.FFs/int32(400)) != 0 {
+	if (decode_fec != 0 || len1 == 0 || data == nil) && frame_size%(decoder.FFs/int32(400)) != 0 {
 		return -int32(1)
 	}
-	if len1 == 0 || data == uintptr(uint32(0)) {
+	if len1 == 0 || data == nil {
 		pcm_count = 0
 		for cond := true; cond; cond = pcm_count < frame_size {
 			ret = opusNativePLCFrame(tls, decoder, (*float32)(unsafe.Pointer(pcm)), pcm_count, frame_size)
@@ -2892,16 +2899,16 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data uintptr, l
 		return count
 	}
 	Opus_opus_extension_iterator_init(tls, &iter, padding, padding_len, count)
-	data = data + uintptr(offset)
+	payload_offset := uintptr(offset)
 	if decode_fec != 0 {
 		/* If no FEC can be present, run the PLC (recursive call) */
 		if frame_size < packet_frame_size || packet_mode == int32(MODE_CELT_ONLY) || decoder.Fmode == int32(MODE_CELT_ONLY) {
-			return opusDecodeNative(tls, decoder, 0, 0, pcm, frame_size, 0, 0, 0, soft_clip)
+			return opusDecodeNative(tls, decoder, nil, 0, pcm, frame_size, 0, 0, 0, soft_clip)
 		}
 		/* Otherwise, run the PLC on everything except the size for which we might have FEC */
 		duration_copy = decoder.Flast_packet_duration
 		if frame_size-packet_frame_size != 0 {
-			ret1 = opusDecodeNative(tls, decoder, 0, 0, pcm, frame_size-packet_frame_size, 0, 0, 0, soft_clip)
+			ret1 = opusDecodeNative(tls, decoder, nil, 0, pcm, frame_size-packet_frame_size, 0, 0, 0, soft_clip)
 			if ret1 < 0 {
 				decoder.Flast_packet_duration = duration_copy
 				return ret1
@@ -2915,7 +2922,7 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data uintptr, l
 		decoder.Fbandwidth = packet_bandwidth
 		decoder.Fframe_size = packet_frame_size
 		decoder.Fstream_channels = packet_stream_channels
-		ret1 = opusNativeFECFrame(tls, decoder, (*byte)(unsafe.Pointer(data)), int32(size[0]), (*float32)(unsafe.Pointer(pcm)), frame_size, packet_frame_size)
+		ret1 = opusNativeFECFrame(tls, decoder, opusNativePayload(data, payload_offset, int32(size[0])), int32(size[0]), (*float32)(unsafe.Pointer(pcm)), frame_size, packet_frame_size)
 		if ret1 < 0 {
 			return ret1
 		} else {
@@ -2940,14 +2947,14 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data uintptr, l
 		if !(i < count) {
 			break
 		}
-		ret2 = opusNativePacketFrame(tls, decoder, (*byte)(unsafe.Pointer(data)), int32(size[i]), (*float32)(unsafe.Pointer(pcm)), nb_samples, frame_size)
+		ret2 = opusNativePacketFrame(tls, decoder, opusNativePayload(data, payload_offset, int32(size[i])), int32(size[i]), (*float32)(unsafe.Pointer(pcm)), nb_samples, frame_size)
 		if ret2 < 0 {
 			return ret2
 		}
 		if !(ret2 == packet_frame_size) {
 			Opus_celt_fatal(tls, __ccgo_ts+2049, __ccgo_ts+57, int32(865))
 		}
-		data = data + uintptr(size[i])
+		payload_offset += uintptr(size[i])
 		nb_samples = nb_samples + ret2
 		i = i + 1
 	}
