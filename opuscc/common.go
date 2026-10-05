@@ -2996,35 +2996,33 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len
 }
 
 //go:uintptrescapes
-func Opus_opus_decode(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, frame_size, decode_fec int32) (r int32) {
-	var out []float32
-	var nb_samples, ret, v31 int32
-	if frame_size <= 0 {
+func Opus_opus_decode(tls *libc.TLS, st1, data uintptr, length int32, pcm uintptr, frameSize, fec int32) int32 {
+	return opusDecodeInt16(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), length, (*int16)(unsafe.Pointer(pcm)), frameSize, fec)
+}
+
+func opusDecodeInt16(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *int16, frameSize, fec int32) int32 {
+	if frameSize <= 0 {
 		return -1
 	}
-	if data != uintptr(uint32(0)) && len1 > 0 && !(decode_fec != 0) {
-		nb_samples = Opus_opus_decoder_get_nb_samples(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1)
-		if nb_samples > 0 {
-			if frame_size < nb_samples {
-				v31 = frame_size
-			} else {
-				v31 = nb_samples
-			}
-			frame_size = v31
-		} else {
-			return -int32(4)
+	if data != nil && length > 0 && fec == 0 {
+		samples := Opus_opus_decoder_get_nb_samples(tls, decoder, data, length)
+		if samples <= 0 {
+			return -4
+		}
+		if frameSize >= samples {
+			frameSize = samples
 		}
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels == int32(1) || (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, int32(917))
+	if !(decoder.Fchannels == 1 || decoder.Fchannels == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 917)
 	}
-	out = opusFrameAudioStorage(frame_size * (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)
-	ret = opusDecodeNative(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, unsafe.SliceData(out), frame_size, decode_fec, 0, nil, int32(OPTIONAL_CLIP))
-	if ret > 0 {
-		_ = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Farch
-		Opus_celt_float2int16_c(tls, unsafe.SliceData(out), (*int16)(unsafe.Pointer(pcm)), ret*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)
+	out := opusFrameAudioStorage(frameSize * decoder.Fchannels)
+	result := opusDecodeNative(tls, decoder, data, length, unsafe.SliceData(out), frameSize, fec, 0, nil, OPTIONAL_CLIP)
+	if result > 0 {
+		_ = decoder.Farch
+		Opus_celt_float2int16_c(tls, unsafe.SliceData(out), pcm, result*decoder.Fchannels)
 	}
-	return ret
+	return result
 }
 
 //go:uintptrescapes

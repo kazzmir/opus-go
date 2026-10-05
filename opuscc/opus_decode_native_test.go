@@ -8,6 +8,41 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusInt16WholePointers(t *testing.T) {
+	if opusDecodeInt16(nil, nil, nil, 0, nil, 0, 2) != -1 {
+		t.Fatal("int16 typed minimum frame")
+	}
+	for _, C := range []int32{1, 2} {
+		for _, packet := range [][]byte{{0}, {3, 2}, mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40"), mustHex(t, "7c8cb723a4e954f30817690d8021804d5c6f7c7a79cdaeeeda68b9cc67aab183653ff229912863fc3f7a335205cb0e033bed80eb1a0cfd3f5f")} {
+			storage := newOpusFrameOwnerDecoder(t, C)
+			pcm := make([]int16, 5760*C+2)
+			pcm[0], pcm[len(pcm)-1] = 77, 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			count := opusDecodeInt16(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0)
+			if count <= 0 || storage.Decoder.Flast_packet_duration != count || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+				t.Fatal("whole int16 normal", C, packet[0], count)
+			}
+			if packet[0] == 24 && storage.Decoder.FrangeFinal != 0x50373c71 {
+				t.Fatal("int16 C range golden")
+			}
+			for _, fec := range []int32{0, 1} {
+				var data *byte
+				length := int32(0)
+				if fec != 0 {
+					data = &packet[0]
+					length = int32(len(packet))
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				if opusDecodeInt16(nil, &storage.Decoder, data, length, &pcm[1], 5760, fec) != 5760 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+					t.Fatal("whole int16 PLC/FEC")
+				}
+			}
+		}
+	}
+}
+
 func TestOpusInt24NoPseudostack(t *testing.T) {
 	if Opus_opus_decode24(nil, 0, 0, 0, 0, 0, 2) != -1 {
 		t.Fatal("int24 validation order")
