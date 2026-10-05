@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four small CELT metadata rounds change the dormant mini complex/real FFT cfg
+aliases from uintptr to the corresponding state pointer types, remove unused
+function-name pointer conversions/storage at four FFT assertion sites, and delete
+an unused uintptr temporary plus unused generated numeric locals/blank-use tuple
+from quant_partition. Upstream mini_kfft.c defines both cfg types as state
+pointers; active allocation/transform functions were already typed. These alias
+changes intentionally update the exported Go type aliases, not allocator layouts.
+libcshim.X__assert_fail ignores its final function-name argument, so supplying
+zero leaves existing assertion condition, expression/file/line and panic text
+unchanged. No assertion was removed or weakened.
+
+Grouped FFT tests exercise both typed cfg holders after GC/stack growth using
+nil TLS, and explicitly recover/check diagnostics for all four failure sites.
+Existing allocation/stride/layout/transform native comparisons and complete
+quantization/packet/concealment references remain unchanged. Every round passes
+full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons and GC stress with
+unchanged codec goldens/tolerances; repeated scoped/ordinary ARM runs complete
+validation. Production opuscc uintptr tokens decrease 255→248 (7 removed).
+This is a small duplicate-metadata/API-type cleanup, not additional active decoder
+ownership coverage or a repair of opaque scanning/raw callback/extension EOF.
+
 Four VAD analysis rounds introduce typed encoder/input ownership behind the
 public escape adapter, replace integer sample-buffer addressing with typed slices
 and numeric band offsets, allocate the reusable decimation/energy samples in Go,
