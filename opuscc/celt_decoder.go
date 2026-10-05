@@ -151,14 +151,6 @@ func deemphasis_stereo_simple(tls *libc.TLS, left *OpusT_celt_sig, right *OpusT_
 	mem[0], mem[1] = m0, m1
 }
 
-func deemphasis_legacy(tls *libc.TLS, in, pcm uintptr, N, C, downsample int32, coef, mem uintptr, accum int32) {
-	raw := unsafe.Slice((*uintptr)(unsafe.Pointer(in)), max(C, 1))
-	channels := make([]*float32, len(raw))
-	for i := range raw {
-		channels[i] = (*float32)(unsafe.Pointer(raw[i]))
-	}
-	deemphasis(tls, unsafe.SliceData(channels), (*float32)(unsafe.Pointer(pcm)), N, C, downsample, (*float32)(unsafe.Pointer(coef)), (*float32)(unsafe.Pointer(mem)), accum)
-}
 func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, downsample int32, coef *float32, mem *float32, accum int32) {
 	// Common stereo dispatch needs no TLS scratch, just as the C early return.
 	if downsample == 1 && C == 2 && accum == 0 {
@@ -254,27 +246,6 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 	}
 }
 
-//go:uintptrescapes
-func celt_synthesis_legacy(tls *libc.TLS, mode, X, out, energy uintptr, start, end, C, CC, transient, LM, downsample, silence, arch int32) {
-	typedMode := (*OpusT_OpusCustomMode)(unsafe.Pointer(mode))
-	typedX := (*float32)(unsafe.Pointer(X))
-	typedEnergy := (*float32)(unsafe.Pointer(energy))
-	raw := unsafe.Slice((*uintptr)(unsafe.Pointer(out)), max(CC, 1))
-	// Retain normal decoder channel buffers before any allocation/stack growth.
-	var pair [2]*float32
-	for i := 0; i < min(len(raw), len(pair)); i++ {
-		pair[i] = (*float32)(unsafe.Pointer(raw[i]))
-	}
-	outputs := pair[:min(len(raw), len(pair))]
-	if len(raw) > len(pair) {
-		outputs = make([]*float32, len(raw))
-		copy(outputs, pair[:])
-		for i := len(pair); i < len(raw); i++ {
-			outputs[i] = (*float32)(unsafe.Pointer(raw[i]))
-		}
-	}
-	celt_synthesis(tls, typedMode, typedX, unsafe.SliceData(outputs), typedEnergy, start, end, C, CC, transient, LM, downsample, silence, arch)
-}
 func celtSynthesisGeometry(mode *OpusT_OpusCustomMode, LM int32) (overlap, bands, N int32) {
 	return mode.Foverlap, mode.FnbEBands, mode.FshortMdctSize << LM
 }
