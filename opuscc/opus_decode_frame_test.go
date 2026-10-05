@@ -14,6 +14,32 @@ type opusFrameOwnerTestStorage struct {
 	Celt    celtStateTestStorage
 }
 
+func TestOpusFrameSilkTransitionStoragePointers(t *testing.T) {
+	transition, celt := opusFrameAudioStorage(240), opusFrameAudioStorage(240)
+	temporary := opusFrameAudioStorage(480)
+	state := new(OpusT_silk_decoder)
+	Opus_silk_InitDecoder(nil, state)
+	control := OpusT_silk_DecControlStruct{FnChannelsAPI: 1, FnChannelsInternal: 1, FAPI_sampleRate: 48000, FinternalSampleRate: 16000, FpayloadSize_ms: 10}
+	var count int32
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if silk_Decode(nil, state, &control, 1, 1, nil, unsafe.SliceData(temporary), &count, 0) != 0 || count != 480 {
+		t.Fatal("SILK transition PLC")
+	}
+	copy(transition, temporary[:240])
+	transition[0] = 3
+	if celt[0] != 0 || transition[0] != 3 {
+		t.Fatal("transition owners alias")
+	}
+	output := make([]float32, 242)
+	output[0], output[241] = 77, 88
+	copy(output[1:121], transition[:120])
+	smooth_fade(nil, &transition[120], &output[121], &output[121], 120, 1, mode48000_960_120.Fwindow, 48000)
+	if output[0] != 77 || output[241] != 88 || output[1] != 3 {
+		t.Fatal("SILK transition prefix/fade guards")
+	}
+}
+
 func TestOpusFrameCeltTransitionStoragePointers(t *testing.T) {
 	for _, C := range []int32{1, 2} {
 		temporary := opusFrameAudioStorage(240 * C)
