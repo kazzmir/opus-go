@@ -1,11 +1,30 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestVADAnalysisTypedOwners(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	setupResamplerPseudostack(tls)
+	state := new(OpusT_silk_encoder_state)
+	state.Fframe_length = 160
+	Opus_silk_VAD_Init(nil, &state.FsVAD)
+	input := make([]int16, 160)
+	for i := range input {
+		input[i] = int16(i*31 - 2000)
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if silkVADAnalysis(tls, state, &input[0]) != 0 || state.FsVAD.Fcounter != 16 {
+		t.Fatal("typed VAD owners")
+	}
+}
 
 func TestVADAnalysisVADStateBase(t *testing.T) {
 	tls := libc.NewTLS()

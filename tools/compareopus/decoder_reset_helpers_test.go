@@ -3,6 +3,7 @@
 package main
 
 import (
+	libc "github.com/kazzmir/opus-go/libcshim"
 	"github.com/kazzmir/opus-go/opuscc"
 	"math/rand"
 	"slices"
@@ -30,6 +31,37 @@ func TestLTPVectorTablesAgainstC(t *testing.T) {
 	for i, p := range opuscc.Opus_silk_LTP_vq_ptrs_Q7 {
 		if !slices.Equal(unsafe.Slice((*byte)(unsafe.Pointer(p)), (8<<i)*opuscc.LTP_ORDER), nativeLTPTable(3, i)) {
 			t.Fatal("LTP signed vector table", i)
+		}
+	}
+}
+
+func TestVADAnalysisAgainstC(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	storage := libc.XmallocPointer(tls, 16)
+	buffer := libc.XmallocPointer(tls, 1<<20)
+	defer libc.XfreePointer(tls, storage)
+	defer libc.XfreePointer(tls, buffer)
+	cursor := (*opuscc.OpusT_opus_ccgo_pseudostack_state)(storage)
+	cursor.Fscratch_ptr = uintptr(buffer)
+	cursor.Fglobal_stack = uintptr(buffer)
+	libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(storage))
+	for _, N := range []int{80, 120, 160, 240, 320} {
+		var state opuscc.OpusT_silk_encoder_state
+		state.Fframe_length = int32(N)
+		opuscc.Opus_silk_VAD_Init(nil, &state.FsVAD)
+		reference := state.FsVAD
+		for step := 0; step < 4; step++ {
+			input := make([]int16, N)
+			for i := range input {
+				input[i] = int16((i*137+step*997)%12000 - 6000)
+			}
+			ret := opuscc.Opus_silk_VAD_GetSA_Q8_c(tls, uintptr(unsafe.Pointer(&state)), uintptr(unsafe.Pointer(&input[0])))
+			expected, fields := nativeVADAnalysis(&reference, input)
+			got := [6]int32{state.Fspeech_activity_Q8, state.Finput_tilt_Q15, state.Finput_quality_bands_Q15[0], state.Finput_quality_bands_Q15[1], state.Finput_quality_bands_Q15[2], state.Finput_quality_bands_Q15[3]}
+			if ret != expected || state.FsVAD != reference || got != fields {
+				t.Fatal("VAD whole analysis", N, step, got, fields)
+			}
 		}
 	}
 }

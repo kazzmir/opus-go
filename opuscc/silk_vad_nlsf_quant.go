@@ -40,7 +40,13 @@ var tiltWeights = [4]OpusT_opus_int32{
 //	/***************************************/
 //	/* Get the speech activity level in Q8 */
 //	/***************************************/
-func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 int32) {
+//
+//go:uintptrescapes
+func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, encoder, input uintptr) int32 {
+	return silkVADAnalysis(tls, (*OpusT_silk_encoder_state)(unsafe.Pointer(encoder)), (*int16)(unsafe.Pointer(input)))
+}
+
+func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16) (r1 int32) {
 	var HPstateTmp OpusT_opus_int16
 	var NrgToNoiseRatio_Q8 [4]OpusT_opus_int32
 	var Xnrg [4]OpusT_opus_int32
