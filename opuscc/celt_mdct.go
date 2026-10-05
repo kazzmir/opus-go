@@ -134,12 +134,6 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16
 	}
 }
 
-func mdct_backward_legacy(tls *libc.TLS, l, in, out uintptr, window *float32, overlap, shift, stride, arch int32) {
-	lookup := (*OpusT_mdct_lookup)(unsafe.Pointer(l))
-	st := lookup.Fkfft[shift]
-	Opus_clt_mdct_backward_c(tls, lookup, st.Fbitrev, st.Ftwiddles, (*float32)(unsafe.Pointer(in)), (*float32)(unsafe.Pointer(out)), window, overlap, shift, stride, arch)
-}
-
 const MINI_MAXFACTORS = 32
 const mini_kiss_fft_scalar = "float"
 

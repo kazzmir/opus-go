@@ -3582,21 +3582,21 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 
 type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr)
 
-type opusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32, uintptr)
+type opusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32)
 
-func opusMSCopyFloat(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+func opusMSCopyFloat(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 	opus_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n)
 }
 
-func opusMSCopyShort(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+func opusMSCopyShort(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 	opus_copy_channel_out_short(tls, (*int16)(dst), ds, dc, src, ss, n)
 }
 
-func opusMSCopyInt24(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+func opusMSCopyInt24(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 	opus_copy_channel_out_int24(tls, (*int32)(dst), ds, dc, src, ss, n)
 }
 
-func opusMSBindCopy(callback uintptr) opusMSChannelCopy {
+func opusMSBindCopy(callback, user uintptr) opusMSChannelCopy {
 	switch callback {
 	case __ccgo_fp(opus_copy_channel_out_float_legacy):
 		return opusMSCopyFloat
@@ -3606,12 +3606,12 @@ func opusMSBindCopy(callback uintptr) opusMSChannelCopy {
 		return opusMSCopyInt24
 	default:
 		legacy := *(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback}))
-		return opusMSBindLegacyCopy(legacy)
+		return opusMSBindLegacyCopy(legacy, user)
 	}
 }
 
-func opusMSBindLegacyCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_native_4) opusMSChannelCopy {
-	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+func opusMSBindLegacyCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_native_4, user uintptr) opusMSChannelCopy {
+	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 		opusMSInvokeLegacy(tls, legacy, uintptr(dst), ds, dc, uintptr(unsafe.Pointer(src)), ss, n, user)
 	}
 }
@@ -3619,11 +3619,6 @@ func opusMSBindLegacyCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_nativ
 //go:uintptrescapes
 func opusMSInvokeLegacy(tls *libc.TLS, callback OpusT___ccgo_fp__Xopus_multistream_decode_native_4, dst uintptr, ds, dc int32, src uintptr, ss, n int32, user uintptr) {
 	callback(tls, dst, ds, dc, src, ss, n, user)
-}
-
-//go:uintptrescapes
-func opusMSLegacyCopyChannel(tls *libc.TLS, callback, dst uintptr, dstStride, dstChannel int32, src uintptr, srcStride, frames int32, userData uintptr) {
-	(*(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback})))(tls, dst, dstStride, dstChannel, src, srcStride, frames, userData)
 }
 
 func opusMSDecoderAt(decoder *OpusT_OpusMSDecoder, offset uintptr) *OpusT_OpusDecoder {
@@ -3636,7 +3631,7 @@ func opusMSDecodeChild(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, le
 
 //go:uintptrescapes
 func Opus_opus_multistream_decode_native(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, callback uintptr, frame_size, decode_fec, soft_clip int32, user_data uintptr) int32 {
-	return opusMSDecodeNative(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, unsafe.Pointer(pcm), opusMSBindCopy(callback), frame_size, decode_fec, soft_clip, user_data)
+	return opusMSDecodeNative(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, unsafe.Pointer(pcm), opusMSBindCopy(callback, user_data), frame_size, decode_fec, soft_clip)
 }
 
 func opusMSPacketAt(data *byte, offset uintptr, length int32) *byte {
@@ -3646,7 +3641,7 @@ func opusMSPacketAt(data *byte, offset uintptr, length int32) *byte {
 	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
 }
 
-func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, len1 int32, pcm unsafe.Pointer, copyChannel opusMSChannelCopy, frame_size, decode_fec, soft_clip int32, user_data uintptr) (r int32) {
+func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, len1 int32, pcm unsafe.Pointer, copyChannel opusMSChannelCopy, frame_size, decode_fec, soft_clip int32) (r int32) {
 	var position uintptr
 	var scratch struct{ Fs, packetOffset int32 } // typed CTL and child outputs need no opaque allocation
 	var dec *OpusT_OpusDecoder
@@ -3731,7 +3726,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 				if !(v31 != -int32(1)) {
 					break
 				}
-				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, buf, 2, frame_size, user_data)
+				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, buf, 2, frame_size)
 				prev = chan1
 			}
 			prev = -int32(1)
@@ -3742,7 +3737,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 				if !(v31 != -int32(1)) {
 					break
 				}
-				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, (*float32)(unsafe.Add(unsafe.Pointer(buf), 4)), 2, frame_size, user_data)
+				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, (*float32)(unsafe.Add(unsafe.Pointer(buf), 4)), 2, frame_size)
 				prev = chan1
 			}
 		} else {
@@ -3754,7 +3749,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 				if !(v31 != -int32(1)) {
 					break
 				}
-				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan11, buf, 1, frame_size, user_data)
+				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan11, buf, 1, frame_size)
 				prev1 = chan11
 			}
 		}
@@ -3767,7 +3762,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 			break
 		}
 		if int32(decoder.Flayout.Fmapping[c]) == int32(255) {
-			copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, c, nil, 0, frame_size, user_data)
+			copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, c, nil, 0, frame_size)
 		}
 		c = c + 1
 	}
@@ -3859,7 +3854,7 @@ func Opus_opus_multistream_decode(tls *libc.TLS, st, data uintptr, length int32,
 }
 
 func opusMSDecodeShort(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
-	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyShort, frame, fec, OPTIONAL_CLIP, 0)
+	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyShort, frame, fec, OPTIONAL_CLIP)
 }
 
 //go:uintptrescapes
@@ -3868,7 +3863,7 @@ func Opus_opus_multistream_decode24(tls *libc.TLS, st, data uintptr, length int3
 }
 
 func opusMSDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
-	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyInt24, frame, fec, 0, 0)
+	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyInt24, frame, fec, 0)
 }
 
 //go:uintptrescapes
@@ -3877,7 +3872,7 @@ func Opus_opus_multistream_decode_float(tls *libc.TLS, st, data uintptr, length 
 }
 
 func opusMSDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
-	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyFloat, frame, fec, 0, 0)
+	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyFloat, frame, fec, 0)
 }
 
 func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, request int32, ap OpusT_va_list) int32 {
@@ -4180,11 +4175,6 @@ func opus_projection_copy_channel_out_float(tls *libc.TLS, dst *float32, dstStri
 	}
 }
 
-//go:uintptrescapes
-func opus_projection_copy_channel_out_float_legacy(tls *libc.TLS, dst uintptr, ds, dc int32, src uintptr, ss, n int32, matrix uintptr) {
-	opus_projection_copy_channel_out_float(tls, (*float32)(unsafe.Pointer(dst)), ds, dc, (*OpusT_opus_res)(unsafe.Pointer(src)), ss, n, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))
-}
-
 func opus_projection_copy_channel_out_short(tls *libc.TLS, dst *int16, dstStride, dstChannel int32, src *OpusT_opus_res, srcStride, frames int32, matrix *OpusT_MappingMatrix) {
 	if frames <= 0 {
 		return
@@ -4195,11 +4185,6 @@ func opus_projection_copy_channel_out_short(tls *libc.TLS, dst *int16, dstStride
 	if src != nil {
 		Opus_mapping_matrix_multiply_channel_out_short(tls, matrix, src, dstChannel, srcStride, dst, dstStride, frames)
 	}
-}
-
-//go:uintptrescapes
-func opus_projection_copy_channel_out_short_legacy(tls *libc.TLS, dst uintptr, ds, dc int32, src uintptr, ss, n int32, matrix uintptr) {
-	opus_projection_copy_channel_out_short(tls, (*int16)(unsafe.Pointer(dst)), ds, dc, (*OpusT_opus_res)(unsafe.Pointer(src)), ss, n, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))
 }
 
 func opus_projection_copy_channel_out_int24(tls *libc.TLS, dst *int32, dstStride, dstChannel int32, src *OpusT_opus_res, srcStride, frames int32, matrix *OpusT_MappingMatrix) {
@@ -4214,11 +4199,6 @@ func opus_projection_copy_channel_out_int24(tls *libc.TLS, dst *int32, dstStride
 	}
 }
 
-//go:uintptrescapes
-func opus_projection_copy_channel_out_int24_legacy(tls *libc.TLS, dst uintptr, ds, dc int32, src uintptr, ss, n int32, matrix uintptr) {
-	opus_projection_copy_channel_out_int24(tls, (*int32)(unsafe.Pointer(dst)), ds, dc, (*OpusT_opus_res)(unsafe.Pointer(src)), ss, n, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))
-}
-
 // The header must belong to the complete projection decoder backing allocation.
 func get_dec_demixing_matrix(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *OpusT_MappingMatrix {
 	return (*OpusT_MappingMatrix)(unsafe.Add(unsafe.Pointer(st), 8))
@@ -4228,11 +4208,6 @@ func get_dec_demixing_matrix(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *Op
 func get_multistream_decoder(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *OpusT_OpusMSDecoder {
 	offset := int32((uint32(st.Fdemixing_matrix_size_in_bytes) + 4 + 7) / 8 * 8)
 	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), uintptr(offset)))
-}
-
-// Explicit boundary for the remaining outer uintptr-based projection APIs.
-func get_multistream_decoder_legacy(tls *libc.TLS, st uintptr) uintptr {
-	return uintptr(unsafe.Pointer(get_multistream_decoder(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)))))
 }
 
 func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels int32, streams int32, coupled_streams int32) (r OpusT_opus_int32) {
@@ -4302,12 +4277,38 @@ func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, cha
 	return uintptr(unsafe.Pointer(st)), err
 }
 
-func Opus_opus_projection_decode(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder_legacy(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_short_legacy), frame_size, decode_fec, int32(OPTIONAL_CLIP), uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
+//go:uintptrescapes
+func Opus_opus_projection_decode(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
+	return opusProjectionDecodeShort(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int16)(unsafe.Pointer(pcm)), frame, fec)
 }
 
-func Opus_opus_projection_decode24(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder_legacy(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_int24_legacy), frame_size, decode_fec, 0, uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
+func opusProjectionShortCopy(matrix *OpusT_MappingMatrix) opusMSChannelCopy {
+	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
+		opus_projection_copy_channel_out_short(tls, (*int16)(dst), ds, dc, src, ss, n, matrix)
+	}
+}
+
+func opusProjectionDecodeShort(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
+	ms := get_multistream_decoder(tls, decoder)
+	matrix := get_dec_demixing_matrix(tls, decoder)
+	return opusMSDecodeNative(tls, ms, data, length, unsafe.Pointer(pcm), opusProjectionShortCopy(matrix), frame, fec, OPTIONAL_CLIP)
+}
+
+//go:uintptrescapes
+func Opus_opus_projection_decode24(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
+	return opusProjectionDecodeInt24(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int32)(unsafe.Pointer(pcm)), frame, fec)
+}
+
+func opusProjectionInt24Copy(matrix *OpusT_MappingMatrix) opusMSChannelCopy {
+	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
+		opus_projection_copy_channel_out_int24(tls, (*int32)(dst), ds, dc, src, ss, n, matrix)
+	}
+}
+
+func opusProjectionDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
+	ms := get_multistream_decoder(tls, decoder)
+	matrix := get_dec_demixing_matrix(tls, decoder)
+	return opusMSDecodeNative(tls, ms, data, length, unsafe.Pointer(pcm), opusProjectionInt24Copy(matrix), frame, fec, 0)
 }
 
 //go:uintptrescapes
@@ -4316,7 +4317,7 @@ func Opus_opus_projection_decode_float(tls *libc.TLS, st, data uintptr, length i
 }
 
 func opusProjectionFloatCopy(matrix *OpusT_MappingMatrix) opusMSChannelCopy {
-	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 		opus_projection_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n, matrix)
 	}
 }
@@ -4324,7 +4325,7 @@ func opusProjectionFloatCopy(matrix *OpusT_MappingMatrix) opusMSChannelCopy {
 func opusProjectionDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
 	ms := get_multistream_decoder(tls, decoder)
 	matrix := get_dec_demixing_matrix(tls, decoder)
-	return opusMSDecodeNative(tls, ms, data, length, unsafe.Pointer(pcm), opusProjectionFloatCopy(matrix), frame, fec, 0, 0)
+	return opusMSDecodeNative(tls, ms, data, length, unsafe.Pointer(pcm), opusProjectionFloatCopy(matrix), frame, fec, 0)
 }
 
 func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {

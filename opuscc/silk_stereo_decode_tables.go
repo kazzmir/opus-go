@@ -4821,34 +4821,18 @@ var Opus_silk_LTPScales_table_Q14 = [3]OpusT_opus_int16{
 	2: int16(8192),
 }
 
-var Opus_silk_LTP_gain_BITS_Q5_ptrs = [3]uintptr{
-	0: uintptr(unsafe.Pointer(&silk_LTP_gain_BITS_Q5_0)),
-	1: uintptr(unsafe.Pointer(&silk_LTP_gain_BITS_Q5_1)),
-	2: uintptr(unsafe.Pointer(&silk_LTP_gain_BITS_Q5_2)),
-}
+var Opus_silk_LTP_gain_BITS_Q5_ptrs = [3]*byte{&silk_LTP_gain_BITS_Q5_0[0], &silk_LTP_gain_BITS_Q5_1[0], &silk_LTP_gain_BITS_Q5_2[0]}
 
-var Opus_silk_LTP_gain_iCDF_ptrs = [3]uintptr{
-	0: uintptr(unsafe.Pointer(&silk_LTP_gain_iCDF_0)),
-	1: uintptr(unsafe.Pointer(&silk_LTP_gain_iCDF_1)),
-	2: uintptr(unsafe.Pointer(&silk_LTP_gain_iCDF_2)),
-}
+var Opus_silk_LTP_gain_iCDF_ptrs = [3]*byte{&silk_LTP_gain_iCDF_0[0], &silk_LTP_gain_iCDF_1[0], &silk_LTP_gain_iCDF_2[0]}
 
 var Opus_silk_LTP_per_index_iCDF = [3]OpusT_opus_uint8{
 	0: uint8(179),
 	1: uint8(99),
 }
 
-var Opus_silk_LTP_vq_gain_ptrs_Q7 = [3]uintptr{
-	0: uintptr(unsafe.Pointer(&silk_LTP_gain_vq_0_gain)),
-	1: uintptr(unsafe.Pointer(&silk_LTP_gain_vq_1_gain)),
-	2: uintptr(unsafe.Pointer(&silk_LTP_gain_vq_2_gain)),
-}
+var Opus_silk_LTP_vq_gain_ptrs_Q7 = [3]*byte{&silk_LTP_gain_vq_0_gain[0], &silk_LTP_gain_vq_1_gain[0], &silk_LTP_gain_vq_2_gain[0]}
 
-var Opus_silk_LTP_vq_ptrs_Q7 = [3]uintptr{
-	0: uintptr(unsafe.Pointer(&silk_LTP_gain_vq_0)),
-	1: uintptr(unsafe.Pointer(&silk_LTP_gain_vq_1)),
-	2: uintptr(unsafe.Pointer(&silk_LTP_gain_vq_2)),
-}
+var Opus_silk_LTP_vq_ptrs_Q7 = [3]*[LTP_ORDER]int8{&silk_LTP_gain_vq_0[0], &silk_LTP_gain_vq_1[0], &silk_LTP_gain_vq_2[0]}
 
 var Opus_silk_LTP_vq_sizes = [3]OpusT_opus_int8{
 	0: int8(8),

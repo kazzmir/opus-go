@@ -3,9 +3,157 @@ package opuscc
 import (
 	"runtime"
 	"testing"
+	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestLTPICDFTablePointers(t *testing.T) {
+	original := Opus_silk_LTP_gain_iCDF_ptrs
+	defer func() { Opus_silk_LTP_gain_iCDF_ptrs = original }()
+	for i := range original {
+		N := 8 << i
+		want := append([]byte(nil), unsafe.Slice(original[i], N)...)
+		clone := append([]byte(nil), want...)
+		Opus_silk_LTP_gain_iCDF_ptrs[i] = &clone[0]
+		clone = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		data := []byte{0x73, 0x15, 0x98, 0x52, 0xa3, 0x7b, 0x66, 0x91}
+		var got, expected OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &got, &data[0], uint32(len(data)))
+		Opus_ec_dec_init(nil, &expected, &data[0], uint32(len(data)))
+		for j := 0; j < 12; j++ {
+			if Opus_ec_dec_icdf(nil, &got, Opus_silk_LTP_gain_iCDF_ptrs[i], 8) != Opus_ec_dec_icdf(nil, &expected, &want[0], 8) || got != expected {
+				t.Fatal("typed LTP ICDF owner/state", i, j)
+			}
+		}
+	}
+}
+
+func TestLTPVectorGainTablePointers(t *testing.T) {
+	original := Opus_silk_LTP_vq_gain_ptrs_Q7
+	defer func() { Opus_silk_LTP_vq_gain_ptrs_Q7 = original }()
+	for i := range original {
+		N := 8 << i
+		want := append([]byte(nil), unsafe.Slice(original[i], N)...)
+		clone := append([]byte(nil), want...)
+		Opus_silk_LTP_vq_gain_ptrs_Q7[i] = &clone[0]
+		clone = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := unsafe.Slice(Opus_silk_LTP_vq_gain_ptrs_Q7[i], N)
+		for j := range want {
+			if got[j] != want[j] {
+				t.Fatal("typed LTP vector gain table owner", i, j)
+			}
+		}
+	}
+}
+
+func TestLTPVectorTablePointers(t *testing.T) {
+	original := Opus_silk_LTP_vq_ptrs_Q7
+	defer func() { Opus_silk_LTP_vq_ptrs_Q7 = original }()
+	for i := range original {
+		N := 8 << i
+		want := append([][LTP_ORDER]int8(nil), unsafe.Slice(original[i], N)...)
+		clone := append([][LTP_ORDER]int8(nil), want...)
+		Opus_silk_LTP_vq_ptrs_Q7[i] = &clone[0]
+		clone = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := unsafe.Slice(Opus_silk_LTP_vq_ptrs_Q7[i], N)
+		for j := range want {
+			if got[j] != want[j] {
+				t.Fatal("typed LTP vector table owner", i, j)
+			}
+		}
+		for row := 0; row < N; row++ {
+			var st OpusT_silk_decoder_state
+			st.Fnb_subfr = 4
+			Opus_silk_decoder_set_fs(nil, &st, 8, 8000)
+			st.Findices.FsignalType = TYPE_VOICED
+			st.Findices.FNLSFInterpCoef_Q2 = 4
+			st.Findices.FPERIndex = int8(i)
+			st.Findices.FGainsIndices = [4]int8{9, 3, 5, 7}
+			st.FLastGainIndex = 12
+			for k := range st.Findices.FLTPIndex {
+				st.Findices.FLTPIndex[k] = int8(row)
+			}
+			var control OpusT_silk_decoder_control
+			Opus_silk_decode_parameters(nil, &st, &control, CODE_INDEPENDENTLY)
+			for k := 0; k < 4; k++ {
+				for tap := 0; tap < LTP_ORDER; tap++ {
+					if control.FLTPCoef_Q14[k*LTP_ORDER+tap] != int16(int32(want[row][tap])<<7) {
+						t.Fatal("typed LTP vector decode", i, row, k, tap)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestNLSFDelayedQuantPointers(t *testing.T) {
+	for _, N := range []int{10, 16} {
+		x, w, ix := make([]int16, N), make([]int16, N), make([]int16, N)
+		pred := make([]byte, N)
+		rates := make([]byte, 27)
+		for i := range x {
+			x[i] = int16(i*173 - 900)
+			w[i] = int16(i%8 + 1)
+			ix[i] = int16(i % 3 * 9)
+			pred[i] = byte(i * 11)
+		}
+		for i := range rates {
+			rates[i] = byte(i*3 + 20)
+		}
+		output, other := make([]int8, N+2), make([]int8, N+2)
+		output[0], output[N+1] = 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		RD := silkNLSFDelayedQuant(nil, &output[1], &x[0], &w[0], &pred[0], &ix[0], &rates[0], 10000, 419, 64, int16(N))
+		ref := silkNLSFDelayedQuant(nil, &other[1], &x[0], &w[0], &pred[0], &ix[0], &rates[0], 10000, 419, 64, int16(N))
+		if RD != ref || output[0] != 77 || output[N+1] != 88 {
+			t.Fatal("typed NLSF quantizer/guards")
+		}
+		for i := 0; i < N; i++ {
+			if output[i+1] != other[i+1] {
+				t.Fatal("typed quantizer indices")
+			}
+		}
+		alias := append([]int16(nil), x...)
+		aliasRD := silkNLSFDelayedQuant(nil, (*int8)(unsafe.Pointer(&alias[0])), &alias[0], &w[0], &pred[0], &ix[0], &rates[0], 10000, 419, 64, int16(N))
+		if aliasRD != RD {
+			t.Fatal("Go-only final indices/input alias")
+		}
+		result := unsafe.Slice((*int8)(unsafe.Pointer(&alias[0])), N)
+		for i := range result {
+			if result[i] != output[i+1] {
+				t.Fatal("quantizer late index stores")
+			}
+		}
+	}
+}
+
+func TestLTPBitTablePointers(t *testing.T) {
+	original := Opus_silk_LTP_gain_BITS_Q5_ptrs
+	defer func() { Opus_silk_LTP_gain_BITS_Q5_ptrs = original }()
+	for i := range original {
+		N := 8 << i
+		want := append([]byte(nil), unsafe.Slice(original[i], N)...)
+		clone := append([]byte(nil), want...)
+		Opus_silk_LTP_gain_BITS_Q5_ptrs[i] = &clone[0]
+		clone = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := unsafe.Slice(Opus_silk_LTP_gain_BITS_Q5_ptrs[i], N)
+		for j := range want {
+			if got[j] != want[j] {
+				t.Fatal("typed LTP bit table owner", i, j)
+			}
+		}
+	}
+}
 
 func TestDecodeParametersPointers(t *testing.T) {
 	for _, fs := range []int32{8, 12, 16} {

@@ -534,6 +534,104 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four delayed-decision NLSF quantizer rounds replace integer-address input
+loads with typed live x/weight/predictor/rate-index views, use typed nine-byte
+rate-row views, type index output/final adjustment stores, then introduce the
+fully typed private silkNLSFDelayedQuant entry behind the public escape adapter.
+Fixed Go scratch arrays, candidate order/sorting, signed narrowing, wrapping
+MACs, row snapshots, disabled original assertion expressions and late output
+store order remain unchanged. There is no TLS scratch/pin/private escape
+annotation. Production opuscc uintptr tokens decrease 292→273 (19 removed).
+This standalone quantizer is not an active decoder call; opusccenc has its own
+unchanged implementation.
+
+Grouped parameter tests cover nil TLS/whole-private-entry checkptr, order10/16,
+Go inputs/rate tables/guarded index output, stack growth/GC, deterministic state
+and a Go-only output/input alias proving late stores. Native comparison tests
+invoke the actual upstream silk_NLSF_del_dec_quant for 200 seeded bounded
+fixtures, comparing exact RD return/index bytes/guards without altering goldens.
+The exported comparison bridge is typed; public legacy ABI remains available.
+Full amd64/386, ARM64/QEMU, applicable scoped checkptr, native comparisons,
+codec references and GC stress pass every round with unchanged tolerances, plus
+repeated scoped/ordinary ARM tests after completion. Existing opaque allocation,
+raw callback and extension EOF boundaries are not claimed repaired.
+
+Four CELT cleanup rounds delete the unused CELT_PVQ_U_ROW integer-address
+array (active PVQ already uses numeric offsets), unused comb/prefilter adapters,
+unused deemphasis/synthesis integer channel-array adapters, and unused inverse
+MDCT/anti-collapse adapters. Repository-wide Go reference searches found only
+the deleted definitions; active typed helpers/numeric row data and consumers are
+unchanged. Production opuscc uintptr tokens decrease 333→292 (41 removed).
+The obsolete exported Go row variable is removed; public decoder legacy escape
+adapters remain. This deletes duplicate representations rather than introducing
+new arithmetic, allocations, validation or decode coverage.
+
+Existing native PVQ/filter/MDCT/synthesis/anti-collapse comparisons, complete
+scanned-state pointer tests and packet/concealment references cover the remaining
+implementations. Full amd64/386, ARM64/QEMU, scoped checkptr, GC stress and
+unchanged codec goldens/tolerances pass each round; repeated scoped/ordinary ARM
+runs and repeated native comparisons complete the batch. The synthesis cleanup's
+first validation attempt hit a runtime 'sweep increased allocation count' in the
+ordinary compareopus suite; a complete rerun passed. This is recorded rather than
+claiming every first attempt passed or that deleting unused code globally repairs
+legacy unsafe fixtures/opaque allocation scanning.
+
+Four SILK LTP ownership rounds replace all four [3]uintptr pointer tables with
+GC-scanned typed arrays: bit-cost/ICDF/vector-gain [3]*byte, and coefficient
+[3]*[LTP_ORDER]int8 row pointers. The active index decoder forwards the typed
+ICDF directly, and the parameter decoder consumes the typed coefficient owner
+using fixed 8/16/32-row geometry. Signed int8 row snapshots, per-subframe index
+reloads, tap order and int32 shift→int16 Q14 narrowing remain unchanged. Bit-cost
+and vector-gain tables have no active opuscc decoder consumer; their migration
+removes dormant integer-address owners rather than claiming new decode coverage.
+The separate opusccenc copies are unchanged.
+
+Grouped existing parameter-test files rebind each table slot to a heap clone,
+drop the original clone slice, then force stack growth/GC before consumption and
+restore table slots after the test. ICDF entropy symbols/all context fields match
+an independent original byte copy; every 8/16/32 vector row decodes all four
+subframes with signed Q14 coefficients checked. Native tests copy all 56 bit
+costs, 56 ICDF entries, 56 vector gains and 280 signed coefficient bytes from the
+actual upstream libopus tables and compare exactly. Existing renamed upstream
+indices/parameters source comparisons, whole packet/concealment references,
+full amd64/386 and ARM64/QEMU tests, scoped checkptr and GC stress pass each
+round with unchanged codec goldens/tolerances, plus repeated scoped/ordinary ARM
+runs. Production opuscc uintptr tokens decrease 349→333 (16 removed); the four
+exported Go table variables intentionally acquire typed-pointer element types.
+Public legacy decoder escape adapters are retained; opaque allocations/raw custom
+callback addresses and extension EOF remain separate unresolved boundaries.
+
+Four uintptr-reduction rounds type projection int16 and int24 forwarding with
+captured matrix owners, delete all three unused private integer projection
+callbacks and get_multistream_decoder_legacy (plus the redundant integer callback
+bridge), and remove integer user-data from opusMSChannelCopy/opusMSDecodeNative
+and every standard/projection private callback/call site. All standard and
+projection format wrappers now call the typed multistream core; only public
+legacy signatures and the custom callback escape binder retain integer data
+addresses. The binder captures legacy user-data once at the public boundary,
+without piping it through the decode loop. Standard callbacks still ignore it;
+custom callbacks still receive its exact original value. Numeric byte offsets
+remain numeric rather than being misclassified as pointer-valued uintptr.
+
+Compared to this batch's initial tree, common.go uintptr tokens fall 207→180;
+all opuscc production .go files (excluding *_test.go) fall 376→349, measured
+consistently with rg -o '\\buintptr\\b'. This is a lexical reduction, not a proof
+that all remaining integer words are unsafe or that all ownership is solved.
+Projection int16 retains OPTIONAL_CLIP (tested with amplified CELT output),
+projection int24 retains zero clipping, and both retain pointer-derivation,
+callback clear/accumulation, rounding and validation ordering. Existing grouped
+full scanned-state/nil-TLS/checkptr tests cover normal/PLC/FEC, independent
+existing-entry PCM/state/count parity, errors, guards and GC/stack growth. Custom
+callback retention/argument tests verify the captured user-data value after GC;
+standard binding tests verify nonzero user-data is still ignored. No C golden,
+tolerance, assertion, public ABI or custom callback contract changed.
+
+Every round passes full amd64/386, ARM64/QEMU, applicable scoped checkptr, existing
+native mapping/callback/codec comparisons, multistream C references and GC stress,
+with repeated scoped/ordinary ARM runs after completion. Opaque byte-backed
+allocation scanning and the raw custom function-address boundary remain separate
+legacy issues; no global GC-safety/direct macOS CI claim is implied.
+
 Four format-wrapper rounds introduce typed private multistream float/int16/
 int24 entries, each forwarding directly to opusMSDecodeNative with a typed
 standard callback (no integer function-address binding), followed by a typed

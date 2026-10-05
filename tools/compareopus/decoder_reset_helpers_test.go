@@ -10,6 +10,65 @@ import (
 	"unsafe"
 )
 
+func TestLTPICDFTablesAgainstC(t *testing.T) {
+	for i, p := range opuscc.Opus_silk_LTP_gain_iCDF_ptrs {
+		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(1, i)) {
+			t.Fatal("LTP ICDF table", i)
+		}
+	}
+}
+
+func TestLTPVectorGainTablesAgainstC(t *testing.T) {
+	for i, p := range opuscc.Opus_silk_LTP_vq_gain_ptrs_Q7 {
+		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(2, i)) {
+			t.Fatal("LTP vector gain table", i)
+		}
+	}
+}
+
+func TestLTPVectorTablesAgainstC(t *testing.T) {
+	for i, p := range opuscc.Opus_silk_LTP_vq_ptrs_Q7 {
+		if !slices.Equal(unsafe.Slice((*byte)(unsafe.Pointer(p)), (8<<i)*opuscc.LTP_ORDER), nativeLTPTable(3, i)) {
+			t.Fatal("LTP signed vector table", i)
+		}
+	}
+}
+
+func TestNLSFDelayedQuantAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(876))
+	for _, N := range []int{10, 16} {
+		for trial := 0; trial < 100; trial++ {
+			x, w, ix := make([]int16, N), make([]int16, N), make([]int16, N)
+			pred := make([]byte, N)
+			rates := make([]byte, 27)
+			for i := range x {
+				x[i] = int16(rng.Intn(4001) - 2000)
+				w[i] = int16(rng.Intn(8) + 1)
+				pred[i] = byte(rng.Intn(201))
+				ix[i] = int16((i % 3) * 9)
+			}
+			for i := range rates {
+				rates[i] = byte(rng.Intn(180) + 1)
+			}
+			got, want := make([]int8, N+2), make([]int8, N+2)
+			got[0], got[N+1], want[0], want[N+1] = 77, 88, 77, 88
+			result := opuscc.CompareNLSFDelayedQuant(&got[1], &x[0], &w[0], &pred[0], &ix[0], &rates[0], 10000, 419, 64, int16(N))
+			expected := nativeNLSFQuant(want[1:N+1], x, w, pred, ix, rates, 10000, 419, 64)
+			if result != expected || !slices.Equal(got, want) {
+				t.Fatal("NLSF delayed quant", N, trial, result, expected, got, want)
+			}
+		}
+	}
+}
+
+func TestLTPBitTablesAgainstC(t *testing.T) {
+	for i, p := range opuscc.Opus_silk_LTP_gain_BITS_Q5_ptrs {
+		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(0, i)) {
+			t.Fatal("LTP bit table", i)
+		}
+	}
+}
+
 func TestDecoderSetFSAgainstC(t *testing.T) {
 	for _, initial := range []int32{0, 8, 12, 16} {
 		for _, subframes := range []int32{2, 4} {
