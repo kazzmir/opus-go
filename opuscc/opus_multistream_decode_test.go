@@ -29,6 +29,60 @@ type msTwoStreamTestOwner struct {
 	Children [2]msCoupledTestChild
 }
 
+func newTwoStreamMSOwner(t *testing.T) *msTwoStreamTestOwner {
+	t.Helper()
+	owner := new(msTwoStreamTestOwner)
+	size := uintptr((uint32(Opus_opus_decoder_get_size(nil, 2)) + 7) &^ 7)
+	if unsafe.Sizeof(owner.Children[0]) != size || unsafe.Offsetof(owner.Children) != 272 {
+		t.Fatal("MS wrapper geometry")
+	}
+	owner.MS.Flayout.Fnb_channels = 6
+	owner.MS.Flayout.Fnb_streams = 2
+	owner.MS.Flayout.Fnb_coupled_streams = 2
+	copy(owner.MS.Flayout.Fmapping[:], []byte{2, 0, 1, 2, 3, 255})
+	for i := range owner.Children {
+		if Opus_opus_decoder_init(nil, &owner.Children[i].Decoder, 48000, 2) != 0 {
+			t.Fatal("MS wrapper init")
+		}
+	}
+	return owner
+}
+
+func TestMultistreamFloatWrapperPointers(t *testing.T) {
+	owner, baseline := newTwoStreamMSOwner(t), newTwoStreamMSOwner(t)
+	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+	combined := append([]byte{packet[0], byte(len(packet) - 1)}, packet[1:]...)
+	combined = append(combined, packet...)
+	out, want := make([]float32, 5760*6+2), make([]float32, 5760*6+2)
+	out[0], out[len(out)-1] = 77, 88
+	for _, step := range []int{0, 1, 2} {
+		var data *byte
+		length, fec := int32(0), int32(0)
+		if step != 1 {
+			data = &combined[0]
+			length = int32(len(combined))
+		}
+		if step == 2 {
+			fec = 1
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := opusMSDecodeFloat(nil, &owner.MS, data, length, &out[1], 5760, fec)
+		expected := opusMSDecodeNative(nil, &baseline.MS, data, length, unsafe.Pointer(&want[1]), opusMSCopyFloat, 5760, fec, 0, 0)
+		if got != expected || got <= 0 || owner.Children[0].Decoder != baseline.Children[0].Decoder || owner.Children[1].Decoder != baseline.Children[1].Decoder || out[0] != 77 || out[len(out)-1] != 88 {
+			t.Fatal("float wrapper dispatch/state")
+		}
+		for i := int32(0); i < got*6; i++ {
+			if out[i+1] != want[i+1] {
+				t.Fatal("float wrapper PCM", i)
+			}
+		}
+	}
+	if opusMSDecodeFloat(nil, &owner.MS, nil, 0, nil, 0, 0) != -1 {
+		t.Fatal("float wrapper validation")
+	}
+}
+
 func TestMultistreamWholePointers(t *testing.T) {
 	for _, format := range []int{16, 24, 32} {
 		owner := new(msTwoStreamTestOwner)

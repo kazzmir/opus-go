@@ -3584,12 +3584,14 @@ type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintpt
 
 type opusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32, uintptr)
 
+func opusMSCopyFloat(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+	opus_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n)
+}
+
 func opusMSBindCopy(callback uintptr) opusMSChannelCopy {
 	switch callback {
 	case __ccgo_fp(opus_copy_channel_out_float_legacy):
-		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
-			opus_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n)
-		}
+		return opusMSCopyFloat
 	case __ccgo_fp(opus_copy_channel_out_short_legacy):
 		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
 			opus_copy_channel_out_short(tls, (*int16)(dst), ds, dc, src, ss, n)
@@ -3855,8 +3857,13 @@ func Opus_opus_multistream_decode24(tls *libc.TLS, st uintptr, data uintptr, len
 	return Opus_opus_multistream_decode_native(tls, st, data, len1, pcm, __ccgo_fp(opus_copy_channel_out_int24_legacy), frame_size, decode_fec, 0, uintptr(uint32(0)))
 }
 
-func Opus_opus_multistream_decode_float(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, st, data, len1, pcm, __ccgo_fp(opus_copy_channel_out_float_legacy), frame_size, decode_fec, 0, uintptr(uint32(0)))
+//go:uintptrescapes
+func Opus_opus_multistream_decode_float(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
+	return opusMSDecodeFloat(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*float32)(unsafe.Pointer(pcm)), frame, fec)
+}
+
+func opusMSDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
+	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyFloat, frame, fec, 0, 0)
 }
 
 func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, request int32, ap OpusT_va_list) int32 {
