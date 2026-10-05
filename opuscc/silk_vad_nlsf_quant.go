@@ -646,7 +646,8 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 	var out0_Q10, out1_Q10 OpusT_opus_int16
 	var out0_Q10_table, out1_Q10_table [20]int32
 	var prev_out_Q10 [8]OpusT_opus_int16
-	var rates_Q5, v11 uintptr
+	var rates_Q5 []byte
+	var v11 uintptr
 	var ind [4][16]OpusT_opus_int8
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = RD_Q25, RD_max_Q25, RD_min_Q25, RD_tmp_Q25, diff_Q10, i, in_Q10, ind_max_min, ind_min_max, ind_sort, ind_tmp, j, max_min_Q25, min_Q25, min_max_Q25, nStates, out0_Q10, out0_Q10_table, out1_Q10, out1_Q10_table, pred_Q10, prev_out_Q10, rate0_Q5, rate1_Q5, rates_Q5, res_Q10, v11, v4, v5
 	i = -int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)
@@ -684,7 +685,7 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 		if !(i >= 0) {
 			break
 		}
-		rates_Q5 = ec_rates_Q5 + uintptr(rateIndices[i])
+		rates_Q5 = unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(ec_rates_Q5), rateIndices[i])), 2*NLSF_QUANT_MAX_AMPLITUDE+1)
 		in_Q10 = int32(input[i])
 		j = 0
 		for {
@@ -716,8 +717,8 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 			/* compute RD for ind_tmp and ind_tmp + 1 */
 			if ind_tmp+int32(1) >= int32(NLSF_QUANT_MAX_AMPLITUDE) {
 				if ind_tmp+int32(1) == int32(NLSF_QUANT_MAX_AMPLITUDE) {
-					rate0_Q5 = int32(*(*OpusT_opus_uint8)(unsafe.Pointer(rates_Q5 + uintptr(ind_tmp+int32(NLSF_QUANT_MAX_AMPLITUDE)))))
-					rate1_Q5 = int32(280)
+					rate0_Q5 = int32(rates_Q5[ind_tmp+NLSF_QUANT_MAX_AMPLITUDE])
+					rate1_Q5 = 280
 				} else {
 					rate0_Q5 = int32(280) - int32(43)*int32(NLSF_QUANT_MAX_AMPLITUDE) + int32(int16(int32(43)))*int32(int16(ind_tmp))
 					rate1_Q5 = rate0_Q5 + int32(43)
@@ -726,14 +727,14 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 				if ind_tmp <= -int32(NLSF_QUANT_MAX_AMPLITUDE) {
 					if ind_tmp == -int32(NLSF_QUANT_MAX_AMPLITUDE) {
 						rate0_Q5 = int32(280)
-						rate1_Q5 = int32(*(*OpusT_opus_uint8)(unsafe.Pointer(rates_Q5 + uintptr(ind_tmp+int32(1)+int32(NLSF_QUANT_MAX_AMPLITUDE)))))
+						rate1_Q5 = int32(rates_Q5[ind_tmp+1+NLSF_QUANT_MAX_AMPLITUDE])
 					} else {
 						rate0_Q5 = int32(280) - int32(43)*int32(NLSF_QUANT_MAX_AMPLITUDE) + int32(int16(-int32(43)))*int32(int16(ind_tmp))
 						rate1_Q5 = rate0_Q5 - int32(43)
 					}
 				} else {
-					rate0_Q5 = int32(*(*OpusT_opus_uint8)(unsafe.Pointer(rates_Q5 + uintptr(ind_tmp+int32(NLSF_QUANT_MAX_AMPLITUDE)))))
-					rate1_Q5 = int32(*(*OpusT_opus_uint8)(unsafe.Pointer(rates_Q5 + uintptr(ind_tmp+int32(1)+int32(NLSF_QUANT_MAX_AMPLITUDE)))))
+					rate0_Q5 = int32(rates_Q5[ind_tmp+NLSF_QUANT_MAX_AMPLITUDE])
+					rate1_Q5 = int32(rates_Q5[ind_tmp+1+NLSF_QUANT_MAX_AMPLITUDE])
 				}
 			}
 			RD_tmp_Q25 = RD_Q25[j]
