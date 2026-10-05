@@ -31,6 +31,26 @@ func TestLTPICDFTablePointers(t *testing.T) {
 	}
 }
 
+func TestLTPVectorGainTablePointers(t *testing.T) {
+	original := Opus_silk_LTP_vq_gain_ptrs_Q7
+	defer func() { Opus_silk_LTP_vq_gain_ptrs_Q7 = original }()
+	for i := range original {
+		N := 8 << i
+		want := append([]byte(nil), unsafe.Slice(original[i], N)...)
+		clone := append([]byte(nil), want...)
+		Opus_silk_LTP_vq_gain_ptrs_Q7[i] = &clone[0]
+		clone = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got := unsafe.Slice(Opus_silk_LTP_vq_gain_ptrs_Q7[i], N)
+		for j := range want {
+			if got[j] != want[j] {
+				t.Fatal("typed LTP vector gain table owner", i, j)
+			}
+		}
+	}
+}
+
 func TestLTPBitTablePointers(t *testing.T) {
 	original := Opus_silk_LTP_gain_BITS_Q5_ptrs
 	defer func() { Opus_silk_LTP_gain_BITS_Q5_ptrs = original }()

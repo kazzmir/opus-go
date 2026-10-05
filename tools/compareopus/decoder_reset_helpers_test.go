@@ -18,6 +18,14 @@ func TestLTPICDFTablesAgainstC(t *testing.T) {
 	}
 }
 
+func TestLTPVectorGainTablesAgainstC(t *testing.T) {
+	for i, p := range opuscc.Opus_silk_LTP_vq_gain_ptrs_Q7 {
+		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(2, i)) {
+			t.Fatal("LTP vector gain table", i)
+		}
+	}
+}
+
 func TestLTPBitTablesAgainstC(t *testing.T) {
 	for i, p := range opuscc.Opus_silk_LTP_gain_BITS_Q5_ptrs {
 		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(0, i)) {
