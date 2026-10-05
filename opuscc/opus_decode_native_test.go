@@ -8,6 +8,33 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusNativeFECFramePointers(t *testing.T) {
+	for _, C := range []int32{1, 2} {
+		storage := newOpusFrameOwnerDecoder(t, C)
+		decoder := &storage.Decoder
+		decoder.Fmode = MODE_SILK_ONLY
+		decoder.Fbandwidth = OPUS_BANDWIDTH_NARROWBAND
+		decoder.Fframe_size = 2880
+		decoder.Fstream_channels = 1
+		packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+		pcm := make([]float32, 5760*C+2)
+		for i := range pcm {
+			pcm[i] = 3
+		}
+		pcm[0], pcm[len(pcm)-1] = 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opusNativeFECFrame(nil, decoder, &packet[1], int32(len(packet)-1), &pcm[1], 5760, 2880) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+			t.Fatal("native FEC suffix/guards", C)
+		}
+		for i := int32(1); i <= 2880*C; i++ {
+			if pcm[i] != 3 {
+				t.Fatal("FEC changed PLC prefix", C, i)
+			}
+		}
+	}
+}
+
 func TestOpusNativePLCFramePointers(t *testing.T) {
 	for _, C := range []int32{1, 2} {
 		storage := newOpusFrameOwnerDecoder(t, C)
