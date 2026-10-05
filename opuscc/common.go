@@ -3580,6 +3580,10 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 
 type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr)
 
+func opusMSDecoderAt(decoder *OpusT_OpusMSDecoder, offset uintptr) *OpusT_OpusDecoder {
+	return (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(decoder), offset))
+}
+
 func opusMSDecodeChild(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, frame, fec, selfDelimited int32, packetOffset *int32, softClip int32) int32 {
 	return opusDecodeNative(tls, decoder, data, length, pcm, frame, fec, selfDelimited, packetOffset, softClip)
 }
@@ -3594,7 +3598,8 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 	storage := libc.Xmalloc(tls, uint64(unsafe.Sizeof(decodeScratch{})))
 	defer libc.Xfree(tls, storage)
 	scratch := (*decodeScratch)(unsafe.Pointer(storage))
-	var _saved_stack, buf, dec, ptr, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
+	var dec *OpusT_OpusDecoder
+	var _saved_stack, buf, ptr, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var alignment uint32
 	var c, chan1, chan11, coupled_size, do_plc, mono_size, prev, prev1, ret, ret1, s, v31, v56, v75 int32
 	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1))
@@ -3754,7 +3759,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 	buf = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(int32(2)*frame_size))*(uint64(4)/uint64(1)))
 	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
 	v31 = int32((uint32(int32(268)) + alignment - uint32(1)) / alignment * alignment)
-	ptr = st1 + uintptr(v31)
+	ptr = uintptr(v31) // numeric byte offset; only consumed children become pointers
 	coupled_size = Opus_opus_decoder_get_size(tls, int32(2))
 	mono_size = Opus_opus_decoder_get_size(tls, int32(1))
 	if len1 == 0 {
@@ -3825,7 +3830,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 		if !(s < decoder.Flayout.Fnb_streams) {
 			break
 		}
-		dec = ptr
+		dec = opusMSDecoderAt(decoder, ptr)
 		if s < decoder.Flayout.Fnb_coupled_streams {
 			alignment = uint32(uint64(uintptr(uint32(0)) + 8))
 			v56 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
@@ -3851,7 +3856,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			return -int32(3)
 		}
 		scratch.packetOffset = 0
-		ret1 = opusMSDecodeChild(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(dec)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(buf)), frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), &scratch.packetOffset, soft_clip)
+		ret1 = opusMSDecodeChild(tls, dec, (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(buf)), frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), &scratch.packetOffset, soft_clip)
 		if !(do_plc != 0) {
 			data = data + uintptr(scratch.packetOffset)
 			len1 = len1 - scratch.packetOffset

@@ -12,6 +12,31 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestMultistreamChildOwnerPointers(t *testing.T) {
+	type owner struct {
+		MS      OpusT_OpusMSDecoder
+		Padding [(8 - unsafe.Sizeof(OpusT_OpusMSDecoder{})%8) % 8]byte
+		Child   opusFrameOwnerTestStorage
+	}
+	storage := new(owner)
+	storage.Child = *newOpusFrameOwnerDecoder(t, 2)
+	offset := uintptr((uint32(268) + 7) / 8 * 8)
+	if offset != unsafe.Offsetof(storage.Child) {
+		t.Fatal("multistream header geometry")
+	}
+	decoder := opusMSDecoderAt(&storage.MS, offset)
+	storage = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	pcm := make([]float32, 962)
+	pcm[0], pcm[961] = 77, 88
+	packet := []byte{4, 0}
+	consumed := int32(-1)
+	if opusMSDecodeChild(nil, decoder, &packet[0], 2, &pcm[1], 480, 0, 1, &consumed, 0) != 480 || consumed != 2 || pcm[0] != 77 || pcm[961] != 88 {
+		t.Fatal("scanned MS child owner")
+	}
+}
+
 func TestMultistreamNativeChildPointers(t *testing.T) {
 	storage := newOpusFrameOwnerDecoder(t, 1)
 	packet := []byte{0, 0}
