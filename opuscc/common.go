@@ -3338,15 +3338,7 @@ func Opus_opus_decode24(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opu
 	out = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(frame_size*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels))*(uint64(4)/uint64(1)))
 	ret = Opus_opus_decode_native(tls, st1, data, len1, out, frame_size, decode_fec, 0, uintptr(uint32(0)), 0, uintptr(uint32(0)), 0)
 	if ret > 0 {
-		nb_samples = ret * (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels
-		i = 0
-		for {
-			if !(i < nb_samples) {
-				break
-			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(pcm + uintptr(i)*4)) = int32(libc.Xlrintf(tls, float32(float32(float32(32768)*float32(256))**(*OpusT_opus_res)(unsafe.Pointer(out + uintptr(i)*4)))))
-			i = i + 1
-		}
+		opusDecodeInt24PCM(tls, (*float32)(unsafe.Pointer(out)), (*int32)(unsafe.Pointer(pcm)), ret*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)
 	}
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
 	if !(st != 0) {
@@ -3365,6 +3357,16 @@ func Opus_opus_decode24(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opu
 //go:uintptrescapes
 func Opus_opus_decode_float(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frameSize, fec int32) int32 {
 	return opusDecodeFloat(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*float32)(unsafe.Pointer(pcm)), frameSize, fec)
+}
+
+func opusDecodeInt24PCM(tls *libc.TLS, input *float32, output *int32, count int32) {
+	if count <= 0 {
+		return
+	}
+	src, dst := unsafe.Slice(input, count), unsafe.Slice(output, count)
+	for i := int32(0); i < count; i++ {
+		dst[i] = int32(libc.Xlrintf(tls, float32(float32(float32(32768)*float32(256))*src[i])))
+	}
 }
 
 func opusDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, frameSize, fec int32) int32 {

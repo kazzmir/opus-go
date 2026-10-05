@@ -150,6 +150,25 @@ func TestPacketParseAgainstC(t *testing.T) {
 	}
 }
 
+func TestDecodeInt24PCMAgainstC(t *testing.T) {
+	input := []float32{-1, -.5, 0, .5, 1, 1.5 / 8388608, 2.5 / 8388608, -1.5 / 8388608, -2.5 / 8388608}
+	for i := 0; i < 1024; i++ {
+		input = append(input, float32(i-512)/257)
+	}
+	want := nativeInt24PCM(input)
+	got := make([]int32, len(input)+2)
+	got[0], got[len(got)-1] = 77, 88
+	opuscc.CompareOpusInt24PCM(nil, &input[0], &got[1], int32(len(input)))
+	for i := range want {
+		if got[1+i] != want[i] {
+			t.Fatal("RES2INT24", i, got[1+i], want[i])
+		}
+	}
+	if got[0] != 77 || got[len(got)-1] != 88 {
+		t.Fatal("int24 guards")
+	}
+}
+
 func TestNativeDecodePacketDescriptorsAgainstC(t *testing.T) {
 	for _, tc := range []struct {
 		data []byte

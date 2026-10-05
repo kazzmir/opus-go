@@ -8,6 +8,33 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusInt24PCMPointers(t *testing.T) {
+	opusDecodeInt24PCM(nil, nil, nil, 0)
+	opusDecodeInt24PCM(nil, nil, nil, -1)
+	input := []float32{-1, -.5, 0, .5, 1, 1.5 / 8388608, 2.5 / 8388608, -1.5 / 8388608, -2.5 / 8388608}
+	output := make([]int32, len(input)+2)
+	output[0], output[len(output)-1] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	opusDecodeInt24PCM(nil, &input[0], &output[1], int32(len(input)))
+	want := []int32{-8388608, -4194304, 0, 4194304, 8388608, 2, 2, -2, -2}
+	for i := range want {
+		if output[1+i] != want[i] {
+			t.Fatal("int24 rounding", i, output[1+i])
+		}
+	}
+	if output[0] != 77 || output[len(output)-1] != 88 {
+		t.Fatal("int24 guards")
+	} /* Typed Go-only live float/int alias: C effective-type rules differ. */
+	alias := []int32{0, 0}
+	floats := unsafe.Slice((*float32)(unsafe.Pointer(&alias[0])), 2)
+	floats[0], floats[1] = .5, 1
+	opusDecodeInt24PCM(nil, &floats[0], &alias[0], 2)
+	if alias[0] != 4194304 || alias[1] != 8388608 {
+		t.Fatal("live int24 alias")
+	}
+}
+
 func TestOpusFloatDecodeWholePointers(t *testing.T) {
 	if opusDecodeFloat(nil, nil, nil, 0, nil, 0, 2) != -1 {
 		t.Fatal("float validation order")
