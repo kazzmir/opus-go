@@ -3572,8 +3572,10 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 			return OPUS_INVALID_PACKET
 		}
 		samples = nextSamples
-		data = (*byte)(unsafe.Add(unsafe.Pointer(data), packetOffset))
 		length -= packetOffset
+		if s+1 < streams {
+			data = (*byte)(unsafe.Add(unsafe.Pointer(data), packetOffset))
+		}
 	}
 	return samples
 }
@@ -3627,17 +3629,26 @@ func opusMSDecodeChild(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, le
 }
 
 //go:uintptrescapes
-func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, __ccgo_fp_copy_channel_out OpusT_opus_copy_channel_out_func, frame_size int32, decode_fec int32, soft_clip int32, user_data uintptr) (r int32) {
+func Opus_opus_multistream_decode_native(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, callback uintptr, frame_size, decode_fec, soft_clip int32, user_data uintptr) int32 {
+	return opusMSDecodeNative(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, unsafe.Pointer(pcm), opusMSBindCopy(callback), frame_size, decode_fec, soft_clip, user_data)
+}
+
+func opusMSPacketAt(data *byte, offset uintptr, length int32) *byte {
+	if length <= 0 {
+		return nil
+	}
+	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
+}
+
+func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, len1 int32, pcm unsafe.Pointer, copyChannel opusMSChannelCopy, frame_size, decode_fec, soft_clip int32, user_data uintptr) (r int32) {
+	var position uintptr
 	var scratch struct{ Fs, packetOffset int32 } // typed CTL and child outputs need no opaque allocation
 	var dec *OpusT_OpusDecoder
 	var buf *float32
 	var ptr uintptr
 	var alignment uint32
 	var c, chan1, chan11, coupled_size, do_plc, mono_size, prev, prev1, ret, ret1, s, v31, v56, v75 int32
-	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1))
-	copyChannel := opusMSBindCopy(__ccgo_fp_copy_channel_out)
-
-	validate_ms_decoder(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)))
+	validate_ms_decoder(tls, decoder)
 	if frame_size <= 0 {
 		return -1
 	}
@@ -3668,7 +3679,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 		return -4
 	}
 	if !(do_plc != 0) {
-		ret = opus_multistream_packet_validate(tls, (*byte)(unsafe.Pointer(data)), len1, decoder.Flayout.Fnb_streams, scratch.Fs)
+		ret = opus_multistream_packet_validate(tls, data, len1, decoder.Flayout.Fnb_streams, scratch.Fs)
 		if ret < 0 {
 			return ret
 		}
@@ -3696,9 +3707,9 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			return -3
 		}
 		scratch.packetOffset = 0
-		ret1 = opusMSDecodeChild(tls, dec, (*byte)(unsafe.Pointer(data)), len1, buf, frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), &scratch.packetOffset, soft_clip)
+		ret1 = opusMSDecodeChild(tls, dec, opusMSPacketAt(data, position, len1), len1, buf, frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), &scratch.packetOffset, soft_clip)
 		if !(do_plc != 0) {
-			data = data + uintptr(scratch.packetOffset)
+			position += uintptr(scratch.packetOffset)
 			len1 = len1 - scratch.packetOffset
 		}
 		if ret1 <= 0 {
@@ -3709,35 +3720,35 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			prev = -int32(1)
 			/* Copy "left" audio to the channel(s) where it belongs */
 			for {
-				v31 = Opus_get_left_channel(tls, &(*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)).Flayout, s, prev)
+				v31 = Opus_get_left_channel(tls, &decoder.Flayout, s, prev)
 				chan1 = v31
 				if !(v31 != -int32(1)) {
 					break
 				}
-				copyChannel(tls, unsafe.Pointer(pcm), decoder.Flayout.Fnb_channels, chan1, buf, 2, frame_size, user_data)
+				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, buf, 2, frame_size, user_data)
 				prev = chan1
 			}
 			prev = -int32(1)
 			/* Copy "right" audio to the channel(s) where it belongs */
 			for {
-				v31 = Opus_get_right_channel(tls, &(*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)).Flayout, s, prev)
+				v31 = Opus_get_right_channel(tls, &decoder.Flayout, s, prev)
 				chan1 = v31
 				if !(v31 != -int32(1)) {
 					break
 				}
-				copyChannel(tls, unsafe.Pointer(pcm), decoder.Flayout.Fnb_channels, chan1, (*float32)(unsafe.Add(unsafe.Pointer(buf), 4)), 2, frame_size, user_data)
+				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, (*float32)(unsafe.Add(unsafe.Pointer(buf), 4)), 2, frame_size, user_data)
 				prev = chan1
 			}
 		} else {
 			prev1 = -int32(1)
 			/* Copy audio to the channel(s) where it belongs */
 			for {
-				v31 = Opus_get_mono_channel(tls, &(*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)).Flayout, s, prev1)
+				v31 = Opus_get_mono_channel(tls, &decoder.Flayout, s, prev1)
 				chan11 = v31
 				if !(v31 != -int32(1)) {
 					break
 				}
-				copyChannel(tls, unsafe.Pointer(pcm), decoder.Flayout.Fnb_channels, chan11, buf, 1, frame_size, user_data)
+				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan11, buf, 1, frame_size, user_data)
 				prev1 = chan11
 			}
 		}
@@ -3750,7 +3761,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			break
 		}
 		if int32(decoder.Flayout.Fmapping[c]) == int32(255) {
-			copyChannel(tls, unsafe.Pointer(pcm), decoder.Flayout.Fnb_channels, c, nil, 0, frame_size, user_data)
+			copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, c, nil, 0, frame_size, user_data)
 		}
 		c = c + 1
 	}

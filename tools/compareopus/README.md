@@ -534,6 +534,32 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four enclosing multistream rounds replace the decode sample-rate varargs CTL
+with its existing typed equivalent, use Go Fs/packet-offset scalar storage,
+remove all multistream decode pseudostack initialization/snapshot/restores, then
+introduce opusMSDecodeNative with typed state/payload/output/callback parameters
+behind the public escape adapter. Child and packet traversal remain numeric;
+payload views are formed only when consumed, and the validator no longer forms
+an unused final EOF view. Validation still precedes frame-size rejection; sample
+rate/query assertion, frame cap, allocation, length/packet validation, child
+advance-before-error, packet-offset advancement-before-return, live mapping/
+channel bounds and muted-channel timing are retained.
+
+Full active standard-callback private-entry checkptr/nil-TLS fixtures use a
+scanned exact-stride two-coupled-stream composite (computed decoder/SILK/CELT
+padding/tails, with size assertions on all architectures), self-delimited real
+SILK packets, reordered/duplicated/muted channels, float/int16/int24 destinations,
+normal decode, 120ms PLC/FEC, guards, stack growth/GC and unchanged C-derived
+sample/range expectations. Argument failures leave PCM/child state untouched;
+ordinary public adapter tests cover capped PLC and nil TLS. Existing enclosing
+multistream C references and native leaf comparisons, full amd64/386,
+ARM64/QEMU, scoped checkptr and GC stress pass each round with unchanged codec
+goldens/tolerances, plus repeated scoped/ordinary ARM runs. No multistream decode
+pseudostack or opaque scalar scratch remains. Legacy callback user-data remains
+an explicit uintptr contract only for custom/projection fallbacks; public format/
+projection wrappers and opaque byte-backed state scanning are separate from
+these tested scanned-state standard-callback paths.
+
 Four multistream-consumer rounds type child native dispatch/packet-offset
 forwarding, replace integer child addresses with numeric byte traversal and typed
 consumed child views, move the reusable 2*frame_size float PCM scratch into Go
