@@ -2311,6 +2311,13 @@ func opus_packet_get_mode(tls *libc.TLS, data *byte) (r int32) {
 	return int32(MODE_SILK_ONLY)
 }
 
+func opusFrameAudioStorage(size int32) []float32 {
+	if size == 0 {
+		return nil
+	}
+	return make([]float32, size)
+}
+
 func opusFrameCeltState(decoder *OpusT_OpusDecoder) *OpusT_OpusCustomDecoder {
 	return (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(decoder), decoder.Fcelt_dec_offset))
 }
@@ -2334,7 +2341,8 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	var celt_dec *OpusT_OpusCustomDecoder
 	var pcm_base, pcm_ptr *float32
 	var pcm_offset uintptr
-	var _saved_stack, pcm_silk, pcm_transition, pcm_transition_celt, pcm_transition_silk, redundant_audio, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
+	var pcm_silk []float32
+	var _saved_stack, pcm_transition, pcm_transition_celt, pcm_transition_silk, redundant_audio, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
 	var frac, v175, v176 float32
 	var gain, x1 OpusT_opus_val32
 	var integer OpusT_opus_int32
@@ -2658,74 +2666,9 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		if pcm_too_small != 0 {
 			pcm_silk_size = F10 * decoder.Fchannels
 		}
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v5 = libc.Xmalloc(tls, uint64(16))
-			st = v5
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v6 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v6)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v8 = libc.Xmalloc(tls, uint64(16))
-			st = v8
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v10 = st
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v11 = libc.Xmalloc(tls, uint64(16))
-			st = v11
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v13 = st
-		if !(int64(int32(uint64(uint32(pcm_silk_size))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v10)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v13)).Fglobal_stack)) {
-			Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+57, int32(412))
-		}
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v15 = libc.Xmalloc(tls, uint64(16))
-			st = v15
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v17 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fglobal_stack += uintptr(uint64(uint32(pcm_silk_size)) * (uint64(4) / uint64(1)))
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v19 = libc.Xmalloc(tls, uint64(16))
-			st = v19
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v21 = st
-		pcm_silk = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(pcm_silk_size))*(uint64(4)/uint64(1)))
+		pcm_silk = opusFrameAudioStorage(pcm_silk_size)
 		if pcm_too_small != 0 {
-			pcm_base = (*float32)(unsafe.Pointer(pcm_silk))
+			pcm_base = unsafe.SliceData(pcm_silk)
 		} else {
 			pcm_base = (*float32)(unsafe.Pointer(pcm))
 		}
@@ -2808,7 +2751,7 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 			decoded_samples = decoded_samples + silk_frame_size
 		}
 		if pcm_too_small != 0 {
-			libc.Xmemcpy(tls, pcm, pcm_silk, uint64(uint32(frame_size*decoder.Fchannels))*uint64(4)+uint64(0*((int64(pcm)-int64(pcm_silk))/4)))
+			copy(unsafe.Slice((*float32)(unsafe.Pointer(pcm)), frame_size*decoder.Fchannels), pcm_silk[:frame_size*decoder.Fchannels])
 		}
 	}
 	start_band = 0

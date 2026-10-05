@@ -14,6 +14,28 @@ type opusFrameOwnerTestStorage struct {
 	Celt    celtStateTestStorage
 }
 
+func TestOpusFrameSilkScratchPointers(t *testing.T) {
+	if opusFrameAudioStorage(0) != nil {
+		t.Fatal("empty scratch")
+	}
+	temporary := opusFrameAudioStorage(480)
+	state := new(OpusT_silk_decoder)
+	Opus_silk_InitDecoder(nil, state)
+	control := OpusT_silk_DecControlStruct{FnChannelsAPI: 1, FnChannelsInternal: 1, FAPI_sampleRate: 48000, FinternalSampleRate: 16000, FpayloadSize_ms: 10}
+	var count int32
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if silk_Decode(nil, state, &control, 1, 1, nil, unsafe.SliceData(temporary), &count, 0) != 0 || count != 480 {
+		t.Fatal("short SILK scratch", count)
+	}
+	output := make([]float32, 242)
+	output[0], output[241] = 77, 88
+	copy(output[1:241], temporary[:240])
+	if output[0] != 77 || output[241] != 88 || len(temporary) != 480 {
+		t.Fatal("short frame truncation/guards")
+	}
+}
+
 func TestOpusFrameCeltOwnerPointers(t *testing.T) {
 	storage := new(opusFrameOwnerTestStorage)
 	storage.Decoder.Fcelt_dec_offset = int32(unsafe.Offsetof(storage.Celt))
