@@ -4,6 +4,9 @@ package main
 
 /*
 #include <opus.h>
+#include "../../../opus/celt/arch.h"
+#include "../../../opus/celt/float_cast.h"
+static void native_int24_pcm(const float *input,int *output,int count) {int i;for(i=0;i<count;i++) output[i]=RES2INT24(input[i]);}
 int opus_packet_parse_impl(const unsigned char *,opus_int32,int,unsigned char *,const unsigned char *[48],opus_int16 [48],int *,opus_int32 *,const unsigned char **,opus_int32 *);
 static void native_parse_packet(const unsigned char *data,int length,int self,int mask,short *size,int *frameOffsets,int *info,int public_api) {
  const unsigned char *frames[48],*padding=data;unsigned char toc=0xa5;int payload=-77,packet=-78,padlen=-79;int i;
@@ -25,6 +28,12 @@ type packetParseResult struct {
 	Sizes                                [50]int16
 	Frames                               [48]int32
 	Payload, Packet, Padding, PaddingLen int32
+}
+
+func nativeInt24PCM(input []float32) []int32 {
+	output := make([]int32, len(input))
+	C.native_int24_pcm((*C.float)(unsafe.Pointer(unsafe.SliceData(input))), (*C.int)(unsafe.Pointer(unsafe.SliceData(output))), C.int(len(input)))
+	return output
 }
 
 func nativePacketParse(data *byte, length, self, mask, public int32) packetParseResult {

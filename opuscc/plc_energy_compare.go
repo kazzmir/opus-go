@@ -71,6 +71,14 @@ func CompareQuantAllBandsTF(flags *int32, band int32) int32 { return quantAllBan
 func CompareQuantAllBandsChannelWeights(mode *OpusT_OpusCustomMode, energy *float32, band int32, w *[2]float32) {
 	quantAllBandsChannelWeights(nil, mode, energy, band, w)
 }
+func CompareOpusInt24PCM(tls *libc.TLS, input *float32, output *int32, count int32) {
+	opusDecodeInt24PCM(tls, input, output, count)
+}
+
+func CompareOpusNativeParsePacket(tls *libc.TLS, data *byte, length, selfDelimited int32, toc *byte, size *[48]int16, offset, packetOffset *int32, padding **byte, paddingLength *int32) int32 {
+	return opusNativeParsePacket(tls, data, length, selfDelimited, toc, size, offset, packetOffset, padding, paddingLength)
+}
+
 func CompareOpusFrameRedundantPacket(data *byte, offset, length int32) *byte {
 	return opusFrameRedundantPacket(data, offset, length)
 }

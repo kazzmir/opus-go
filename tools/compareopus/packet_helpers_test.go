@@ -150,6 +150,54 @@ func TestPacketParseAgainstC(t *testing.T) {
 	}
 }
 
+func TestDecodeInt24PCMAgainstC(t *testing.T) {
+	input := []float32{-1, -.5, 0, .5, 1, 1.5 / 8388608, 2.5 / 8388608, -1.5 / 8388608, -2.5 / 8388608}
+	for i := 0; i < 1024; i++ {
+		input = append(input, float32(i-512)/257)
+	}
+	want := nativeInt24PCM(input)
+	got := make([]int32, len(input)+2)
+	got[0], got[len(got)-1] = 77, 88
+	opuscc.CompareOpusInt24PCM(nil, &input[0], &got[1], int32(len(input)))
+	for i := range want {
+		if got[1+i] != want[i] {
+			t.Fatal("RES2INT24", i, got[1+i], want[i])
+		}
+	}
+	if got[0] != 77 || got[len(got)-1] != 88 {
+		t.Fatal("int24 guards")
+	}
+}
+
+func TestNativeDecodePacketDescriptorsAgainstC(t *testing.T) {
+	for _, tc := range []struct {
+		data []byte
+		self int32
+	}{{[]byte{0}, 0}, {[]byte{1}, 0}, {[]byte{3, 2}, 0}, {[]byte{0, 0, 99}, 1}, {[]byte{255, 65, 1, 10, 11, 12, 99}, 0}} {
+		var toc byte
+		var size [48]int16
+		var offset, consumed, padLength int32
+		var padding *byte
+		count := opuscc.CompareOpusNativeParsePacket(nil, &tc.data[0], int32(len(tc.data)), tc.self, &toc, &size, &offset, &consumed, &padding, &padLength)
+		c := nativePacketParse(&tc.data[0], int32(len(tc.data)), tc.self, 63, 0)
+		if count != c.Count || toc != c.Toc || offset != c.Payload || consumed != c.Packet || padLength != c.PaddingLen {
+			t.Fatal("decode-native numeric descriptors", tc, c)
+		}
+		for i := int32(0); i < count; i++ {
+			if size[i] != c.Sizes[1+i] {
+				t.Fatal("native sizes")
+			}
+		}
+		if padLength == 0 {
+			if padding != nil {
+				t.Fatal("unused padding view")
+			}
+		} else if padding == nil || int32(uintptr(unsafe.Pointer(padding))-uintptr(unsafe.Pointer(&tc.data[0]))) != c.Padding {
+			t.Fatal("native padding view")
+		}
+	}
+}
+
 func TestPacketParseImplAgainstC(t *testing.T) {
 	for _, packet := range packetParserFixtures() {
 		for _, self := range []int32{0, 1, -1} {

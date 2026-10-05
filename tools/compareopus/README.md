@@ -534,6 +534,109 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder-format rounds type the private float entry, int24 PCM conversion,
+int16 temporary float storage and int24 temporary float storage. opusDecodeFloat
+forwards directly to the complete typed native decoder, with frame_size<=0 checked
+before state access; the public float escape adapter remains. The int24 loop uses
+typed live views, the original float32 scale/evaluation and lrintf→int32 narrowing.
+Native tests invoke the upstream RES2INT24 macro with arch.h/float_cast.h; ties,
+signs, guards and valid representable C values match, with effective-type-invalid
+float/int live aliases explicitly Go-only.
+
+Both integer APIs retain their original packet-duration trimming, channel
+assertion, return gating, clipping flag (int16 only) and conversion count reload.
+Their float temporaries are independent Go storage, with direct typed native
+forwarding/typed conversions and public uintptrescapes tracking. The legacy
+integer wrapper scratch alignment/capacity allocation blocks disappear, but
+setup/snapshot/early/final cursor restores remain. Grouped nil-TLS scoped checkptr
+scratch-consumer fixtures and whole float SILK/hybrid reference goldens run with
+GC/stack growth; ordinary integer wrapper fixtures retain untouched TLS cursor
+sentinels and guards. Full amd64/386, ARM64/QEMU, native comparisons, references,
+GC stress, unchanged codec goldens/tolerances and repeated scoped/ordinary ARM
+runs pass each round. This is not whole integer-wrapper checkptr/nil-TLS proof;
+those entries/cursors, opaque allocation scanning and other outer APIs remain.
+
+Four decode-native entry rounds retain a typed decoder, payload/numeric byte
+cursor, packet-offset output and PCM owner. opusDecodeNative is fully typed with
+no private escape annotation; the public Opus_opus_decode_native signature and
+uintptrescapes adapter remain. Recursive PLC/FEC calls forward typed owners.
+Unused DRED arguments remain accepted by the public adapter but are not forwarded
+in this build, matching the upstream disabled-deep-PLC branch. Payload cursor
+advancement preserves native unsigned wrapping, and only length>1 consumed views
+are formed: zero/tiny frames still select loss, with no unused EOF pointer.
+Parser output timing, metadata commit/error order, duration rollback, frame flags,
+soft clipping and live channel reads are unchanged.
+
+The first 386 full checkptr run caught an exact-sized empty-packet EOF pointer
+in the existing public parser's padding output. Decode-native now asks the parser
+for numeric consumed/payload/size descriptors without requesting padding, derives
+padding length numerically, and forms a padding view only for nonzero lengths.
+Caller packet-offset writes still occur in the parser at their original point;
+when the caller omits that output a private numeric slot captures consumption.
+Actual C descriptor comparisons verify sizes/offsets/nonempty padding. The public
+parser retains its C EOF-pointer contract, so this fixes the active consumer
+without weakening empty-packet tests or claiming extension EOF is globally solved.
+
+Complete active private decode-native checkptr now runs with nil TLS and scanned
+composite state/Go payload, PCM and offset storage. Grouped fixtures cover
+mono/stereo SILK/hybrid/CELT, single/multiple/empty/padded packets, normal/PLC/FEC
+recursion, validation gates, self-delimited packet-offset guards and too-small
+output errors without premature metadata commit. Real SILK/hybrid packets reuse
+unchanged reference PCM FNV/range goldens. A 10ms self-delimited test initially
+used a 40ms TOC, correctly returning buffer-too-small; its TOC was corrected, not
+the validation. Full amd64/386 and ARM64/QEMU, native comparisons, whole reference
+fixtures, GC stress and codec goldens/tolerances pass each round, with separate
+repeated typed-path checkptr and ordinary ARM golden runs. This covers the tested
+typed native decoder paths, not opaque byte-backed allocation scanning, direct
+macOS CI, exact-sized extension EOF consumption or remaining float/int decoder,
+multistream/projection outer ownership.
+
+Four decode-native consumer rounds use the typed packet parser and all three
+typed frame dispatches: PLC, FEC suffix and ordinary packet sequence. Parser toc,
+48 sizes, payload/packet offsets and padding outputs now use Go slots directly;
+padding retains a typed byte owner and extension-ignore still clears it before
+the parser-error check. Frame dispatch helpers forward typed decoder/data/PCM
+owners and derive only consumed numeric offset views, keeping int32 product
+narrowing/uintptr stride wrapping, PLC/FEC remaining sizes and literal flags.
+Duration rollback, metadata commit timing, frame-size assertions, sequential
+payload advancement and soft-clip ordering are unchanged. The public native
+boundary receives uintptrescapes because it still accepts legacy addresses.
+
+Grouped scoped checkptr/GC fixtures cover padded packet descriptors/extension
+ownership, mono/stereo PLC consumption windows, untouched FEC prefixes, and an
+actual SILK packet dispatched at a nonzero PCM offset using unchanged scalar-C
+FNV/range goldens. Full amd64/386 and ARM64/QEMU tests, actual packet/CTL/helper
+native comparisons, existing whole native/frame references, codec baselines and
+GC stress pass each round, plus separate repeated ARM typed-consumer checkptr and
+ordinary golden runs. There are no legacy parser/frame calls left in decode-native,
+but its enclosing input/output/state/payload cursors and recursive calls remain
+integer representations; this is not enclosing decode-native checkptr coverage.
+Opaque allocation scanning and exact-sized extension EOF remain separate risks.
+
+Four private frame entry rounds retain the decoder as a typed pointer, the
+payload as a typed byte pointer, PCM operations as numeric typed views, then PCM
+as a typed pointer at the entry. opus_decode_frame remains the uintptrescapes
+legacy adapter; opusDecodeFrame is entirely typed, has no escape annotation,
+pins or TLS cursor operations, and recursively forwards typed owners. The long
+PLC loop accumulates only a numeric byte offset, constructing views before each
+consumed call instead of an unused terminal EOF pointer. Live channel bounds,
+store/load order, unsigned stride wrapping, gain rounding, frame validation,
+length<=1→nil payload gates, entropy tells and final range XOR are unchanged.
+
+Complete active private frame checkptr now runs on scanned composite decoder
+storage with Go payload/output arrays and nil TLS. Grouped fixtures cover
+mono/stereo CELT LM0..3 packet/loss sequences, 40ms recursive PLC, short/10/20ms
+SILK PLC, actual SILK normal/FEC payloads, validation gates and untouched TLS
+cursors. Real SILK NB and hybrid FB stereo packets reuse the unchanged frame
+reference FNV/final-range goldens (SILK values scalar-C-derived, hybrid PCM Go
+golden as documented in the original reference). These run with forced GC/stack
+growth inside scoped checkptr, separately from the old malloc/pseudostack golden
+fixtures. Full amd64/386 and ARM64/QEMU, native comparisons, existing transition/
+redundancy/gain references, GC stress, codec goldens/tolerances and ARM repeated
+typed-path/ordinary golden runs pass every round. This covers tested typed frame
+paths, not direct macOS CI, opaque byte-backed embedded-pointer scanning or the
+still-integer Opus decode-native entry, packet descriptors and enclosing owners.
+
 Four frame pseudostack cleanup rounds remove scratch initialization, all six
 early-return cursor restores, normal-return restore, then snapshot/metadata
 allocation and dead temporaries. No frame pseudostack/TLS cursor access remains;
