@@ -14,6 +14,27 @@ type opusFrameOwnerTestStorage struct {
 	Celt    celtStateTestStorage
 }
 
+func TestOpusFrameCeltTransitionStoragePointers(t *testing.T) {
+	for _, C := range []int32{1, 2} {
+		temporary := opusFrameAudioStorage(240 * C)
+		pointer := unsafe.SliceData(temporary)
+		state := new(celtStateTestStorage)
+		Opus_celt_decoder_init(nil, &state.State, 48000, C)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opusFrameCelt(nil, &state.State, nil, 0, pointer, 240, nil, 0, 0) != 240 {
+			t.Fatal("CELT transition scratch")
+		}
+		output := make([]float32, 240*C+2)
+		output[0], output[len(output)-1] = 77, 88
+		copy(output[1:1+120*C], temporary[:120*C])
+		smooth_fade(nil, opusFrameSilkPCM(pointer, uintptr(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
+		if output[0] != 77 || output[len(output)-1] != 88 || pointer != &temporary[0] {
+			t.Fatal("transition storage guards/owner")
+		}
+	}
+}
+
 func TestOpusFrameSilkScratchPointers(t *testing.T) {
 	if opusFrameAudioStorage(0) != nil {
 		t.Fatal("empty scratch")
