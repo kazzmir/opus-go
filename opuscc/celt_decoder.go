@@ -384,10 +384,6 @@ func celt_plc_pitch_search(tls *libc.TLS, st *OpusT_OpusCustomDecoder, left, rig
 	return PLC_PITCH_LAG_MAX - pitch
 }
 
-//go:uintptrescapes
-func prefilter_and_fold_legacy(tls *libc.TLS, st uintptr, N int32) {
-	prefilter_and_fold(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)), N)
-}
 func prefilterFoldState(st *OpusT_OpusCustomDecoder) (mode *OpusT_OpusCustomMode, overlap, channels int32) {
 	return st.Fmode, st.Foverlap, st.Fchannels
 }
