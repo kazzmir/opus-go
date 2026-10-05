@@ -5,6 +5,20 @@ import (
 	"testing"
 )
 
+func TestRepacketizerAliasPointers(t *testing.T) {
+	holder := new(struct{ State OpusRepacketizer })
+	frame, padding := []byte{17, 19}, []byte{23, 29}
+	holder.State.Fframes[47] = &frame[0]
+	holder.State.Fpaddings[47] = &padding[0]
+	frame, padding = nil, nil
+	var canonical *OpusT_OpusRepacketizer = &holder.State
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *canonical.Fframes[47] != 17 || *canonical.Fpaddings[47] != 23 {
+		t.Fatal("canonical alias owners")
+	}
+}
+
 func TestRepacketizerPaddingPointers(t *testing.T) {
 	owner := new(OpusT_OpusRepacketizer)
 	for i := range owner.Fpaddings {

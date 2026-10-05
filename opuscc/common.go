@@ -980,16 +980,7 @@ var tapset_icdf = [3]uint8{
 
 type OpusT_va_list = uintptr
 
-type OpusRepacketizer = struct {
-	Ftoc               uint8
-	Fnb_frames         int32
-	Fframes            [48]uintptr
-	Flen1              [48]OpusT_opus_int16
-	Fframesize         int32
-	Fpaddings          [48]uintptr
-	Fpadding_len       [48]OpusT_opus_int32
-	Fpadding_nb_frames [48]uint8
-}
+type OpusRepacketizer = OpusT_OpusRepacketizer
 
 type OpusT_OpusExtensionIterator = struct {
 	Fdata               *byte
