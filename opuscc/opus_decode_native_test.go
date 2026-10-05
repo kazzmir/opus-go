@@ -8,6 +8,24 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusNativeTypedDecoderEntry(t *testing.T) {
+	left, right := newOpusFrameOwnerDecoder(t, 1), newOpusFrameOwnerDecoder(t, 1)
+	a, b := make([]float32, 122), make([]float32, 122)
+	a[0], a[121], b[0], b[121] = 77, 88, 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	ra := opusDecodeNative(nil, &left.Decoder, 0, 0, uintptr(unsafe.Pointer(&a[1])), 120, 0, 0, 0, 0)
+	rb := Opus_opus_decode_native(nil, uintptr(unsafe.Pointer(&right.Decoder)), 0, 0, uintptr(unsafe.Pointer(&b[1])), 120, 0, 0, 0, 0, 0, 0)
+	if ra != 120 || rb != ra || left.Decoder != right.Decoder || a[0] != 77 || a[121] != 88 {
+		t.Fatal("native typed decoder entry")
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			t.Fatal("native decoder PCM")
+		}
+	}
+}
+
 func TestOpusNativePacketFramePointers(t *testing.T) {
 	storage := newOpusFrameOwnerDecoder(t, 2)
 	decoder := &storage.Decoder

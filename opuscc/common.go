@@ -2835,7 +2835,12 @@ func opusNativePLCFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, pcm *float32,
 }
 
 //go:uintptrescapes
-func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32, self_delimited int32, packet_offset uintptr, soft_clip int32, dred uintptr, dred_offset OpusT_opus_int32) (r int32) {
+func Opus_opus_decode_native(tls *libc.TLS, st, data uintptr, len1 int32, pcm uintptr, frame_size, decode_fec, self_delimited int32, packet_offset uintptr, soft_clip int32, dred uintptr, dred_offset int32) int32 {
+	return opusDecodeNative(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), data, len1, pcm, frame_size, decode_fec, self_delimited, packet_offset, soft_clip)
+}
+
+//go:uintptrescapes
+func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data uintptr, len1 int32, pcm uintptr, frame_size, decode_fec, self_delimited int32, packet_offset uintptr, soft_clip int32) (r int32) {
 	var count, duration_copy, i, nb_samples, packet_bandwidth, packet_frame_size, packet_mode, packet_stream_channels, pcm_count, ret, ret1, ret2, v1 int32
 	var v8 OpusT_opus_val16
 	var toc uint8
@@ -2844,8 +2849,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	var padding *byte
 	var padding_len OpusT_opus_int32
 	var iter OpusT_OpusExtensionIterator
-	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
-	validate_opus_decoder(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)))
+	validate_opus_decoder(tls, decoder)
 	if decode_fec < 0 || decode_fec > int32(1) {
 		return -int32(1)
 	}
@@ -2853,8 +2857,6 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	if (decode_fec != 0 || len1 == 0 || data == uintptr(uint32(0))) && frame_size%(decoder.FFs/int32(400)) != 0 {
 		return -int32(1)
 	}
-	_ = dred
-	_ = dred_offset
 	if len1 == 0 || data == uintptr(uint32(0)) {
 		pcm_count = 0
 		for cond := true; cond; cond = pcm_count < frame_size {
@@ -2894,12 +2896,12 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	if decode_fec != 0 {
 		/* If no FEC can be present, run the PLC (recursive call) */
 		if frame_size < packet_frame_size || packet_mode == int32(MODE_CELT_ONLY) || decoder.Fmode == int32(MODE_CELT_ONLY) {
-			return Opus_opus_decode_native(tls, st, uintptr(uint32(0)), 0, pcm, frame_size, 0, 0, uintptr(uint32(0)), soft_clip, uintptr(uint32(0)), 0)
+			return opusDecodeNative(tls, decoder, 0, 0, pcm, frame_size, 0, 0, 0, soft_clip)
 		}
 		/* Otherwise, run the PLC on everything except the size for which we might have FEC */
 		duration_copy = decoder.Flast_packet_duration
 		if frame_size-packet_frame_size != 0 {
-			ret1 = Opus_opus_decode_native(tls, st, uintptr(uint32(0)), 0, pcm, frame_size-packet_frame_size, 0, 0, uintptr(uint32(0)), soft_clip, uintptr(uint32(0)), 0)
+			ret1 = opusDecodeNative(tls, decoder, 0, 0, pcm, frame_size-packet_frame_size, 0, 0, 0, soft_clip)
 			if ret1 < 0 {
 				decoder.Flast_packet_duration = duration_copy
 				return ret1
