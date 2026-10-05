@@ -8,6 +8,32 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusFloatDecodeWholePointers(t *testing.T) {
+	if opusDecodeFloat(nil, nil, nil, 0, nil, 0, 2) != -1 {
+		t.Fatal("float validation order")
+	}
+	for _, tc := range []struct {
+		text      string
+		n         int32
+		hash, rng uint32
+	}{{"18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40", 2880, 0x20a8ba55, 0x50373c71}, {"7c8cb723a4e954f30817690d8021804d5c6f7c7a79cdaeeeda68b9cc67aab183653ff229912863fc3f7a335205cb0e033bed80eb1a0cfd3f5f", 960, 0x53ba9704, 0x01ad2800}} {
+		storage := newOpusFrameOwnerDecoder(t, 2)
+		packet := mustHex(t, tc.text)
+		pcm := make([]float32, 11522)
+		pcm[0], pcm[11521] = 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opusDecodeFloat(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0) != tc.n || fnv1aFloats(pcm[1:1+2*tc.n]) != tc.hash || storage.Decoder.FrangeFinal != tc.rng || pcm[0] != 77 || pcm[11521] != 88 {
+			t.Fatal("float decode typed golden")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opusDecodeFloat(nil, &storage.Decoder, nil, 0, &pcm[1], 5760, 0) != 5760 {
+			t.Fatal("float PLC")
+		}
+	}
+}
+
 func TestOpusNativePacketOffsetPointers(t *testing.T) {
 	for _, frame := range []int32{479, 480} {
 		storage := newOpusFrameOwnerDecoder(t, 1)

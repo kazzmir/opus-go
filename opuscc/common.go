@@ -3362,11 +3362,16 @@ func Opus_opus_decode24(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opu
 	return ret
 }
 
-func Opus_opus_decode_float(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	if frame_size <= 0 {
-		return -int32(1)
+//go:uintptrescapes
+func Opus_opus_decode_float(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frameSize, fec int32) int32 {
+	return opusDecodeFloat(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*float32)(unsafe.Pointer(pcm)), frameSize, fec)
+}
+
+func opusDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, frameSize, fec int32) int32 {
+	if frameSize <= 0 {
+		return -1
 	}
-	return Opus_opus_decode_native(tls, st, data, len1, pcm, frame_size, decode_fec, 0, uintptr(uint32(0)), 0, uintptr(uint32(0)), 0)
+	return opusDecodeNative(tls, decoder, data, length, pcm, frameSize, fec, 0, nil, 0)
 }
 
 // Legacy varargs boundary; forwarding stays typed and allocates no TLS scratch.
