@@ -534,6 +534,94 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four frame pseudostack cleanup rounds remove scratch initialization, all six
+early-return cursor restores, normal-return restore, then snapshot/metadata
+allocation and dead temporaries. No frame pseudostack/TLS cursor access remains;
+codec work/validation/recursive PLC/CTL/final-range/error ordering is unchanged.
+Scratch initialization and cursor metadata side effects are intentionally gone.
+The legacy uintptrescapes entry still forwards integer input/output arguments.
+
+Whole ordinary frame fixtures now exercise nil TLS on scanned composite storage:
+mono/stereo CELT LM0..3 packet→PLC→PLC→packet, recursive 40ms PLC, short/10/20ms
+SILK PLC, validation gates and untouched TLS sentinels. The test composite includes
+explicit computed 8-byte decoder/SILK padding: the initial 386 geometry assertion
+caught native alignment vs Go's 4-byte struct alignment, which was fixed rather
+than skipped. Packet pointers stay typed across forced stack growth/GC until the
+annotated call boundary. Existing whole native comparisons, frame references,
+codec baselines/goldens/tolerances, full amd64/386 and ARM64/QEMU tests and GC
+stress pass every round. ARM repeated scoped typed-consumer checkptr and ordinary
+whole-frame/golden repetitions are run separately: whole legacy frame uintptr
+entry/PCM operations are not claimed to pass checkptr. Opaque byte-backed scanning
+and outer decode-native ownership remain unresolved; next work can migrate the
+frame entry and its payload/output operations to typed views.
+
+Four frame scratch rounds replace SILK short-frame PCM, CELT transition PCM,
+SILK transition PCM and redundant audio pseudostack allocation blocks with
+independent Go float32 storage at the original allocation points. Zero sizes
+produce nil unused storage. Short SILK frames retain the 10ms temporary then copy
+only the requested samples. Transition size selection and redundancy suppression
+are unchanged; recursive concealment precedes the same validation/CTL points,
+and prefix-copy/fade and final-range ordering remain live. Typed transition and
+redundancy views use numeric offsets and retained Go owners. The four legacy
+cursor alignment/capacity blocks disappear; frame setup/save/restores remain.
+
+The legacy opus_decode_frame boundary now has go:uintptrescapes: recursive calls
+pass the Go-owned transition output through that still-integer entry, so escape
+tracking is required before removing its surrounding legacy adapters. This is a
+lifetime fix, not a checkptr workaround or a full typed-entry claim. Grouped nil
+TLS/checkptr/GC scratch-consumer fixtures cover mono/stereo CELT concealment and
+redundancy, short SILK truncation, independent transition owners, prefix copies
+and fade guards. Existing actual C/transition/redundancy frame references, codec
+baselines/goldens/tolerances and full amd64/386, ARM64/QEMU, GC stress pass every
+round, with repeated typed-consumer checkptr and separate ordinary ARM goldens.
+Opaque byte-backed scanning and enclosing frame input/PCM/cursor ownership are
+still separate. Go zero initialization replaces C's uninitialized scratch only
+where consumers already initialize the active data before it is read.
+
+Four further Opus-frame owner rounds retain the SILK interior as a typed
+pointer, represent SILK PCM with a typed base/current view plus numeric byte
+offset, call silk_Decode directly with typed control/entropy/PCM/sample-count
+arguments, then retain the CELT interior as a typed pointer throughout dispatch
+and CTLs. Interiors use unsafe.Add on the retained decoder and the original live
+signed offsets at the original derivation point. The PCM offset preserves native
+uintptr stride wrapping; only consumed loop views are formed, not an unused
+terminal EOF pointer. PLC error clears still reload the live channel bound and
+store in the original order. Entropy tell gates read the typed context fields at
+the original three points, with unchanged cached values/rounding/precedence.
+
+All frame-local Pinner slots are now removed: dec and silk_frame_size no longer
+cross integer interfaces, and the runtime import is gone. Public legacy adapters
+remain for other callers. Grouped scanned composite owner fixtures exercise both
+interiors, numeric PCM chunk views/guards, SILK PLC dispatch with typed count and
+untouched entropy, and active CELT decode/range/mode retrieval. Scoped checkptr,
+GC/stack growth, unchanged whole native SILK/CELT comparisons, enclosing frame
+references, full amd64/386 and ARM64/QEMU tests and codec baselines pass each
+round, with repeated ARM typed-consumer and separate ordinary golden runs.
+Removing pins is not an enclosing frame GC-safety/checkptr proof: the entry,
+payload/PCM/transition/redundancy owners, pseudostack storage/cursors and fades
+still include legacy representations. Byte-backed decoder allocation scanning
+also remains separate; these fixtures deliberately use scanned composite storage.
+
+Four Opus-frame CELT CTL rounds replace all twelve legacy varargs calls with
+the existing typed CTL interface: six band/channel setters, two resets, three
+final-range outputs and mode retrieval. Setter values, reset/start-band order,
+assertion sites and the deliberately ignored main range-query return are
+unchanged. Redundant range outputs retain typed local pointers; main range output
+uses the actual outer decoder field rather than byte offset96. The retrieved
+mode and fade window are typed owners. Unused va_list scratch disappears, along
+with redundant_rng, celt_mode and va Pinner slots; only dec and silk_frame_size
+remain pinned for their legacy SILK crossings.
+
+Grouped scoped checkptr/GC tests cover setter validation/no partial writes,
+reset barriers/energy-log initialization, unsigned range extremes/live field
+aliases, mode retrieval, retained heap window ownership and fade guards. Existing
+actual-C custom CTL comparison fixtures and transition/frame goldens remain
+unchanged; full amd64/386, ARM64/QEMU, native comparisons, GC stress and codec
+baselines pass each round. Repeated ARM typed-consumer checkptr remains separate
+from ordinary enclosing Opus-frame goldens. This does not yet make frame decoder
+interiors, PCM/redundancy/fade offsets or remaining SILK uintptr arguments typed,
+and opaque allocation scanning remains unresolved.
+
 Four Opus-frame CELT dispatch rounds forward typed decoder, payload, PCM and
 entropy owners to the internal decoder for the main/FEC call, CELT→SILK redundant
 frame, hybrid→SILK silence frame and SILK→CELT redundant frame. Redundant packet
