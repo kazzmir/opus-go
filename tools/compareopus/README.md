@@ -534,6 +534,33 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four format-wrapper rounds introduce typed private multistream float/int16/
+int24 entries, each forwarding directly to opusMSDecodeNative with a typed
+standard callback (no integer function-address binding), followed by a typed
+private projection float entry. Public format signatures/escape adapters remain.
+Clipping is unchanged: OPTIONAL_CLIP for int16, zero for float/int24/projection
+float; no additional validation, gain, quantization or sample-count operation is
+introduced. Projection still derives multistream then matrix views at the original
+forwarding point, but a Go closure captures the typed matrix owner instead of
+passing its address through integer callback user-data. Matrix/source/destination
+loads and clear-before-accumulation order remain in the existing typed leaf.
+
+Grouped whole wrapper checkptr/nil-TLS tests use scanned exact-stride two-stream
+state, reordered/duplicated/muted channels, real SILK/synthetic active CELT packets,
+normal/PLC/FEC, guarded outputs, stack growth/GC and independent existing-native
+entry PCM/count/state parity. The int16 fixture also raises gain to exercise the
+retained soft-clipping flag. Projection float tests use a scanned header/matrix/
+multistream/children composite with asserted offsets, nontrivial 4x4 coefficients,
+full active normal/PLC/FEC parity and invalid-packet/minimum-frame ordering.
+A separate matrix callback drops the original composite owner before GC/stack
+growth, then verifies captured-coefficient output and nil-source clearing.
+Existing native mapping/callback comparisons and enclosing MS C references,
+full amd64/386 and ARM64/QEMU tests, scoped checkptr and GC stress pass each round
+with unchanged codec goldens/tolerances, plus repeated scoped/ordinary ARM runs.
+Projection integer wrappers/custom callback user-data and opaque byte-backed
+allocator scanning remain separate legacy boundaries; no global GC-safety or
+direct macOS CI claim is implied.
+
 Four enclosing multistream rounds replace the decode sample-rate varargs CTL
 with its existing typed equivalent, use Go Fs/packet-offset scalar storage,
 remove all multistream decode pseudostack initialization/snapshot/restores, then
