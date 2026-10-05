@@ -71,6 +71,10 @@ func CompareQuantAllBandsTF(flags *int32, band int32) int32 { return quantAllBan
 func CompareQuantAllBandsChannelWeights(mode *OpusT_OpusCustomMode, energy *float32, band int32, w *[2]float32) {
 	quantAllBandsChannelWeights(nil, mode, energy, band, w)
 }
+func CompareNLSFDelayedQuant(output *int8, input, weights *int16, pred *byte, ix *int16, rates *byte, step int32, inv int16, mu int32, order int16) int32 {
+	return silkNLSFDelayedQuant(nil, output, input, weights, pred, ix, rates, step, inv, mu, order)
+}
+
 func CompareOpusInt24PCM(tls *libc.TLS, input *float32, output *int32, count int32) {
 	opusDecodeInt24PCM(tls, input, output, count)
 }

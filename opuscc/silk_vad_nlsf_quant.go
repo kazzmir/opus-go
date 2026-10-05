@@ -633,12 +633,16 @@ func Opus_silk_NLSF_unpack(tls *libc.TLS, ec_ix *OpusT_opus_int16, pred_Q8 *Opus
 //	/* Delayed-decision quantizer for NLSF residuals */
 //
 //go:uintptrescapes
-func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr, w_Q5 uintptr, pred_coef_Q8 uintptr, ec_ix uintptr, ec_rates_Q5 uintptr, quant_step_size_Q16 int32, inv_quant_step_size_Q6 OpusT_opus_int16, mu_Q20 OpusT_opus_int32, order OpusT_opus_int16) (r OpusT_opus_int32) {
-	output := unsafe.Slice((*int8)(unsafe.Pointer(indices)), max(int(order), 1))
-	input := unsafe.Slice((*int16)(unsafe.Pointer(x_Q10)), max(int(order), 0))
-	weights := unsafe.Slice((*int16)(unsafe.Pointer(w_Q5)), max(int(order), 0))
-	predictors := unsafe.Slice((*byte)(unsafe.Pointer(pred_coef_Q8)), max(int(order), 0))
-	rateIndices := unsafe.Slice((*int16)(unsafe.Pointer(ec_ix)), max(int(order), 0))
+func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices, x, w, pred, ix, rates uintptr, step int32, inv int16, mu int32, order int16) int32 {
+	return silkNLSFDelayedQuant(tls, (*int8)(unsafe.Pointer(indices)), (*int16)(unsafe.Pointer(x)), (*int16)(unsafe.Pointer(w)), (*byte)(unsafe.Pointer(pred)), (*int16)(unsafe.Pointer(ix)), (*byte)(unsafe.Pointer(rates)), step, inv, mu, order)
+}
+
+func silkNLSFDelayedQuant(tls *libc.TLS, indices *int8, x_Q10, w_Q5 *int16, pred_coef_Q8 *byte, ec_ix *int16, ec_rates_Q5 *byte, quant_step_size_Q16 int32, inv_quant_step_size_Q6 int16, mu_Q20 int32, order int16) (r int32) {
+	output := unsafe.Slice(indices, max(int(order), 1))
+	input := unsafe.Slice(x_Q10, max(int(order), 0))
+	weights := unsafe.Slice(w_Q5, max(int(order), 0))
+	predictors := unsafe.Slice(pred_coef_Q8, max(int(order), 0))
+	rateIndices := unsafe.Slice(ec_ix, max(int(order), 0))
 	var RD_Q25 [8]OpusT_opus_int32
 	var RD_max_Q25, RD_min_Q25 [4]OpusT_opus_int32
 	var RD_tmp_Q25, max_min_Q25, min_Q25, min_max_Q25 OpusT_opus_int32

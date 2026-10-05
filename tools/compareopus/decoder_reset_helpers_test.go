@@ -52,7 +52,7 @@ func TestNLSFDelayedQuantAgainstC(t *testing.T) {
 			}
 			got, want := make([]int8, N+2), make([]int8, N+2)
 			got[0], got[N+1], want[0], want[N+1] = 77, 88, 77, 88
-			result := opuscc.Opus_silk_NLSF_del_dec_quant(nil, uintptr(unsafe.Pointer(&got[1])), uintptr(unsafe.Pointer(&x[0])), uintptr(unsafe.Pointer(&w[0])), uintptr(unsafe.Pointer(&pred[0])), uintptr(unsafe.Pointer(&ix[0])), uintptr(unsafe.Pointer(&rates[0])), 10000, 419, 64, int16(N))
+			result := opuscc.CompareNLSFDelayedQuant(&got[1], &x[0], &w[0], &pred[0], &ix[0], &rates[0], 10000, 419, 64, int16(N))
 			expected := nativeNLSFQuant(want[1:N+1], x, w, pred, ix, rates, 10000, 419, 64)
 			if result != expected || !slices.Equal(got, want) {
 				t.Fatal("NLSF delayed quant", N, trial, result, expected, got, want)

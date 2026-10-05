@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four delayed-decision NLSF quantizer rounds replace integer-address input
+loads with typed live x/weight/predictor/rate-index views, use typed nine-byte
+rate-row views, type index output/final adjustment stores, then introduce the
+fully typed private silkNLSFDelayedQuant entry behind the public escape adapter.
+Fixed Go scratch arrays, candidate order/sorting, signed narrowing, wrapping
+MACs, row snapshots, disabled original assertion expressions and late output
+store order remain unchanged. There is no TLS scratch/pin/private escape
+annotation. Production opuscc uintptr tokens decrease 292→273 (19 removed).
+This standalone quantizer is not an active decoder call; opusccenc has its own
+unchanged implementation.
+
+Grouped parameter tests cover nil TLS/whole-private-entry checkptr, order10/16,
+Go inputs/rate tables/guarded index output, stack growth/GC, deterministic state
+and a Go-only output/input alias proving late stores. Native comparison tests
+invoke the actual upstream silk_NLSF_del_dec_quant for 200 seeded bounded
+fixtures, comparing exact RD return/index bytes/guards without altering goldens.
+The exported comparison bridge is typed; public legacy ABI remains available.
+Full amd64/386, ARM64/QEMU, applicable scoped checkptr, native comparisons,
+codec references and GC stress pass every round with unchanged tolerances, plus
+repeated scoped/ordinary ARM tests after completion. Existing opaque allocation,
+raw callback and extension EOF boundaries are not claimed repaired.
+
 Four CELT cleanup rounds delete the unused CELT_PVQ_U_ROW integer-address
 array (active PVQ already uses numeric offsets), unused comb/prefilter adapters,
 unused deemphasis/synthesis integer channel-array adapters, and unused inverse

@@ -93,6 +93,48 @@ func TestLTPVectorTablePointers(t *testing.T) {
 	}
 }
 
+func TestNLSFDelayedQuantPointers(t *testing.T) {
+	for _, N := range []int{10, 16} {
+		x, w, ix := make([]int16, N), make([]int16, N), make([]int16, N)
+		pred := make([]byte, N)
+		rates := make([]byte, 27)
+		for i := range x {
+			x[i] = int16(i*173 - 900)
+			w[i] = int16(i%8 + 1)
+			ix[i] = int16(i % 3 * 9)
+			pred[i] = byte(i * 11)
+		}
+		for i := range rates {
+			rates[i] = byte(i*3 + 20)
+		}
+		output, other := make([]int8, N+2), make([]int8, N+2)
+		output[0], output[N+1] = 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		RD := silkNLSFDelayedQuant(nil, &output[1], &x[0], &w[0], &pred[0], &ix[0], &rates[0], 10000, 419, 64, int16(N))
+		ref := silkNLSFDelayedQuant(nil, &other[1], &x[0], &w[0], &pred[0], &ix[0], &rates[0], 10000, 419, 64, int16(N))
+		if RD != ref || output[0] != 77 || output[N+1] != 88 {
+			t.Fatal("typed NLSF quantizer/guards")
+		}
+		for i := 0; i < N; i++ {
+			if output[i+1] != other[i+1] {
+				t.Fatal("typed quantizer indices")
+			}
+		}
+		alias := append([]int16(nil), x...)
+		aliasRD := silkNLSFDelayedQuant(nil, (*int8)(unsafe.Pointer(&alias[0])), &alias[0], &w[0], &pred[0], &ix[0], &rates[0], 10000, 419, 64, int16(N))
+		if aliasRD != RD {
+			t.Fatal("Go-only final indices/input alias")
+		}
+		result := unsafe.Slice((*int8)(unsafe.Pointer(&alias[0])), N)
+		for i := range result {
+			if result[i] != output[i+1] {
+				t.Fatal("quantizer late index stores")
+			}
+		}
+	}
+}
+
 func TestLTPBitTablePointers(t *testing.T) {
 	original := Opus_silk_LTP_gain_BITS_Q5_ptrs
 	defer func() { Opus_silk_LTP_gain_BITS_Q5_ptrs = original }()
