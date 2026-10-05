@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder-format rounds type the private float entry, int24 PCM conversion,
+int16 temporary float storage and int24 temporary float storage. opusDecodeFloat
+forwards directly to the complete typed native decoder, with frame_size<=0 checked
+before state access; the public float escape adapter remains. The int24 loop uses
+typed live views, the original float32 scale/evaluation and lrintf→int32 narrowing.
+Native tests invoke the upstream RES2INT24 macro with arch.h/float_cast.h; ties,
+signs, guards and valid representable C values match, with effective-type-invalid
+float/int live aliases explicitly Go-only.
+
+Both integer APIs retain their original packet-duration trimming, channel
+assertion, return gating, clipping flag (int16 only) and conversion count reload.
+Their float temporaries are independent Go storage, with direct typed native
+forwarding/typed conversions and public uintptrescapes tracking. The legacy
+integer wrapper scratch alignment/capacity allocation blocks disappear, but
+setup/snapshot/early/final cursor restores remain. Grouped nil-TLS scoped checkptr
+scratch-consumer fixtures and whole float SILK/hybrid reference goldens run with
+GC/stack growth; ordinary integer wrapper fixtures retain untouched TLS cursor
+sentinels and guards. Full amd64/386, ARM64/QEMU, native comparisons, references,
+GC stress, unchanged codec goldens/tolerances and repeated scoped/ordinary ARM
+runs pass each round. This is not whole integer-wrapper checkptr/nil-TLS proof;
+those entries/cursors, opaque allocation scanning and other outer APIs remain.
+
 Four decode-native entry rounds retain a typed decoder, payload/numeric byte
 cursor, packet-offset output and PCM owner. opusDecodeNative is fully typed with
 no private escape annotation; the public Opus_opus_decode_native signature and

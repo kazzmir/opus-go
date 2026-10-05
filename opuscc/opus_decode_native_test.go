@@ -8,6 +8,46 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusInt24ScratchPointers(t *testing.T) {
+	storage := newOpusFrameOwnerDecoder(t, 2)
+	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+	out := opusFrameAudioStorage(2880 * 2)
+	pcm := make([]int32, 5762)
+	pcm[0], pcm[5761] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	ret := opusDecodeNative(nil, &storage.Decoder, &packet[0], int32(len(packet)), unsafe.SliceData(out), 2880, 0, 0, nil, 0)
+	if ret != 2880 {
+		t.Fatal("int24 scratch decode")
+	}
+	opusDecodeInt24PCM(nil, unsafe.SliceData(out), &pcm[1], ret*2)
+	if pcm[0] != 77 || pcm[5761] != 88 || storage.Decoder.FrangeFinal != 0x50373c71 {
+		t.Fatal("int24 scratch guards/range")
+	}
+}
+
+func TestOpusIntegerDecodeGoScratch(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	raw := libc.Xmalloc(tls, 16)
+	defer libc.Xfree(tls, raw)
+	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	before := *cursor
+	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
+	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+	for _, C := range []int32{1, 2} {
+		left, right := newOpusFrameOwnerDecoder(t, C), newOpusFrameOwnerDecoder(t, C)
+		a, b := make([]int16, 5760*C+2), make([]int32, 5760*C+2)
+		a[0], a[len(a)-1], b[0], b[len(b)-1] = 77, 88, 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_decode(tls, uintptr(unsafe.Pointer(&left.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&a[1])), 5760, 0) != 2880 || Opus_opus_decode24(tls, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&b[1])), 5760, 0) != 2880 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 || *cursor != before {
+			t.Fatal("integer Go scratch/cursors", C)
+		}
+	}
+}
+
 func TestOpusInt16ScratchPointers(t *testing.T) {
 	storage := newOpusFrameOwnerDecoder(t, 2)
 	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
