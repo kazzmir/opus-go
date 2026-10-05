@@ -1498,24 +1498,6 @@ var CELT_PVQ_U_DATA = [1272]OpusT_opus_uint32{
 	1271: uint32(1409933619),
 }
 
-var CELT_PVQ_U_ROW = [15]uintptr{
-	0:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(0)*4,
-	1:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(176)*4,
-	2:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(351)*4,
-	3:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(525)*4,
-	4:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(698)*4,
-	5:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(870)*4,
-	6:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(1041)*4,
-	7:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(1131)*4,
-	8:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(1178)*4,
-	9:  uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(1207)*4,
-	10: uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(1226)*4,
-	11: uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(1240)*4,
-	12: uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(1248)*4,
-	13: uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(1254)*4,
-	14: uintptr(unsafe.Pointer(&CELT_PVQ_U_DATA)) + uintptr(1257)*4,
-}
-
 func icwrs(tls *libc.TLS, n int32, input *int32) uint32 {
 	if n < 2 {
 		Opus_celt_fatal(tls, __ccgo_ts+3610, __ccgo_ts+3634, 448)
