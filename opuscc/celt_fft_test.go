@@ -8,6 +8,24 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestMiniFFTRConfigPointers(t *testing.T) {
+	var cfg OpusT_mini_kiss_fftr_cfg = Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, nil)
+	if cfg == nil {
+		t.Fatal("FFTR cfg allocation")
+	}
+	defer libc.XfreePointer(nil, unsafe.Pointer(cfg))
+	holder := struct{ Cfg OpusT_mini_kiss_fftr_cfg }{cfg}
+	cfg = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	input := [8]float32{1, 1, 1, 1, 1, 1, 1, 1}
+	var output [5]OpusT_mini_kiss_fft_cpx
+	Opus_mini_kiss_fftr(nil, holder.Cfg, &input[0], &output[0])
+	if output[0].Fr != 8 {
+		t.Fatal("typed cfg FFTR", output)
+	}
+}
+
 func TestMiniFFTConfigPointers(t *testing.T) {
 	var cfg OpusT_mini_kiss_fft_cfg = Opus_mini_kiss_fft_alloc(nil, 4, 0, nil, nil)
 	if cfg == nil {

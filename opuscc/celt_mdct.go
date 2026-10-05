@@ -400,7 +400,7 @@ func Opus_mini_kiss_fft(tls *libc.TLS, cfg *OpusT_mini_kiss_fft_state, fin, fout
 	Opus_mini_kiss_fft_stride(tls, cfg, fin, fout, 1)
 }
 
-type OpusT_mini_kiss_fftr_cfg = uintptr
+type OpusT_mini_kiss_fftr_cfg = *OpusT_mini_kiss_fftr_state
 
 type mini_kiss_fftr_state = OpusT_mini_kiss_fftr_state
 
