@@ -28,6 +28,31 @@ func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage 
 	return storage
 }
 
+func TestOpusFrameEarlyReturnCursor(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	raw := libc.Xmalloc(tls, 16)
+	defer libc.Xfree(tls, raw)
+	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	before := *cursor
+	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
+	storage := newOpusFrameOwnerDecoder(t, 1)
+	pcm := make([]float32, 122)
+	pcm[0], pcm[121] = 77, 88
+	if opus_decode_frame(tls, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
+		t.Fatal("initial no-packet return")
+	}
+	storage.Decoder.Fmode = MODE_CELT_ONLY
+	storage.Decoder.Fframe_size = 240
+	storage.Decoder.Fbandwidth = OPUS_BANDWIDTH_FULLBAND
+	data := make([]byte, 64)
+	data[0] = 165
+	if opus_decode_frame(tls, uintptr(unsafe.Pointer(&storage.Decoder)), uintptr(unsafe.Pointer(&data[0])), 64, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != -1 || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
+		t.Fatal("bad frame-size return")
+	}
+}
+
 func TestOpusFrameNoScratchInitialization(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()

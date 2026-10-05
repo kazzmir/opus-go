@@ -2385,17 +2385,6 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 	F5 = F10 >> int32(1)
 	F2_5 = F5 >> int32(1)
 	if frame_size < F2_5 {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 		return -int32(2)
 	}
 	/* Limit frame_size to avoid excessive stack allocations. */
@@ -2441,17 +2430,6 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 				*(*OpusT_opus_res)(unsafe.Pointer(pcm + uintptr(i)*4)) = float32(0)
 				i = i + 1
 			}
-			st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-			if !(st != 0) {
-				v1 = libc.Xmalloc(tls, uint64(16))
-				st = v1
-				if st != 0 {
-					libc.Xmemset(tls, st, 0, uint64(16))
-				}
-				libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-			}
-			v3 = st
-			(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 			return audiosize
 		}
 		/* Avoids trying to run the PLC on sizes other than 2.5 (CELT), 5 (CELT),
@@ -2465,33 +2443,11 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 				}
 				ret = opus_decode_frame(tls, st1, uintptr(uint32(0)), 0, pcm, v31, 0)
 				if ret < 0 {
-					st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-					if !(st != 0) {
-						v1 = libc.Xmalloc(tls, uint64(16))
-						st = v1
-						if st != 0 {
-							libc.Xmemset(tls, st, 0, uint64(16))
-						}
-						libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-					}
-					v3 = st
-					(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 					return ret
 				}
 				pcm = pcm + uintptr(ret*decoder.Fchannels)*4
 				audiosize = audiosize - ret
 			}
-			st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-			if !(st != 0) {
-				v1 = libc.Xmalloc(tls, uint64(16))
-				st = v1
-				if st != 0 {
-					libc.Xmemset(tls, st, 0, uint64(16))
-				}
-				libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-			}
-			v3 = st
-			(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 			return frame_size
 		} else {
 			if audiosize < F20 {
@@ -2530,18 +2486,6 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 		opus_decode_frame(tls, st1, 0, 0, uintptr(unsafe.Pointer(pcm_transition)), v31, 0)
 	}
 	if audiosize > frame_size {
-		/*fprintf(stderr, "PCM buffer too small: %d vs %d (mode = %d)\n", audiosize, frame_size, mode);*/
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 		return -int32(1)
 	} else {
 		frame_size = audiosize
@@ -2620,17 +2564,6 @@ func opus_decode_frame(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus
 						i = i + 1
 					}
 				} else {
-					st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-					if !(st != 0) {
-						v1 = libc.Xmalloc(tls, uint64(16))
-						st = v1
-						if st != 0 {
-							libc.Xmemset(tls, st, 0, uint64(16))
-						}
-						libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-					}
-					v3 = st
-					(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 					return -int32(3)
 				}
 			}
