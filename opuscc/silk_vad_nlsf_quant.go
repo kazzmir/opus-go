@@ -51,7 +51,8 @@ func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16
 	var NrgToNoiseRatio_Q8 [4]OpusT_opus_int32
 	var Xnrg [4]OpusT_opus_int32
 	var SA_Q15, SNR_Q7, b1, dec_subframe_length, dec_subframe_offset, decimated_framelength, decimated_framelength1, decimated_framelength2, i, input_tilt, pSNR_dB_Q7, ret, s, v33, v34, v35, v37 int32
-	var X, _saved_stack, psSilk_VAD, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var X []int16
+	var _saved_stack, psSilk_VAD, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
 	var X_offset [4]int32
 	var frac_Q7, lz, lzeros, smooth_coef_Q16, speech_nrg, sumSquared, x_tmp, y, v43, v44, v46, v47, v48, v51, v53 OpusT_opus_int32
 	var m, r, x OpusT_opus_uint32
@@ -164,30 +165,28 @@ func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16
 		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
 	}
 	v23 = st
-	X = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(X_offset[int32(3)]+decimated_framelength1))*(uint64(2)/uint64(1)))
+	X = unsafe.Slice((*int16)(unsafe.Pointer((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack-uintptr(uint64(uint32(X_offset[3]+decimated_framelength1))*2))), X_offset[3]+decimated_framelength1)
 	/* 0-8 kHz to 0-4 kHz and 4-8 kHz */
-	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(pIn)), &vad.FAnaState, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[int32(3)])*2)), encoder.Fframe_length)
+	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(pIn)), &vad.FAnaState, &X[0], &X[X_offset[3]], encoder.Fframe_length)
 	/* 0-4 kHz to 0-2 kHz and 2-4 kHz */
-	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(X)), &vad.FAnaState1, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[int32(2)])*2)), decimated_framelength1)
+	Opus_silk_ana_filt_bank_1(tls, &X[0], &vad.FAnaState1, &X[0], &X[X_offset[2]], decimated_framelength1)
 	/* 0-2 kHz to 0-1 kHz and 1-2 kHz */
-	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(X)), &vad.FAnaState2, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[int32(1)])*2)), decimated_framelength2)
+	Opus_silk_ana_filt_bank_1(tls, &X[0], &vad.FAnaState2, &X[0], &X[X_offset[1]], decimated_framelength2)
 	/*********************************************/
 	/* HP filter on lowest band (differentiator) */
 	/*********************************************/
-	*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(decimated_framelength-int32(1))*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(decimated_framelength-int32(1))*2))) >> int32(1))
-	HPstateTmp = *(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(decimated_framelength-int32(1))*2))
+	X[decimated_framelength-1] = int16(int32(X[decimated_framelength-1]) >> 1)
+	HPstateTmp = X[decimated_framelength-1]
 	i = decimated_framelength - int32(1)
 	for {
 		if !(i > 0) {
 			break
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(i-int32(1))*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(i-int32(1))*2))) >> int32(1))
-		v1 = X + uintptr(i)*2
-		*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(i-int32(1))*2))))
+		X[i-1] = int16(int32(X[i-1]) >> 1)
+		X[i] = int16(int32(X[i]) - int32(X[i-1]))
 		i = i - 1
 	}
-	v1 = X
-	*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) - int32(vad.FHPstate))
+	X[0] = int16(int32(X[0]) - int32(vad.FHPstate))
 	vad.FHPstate = HPstateTmp
 	/*************************************/
 	/* Calculate the energy in each band */
@@ -226,7 +225,7 @@ func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16
 				}
 				/* The energy will be less than dec_subframe_length * ( silk_int16_MIN / 8 ) ^ 2.            */
 				/* Therefore we can accumulate with no risk of overflow (unless dec_subframe_length > 128)  */
-				x_tmp = int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(X_offset[b1]+i+dec_subframe_offset)*2))) >> int32(3)
+				x_tmp = int32(X[X_offset[b1]+i+dec_subframe_offset]) >> int32(3)
 				sumSquared = sumSquared + int32(int16(x_tmp))*int32(int16(x_tmp))
 				/* Safety check */
 				_ = sumSquared >= int32(0)
