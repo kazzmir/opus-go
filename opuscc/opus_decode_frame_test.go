@@ -28,6 +28,36 @@ func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage 
 	return storage
 }
 
+func TestOpusFrameTypedPCMViews(t *testing.T) {
+	for _, gain := range []int32{-32768, 0, 256, 32767} {
+		left, right := newOpusFrameOwnerDecoder(t, 1), newOpusFrameOwnerDecoder(t, 1)
+		for _, decoder := range []*OpusT_OpusDecoder{&left.Decoder, &right.Decoder} {
+			decoder.Fmode = MODE_CELT_ONLY
+			decoder.Fframe_size = 120
+			decoder.Fbandwidth = OPUS_BANDWIDTH_FULLBAND
+			decoder.Fdecode_gain = gain
+		}
+		data := make([]byte, 128)
+		for i := range data {
+			data[i] = byte(i*73 + 165)
+		}
+		a, b := make([]float32, 122), make([]float32, 122)
+		a[0], a[121], b[0], b[121] = 77, 88, 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ra := opusDecodeFrame(nil, &left.Decoder, &data[0], 128, uintptr(unsafe.Pointer(&a[1])), 120, 0)
+		rb := opus_decode_frame(nil, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&data[0])), 128, uintptr(unsafe.Pointer(&b[1])), 120, 0)
+		if ra != 120 || ra != rb || left.Decoder != right.Decoder || a[0] != 77 || a[121] != 88 {
+			t.Fatal("PCM view gain/guards", gain)
+		}
+		for i := range a {
+			if a[i] != b[i] {
+				t.Fatal("gain PCM", gain, i)
+			}
+		}
+	}
+}
+
 func TestOpusFrameTypedPayloadEntry(t *testing.T) {
 	for _, length := range []int32{0, 1, 128} {
 		left, right := newOpusFrameOwnerDecoder(t, 1), newOpusFrameOwnerDecoder(t, 1)
