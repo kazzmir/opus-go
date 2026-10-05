@@ -363,12 +363,12 @@ func TestMultistreamAudioScratchLegacy(t *testing.T) {
 	}
 	output := make([]float32, 17)
 	output[0], output[16] = 77, 88
-	callback := __ccgo_fp(opus_copy_channel_out_float_legacy)
+	callback := opus_copy_channel_out_float_legacy
 	entropyInitGrowStack(12)
 	runtime.GC()
-	opusMSLegacyCopyChannel(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 0, uintptr(unsafe.Pointer(&audio[0])), 2, 5, 0)
-	opusMSLegacyCopyChannel(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 2, uintptr(unsafe.Pointer(&audio[1])), 2, 5, 0)
-	opusMSLegacyCopyChannel(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 1, 0, 0, 5, 0)
+	opusMSInvokeLegacy(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 0, uintptr(unsafe.Pointer(&audio[0])), 2, 5, 0)
+	opusMSInvokeLegacy(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 2, uintptr(unsafe.Pointer(&audio[1])), 2, 5, 0)
+	opusMSInvokeLegacy(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 1, 0, 0, 5, 0)
 	for i := 0; i < 5; i++ {
 		if output[1+3*i] != audio[2*i] || output[2+3*i] != 0 || output[3+3*i] != audio[2*i+1] {
 			t.Fatal("Go stereo/mono/muted scratch")
