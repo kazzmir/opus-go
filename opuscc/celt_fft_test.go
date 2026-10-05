@@ -1,12 +1,38 @@
 package opuscc
 
 import (
+	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestMiniFFTAssertionPointers(t *testing.T) {
+	same := new(OpusT_mini_kiss_fft_cpx)
+	inverse := Opus_mini_kiss_fftr_alloc(nil, 8, 1, nil, nil)
+	defer libc.XfreePointer(nil, unsafe.Pointer(inverse))
+	input := [7]OpusT_mini_kiss_fft_cpx{}
+	output := [7]OpusT_mini_kiss_fft_cpx{}
+	state := OpusT_mini_kiss_fft_state{Fnfft: 7}
+	cases := []struct {
+		line string
+		call func()
+	}{{":391)", func() { Opus_mini_kiss_fft_stride(nil, nil, same, same, 1) }}, {":416)", func() { Opus_mini_kiss_fftr_alloc(nil, 3, 0, nil, nil) }}, {":453)", func() { Opus_mini_kiss_fftr(nil, inverse, nil, nil) }}, {":317)", func() { kf_work(nil, &output[0], &input[0], 1, 1, []int32{7, 1}, &state) }}}
+	for _, item := range cases {
+		func() {
+			defer func() {
+				value := recover()
+				if value == nil || !strings.Contains(fmt.Sprint(value), "assertion failed:") || !strings.Contains(fmt.Sprint(value), item.line) {
+					t.Fatal("FFT assertion diagnostic", value, item.line)
+				}
+			}()
+			item.call()
+		}()
+	}
+}
 
 func TestMiniFFTRConfigPointers(t *testing.T) {
 	var cfg OpusT_mini_kiss_fftr_cfg = Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, nil)

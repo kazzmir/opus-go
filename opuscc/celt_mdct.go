@@ -305,11 +305,9 @@ func kf_work(tls *libc.TLS, out, in *OpusT_mini_kiss_fft_cpx, fstride OpusT_size
 	case 5:
 		kf_bfly51(tls, out, fstride, tw, m)
 	default:
-		libc.X__assert_fail(tls, __ccgo_ts+5527, __ccgo_ts+5529, 317, uintptr(unsafe.Pointer(&__func__)))
+		libc.X__assert_fail(tls, __ccgo_ts+5527, __ccgo_ts+5529, 317, 0)
 	}
 }
-
-var __func__ = [8]int8{'k', 'f', '_', 'w', 'o', 'r', 'k'}
 
 // C documentation
 //
@@ -389,12 +387,10 @@ func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, len
 
 func Opus_mini_kiss_fft_stride(tls *libc.TLS, st *OpusT_mini_kiss_fft_state, fin, fout *OpusT_mini_kiss_fft_cpx, inStride int32) {
 	if fin == fout {
-		libc.X__assert_fail(tls, __ccgo_ts+5549, __ccgo_ts+5529, 391, uintptr(unsafe.Pointer(&__func__1)))
+		libc.X__assert_fail(tls, __ccgo_ts+5549, __ccgo_ts+5529, 391, 0)
 	}
 	kf_work(tls, fout, fin, 1, inStride, st.Ffactors[:], st)
 }
-
-var __func__1 = [21]int8{'m', 'i', 'n', 'i', '_', 'k', 'i', 's', 's', '_', 'f', 'f', 't', '_', 's', 't', 'r', 'i', 'd', 'e'}
 
 func Opus_mini_kiss_fft(tls *libc.TLS, cfg *OpusT_mini_kiss_fft_state, fin, fout *OpusT_mini_kiss_fft_cpx) {
 	Opus_mini_kiss_fft_stride(tls, cfg, fin, fout, 1)
@@ -412,7 +408,7 @@ type OpusT_mini_kiss_fftr_state = struct {
 
 func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fftr_state {
 	if nfft&1 != 0 {
-		libc.X__assert_fail(tls, __ccgo_ts+5561, __ccgo_ts+5529, 416, uintptr(unsafe.Pointer(&__func__2)))
+		libc.X__assert_fail(tls, __ccgo_ts+5561, __ccgo_ts+5529, 416, 0)
 	}
 	nfft >>= 1
 	var subsize OpusT_size_t
@@ -449,11 +445,9 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	return st
 }
 
-var __func__2 = [21]int8{'m', 'i', 'n', 'i', '_', 'k', 'i', 's', 's', '_', 'f', 'f', 't', 'r', '_', 'a', 'l', 'l', 'o', 'c'}
-
 func Opus_mini_kiss_fftr(tls *libc.TLS, st *OpusT_mini_kiss_fftr_state, timedata *float32, freqdata *OpusT_mini_kiss_fft_cpx) {
 	if st.Fsubstate.Finverse != 0 {
-		libc.X__assert_fail(tls, __ccgo_ts+5577, __ccgo_ts+5529, 453, uintptr(unsafe.Pointer(&__func__3)))
+		libc.X__assert_fail(tls, __ccgo_ts+5577, __ccgo_ts+5529, 453, 0)
 	}
 	ncfft := st.Fsubstate.Fnfft
 	// Pack even/odd real samples into complex input; the complete input stays typed.
@@ -479,8 +473,6 @@ func Opus_mini_kiss_fftr(tls *libc.TLS, st *OpusT_mini_kiss_fftr_state, timedata
 		out[ncfft-k].Fi = float32((tw.Fi - f1.Fi) * 0.5)
 	}
 }
-
-var __func__3 = [15]int8{'m', 'i', 'n', 'i', '_', 'k', 'i', 's', 's', '_', 'f', 'f', 't', 'r'}
 
 const LAPLACE_LOG_MINP = 0
 const LAPLACE_NMIN = 16
