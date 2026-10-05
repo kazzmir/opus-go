@@ -1,11 +1,30 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestMiniFFTConfigPointers(t *testing.T) {
+	var cfg OpusT_mini_kiss_fft_cfg = Opus_mini_kiss_fft_alloc(nil, 4, 0, nil, nil)
+	if cfg == nil {
+		t.Fatal("FFT cfg allocation")
+	}
+	defer libc.XfreePointer(nil, unsafe.Pointer(cfg))
+	holder := struct{ Cfg OpusT_mini_kiss_fft_cfg }{cfg}
+	cfg = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	input := [4]OpusT_mini_kiss_fft_cpx{{Fr: 1}, {Fr: 1}, {Fr: 1}, {Fr: 1}}
+	var output [4]OpusT_mini_kiss_fft_cpx
+	Opus_mini_kiss_fft(nil, holder.Cfg, &input[0], &output[0])
+	if output[0].Fr != 4 {
+		t.Fatal("typed cfg FFT", output)
+	}
+}
 
 func TestMiniFFTAllocUsesFields(t *testing.T) {
 	tls := libc.NewTLS()

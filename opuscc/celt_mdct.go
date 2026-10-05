@@ -142,7 +142,7 @@ type OpusT_mini_kiss_fft_cpx = struct {
 	Fi float32
 }
 
-type OpusT_mini_kiss_fft_cfg = uintptr
+type OpusT_mini_kiss_fft_cfg = *OpusT_mini_kiss_fft_state
 
 type mini_kiss_fft_state = struct {
 	Fnfft     int32
