@@ -3580,9 +3580,12 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 
 type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr)
 
+func opusMSDecodeChild(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, frame, fec, selfDelimited int32, packetOffset *int32, softClip int32) int32 {
+	return opusDecodeNative(tls, decoder, data, length, pcm, frame, fec, selfDelimited, packetOffset, softClip)
+}
+
 func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, __ccgo_fp_copy_channel_out OpusT_opus_copy_channel_out_func, frame_size int32, decode_fec int32, soft_clip int32, user_data uintptr) (r int32) {
-	// CTL and decode output pointers cross deep uintptr-taking calls. Keep
-	// their named storage pinned rather than on the movable Go stack.
+	// CTL varargs storage remains legacy; child packet offsets now stay typed.
 	type decodeScratch struct {
 		Fs           OpusT_opus_int32
 		packetOffset OpusT_opus_int32
@@ -3848,7 +3851,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			return -int32(3)
 		}
 		scratch.packetOffset = 0
-		ret1 = Opus_opus_decode_native(tls, dec, data, len1, buf, frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), uintptr(unsafe.Pointer(&scratch.packetOffset)), soft_clip, uintptr(uint32(0)), 0)
+		ret1 = opusMSDecodeChild(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(dec)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(buf)), frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), &scratch.packetOffset, soft_clip)
 		if !(do_plc != 0) {
 			data = data + uintptr(scratch.packetOffset)
 			len1 = len1 - scratch.packetOffset
