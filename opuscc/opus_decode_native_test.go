@@ -8,6 +8,30 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusNativeTypedPacketOffsetEntry(t *testing.T) {
+	for _, frame := range []int32{479, 480} {
+		storage := newOpusFrameOwnerDecoder(t, 1)
+		packet := []byte{0, 0, 99}
+		output := make([]float32, 482)
+		output[0], output[481] = 77, 88
+		slot := []int32{77, 99, 88}
+		before := storage.Decoder.Fmode
+		entropyInitGrowStack(12)
+		runtime.GC()
+		result := opusDecodeNative(nil, &storage.Decoder, &packet[0], 3, uintptr(unsafe.Pointer(&output[1])), frame, 0, 1, &slot[1], 0)
+		want := int32(480)
+		if frame == 479 {
+			want = -2
+			if storage.Decoder.Fmode != before {
+				t.Fatal("premature packet metadata commit")
+			}
+		}
+		if result != want || slot[1] != 2 || slot[0] != 77 || slot[2] != 88 || output[0] != 77 || output[481] != 88 {
+			t.Fatal("typed packet offset/error order", frame, result, slot)
+		}
+	}
+}
+
 func TestOpusNativeTypedPayloadEntry(t *testing.T) {
 	for _, packet := range [][]byte{{16}, mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")} {
 		left, right := newOpusFrameOwnerDecoder(t, 2), newOpusFrameOwnerDecoder(t, 2)
@@ -15,7 +39,7 @@ func TestOpusNativeTypedPayloadEntry(t *testing.T) {
 		a[0], a[5761], b[0], b[5761] = 77, 88, 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		ra := opusDecodeNative(nil, &left.Decoder, &packet[0], int32(len(packet)), uintptr(unsafe.Pointer(&a[1])), 2880, 0, 0, 0, 0)
+		ra := opusDecodeNative(nil, &left.Decoder, &packet[0], int32(len(packet)), uintptr(unsafe.Pointer(&a[1])), 2880, 0, 0, nil, 0)
 		rb := Opus_opus_decode_native(nil, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&b[1])), 2880, 0, 0, 0, 0, 0, 0)
 		if ra <= 0 || rb != ra || left.Decoder != right.Decoder || a[0] != 77 || a[5761] != 88 {
 			t.Fatal("native typed payload")
@@ -50,7 +74,7 @@ func TestOpusNativeTypedDecoderEntry(t *testing.T) {
 	a[0], a[121], b[0], b[121] = 77, 88, 77, 88
 	entropyInitGrowStack(12)
 	runtime.GC()
-	ra := opusDecodeNative(nil, &left.Decoder, nil, 0, uintptr(unsafe.Pointer(&a[1])), 120, 0, 0, 0, 0)
+	ra := opusDecodeNative(nil, &left.Decoder, nil, 0, uintptr(unsafe.Pointer(&a[1])), 120, 0, 0, nil, 0)
 	rb := Opus_opus_decode_native(nil, uintptr(unsafe.Pointer(&right.Decoder)), 0, 0, uintptr(unsafe.Pointer(&b[1])), 120, 0, 0, 0, 0, 0, 0)
 	if ra != 120 || rb != ra || left.Decoder != right.Decoder || a[0] != 77 || a[121] != 88 {
 		t.Fatal("native typed decoder entry")
