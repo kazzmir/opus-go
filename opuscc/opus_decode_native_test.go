@@ -1,11 +1,33 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestOpusNativePacketDescriptorsPointers(t *testing.T) {
+	packet := []byte{255, 65, 1, 10, 11, 12, 99}
+	var toc byte
+	var sizes [48]int16
+	var offset, packetOffset, paddingLength int32
+	var padding *byte
+	if Opus_opus_packet_parse_impl(nil, &packet[0], 7, 0, &toc, nil, &sizes, &offset, &packetOffset, &padding, &paddingLength) != 1 || toc != 255 || sizes[0] != 3 || offset != 3 || packetOffset != 7 || paddingLength != 1 || padding != &packet[6] {
+		t.Fatal("native packet descriptors")
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *padding != 99 || sizes[0] != 3 {
+		t.Fatal("retained typed descriptors")
+	}
+	iter := OpusT_OpusExtensionIterator{}
+	Opus_opus_extension_iterator_init(nil, &iter, padding, paddingLength, 1)
+	if iter.Fdata != padding {
+		t.Fatal("typed extension padding")
+	}
+}
 
 func TestOpusDecodeNativeLossFrame(t *testing.T) {
 	tls := libc.NewTLS()

@@ -2822,13 +2822,14 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 	return v31
 }
 
+//go:uintptrescapes
 func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32, self_delimited int32, packet_offset uintptr, soft_clip int32, dred uintptr, dred_offset OpusT_opus_int32) (r int32) {
 	var count, duration_copy, i, nb_samples, packet_bandwidth, packet_frame_size, packet_mode, packet_stream_channels, pcm_count, ret, ret1, ret2, v1 int32
 	var v8 OpusT_opus_val16
 	var toc uint8
 	var size [48]OpusT_opus_int16 /* 48 x 2.5 ms = 120 ms */
 	var offset int32
-	var padding uintptr
+	var padding *byte
 	var padding_len OpusT_opus_int32
 	var iter OpusT_OpusExtensionIterator
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
@@ -2868,15 +2869,15 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	packet_bandwidth = Opus_opus_packet_get_bandwidth(tls, (*byte)(unsafe.Pointer(data)))
 	packet_frame_size = Opus_opus_packet_get_samples_per_frame(tls, (*byte)(unsafe.Pointer(data)), decoder.FFs)
 	packet_stream_channels = Opus_opus_packet_get_nb_channels(tls, (*byte)(unsafe.Pointer(data)))
-	count = opus_packet_parse_impl_legacy(tls, data, len1, self_delimited, uintptr(unsafe.Pointer(&toc)), uintptr(uint32(0)), uintptr(unsafe.Pointer(&size[0])), uintptr(unsafe.Pointer(&offset)), packet_offset, uintptr(unsafe.Pointer(&padding)), uintptr(unsafe.Pointer(&padding_len)))
+	count = Opus_opus_packet_parse_impl(tls, (*byte)(unsafe.Pointer(data)), len1, self_delimited, &toc, nil, &size, &offset, (*int32)(unsafe.Pointer(packet_offset)), &padding, &padding_len)
 	if decoder.Fignore_extensions != 0 {
-		padding = uintptr(uint32(0))
+		padding = nil
 		padding_len = 0
 	}
 	if count < 0 {
 		return count
 	}
-	Opus_opus_extension_iterator_init(tls, &iter, (*byte)(unsafe.Pointer(padding)), padding_len, count)
+	Opus_opus_extension_iterator_init(tls, &iter, padding, padding_len, count)
 	data = data + uintptr(offset)
 	if decode_fec != 0 {
 		/* If no FEC can be present, run the PLC (recursive call) */
