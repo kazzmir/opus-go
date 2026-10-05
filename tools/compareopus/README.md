@@ -534,6 +534,29 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four frame scratch rounds replace SILK short-frame PCM, CELT transition PCM,
+SILK transition PCM and redundant audio pseudostack allocation blocks with
+independent Go float32 storage at the original allocation points. Zero sizes
+produce nil unused storage. Short SILK frames retain the 10ms temporary then copy
+only the requested samples. Transition size selection and redundancy suppression
+are unchanged; recursive concealment precedes the same validation/CTL points,
+and prefix-copy/fade and final-range ordering remain live. Typed transition and
+redundancy views use numeric offsets and retained Go owners. The four legacy
+cursor alignment/capacity blocks disappear; frame setup/save/restores remain.
+
+The legacy opus_decode_frame boundary now has go:uintptrescapes: recursive calls
+pass the Go-owned transition output through that still-integer entry, so escape
+tracking is required before removing its surrounding legacy adapters. This is a
+lifetime fix, not a checkptr workaround or a full typed-entry claim. Grouped nil
+TLS/checkptr/GC scratch-consumer fixtures cover mono/stereo CELT concealment and
+redundancy, short SILK truncation, independent transition owners, prefix copies
+and fade guards. Existing actual C/transition/redundancy frame references, codec
+baselines/goldens/tolerances and full amd64/386, ARM64/QEMU, GC stress pass every
+round, with repeated typed-consumer checkptr and separate ordinary ARM goldens.
+Opaque byte-backed scanning and enclosing frame input/PCM/cursor ownership are
+still separate. Go zero initialization replaces C's uninitialized scratch only
+where consumers already initialize the active data before it is read.
+
 Four further Opus-frame owner rounds retain the SILK interior as a typed
 pointer, represent SILK PCM with a typed base/current view plus numeric byte
 offset, call silk_Decode directly with typed control/entropy/PCM/sample-count

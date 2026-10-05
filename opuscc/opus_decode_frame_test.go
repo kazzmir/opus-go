@@ -14,6 +14,34 @@ type opusFrameOwnerTestStorage struct {
 	Celt    celtStateTestStorage
 }
 
+func TestOpusFrameRedundancyStoragePointers(t *testing.T) {
+	for _, C := range []int32{1, 2} {
+		temporary := unsafe.SliceData(opusFrameAudioStorage(240 * C))
+		state := new(celtStateTestStorage)
+		Opus_celt_decoder_init(nil, &state.State, 48000, C)
+		data := make([]byte, 64)
+		for i := range data {
+			data[i] = byte(i*73 + 165)
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opusFrameCeltRedundant(nil, &state.State, &data[0], 0, 64, temporary, 240) != 240 {
+			t.Fatal("redundant Go scratch decode")
+		}
+		output := make([]float32, 240*C+2)
+		output[0], output[len(output)-1] = 77, 88
+		for channel := int32(0); channel < C; channel++ {
+			for i := int32(0); i < 120; i++ {
+				output[1+C*i+channel] = *opusFrameSilkPCM(temporary, uintptr(C*i+channel)*4)
+			}
+		}
+		smooth_fade(nil, opusFrameSilkPCM(temporary, uintptr(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
+		if output[0] != 77 || output[len(output)-1] != 88 {
+			t.Fatal("redundancy prefix/fade guards")
+		}
+	}
+}
+
 func TestOpusFrameSilkTransitionStoragePointers(t *testing.T) {
 	transition, celt := opusFrameAudioStorage(240), opusFrameAudioStorage(240)
 	temporary := opusFrameAudioStorage(480)
