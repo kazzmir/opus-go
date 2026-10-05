@@ -534,6 +534,30 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four private frame entry rounds retain the decoder as a typed pointer, the
+payload as a typed byte pointer, PCM operations as numeric typed views, then PCM
+as a typed pointer at the entry. opus_decode_frame remains the uintptrescapes
+legacy adapter; opusDecodeFrame is entirely typed, has no escape annotation,
+pins or TLS cursor operations, and recursively forwards typed owners. The long
+PLC loop accumulates only a numeric byte offset, constructing views before each
+consumed call instead of an unused terminal EOF pointer. Live channel bounds,
+store/load order, unsigned stride wrapping, gain rounding, frame validation,
+length<=1→nil payload gates, entropy tells and final range XOR are unchanged.
+
+Complete active private frame checkptr now runs on scanned composite decoder
+storage with Go payload/output arrays and nil TLS. Grouped fixtures cover
+mono/stereo CELT LM0..3 packet/loss sequences, 40ms recursive PLC, short/10/20ms
+SILK PLC, actual SILK normal/FEC payloads, validation gates and untouched TLS
+cursors. Real SILK NB and hybrid FB stereo packets reuse the unchanged frame
+reference FNV/final-range goldens (SILK values scalar-C-derived, hybrid PCM Go
+golden as documented in the original reference). These run with forced GC/stack
+growth inside scoped checkptr, separately from the old malloc/pseudostack golden
+fixtures. Full amd64/386 and ARM64/QEMU, native comparisons, existing transition/
+redundancy/gain references, GC stress, codec goldens/tolerances and ARM repeated
+typed-path/ordinary golden runs pass every round. This covers tested typed frame
+paths, not direct macOS CI, opaque byte-backed embedded-pointer scanning or the
+still-integer Opus decode-native entry, packet descriptors and enclosing owners.
+
 Four frame pseudostack cleanup rounds remove scratch initialization, all six
 early-return cursor restores, normal-return restore, then snapshot/metadata
 allocation and dead temporaries. No frame pseudostack/TLS cursor access remains;

@@ -28,6 +28,95 @@ func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage 
 	return storage
 }
 
+func TestOpusFrameFecPointers(t *testing.T) {
+	storage := newOpusFrameOwnerDecoder(t, 2)
+	decoder := &storage.Decoder
+	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+	decoder.Fmode = MODE_SILK_ONLY
+	decoder.Fbandwidth = OPUS_BANDWIDTH_NARROWBAND
+	decoder.Fstream_channels = 1
+	decoder.Fframe_size = 2880
+	pcm := make([]float32, 5762)
+	pcm[0], pcm[5761] = 77, 88
+	for _, fec := range []int32{0, 1} {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opusDecodeFrame(nil, decoder, &packet[1], int32(len(packet)-1), &pcm[1], 2880, fec) != 2880 || pcm[0] != 77 || pcm[5761] != 88 || decoder.Fprev_mode != MODE_SILK_ONLY {
+			t.Fatal("typed frame FEC", fec)
+		}
+	}
+}
+
+func TestOpusFrameWholeArgumentsPointers(t *testing.T) {
+	storage := newOpusFrameOwnerDecoder(t, 1)
+	decoder := &storage.Decoder
+	sample := float32(77)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if opusDecodeFrame(nil, decoder, nil, 0, &sample, 119, 0) != -2 || sample != 77 {
+		t.Fatal("typed frame minimum size")
+	}
+	decoder.Fmode = MODE_CELT_ONLY
+	decoder.Fframe_size = 240
+	decoder.Fbandwidth = OPUS_BANDWIDTH_FULLBAND
+	data := [2]byte{165, 73}
+	if opusDecodeFrame(nil, decoder, &data[0], 2, &sample, 120, 0) != -1 || sample != 77 {
+		t.Fatal("typed frame payload size gate")
+	}
+}
+
+func TestOpusFrameWholeCursorPointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	cursor := &OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	before := *cursor
+	libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(cursor)))
+	storage := newOpusFrameOwnerDecoder(t, 1)
+	decoder := &storage.Decoder
+	decoder.Fmode = MODE_CELT_ONLY
+	decoder.Fframe_size = 120
+	decoder.Fbandwidth = OPUS_BANDWIDTH_FULLBAND
+	data := make([]byte, 128)
+	for i := range data {
+		data[i] = byte(i*73 + 165)
+	}
+	pcm := make([]float32, 120)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if opusDecodeFrame(tls, decoder, &data[0], 128, &pcm[0], 120, 0) != 120 || opusDecodeFrame(tls, decoder, nil, 0, &pcm[0], 120, 0) != 120 || *cursor != before {
+		t.Fatal("typed whole frame touched cursor")
+	}
+}
+
+// Reuse unchanged scalar-C/Go frame goldens from the existing reference fixtures.
+func TestOpusFrameActualPacketsPointers(t *testing.T) {
+	for _, sequence := range []struct {
+		packets        []string
+		hashes, ranges []uint32
+	}{{[]string{"18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40", "182312cf4040d200ea1335b36ad4d1a12853dd70b1861253119131ec38"}, []uint32{0x20a8ba55, 0x579c5571}, []uint32{0x50373c71, 0x0671027e}}, {[]string{"7c8cb723a4e954f30817690d8021804d5c6f7c7a79cdaeeeda68b9cc67aab183653ff229912863fc3f7a335205cb0e033bed80eb1a0cfd3f5f", "7c8cc676dcad40dbc8d29d8c3742932526cf5cb73422f4484e23294abafbd6f43cf4f0be8f037456e8bf8a941b1cc6bb", "7c89304a6e5771290464a49a7b9ae7faad938f4cfa4f7e87b076d0fd29b8148c9bba0b085e8d4a8fc70fe4ba126ee8e11a80", "7c89169498b4acaa71ef3c3036299ca0842e1c72362e835f826fcac1eeb088470759f85df05cd98914a64cd3f7972fb7e5023815"}, []uint32{0x53ba9704, 0x5ff5cd0b, 0xc65da4a1, 0xa052e9c5}, []uint32{0x01ad2800, 0x02879800, 0x03449d00, 0x096a4200}}} {
+		storage := newOpusFrameOwnerDecoder(t, 2)
+		decoder := &storage.Decoder
+		for step, text := range sequence.packets {
+			packet := mustHex(t, text)
+			if packet[0]&3 != 0 {
+				t.Fatal("fixture must be single-frame")
+			}
+			decoder.Fmode = opus_packet_get_mode(nil, &packet[0])
+			decoder.Fbandwidth = Opus_opus_packet_get_bandwidth(nil, &packet[0])
+			decoder.Fstream_channels = Opus_opus_packet_get_nb_channels(nil, &packet[0])
+			decoder.Fframe_size = Opus_opus_packet_get_samples_per_frame(nil, &packet[0], 48000)
+			N := decoder.Fframe_size
+			pcm := make([]float32, 2*N+2)
+			pcm[0], pcm[len(pcm)-1] = 77, 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if opusDecodeFrame(nil, decoder, &packet[1], int32(len(packet)-1), &pcm[1], N, 0) != N || fnv1aFloats(pcm[1:1+2*N]) != sequence.hashes[step] || decoder.FrangeFinal != sequence.ranges[step] || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+				t.Fatal("typed actual frame golden", decoder.Fmode, step)
+			}
+		}
+	}
+}
+
 func TestOpusFrameTypedPCMViews(t *testing.T) {
 	for _, gain := range []int32{-32768, 0, 256, 32767} {
 		left, right := newOpusFrameOwnerDecoder(t, 1), newOpusFrameOwnerDecoder(t, 1)
@@ -45,7 +134,7 @@ func TestOpusFrameTypedPCMViews(t *testing.T) {
 		a[0], a[121], b[0], b[121] = 77, 88, 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		ra := opusDecodeFrame(nil, &left.Decoder, &data[0], 128, uintptr(unsafe.Pointer(&a[1])), 120, 0)
+		ra := opusDecodeFrame(nil, &left.Decoder, &data[0], 128, &a[1], 120, 0)
 		rb := opus_decode_frame(nil, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&data[0])), 128, uintptr(unsafe.Pointer(&b[1])), 120, 0)
 		if ra != 120 || ra != rb || left.Decoder != right.Decoder || a[0] != 77 || a[121] != 88 {
 			t.Fatal("PCM view gain/guards", gain)
@@ -74,7 +163,7 @@ func TestOpusFrameTypedPayloadEntry(t *testing.T) {
 		a[0], a[121], b[0], b[121] = 77, 88, 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		ra := opusDecodeFrame(nil, &left.Decoder, &data[0], length, uintptr(unsafe.Pointer(&a[1])), 120, 0)
+		ra := opusDecodeFrame(nil, &left.Decoder, &data[0], length, &a[1], 120, 0)
 		rb := opus_decode_frame(nil, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&data[0])), length, uintptr(unsafe.Pointer(&b[1])), 120, 0)
 		if ra != 120 || rb != ra || left.Decoder != right.Decoder {
 			t.Fatal("typed payload gates", length)
@@ -93,7 +182,7 @@ func TestOpusFrameTypedDecoderEntry(t *testing.T) {
 	a[0], a[121], b[0], b[121] = 77, 88, 77, 88
 	entropyInitGrowStack(12)
 	runtime.GC()
-	ra := opusDecodeFrame(nil, &left.Decoder, nil, 0, uintptr(unsafe.Pointer(&a[1])), 120, 0)
+	ra := opusDecodeFrame(nil, &left.Decoder, nil, 0, &a[1], 120, 0)
 	rb := opus_decode_frame(nil, uintptr(unsafe.Pointer(&right.Decoder)), 0, 0, uintptr(unsafe.Pointer(&b[1])), 120, 0)
 	if ra != 120 || rb != ra || left.Decoder != right.Decoder {
 		t.Fatal("typed/legacy decoder entry")
@@ -105,8 +194,8 @@ func TestOpusFrameTypedDecoderEntry(t *testing.T) {
 	}
 }
 
-// This whole frame fixture is ordinary (not checkptr): the entry/PCM are still uintptr.
-func TestOpusFrameNoPseudostack(t *testing.T) {
+// The complete private frame entry and active consumers are typed.
+func TestOpusFrameWholePointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, C := range []int32{1, 2} {
 			storage := newOpusFrameOwnerDecoder(t, C)
@@ -130,7 +219,7 @@ func TestOpusFrameNoPseudostack(t *testing.T) {
 				}
 				entropyInitGrowStack(12)
 				runtime.GC()
-				if got := opus_decode_frame(nil, uintptr(unsafe.Pointer(decoder)), uintptr(unsafe.Pointer(packet)), length, uintptr(unsafe.Pointer(&pcm[1])), N, 0); got != N {
+				if got := opusDecodeFrame(nil, decoder, packet, length, &pcm[1], N, 0); got != N {
 					t.Fatal("nil TLS frame", LM, C, step, got)
 				}
 				if pcm[0] != 77 || pcm[len(pcm)-1] != 88 || decoder.Fprev_mode != MODE_CELT_ONLY {
@@ -142,14 +231,14 @@ func TestOpusFrameNoPseudostack(t *testing.T) {
 			long[0], long[len(long)-1] = 77, 88
 			entropyInitGrowStack(12)
 			runtime.GC()
-			if opus_decode_frame(nil, uintptr(unsafe.Pointer(decoder)), 0, 0, uintptr(unsafe.Pointer(&long[1])), 1920, 0) != 1920 || long[0] != 77 || long[len(long)-1] != 88 || decoder.FrangeFinal != 0 {
+			if opusDecodeFrame(nil, decoder, nil, 0, &long[1], 1920, 0) != 1920 || long[0] != 77 || long[len(long)-1] != 88 || decoder.FrangeFinal != 0 {
 				t.Fatal("nil TLS recursive PLC")
 			}
 		}
 	}
 }
 
-func TestOpusFrameSilkNoPseudostack(t *testing.T) {
+func TestOpusFrameSilkWholePointers(t *testing.T) {
 	storage := newOpusFrameOwnerDecoder(t, 1)
 	decoder := &storage.Decoder
 	decoder.Fprev_mode = MODE_SILK_ONLY
@@ -162,7 +251,7 @@ func TestOpusFrameSilkNoPseudostack(t *testing.T) {
 		pcm[0], pcm[N+1] = 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if opus_decode_frame(nil, uintptr(unsafe.Pointer(decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), N, 0) != N || pcm[0] != 77 || pcm[N+1] != 88 {
+		if opusDecodeFrame(nil, decoder, nil, 0, &pcm[1], N, 0) != N || pcm[0] != 77 || pcm[N+1] != 88 {
 			t.Fatal("nil TLS SILK PLC/short scratch", N)
 		}
 	}
