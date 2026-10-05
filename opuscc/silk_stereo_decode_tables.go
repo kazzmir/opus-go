@@ -4823,11 +4823,7 @@ var Opus_silk_LTPScales_table_Q14 = [3]OpusT_opus_int16{
 
 var Opus_silk_LTP_gain_BITS_Q5_ptrs = [3]*byte{&silk_LTP_gain_BITS_Q5_0[0], &silk_LTP_gain_BITS_Q5_1[0], &silk_LTP_gain_BITS_Q5_2[0]}
 
-var Opus_silk_LTP_gain_iCDF_ptrs = [3]uintptr{
-	0: uintptr(unsafe.Pointer(&silk_LTP_gain_iCDF_0)),
-	1: uintptr(unsafe.Pointer(&silk_LTP_gain_iCDF_1)),
-	2: uintptr(unsafe.Pointer(&silk_LTP_gain_iCDF_2)),
-}
+var Opus_silk_LTP_gain_iCDF_ptrs = [3]*byte{&silk_LTP_gain_iCDF_0[0], &silk_LTP_gain_iCDF_1[0], &silk_LTP_gain_iCDF_2[0]}
 
 var Opus_silk_LTP_per_index_iCDF = [3]OpusT_opus_uint8{
 	0: uint8(179),

@@ -10,6 +10,14 @@ import (
 	"unsafe"
 )
 
+func TestLTPICDFTablesAgainstC(t *testing.T) {
+	for i, p := range opuscc.Opus_silk_LTP_gain_iCDF_ptrs {
+		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(1, i)) {
+			t.Fatal("LTP ICDF table", i)
+		}
+	}
+}
+
 func TestLTPBitTablesAgainstC(t *testing.T) {
 	for i, p := range opuscc.Opus_silk_LTP_gain_BITS_Q5_ptrs {
 		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(0, i)) {

@@ -8,6 +8,29 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestLTPICDFTablePointers(t *testing.T) {
+	original := Opus_silk_LTP_gain_iCDF_ptrs
+	defer func() { Opus_silk_LTP_gain_iCDF_ptrs = original }()
+	for i := range original {
+		N := 8 << i
+		want := append([]byte(nil), unsafe.Slice(original[i], N)...)
+		clone := append([]byte(nil), want...)
+		Opus_silk_LTP_gain_iCDF_ptrs[i] = &clone[0]
+		clone = nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		data := []byte{0x73, 0x15, 0x98, 0x52, 0xa3, 0x7b, 0x66, 0x91}
+		var got, expected OpusT_ec_ctx
+		Opus_ec_dec_init(nil, &got, &data[0], uint32(len(data)))
+		Opus_ec_dec_init(nil, &expected, &data[0], uint32(len(data)))
+		for j := 0; j < 12; j++ {
+			if Opus_ec_dec_icdf(nil, &got, Opus_silk_LTP_gain_iCDF_ptrs[i], 8) != Opus_ec_dec_icdf(nil, &expected, &want[0], 8) || got != expected {
+				t.Fatal("typed LTP ICDF owner/state", i, j)
+			}
+		}
+	}
+}
+
 func TestLTPBitTablePointers(t *testing.T) {
 	original := Opus_silk_LTP_gain_BITS_Q5_ptrs
 	defer func() { Opus_silk_LTP_gain_BITS_Q5_ptrs = original }()
