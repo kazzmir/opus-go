@@ -11,6 +11,14 @@ import (
 	"unsafe"
 )
 
+func TestFFTArchitectureLayoutAgainstC(t *testing.T) {
+	var state opuscc.OpusT_arch_fft_state
+	got := [3]uint64{uint64(unsafe.Sizeof(state)), uint64(unsafe.Offsetof(state.Fis_supported)), uint64(unsafe.Offsetof(state.Fpriv))}
+	if want := nativeArchFFTLayout(); got != want {
+		t.Fatal("FFT architecture layout", got, want)
+	}
+}
+
 func TestFFTTableOwnershipAgainstC(t *testing.T) {
 	state, bitrev, tw := nativeFFTFixture(16, -1)
 	state.Fbitrev = &bitrev[0]

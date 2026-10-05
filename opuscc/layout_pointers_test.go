@@ -3,7 +3,27 @@ package opuscc
 import (
 	"runtime"
 	"testing"
+	"unsafe"
 )
+
+func TestFFTArchitectureOwnerPointers(t *testing.T) {
+	cfg := new(OpusT_kiss_fft_state)
+	architecture := new(OpusT_arch_fft_state)
+	payload := []byte{77, 88}
+	architecture.Fis_supported = 1
+	architecture.Fpriv = unsafe.Pointer(&payload[0])
+	cfg.Farch_fft = architecture
+	architecture = nil
+	payload = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if cfg.Farch_fft == nil || cfg.Farch_fft.Fis_supported != 1 || *(*byte)(cfg.Farch_fft.Fpriv) != 77 {
+		t.Fatal("FFT architecture ownership")
+	}
+	cfg.Farch_fft.Fpriv = nil
+	cfg.Farch_fft = nil
+	runtime.GC()
+}
 
 func TestRepacketizerAliasPointers(t *testing.T) {
 	holder := new(struct{ State OpusRepacketizer })

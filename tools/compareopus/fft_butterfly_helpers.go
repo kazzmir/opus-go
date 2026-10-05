@@ -19,6 +19,7 @@ package main
 #define clt_mdct_forward_c compare_mdct_forward
 #define clt_mdct_backward_c compare_mdct_backward
 #include "../../../opus/celt/mdct.c"
+static void native_arch_fft_layout(size_t *out){out[0]=sizeof(arch_fft_state);out[1]=offsetof(arch_fft_state,is_supported);out[2]=offsetof(arch_fft_state,priv);}
 static void native_fft_layout(size_t *layout) {layout[0]=sizeof(kiss_fft_state);layout[1]=offsetof(kiss_fft_state,bitrev);layout[2]=offsetof(kiss_fft_state,twiddles);layout[3]=offsetof(kiss_fft_state,arch_fft);}
 static int native_mdct_fixture(int n,int shifts,float *trig,int *sizes,size_t *layout) {
  mdct_lookup l={0};if(!compare_mdct_init(&l,n,shifts,0))return 0;
@@ -60,6 +61,12 @@ import (
 	"github.com/kazzmir/opus-go/opuscc"
 	"unsafe"
 )
+
+func nativeArchFFTLayout() [3]uint64 {
+	var raw [3]C.size_t
+	C.native_arch_fft_layout(&raw[0])
+	return [3]uint64{uint64(raw[0]), uint64(raw[1]), uint64(raw[2])}
+}
 
 func nativeFFTLayout() [4]uint64 {
 	var data [4]C.size_t

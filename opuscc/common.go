@@ -923,7 +923,7 @@ type OpusT_kiss_twiddle_cpx = struct {
 
 type OpusT_arch_fft_state = struct {
 	Fis_supported int32
-	Fpriv         uintptr
+	Fpriv         unsafe.Pointer
 }
 
 type OpusT_kiss_fft_state = struct {
@@ -933,7 +933,7 @@ type OpusT_kiss_fft_state = struct {
 	Ffactors  [16]OpusT_opus_int16
 	Fbitrev   *int16
 	Ftwiddles *OpusT_kiss_twiddle_cpx
-	Farch_fft uintptr
+	Farch_fft *OpusT_arch_fft_state
 }
 
 type OpusT_AnalysisInfo = struct {

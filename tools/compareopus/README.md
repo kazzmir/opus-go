@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four pointer-layout rounds type repacketizer frames and paddings as [48]*byte,
+unify the duplicate OpusRepacketizer alias with the canonical typed layout, then
+type FFT architecture linkage as *OpusT_arch_fft_state and its opaque private
+payload as unsafe.Pointer. Actual upstream opus_private.h/kiss_fft.h define these
+fields as pointers. Sizes/offsets stay unchanged (native repacketizer all-field
+and architecture-state layout comparisons added; existing FFT state offset tests
+remain). Exported Go field types intentionally change to typed/scanned ownership.
+Production opuscc uintptr tokens decrease 248→242 (6 lexical tokens removed,
+including array declarations representing many pointer slots).
+
+Grouped layout tests store heap-backed frame/padding arrays in all 48 slots,
+drop original slice references before stack growth/GC, verify the canonical alias
+retains both owners, and verify FFT state→architecture→opaque Go payload retention
+and clearing. Full amd64/386, ARM64/QEMU, applicable scoped checkptr, native
+layout/FFT/codec comparisons and GC stress pass every round with unchanged
+codec goldens/tolerances, plus repeated scoped/ordinary ARM runs. Repacketizer
+operations are not implemented/used by the opuscc decoder and architecture FFT
+backend use is disabled: these are dormant-layout ownership improvements, not
+additional active decode coverage. No opaque allocator scanning or extension
+EOF/raw callback fix is claimed.
+
 Four small CELT metadata rounds change the dormant mini complex/real FFT cfg
 aliases from uintptr to the corresponding state pointer types, remove unused
 function-name pointer conversions/storage at four FFT assertion sites, and delete
