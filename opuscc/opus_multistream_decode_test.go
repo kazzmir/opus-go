@@ -12,6 +12,49 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestMultistreamAudioScratchLegacy(t *testing.T) {
+	audio := opusFrameAudioStorage(10)
+	for i := range audio {
+		audio[i] = float32(i+1) / 8
+	}
+	output := make([]float32, 17)
+	output[0], output[16] = 77, 88
+	callback := __ccgo_fp(opus_copy_channel_out_float_legacy)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	opusMSLegacyCopyChannel(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 0, uintptr(unsafe.Pointer(&audio[0])), 2, 5, 0)
+	opusMSLegacyCopyChannel(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 2, uintptr(unsafe.Pointer(&audio[1])), 2, 5, 0)
+	opusMSLegacyCopyChannel(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 1, 0, 0, 5, 0)
+	for i := 0; i < 5; i++ {
+		if output[1+3*i] != audio[2*i] || output[2+3*i] != 0 || output[3+3*i] != audio[2*i+1] {
+			t.Fatal("Go stereo/mono/muted scratch")
+		}
+	}
+	if output[0] != 77 || output[16] != 88 {
+		t.Fatal("scratch copy guards")
+	}
+}
+
+func TestMultistreamAudioScratchPointers(t *testing.T) {
+	storage := newOpusFrameOwnerDecoder(t, 2)
+	audio := opusFrameAudioStorage(960)
+	out := make([]float32, 1442)
+	out[0], out[1441] = 77, 88
+	packet := []byte{4, 0}
+	offset := int32(-1)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if opusMSDecodeChild(nil, &storage.Decoder, &packet[0], 2, unsafe.SliceData(audio), 480, 0, 1, &offset, 0) != 480 {
+		t.Fatal("Go scratch native decode")
+	}
+	opus_copy_channel_out_float(nil, &out[1], 3, 0, &audio[0], 2, 480)
+	opus_copy_channel_out_float(nil, &out[1], 3, 2, &audio[1], 2, 480)
+	opus_copy_channel_out_float(nil, &out[1], 3, 1, nil, 0, 480)
+	if out[0] != 77 || out[1441] != 88 || offset != 2 {
+		t.Fatal("typed Go scratch consumers")
+	}
+}
+
 func TestMultistreamChildOwnerPointers(t *testing.T) {
 	type owner struct {
 		MS      OpusT_OpusMSDecoder
