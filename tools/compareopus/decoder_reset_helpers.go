@@ -68,6 +68,10 @@ import "C"
 import "github.com/kazzmir/opus-go/opuscc"
 import "unsafe"
 
+func nativeNLSFQuant(indices []int8, x, w []int16, pred []byte, ix []int16, rates []byte, step int32, inv int16, mu int32) int32 {
+	return int32(C.silk_NLSF_del_dec_quant((*C.schar)(unsafe.Pointer(&indices[0])), (*C.short)(unsafe.Pointer(&x[0])), (*C.short)(unsafe.Pointer(&w[0])), (*C.uchar)(unsafe.Pointer(&pred[0])), (*C.short)(unsafe.Pointer(&ix[0])), (*C.uchar)(unsafe.Pointer(&rates[0])), C.int(step), C.short(inv), C.int(mu), C.short(len(x))))
+}
+
 func nativeLTPTable(kind, index int) []byte {
 	N := 8 << index
 	if kind == 3 {

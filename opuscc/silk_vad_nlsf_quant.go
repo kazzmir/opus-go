@@ -631,7 +631,13 @@ func Opus_silk_NLSF_unpack(tls *libc.TLS, ec_ix *OpusT_opus_int16, pred_Q8 *Opus
 // C documentation
 //
 //	/* Delayed-decision quantizer for NLSF residuals */
+//
+//go:uintptrescapes
 func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr, w_Q5 uintptr, pred_coef_Q8 uintptr, ec_ix uintptr, ec_rates_Q5 uintptr, quant_step_size_Q16 int32, inv_quant_step_size_Q6 OpusT_opus_int16, mu_Q20 OpusT_opus_int32, order OpusT_opus_int16) (r OpusT_opus_int32) {
+	input := unsafe.Slice((*int16)(unsafe.Pointer(x_Q10)), max(int(order), 0))
+	weights := unsafe.Slice((*int16)(unsafe.Pointer(w_Q5)), max(int(order), 0))
+	predictors := unsafe.Slice((*byte)(unsafe.Pointer(pred_coef_Q8)), max(int(order), 0))
+	rateIndices := unsafe.Slice((*int16)(unsafe.Pointer(ec_ix)), max(int(order), 0))
 	var RD_Q25 [8]OpusT_opus_int32
 	var RD_max_Q25, RD_min_Q25 [4]OpusT_opus_int32
 	var RD_tmp_Q25, max_min_Q25, min_Q25, min_max_Q25 OpusT_opus_int32
@@ -678,14 +684,14 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 		if !(i >= 0) {
 			break
 		}
-		rates_Q5 = ec_rates_Q5 + uintptr(*(*OpusT_opus_int16)(unsafe.Pointer(ec_ix + uintptr(i)*2)))
-		in_Q10 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(x_Q10 + uintptr(i)*2)))
+		rates_Q5 = ec_rates_Q5 + uintptr(rateIndices[i])
+		in_Q10 = int32(input[i])
 		j = 0
 		for {
 			if !(j < nStates) {
 				break
 			}
-			pred_Q10 = int32(int16(*(*OpusT_opus_uint8)(unsafe.Pointer(pred_coef_Q8 + uintptr(i))))) * int32(prev_out_Q10[j]) >> int32(8)
+			pred_Q10 = int32(int16(predictors[i])) * int32(prev_out_Q10[j]) >> int32(8)
 			res_Q10 = in_Q10 - pred_Q10
 			ind_tmp = int32(inv_quant_step_size_Q6) * int32(int16(res_Q10)) >> int32(16)
 			if ind_tmp > int32(NLSF_QUANT_MAX_AMPLITUDE_EXT)-int32(1) {
@@ -732,9 +738,9 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices uintptr, x_Q10 uintptr,
 			}
 			RD_tmp_Q25 = RD_Q25[j]
 			diff_Q10 = in_Q10 - int32(out0_Q10)
-			RD_Q25[j] = RD_tmp_Q25 + int32(int16(diff_Q10))*int32(int16(diff_Q10))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(w_Q5 + uintptr(i)*2))) + int32(int16(mu_Q20))*int32(int16(rate0_Q5))
+			RD_Q25[j] = RD_tmp_Q25 + int32(int16(diff_Q10))*int32(int16(diff_Q10))*int32(weights[i]) + int32(int16(mu_Q20))*int32(int16(rate0_Q5))
 			diff_Q10 = in_Q10 - int32(out1_Q10)
-			RD_Q25[j+nStates] = RD_tmp_Q25 + int32(int16(diff_Q10))*int32(int16(diff_Q10))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(w_Q5 + uintptr(i)*2))) + int32(int16(mu_Q20))*int32(int16(rate1_Q5))
+			RD_Q25[j+nStates] = RD_tmp_Q25 + int32(int16(diff_Q10))*int32(int16(diff_Q10))*int32(weights[i]) + int32(int16(mu_Q20))*int32(int16(rate1_Q5))
 			j = j + 1
 		}
 		if nStates <= int32(1)<<int32(NLSF_QUANT_DEL_DEC_STATES_LOG2)/int32(2) {

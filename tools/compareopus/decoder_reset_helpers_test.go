@@ -34,6 +34,33 @@ func TestLTPVectorTablesAgainstC(t *testing.T) {
 	}
 }
 
+func TestNLSFDelayedQuantAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(876))
+	for _, N := range []int{10, 16} {
+		for trial := 0; trial < 100; trial++ {
+			x, w, ix := make([]int16, N), make([]int16, N), make([]int16, N)
+			pred := make([]byte, N)
+			rates := make([]byte, 27)
+			for i := range x {
+				x[i] = int16(rng.Intn(4001) - 2000)
+				w[i] = int16(rng.Intn(8) + 1)
+				pred[i] = byte(rng.Intn(201))
+				ix[i] = int16((i % 3) * 9)
+			}
+			for i := range rates {
+				rates[i] = byte(rng.Intn(180) + 1)
+			}
+			got, want := make([]int8, N+2), make([]int8, N+2)
+			got[0], got[N+1], want[0], want[N+1] = 77, 88, 77, 88
+			result := opuscc.Opus_silk_NLSF_del_dec_quant(nil, uintptr(unsafe.Pointer(&got[1])), uintptr(unsafe.Pointer(&x[0])), uintptr(unsafe.Pointer(&w[0])), uintptr(unsafe.Pointer(&pred[0])), uintptr(unsafe.Pointer(&ix[0])), uintptr(unsafe.Pointer(&rates[0])), 10000, 419, 64, int16(N))
+			expected := nativeNLSFQuant(want[1:N+1], x, w, pred, ix, rates, 10000, 419, 64)
+			if result != expected || !slices.Equal(got, want) {
+				t.Fatal("NLSF delayed quant", N, trial, result, expected, got, want)
+			}
+		}
+	}
+}
+
 func TestLTPBitTablesAgainstC(t *testing.T) {
 	for i, p := range opuscc.Opus_silk_LTP_gain_BITS_Q5_ptrs {
 		if !slices.Equal(unsafe.Slice(p, 8<<i), nativeLTPTable(0, i)) {
