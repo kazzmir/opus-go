@@ -2822,6 +2822,10 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 	return v31
 }
 
+func opusNativePacketFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, count, total int32) int32 {
+	return opusDecodeFrame(tls, decoder, data, length, opusFrameSilkPCM(pcm, uintptr(count*decoder.Fchannels)*4), total-count, 0)
+}
+
 func opusNativeFECFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, total, packetFrame int32) int32 {
 	return opusDecodeFrame(tls, decoder, data, length, opusFrameSilkPCM(pcm, uintptr(decoder.Fchannels*(total-packetFrame))*4), packetFrame, 1)
 }
@@ -2934,7 +2938,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 		if !(i < count) {
 			break
 		}
-		ret2 = opus_decode_frame(tls, st, data, int32(size[i]), pcm+uintptr(nb_samples*decoder.Fchannels)*4, frame_size-nb_samples, 0)
+		ret2 = opusNativePacketFrame(tls, decoder, (*byte)(unsafe.Pointer(data)), int32(size[i]), (*float32)(unsafe.Pointer(pcm)), nb_samples, frame_size)
 		if ret2 < 0 {
 			return ret2
 		}

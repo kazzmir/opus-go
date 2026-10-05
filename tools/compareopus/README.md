@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decode-native consumer rounds use the typed packet parser and all three
+typed frame dispatches: PLC, FEC suffix and ordinary packet sequence. Parser toc,
+48 sizes, payload/packet offsets and padding outputs now use Go slots directly;
+padding retains a typed byte owner and extension-ignore still clears it before
+the parser-error check. Frame dispatch helpers forward typed decoder/data/PCM
+owners and derive only consumed numeric offset views, keeping int32 product
+narrowing/uintptr stride wrapping, PLC/FEC remaining sizes and literal flags.
+Duration rollback, metadata commit timing, frame-size assertions, sequential
+payload advancement and soft-clip ordering are unchanged. The public native
+boundary receives uintptrescapes because it still accepts legacy addresses.
+
+Grouped scoped checkptr/GC fixtures cover padded packet descriptors/extension
+ownership, mono/stereo PLC consumption windows, untouched FEC prefixes, and an
+actual SILK packet dispatched at a nonzero PCM offset using unchanged scalar-C
+FNV/range goldens. Full amd64/386 and ARM64/QEMU tests, actual packet/CTL/helper
+native comparisons, existing whole native/frame references, codec baselines and
+GC stress pass each round, plus separate repeated ARM typed-consumer checkptr and
+ordinary golden runs. There are no legacy parser/frame calls left in decode-native,
+but its enclosing input/output/state/payload cursors and recursive calls remain
+integer representations; this is not enclosing decode-native checkptr coverage.
+Opaque allocation scanning and exact-sized extension EOF remain separate risks.
+
 Four private frame entry rounds retain the decoder as a typed pointer, the
 payload as a typed byte pointer, PCM operations as numeric typed views, then PCM
 as a typed pointer at the entry. opus_decode_frame remains the uintptrescapes

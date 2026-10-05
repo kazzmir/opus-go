@@ -8,6 +8,31 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusNativePacketFramePointers(t *testing.T) {
+	storage := newOpusFrameOwnerDecoder(t, 2)
+	decoder := &storage.Decoder
+	decoder.Fmode = MODE_SILK_ONLY
+	decoder.Fbandwidth = OPUS_BANDWIDTH_NARROWBAND
+	decoder.Fframe_size = 2880
+	decoder.Fstream_channels = 1
+	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+	pcm := make([]float32, 6002)
+	for i := range pcm {
+		pcm[i] = 3
+	}
+	pcm[0], pcm[6001] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if opusNativePacketFrame(nil, decoder, &packet[1], int32(len(packet)-1), &pcm[1], 120, 3000) != 2880 || fnv1aFloats(pcm[241:6001]) != 0x20a8ba55 || decoder.FrangeFinal != 0x50373c71 || pcm[0] != 77 || pcm[6001] != 88 {
+		t.Fatal("native packet frame golden/offset")
+	}
+	for i := 1; i <= 240; i++ {
+		if pcm[i] != 3 {
+			t.Fatal("packet dispatch changed prefix")
+		}
+	}
+}
+
 func TestOpusNativeFECFramePointers(t *testing.T) {
 	for _, C := range []int32{1, 2} {
 		storage := newOpusFrameOwnerDecoder(t, C)
