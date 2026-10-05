@@ -2822,6 +2822,10 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 	return v31
 }
 
+func opusNativePLCFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, pcm *float32, count, total int32) int32 {
+	return opusDecodeFrame(tls, decoder, nil, 0, opusFrameSilkPCM(pcm, uintptr(count*decoder.Fchannels)*4), total-count, 0)
+}
+
 //go:uintptrescapes
 func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32, self_delimited int32, packet_offset uintptr, soft_clip int32, dred uintptr, dred_offset OpusT_opus_int32) (r int32) {
 	var count, duration_copy, i, nb_samples, packet_bandwidth, packet_frame_size, packet_mode, packet_stream_channels, pcm_count, ret, ret1, ret2, v1 int32
@@ -2846,7 +2850,7 @@ func Opus_opus_decode_native(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT
 	if len1 == 0 || data == uintptr(uint32(0)) {
 		pcm_count = 0
 		for cond := true; cond; cond = pcm_count < frame_size {
-			ret = opus_decode_frame(tls, st, uintptr(uint32(0)), 0, pcm+uintptr(pcm_count*decoder.Fchannels)*4, frame_size-pcm_count, 0)
+			ret = opusNativePLCFrame(tls, decoder, (*float32)(unsafe.Pointer(pcm)), pcm_count, frame_size)
 			if ret < 0 {
 				return ret
 			}

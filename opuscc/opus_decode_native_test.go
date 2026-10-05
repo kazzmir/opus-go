@@ -8,6 +8,31 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusNativePLCFramePointers(t *testing.T) {
+	for _, C := range []int32{1, 2} {
+		storage := newOpusFrameOwnerDecoder(t, C)
+		pcm := make([]float32, 240*C+2)
+		for i := range pcm {
+			pcm[i] = 3
+		}
+		pcm[0], pcm[len(pcm)-1] = 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opusNativePLCFrame(nil, &storage.Decoder, &pcm[1], 120, 240) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+			t.Fatal("native PLC frame offset")
+		}
+		for i := int32(1); i <= 240*C; i++ {
+			want := float32(0)
+			if i <= 120*C {
+				want = 3
+			}
+			if pcm[i] != want {
+				t.Fatal("PLC consumption window", C, i)
+			}
+		}
+	}
+}
+
 func TestOpusNativePacketDescriptorsPointers(t *testing.T) {
 	packet := []byte{255, 65, 1, 10, 11, 12, 99}
 	var toc byte
