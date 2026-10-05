@@ -534,6 +534,29 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four integer-entry rounds remove int16 pseudostack setup/snapshot/restores,
+remove the corresponding int24 operations, then introduce fully typed private
+opusDecodeInt16 and opusDecodeInt24 entries behind the original public escape
+adapters. Both private paths accept nil TLS and use Go float scratch with typed
+native forwarding and conversions; no integer owner, pin, private escape
+annotation or cursor operation remains. Frame-size rejection still precedes state
+access; packet sample-count validation precedes channel assertions; duration
+trimming, assertion sites, clipping flags, architecture read, positive-return
+conversion gating and post-decode live channel count loads are unchanged.
+
+Grouped full active integer-path checkptr tests use scanned composite decoders,
+Go packets/output arrays, nil TLS, forced GC/stack growth, mono/stereo normal/
+PLC/FEC/multiframe/empty payload cases and SILK/hybrid packets. API8/12/16/24/48kHz
+and guarded int16/int24 output counts/range goldens pass; malformed packet
+validation still precedes the channel assert, and failed decode leaves caller
+PCM unchanged. Ordinary public-adapter fixtures retain untouched TLS sentinels.
+Existing native RES2INT24 and float2int16 comparisons, native codec/frame
+references, full amd64/386 and ARM64/QEMU tests, GC stress, codec goldens/tolerances
+and repeated scoped/ordinary ARM runs pass every round. All three private format
+entries and their frame/native decoder consumers are now typed. This is coverage
+of tested scanned-state paths, not opaque byte-backed allocation scanning, direct
+macOS CI, public legacy adapter removal or multistream/projection outer ownership.
+
 Four decoder-format rounds type the private float entry, int24 PCM conversion,
 int16 temporary float storage and int24 temporary float storage. opusDecodeFloat
 forwards directly to the complete typed native decoder, with frame_size<=0 checked
