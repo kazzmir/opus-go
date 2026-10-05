@@ -534,6 +534,119 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four format-wrapper rounds introduce typed private multistream float/int16/
+int24 entries, each forwarding directly to opusMSDecodeNative with a typed
+standard callback (no integer function-address binding), followed by a typed
+private projection float entry. Public format signatures/escape adapters remain.
+Clipping is unchanged: OPTIONAL_CLIP for int16, zero for float/int24/projection
+float; no additional validation, gain, quantization or sample-count operation is
+introduced. Projection still derives multistream then matrix views at the original
+forwarding point, but a Go closure captures the typed matrix owner instead of
+passing its address through integer callback user-data. Matrix/source/destination
+loads and clear-before-accumulation order remain in the existing typed leaf.
+
+Grouped whole wrapper checkptr/nil-TLS tests use scanned exact-stride two-stream
+state, reordered/duplicated/muted channels, real SILK/synthetic active CELT packets,
+normal/PLC/FEC, guarded outputs, stack growth/GC and independent existing-native
+entry PCM/count/state parity. The int16 fixture also raises gain to exercise the
+retained soft-clipping flag. Projection float tests use a scanned header/matrix/
+multistream/children composite with asserted offsets, nontrivial 4x4 coefficients,
+full active normal/PLC/FEC parity and invalid-packet/minimum-frame ordering.
+A separate matrix callback drops the original composite owner before GC/stack
+growth, then verifies captured-coefficient output and nil-source clearing.
+Existing native mapping/callback comparisons and enclosing MS C references,
+full amd64/386 and ARM64/QEMU tests, scoped checkptr and GC stress pass each round
+with unchanged codec goldens/tolerances, plus repeated scoped/ordinary ARM runs.
+Projection integer wrappers/custom callback user-data and opaque byte-backed
+allocator scanning remain separate legacy boundaries; no global GC-safety or
+direct macOS CI claim is implied.
+
+Four enclosing multistream rounds replace the decode sample-rate varargs CTL
+with its existing typed equivalent, use Go Fs/packet-offset scalar storage,
+remove all multistream decode pseudostack initialization/snapshot/restores, then
+introduce opusMSDecodeNative with typed state/payload/output/callback parameters
+behind the public escape adapter. Child and packet traversal remain numeric;
+payload views are formed only when consumed, and the validator no longer forms
+an unused final EOF view. Validation still precedes frame-size rejection; sample
+rate/query assertion, frame cap, allocation, length/packet validation, child
+advance-before-error, packet-offset advancement-before-return, live mapping/
+channel bounds and muted-channel timing are retained.
+
+Full active standard-callback private-entry checkptr/nil-TLS fixtures use a
+scanned exact-stride two-coupled-stream composite (computed decoder/SILK/CELT
+padding/tails, with size assertions on all architectures), self-delimited real
+SILK packets, reordered/duplicated/muted channels, float/int16/int24 destinations,
+normal decode, 120ms PLC/FEC, guards, stack growth/GC and unchanged C-derived
+sample/range expectations. Argument failures leave PCM/child state untouched;
+ordinary public adapter tests cover capped PLC and nil TLS. Existing enclosing
+multistream C references and native leaf comparisons, full amd64/386,
+ARM64/QEMU, scoped checkptr and GC stress pass each round with unchanged codec
+goldens/tolerances, plus repeated scoped/ordinary ARM runs. No multistream decode
+pseudostack or opaque scalar scratch remains. Legacy callback user-data remains
+an explicit uintptr contract only for custom/projection fallbacks; public format/
+projection wrappers and opaque byte-backed state scanning are separate from
+these tested scanned-state standard-callback paths.
+
+Four multistream-consumer rounds type child native dispatch/packet-offset
+forwarding, replace integer child addresses with numeric byte traversal and typed
+consumed child views, move the reusable 2*frame_size float PCM scratch into Go
+storage, and bind typed standard output callbacks/source views. The header/child
+alignment and coupled/mono stride calculations, advance-before-error order,
+self-delimited flag/live stream-count read, packet-offset reset/advancement,
+positive return gating, mapping iteration and muted-channel timing are retained.
+The frame cap/Go allocation remains after the original sample-rate query and
+before packet validation. Only used child addresses are formed; terminal walk
+positions stay numeric. Source left/right/mono pointers and muted nil source now
+stay typed through standard float/int16/int24 callbacks, with unchanged rounding,
+strides and live copy loops. A bound Go function retains the custom callback
+owner; arbitrary/custom and projection callback fallbacks preserve the public
+legacy user-data/uintptr contract through explicit escape bridges.
+
+Grouped scoped checkptr/nil-TLS fixtures cover native child normal/PLC and exact
+self-delimited packet offset, scanned MS-interior child lifetime after GC/stack
+growth, Go stereo scratch/typed consumers, all standard callback bindings,
+guards/strides/muting and custom fallback argument/owner retention. Ordinary MS
+C-reference/adapter fixtures exercise the enclosing loop; full amd64/386,
+ARM64/QEMU, native comparisons, GC stress and unchanged codec goldens/tolerances
+pass each round, plus repeated scoped/ordinary ARM tests. The initial scratch
+fixture attempted the raw legacy float callback under checkptr and correctly
+failed at its uintptr-to-pointer representation. That boundary is kept as an
+ordinary legacy fixture; typed scratch consumers have scoped coverage, and the
+following callback round bypasses that boundary for all three standard formats.
+A forced-GC custom-closure probe also exposed that converting a movable Go
+closure through __ccgo_fp does not preserve its original owner/lifetime. Added
+opusMSBindLegacyCopy to accept and capture a Go function directly; its scoped
+owner-retention fixture uses that typed path, while public integer callback
+addresses retain the legacy requirement for stable caller-owned function storage.
+The raw __ccgo_fp closure boundary is not claimed safe or repaired globally.
+No checkptr suppression, pin or golden change was used. This is not a complete
+multistream/projection ownership or checkptr claim: enclosing payload/output/
+state entry, CTL varargs scratch, pseudostack setup/restores and projection matrix
+user-data remain legacy, as does opaque byte-backed state scanning.
+
+Four integer-entry rounds remove int16 pseudostack setup/snapshot/restores,
+remove the corresponding int24 operations, then introduce fully typed private
+opusDecodeInt16 and opusDecodeInt24 entries behind the original public escape
+adapters. Both private paths accept nil TLS and use Go float scratch with typed
+native forwarding and conversions; no integer owner, pin, private escape
+annotation or cursor operation remains. Frame-size rejection still precedes state
+access; packet sample-count validation precedes channel assertions; duration
+trimming, assertion sites, clipping flags, architecture read, positive-return
+conversion gating and post-decode live channel count loads are unchanged.
+
+Grouped full active integer-path checkptr tests use scanned composite decoders,
+Go packets/output arrays, nil TLS, forced GC/stack growth, mono/stereo normal/
+PLC/FEC/multiframe/empty payload cases and SILK/hybrid packets. API8/12/16/24/48kHz
+and guarded int16/int24 output counts/range goldens pass; malformed packet
+validation still precedes the channel assert, and failed decode leaves caller
+PCM unchanged. Ordinary public-adapter fixtures retain untouched TLS sentinels.
+Existing native RES2INT24 and float2int16 comparisons, native codec/frame
+references, full amd64/386 and ARM64/QEMU tests, GC stress, codec goldens/tolerances
+and repeated scoped/ordinary ARM runs pass every round. All three private format
+entries and their frame/native decoder consumers are now typed. This is coverage
+of tested scanned-state paths, not opaque byte-backed allocation scanning, direct
+macOS CI, public legacy adapter removal or multistream/projection outer ownership.
+
 Four decoder-format rounds type the private float entry, int24 PCM conversion,
 int16 temporary float storage and int24 temporary float storage. opusDecodeFloat
 forwards directly to the complete typed native decoder, with frame_size<=0 checked

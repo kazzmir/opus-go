@@ -8,6 +8,165 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusInt24WholePointers(t *testing.T) {
+	if opusDecodeInt24(nil, nil, nil, 0, nil, 0, 2) != -1 {
+		t.Fatal("int24 typed minimum frame")
+	}
+	for _, C := range []int32{1, 2} {
+		for _, packet := range [][]byte{{0}, {3, 2}, mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40"), mustHex(t, "7c8cb723a4e954f30817690d8021804d5c6f7c7a79cdaeeeda68b9cc67aab183653ff229912863fc3f7a335205cb0e033bed80eb1a0cfd3f5f")} {
+			storage := newOpusFrameOwnerDecoder(t, C)
+			pcm := make([]int32, 5760*C+2)
+			pcm[0], pcm[len(pcm)-1] = 77, 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			count := opusDecodeInt24(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0)
+			if count <= 0 || storage.Decoder.Flast_packet_duration != count || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+				t.Fatal("whole int24 normal", C, packet[0], count)
+			}
+			if packet[0] == 24 && storage.Decoder.FrangeFinal != 0x50373c71 {
+				t.Fatal("int24 C range golden")
+			}
+			for _, fec := range []int32{0, 1} {
+				var data *byte
+				length := int32(0)
+				if fec != 0 {
+					data = &packet[0]
+					length = int32(len(packet))
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				if opusDecodeInt24(nil, &storage.Decoder, data, length, &pcm[1], 5760, fec) != 5760 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+					t.Fatal("whole int24 PLC/FEC")
+				}
+			}
+		}
+	}
+}
+
+func TestOpusIntegerRatesPointers(t *testing.T) {
+	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
+		for _, C := range []int32{1, 2} {
+			left, right := newOpusFrameOwnerDecoder(t, C), newOpusFrameOwnerDecoder(t, C)
+			Opus_opus_decoder_init(nil, &left.Decoder, rate, C)
+			Opus_opus_decoder_init(nil, &right.Decoder, rate, C)
+			N := rate * 60 / 1000
+			a, b := make([]int16, N*C+2), make([]int32, N*C+2)
+			a[0], a[len(a)-1], b[0], b[len(b)-1] = 77, 88, 77, 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if opusDecodeInt16(nil, &left.Decoder, &packet[0], int32(len(packet)), &a[1], N, 0) != N || opusDecodeInt24(nil, &right.Decoder, &packet[0], int32(len(packet)), &b[1], N, 0) != N || left.Decoder.FrangeFinal != 0x50373c71 || right.Decoder.FrangeFinal != 0x50373c71 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 {
+				t.Fatal("integer API rate/guards", rate, C)
+			}
+		}
+	}
+}
+
+func TestOpusIntegerArgumentsPointers(t *testing.T) {
+	invalid := []byte{3, 0}
+	for _, format := range []int{16, 24} {
+		storage := newOpusFrameOwnerDecoder(t, 1)
+		storage.Decoder.Fchannels = 0
+		before := storage.Decoder
+		short := int16(77)
+		wide := int32(88)
+		var result int32
+		if format == 16 {
+			result = opusDecodeInt16(nil, &storage.Decoder, &invalid[0], 2, &short, 120, 0)
+		} else {
+			result = opusDecodeInt24(nil, &storage.Decoder, &invalid[0], 2, &wide, 120, 0)
+		}
+		if result != -4 || short != 77 || wide != 88 || storage.Decoder != before {
+			t.Fatal("packet validation precedes channel assert")
+		}
+		storage = newOpusFrameOwnerDecoder(t, 1)
+		packet := []byte{0}
+		if format == 16 {
+			result = opusDecodeInt16(nil, &storage.Decoder, &packet[0], 1, &short, 479, 0)
+		} else {
+			result = opusDecodeInt24(nil, &storage.Decoder, &packet[0], 1, &wide, 479, 0)
+		}
+		if result != -2 || short != 77 || wide != 88 {
+			t.Fatal("failed integer decode wrote PCM")
+		}
+	}
+}
+
+func TestOpusInt16WholePointers(t *testing.T) {
+	if opusDecodeInt16(nil, nil, nil, 0, nil, 0, 2) != -1 {
+		t.Fatal("int16 typed minimum frame")
+	}
+	for _, C := range []int32{1, 2} {
+		for _, packet := range [][]byte{{0}, {3, 2}, mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40"), mustHex(t, "7c8cb723a4e954f30817690d8021804d5c6f7c7a79cdaeeeda68b9cc67aab183653ff229912863fc3f7a335205cb0e033bed80eb1a0cfd3f5f")} {
+			storage := newOpusFrameOwnerDecoder(t, C)
+			pcm := make([]int16, 5760*C+2)
+			pcm[0], pcm[len(pcm)-1] = 77, 88
+			entropyInitGrowStack(12)
+			runtime.GC()
+			count := opusDecodeInt16(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0)
+			if count <= 0 || storage.Decoder.Flast_packet_duration != count || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+				t.Fatal("whole int16 normal", C, packet[0], count)
+			}
+			if packet[0] == 24 && storage.Decoder.FrangeFinal != 0x50373c71 {
+				t.Fatal("int16 C range golden")
+			}
+			for _, fec := range []int32{0, 1} {
+				var data *byte
+				length := int32(0)
+				if fec != 0 {
+					data = &packet[0]
+					length = int32(len(packet))
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				if opusDecodeInt16(nil, &storage.Decoder, data, length, &pcm[1], 5760, fec) != 5760 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+					t.Fatal("whole int16 PLC/FEC")
+				}
+			}
+		}
+	}
+}
+
+func TestOpusInt24NoPseudostack(t *testing.T) {
+	if Opus_opus_decode24(nil, 0, 0, 0, 0, 0, 2) != -1 {
+		t.Fatal("int24 validation order")
+	}
+	for _, C := range []int32{1, 2} {
+		storage := newOpusFrameOwnerDecoder(t, C)
+		packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+		pcm := make([]int32, 5760*C+2)
+		pcm[0], pcm[len(pcm)-1] = 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_decode24(nil, uintptr(unsafe.Pointer(&storage.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&pcm[1])), 5760, 0) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+			t.Fatal("int24 nil TLS", C)
+		}
+		if Opus_opus_decode24(nil, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+			t.Fatal("int24 short PLC")
+		}
+	}
+}
+
+func TestOpusInt16NoPseudostack(t *testing.T) {
+	if Opus_opus_decode(nil, 0, 0, 0, 0, 0, 2) != -1 {
+		t.Fatal("int16 validation order")
+	}
+	for _, C := range []int32{1, 2} {
+		storage := newOpusFrameOwnerDecoder(t, C)
+		packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+		pcm := make([]int16, 5760*C+2)
+		pcm[0], pcm[len(pcm)-1] = 77, 88
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_decode(nil, uintptr(unsafe.Pointer(&storage.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&pcm[1])), 5760, 0) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+			t.Fatal("int16 nil TLS", C)
+		}
+		if Opus_opus_decode(nil, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+			t.Fatal("int16 short PLC")
+		}
+	}
+}
+
 func TestOpusInt24ScratchPointers(t *testing.T) {
 	storage := newOpusFrameOwnerDecoder(t, 2)
 	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")

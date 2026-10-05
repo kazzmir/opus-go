@@ -2996,234 +2996,62 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len
 }
 
 //go:uintptrescapes
-func Opus_opus_decode(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	var out []float32
-	var _saved_stack, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
-	var nb_samples, ret, v31 int32
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+func Opus_opus_decode(tls *libc.TLS, st1, data uintptr, length int32, pcm uintptr, frameSize, fec int32) int32 {
+	return opusDecodeInt16(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), length, (*int16)(unsafe.Pointer(pcm)), frameSize, fec)
+}
+
+func opusDecodeInt16(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *int16, frameSize, fec int32) int32 {
+	if frameSize <= 0 {
+		return -1
 	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v6 = libc.Xmalloc(tls, uint64(16))
-		st = v6
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
+	if data != nil && length > 0 && fec == 0 {
+		samples := Opus_opus_decoder_get_nb_samples(tls, decoder, data, length)
+		if samples <= 0 {
+			return -4
 		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v8 = st
-	if (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack == uintptr(0) {
-		v13 = libc.Xmalloc(tls, uint64(GLOBAL_STACK_SIZE))
-		v11 = v13
-		v10 = v11
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v15 = libc.Xmalloc(tls, uint64(16))
-			st = v15
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v17 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fscratch_ptr = v10
-		v5 = v10
-	} else {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v19 = libc.Xmalloc(tls, uint64(16))
-			st = v19
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v21 = st
-		v5 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack
-	}
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = v5
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	if frame_size <= 0 {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-		return -int32(1)
-	}
-	if data != uintptr(uint32(0)) && len1 > 0 && !(decode_fec != 0) {
-		nb_samples = Opus_opus_decoder_get_nb_samples(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1)
-		if nb_samples > 0 {
-			if frame_size < nb_samples {
-				v31 = frame_size
-			} else {
-				v31 = nb_samples
-			}
-			frame_size = v31
-		} else {
-			return -int32(4)
+		if frameSize >= samples {
+			frameSize = samples
 		}
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels == int32(1) || (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, int32(917))
+	if !(decoder.Fchannels == 1 || decoder.Fchannels == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 917)
 	}
-	out = opusFrameAudioStorage(frame_size * (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)
-	ret = opusDecodeNative(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, unsafe.SliceData(out), frame_size, decode_fec, 0, nil, int32(OPTIONAL_CLIP))
-	if ret > 0 {
-		_ = (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Farch
-		Opus_celt_float2int16_c(tls, unsafe.SliceData(out), (*int16)(unsafe.Pointer(pcm)), ret*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)
+	out := opusFrameAudioStorage(frameSize * decoder.Fchannels)
+	result := opusDecodeNative(tls, decoder, data, length, unsafe.SliceData(out), frameSize, fec, 0, nil, OPTIONAL_CLIP)
+	if result > 0 {
+		_ = decoder.Farch
+		Opus_celt_float2int16_c(tls, unsafe.SliceData(out), pcm, result*decoder.Fchannels)
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-	return ret
+	return result
 }
 
 //go:uintptrescapes
-func Opus_opus_decode24(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	var out []float32
-	var _saved_stack, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
-	var nb_samples, ret, v31 int32
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
+func Opus_opus_decode24(tls *libc.TLS, st1, data uintptr, length int32, pcm uintptr, frameSize, fec int32) int32 {
+	return opusDecodeInt24(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), length, (*int32)(unsafe.Pointer(pcm)), frameSize, fec)
+}
+
+func opusDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *int32, frameSize, fec int32) int32 {
+	if frameSize <= 0 {
+		return -1
 	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v6 = libc.Xmalloc(tls, uint64(16))
-		st = v6
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
+	if data != nil && length > 0 && fec == 0 {
+		samples := Opus_opus_decoder_get_nb_samples(tls, decoder, data, length)
+		if samples <= 0 {
+			return -4
 		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v8 = st
-	if (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack == uintptr(0) {
-		v13 = libc.Xmalloc(tls, uint64(GLOBAL_STACK_SIZE))
-		v11 = v13
-		v10 = v11
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v15 = libc.Xmalloc(tls, uint64(16))
-			st = v15
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v17 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fscratch_ptr = v10
-		v5 = v10
-	} else {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v19 = libc.Xmalloc(tls, uint64(16))
-			st = v19
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v21 = st
-		v5 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack
-	}
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = v5
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	if frame_size <= 0 {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-		return -int32(1)
-	}
-	if data != uintptr(uint32(0)) && len1 > 0 && !(decode_fec != 0) {
-		nb_samples = Opus_opus_decoder_get_nb_samples(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1)
-		if nb_samples > 0 {
-			if frame_size < nb_samples {
-				v31 = frame_size
-			} else {
-				v31 = nb_samples
-			}
-			frame_size = v31
-		} else {
-			return -int32(4)
+		if frameSize >= samples {
+			frameSize = samples
 		}
 	}
-	if !((*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels == int32(1) || (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, int32(966))
+	if !(decoder.Fchannels == 1 || decoder.Fchannels == 2) {
+		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 966)
 	}
-	out = opusFrameAudioStorage(frame_size * (*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)
-	ret = opusDecodeNative(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, unsafe.SliceData(out), frame_size, decode_fec, 0, nil, 0)
-	if ret > 0 {
-		opusDecodeInt24PCM(tls, unsafe.SliceData(out), (*int32)(unsafe.Pointer(pcm)), ret*(*OpusT_OpusDecoder)(unsafe.Pointer(st1)).Fchannels)
+	out := opusFrameAudioStorage(frameSize * decoder.Fchannels)
+	result := opusDecodeNative(tls, decoder, data, length, unsafe.SliceData(out), frameSize, fec, 0, nil, 0)
+	if result > 0 {
+		opusDecodeInt24PCM(tls, unsafe.SliceData(out), pcm, result*decoder.Fchannels)
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-	return ret
+	return result
 }
 
 //go:uintptrescapes
@@ -3744,109 +3572,94 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 			return OPUS_INVALID_PACKET
 		}
 		samples = nextSamples
-		data = (*byte)(unsafe.Add(unsafe.Pointer(data), packetOffset))
 		length -= packetOffset
+		if s+1 < streams {
+			data = (*byte)(unsafe.Add(unsafe.Pointer(data), packetOffset))
+		}
 	}
 	return samples
 }
 
 type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr)
 
-func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, __ccgo_fp_copy_channel_out OpusT_opus_copy_channel_out_func, frame_size int32, decode_fec int32, soft_clip int32, user_data uintptr) (r int32) {
-	// CTL and decode output pointers cross deep uintptr-taking calls. Keep
-	// their named storage pinned rather than on the movable Go stack.
-	type decodeScratch struct {
-		Fs           OpusT_opus_int32
-		packetOffset OpusT_opus_int32
-		va           uintptr
+type opusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32, uintptr)
+
+func opusMSCopyFloat(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+	opus_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n)
+}
+
+func opusMSCopyShort(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+	opus_copy_channel_out_short(tls, (*int16)(dst), ds, dc, src, ss, n)
+}
+
+func opusMSCopyInt24(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+	opus_copy_channel_out_int24(tls, (*int32)(dst), ds, dc, src, ss, n)
+}
+
+func opusMSBindCopy(callback uintptr) opusMSChannelCopy {
+	switch callback {
+	case __ccgo_fp(opus_copy_channel_out_float_legacy):
+		return opusMSCopyFloat
+	case __ccgo_fp(opus_copy_channel_out_short_legacy):
+		return opusMSCopyShort
+	case __ccgo_fp(opus_copy_channel_out_int24_legacy):
+		return opusMSCopyInt24
+	default:
+		legacy := *(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback}))
+		return opusMSBindLegacyCopy(legacy)
 	}
-	storage := libc.Xmalloc(tls, uint64(unsafe.Sizeof(decodeScratch{})))
-	defer libc.Xfree(tls, storage)
-	scratch := (*decodeScratch)(unsafe.Pointer(storage))
-	var _saved_stack, buf, dec, ptr, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr
+}
+
+func opusMSBindLegacyCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_native_4) opusMSChannelCopy {
+	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+		opusMSInvokeLegacy(tls, legacy, uintptr(dst), ds, dc, uintptr(unsafe.Pointer(src)), ss, n, user)
+	}
+}
+
+//go:uintptrescapes
+func opusMSInvokeLegacy(tls *libc.TLS, callback OpusT___ccgo_fp__Xopus_multistream_decode_native_4, dst uintptr, ds, dc int32, src uintptr, ss, n int32, user uintptr) {
+	callback(tls, dst, ds, dc, src, ss, n, user)
+}
+
+//go:uintptrescapes
+func opusMSLegacyCopyChannel(tls *libc.TLS, callback, dst uintptr, dstStride, dstChannel int32, src uintptr, srcStride, frames int32, userData uintptr) {
+	(*(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback})))(tls, dst, dstStride, dstChannel, src, srcStride, frames, userData)
+}
+
+func opusMSDecoderAt(decoder *OpusT_OpusMSDecoder, offset uintptr) *OpusT_OpusDecoder {
+	return (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(decoder), offset))
+}
+
+func opusMSDecodeChild(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, frame, fec, selfDelimited int32, packetOffset *int32, softClip int32) int32 {
+	return opusDecodeNative(tls, decoder, data, length, pcm, frame, fec, selfDelimited, packetOffset, softClip)
+}
+
+//go:uintptrescapes
+func Opus_opus_multistream_decode_native(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, callback uintptr, frame_size, decode_fec, soft_clip int32, user_data uintptr) int32 {
+	return opusMSDecodeNative(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, unsafe.Pointer(pcm), opusMSBindCopy(callback), frame_size, decode_fec, soft_clip, user_data)
+}
+
+func opusMSPacketAt(data *byte, offset uintptr, length int32) *byte {
+	if length <= 0 {
+		return nil
+	}
+	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
+}
+
+func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, len1 int32, pcm unsafe.Pointer, copyChannel opusMSChannelCopy, frame_size, decode_fec, soft_clip int32, user_data uintptr) (r int32) {
+	var position uintptr
+	var scratch struct{ Fs, packetOffset int32 } // typed CTL and child outputs need no opaque allocation
+	var dec *OpusT_OpusDecoder
+	var buf *float32
+	var ptr uintptr
 	var alignment uint32
 	var c, chan1, chan11, coupled_size, do_plc, mono_size, prev, prev1, ret, ret1, s, v31, v56, v75 int32
-	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1))
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, alignment, buf, c, chan1, chan11, coupled_size, dec, do_plc, mono_size, prev, prev1, ptr, ret, ret1, s, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v31, v5, v56, v6, v75, v8
-	do_plc = 0
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v6 = libc.Xmalloc(tls, uint64(16))
-		st = v6
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v8 = st
-	if (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v8)).Fglobal_stack == uintptr(0) {
-		v13 = libc.Xmalloc(tls, uint64(GLOBAL_STACK_SIZE))
-		v11 = v13
-		v10 = v11
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v15 = libc.Xmalloc(tls, uint64(16))
-			st = v15
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v17 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fscratch_ptr = v10
-		v5 = v10
-	} else {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v19 = libc.Xmalloc(tls, uint64(16))
-			st = v19
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v21 = st
-		v5 = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack
-	}
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = v5
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
-	validate_ms_decoder(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)))
+	validate_ms_decoder(tls, decoder)
 	if frame_size <= 0 {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-		return -int32(1)
+		return -1
 	}
 	/* Limit frame_size to avoid excessive stack allocations. */
-	if !(Opus_opus_multistream_decoder_ctl(tls, st1, int32(OPUS_GET_SAMPLE_RATE_REQUEST), libc.VaList(uintptr(unsafe.Pointer(&scratch.va)), uintptr(unsafe.Pointer(&scratch.Fs)))) == int32(OPUS_OK)) {
+	if !(Opus_opus_multistream_decoder_ctl_typed(tls, decoder, OPUS_GET_SAMPLE_RATE_REQUEST, OpusDecoderCtlArgs{I32: &scratch.Fs}) == int32(OPUS_OK)) {
 		Opus_celt_fatal(tls, __ccgo_ts+2090, __ccgo_ts+2200, int32(206))
 	}
 	if frame_size < scratch.Fs/int32(25)*int32(3) {
@@ -3855,138 +3668,29 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 		v31 = scratch.Fs / int32(25) * int32(3)
 	}
 	frame_size = v31
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v6 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(4)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v6)).Fglobal_stack))) & (uint64(uint32(4)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v8 = libc.Xmalloc(tls, uint64(16))
-		st = v8
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v10 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v11 = libc.Xmalloc(tls, uint64(16))
-		st = v11
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v13 = st
-	if !(int64(int32(uint64(uint32(int32(2)*frame_size))*(uint64(4)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v10)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v13)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+2200, int32(208))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v15 = libc.Xmalloc(tls, uint64(16))
-		st = v15
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v17 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v17)).Fglobal_stack += uintptr(uint64(uint32(int32(2)*frame_size)) * (uint64(4) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v19 = libc.Xmalloc(tls, uint64(16))
-		st = v19
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v21 = st
-	buf = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v21)).Fglobal_stack - uintptr(uint64(uint32(int32(2)*frame_size))*(uint64(4)/uint64(1)))
+	audio := opusFrameAudioStorage(2 * frame_size)
+	buf = unsafe.SliceData(audio)
 	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
 	v31 = int32((uint32(int32(268)) + alignment - uint32(1)) / alignment * alignment)
-	ptr = st1 + uintptr(v31)
+	ptr = uintptr(v31) // numeric byte offset; only consumed children become pointers
 	coupled_size = Opus_opus_decoder_get_size(tls, int32(2))
 	mono_size = Opus_opus_decoder_get_size(tls, int32(1))
 	if len1 == 0 {
 		do_plc = int32(1)
 	}
 	if len1 < 0 {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-		return -int32(1)
+		return -1
 	}
-	if !(do_plc != 0) && len1 < int32(2)*decoder.Flayout.Fnb_streams-int32(1) {
-		st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-		if !(st != 0) {
-			v1 = libc.Xmalloc(tls, uint64(16))
-			st = v1
-			if st != 0 {
-				libc.Xmemset(tls, st, 0, uint64(16))
-			}
-			libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-		}
-		v3 = st
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-		return -int32(4)
+	if do_plc == 0 && len1 < 2*decoder.Flayout.Fnb_streams-1 {
+		return -4
 	}
 	if !(do_plc != 0) {
-		ret = opus_multistream_packet_validate(tls, (*byte)(unsafe.Pointer(data)), len1, decoder.Flayout.Fnb_streams, scratch.Fs)
+		ret = opus_multistream_packet_validate(tls, data, len1, decoder.Flayout.Fnb_streams, scratch.Fs)
 		if ret < 0 {
-			st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-			if !(st != 0) {
-				v1 = libc.Xmalloc(tls, uint64(16))
-				st = v1
-				if st != 0 {
-					libc.Xmemset(tls, st, 0, uint64(16))
-				}
-				libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-			}
-			v3 = st
-			(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 			return ret
-		} else {
-			if ret > frame_size {
-				st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-				if !(st != 0) {
-					v1 = libc.Xmalloc(tls, uint64(16))
-					st = v1
-					if st != 0 {
-						libc.Xmemset(tls, st, 0, uint64(16))
-					}
-					libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-				}
-				v3 = st
-				(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-				return -int32(2)
-			}
+		}
+		if ret > frame_size {
+			return -2
 		}
 	}
 	s = 0
@@ -3994,7 +3698,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 		if !(s < decoder.Flayout.Fnb_streams) {
 			break
 		}
-		dec = ptr
+		dec = opusMSDecoderAt(decoder, ptr)
 		if s < decoder.Flayout.Fnb_coupled_streams {
 			alignment = uint32(uint64(uintptr(uint32(0)) + 8))
 			v56 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
@@ -4005,38 +3709,16 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			v31 = v75
 		}
 		ptr = ptr + uintptr(v31)
-		if !(do_plc != 0) && len1 <= 0 {
-			st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-			if !(st != 0) {
-				v1 = libc.Xmalloc(tls, uint64(16))
-				st = v1
-				if st != 0 {
-					libc.Xmemset(tls, st, 0, uint64(16))
-				}
-				libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-			}
-			v3 = st
-			(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
-			return -int32(3)
+		if do_plc == 0 && len1 <= 0 {
+			return -3
 		}
 		scratch.packetOffset = 0
-		ret1 = Opus_opus_decode_native(tls, dec, data, len1, buf, frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), uintptr(unsafe.Pointer(&scratch.packetOffset)), soft_clip, uintptr(uint32(0)), 0)
+		ret1 = opusMSDecodeChild(tls, dec, opusMSPacketAt(data, position, len1), len1, buf, frame_size, decode_fec, libc.BoolInt32(s != decoder.Flayout.Fnb_streams-int32(1)), &scratch.packetOffset, soft_clip)
 		if !(do_plc != 0) {
-			data = data + uintptr(scratch.packetOffset)
+			position += uintptr(scratch.packetOffset)
 			len1 = len1 - scratch.packetOffset
 		}
 		if ret1 <= 0 {
-			st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-			if !(st != 0) {
-				v1 = libc.Xmalloc(tls, uint64(16))
-				st = v1
-				if st != 0 {
-					libc.Xmemset(tls, st, 0, uint64(16))
-				}
-				libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-			}
-			v3 = st
-			(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 			return ret1
 		}
 		frame_size = ret1
@@ -4044,35 +3726,35 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			prev = -int32(1)
 			/* Copy "left" audio to the channel(s) where it belongs */
 			for {
-				v31 = Opus_get_left_channel(tls, &(*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)).Flayout, s, prev)
+				v31 = Opus_get_left_channel(tls, &decoder.Flayout, s, prev)
 				chan1 = v31
 				if !(v31 != -int32(1)) {
 					break
 				}
-				(*(*func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr))(unsafe.Pointer(&struct{ uintptr }{__ccgo_fp_copy_channel_out})))(tls, pcm, decoder.Flayout.Fnb_channels, chan1, buf, int32(2), frame_size, user_data)
+				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, buf, 2, frame_size, user_data)
 				prev = chan1
 			}
 			prev = -int32(1)
 			/* Copy "right" audio to the channel(s) where it belongs */
 			for {
-				v31 = Opus_get_right_channel(tls, &(*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)).Flayout, s, prev)
+				v31 = Opus_get_right_channel(tls, &decoder.Flayout, s, prev)
 				chan1 = v31
 				if !(v31 != -int32(1)) {
 					break
 				}
-				(*(*func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr))(unsafe.Pointer(&struct{ uintptr }{__ccgo_fp_copy_channel_out})))(tls, pcm, decoder.Flayout.Fnb_channels, chan1, buf+uintptr(1)*4, int32(2), frame_size, user_data)
+				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, (*float32)(unsafe.Add(unsafe.Pointer(buf), 4)), 2, frame_size, user_data)
 				prev = chan1
 			}
 		} else {
 			prev1 = -int32(1)
 			/* Copy audio to the channel(s) where it belongs */
 			for {
-				v31 = Opus_get_mono_channel(tls, &(*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)).Flayout, s, prev1)
+				v31 = Opus_get_mono_channel(tls, &decoder.Flayout, s, prev1)
 				chan11 = v31
 				if !(v31 != -int32(1)) {
 					break
 				}
-				(*(*func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr))(unsafe.Pointer(&struct{ uintptr }{__ccgo_fp_copy_channel_out})))(tls, pcm, decoder.Flayout.Fnb_channels, chan11, buf, int32(1), frame_size, user_data)
+				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan11, buf, 1, frame_size, user_data)
 				prev1 = chan11
 			}
 		}
@@ -4085,21 +3767,10 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			break
 		}
 		if int32(decoder.Flayout.Fmapping[c]) == int32(255) {
-			(*(*func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr))(unsafe.Pointer(&struct{ uintptr }{__ccgo_fp_copy_channel_out})))(tls, pcm, decoder.Flayout.Fnb_channels, c, uintptr(uint32(0)), 0, frame_size, user_data)
+			copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, c, nil, 0, frame_size, user_data)
 		}
 		c = c + 1
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	return frame_size
 }
 
@@ -4122,6 +3793,8 @@ func opus_copy_channel_out_float(tls *libc.TLS, dst *float32, dstStride, dstChan
 }
 
 // Adapter for the remaining uintptr-valued multistream callback ABI.
+//
+//go:uintptrescapes
 func opus_copy_channel_out_float_legacy(tls *libc.TLS, dst uintptr, dstStride, dstChannel int32, src uintptr, srcStride, frames int32, userData uintptr) {
 	opus_copy_channel_out_float(tls, (*float32)(unsafe.Pointer(dst)), dstStride, dstChannel, (*OpusT_opus_res)(unsafe.Pointer(src)), srcStride, frames)
 }
@@ -4152,6 +3825,7 @@ func opus_copy_channel_out_short(tls *libc.TLS, dst *int16, dstStride, dstChanne
 	}
 }
 
+//go:uintptrescapes
 func opus_copy_channel_out_short_legacy(tls *libc.TLS, dst uintptr, dstStride, dstChannel int32, src uintptr, srcStride, frames int32, userData uintptr) {
 	opus_copy_channel_out_short(tls, (*int16)(unsafe.Pointer(dst)), dstStride, dstChannel, (*OpusT_opus_res)(unsafe.Pointer(src)), srcStride, frames)
 }
@@ -4174,20 +3848,36 @@ func opus_copy_channel_out_int24(tls *libc.TLS, dst *int32, dstStride, dstChanne
 	}
 }
 
+//go:uintptrescapes
 func opus_copy_channel_out_int24_legacy(tls *libc.TLS, dst uintptr, dstStride, dstChannel int32, src uintptr, srcStride, frames int32, userData uintptr) {
 	opus_copy_channel_out_int24(tls, (*int32)(unsafe.Pointer(dst)), dstStride, dstChannel, (*OpusT_opus_res)(unsafe.Pointer(src)), srcStride, frames)
 }
 
-func Opus_opus_multistream_decode(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, st, data, len1, pcm, __ccgo_fp(opus_copy_channel_out_short_legacy), frame_size, decode_fec, int32(OPTIONAL_CLIP), uintptr(uint32(0)))
+//go:uintptrescapes
+func Opus_opus_multistream_decode(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
+	return opusMSDecodeShort(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int16)(unsafe.Pointer(pcm)), frame, fec)
 }
 
-func Opus_opus_multistream_decode24(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, st, data, len1, pcm, __ccgo_fp(opus_copy_channel_out_int24_legacy), frame_size, decode_fec, 0, uintptr(uint32(0)))
+func opusMSDecodeShort(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
+	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyShort, frame, fec, OPTIONAL_CLIP, 0)
 }
 
-func Opus_opus_multistream_decode_float(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, st, data, len1, pcm, __ccgo_fp(opus_copy_channel_out_float_legacy), frame_size, decode_fec, 0, uintptr(uint32(0)))
+//go:uintptrescapes
+func Opus_opus_multistream_decode24(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
+	return opusMSDecodeInt24(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int32)(unsafe.Pointer(pcm)), frame, fec)
+}
+
+func opusMSDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
+	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyInt24, frame, fec, 0, 0)
+}
+
+//go:uintptrescapes
+func Opus_opus_multistream_decode_float(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
+	return opusMSDecodeFloat(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*float32)(unsafe.Pointer(pcm)), frame, fec)
+}
+
+func opusMSDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
+	return opusMSDecodeNative(tls, decoder, data, length, unsafe.Pointer(pcm), opusMSCopyFloat, frame, fec, 0, 0)
 }
 
 func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, request int32, ap OpusT_va_list) int32 {
@@ -4490,6 +4180,7 @@ func opus_projection_copy_channel_out_float(tls *libc.TLS, dst *float32, dstStri
 	}
 }
 
+//go:uintptrescapes
 func opus_projection_copy_channel_out_float_legacy(tls *libc.TLS, dst uintptr, ds, dc int32, src uintptr, ss, n int32, matrix uintptr) {
 	opus_projection_copy_channel_out_float(tls, (*float32)(unsafe.Pointer(dst)), ds, dc, (*OpusT_opus_res)(unsafe.Pointer(src)), ss, n, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))
 }
@@ -4506,6 +4197,7 @@ func opus_projection_copy_channel_out_short(tls *libc.TLS, dst *int16, dstStride
 	}
 }
 
+//go:uintptrescapes
 func opus_projection_copy_channel_out_short_legacy(tls *libc.TLS, dst uintptr, ds, dc int32, src uintptr, ss, n int32, matrix uintptr) {
 	opus_projection_copy_channel_out_short(tls, (*int16)(unsafe.Pointer(dst)), ds, dc, (*OpusT_opus_res)(unsafe.Pointer(src)), ss, n, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))
 }
@@ -4522,6 +4214,7 @@ func opus_projection_copy_channel_out_int24(tls *libc.TLS, dst *int32, dstStride
 	}
 }
 
+//go:uintptrescapes
 func opus_projection_copy_channel_out_int24_legacy(tls *libc.TLS, dst uintptr, ds, dc int32, src uintptr, ss, n int32, matrix uintptr) {
 	opus_projection_copy_channel_out_int24(tls, (*int32)(unsafe.Pointer(dst)), ds, dc, (*OpusT_opus_res)(unsafe.Pointer(src)), ss, n, (*OpusT_MappingMatrix)(unsafe.Pointer(matrix)))
 }
@@ -4617,8 +4310,21 @@ func Opus_opus_projection_decode24(tls *libc.TLS, st uintptr, data uintptr, len1
 	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder_legacy(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_int24_legacy), frame_size, decode_fec, 0, uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
 }
 
-func Opus_opus_projection_decode_float(tls *libc.TLS, st uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, frame_size int32, decode_fec int32) (r int32) {
-	return Opus_opus_multistream_decode_native(tls, get_multistream_decoder_legacy(tls, st), data, len1, pcm, __ccgo_fp(opus_projection_copy_channel_out_float_legacy), frame_size, decode_fec, 0, uintptr(unsafe.Pointer(get_dec_demixing_matrix(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))))))
+//go:uintptrescapes
+func Opus_opus_projection_decode_float(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
+	return opusProjectionDecodeFloat(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*float32)(unsafe.Pointer(pcm)), frame, fec)
+}
+
+func opusProjectionFloatCopy(matrix *OpusT_MappingMatrix) opusMSChannelCopy {
+	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+		opus_projection_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n, matrix)
+	}
+}
+
+func opusProjectionDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
+	ms := get_multistream_decoder(tls, decoder)
+	matrix := get_dec_demixing_matrix(tls, decoder)
+	return opusMSDecodeNative(tls, ms, data, length, unsafe.Pointer(pcm), opusProjectionFloatCopy(matrix), frame, fec, 0, 0)
 }
 
 func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {
