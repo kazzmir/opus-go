@@ -150,6 +150,14 @@ func TestPacketParseAgainstC(t *testing.T) {
 	}
 }
 
+func TestRepacketizerLayoutAgainstC(t *testing.T) {
+	var state opuscc.OpusT_OpusRepacketizer
+	got := [9]uint64{uint64(unsafe.Sizeof(state)), uint64(unsafe.Offsetof(state.Ftoc)), uint64(unsafe.Offsetof(state.Fnb_frames)), uint64(unsafe.Offsetof(state.Fframes)), uint64(unsafe.Offsetof(state.Flen1)), uint64(unsafe.Offsetof(state.Fframesize)), uint64(unsafe.Offsetof(state.Fpaddings)), uint64(unsafe.Offsetof(state.Fpadding_len)), uint64(unsafe.Offsetof(state.Fpadding_nb_frames))}
+	if want := nativeRepacketizerLayout(); got != want {
+		t.Fatal("repacketizer layout", got, want)
+	}
+}
+
 func TestDecodeInt24PCMAgainstC(t *testing.T) {
 	input := []float32{-1, -.5, 0, .5, 1, 1.5 / 8388608, 2.5 / 8388608, -1.5 / 8388608, -2.5 / 8388608}
 	for i := 0; i < 1024; i++ {

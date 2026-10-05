@@ -1,6 +1,25 @@
 package opuscc
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
+
+func TestRepacketizerFramePointers(t *testing.T) {
+	owner := new(OpusT_OpusRepacketizer)
+	for i := range owner.Fframes {
+		packet := []byte{byte(i), byte(i + 1)}
+		owner.Fframes[i] = &packet[0]
+		owner.Flen1[i] = 2
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i, p := range owner.Fframes {
+		if p == nil || *p != byte(i) || owner.Flen1[i] != 2 {
+			t.Fatal("repacketizer frame owner", i)
+		}
+	}
+}
 
 func TestLayoutChannelPointers(t *testing.T) {
 	layout := OpusT_ChannelLayout{Fnb_channels: 9, Fnb_streams: 4, Fnb_coupled_streams: 2,

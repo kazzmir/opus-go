@@ -789,7 +789,7 @@ type OpusT_opus_uint64 = uint64
 type OpusT_OpusRepacketizer = struct {
 	Ftoc               uint8
 	Fnb_frames         int32
-	Fframes            [48]uintptr
+	Fframes            [48]*byte
 	Flen1              [48]OpusT_opus_int16
 	Fframesize         int32
 	Fpaddings          [48]uintptr
