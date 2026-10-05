@@ -5,6 +5,23 @@ import (
 	"testing"
 )
 
+func TestRepacketizerPaddingPointers(t *testing.T) {
+	owner := new(OpusT_OpusRepacketizer)
+	for i := range owner.Fpaddings {
+		padding := []byte{byte(255 - i), byte(i)}
+		owner.Fpaddings[i] = &padding[0]
+		owner.Fpadding_len[i] = 2
+		owner.Fpadding_nb_frames[i] = 1
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i, p := range owner.Fpaddings {
+		if p == nil || *p != byte(255-i) || owner.Fpadding_len[i] != 2 || owner.Fpadding_nb_frames[i] != 1 {
+			t.Fatal("repacketizer padding owner", i)
+		}
+	}
+}
+
 func TestRepacketizerFramePointers(t *testing.T) {
 	owner := new(OpusT_OpusRepacketizer)
 	for i := range owner.Fframes {
