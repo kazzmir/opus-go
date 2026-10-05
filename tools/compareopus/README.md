@@ -534,6 +534,43 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four multistream-consumer rounds type child native dispatch/packet-offset
+forwarding, replace integer child addresses with numeric byte traversal and typed
+consumed child views, move the reusable 2*frame_size float PCM scratch into Go
+storage, and bind typed standard output callbacks/source views. The header/child
+alignment and coupled/mono stride calculations, advance-before-error order,
+self-delimited flag/live stream-count read, packet-offset reset/advancement,
+positive return gating, mapping iteration and muted-channel timing are retained.
+The frame cap/Go allocation remains after the original sample-rate query and
+before packet validation. Only used child addresses are formed; terminal walk
+positions stay numeric. Source left/right/mono pointers and muted nil source now
+stay typed through standard float/int16/int24 callbacks, with unchanged rounding,
+strides and live copy loops. A bound Go function retains the custom callback
+owner; arbitrary/custom and projection callback fallbacks preserve the public
+legacy user-data/uintptr contract through explicit escape bridges.
+
+Grouped scoped checkptr/nil-TLS fixtures cover native child normal/PLC and exact
+self-delimited packet offset, scanned MS-interior child lifetime after GC/stack
+growth, Go stereo scratch/typed consumers, all standard callback bindings,
+guards/strides/muting and custom fallback argument/owner retention. Ordinary MS
+C-reference/adapter fixtures exercise the enclosing loop; full amd64/386,
+ARM64/QEMU, native comparisons, GC stress and unchanged codec goldens/tolerances
+pass each round, plus repeated scoped/ordinary ARM tests. The initial scratch
+fixture attempted the raw legacy float callback under checkptr and correctly
+failed at its uintptr-to-pointer representation. That boundary is kept as an
+ordinary legacy fixture; typed scratch consumers have scoped coverage, and the
+following callback round bypasses that boundary for all three standard formats.
+A forced-GC custom-closure probe also exposed that converting a movable Go
+closure through __ccgo_fp does not preserve its original owner/lifetime. Added
+opusMSBindLegacyCopy to accept and capture a Go function directly; its scoped
+owner-retention fixture uses that typed path, while public integer callback
+addresses retain the legacy requirement for stable caller-owned function storage.
+The raw __ccgo_fp closure boundary is not claimed safe or repaired globally.
+No checkptr suppression, pin or golden change was used. This is not a complete
+multistream/projection ownership or checkptr claim: enclosing payload/output/
+state entry, CTL varargs scratch, pseudostack setup/restores and projection matrix
+user-data remain legacy, as does opaque byte-backed state scanning.
+
 Four integer-entry rounds remove int16 pseudostack setup/snapshot/restores,
 remove the corresponding int24 operations, then introduce fully typed private
 opusDecodeInt16 and opusDecodeInt24 entries behind the original public escape

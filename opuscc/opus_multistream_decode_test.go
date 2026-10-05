@@ -12,6 +12,49 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestMultistreamCopyBindingPointers(t *testing.T) {
+	src := []float32{0.25, -0.25, 0.5, -0.5, 0.75, -0.75}
+	floats := make([]float32, 11)
+	shorts := make([]int16, 11)
+	wide := make([]int32, 11)
+	floats[0], floats[10] = 77, 88
+	shorts[0], shorts[10] = 77, 88
+	wide[0], wide[10] = 77, 88
+	cases := []struct {
+		callback uintptr
+		dst      unsafe.Pointer
+	}{{__ccgo_fp(opus_copy_channel_out_float_legacy), unsafe.Pointer(&floats[1])}, {__ccgo_fp(opus_copy_channel_out_short_legacy), unsafe.Pointer(&shorts[1])}, {__ccgo_fp(opus_copy_channel_out_int24_legacy), unsafe.Pointer(&wide[1])}}
+	for _, item := range cases {
+		copyOut := opusMSBindCopy(item.callback)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		copyOut(nil, item.dst, 3, 0, &src[0], 2, 3, 0)
+		copyOut(nil, item.dst, 3, 2, &src[1], 2, 3, 0)
+		copyOut(nil, item.dst, 3, 1, nil, 0, 3, 0)
+	}
+	for i := 0; i < 3; i++ {
+		if floats[1+3*i] != src[2*i] || floats[3+3*i] != src[2*i+1] || shorts[1+3*i] != int16(src[2*i]*32768) || shorts[3+3*i] != int16(src[2*i+1]*32768) || wide[1+3*i] != int32(src[2*i]*8388608) || wide[3+3*i] != int32(src[2*i+1]*8388608) || floats[2+3*i] != 0 || shorts[2+3*i] != 0 || wide[2+3*i] != 0 {
+			t.Fatal("bound copy arithmetic/muting")
+		}
+	}
+	if floats[0] != 77 || floats[10] != 88 || shorts[0] != 77 || shorts[10] != 88 || wide[0] != 77 || wide[10] != 88 {
+		t.Fatal("copy binding guards")
+	}
+	called := false
+	callback := func(tls *libc.TLS, dst uintptr, ds, dc int32, input uintptr, ss, n int32, user uintptr) {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		called = dst == uintptr(unsafe.Pointer(&floats[1])) && input == uintptr(unsafe.Pointer(&src[0])) && ds == 3 && dc == 1 && ss == 2 && n == 3 && user == 123
+	}
+	copyOut := opusMSBindLegacyCopy(callback)
+	callback = nil
+	runtime.GC()
+	copyOut(nil, unsafe.Pointer(&floats[1]), 3, 1, &src[0], 2, 3, 123)
+	if !called {
+		t.Fatal("custom legacy fallback arguments/owner")
+	}
+}
+
 func TestMultistreamAudioScratchLegacy(t *testing.T) {
 	audio := opusFrameAudioStorage(10)
 	for i := range audio {

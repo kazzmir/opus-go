@@ -3580,6 +3580,39 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 
 type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr)
 
+type opusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32, uintptr)
+
+func opusMSBindCopy(callback uintptr) opusMSChannelCopy {
+	switch callback {
+	case __ccgo_fp(opus_copy_channel_out_float_legacy):
+		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+			opus_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n)
+		}
+	case __ccgo_fp(opus_copy_channel_out_short_legacy):
+		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+			opus_copy_channel_out_short(tls, (*int16)(dst), ds, dc, src, ss, n)
+		}
+	case __ccgo_fp(opus_copy_channel_out_int24_legacy):
+		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+			opus_copy_channel_out_int24(tls, (*int32)(dst), ds, dc, src, ss, n)
+		}
+	default:
+		legacy := *(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback}))
+		return opusMSBindLegacyCopy(legacy)
+	}
+}
+
+func opusMSBindLegacyCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_native_4) opusMSChannelCopy {
+	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user uintptr) {
+		opusMSInvokeLegacy(tls, legacy, uintptr(dst), ds, dc, uintptr(unsafe.Pointer(src)), ss, n, user)
+	}
+}
+
+//go:uintptrescapes
+func opusMSInvokeLegacy(tls *libc.TLS, callback OpusT___ccgo_fp__Xopus_multistream_decode_native_4, dst uintptr, ds, dc int32, src uintptr, ss, n int32, user uintptr) {
+	callback(tls, dst, ds, dc, src, ss, n, user)
+}
+
 //go:uintptrescapes
 func opusMSLegacyCopyChannel(tls *libc.TLS, callback, dst uintptr, dstStride, dstChannel int32, src uintptr, srcStride, frames int32, userData uintptr) {
 	(*(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback})))(tls, dst, dstStride, dstChannel, src, srcStride, frames, userData)
@@ -3609,6 +3642,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 	var alignment uint32
 	var c, chan1, chan11, coupled_size, do_plc, mono_size, prev, prev1, ret, ret1, s, v31, v56, v75 int32
 	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1))
+	copyChannel := opusMSBindCopy(__ccgo_fp_copy_channel_out)
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = _saved_stack, alignment, buf, c, chan1, chan11, coupled_size, dec, do_plc, mono_size, prev, prev1, ptr, ret, ret1, s, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v31, v5, v56, v6, v75, v8
 	do_plc = 0
 	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
@@ -3827,7 +3861,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 				if !(v31 != -int32(1)) {
 					break
 				}
-				opusMSLegacyCopyChannel(tls, __ccgo_fp_copy_channel_out, pcm, decoder.Flayout.Fnb_channels, chan1, uintptr(unsafe.Pointer(buf)), 2, frame_size, user_data)
+				copyChannel(tls, unsafe.Pointer(pcm), decoder.Flayout.Fnb_channels, chan1, buf, 2, frame_size, user_data)
 				prev = chan1
 			}
 			prev = -int32(1)
@@ -3838,7 +3872,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 				if !(v31 != -int32(1)) {
 					break
 				}
-				opusMSLegacyCopyChannel(tls, __ccgo_fp_copy_channel_out, pcm, decoder.Flayout.Fnb_channels, chan1, uintptr(unsafe.Add(unsafe.Pointer(buf), 4)), 2, frame_size, user_data)
+				copyChannel(tls, unsafe.Pointer(pcm), decoder.Flayout.Fnb_channels, chan1, (*float32)(unsafe.Add(unsafe.Pointer(buf), 4)), 2, frame_size, user_data)
 				prev = chan1
 			}
 		} else {
@@ -3850,7 +3884,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 				if !(v31 != -int32(1)) {
 					break
 				}
-				opusMSLegacyCopyChannel(tls, __ccgo_fp_copy_channel_out, pcm, decoder.Flayout.Fnb_channels, chan11, uintptr(unsafe.Pointer(buf)), 1, frame_size, user_data)
+				copyChannel(tls, unsafe.Pointer(pcm), decoder.Flayout.Fnb_channels, chan11, buf, 1, frame_size, user_data)
 				prev1 = chan11
 			}
 		}
@@ -3863,7 +3897,7 @@ func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintpt
 			break
 		}
 		if int32(decoder.Flayout.Fmapping[c]) == int32(255) {
-			opusMSLegacyCopyChannel(tls, __ccgo_fp_copy_channel_out, pcm, decoder.Flayout.Fnb_channels, c, 0, 0, frame_size, user_data)
+			copyChannel(tls, unsafe.Pointer(pcm), decoder.Flayout.Fnb_channels, c, nil, 0, frame_size, user_data)
 		}
 		c = c + 1
 	}
