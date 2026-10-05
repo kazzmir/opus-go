@@ -3627,14 +3627,7 @@ func opusMSDecodeChild(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, le
 }
 
 func Opus_opus_multistream_decode_native(tls *libc.TLS, st1 uintptr, data uintptr, len1 OpusT_opus_int32, pcm uintptr, __ccgo_fp_copy_channel_out OpusT_opus_copy_channel_out_func, frame_size int32, decode_fec int32, soft_clip int32, user_data uintptr) (r int32) {
-	// CTL varargs storage remains legacy; child packet offsets now stay typed.
-	type decodeScratch struct {
-		Fs           OpusT_opus_int32
-		packetOffset OpusT_opus_int32
-	}
-	storage := libc.Xmalloc(tls, uint64(unsafe.Sizeof(decodeScratch{})))
-	defer libc.Xfree(tls, storage)
-	scratch := (*decodeScratch)(unsafe.Pointer(storage))
+	var scratch struct{ Fs, packetOffset int32 } // typed CTL and child outputs need no opaque allocation
 	var dec *OpusT_OpusDecoder
 	var buf *float32
 	var _saved_stack, ptr, st, v1, v10, v11, v13, v15, v17, v19, v21, v3, v5, v6, v8 uintptr

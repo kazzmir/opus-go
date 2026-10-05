@@ -12,6 +12,19 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestMultistreamScalarScratchPointers(t *testing.T) {
+	storage := newOpusFrameOwnerDecoder(t, 1)
+	var slots struct{ Before, Fs, Offset, After int32 }
+	slots.Before, slots.After = 77, 88
+	packet := []byte{0, 0}
+	pcm := make([]float32, 480)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if Opus_opus_decoder_ctl_typed(nil, &storage.Decoder, OPUS_GET_SAMPLE_RATE_REQUEST, OpusDecoderCtlArgs{I32: &slots.Fs}) != 0 || opusMSDecodeChild(nil, &storage.Decoder, &packet[0], 2, &pcm[0], 480, 0, 1, &slots.Offset, 0) != 480 || slots.Fs != 48000 || slots.Offset != 2 || slots.Before != 77 || slots.After != 88 {
+		t.Fatal("Go MS scalar slots")
+	}
+}
+
 func TestMultistreamSampleRatePointers(t *testing.T) {
 	type owner struct {
 		MS      OpusT_OpusMSDecoder
