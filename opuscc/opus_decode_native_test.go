@@ -8,6 +8,24 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestOpusInt16ScratchPointers(t *testing.T) {
+	storage := newOpusFrameOwnerDecoder(t, 2)
+	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
+	out := opusFrameAudioStorage(2880 * 2)
+	pcm := make([]int16, 5762)
+	pcm[0], pcm[5761] = 77, 88
+	entropyInitGrowStack(12)
+	runtime.GC()
+	ret := opusDecodeNative(nil, &storage.Decoder, &packet[0], int32(len(packet)), unsafe.SliceData(out), 2880, 0, 0, nil, OPTIONAL_CLIP)
+	if ret != 2880 {
+		t.Fatal("int16 scratch decode")
+	}
+	Opus_celt_float2int16_c(nil, unsafe.SliceData(out), &pcm[1], ret*2)
+	if pcm[0] != 77 || pcm[5761] != 88 || storage.Decoder.FrangeFinal != 0x50373c71 {
+		t.Fatal("int16 scratch guards/range")
+	}
+}
+
 func TestOpusInt24PCMPointers(t *testing.T) {
 	opusDecodeInt24PCM(nil, nil, nil, 0)
 	opusDecodeInt24PCM(nil, nil, nil, -1)
