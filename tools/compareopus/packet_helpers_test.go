@@ -150,6 +150,35 @@ func TestPacketParseAgainstC(t *testing.T) {
 	}
 }
 
+func TestNativeDecodePacketDescriptorsAgainstC(t *testing.T) {
+	for _, tc := range []struct {
+		data []byte
+		self int32
+	}{{[]byte{0}, 0}, {[]byte{1}, 0}, {[]byte{3, 2}, 0}, {[]byte{0, 0, 99}, 1}, {[]byte{255, 65, 1, 10, 11, 12, 99}, 0}} {
+		var toc byte
+		var size [48]int16
+		var offset, consumed, padLength int32
+		var padding *byte
+		count := opuscc.CompareOpusNativeParsePacket(nil, &tc.data[0], int32(len(tc.data)), tc.self, &toc, &size, &offset, &consumed, &padding, &padLength)
+		c := nativePacketParse(&tc.data[0], int32(len(tc.data)), tc.self, 63, 0)
+		if count != c.Count || toc != c.Toc || offset != c.Payload || consumed != c.Packet || padLength != c.PaddingLen {
+			t.Fatal("decode-native numeric descriptors", tc, c)
+		}
+		for i := int32(0); i < count; i++ {
+			if size[i] != c.Sizes[1+i] {
+				t.Fatal("native sizes")
+			}
+		}
+		if padLength == 0 {
+			if padding != nil {
+				t.Fatal("unused padding view")
+			}
+		} else if padding == nil || int32(uintptr(unsafe.Pointer(padding))-uintptr(unsafe.Pointer(&tc.data[0]))) != c.Padding {
+			t.Fatal("native padding view")
+		}
+	}
+}
+
 func TestPacketParseImplAgainstC(t *testing.T) {
 	for _, packet := range packetParserFixtures() {
 		for _, self := range []int32{0, 1, -1} {

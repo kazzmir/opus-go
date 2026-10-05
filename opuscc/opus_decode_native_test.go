@@ -8,7 +8,7 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
-func TestOpusNativeTypedPacketOffsetEntry(t *testing.T) {
+func TestOpusNativePacketOffsetPointers(t *testing.T) {
 	for _, frame := range []int32{479, 480} {
 		storage := newOpusFrameOwnerDecoder(t, 1)
 		packet := []byte{0, 0, 99}
@@ -18,7 +18,7 @@ func TestOpusNativeTypedPacketOffsetEntry(t *testing.T) {
 		before := storage.Decoder.Fmode
 		entropyInitGrowStack(12)
 		runtime.GC()
-		result := opusDecodeNative(nil, &storage.Decoder, &packet[0], 3, uintptr(unsafe.Pointer(&output[1])), frame, 0, 1, &slot[1], 0)
+		result := opusDecodeNative(nil, &storage.Decoder, &packet[0], 3, &output[1], frame, 0, 1, &slot[1], 0)
 		want := int32(480)
 		if frame == 479 {
 			want = -2
@@ -39,7 +39,7 @@ func TestOpusNativeTypedPayloadEntry(t *testing.T) {
 		a[0], a[5761], b[0], b[5761] = 77, 88, 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		ra := opusDecodeNative(nil, &left.Decoder, &packet[0], int32(len(packet)), uintptr(unsafe.Pointer(&a[1])), 2880, 0, 0, nil, 0)
+		ra := opusDecodeNative(nil, &left.Decoder, &packet[0], int32(len(packet)), &a[1], 2880, 0, 0, nil, 0)
 		rb := Opus_opus_decode_native(nil, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&b[1])), 2880, 0, 0, 0, 0, 0, 0)
 		if ra <= 0 || rb != ra || left.Decoder != right.Decoder || a[0] != 77 || a[5761] != 88 {
 			t.Fatal("native typed payload")
@@ -47,6 +47,95 @@ func TestOpusNativeTypedPayloadEntry(t *testing.T) {
 		for i := range a {
 			if a[i] != b[i] {
 				t.Fatal("native typed payload PCM")
+			}
+		}
+	}
+}
+
+func TestOpusNativeEmptyPaddingPointers(t *testing.T) {
+	for _, packet := range [][]byte{{0}, {1}, {3, 2}, {0, 0, 99}, {255, 65, 1, 10, 11, 12, 99}} {
+		var toc byte
+		var size [48]int16
+		var offset, consumed, padLength int32
+		var padding *byte
+		selfDelimited := int32(0)
+		if len(packet) == 3 && packet[0] == 0 {
+			selfDelimited = 1
+		}
+		count := opusNativeParsePacket(nil, &packet[0], int32(len(packet)), selfDelimited, &toc, &size, &offset, &consumed, &padding, &padLength)
+		if count < 0 {
+			t.Fatal("padding fixture")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if packet[0] == 255 {
+			if padLength != 1 || padding != &packet[6] || *padding != 99 {
+				t.Fatal("consumed padding view")
+			}
+		} else if padLength != 0 || padding != nil {
+			t.Fatal("unused EOF padding view")
+		}
+	}
+}
+
+func TestOpusNativeArgumentsPointers(t *testing.T) {
+	for _, tc := range []struct {
+		data               *byte
+		length, frame, fec int32
+		want               int32
+	}{{nil, 0, 119, 0, -1}, {nil, 0, 120, 2, -1}, {nil, 0, 120, -1, -1}} {
+		storage := newOpusFrameOwnerDecoder(t, 1)
+		sample := float32(77)
+		if opusDecodeNative(nil, &storage.Decoder, tc.data, tc.length, &sample, tc.frame, tc.fec, 0, nil, 0) != tc.want || sample != 77 {
+			t.Fatal("native argument order")
+		}
+	}
+	storage := newOpusFrameOwnerDecoder(t, 1)
+	sample := float32(77)
+	invalid := []byte{3, 0}
+	if opusDecodeNative(nil, &storage.Decoder, &invalid[0], 2, &sample, 120, 0, 0, nil, 0) != -4 || sample != 77 {
+		t.Fatal("native invalid packet")
+	}
+}
+
+func TestOpusNativeWholePointers(t *testing.T) {
+	celtMono, celtStereo := make([]byte, 129), make([]byte, 129)
+	celtMono[0], celtStereo[0] = 248, 252
+	for i := 1; i < 129; i++ {
+		celtMono[i] = byte((i-1)*73 + 165)
+		celtStereo[i] = celtMono[i]
+	}
+	for _, C := range []int32{1, 2} {
+		for _, packet := range [][]byte{{0}, {1}, {3, 2}, {3, 65, 1, 99}, celtMono, celtStereo, mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40"), mustHex(t, "7c8cb723a4e954f30817690d8021804d5c6f7c7a79cdaeeeda68b9cc67aab183653ff229912863fc3f7a335205cb0e033bed80eb1a0cfd3f5f")} {
+			storage := newOpusFrameOwnerDecoder(t, C)
+			pcm := make([]float32, 5760*C+2)
+			pcm[0], pcm[len(pcm)-1] = 77, 88
+			var offset int32
+			entropyInitGrowStack(12)
+			runtime.GC()
+			n := opusDecodeNative(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0, 0, &offset, 0)
+			if n <= 0 || offset != int32(len(packet)) || storage.Decoder.Flast_packet_duration != n || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+				t.Fatal("whole native packet descriptors/duration", C, packet[0], n, offset)
+			}
+			if C == 2 && packet[0] == 24 && (fnv1aFloats(pcm[1:1+2*n]) != 0x20a8ba55 || storage.Decoder.FrangeFinal != 0x50373c71) {
+				t.Fatal("whole native SILK C golden")
+			}
+			if C == 2 && packet[0] == 124 && (fnv1aFloats(pcm[1:1+2*n]) != 0x53ba9704 || storage.Decoder.FrangeFinal != 0x01ad2800) {
+				t.Fatal("whole native hybrid golden")
+			}
+			for _, fec := range []int32{0, 1} {
+				entropyInitGrowStack(12)
+				runtime.GC()
+				var input *byte
+				length := int32(0)
+				if fec != 0 {
+					input = &packet[0]
+					length = int32(len(packet))
+				}
+				result := opusDecodeNative(nil, &storage.Decoder, input, length, &pcm[1], 5760, fec, 0, nil, 1)
+				if result != 5760 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+					t.Fatal("native PLC/FEC recursion", C, packet[0], fec, result)
+				}
 			}
 		}
 	}
@@ -74,7 +163,7 @@ func TestOpusNativeTypedDecoderEntry(t *testing.T) {
 	a[0], a[121], b[0], b[121] = 77, 88, 77, 88
 	entropyInitGrowStack(12)
 	runtime.GC()
-	ra := opusDecodeNative(nil, &left.Decoder, nil, 0, uintptr(unsafe.Pointer(&a[1])), 120, 0, 0, nil, 0)
+	ra := opusDecodeNative(nil, &left.Decoder, nil, 0, &a[1], 120, 0, 0, nil, 0)
 	rb := Opus_opus_decode_native(nil, uintptr(unsafe.Pointer(&right.Decoder)), 0, 0, uintptr(unsafe.Pointer(&b[1])), 120, 0, 0, 0, 0, 0, 0)
 	if ra != 120 || rb != ra || left.Decoder != right.Decoder || a[0] != 77 || a[121] != 88 {
 		t.Fatal("native typed decoder entry")

@@ -534,6 +534,41 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decode-native entry rounds retain a typed decoder, payload/numeric byte
+cursor, packet-offset output and PCM owner. opusDecodeNative is fully typed with
+no private escape annotation; the public Opus_opus_decode_native signature and
+uintptrescapes adapter remain. Recursive PLC/FEC calls forward typed owners.
+Unused DRED arguments remain accepted by the public adapter but are not forwarded
+in this build, matching the upstream disabled-deep-PLC branch. Payload cursor
+advancement preserves native unsigned wrapping, and only length>1 consumed views
+are formed: zero/tiny frames still select loss, with no unused EOF pointer.
+Parser output timing, metadata commit/error order, duration rollback, frame flags,
+soft clipping and live channel reads are unchanged.
+
+The first 386 full checkptr run caught an exact-sized empty-packet EOF pointer
+in the existing public parser's padding output. Decode-native now asks the parser
+for numeric consumed/payload/size descriptors without requesting padding, derives
+padding length numerically, and forms a padding view only for nonzero lengths.
+Caller packet-offset writes still occur in the parser at their original point;
+when the caller omits that output a private numeric slot captures consumption.
+Actual C descriptor comparisons verify sizes/offsets/nonempty padding. The public
+parser retains its C EOF-pointer contract, so this fixes the active consumer
+without weakening empty-packet tests or claiming extension EOF is globally solved.
+
+Complete active private decode-native checkptr now runs with nil TLS and scanned
+composite state/Go payload, PCM and offset storage. Grouped fixtures cover
+mono/stereo SILK/hybrid/CELT, single/multiple/empty/padded packets, normal/PLC/FEC
+recursion, validation gates, self-delimited packet-offset guards and too-small
+output errors without premature metadata commit. Real SILK/hybrid packets reuse
+unchanged reference PCM FNV/range goldens. A 10ms self-delimited test initially
+used a 40ms TOC, correctly returning buffer-too-small; its TOC was corrected, not
+the validation. Full amd64/386 and ARM64/QEMU, native comparisons, whole reference
+fixtures, GC stress and codec goldens/tolerances pass each round, with separate
+repeated typed-path checkptr and ordinary ARM golden runs. This covers the tested
+typed native decoder paths, not opaque byte-backed allocation scanning, direct
+macOS CI, exact-sized extension EOF consumption or remaining float/int decoder,
+multistream/projection outer ownership.
+
 Four decode-native consumer rounds use the typed packet parser and all three
 typed frame dispatches: PLC, FEC suffix and ordinary packet sequence. Parser toc,
 48 sizes, payload/packet offsets and padding outputs now use Go slots directly;
