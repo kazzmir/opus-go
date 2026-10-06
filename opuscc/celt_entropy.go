@@ -158,12 +158,11 @@ func Opus_ec_dec_icdf16(tls *libc.TLS, dec *OpusT_ec_dec, icdf *OpusT_opus_uint1
 	// A zero-terminated table has no explicit length in the C API.
 	for {
 		previous = s
-		s = r * uint32(*icdf)
+		s = r * uint32(unsafe.Slice(icdf, int64(symbol)+1)[symbol])
 		if d >= s {
 			break
 		}
 		symbol++
-		icdf = (*OpusT_opus_uint16)(unsafe.Add(unsafe.Pointer(icdf), unsafe.Sizeof(*icdf)))
 	}
 	dec.Fval = d - s
 	dec.Frng = previous - s
