@@ -1234,18 +1234,18 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	var dual_stereo int32
 	var intensity int32
 	var out_syn [2]*float32
-	CC = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fchannels
+	CC = st1.Fchannels
 	intensity = 0
 	dual_stereo = 0
 	anti_collapse_on = 0
-	C = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fstream_channels
+	C = st1.Fstream_channels
 	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
-	Opus_validate_celt_decoder(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
-	mode, nbEBands, overlap, eBands = celtDecodeMode((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
-	start = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fstart
-	end = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fend
-	frame_size = frame_size * (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample
-	oldBandE, oldLogE, oldLogE2, backgroundLogE = celtDecodeEnergyViews((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), nbEBands, overlap, CC)
+	Opus_validate_celt_decoder(tls, st1)
+	mode, nbEBands, overlap, eBands = celtDecodeMode(st1)
+	start = st1.Fstart
+	end = st1.Fend
+	frame_size = frame_size * st1.Fdownsample
+	oldBandE, oldLogE, oldLogE2, backgroundLogE = celtDecodeEnergyViews(st1, nbEBands, overlap, CC)
 	LM = celtDecodeFrameLM(mode, frame_size)
 	if LM < 0 {
 		return -int32(1)
@@ -1254,21 +1254,21 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	if !celtDecodePacketArguments(pcm, len1) {
 		return -int32(1)
 	}
-	N = M * (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FshortMdctSize
-	decode_mem, out_syn = celtDecodeHistoryViews((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), overlap, CC, N)
+	N = M * mode.FshortMdctSize
+	decode_mem, out_syn = celtDecodeHistoryViews(st1, overlap, CC, N)
 	effEnd = end
-	if effEnd > (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands {
-		effEnd = (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)).FeffEBands
+	if effEnd > mode.FeffEBands {
+		effEnd = mode.FeffEBands
 	}
 	if celtDecodePacketLost(data, len1) {
-		celt_decode_lost(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), N, LM)
-		celtDecodeDeemphasis(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &out_syn[0], (*float32)(unsafe.Pointer(pcm)), N, CC, accum)
-		return frame_size / (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample
+		celt_decode_lost(tls, st1, N, LM)
+		celtDecodeDeemphasis(tls, st1, mode, &out_syn[0], pcm, N, CC, accum)
+		return frame_size / st1.Fdownsample
 	}
 	/* Check if there are at least two packets received consecutively before
 	 * turning on the pitch-based PLC */
 	celtDecodePacketStart(st1)
-	dec = celtDecodeEntropy(tls, dec, &_dec, (*byte)(unsafe.Pointer(data)), len1)
+	dec = celtDecodeEntropy(tls, dec, &_dec, data, len1)
 	if C == 1 {
 		celtDecodeEnergyMergeMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
 	}
