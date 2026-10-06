@@ -20,7 +20,7 @@ func modeLogN(m *OpusT_OpusCustomMode, band int32) int16 {
 }
 
 func modePulseIndex(m *OpusT_OpusCustomMode, index int32) int16 {
-	return *(*int16)(unsafe.Add(unsafe.Pointer(m.Fcache.Findex), uintptr(index)*2))
+	return unsafe.Slice(m.Fcache.Findex, int64(index)+1)[index]
 }
 
 func modePulseCache(m *OpusT_OpusCustomMode, index int32) *byte {

@@ -79,6 +79,12 @@ func TestModeLogPointers(t *testing.T) {
 }
 
 func TestModePulseIndexPointers(t *testing.T) {
+	singleton := int16(-1)
+	prefix := OpusT_OpusCustomMode{FnbEBands: 100}
+	prefix.Fcache.Findex = &singleton
+	if modePulseIndex(&prefix, 0) != singleton {
+		t.Fatal("consumed pulse index prefix")
+	}
 	makeMode := func() *OpusT_OpusCustomMode {
 		m := mode48000_960_120
 		index := slices.Clone(cache_index50[:])
