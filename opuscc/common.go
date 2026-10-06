@@ -2312,10 +2312,6 @@ func opusFrameCeltState(decoder *OpusT_OpusDecoder) *OpusT_OpusCustomDecoder {
 	return (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(decoder), decoder.Fcelt_dec_offset))
 }
 
-func opusFrameSilkPCM(base *float32, offset uintptr) *float32 {
-	return opusFramePCMAtBytes(base, uint(offset))
-}
-
 // Byte displacements are numeric; the backing owner remains a typed pointer.
 func opusFramePCMAtBytes(base *float32, offset uint) *float32 {
 	if offset == 0 {
@@ -2849,15 +2845,15 @@ func opusNativePayload(packet *byte, offset uintptr, length int32) *byte {
 }
 
 func opusNativePacketFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, count, total int32) int32 {
-	return opusDecodeFrame(tls, decoder, data, length, opusFrameSilkPCM(pcm, uintptr(count*decoder.Fchannels)*4), total-count, 0)
+	return opusDecodeFrame(tls, decoder, data, length, opusFramePCMAtBytes(pcm, uint(count*decoder.Fchannels)*4), total-count, 0)
 }
 
 func opusNativeFECFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, total, packetFrame int32) int32 {
-	return opusDecodeFrame(tls, decoder, data, length, opusFrameSilkPCM(pcm, uintptr(decoder.Fchannels*(total-packetFrame))*4), packetFrame, 1)
+	return opusDecodeFrame(tls, decoder, data, length, opusFramePCMAtBytes(pcm, uint(decoder.Fchannels*(total-packetFrame))*4), packetFrame, 1)
 }
 
 func opusNativePLCFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, pcm *float32, count, total int32) int32 {
-	return opusDecodeFrame(tls, decoder, nil, 0, opusFrameSilkPCM(pcm, uintptr(count*decoder.Fchannels)*4), total-count, 0)
+	return opusDecodeFrame(tls, decoder, nil, 0, opusFramePCMAtBytes(pcm, uint(count*decoder.Fchannels)*4), total-count, 0)
 }
 
 //go:uintptrescapes

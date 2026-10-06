@@ -365,10 +365,10 @@ func TestOpusFrameRedundancyStoragePointers(t *testing.T) {
 		output[0], output[len(output)-1] = 77, 88
 		for channel := int32(0); channel < C; channel++ {
 			for i := int32(0); i < 120; i++ {
-				output[1+C*i+channel] = *opusFrameSilkPCM(temporary, uintptr(C*i+channel)*4)
+				output[1+C*i+channel] = *opusFramePCMAtBytes(temporary, uint(C*i+channel)*4)
 			}
 		}
-		smooth_fade(nil, opusFrameSilkPCM(temporary, uintptr(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
+		smooth_fade(nil, opusFramePCMAtBytes(temporary, uint(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
 		if output[0] != 77 || output[len(output)-1] != 88 {
 			t.Fatal("redundancy prefix/fade guards")
 		}
@@ -415,7 +415,7 @@ func TestOpusFrameCeltTransitionStoragePointers(t *testing.T) {
 		output := make([]float32, 240*C+2)
 		output[0], output[len(output)-1] = 77, 88
 		copy(output[1:1+120*C], temporary[:120*C])
-		smooth_fade(nil, opusFrameSilkPCM(pointer, uintptr(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
+		smooth_fade(nil, opusFramePCMAtBytes(pointer, uint(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
 		if output[0] != 77 || output[len(output)-1] != 88 || pointer != &temporary[0] {
 			t.Fatal("transition storage guards/owner")
 		}
@@ -496,19 +496,19 @@ func TestOpusFrameSilkDispatchPointers(t *testing.T) {
 }
 
 func TestOpusFrameSilkPCMPointers(t *testing.T) {
-	if opusFrameSilkPCM(nil, 0) != nil {
+	if opusFramePCMAtBytes(nil, 0) != nil {
 		t.Fatal("unused nil PCM")
 	}
 	data := make([]float32, 242)
 	data[0], data[241] = 77, 88
 	base := &data[1]
-	offset := uintptr(0)
+	offset := uint(0)
 	for chunk := 0; chunk < 2; chunk++ {
-		pointer := opusFrameSilkPCM(base, offset)
+		pointer := opusFramePCMAtBytes(base, offset)
 		entropyInitGrowStack(12)
 		runtime.GC()
 		for i := 0; i < 120; i++ {
-			*opusFrameSilkPCM(pointer, uintptr(i)*4) = float32(chunk + 1)
+			*opusFramePCMAtBytes(pointer, uint(i)*4) = float32(chunk + 1)
 		}
 		offset += 120 * 4
 	}
