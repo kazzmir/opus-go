@@ -2684,7 +2684,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 	if encode != 0 && resynth != 0 {
 		lowband_scratch = unsafe.SliceData(_lowband_scratch)
 	} else if end > start {
-		lowband_scratch = quantAllBandsLowbandView((*float32)(unsafe.Pointer(X_)), eBands, m.FeffEBands-1, M)
+		lowband_scratch = quantAllBandsLowbandView(X_, eBands, m.FeffEBands-1, M)
 	}
 	X_save, Y_save = quantAllBandsInitialStorage(resynth_alloc)
 	X_save2, Y_save2 = quantAllBandsTrialStorage(resynth_alloc)
@@ -2783,11 +2783,11 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			lowband_offset = i1
 		}
 		if i1 == start+int32(1) {
-			special_hybrid_folding(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands, (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
+			special_hybrid_folding(tls, m.FeBands, norm, norm2, start, M, dual_stereo)
 		}
 		tf_change = quantAllBandsTF(tf_res, i1)
 		ctx.Ftf_change = tf_change
-		if i1 >= (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeffEBands {
+		if i1 >= m.FeffEBands {
 			X = norm
 			if Y_ != nil {
 				Y = norm
@@ -2892,7 +2892,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					quantAllBandsCopy((*float32)(unsafe.Pointer(X)), unsafe.SliceData(X_save), N1)
 					quantAllBandsCopy((*float32)(unsafe.Pointer(Y)), unsafe.SliceData(Y_save), N1)
 					if i1 == start+int32(1) {
-						special_hybrid_folding(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FeBands, (*OpusT_celt_norm)(unsafe.Pointer(norm)), (*OpusT_celt_norm)(unsafe.Pointer(norm2)), start, M, dual_stereo)
+						special_hybrid_folding(tls, m.FeBands, norm, norm2, start, M, dual_stereo)
 					}
 					/* Encode and round up. */
 					ctx.Ftheta_round = 1
