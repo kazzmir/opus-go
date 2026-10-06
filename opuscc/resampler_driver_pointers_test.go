@@ -1,6 +1,9 @@
 package opuscc
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
 
 func TestResamplerDriverPointers(t *testing.T) {
 	for _, rates := range [][2]int32{{8000, 8000}, {8000, 16000}, {12000, 48000}, {16000, 8000}} {
@@ -14,6 +17,8 @@ func TestResamplerDriverPointers(t *testing.T) {
 			out := make([]int16, ms*s.FFs_out_kHz+2)
 			out[0] = 12345
 			out[len(out)-1] = -23456
+			entropyInitGrowStack(12)
+			runtime.GC()
 			if ret := Opus_silk_resampler(nil, &s, &out[1], &in[0], int32(len(in))); ret != 0 {
 				t.Fatal(ret)
 			}

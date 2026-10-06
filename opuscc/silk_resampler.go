@@ -109,7 +109,7 @@ func Opus_silk_resampler(tls *libc.TLS, state *OpusT_silk_resampler_state_struct
 	var nextOut, nextIn *int16
 	// The second call is an identity for empty input. Avoid forming a one-past pointer.
 	if remaining > 0 {
-		nextOut = (*int16)(unsafe.Add(unsafe.Pointer(out), uintptr(state.FFs_out_kHz)*2))
+		nextOut = (*int16)(unsafe.Add(unsafe.Pointer(out), uint(state.FFs_out_kHz)*2))
 		nextIn = &samples[nSamples]
 	}
 	switch state.Fresampler_function {

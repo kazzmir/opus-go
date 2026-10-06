@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four mode/resampler rounds replace the mode log, pulse-cache index and band
+boundary helpers' integer byte-address calculations with typed int16 consumed
+prefix views, then change the resampler output byte displacement's cast from
+uintptr to numeric uint. The latter preserves machine-word width/wrapping and
+existing typed unsafe.Add behavior exactly; it is numeric cleanup, not an owner
+or EOF fix. Production opuscc uintptr tokens decrease 225→221 (4 removed).
+
+Existing grouped mode tests retain heap-owner GC/stack-growth coverage, all table
+rows and signed values; singleton views now explicitly prove that nominal larger
+band counts do not cause fabricated full-table extents. Existing resampler
+four-rate-pair driver guards/history tests at 1/2/10/21ms now also grow the stack
+and force GC before every call. The terminal remaining==0 guard, output offsets,
+driver selection and load/store order are unchanged. Negative/out-of-range table
+indices are outside the upstream table-access contract. Upstream rate/bands
+index expressions and resampler.c were inspected before changing these helpers.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native mode/rate/
+resampler comparisons, codec references and GC stress, followed by repeated
+scoped/ordinary ARM runs. Goldens/tolerances remain unchanged. These owners were
+already typed; no new opaque-allocation scanning, raw callback or extension EOF
+safety is claimed.
+
 Four entropy consumed-view rounds replace remaining integer address-offset
 casts in front/back byte readers, front/back byte writers, 8/16-bit encoder ICDF
 row loads, and final partial-byte OR with typed unsafe.Slice prefix indexing.
