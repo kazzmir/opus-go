@@ -86,6 +86,32 @@ func TestExtensionRepeatPointers(t *testing.T) {
 	}
 }
 
+func TestExtensionIncrementPointers(t *testing.T) {
+	for _, increment := range []byte{0, 1} {
+		packet := [8]byte{3, increment, 7, 11}
+		var iter OpusT_OpusExtensionIterator
+		Opus_opus_extension_iterator_init(nil, &iter, &packet[0], 4, 2)
+		var ext OpusT_opus_extension_data
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_extension_iterator_next(nil, &iter, &ext) != 1 || ext.Fframe != int32(increment) || ext.Fid != 3 || ext.Flen1 != 1 || *ext.Fdata != 11 {
+			t.Fatal("frame increment", increment, iter, ext)
+		}
+	}
+	for _, test := range []struct {
+		length    int32
+		increment byte
+	}{{1, 1}, {2, 2}} {
+		packet := [8]byte{3, test.increment}
+		var iter OpusT_OpusExtensionIterator
+		Opus_opus_extension_iterator_init(nil, &iter, &packet[0], test.length, 2)
+		ext := OpusT_opus_extension_data{Fid: 77}
+		if Opus_opus_extension_iterator_next(nil, &iter, &ext) != OPUS_INVALID_PACKET || ext.Fid != 77 {
+			t.Fatal("invalid frame increment", test, ext)
+		}
+	}
+}
+
 func TestExtensionNextPointers(t *testing.T) {
 	owned := func() OpusT_opus_extension_data {
 		packet := []byte{65, 2, 11, 12, 7, 99, 4, 2, 21, 22, 23, 31, 32, 33}

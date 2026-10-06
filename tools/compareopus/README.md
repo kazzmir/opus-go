@@ -534,6 +534,34 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four concrete-view rounds replace pulse-cache byte address casts with typed
+byte prefixes, form forward cache rows as *byte prefix elements, replace the
+resampler's next-output cast with a typed int16 prefix element, and read the
+extension frame increment through a two-byte prefix. Production unsafe.Pointer
+references decrease 559→556 (3 removed); uintptr tokens remain 173. These paths
+already had concrete owners; this removes casts rather than inventing opaque
+*byte stand-ins for unrelated libc handle/backend objects.
+
+Pulse cache zero offsets return the original pointer (including nil); signed
+negative interior offsets retain the necessary unsafe.Add boundary and the
+existing backwards-offset fixture unchanged. Only forward consumed rows use
+prefix indexing. Resampler views are formed only for a nonempty second phase;
+zero output displacement remains an identity. Valid initialized rate states and
+room for the produced second phase remain the upstream contract. Grouped driver
+tests add five rate pairs at 1ms+1 sample, exact ceil-sized output plus guards,
+stack growth/GC. The initial fixture incorrectly initialized 48k→8k in decoder
+mode and hit the existing initialization assertion; using the required encoder
+mode fixes that fixture without weakening the assertion (failed log retained).
+
+Grouped extension tests add zero/nonzero frame increments, truncated increments
+and frame overflow with output unchanged. Validation still precedes the two-byte
+view; iterator EOF representation is unchanged and fixtures use padded backing.
+All four rounds ultimately pass full amd64/386, ARM64/QEMU, scoped checkptr,
+native cache/rate/resampler/extension comparisons, codec references and GC stress,
+followed by repeated scoped/ordinary ARM runs. Goldens/tolerances remain unchanged.
+Opaque allocator scanning, extension EOF/GC and raw callback ownership remain
+separate; truly opaque pointer boundaries are not blindly changed to scalar types.
+
 Four dormant compatibility-layout rounds change locale_t and timer_t aliases
 to unsafe.Pointer, tm's timezone abbreviation to *byte, and musl __ptcb's callback/
 argument/link members to unsafe.Pointer/unsafe.Pointer/*__ptcb. Actual Linux
