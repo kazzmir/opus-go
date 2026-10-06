@@ -110,6 +110,15 @@ func TestModeBandTableAgainstC(t *testing.T) {
 	}
 }
 
+func TestCompositeDecoderSizeAgainstC(t *testing.T) {
+	for _, ch := range []int32{-2147483648, -1, 0, 1, 2, 3, 2147483647} {
+		got := opuscc.Opus_opus_decoder_get_size(nil, ch)
+		if want := nativeOpusSize(ch); got != want {
+			t.Fatal("composite decoder size", ch, got, want)
+		}
+	}
+}
+
 func TestCustomDecoderSizeAgainstC(t *testing.T) {
 	for _, overlap := range []int32{0, 60, 120, 240} {
 		for _, bands := range []int32{0, 1, 21, 25} {

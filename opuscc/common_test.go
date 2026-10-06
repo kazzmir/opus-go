@@ -7,6 +7,30 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestCompositeSizeAlignment(t *testing.T) {
+	for _, n := range []int32{-2147483648, -2147483647, -9, -8, -7, -1, 0, 1, 7, 8, 9, 2147483640, 2147483647} {
+		want := int32((uint32(n) + uint32(8) - 1) / 8 * 8)
+		if got := opusAlignSize8(n); got != want {
+			t.Fatal("unsigned size alignment", n, got, want)
+		}
+	}
+	for _, channels := range []int32{-2147483648, -1, 0, 3, 2147483647} {
+		if Opus_opus_decoder_get_size(nil, channels) != 0 {
+			t.Fatal("invalid channel size", channels)
+		}
+	}
+	for _, channels := range []int32{1, 2} {
+		var silk int32
+		if Opus_silk_Get_Decoder_Size(nil, &silk) != 0 {
+			t.Fatal("silk size")
+		}
+		want := int32(104) + int32((uint32(silk)+7)/8*8) + Opus_celt_decoder_get_size(nil, channels)
+		if got := Opus_opus_decoder_get_size(nil, channels); got != want {
+			t.Fatal("decoder composition", channels, got, want)
+		}
+	}
+}
+
 func TestOpusDecoderGetSizeLocalSilkSize(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()

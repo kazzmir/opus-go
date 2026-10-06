@@ -2193,24 +2193,23 @@ func validate_opus_decoder(tls *libc.TLS, st *OpusT_OpusDecoder) {
 	}
 }
 
-func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) (r int32) {
-	var alignment uint32
-	var celtDecSizeBytes, ret, v1 int32
-	var silkDecSizeBytes int32
-	_, _, _, _, _ = alignment, celtDecSizeBytes, ret, silkDecSizeBytes, v1
-	if channels < int32(1) || channels > int32(2) {
+// opusAlignSize8 retains this port's fixed 8-byte layout alignment and uint32
+// wrapping before division/narrowing, including for negative numeric sizes.
+func opusAlignSize8(size int32) int32 {
+	return int32((uint32(size) + 7) / 8 * 8)
+}
+
+func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) int32 {
+	if channels < 1 || channels > 2 {
 		return 0
 	}
-	ret = Opus_silk_Get_Decoder_Size(tls, &silkDecSizeBytes)
-	if ret != 0 {
+	var silkSize int32
+	if Opus_silk_Get_Decoder_Size(tls, &silkSize) != 0 {
 		return 0
 	}
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	silkDecSizeBytes = int32((uint32(silkDecSizeBytes) + alignment - uint32(1)) / alignment * alignment)
-	celtDecSizeBytes = Opus_celt_decoder_get_size(tls, channels)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(100)) + alignment - uint32(1)) / alignment * alignment)
-	return v1 + silkDecSizeBytes + celtDecSizeBytes
+	silkSize = opusAlignSize8(silkSize)
+	celtSize := Opus_celt_decoder_get_size(tls, channels)
+	return opusAlignSize8(100) + silkSize + celtSize
 }
 
 func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32) int32 {
