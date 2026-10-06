@@ -1062,7 +1062,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 	var decay1, fade float32
 	var ac [25]float32
 	var lpc_mem [24]float32
-	C = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fchannels
+	C = st1.Fchannels
 	decode_buffer_size = int32(DEC_PITCH_BUF_SIZE)
 	max_period = MAX_PERIOD
 	mode, nbEBands, overlap, eBands = celtPLCMode(st1)
@@ -1097,7 +1097,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 				break
 			}
 		}
-		if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold != 0 {
+		if st1.Fprefilter_and_fold != 0 {
 			prefilter_and_fold(tls, st1, N)
 		}
 		celtPLCDecay(oldBandE, backgroundLogE, nbEBands, start, end, C, loss_duration)
@@ -1106,14 +1106,14 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 		/* Run the postfilter with the last parameters. */
 		c = 0
 		for {
-			if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period > int32(COMBFILTER_MINPERIOD) {
-				v7 = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period
+			if st1.Fpostfilter_period > int32(COMBFILTER_MINPERIOD) {
+				v7 = st1.Fpostfilter_period
 			} else {
 				v7 = int32(COMBFILTER_MINPERIOD)
 			}
-			(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period = v7
-			if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period_old > int32(COMBFILTER_MINPERIOD) {
-				v5 = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period_old
+			st1.Fpostfilter_period = v7
+			if st1.Fpostfilter_period_old > int32(COMBFILTER_MINPERIOD) {
+				v5 = st1.Fpostfilter_period_old
 			} else {
 				v5 = int32(COMBFILTER_MINPERIOD)
 			}
@@ -1129,22 +1129,22 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 				break
 			}
 		}
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period_old = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_period
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain_old = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_gain
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset_old = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fpostfilter_tapset
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold = 0
+		st1.Fpostfilter_period_old = st1.Fpostfilter_period
+		st1.Fpostfilter_gain_old = st1.Fpostfilter_gain
+		st1.Fpostfilter_tapset_old = st1.Fpostfilter_tapset
+		st1.Fprefilter_and_fold = 0
 		/* Skip regular PLC until we get two consecutive packets. */
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fskip_plc = int32(1)
+		st1.Fskip_plc = int32(1)
 	} else {
 		fade = float32(1)
 		curr_neural = libc.BoolInt32(curr_frame_type == int32(FRAME_PLC_NEURAL) || curr_frame_type == int32(FRAME_DRED))
-		last_neural = libc.BoolInt32((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type == int32(FRAME_PLC_NEURAL) || (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type == int32(FRAME_DRED))
-		if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
+		last_neural = libc.BoolInt32(st1.Flast_frame_type == int32(FRAME_PLC_NEURAL) || st1.Flast_frame_type == int32(FRAME_DRED))
+		if st1.Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
 			v5 = celt_plc_pitch_search(tls, st1, unsafe.SliceData(decode_mem[0]), unsafe.SliceData(decode_mem[1]), C, st1.Farch)
 			pitch_index = v5
-			(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_pitch_index = v5
+			st1.Flast_pitch_index = v5
 		} else {
-			pitch_index = (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_pitch_index
+			pitch_index = st1.Flast_pitch_index
 			fade = float32(0.8)
 		}
 		/* We want the excitation for 2 pitch periods in order to look for a
@@ -1164,10 +1164,10 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			S1 = float32(0)
 			buf = decode_mem[c]
 			celtPLCExcitationHistory(unsafe.SliceData(_exc), unsafe.SliceData(buf), decode_buffer_size, max_period)
-			if (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
+			if st1.Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
 				/* Compute LPC coefficients for the last MAX_PERIOD samples before
 				   the first loss so we can work in the excitation-filter domain. */
-				Opus__celt_autocorr(tls, unsafe.SliceData(exc), &ac[0], (*float32)(unsafe.Pointer(window)), overlap, CELT_LPC_ORDER, max_period, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
+				Opus__celt_autocorr(tls, unsafe.SliceData(exc), &ac[0], window, overlap, CELT_LPC_ORDER, max_period, st1.Farch)
 				// Noise floor followed by rounded lag-window products.
 				celtPLCLagWindow(&ac)
 				Opus__celt_lpc(tls, &lpc[c*CELT_LPC_ORDER], &ac[0], CELT_LPC_ORDER)
@@ -1207,10 +1207,10 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 				break
 			}
 		}
-		(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fprefilter_and_fold = int32(1)
+		st1.Fprefilter_and_fold = int32(1)
 	}
 	/* Saturate duration counters, then commit the frame type. */
-	celtPLCFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), loss_duration, LM, curr_frame_type)
+	celtPLCFinish(st1, loss_duration, LM, curr_frame_type)
 }
 
 //go:uintptrescapes

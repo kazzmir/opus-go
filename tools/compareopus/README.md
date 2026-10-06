@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT direct-pointer rounds remove redundant casts from typed decoder
+entry/lost dispatch, entropy/energy/allocation calls, synthesis/finalization,
+and concealment fields/autocorrelation/finish. Concrete decoder/mode/entropy/
+float32/byte pointers now pass directly; celt_glog is already a float32 alias.
+Production unsafe.Pointer references decrease 392→288 (104 removed); uintptr
+remains 173. Public escape adapters, actual allocation-boundary clear and stereo
+memory reinterpretation remain unchanged.
+
+Upstream celt_decoder.c order and existing scanned-state decode/concealment,
+mode/history/energy views, nil/validation/error, prefilter/postfilter/deemphasis
+and native/packet fixtures remain the reference. Live downsample/channel/arch/
+period/pitch/frame-type loads, cached tell timing, coarse→fine→bands→anti-collapse
+sequence, output/energy clear/store order and final range/error handling remain
+unchanged. Rounded float32 products and ARM fusion fixes are untouched. No
+storage/layout/algorithm, assertions, alias fixture, golden or tolerance changes.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, followed by repeated scoped/ordinary ARM runs.
+This removes redundant casts from already typed active decoder paths, not a
+new opaque allocator scanning, extension EOF/GC or raw callback fix.
+
 Four SILK direct-field rounds remove redundant same-type unsafe.Pointer casts
 from decoder core state/control reads, normal frame dispatch/history, lost-frame/
 finalization state and PCM/control calls, and PLC concealment state reads/pitch
