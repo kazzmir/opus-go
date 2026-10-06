@@ -336,10 +336,10 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 				if !(i < decoder.Fchannel_state[n].FnFramesPerPacket) {
 					break
 				}
-				decoder.Fchannel_state[n].FVAD_flags[i] = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), uint32(1))
+				decoder.Fchannel_state[n].FVAD_flags[i] = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
 				i = i + 1
 			}
-			decoder.Fchannel_state[n].FLBRR_flag = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), uint32(1))
+			decoder.Fchannel_state[n].FLBRR_flag = Opus_ec_dec_bit_logp(tls, psRangeDec, uint32(1))
 			n = n + 1
 		}
 		/* Decode LBRR flags */
@@ -365,9 +365,9 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 					}
 					if decoder.Fchannel_state[n].FLBRR_flags[i] != 0 {
 						if control.FnChannelsInternal == int32(2) && n == 0 {
-							Opus_silk_stereo_decode_pred(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), &MS_pred_Q13)
+							Opus_silk_stereo_decode_pred(tls, psRangeDec, &MS_pred_Q13)
 							if decoder.Fchannel_state[1].FLBRR_flags[i] == 0 {
-								Opus_silk_stereo_decode_mid_only(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), &decode_only_middle)
+								Opus_silk_stereo_decode_mid_only(tls, psRangeDec, &decode_only_middle)
 							}
 						}
 						/* Use conditional coding if previous frame available */
@@ -376,8 +376,8 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 						} else {
 							condCoding = CODE_INDEPENDENTLY
 						}
-						Opus_silk_decode_indices(tls, &decoder.Fchannel_state[n], (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), i, int32(1), condCoding)
-						Opus_silk_decode_pulses(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), &pulses[0], int32(decoder.Fchannel_state[n].Findices.FsignalType), int32(decoder.Fchannel_state[n].Findices.FquantOffsetType), decoder.Fchannel_state[n].Fframe_length)
+						Opus_silk_decode_indices(tls, &decoder.Fchannel_state[n], psRangeDec, i, int32(1), condCoding)
+						Opus_silk_decode_pulses(tls, psRangeDec, &pulses[0], int32(decoder.Fchannel_state[n].Findices.FsignalType), int32(decoder.Fchannel_state[n].Findices.FquantOffsetType), decoder.Fchannel_state[n].Fframe_length)
 					}
 					n = n + 1
 				}
@@ -388,10 +388,10 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 	/* Get MS predictor index */
 	if control.FnChannelsInternal == int32(2) {
 		if lostFlag == FLAG_DECODE_NORMAL || lostFlag == int32(FLAG_DECODE_LBRR) && decoder.Fchannel_state[0].FLBRR_flags[decoder.Fchannel_state[0].FnFramesDecoded] == int32(1) {
-			Opus_silk_stereo_decode_pred(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), &MS_pred_Q13)
+			Opus_silk_stereo_decode_pred(tls, psRangeDec, &MS_pred_Q13)
 			/* For LBRR data, decode mid-only flag only if side-channel's LBRR flag is false */
 			if lostFlag == FLAG_DECODE_NORMAL && decoder.Fchannel_state[1].FVAD_flags[decoder.Fchannel_state[0].FnFramesDecoded] == 0 || lostFlag == int32(FLAG_DECODE_LBRR) && decoder.Fchannel_state[1].FLBRR_flags[decoder.Fchannel_state[0].FnFramesDecoded] == 0 {
-				Opus_silk_stereo_decode_mid_only(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), &decode_only_middle)
+				Opus_silk_stereo_decode_mid_only(tls, psRangeDec, &decode_only_middle)
 			} else {
 				decode_only_middle = 0
 			}
