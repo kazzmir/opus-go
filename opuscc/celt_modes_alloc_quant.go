@@ -26,7 +26,14 @@ func modePulseIndex(m *OpusT_OpusCustomMode, index int32) int16 {
 func modePulseCache(m *OpusT_OpusCustomMode, index int32) *byte {
 	bits := m.Fcache.Fbits
 	offset := modePulseIndex(m, index)
-	return (*byte)(unsafe.Add(unsafe.Pointer(bits), int(offset)))
+	if offset == 0 {
+		return bits
+	}
+	if offset < 0 {
+		// A signed backwards interior offset requires an allocation boundary.
+		return (*byte)(unsafe.Add(unsafe.Pointer(bits), int(offset)))
+	}
+	return &unsafe.Slice(bits, int64(offset)+1)[offset]
 }
 
 func modePulseByte(cache *byte, index int32) byte {

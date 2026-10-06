@@ -110,6 +110,12 @@ func TestModePulseIndexPointers(t *testing.T) {
 }
 
 func TestModePulseBitsPointers(t *testing.T) {
+	zeroIndex := int16(0)
+	zeroMode := OpusT_OpusCustomMode{}
+	zeroMode.Fcache.Findex = &zeroIndex
+	if modePulseCache(&zeroMode, 0) != nil {
+		t.Fatal("nil zero cache displacement")
+	}
 	singleton := byte(19)
 	if modePulseByte(&singleton, 0) != 19 {
 		t.Fatal("single consumed cache byte")
