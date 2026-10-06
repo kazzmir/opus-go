@@ -8,6 +8,28 @@ import (
 	"unsafe"
 )
 
+func TestMDCTConsumedStridePointers(t *testing.T) {
+	singleton := float32(7)
+	for _, stride := range []int32{-2147483648, -2, 0, 2, 2147483647} {
+		view, origin := mdctStridedSlice(&singleton, 1, stride)
+		if len(view) != 1 || origin != 0 || &view[0] != &singleton {
+			t.Fatal("singleton extent/identity", stride)
+		}
+	}
+	owner := []float32{11, 12, 13, 14, 15, 16, 17}
+	forward, f := mdctStridedSlice(&owner[2], 3, 2)
+	backward, b := mdctStridedSlice(&owner[6], 3, -2)
+	zero, z := mdctStridedSlice(&owner[2], 3, 0)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if len(forward) != 5 || len(backward) != 5 || len(zero) != 1 || f != 0 || b != 4 || z != 0 {
+		t.Fatal("consumed stride geometry")
+	}
+	if &forward[f] != &owner[2] || &backward[b] != &owner[6] || &zero[z] != &owner[2] {
+		t.Fatal("live owner identity")
+	}
+}
+
 func TestFFTTablePointers(t *testing.T) {
 	makeLookup := func() *OpusT_mdct_lookup {
 		bitrev := []int16{0, 1, 2, 3}

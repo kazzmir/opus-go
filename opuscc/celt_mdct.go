@@ -18,7 +18,11 @@ func mdctStridedSlice(p *float32, n, stride int32) ([]float32, int32) {
 	last := (n - 1) * stride
 	first := min(int32(0), last)
 	end := max(int32(0), last)
-	base := (*float32)(unsafe.Add(unsafe.Pointer(p), int64(first)*4))
+	base := p
+	if first < 0 {
+		// Negative strides consume caller-owned samples preceding p.
+		base = (*float32)(unsafe.Add(unsafe.Pointer(p), int64(first)*4))
+	}
 	return unsafe.Slice(base, end-first+1), -first
 }
 
