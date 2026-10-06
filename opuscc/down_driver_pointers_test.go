@@ -18,6 +18,9 @@ func TestDownDriverPointers(t *testing.T) {
 	}
 	// Zero work only consumes the two AR coefficients, not a FIR row.
 	arOnly := [2]int16{coefs[0], coefs[1]}
+	if silkResamplerAdvanceOutput(nil, 0) != nil || silkResamplerAdvanceOutput(&arOnly[0], 0) != &arOnly[0] || silkResamplerAdvanceOutput(&arOnly[0], 1) != &arOnly[1] {
+		t.Fatal("typed output cursor identity/next sample")
+	}
 	Opus_silk_resampler_private_down_FIR(nil, &s, &arOnly[0], nil, nil, 0)
 	if s != original {
 		t.Fatal("AR-only empty call mutated state")
@@ -36,6 +39,12 @@ func TestDownDriverPointers(t *testing.T) {
 	Opus_silk_resampler_private_down_FIR(nil, &ref, &coefs[0], &want[40], &in[80], 80)
 	if s != ref || !slices.Equal(out[1:81], want) || out[0] != 123 || out[81] != 456 {
 		t.Fatal("batch/remainder/state/guards")
+	}
+	exactState := original
+	exact := make([]int16, len(want))
+	Opus_silk_resampler_private_down_FIR(nil, &exactState, &coefs[0], &exact[0], &in[0], 161)
+	if exactState != s || !slices.Equal(exact, want) {
+		t.Fatal("exact output extent/state")
 	}
 	if !slices.Equal(s.FsFIR.Fi32[24:], original.FsFIR.Fi32[24:]) {
 		t.Fatal("history tail modified")

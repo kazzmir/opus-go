@@ -367,7 +367,7 @@ func Opus_silk_resampler_private_down_FIR(tls *libc.TLS, state *OpusT_silk_resam
 			copy(state.FsFIR.Fi32[:order], buf[n:n+order])
 			break
 		}
-		out = (*int16)(unsafe.Add(unsafe.Pointer(out), int(written)*2))
+		out = silkResamplerAdvanceOutput(out, written)
 		copy(buf[:order], buf[n:n+order])
 	}
 }
@@ -383,6 +383,15 @@ var silk_resampler_up2_hq_15 = [3]OpusT_opus_int16{
 	0: int16(6854),
 	1: int16(25769),
 	2: int16(int32(55542) - int32(65536)),
+}
+
+// Only called when another block remains; the prefix includes its first sample.
+// A zero count preserves pointer identity without forming a view (including nil).
+func silkResamplerAdvanceOutput(output *int16, count int32) *int16 {
+	if count == 0 {
+		return output
+	}
+	return &unsafe.Slice(output, int64(count)+1)[count]
 }
 
 // Return the number of output samples, rather than a one-past-end pointer.
