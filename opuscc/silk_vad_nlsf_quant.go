@@ -40,31 +40,24 @@ var tiltWeights = [4]OpusT_opus_int32{
 //	/***************************************/
 //	/* Get the speech activity level in Q8 */
 //	/***************************************/
-func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 int32) {
+//
+//go:uintptrescapes
+func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, encoder, input uintptr) int32 {
+	return silkVADAnalysis(tls, (*OpusT_silk_encoder_state)(unsafe.Pointer(encoder)), (*int16)(unsafe.Pointer(input)))
+}
+
+func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16) (r1 int32) {
 	var HPstateTmp OpusT_opus_int16
 	var NrgToNoiseRatio_Q8 [4]OpusT_opus_int32
 	var Xnrg [4]OpusT_opus_int32
 	var SA_Q15, SNR_Q7, b1, dec_subframe_length, dec_subframe_offset, decimated_framelength, decimated_framelength1, decimated_framelength2, i, input_tilt, pSNR_dB_Q7, ret, s, v33, v34, v35, v37 int32
-	var X, _saved_stack, psSilk_VAD, st, v1, v11, v13, v15, v17, v19, v21, v23, v3, v5, v7, v9 uintptr
+	var X []int16
 	var X_offset [4]int32
 	var frac_Q7, lz, lzeros, smooth_coef_Q16, speech_nrg, sumSquared, x_tmp, y, v43, v44, v46, v47, v48, v51, v53 OpusT_opus_int32
 	var m, r, x OpusT_opus_uint32
 	encoder := (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC))
 	vad := &encoder.FsVAD
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = HPstateTmp, NrgToNoiseRatio_Q8, SA_Q15, SNR_Q7, X, X_offset, _saved_stack, b1, dec_subframe_length, dec_subframe_offset, decimated_framelength, decimated_framelength1, decimated_framelength2, i, input_tilt, lzeros, m, pSNR_dB_Q7, psSilk_VAD, r, ret, s, smooth_coef_Q16, speech_nrg, st, sumSquared, x, x_tmp, y, v1, v11, v13, v15, v17, v19, v21, v23, v3, v33, v34, v35, v37, v43, v44, v46, v47, v48, v5, v51, v53, v7, v9
 	ret = 0
-	psSilk_VAD = uintptr(unsafe.Pointer(vad))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	_saved_stack = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack
 	/* Safety checks */
 	_ = true
 	if !(int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)*int32(MAX_FS_KHZ) >= (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length) {
@@ -92,96 +85,29 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 	X_offset[0] = 0
 	X_offset[int32(1)] = decimated_framelength + decimated_framelength2
 	X_offset[int32(2)] = X_offset[int32(1)] + decimated_framelength
-	X_offset[int32(3)] = X_offset[int32(2)] + decimated_framelength2
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v5 = libc.Xmalloc(tls, uint64(16))
-		st = v5
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v7 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack += uintptr((uint64(uint32(2)) - uint64(int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v7)).Fglobal_stack))) & (uint64(uint32(2)) - uint64(uint32(1))))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v9 = libc.Xmalloc(tls, uint64(16))
-		st = v9
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v11 = st
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v13 = libc.Xmalloc(tls, uint64(16))
-		st = v13
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v15 = st
-	if !(int64(int32(uint64(uint32(X_offset[int32(3)]+decimated_framelength1))*(uint64(2)/uint64(1)))) <= int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v11)).Fscratch_ptr+uintptr(GLOBAL_STACK_SIZE))-int64((*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v15)).Fglobal_stack)) {
-		Opus_celt_fatal(tls, __ccgo_ts+996, __ccgo_ts+6855, int32(127))
-	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v17 = libc.Xmalloc(tls, uint64(16))
-		st = v17
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v19 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v19)).Fglobal_stack += uintptr(uint64(uint32(X_offset[int32(3)]+decimated_framelength1)) * (uint64(2) / uint64(1)))
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v21 = libc.Xmalloc(tls, uint64(16))
-		st = v21
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v23 = st
-	X = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v23)).Fglobal_stack - uintptr(uint64(uint32(X_offset[int32(3)]+decimated_framelength1))*(uint64(2)/uint64(1)))
+	X_offset[3] = X_offset[2] + decimated_framelength2
+	X = make([]int16, X_offset[3]+decimated_framelength1)
 	/* 0-8 kHz to 0-4 kHz and 4-8 kHz */
-	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(pIn)), &vad.FAnaState, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[int32(3)])*2)), encoder.Fframe_length)
+	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(pIn)), &vad.FAnaState, &X[0], &X[X_offset[3]], encoder.Fframe_length)
 	/* 0-4 kHz to 0-2 kHz and 2-4 kHz */
-	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(X)), &vad.FAnaState1, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[int32(2)])*2)), decimated_framelength1)
+	Opus_silk_ana_filt_bank_1(tls, &X[0], &vad.FAnaState1, &X[0], &X[X_offset[2]], decimated_framelength1)
 	/* 0-2 kHz to 0-1 kHz and 1-2 kHz */
-	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(X)), &vad.FAnaState2, (*OpusT_opus_int16)(unsafe.Pointer(X)), (*OpusT_opus_int16)(unsafe.Pointer(X+uintptr(X_offset[int32(1)])*2)), decimated_framelength2)
+	Opus_silk_ana_filt_bank_1(tls, &X[0], &vad.FAnaState2, &X[0], &X[X_offset[1]], decimated_framelength2)
 	/*********************************************/
 	/* HP filter on lowest band (differentiator) */
 	/*********************************************/
-	*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(decimated_framelength-int32(1))*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(decimated_framelength-int32(1))*2))) >> int32(1))
-	HPstateTmp = *(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(decimated_framelength-int32(1))*2))
+	X[decimated_framelength-1] = int16(int32(X[decimated_framelength-1]) >> 1)
+	HPstateTmp = X[decimated_framelength-1]
 	i = decimated_framelength - int32(1)
 	for {
 		if !(i > 0) {
 			break
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(i-int32(1))*2)) = int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(i-int32(1))*2))) >> int32(1))
-		v1 = X + uintptr(i)*2
-		*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) - int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(i-int32(1))*2))))
+		X[i-1] = int16(int32(X[i-1]) >> 1)
+		X[i] = int16(int32(X[i]) - int32(X[i-1]))
 		i = i - 1
 	}
-	v1 = X
-	*(*OpusT_opus_int16)(unsafe.Pointer(v1)) = OpusT_opus_int16(int32(*(*OpusT_opus_int16)(unsafe.Pointer(v1))) - int32(vad.FHPstate))
+	X[0] = int16(int32(X[0]) - int32(vad.FHPstate))
 	vad.FHPstate = HPstateTmp
 	/*************************************/
 	/* Calculate the energy in each band */
@@ -220,7 +146,7 @@ func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, psEncC uintptr, pIn uintptr) (r1 in
 				}
 				/* The energy will be less than dec_subframe_length * ( silk_int16_MIN / 8 ) ^ 2.            */
 				/* Therefore we can accumulate with no risk of overflow (unless dec_subframe_length > 128)  */
-				x_tmp = int32(*(*OpusT_opus_int16)(unsafe.Pointer(X + uintptr(X_offset[b1]+i+dec_subframe_offset)*2))) >> int32(3)
+				x_tmp = int32(X[X_offset[b1]+i+dec_subframe_offset]) >> int32(3)
 				sumSquared = sumSquared + int32(int16(x_tmp))*int32(int16(x_tmp))
 				/* Safety check */
 				_ = sumSquared >= int32(0)
@@ -485,17 +411,6 @@ _57:
 		encoder.Finput_quality_bands_Q15[b1] = Opus_silk_sigm_Q15(tls, (SNR_Q7-int32(16)*int32(128))>>int32(4))
 		b1 = b1 + 1
 	}
-	st = libc.Xpthread_getspecific(tls, uint32(0x6f707573))
-	if !(st != 0) {
-		v1 = libc.Xmalloc(tls, uint64(16))
-		st = v1
-		if st != 0 {
-			libc.Xmemset(tls, st, 0, uint64(16))
-		}
-		libc.Xpthread_setspecific(tls, uint32(0x6f707573), st)
-	}
-	v3 = st
-	(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(v3)).Fglobal_stack = _saved_stack
 	return ret
 }
 

@@ -789,10 +789,10 @@ type OpusT_opus_uint64 = uint64
 type OpusT_OpusRepacketizer = struct {
 	Ftoc               uint8
 	Fnb_frames         int32
-	Fframes            [48]uintptr
+	Fframes            [48]*byte
 	Flen1              [48]OpusT_opus_int16
 	Fframesize         int32
-	Fpaddings          [48]uintptr
+	Fpaddings          [48]*byte
 	Fpadding_len       [48]OpusT_opus_int32
 	Fpadding_nb_frames [48]uint8
 }
@@ -923,7 +923,7 @@ type OpusT_kiss_twiddle_cpx = struct {
 
 type OpusT_arch_fft_state = struct {
 	Fis_supported int32
-	Fpriv         uintptr
+	Fpriv         unsafe.Pointer
 }
 
 type OpusT_kiss_fft_state = struct {
@@ -933,7 +933,7 @@ type OpusT_kiss_fft_state = struct {
 	Ffactors  [16]OpusT_opus_int16
 	Fbitrev   *int16
 	Ftwiddles *OpusT_kiss_twiddle_cpx
-	Farch_fft uintptr
+	Farch_fft *OpusT_arch_fft_state
 }
 
 type OpusT_AnalysisInfo = struct {
@@ -980,16 +980,7 @@ var tapset_icdf = [3]uint8{
 
 type OpusT_va_list = uintptr
 
-type OpusRepacketizer = struct {
-	Ftoc               uint8
-	Fnb_frames         int32
-	Fframes            [48]uintptr
-	Flen1              [48]OpusT_opus_int16
-	Fframesize         int32
-	Fpaddings          [48]uintptr
-	Fpadding_len       [48]OpusT_opus_int32
-	Fpadding_nb_frames [48]uint8
-}
+type OpusRepacketizer = OpusT_OpusRepacketizer
 
 type OpusT_OpusExtensionIterator = struct {
 	Fdata               *byte
@@ -2202,24 +2193,23 @@ func validate_opus_decoder(tls *libc.TLS, st *OpusT_OpusDecoder) {
 	}
 }
 
-func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) (r int32) {
-	var alignment uint32
-	var celtDecSizeBytes, ret, v1 int32
-	var silkDecSizeBytes int32
-	_, _, _, _, _ = alignment, celtDecSizeBytes, ret, silkDecSizeBytes, v1
-	if channels < int32(1) || channels > int32(2) {
+// opusAlignSize8 retains this port's fixed 8-byte layout alignment and uint32
+// wrapping before division/narrowing, including for negative numeric sizes.
+func opusAlignSize8(size int32) int32 {
+	return int32((uint32(size) + 7) / 8 * 8)
+}
+
+func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) int32 {
+	if channels < 1 || channels > 2 {
 		return 0
 	}
-	ret = Opus_silk_Get_Decoder_Size(tls, &silkDecSizeBytes)
-	if ret != 0 {
+	var silkSize int32
+	if Opus_silk_Get_Decoder_Size(tls, &silkSize) != 0 {
 		return 0
 	}
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	silkDecSizeBytes = int32((uint32(silkDecSizeBytes) + alignment - uint32(1)) / alignment * alignment)
-	celtDecSizeBytes = Opus_celt_decoder_get_size(tls, channels)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(100)) + alignment - uint32(1)) / alignment * alignment)
-	return v1 + silkDecSizeBytes + celtDecSizeBytes
+	silkSize = opusAlignSize8(silkSize)
+	celtSize := Opus_celt_decoder_get_size(tls, channels)
+	return opusAlignSize8(100) + silkSize + celtSize
 }
 
 func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32) int32 {
@@ -3481,22 +3471,13 @@ func validate_ms_decoder(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
 	Opus_validate_layout(tls, &st.Flayout)
 }
 
-func Opus_opus_multistream_decoder_get_size(tls *libc.TLS, nb_streams int32, nb_coupled_streams int32) (r OpusT_opus_int32) {
-	var alignment uint32
-	var coupled_size, mono_size, v1, v3, v5 int32
-	_, _, _, _, _, _ = alignment, coupled_size, mono_size, v1, v3, v5
-	if nb_streams < int32(1) || nb_coupled_streams > nb_streams || nb_coupled_streams < 0 {
+func Opus_opus_multistream_decoder_get_size(tls *libc.TLS, nb_streams, nb_coupled_streams int32) int32 {
+	if nb_streams < 1 || nb_coupled_streams > nb_streams || nb_coupled_streams < 0 {
 		return 0
 	}
-	coupled_size = Opus_opus_decoder_get_size(tls, int32(2))
-	mono_size = Opus_opus_decoder_get_size(tls, int32(1))
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(268)) + alignment - uint32(1)) / alignment * alignment)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v3 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v5 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
-	return v1 + nb_coupled_streams*v3 + (nb_streams-nb_coupled_streams)*v5
+	coupledSize := Opus_opus_decoder_get_size(tls, 2)
+	monoSize := Opus_opus_decoder_get_size(tls, 1)
+	return opusAlignSize8(268) + nb_coupled_streams*opusAlignSize8(coupledSize) + (nb_streams-nb_coupled_streams)*opusAlignSize8(monoSize)
 }
 
 func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte) int32 {
@@ -3931,11 +3912,7 @@ type OpusT_MappingMatrix = struct {
 	Fgain int32
 }
 
-func Opus_mapping_matrix_get_size(tls *libc.TLS, rows int32, cols int32) (r OpusT_opus_int32) {
-	var alignment uint32
-	var size OpusT_opus_int32
-	var v1, v3 int32
-	_, _, _, _ = alignment, size, v1, v3
+func Opus_mapping_matrix_get_size(tls *libc.TLS, rows int32, cols int32) int32 {
 	/* Mapping Matrix must only support up to 255 channels in or out.
 	 * Additionally, the total cell count must be <= 65004 octets in order
 	 * for the matrix to be stored in an OGG header.
@@ -3943,15 +3920,11 @@ func Opus_mapping_matrix_get_size(tls *libc.TLS, rows int32, cols int32) (r Opus
 	if rows > int32(255) || cols > int32(255) {
 		return 0
 	}
-	size = int32(uint64(uint32(rows*cols)) * uint64(2))
+	size := int32(uint64(uint32(rows*cols)) * uint64(2))
 	if size > int32(65004) {
 		return 0
 	}
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(12)) + alignment - uint32(1)) / alignment * alignment)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v3 = int32((uint32(size) + alignment - uint32(1)) / alignment * alignment)
-	return v1 + v3
+	return opusAlignSize8(12) + opusAlignSize8(size)
 }
 
 // MappingMatrix is followed by int16 coefficients after its 8-byte-aligned
@@ -4210,22 +4183,16 @@ func get_multistream_decoder(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *Op
 	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), uintptr(offset)))
 }
 
-func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels int32, streams int32, coupled_streams int32) (r OpusT_opus_int32) {
-	var alignment uint32
-	var decoder_size, matrix_size OpusT_opus_int32
-	var v1 int32
-	_, _, _, _ = alignment, decoder_size, matrix_size, v1
-	matrix_size = Opus_mapping_matrix_get_size(tls, streams+coupled_streams, channels)
-	if !(matrix_size != 0) {
+func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels, streams, coupled_streams int32) int32 {
+	matrixSize := Opus_mapping_matrix_get_size(tls, streams+coupled_streams, channels)
+	if matrixSize == 0 {
 		return 0
 	}
-	decoder_size = Opus_opus_multistream_decoder_get_size(tls, streams, coupled_streams)
-	if !(decoder_size != 0) {
+	decoderSize := Opus_opus_multistream_decoder_get_size(tls, streams, coupled_streams)
+	if decoderSize == 0 {
 		return 0
 	}
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(4)) + alignment - uint32(1)) / alignment * alignment)
-	return v1 + matrix_size + decoder_size
+	return opusAlignSize8(4) + matrixSize + decoderSize
 }
 
 func Opus_opus_projection_decoder_init(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes OpusT_opus_int32) int32 {

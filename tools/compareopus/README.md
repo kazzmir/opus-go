@@ -534,6 +534,98 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four numeric-size rounds simplify single decoder, multistream decoder, mapping
+matrix and projection decoder size composition. The generated uintptr(0)+8
+alignment expressions become a shared numeric opusAlignSize8 helper, preserving
+this port's fixed 8-byte ABI geometry, uint32 add/divide/multiply wrapping and
+final int32 narrowing. Header constants, child-size call order, invalid-input
+checks, matrix multiply/threshold behavior, projection matrix-before-decoder
+validation and int32 final sum/product order are unchanged. This removes numeric
+uintptr noise, not pointer ownership defects: tokens decrease 242→234 (8 removed).
+
+Grouped common tests cover alignment boundaries including negative/MinInt32/
+MaxInt32, valid/invalid compositions and Go-only wrapping cases. Grouped native
+validation tests compare all four size APIs with actual upstream C, including
+bounded negative matrix dimensions accepted by the original size routine and
+matrix capacity limits. Cases that would overflow signed C intermediate arithmetic
+remain Go-only and are not represented as C parity. Upstream align uses platform
+union alignment; this port intentionally retains its existing 8-byte alignment
+on 386 instead of substituting host sizeof/alignment.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparison,
+codec golden/tolerance and GC-stress validation, with repeated scoped/ordinary
+ARM runs after completion. No assertion/validation was strengthened, no goldens
+changed and no opaque scanning/extension EOF/raw callback repair is claimed.
+
+Four pointer-layout rounds type repacketizer frames and paddings as [48]*byte,
+unify the duplicate OpusRepacketizer alias with the canonical typed layout, then
+type FFT architecture linkage as *OpusT_arch_fft_state and its opaque private
+payload as unsafe.Pointer. Actual upstream opus_private.h/kiss_fft.h define these
+fields as pointers. Sizes/offsets stay unchanged (native repacketizer all-field
+and architecture-state layout comparisons added; existing FFT state offset tests
+remain). Exported Go field types intentionally change to typed/scanned ownership.
+Production opuscc uintptr tokens decrease 248→242 (6 lexical tokens removed,
+including array declarations representing many pointer slots).
+
+Grouped layout tests store heap-backed frame/padding arrays in all 48 slots,
+drop original slice references before stack growth/GC, verify the canonical alias
+retains both owners, and verify FFT state→architecture→opaque Go payload retention
+and clearing. Full amd64/386, ARM64/QEMU, applicable scoped checkptr, native
+layout/FFT/codec comparisons and GC stress pass every round with unchanged
+codec goldens/tolerances, plus repeated scoped/ordinary ARM runs. Repacketizer
+operations are not implemented/used by the opuscc decoder and architecture FFT
+backend use is disabled: these are dormant-layout ownership improvements, not
+additional active decode coverage. No opaque allocator scanning or extension
+EOF/raw callback fix is claimed.
+
+Four small CELT metadata rounds change the dormant mini complex/real FFT cfg
+aliases from uintptr to the corresponding state pointer types, remove unused
+function-name pointer conversions/storage at four FFT assertion sites, and delete
+an unused uintptr temporary plus unused generated numeric locals/blank-use tuple
+from quant_partition. Upstream mini_kfft.c defines both cfg types as state
+pointers; active allocation/transform functions were already typed. These alias
+changes intentionally update the exported Go type aliases, not allocator layouts.
+libcshim.X__assert_fail ignores its final function-name argument, so supplying
+zero leaves existing assertion condition, expression/file/line and panic text
+unchanged. No assertion was removed or weakened.
+
+Grouped FFT tests exercise both typed cfg holders after GC/stack growth using
+nil TLS, and explicitly recover/check diagnostics for all four failure sites.
+Existing allocation/stride/layout/transform native comparisons and complete
+quantization/packet/concealment references remain unchanged. Every round passes
+full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons and GC stress with
+unchanged codec goldens/tolerances; repeated scoped/ordinary ARM runs complete
+validation. Production opuscc uintptr tokens decrease 255→248 (7 removed).
+This is a small duplicate-metadata/API-type cleanup, not additional active decoder
+ownership coverage or a repair of opaque scanning/raw callback/extension EOF.
+
+Four VAD analysis rounds introduce typed encoder/input ownership behind the
+public escape adapter, replace integer sample-buffer addressing with typed slices
+and numeric band offsets, allocate the reusable decimation/energy samples in Go,
+then remove obsolete TLS cursor setup/snapshot/restore and dead integer locals.
+The private silkVADAnalysis path has no pointer-valued uintptr or pseudostack
+operation. Production opuscc uintptr tokens decrease 273→255 (18 removed).
+Assertions retain their original order/sites; live frame-length reads, overlapping
+filter-bank passes, reverse HP differentiation, per-store int16 narrowing,
+energy accumulation/saturation, noise update and output-field ordering are
+unchanged. This standalone opuscc VAD analysis is not an active decoder call;
+opusccenc retains its separate implementation.
+
+Grouped existing VAD analysis tests retain original field goldens, add typed
+heap-state/input lifetime checks, and complete nil-TLS/checkptr paths at lengths
+80/120/160/240/320 across four calls with stack growth/GC/input guards and
+assertion-before-mutation coverage. A native bridge invokes actual upstream
+silk_VAD_GetSA_Q8_c with a numeric VAD state image and compares the entire VAD
+state plus speech activity, tilt and all quality bands for the same lengths and
+four consecutive calls. Full amd64/386, ARM64/QEMU, applicable scoped checkptr,
+native comparisons, codec references and GC stress pass each round with unchanged
+goldens/tolerances, plus repeated scoped/ordinary ARM runs after completion.
+The final initial validation attempt again hit runtime 'sweep increased allocation
+count' in the ordinary native suite, with TestExtensionNextAgainstC on the stack;
+this is retained in the log and not attributed to VAD or claimed globally fixed.
+A complete rerun and VAD-specific native repetitions pass. Opaque allocation
+scanning/raw callback/extension EOF issues remain separate.
+
 Four delayed-decision NLSF quantizer rounds replace integer-address input
 loads with typed live x/weight/predictor/rate-index views, use typed nine-byte
 rate-row views, type index output/final adjustment stores, then introduce the

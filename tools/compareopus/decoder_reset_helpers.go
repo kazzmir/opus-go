@@ -6,6 +6,7 @@ package main
 #include <string.h>
 #include "main.h"
 #include "tables.h"
+static int native_vad_analysis(void *vad,int *fields,const short *input,int length) {silk_encoder_state state={0};memcpy(&state.sVAD,vad,sizeof(state.sVAD));state.frame_length=length;int result=silk_VAD_GetSA_Q8_c(&state,input);memcpy(vad,&state.sVAD,sizeof(state.sVAD));fields[0]=state.speech_activity_Q8;fields[1]=state.input_tilt_Q15;for(int i=0;i<4;i++)fields[2+i]=state.input_quality_bands_Q15[i];return result;}
 static void native_ltp_table(int kind,int index,unsigned char *out) {
  const void *table;
  switch(kind) {case 0:table=silk_LTP_gain_BITS_Q5_ptrs[index];break;case 1:table=silk_LTP_gain_iCDF_ptrs[index];break;case 2:table=silk_LTP_vq_gain_ptrs_Q7[index];break;default:table=silk_LTP_vq_ptrs_Q7[index];break;}
@@ -67,6 +68,12 @@ static void native_whole_cng(void *state,void *control,short *frame,int length) 
 import "C"
 import "github.com/kazzmir/opus-go/opuscc"
 import "unsafe"
+
+func nativeVADAnalysis(vad *opuscc.OpusT_silk_VAD_state, input []int16) (int32, [6]int32) {
+	var fields [6]int32
+	result := C.native_vad_analysis(unsafe.Pointer(vad), (*C.int)(unsafe.Pointer(&fields[0])), (*C.short)(unsafe.Pointer(&input[0])), C.int(len(input)))
+	return int32(result), fields
+}
 
 func nativeNLSFQuant(indices []int8, x, w []int16, pred []byte, ix []int16, rates []byte, step int32, inv int16, mu int32) int32 {
 	return int32(C.silk_NLSF_del_dec_quant((*C.schar)(unsafe.Pointer(&indices[0])), (*C.short)(unsafe.Pointer(&x[0])), (*C.short)(unsafe.Pointer(&w[0])), (*C.uchar)(unsafe.Pointer(&pred[0])), (*C.short)(unsafe.Pointer(&ix[0])), (*C.uchar)(unsafe.Pointer(&rates[0])), C.int(step), C.short(inv), C.int(mu), C.short(len(x))))

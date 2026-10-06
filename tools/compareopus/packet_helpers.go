@@ -6,6 +6,8 @@ package main
 #include <opus.h>
 #include "../../../opus/celt/arch.h"
 #include "../../../opus/celt/float_cast.h"
+#include "../../../opus/src/opus_private.h"
+static void native_repacketizer_layout(size_t *out){out[0]=sizeof(OpusRepacketizer);out[1]=offsetof(OpusRepacketizer,toc);out[2]=offsetof(OpusRepacketizer,nb_frames);out[3]=offsetof(OpusRepacketizer,frames);out[4]=offsetof(OpusRepacketizer,len);out[5]=offsetof(OpusRepacketizer,framesize);out[6]=offsetof(OpusRepacketizer,paddings);out[7]=offsetof(OpusRepacketizer,padding_len);out[8]=offsetof(OpusRepacketizer,padding_nb_frames);}
 static void native_int24_pcm(const float *input,int *output,int count) {int i;for(i=0;i<count;i++) output[i]=RES2INT24(input[i]);}
 int opus_packet_parse_impl(const unsigned char *,opus_int32,int,unsigned char *,const unsigned char *[48],opus_int16 [48],int *,opus_int32 *,const unsigned char **,opus_int32 *);
 static void native_parse_packet(const unsigned char *data,int length,int self,int mask,short *size,int *frameOffsets,int *info,int public_api) {
@@ -21,6 +23,16 @@ static void native_parse_packet(const unsigned char *data,int length,int self,in
 import "C"
 
 import "unsafe"
+
+func nativeRepacketizerLayout() [9]uint64 {
+	var raw [9]C.size_t
+	C.native_repacketizer_layout(&raw[0])
+	var result [9]uint64
+	for i := range raw {
+		result[i] = uint64(raw[i])
+	}
+	return result
+}
 
 type packetParseResult struct {
 	Count                                int32

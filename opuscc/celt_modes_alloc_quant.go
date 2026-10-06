@@ -1940,9 +1940,8 @@ func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband
 func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32, B int32, lowband *float32, LM2 int32, gain OpusT_opus_val32, _fill int32) (r uint32) {
 	b := _b
 	fill := _fill
-	var B0, K, curr_bits, delta, encode, hi, i1, i2, imid, iside, itheta, j, lo, mbits, mid, q, qalloc, sbits, spread, v1, v2, v3, v4 int32
+	var B0, K, curr_bits, delta, encode, i2, imid, iside, itheta, j, mbits, q, qalloc, sbits, spread, v1, v2, v3 int32
 	var Y, next_lowband2 *float32
-	var v5 uintptr
 	var ec *OpusT_ec_ctx
 	var m2 *OpusT_OpusCustomMode
 	var cache, cache1, cache2 *byte
@@ -1951,7 +1950,6 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 	var rebalance OpusT_opus_int32
 	var tmp, v30 OpusT_opus_val16
 	var sctx split_ctx
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = B0, K, Y, cache, cache1, cache2, cm, cm_mask, curr_bits, delta, ec, encode, hi, i1, i2, imid, iside, itheta, j, lo, m2, mbits, mid, mid1, next_lowband2, q, qalloc, rebalance, sbits, side, spread, tmp, v1, v2, v3, v30, v4, v5
 	imid = 0
 	iside = 0
 	B0 = B
