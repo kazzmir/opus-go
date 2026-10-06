@@ -348,13 +348,19 @@ func Opus_silk_resampler_private_down_FIR(tls *libc.TLS, state *OpusT_silk_resam
 	order := state.FFIR_Order
 	buf := make([]int32, state.FbatchSize+order)
 	copy(buf, state.FsFIR.Fi32[:order])
-	firCoefs := (*int16)(unsafe.Add(unsafe.Pointer(coefs), 4))
 	input := unsafe.Slice(in, inLen)
 	increment := state.FinvRatio_Q16
 	for {
 		n := min(int32(len(input)), state.FbatchSize)
 		Opus_silk_resampler_private_AR2(tls, &state.FsIIR[0], &buf[order], unsafe.SliceData(input), coefs, n)
-		written := silk_resampler_private_down_FIR_INTERPOL(tls, out, &buf[0], firCoefs, order, state.FFIR_Fracs, n<<16, increment)
+		maxIndex := n << 16
+		var firCoefs *int16
+		// Only expose a FIR row when interpolation consumes it. Invalid orders
+		// still reach the interpolation assertion before any coefficient view.
+		if maxIndex > 0 && (order == 18 || order == 24 || order == 36) {
+			firCoefs = &unsafe.Slice(coefs, 3)[2]
+		}
+		written := silk_resampler_private_down_FIR_INTERPOL(tls, out, &buf[0], firCoefs, order, state.FFIR_Fracs, maxIndex, increment)
 		input = input[n:]
 		// Match C: a lone remainder after a batch is not processed.
 		if len(input) <= 1 {

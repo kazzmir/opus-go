@@ -16,6 +16,12 @@ func TestDownDriverPointers(t *testing.T) {
 	if s != original {
 		t.Fatal("empty mutated state")
 	}
+	// Zero work only consumes the two AR coefficients, not a FIR row.
+	arOnly := [2]int16{coefs[0], coefs[1]}
+	Opus_silk_resampler_private_down_FIR(nil, &s, &arOnly[0], nil, nil, 0)
+	if s != original {
+		t.Fatal("AR-only empty call mutated state")
+	}
 	ref := s
 	in := make([]int16, 161)
 	for i := range in {

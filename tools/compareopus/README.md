@@ -534,6 +534,35 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four typed-view rounds replace the remaining ICDF8/ICDF16 pointer walks with
+consumed-prefix indexing, the stereo deemphasis memory reinterpretation with
+Go's typed slice-to-array-pointer conversion, and the down-FIR coefficient
+byte offset with a typed int16 prefix. Production unsafe.Pointer references
+decrease 256→252; uintptr remains 173. Public escape adapters and actual backward
+pointer/history and opaque allocation boundaries remain unchanged.
+
+Upstream entdec.c, celt_decoder.c and resampler_private_down_FIR.c remain the
+reference. ICDF entry/load order and cached range/value state remain unchanged;
+no table-wide guessed extent is formed. Stereo N<=0 still loads the coefficient
+but consumes no memory/PCM, covered by nil-memory and coefficient-panic cases.
+Down-FIR only exposes the row for a consumed valid-order interpolation; zero
+work may provide only the two AR coefficients (new exact-sized fixture), and
+invalid order still reaches the existing interpolation assertion. MAC/rounding,
+state copies, batch/remainder behavior and output stores remain unchanged.
+
+All rounds ultimately pass full amd64/386, ARM64/QEMU, scoped checkptr, native
+comparisons, codec references and GC stress, plus final repeated ARM scoped and
+ordinary fixtures. Goldens/tolerances unchanged. Round three's first two native
+runs failed in the extension-test GC area: `found pointer to free object`, then
+`s.allocCount != s.nelems && freeIndex == s.nelems` with
+TestExtensionNextAgainstC on the stack. Both logs are retained under
+/tmp/opus-round-deemphasis-typed-memory-view{,-retry}.log; the complete retry2
+passed. Round four's initial native run also hit `found pointer to free object`
+with TestExtensionNextAgainstC on the stack; retained at
+/tmp/opus-round-down-fir-typed-coefficient-view.log. Its complete retry passed.
+These failures are not repaired by the typed-view changes, and no global
+extension EOF/GC, raw callback or opaque-state lifetime claim is made.
+
 Four SILK API direct-pointer rounds remove redundant casts from control/rate
 reads, VAD/LBRR/mid-side entropy calls, stereo/frame dispatch and channel-count
 selection, and pitch/history finalization. decControl/psDec/channel_state/
