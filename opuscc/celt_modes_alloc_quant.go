@@ -2863,24 +2863,24 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					cm = x_cm | y_cm
 					ec_save = *ec
 					ctx_save = *ctx
-					quantAllBandsCopy(unsafe.SliceData(X_save), (*float32)(unsafe.Pointer(X)), N1)
-					quantAllBandsCopy(unsafe.SliceData(Y_save), (*float32)(unsafe.Pointer(Y)), N1)
+					quantAllBandsCopy(unsafe.SliceData(X_save), X, N1)
+					quantAllBandsCopy(unsafe.SliceData(Y_save), Y, N1)
 					/* Encode and round down. */
 					ctx.Ftheta_round = -1
 					input, output := quantAllBandsBandViews(norm, eBands, i1, M, norm_offset, N1, effective_lowband, last)
-					x_cm = quant_band_stereo(tls, ctx, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), N1, b, B, input, LM, output, lowband_scratch, int32(cm))
+					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
 					_ = arch
-					v229 = quantAllBandsDot(unsafe.SliceData(X_save), (*float32)(unsafe.Pointer(X)), N1)
-					v232 = quantAllBandsDot(unsafe.SliceData(Y_save), (*float32)(unsafe.Pointer(Y)), N1)
+					v229 = quantAllBandsDot(unsafe.SliceData(X_save), X, N1)
+					v232 = quantAllBandsDot(unsafe.SliceData(Y_save), Y, N1)
 					dist0 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					/* Save first result. */
 					cm2 = x_cm
 					ec_save2 = *ec
 					ctx_save2 = *ctx
-					quantAllBandsCopy(unsafe.SliceData(X_save2), (*float32)(unsafe.Pointer(X)), N1)
-					quantAllBandsCopy(unsafe.SliceData(Y_save2), (*float32)(unsafe.Pointer(Y)), N1)
+					quantAllBandsCopy(unsafe.SliceData(X_save2), X, N1)
+					quantAllBandsCopy(unsafe.SliceData(Y_save2), Y, N1)
 					if !(last != 0) {
-						quantAllBandsNormCopy(unsafe.SliceData(norm_save2), (*float32)(unsafe.Pointer(norm)), M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
+						quantAllBandsNormCopy(unsafe.SliceData(norm_save2), norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
 					}
 					nstart_bytes = int32(ec_save.Foffs)
 					nend_bytes = int32(ec_save.Fstorage)
