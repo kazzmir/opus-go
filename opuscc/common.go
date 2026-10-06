@@ -3538,6 +3538,7 @@ func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, ch
 }
 
 func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams, Fs int32) int32 {
+	var position uint
 	var toc byte
 	var sizes [48]int16
 	var packetOffset int32
@@ -3546,18 +3547,19 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 		if length <= 0 {
 			return OPUS_INVALID_PACKET
 		}
-		count := Opus_opus_packet_parse_impl(tls, data, length, libc.BoolInt32(s != streams-1), &toc, nil, &sizes, nil, &packetOffset, nil, nil)
+		packet := opusMSPacketAt(data, position, length)
+		count := Opus_opus_packet_parse_impl(tls, packet, length, libc.BoolInt32(s != streams-1), &toc, nil, &sizes, nil, &packetOffset, nil, nil)
 		if count < 0 {
 			return count
 		}
-		nextSamples := Opus_opus_packet_get_nb_samples(tls, data, packetOffset, Fs)
+		nextSamples := Opus_opus_packet_get_nb_samples(tls, packet, packetOffset, Fs)
 		if s != 0 && samples != nextSamples {
 			return OPUS_INVALID_PACKET
 		}
 		samples = nextSamples
 		length -= packetOffset
 		if s+1 < streams {
-			data = (*byte)(unsafe.Add(unsafe.Pointer(data), packetOffset))
+			position += uint(packetOffset)
 		}
 	}
 	return samples
