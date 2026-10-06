@@ -110,6 +110,15 @@ func TestModeBandTableAgainstC(t *testing.T) {
 	}
 }
 
+func TestCompositeProjectionSizeAgainstC(t *testing.T) {
+	for _, shape := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {4, 2, 2}, {0, 1, 0}, {-1, 1, 0}, {256, 1, 0}, {255, 255, 255}, {1, 0, 0}, {1, 2, -1}, {1, 1, 2}} {
+		got := opuscc.Opus_opus_projection_decoder_get_size(nil, shape[0], shape[1], shape[2])
+		if want := nativeProjectionSize(shape[0], shape[1], shape[2]); got != want {
+			t.Fatal("projection size", shape, got, want)
+		}
+	}
+}
+
 func TestCompositeMatrixSizeAgainstC(t *testing.T) {
 	for _, shape := range [][2]int32{{0, 0}, {1, 1}, {255, 127}, {255, 128}, {200, 162}, {256, 0}, {0, 256}, {-1, 3}, {-300, 2}} {
 		got := opuscc.Opus_mapping_matrix_get_size(nil, shape[0], shape[1])

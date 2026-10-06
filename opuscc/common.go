@@ -4183,22 +4183,16 @@ func get_multistream_decoder(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *Op
 	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), uintptr(offset)))
 }
 
-func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels int32, streams int32, coupled_streams int32) (r OpusT_opus_int32) {
-	var alignment uint32
-	var decoder_size, matrix_size OpusT_opus_int32
-	var v1 int32
-	_, _, _, _ = alignment, decoder_size, matrix_size, v1
-	matrix_size = Opus_mapping_matrix_get_size(tls, streams+coupled_streams, channels)
-	if !(matrix_size != 0) {
+func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels, streams, coupled_streams int32) int32 {
+	matrixSize := Opus_mapping_matrix_get_size(tls, streams+coupled_streams, channels)
+	if matrixSize == 0 {
 		return 0
 	}
-	decoder_size = Opus_opus_multistream_decoder_get_size(tls, streams, coupled_streams)
-	if !(decoder_size != 0) {
+	decoderSize := Opus_opus_multistream_decoder_get_size(tls, streams, coupled_streams)
+	if decoderSize == 0 {
 		return 0
 	}
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(4)) + alignment - uint32(1)) / alignment * alignment)
-	return v1 + matrix_size + decoder_size
+	return opusAlignSize8(4) + matrixSize + decoderSize
 }
 
 func Opus_opus_projection_decoder_init(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes OpusT_opus_int32) int32 {

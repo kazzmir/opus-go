@@ -534,6 +534,29 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four numeric-size rounds simplify single decoder, multistream decoder, mapping
+matrix and projection decoder size composition. The generated uintptr(0)+8
+alignment expressions become a shared numeric opusAlignSize8 helper, preserving
+this port's fixed 8-byte ABI geometry, uint32 add/divide/multiply wrapping and
+final int32 narrowing. Header constants, child-size call order, invalid-input
+checks, matrix multiply/threshold behavior, projection matrix-before-decoder
+validation and int32 final sum/product order are unchanged. This removes numeric
+uintptr noise, not pointer ownership defects: tokens decrease 242→234 (8 removed).
+
+Grouped common tests cover alignment boundaries including negative/MinInt32/
+MaxInt32, valid/invalid compositions and Go-only wrapping cases. Grouped native
+validation tests compare all four size APIs with actual upstream C, including
+bounded negative matrix dimensions accepted by the original size routine and
+matrix capacity limits. Cases that would overflow signed C intermediate arithmetic
+remain Go-only and are not represented as C parity. Upstream align uses platform
+union alignment; this port intentionally retains its existing 8-byte alignment
+on 386 instead of substituting host sizeof/alignment.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparison,
+codec golden/tolerance and GC-stress validation, with repeated scoped/ordinary
+ARM runs after completion. No assertion/validation was strengthened, no goldens
+changed and no opaque scanning/extension EOF/raw callback repair is claimed.
+
 Four pointer-layout rounds type repacketizer frames and paddings as [48]*byte,
 unify the duplicate OpusRepacketizer alias with the canonical typed layout, then
 type FFT architecture linkage as *OpusT_arch_fft_state and its opaque private
