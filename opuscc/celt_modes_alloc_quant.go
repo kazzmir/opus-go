@@ -2889,38 +2889,38 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					/* Restore */
 					*ec = ec_save
 					*ctx = ctx_save
-					quantAllBandsCopy((*float32)(unsafe.Pointer(X)), unsafe.SliceData(X_save), N1)
-					quantAllBandsCopy((*float32)(unsafe.Pointer(Y)), unsafe.SliceData(Y_save), N1)
+					quantAllBandsCopy(X, unsafe.SliceData(X_save), N1)
+					quantAllBandsCopy(Y, unsafe.SliceData(Y_save), N1)
 					if i1 == start+int32(1) {
 						special_hybrid_folding(tls, m.FeBands, norm, norm2, start, M, dual_stereo)
 					}
 					/* Encode and round up. */
 					ctx.Ftheta_round = 1
 					input, output = quantAllBandsBandViews(norm, eBands, i1, M, norm_offset, N1, effective_lowband, last)
-					x_cm = quant_band_stereo(tls, ctx, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), N1, b, B, input, LM, output, lowband_scratch, int32(cm))
+					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
 					_ = arch
-					v229 = quantAllBandsDot(unsafe.SliceData(X_save), (*float32)(unsafe.Pointer(X)), N1)
-					v232 = quantAllBandsDot(unsafe.SliceData(Y_save), (*float32)(unsafe.Pointer(Y)), N1)
+					v229 = quantAllBandsDot(unsafe.SliceData(X_save), X, N1)
+					v232 = quantAllBandsDot(unsafe.SliceData(Y_save), Y, N1)
 					dist1 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					if dist0 >= dist1 {
 						x_cm = cm2
 						*ec = ec_save2
 						*ctx = ctx_save2
-						quantAllBandsCopy((*float32)(unsafe.Pointer(X)), unsafe.SliceData(X_save2), N1)
-						quantAllBandsCopy((*float32)(unsafe.Pointer(Y)), unsafe.SliceData(Y_save2), N1)
+						quantAllBandsCopy(X, unsafe.SliceData(X_save2), N1)
+						quantAllBandsCopy(Y, unsafe.SliceData(Y_save2), N1)
 						if !(last != 0) {
-							quantAllBandsNormCopy(unsafe.SliceData(norm_save2), (*float32)(unsafe.Pointer(norm)), M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
+							quantAllBandsNormCopy(unsafe.SliceData(norm_save2), norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
 						}
 						quantAllBandsByteRestore(bytes_buf, bytes_save, save_bytes)
 					}
 				} else {
 					ctx.Ftheta_round = 0
-					input, output := quantAllBandsBandViews((*float32)(unsafe.Pointer(norm)), eBands, i1, M, norm_offset, N1, effective_lowband, last)
-					x_cm = quant_band_stereo(tls, ctx, (*float32)(unsafe.Pointer(X)), (*float32)(unsafe.Pointer(Y)), N1, b, B, input, LM, output, lowband_scratch, int32(x_cm|y_cm))
+					input, output := quantAllBandsBandViews(norm, eBands, i1, M, norm_offset, N1, effective_lowband, last)
+					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(x_cm|y_cm))
 				}
 			} else {
-				input, output := quantAllBandsBandViews((*float32)(unsafe.Pointer(norm)), eBands, i1, M, norm_offset, N1, effective_lowband, last)
-				x_cm = quant_band(tls, ctx, (*float32)(unsafe.Pointer(X)), N1, b, B, input, LM, output, 1, lowband_scratch, int32(x_cm|y_cm))
+				input, output := quantAllBandsBandViews(norm, eBands, i1, M, norm_offset, N1, effective_lowband, last)
+				x_cm = quant_band(tls, ctx, X, N1, b, B, input, LM, output, 1, lowband_scratch, int32(x_cm|y_cm))
 			}
 			y_cm = x_cm
 		}

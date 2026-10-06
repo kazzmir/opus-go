@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four quant-all-bands direct-pointer rounds remove redundant casts from mode/
+lowband/hybrid folding setup, dual-band dispatch, RDO candidate saves/dots and
+restore/final mono/stereo dispatch. Private m/X_/X/Y/norm/norm2 pointers already
+have the required *OpusT_OpusCustomMode or *float32 types; celt_norm aliases float32.
+Call sites now pass those owners directly instead of round-tripping through
+unsafe.Pointer. Production references decrease 502→463 (39 removed); uintptr
+remains 173. Integer-valued public escape adapters are retained unchanged.
+
+Upstream bands.c folding/save/restore ordering and grouped existing whole-quantizer
+fixtures remain the reference. Spectrum/norm copy order, theta -1/+1/0 transitions,
+dot/weight float32 evaluation, complete entropy/band snapshots, byte rollback
+window, dist0>=dist1 tie rule, last-band suppression and nil/mono/dual/stereo
+branch timing are unchanged. Existing heap-owner/alias/GC/stack-growth and actual
+native quantization comparisons remain unchanged; no fixtures/goldens are weakened.
+RDO is an encode-mode branch of this helper, not new active decoder RDO coverage;
+opusccenc's independent implementation is unchanged.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, followed by repeated scoped/ordinary ARM runs.
+Goldens/tolerances remain unchanged. This is redundant-cast cleanup, not a new
+opaque-allocation scanning, extension EOF/GC or raw callback repair.
+
 Four direct-pointer rounds remove redundant typed→unsafe.Pointer→same-typed
 round trips from VAD setup/input, VAD analysis/output fields, allocation mode
 reads, and private allocation/band-quantization entropy calls and RDO snapshots.
