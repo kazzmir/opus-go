@@ -4729,7 +4729,7 @@ func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data *byte, length int
 		if idx >= cumulative[ext.Fframe+1] {
 			Opus_celt_fatal(tls, __ccgo_ts+2876, __ccgo_ts+2472, 416)
 		}
-		*(*OpusT_opus_extension_data)(unsafe.Add(unsafe.Pointer(extensions), uintptr(idx)*unsafe.Sizeof(ext))) = ext
+		unsafe.Slice(extensions, int64(idx)+1)[idx] = ext
 		count++
 	}
 }
