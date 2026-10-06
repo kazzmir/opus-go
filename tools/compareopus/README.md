@@ -534,6 +534,31 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four private decode offset rounds introduce numeric opusFramePCMAtBytes,
+migrate frame zeroing/SILK/recursive PCM cursors, fade/redundancy/transition/gain
+accesses, then native packet/FEC/PLC PCM dispatch and payload traversal. The
+old opusFrameSilkPCM integer-word adapter is deleted once every private caller
+and grouped fixture uses the numeric helper. All byte displacements retain the
+old uint-width wrapping, multiply order and /4 truncation; nil/zero handling and
+consumed-prefix view timing remain unchanged. Frame/payload owners were already
+typed, so this is numeric clarity cleanup, not new lifetime coverage of a formerly
+opaque owner. Public decoder escape adapters remain unchanged.
+Production opuscc uintptr tokens decrease 209→179 (30 removed).
+
+Grouped frame tests add nil/zero and heap-owner/alias checks for numeric PCM
+views; existing transition/fade/chunk fixtures are updated without changing
+assertions, data or goldens. Existing native tests extend unused negative-length
+payload-offset suppression. Real SILK/hybrid/CELT, PLC/FEC, fade/softclip and
+validation/state/range references remain unchanged. The third initial validation
+attempt failed to compile because six existing fixtures still used the retired
+helper; updating those fixture calls to the numeric equivalent resolved it,
+followed by a complete successful validation rerun (original log retained).
+
+Every round ultimately passes full amd64/386, ARM64/QEMU, scoped checkptr,
+native comparisons and GC stress; repeated scoped/ordinary ARM runs finish the
+batch. Codec goldens/tolerances are unchanged. No global opaque scanning,
+extension EOF/GC or raw callback fix is claimed.
+
 Four extension-output/multistream rounds replace bitstream- and frame-ordered
 extension record address multiplication with typed consumed-prefix stores,
 reuse opusAlignSize8 for the private multistream header/child strides, then
