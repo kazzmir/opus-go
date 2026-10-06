@@ -126,7 +126,7 @@ func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16
 			v37 = v34
 		}
 		v35 = v37
-		decimated_framelength = (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length >> v35
+		decimated_framelength = psEncC.Fframe_length >> v35
 		/* Split length into subframe lengths */
 		dec_subframe_length = decimated_framelength >> int32(VAD_INTERNAL_SUBFRAMES_LOG2)
 		dec_subframe_offset = 0
@@ -309,7 +309,7 @@ _57:
 	/**************************/
 	/* Frequency Tilt Measure */
 	/**************************/
-	(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Finput_tilt_Q15 = int32(uint32(Opus_silk_sigm_Q15(tls, input_tilt)-int32(16384)) << int32(1))
+	psEncC.Finput_tilt_Q15 = int32(uint32(Opus_silk_sigm_Q15(tls, input_tilt)-int32(16384)) << int32(1))
 	/**************************************************/
 	/* Scale the sigmoid output based on power levels */
 	/**************************************************/
@@ -323,7 +323,7 @@ _57:
 		speech_nrg = speech_nrg + (b1+int32(1))*((Xnrg[b1]-vad.FNL[b1])>>int32(4))
 		b1 = b1 + 1
 	}
-	if (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length == int32(20)*(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Ffs_kHz {
+	if psEncC.Fframe_length == int32(20)*psEncC.Ffs_kHz {
 		speech_nrg = speech_nrg >> int32(1)
 	}
 	/* Power scaling */
@@ -389,13 +389,13 @@ _57:
 		v37 = v34
 	}
 	v35 = v37
-	(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fspeech_activity_Q8 = v35
+	psEncC.Fspeech_activity_Q8 = v35
 	/***********************************/
 	/* Energy Level and SNR estimation */
 	/***********************************/
 	/* Smoothing coefficient */
 	smooth_coef_Q16 = int32(int64(int32(VAD_SNR_SMOOTH_COEF_Q18)) * int64(int16(int32(int64(SA_Q15)*int64(int16(SA_Q15))>>int32(16)))) >> int32(16))
-	if (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length == int32(10)*(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Ffs_kHz {
+	if psEncC.Fframe_length == int32(10)*psEncC.Ffs_kHz {
 		smooth_coef_Q16 = smooth_coef_Q16 >> int32(1)
 	}
 	b1 = 0
