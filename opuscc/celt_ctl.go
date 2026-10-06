@@ -738,9 +738,10 @@ func Opus_ec_enc_bit_logp(tls *libc.TLS, enc *OpusT_ec_enc, value int32, logp ui
 
 func Opus_ec_enc_icdf(tls *libc.TLS, enc *OpusT_ec_enc, symbol int32, icdf *uint8, ftb uint32) {
 	r := enc.Frng >> ftb
-	current := uint32(*(*uint8)(unsafe.Add(unsafe.Pointer(icdf), uintptr(symbol))))
+	table := unsafe.Slice(icdf, int64(symbol)+1)
+	current := uint32(table[symbol])
 	if symbol > 0 {
-		previous := uint32(*(*uint8)(unsafe.Add(unsafe.Pointer(icdf), uintptr(symbol-1))))
+		previous := uint32(table[symbol-1])
 		enc.Fval += enc.Frng - r*previous
 		enc.Frng = r * (previous - current)
 	} else {
@@ -751,10 +752,11 @@ func Opus_ec_enc_icdf(tls *libc.TLS, enc *OpusT_ec_enc, symbol int32, icdf *uint
 
 func Opus_ec_enc_icdf16(tls *libc.TLS, enc *OpusT_ec_enc, symbol int32, icdf *uint16, ftb uint32) {
 	r := enc.Frng >> ftb
-	// Only the current and previous entries are required; no fabricated table extent.
-	current := uint32(*(*uint16)(unsafe.Add(unsafe.Pointer(icdf), uintptr(symbol)*2)))
+	// Form only the prefix through the consumed symbol, not a guessed full table.
+	table := unsafe.Slice(icdf, int64(symbol)+1)
+	current := uint32(table[symbol])
 	if symbol > 0 {
-		previous := uint32(*(*uint16)(unsafe.Add(unsafe.Pointer(icdf), uintptr(symbol-1)*2)))
+		previous := uint32(table[symbol-1])
 		enc.Fval += enc.Frng - r*previous
 		enc.Frng = r * (previous - current)
 	} else {
