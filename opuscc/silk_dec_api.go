@@ -268,7 +268,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 	if control.FnChannelsInternal > decoder.FnChannelsInternal {
 		ret = ret + Opus_silk_init_decoder(tls, &decoder.Fchannel_state[1])
 	}
-	stereo_to_mono = libc.BoolInt32((*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(1) && (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsInternal == int32(2) && (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FinternalSampleRate == int32(1000)*(*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Ffs_kHz)
+	stereo_to_mono = libc.BoolInt32(decControl.FnChannelsInternal == int32(1) && psDec.FnChannelsInternal == int32(2) && decControl.FinternalSampleRate == int32(1000)*channel_state.Ffs_kHz)
 	if decoder.Fchannel_state[0].FnFramesDecoded == 0 {
 		n = 0
 		for {
@@ -319,7 +319,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 	silkDecodeAPIStartStereo(decoder, control)
 	decoder.FnChannelsAPI = control.FnChannelsAPI
 	decoder.FnChannelsInternal = control.FnChannelsInternal
-	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FAPI_sampleRate > int32(MAX_API_FS_KHZ)*int32(1000) || (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FAPI_sampleRate < int32(8000) {
+	if decControl.FAPI_sampleRate > int32(MAX_API_FS_KHZ)*int32(1000) || decControl.FAPI_sampleRate < int32(8000) {
 		ret = -200
 		return ret
 	}
