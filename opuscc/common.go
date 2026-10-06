@@ -2731,7 +2731,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &redundant_rng}) == int32(OPUS_OK)) {
 			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(643))
 		}
-		smooth_fade(tls, opusFrameSilkPCM(pcm_owner, uintptr(decoder.Fchannels*(frame_size-F2_5))*4), opusFrameSilkPCM(redundant_audio, uintptr(decoder.Fchannels*F2_5)*4), opusFrameSilkPCM(pcm_owner, uintptr(decoder.Fchannels*(frame_size-F2_5))*4), F2_5, decoder.Fchannels, window, decoder.FFs)
+		smooth_fade(tls, opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*(frame_size-F2_5))*4), opusFramePCMAtBytes(redundant_audio, uint(decoder.Fchannels*F2_5)*4), opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*(frame_size-F2_5))*4), F2_5, decoder.Fchannels, window, decoder.FFs)
 	}
 	/* 5ms redundant frame for CELT->SILK; ignore if the previous frame did not
 	   use CELT (the first redundancy frame in a transition from SILK may have
@@ -2747,12 +2747,12 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 				if !(i < F2_5) {
 					break
 				}
-				*opusFrameSilkPCM(pcm_owner, uintptr(decoder.Fchannels*i+c)*4) = *opusFrameSilkPCM(redundant_audio, uintptr(decoder.Fchannels*i+c)*4)
+				*opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*i+c)*4) = *opusFramePCMAtBytes(redundant_audio, uint(decoder.Fchannels*i+c)*4)
 				i = i + 1
 			}
 			c = c + 1
 		}
-		smooth_fade(tls, opusFrameSilkPCM(redundant_audio, uintptr(decoder.Fchannels*F2_5)*4), opusFrameSilkPCM(pcm_owner, uintptr(decoder.Fchannels*F2_5)*4), opusFrameSilkPCM(pcm_owner, uintptr(decoder.Fchannels*F2_5)*4), F2_5, decoder.Fchannels, window, decoder.FFs)
+		smooth_fade(tls, opusFramePCMAtBytes(redundant_audio, uint(decoder.Fchannels*F2_5)*4), opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*F2_5)*4), opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*F2_5)*4), F2_5, decoder.Fchannels, window, decoder.FFs)
 	}
 	if transition != 0 {
 		if audiosize >= F5 {
@@ -2761,10 +2761,10 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 				if !(i < decoder.Fchannels*F2_5) {
 					break
 				}
-				*opusFrameSilkPCM(pcm_owner, uintptr(i)*4) = *opusFrameSilkPCM(pcm_transition, uintptr(i)*4)
+				*opusFramePCMAtBytes(pcm_owner, uint(i)*4) = *opusFramePCMAtBytes(pcm_transition, uint(i)*4)
 				i = i + 1
 			}
-			smooth_fade(tls, opusFrameSilkPCM(pcm_transition, uintptr(decoder.Fchannels*F2_5)*4), opusFrameSilkPCM(pcm_owner, uintptr(decoder.Fchannels*F2_5)*4), opusFrameSilkPCM(pcm_owner, uintptr(decoder.Fchannels*F2_5)*4), F2_5, decoder.Fchannels, window, decoder.FFs)
+			smooth_fade(tls, opusFramePCMAtBytes(pcm_transition, uint(decoder.Fchannels*F2_5)*4), opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*F2_5)*4), opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*F2_5)*4), F2_5, decoder.Fchannels, window, decoder.FFs)
 		} else {
 			/* Not enough time to do a clean transition, but we do it anyway
 			   This will not preserve amplitude perfectly and may introduce
@@ -2792,8 +2792,8 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 			if !(i < frame_size*decoder.Fchannels) {
 				break
 			}
-			x1 = OpusT_opus_res(*opusFrameSilkPCM(pcm_owner, uintptr(i)*4) * gain)
-			*opusFrameSilkPCM(pcm_owner, uintptr(i)*4) = x1
+			x1 = OpusT_opus_res(*opusFramePCMAtBytes(pcm_owner, uint(i)*4) * gain)
+			*opusFramePCMAtBytes(pcm_owner, uint(i)*4) = x1
 			i = i + 1
 		}
 	}
