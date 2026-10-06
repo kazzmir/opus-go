@@ -203,7 +203,9 @@ func Opus_comb_filter(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1 floa
 		}
 		return
 	}
-	comb_filter_const_c(tls, (*float32)(unsafe.Add(unsafe.Pointer(y), int(overlap)*4)), (*float32)(unsafe.Add(unsafe.Pointer(x), int(overlap-T1-2)*4)), T1, N-overlap, g10, g11, g12)
+	if N > overlap {
+		comb_filter_const_c(tls, &dst[overlap], &src[history+overlap-T1-2], T1, N-overlap, g10, g11, g12)
+	}
 }
 
 var gains = [3][3]OpusT_opus_val16{

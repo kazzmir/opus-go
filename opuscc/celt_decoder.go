@@ -155,7 +155,12 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 	// Common stereo dispatch needs no TLS scratch, just as the C early return.
 	if downsample == 1 && C == 2 && accum == 0 {
 		channels := unsafe.Slice(in, 2)
-		deemphasis_stereo_simple(tls, channels[0], channels[1], pcm, N, *coef, (*[2]float32)(unsafe.Pointer(mem)))
+		coefficient := *coef
+		var memory *[2]float32
+		if N > 0 {
+			memory = (*[2]float32)(unsafe.Slice(mem, 2))
+		}
+		deemphasis_stereo_simple(tls, channels[0], channels[1], pcm, N, coefficient, memory)
 		return
 	}
 	var x, y *float32

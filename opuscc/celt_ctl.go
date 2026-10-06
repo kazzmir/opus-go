@@ -1397,8 +1397,9 @@ func quant_coarse_energy_impl(tls *libc.TLS, nbBands, start, end int32, eBands, 
 			}
 			if budget-tell >= 15 {
 				pi := 2 * min(i, int32(20))
-				fs := *(*byte)(unsafe.Add(unsafe.Pointer(probModel), pi))
-				decay := *(*byte)(unsafe.Add(unsafe.Pointer(probModel), pi+1))
+				probabilities := unsafe.Slice(probModel, int64(pi)+2)
+				fs := probabilities[pi]
+				decay := probabilities[pi+1]
 				Opus_ec_laplace_encode(tls, enc, &qi, uint32(fs)<<7, int32(decay)<<6)
 			} else if budget-tell >= 2 {
 				qi = max(-1, min(qi, 1))

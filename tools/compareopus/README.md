@@ -534,6 +534,105 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT typed-consumer rounds select comb-filter tail pointers from existing
+history/output slices (suppressing the unused zero tail), read coarse-energy
+encoder probability pairs through consumed byte prefixes, preserve MDCT's typed
+base for nonnegative/zero strides, and select the IIR forward history tail from
+its existing output slice. Production unsafe.Pointer references decrease
+247→243 (four removed); uintptr remains 173. Negative MDCT strides and N<order
+IIR tails still use the necessary signed backward pointer boundary; lexical
+counts do not capture these forward-path improvements.
+
+Upstream celt.c, quant_bands.c, mdct.c and celt_lpc.c remain the reference.
+Comb transition load/store order and rounded products, coarse-energy budget/
+clamp/probability order, wrapped stride geometry/zero-stride store order, and
+IIR's four-sample/tail sign convention and reversed live memory stores remain
+unchanged. New grouped MDCT tests cover singleton prefixes at extreme signed
+strides, forward/backward/zero owner identity with GC/stack growth. IIR tests
+retain N=0 preceding-output behavior and add N=1<order backward history and
+empty order-zero cases. Existing overlap-only comb and native energy/MDCT/IIR
+fixtures and codec goldens remain unchanged.
+
+All four rounds pass full amd64/386, ARM64/QEMU, scoped checkptr, native
+comparisons, codec references and GC stress, followed by repeated scoped/ordinary
+ARM fixtures. Genuine backward and opaque/public ABI boundaries remain; this
+is not global opaque-state scanning, extension EOF/GC or raw callback repair.
+
+Four numeric/typed-owner rounds replace the frame gain union pointer casts with
+math.Float32bits/Float32frombits, obtain multistream right-channel PCM directly
+from its Go audio owner, and advance down-FIR/IIR-FIR outputs through a shared
+concrete int16 consumed-prefix helper. Production unsafe.Pointer references
+decrease 252→247 (five removed); uintptr remains 173.
+
+Upstream mathops.h/opus_decoder.c, opus_multistream_decoder.c and the two
+resampler drivers remain the reference. Gain's existing float32 polynomial,
+floor/underflow test, signed narrowing/wrap, exponent shift and sign mask remain
+unchanged. Multistream only selects audio[1] after a positive child result and
+retains callback ordering, live mappings and channel counts. Resampler output
+views occur only when another block remains; zero count preserves identity,
+including nil, and terminal/lone-remainder suppression is unchanged. Tests add
+exact-sized 80-sample down-FIR and 322-sample IIR-FIR output backing and helper
+zero/positive identity checks, retaining existing state/guard/chunk comparisons.
+The actual i32/i16 resampler state union boundary is intentionally unchanged.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, followed by repeated scoped/ordinary ARM runs.
+No goldens, tolerances, assertions or live aliases are changed. Round four's
+initial native suite failed with `found pointer to free object`, with
+TestExtensionNextAgainstC on the stack; retained at
+/tmp/opus-round-iir-fir-typed-output-cursor.log. The complete retry and ARM repeats
+passed. Typed storage and numeric bits here do not repair opaque allocation
+scanning, extension EOF/GC or legacy raw callback ownership.
+
+Four typed-view rounds replace the remaining ICDF8/ICDF16 pointer walks with
+consumed-prefix indexing, the stereo deemphasis memory reinterpretation with
+Go's typed slice-to-array-pointer conversion, and the down-FIR coefficient
+byte offset with a typed int16 prefix. Production unsafe.Pointer references
+decrease 256→252; uintptr remains 173. Public escape adapters and actual backward
+pointer/history and opaque allocation boundaries remain unchanged.
+
+Upstream entdec.c, celt_decoder.c and resampler_private_down_FIR.c remain the
+reference. ICDF entry/load order and cached range/value state remain unchanged;
+no table-wide guessed extent is formed. Stereo N<=0 still loads the coefficient
+but consumes no memory/PCM, covered by nil-memory and coefficient-panic cases.
+Down-FIR only exposes the row for a consumed valid-order interpolation; zero
+work may provide only the two AR coefficients (new exact-sized fixture), and
+invalid order still reaches the existing interpolation assertion. MAC/rounding,
+state copies, batch/remainder behavior and output stores remain unchanged.
+
+All rounds ultimately pass full amd64/386, ARM64/QEMU, scoped checkptr, native
+comparisons, codec references and GC stress, plus final repeated ARM scoped and
+ordinary fixtures. Goldens/tolerances unchanged. Round three's first two native
+runs failed in the extension-test GC area: `found pointer to free object`, then
+`s.allocCount != s.nelems && freeIndex == s.nelems` with
+TestExtensionNextAgainstC on the stack. Both logs are retained under
+/tmp/opus-round-deemphasis-typed-memory-view{,-retry}.log; the complete retry2
+passed. Round four's initial native run also hit `found pointer to free object`
+with TestExtensionNextAgainstC on the stack; retained at
+/tmp/opus-round-down-fir-typed-coefficient-view.log. Its complete retry passed.
+These failures are not repaired by the typed-view changes, and no global
+extension EOF/GC, raw callback or opaque-state lifetime claim is made.
+
+Four SILK API direct-pointer rounds remove redundant casts from control/rate
+reads, VAD/LBRR/mid-side entropy calls, stereo/frame dispatch and channel-count
+selection, and pitch/history finalization. decControl/psDec/channel_state/
+psRangeDec already have concrete types; their fields and typed calls now use
+those pointers directly. Production unsafe.Pointer references decrease 288→256
+(32 removed); uintptr remains 173. The public integer escape adapter is unchanged.
+
+Upstream dec_API.c and existing grouped whole/real-packet, resampler/control,
+LBRR entropy, channel-storage/views, output-count/PCM and packet-state fixtures
+remain the reference. Stereo-to-mono decision, sample-rate validation, LBRR
+consumption, conditional frame coding, live channel/count/sample-rate reloads,
+resampling/history, pitch-lag multiplication and final recovery flags keep their
+original ordering and narrowing/wrapping. No storage/layout, assertion, aliases,
+fixtures, codec golden or tolerance changes.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with repeated scoped/ordinary ARM runs after
+completion. This is direct-cast cleanup in the already typed active SILK API,
+not a new opaque allocation scanning, extension EOF/GC or raw callback repair.
+
 Four CELT direct-pointer rounds remove redundant casts from typed decoder
 entry/lost dispatch, entropy/energy/allocation calls, synthesis/finalization,
 and concealment fields/autocorrelation/finish. Concrete decoder/mode/entropy/

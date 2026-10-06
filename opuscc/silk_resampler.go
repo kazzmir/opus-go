@@ -348,20 +348,26 @@ func Opus_silk_resampler_private_down_FIR(tls *libc.TLS, state *OpusT_silk_resam
 	order := state.FFIR_Order
 	buf := make([]int32, state.FbatchSize+order)
 	copy(buf, state.FsFIR.Fi32[:order])
-	firCoefs := (*int16)(unsafe.Add(unsafe.Pointer(coefs), 4))
 	input := unsafe.Slice(in, inLen)
 	increment := state.FinvRatio_Q16
 	for {
 		n := min(int32(len(input)), state.FbatchSize)
 		Opus_silk_resampler_private_AR2(tls, &state.FsIIR[0], &buf[order], unsafe.SliceData(input), coefs, n)
-		written := silk_resampler_private_down_FIR_INTERPOL(tls, out, &buf[0], firCoefs, order, state.FFIR_Fracs, n<<16, increment)
+		maxIndex := n << 16
+		var firCoefs *int16
+		// Only expose a FIR row when interpolation consumes it. Invalid orders
+		// still reach the interpolation assertion before any coefficient view.
+		if maxIndex > 0 && (order == 18 || order == 24 || order == 36) {
+			firCoefs = &unsafe.Slice(coefs, 3)[2]
+		}
+		written := silk_resampler_private_down_FIR_INTERPOL(tls, out, &buf[0], firCoefs, order, state.FFIR_Fracs, maxIndex, increment)
 		input = input[n:]
 		// Match C: a lone remainder after a batch is not processed.
 		if len(input) <= 1 {
 			copy(state.FsFIR.Fi32[:order], buf[n:n+order])
 			break
 		}
-		out = (*int16)(unsafe.Add(unsafe.Pointer(out), int(written)*2))
+		out = silkResamplerAdvanceOutput(out, written)
 		copy(buf[:order], buf[n:n+order])
 	}
 }
@@ -377,6 +383,15 @@ var silk_resampler_up2_hq_15 = [3]OpusT_opus_int16{
 	0: int16(6854),
 	1: int16(25769),
 	2: int16(int32(55542) - int32(65536)),
+}
+
+// Only called when another block remains; the prefix includes its first sample.
+// A zero count preserves pointer identity without forming a view (including nil).
+func silkResamplerAdvanceOutput(output *int16, count int32) *int16 {
+	if count == 0 {
+		return output
+	}
+	return &unsafe.Slice(output, int64(count)+1)[count]
 }
 
 // Return the number of output samples, rather than a one-past-end pointer.
@@ -421,7 +436,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, state *OpusT_silk_resamp
 			copy(history[:], buf[2*n:2*n+8])
 			break
 		}
-		out = (*int16)(unsafe.Add(unsafe.Pointer(out), int(written)*2))
+		out = silkResamplerAdvanceOutput(out, written)
 		copy(buf[:8], buf[2*n:2*n+8])
 	}
 }

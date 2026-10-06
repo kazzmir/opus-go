@@ -129,8 +129,8 @@ func Opus_ec_dec_icdf(tls *libc.TLS, dec *OpusT_ec_dec, icdf *uint8, ftb uint32)
 	return ec_dec_icdf(tls, dec, icdf, ftb)
 }
 
-// The zero-terminated table has no explicit length. Walk its zero-terminated ICDF with a
-// GC-visible pointer rather than constructing a slice beyond the allocation.
+// The zero-terminated table has no explicit length. Only form the prefix through
+// the current entry, not a guessed full table extent.
 func ec_dec_icdf(tls *libc.TLS, dec *OpusT_ec_dec, icdf *uint8, ftb uint32) int32 {
 	s, d := dec.Frng, dec.Fval
 	r := s >> ftb
@@ -138,12 +138,11 @@ func ec_dec_icdf(tls *libc.TLS, dec *OpusT_ec_dec, icdf *uint8, ftb uint32) int3
 	var symbol int32
 	for {
 		previous = s
-		s = r * uint32(*icdf)
+		s = r * uint32(unsafe.Slice(icdf, int64(symbol)+1)[symbol])
 		if d >= s {
 			break
 		}
 		symbol++
-		icdf = (*uint8)(unsafe.Add(unsafe.Pointer(icdf), 1))
 	}
 	dec.Fval = d - s
 	dec.Frng = previous - s
@@ -159,12 +158,11 @@ func Opus_ec_dec_icdf16(tls *libc.TLS, dec *OpusT_ec_dec, icdf *OpusT_opus_uint1
 	// A zero-terminated table has no explicit length in the C API.
 	for {
 		previous = s
-		s = r * uint32(*icdf)
+		s = r * uint32(unsafe.Slice(icdf, int64(symbol)+1)[symbol])
 		if d >= s {
 			break
 		}
 		symbol++
-		icdf = (*OpusT_opus_uint16)(unsafe.Add(unsafe.Pointer(icdf), unsafe.Sizeof(*icdf)))
 	}
 	dec.Fval = d - s
 	dec.Frng = previous - s

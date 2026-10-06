@@ -31,6 +31,18 @@ func TestDeemphasisDriverPointers(t *testing.T) {
 	}
 	var mem [2]float32
 	deemphasis(nil, &channels[0], nil, 0, 2, 1, &coef, &mem[0], 0)
+	for _, N := range []int32{0, -1} {
+		// The stereo leaf consumes neither PCM nor memory for N<=0.
+		deemphasis(nil, &channels[0], nil, N, 2, 1, &coef, nil, 0)
+	}
+	t.Run("zero-still-loads-coefficient", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("zero work must still load the coefficient")
+			}
+		}()
+		deemphasis(nil, &channels[0], nil, 0, 2, 1, nil, nil, 0)
+	})
 }
 
 func TestDeemphasisScratchPointers(t *testing.T) {
