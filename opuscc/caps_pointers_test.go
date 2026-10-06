@@ -267,6 +267,18 @@ func TestBandContextModePointers(t *testing.T) {
 }
 
 func TestBandContextEnergyPointers(t *testing.T) {
+	singleton := float32(.75)
+	single := band_ctx{FbandE: &singleton}
+	if bandContextEnergy(&single, 0) != singleton {
+		t.Fatal("singleton energy extent")
+	}
+	preceding := [3]float32{.25, 1, 2}
+	interior := band_ctx{FbandE: &preceding[2]}
+	for i := int32(-2); i <= 0; i++ {
+		if bandContextEnergy(&interior, i) != preceding[i+2] {
+			t.Fatal("signed interior energy", i)
+		}
+	}
 	makeContext := func() *band_ctx {
 		energy := []float32{.25, 1, 0, 2, .5, 3}
 		mode := OpusT_OpusCustomMode{FnbEBands: 3}

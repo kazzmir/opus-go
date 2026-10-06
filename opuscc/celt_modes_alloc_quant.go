@@ -1640,7 +1640,11 @@ func celtNormAdd(p *float32, offset int32) *float32 {
 }
 
 func bandContextEnergy(ctx *band_ctx, index int32) float32 {
-	return *(*float32)(unsafe.Add(unsafe.Pointer(ctx.FbandE), int(index)*4))
+	if index < 0 {
+		// Retain access to caller-owned energy preceding an interior base.
+		return *(*float32)(unsafe.Add(unsafe.Pointer(ctx.FbandE), int(index)*4))
+	}
+	return unsafe.Slice(ctx.FbandE, int64(index)+1)[index]
 }
 
 type split_ctx = struct {
