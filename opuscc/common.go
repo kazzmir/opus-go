@@ -1825,10 +1825,10 @@ type itimerspec = struct {
 	Fit_value    timespec
 }
 
-type __ptcb = struct {
-	F__f    uintptr
-	F__x    uintptr
-	F__next uintptr
+type __ptcb struct {
+	F__f    unsafe.Pointer
+	F__x    unsafe.Pointer
+	F__next *__ptcb
 }
 
 type cpu_set_t = struct {

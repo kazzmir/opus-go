@@ -5,6 +5,11 @@ package opuscc
 import "unsafe"
 import libc "github.com/kazzmir/opus-go/libcshim"
 
+func CompareCleanupRecordLayout() [4]uint64 {
+	var state __ptcb
+	return [4]uint64{uint64(unsafe.Sizeof(state)), uint64(unsafe.Offsetof(state.F__f)), uint64(unsafe.Offsetof(state.F__x)), uint64(unsafe.Offsetof(state.F__next))}
+}
+
 func CompareTimezoneLayout() [3]uint64 {
 	var state tm
 	return [3]uint64{uint64(unsafe.Sizeof(state)), uint64(unsafe.Offsetof(state.Ftm_gmtoff)), uint64(unsafe.Offsetof(state.Ftm_zone))}

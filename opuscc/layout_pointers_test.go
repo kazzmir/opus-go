@@ -6,6 +6,35 @@ import (
 	"unsafe"
 )
 
+// The function-value slot is a Go-only opaque-owner fixture, not a C function
+// address and not permission to invoke Go closures through legacy integer ABIs.
+func TestCleanupRecordPointers(t *testing.T) {
+	makeRecord := func() *__ptcb {
+		payload := []byte{41}
+		counter := new(int32)
+		closure := func(arg unsafe.Pointer) { *counter += int32(*(*byte)(arg)) }
+		tail := &__ptcb{F__x: unsafe.Pointer(counter)}
+		return &__ptcb{F__f: unsafe.Pointer(&closure), F__x: unsafe.Pointer(&payload[0]), F__next: tail}
+	}
+	record := makeRecord()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	callback := *(*func(unsafe.Pointer))(record.F__f)
+	callback(record.F__x)
+	if record.F__next == nil || *(*int32)(record.F__next.F__x) != 41 {
+		t.Fatal("cleanup chain owners")
+	}
+	type oldLayout struct{ Function, Argument, Next uintptr }
+	var old oldLayout
+	if unsafe.Sizeof(*record) != unsafe.Sizeof(old) || unsafe.Offsetof(record.F__x) != unsafe.Offsetof(old.Argument) || unsafe.Offsetof(record.F__next) != unsafe.Offsetof(old.Next) {
+		t.Fatal("cleanup layout changed")
+	}
+	record.F__f = nil
+	record.F__x = nil
+	record.F__next = nil
+	runtime.GC()
+}
+
 func TestTimezoneOwnerPointers(t *testing.T) {
 	type oldLayout struct {
 		Fields [9]int32

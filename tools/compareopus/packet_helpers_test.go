@@ -150,6 +150,12 @@ func TestPacketParseAgainstC(t *testing.T) {
 	}
 }
 
+func TestCleanupRecordLayoutAgainstC(t *testing.T) {
+	if got, want := opuscc.CompareCleanupRecordLayout(), nativeCleanupRecordLayout(); got != want {
+		t.Fatal("musl cleanup mirror layout", got, want)
+	}
+}
+
 func TestTimezoneLayoutAgainstC(t *testing.T) {
 	if got, want := opuscc.CompareTimezoneLayout(), nativeTimezoneLayout(); got != want {
 		t.Fatal("timezone layout", got, want)

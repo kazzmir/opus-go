@@ -534,6 +534,33 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four dormant compatibility-layout rounds change locale_t and timer_t aliases
+to unsafe.Pointer, tm's timezone abbreviation to *byte, and musl __ptcb's callback/
+argument/link members to unsafe.Pointer/unsafe.Pointer/*__ptcb. Actual Linux
+libc typedefs, tm header and vendored modernc musl pthread.h were inspected.
+Native locale/timer widths and host tm size/offsets are checked; __ptcb is checked
+against an explicit C mirror of the musl record, not glibc's different cleanup
+buffer. Exported alias types intentionally become pointer types. Production
+opuscc uintptr tokens decrease 179→173 (6 removed).
+
+Grouped layout tests drop original heap references, grow stacks/force GC, check
+opaque handle/string/cleanup-chain ownership and clearing, and compare existing
+Go record size/offsets to the old integer-word shape. The cleanup function-value
+slot is explicitly a Go-only opaque payload fixture, not a C function address
+or a repair of the raw legacy callback ABI. These layouts are unused by the
+codec and no locale/timer/pthread libc operations are newly implemented.
+The existing tm int64 gmtoff representation is unchanged on 386; host-native
+C tm parity is measured on amd64, not claimed for that port's 386 long layout.
+
+Final initial attempts hit a nested C block-comment preamble syntax error, then
+a recursive anonymous type-alias build error. A line comment and a named __ptcb
+record (same layout) resolve those errors; complete validation is rerun, with
+the original failure logs retained.
+Full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons, codec golden/
+tolerance checks and GC stress ultimately pass each round, followed by repeated scoped/
+ordinary ARM runs. No active decoder ownership coverage, opaque byte-allocation
+scanning, extension EOF/GC or raw callback fix is claimed.
+
 Four private decode offset rounds introduce numeric opusFramePCMAtBytes,
 migrate frame zeroing/SILK/recursive PCM cursors, fade/redundancy/transition/gain
 accesses, then native packet/FEC/PLC PCM dispatch and payload traversal. The
