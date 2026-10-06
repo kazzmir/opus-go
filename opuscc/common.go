@@ -4679,7 +4679,7 @@ func Opus_opus_packet_extensions_parse(tls *libc.TLS, data *byte, length int32, 
 		if count == *nbExtensions {
 			return -2
 		}
-		*(*OpusT_opus_extension_data)(unsafe.Add(unsafe.Pointer(extensions), uintptr(count)*unsafe.Sizeof(ext))) = ext
+		unsafe.Slice(extensions, int64(count)+1)[count] = ext
 		count++
 	}
 }
