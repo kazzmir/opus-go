@@ -110,6 +110,15 @@ func TestModeBandTableAgainstC(t *testing.T) {
 	}
 }
 
+func TestCompositeMultistreamSizeAgainstC(t *testing.T) {
+	for _, shape := range [][2]int32{{-1, -1}, {0, 0}, {1, 0}, {1, 1}, {2, 0}, {2, 1}, {2, 2}, {5, 2}, {1, 2}, {4, -1}, {255, 0}, {255, 255}} {
+		got := opuscc.Opus_opus_multistream_decoder_get_size(nil, shape[0], shape[1])
+		if want := nativeMSSize(shape[0], shape[1]); got != want {
+			t.Fatal("multistream size", shape, got, want)
+		}
+	}
+}
+
 func TestCompositeDecoderSizeAgainstC(t *testing.T) {
 	for _, ch := range []int32{-2147483648, -1, 0, 1, 2, 3, 2147483647} {
 		got := opuscc.Opus_opus_decoder_get_size(nil, ch)

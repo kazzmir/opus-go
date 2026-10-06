@@ -7,6 +7,21 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestCompositeSizeMultistream(t *testing.T) {
+	for _, shape := range [][2]int32{{-1, -1}, {0, 0}, {1, 0}, {1, 1}, {2, 0}, {2, 1}, {2, 2}, {5, 2}, {1, 2}, {4, -1}, {2147483647, 0}, {2147483647, 2147483647}} {
+		streams, coupled := shape[0], shape[1]
+		var want int32
+		if streams >= 1 && coupled >= 0 && coupled <= streams {
+			mono := Opus_opus_decoder_get_size(nil, 1)
+			stereo := Opus_opus_decoder_get_size(nil, 2)
+			want = 272 + coupled*int32((uint32(stereo)+7)/8*8) + (streams-coupled)*int32((uint32(mono)+7)/8*8)
+		}
+		if got := Opus_opus_multistream_decoder_get_size(nil, streams, coupled); got != want {
+			t.Fatal("multistream composition", shape, got, want)
+		}
+	}
+}
+
 func TestCompositeSizeAlignment(t *testing.T) {
 	for _, n := range []int32{-2147483648, -2147483647, -9, -8, -7, -1, 0, 1, 7, 8, 9, 2147483640, 2147483647} {
 		want := int32((uint32(n) + uint32(8) - 1) / 8 * 8)

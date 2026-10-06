@@ -3471,22 +3471,13 @@ func validate_ms_decoder(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
 	Opus_validate_layout(tls, &st.Flayout)
 }
 
-func Opus_opus_multistream_decoder_get_size(tls *libc.TLS, nb_streams int32, nb_coupled_streams int32) (r OpusT_opus_int32) {
-	var alignment uint32
-	var coupled_size, mono_size, v1, v3, v5 int32
-	_, _, _, _, _, _ = alignment, coupled_size, mono_size, v1, v3, v5
-	if nb_streams < int32(1) || nb_coupled_streams > nb_streams || nb_coupled_streams < 0 {
+func Opus_opus_multistream_decoder_get_size(tls *libc.TLS, nb_streams, nb_coupled_streams int32) int32 {
+	if nb_streams < 1 || nb_coupled_streams > nb_streams || nb_coupled_streams < 0 {
 		return 0
 	}
-	coupled_size = Opus_opus_decoder_get_size(tls, int32(2))
-	mono_size = Opus_opus_decoder_get_size(tls, int32(1))
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(268)) + alignment - uint32(1)) / alignment * alignment)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v3 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v5 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
-	return v1 + nb_coupled_streams*v3 + (nb_streams-nb_coupled_streams)*v5
+	coupledSize := Opus_opus_decoder_get_size(tls, 2)
+	monoSize := Opus_opus_decoder_get_size(tls, 1)
+	return opusAlignSize8(268) + nb_coupled_streams*opusAlignSize8(coupledSize) + (nb_streams-nb_coupled_streams)*opusAlignSize8(monoSize)
 }
 
 func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte) int32 {
