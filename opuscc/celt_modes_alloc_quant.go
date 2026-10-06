@@ -63,7 +63,7 @@ func modePulses2Bits(cache *byte, pulses int32) int32 {
 }
 
 func modeBand(m *OpusT_OpusCustomMode, band int32) int16 {
-	return *(*int16)(unsafe.Add(unsafe.Pointer(m.FeBands), uintptr(band)*2))
+	return unsafe.Slice(m.FeBands, int64(band)+1)[band]
 }
 
 func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frameSize int32) (*OpusT_OpusCustomMode, error) {

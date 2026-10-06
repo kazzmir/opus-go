@@ -158,6 +158,11 @@ func TestModePulseBitsPointers(t *testing.T) {
 }
 
 func TestModeBandPointers(t *testing.T) {
+	singleton := int16(32767)
+	prefix := OpusT_OpusCustomMode{FeBands: &singleton, FnbEBands: 100}
+	if modeBand(&prefix, 0) != singleton {
+		t.Fatal("consumed band prefix")
+	}
 	makeMode := func() *OpusT_OpusCustomMode {
 		m := mode48000_960_120
 		bands := slices.Clone(eband5ms[:])
