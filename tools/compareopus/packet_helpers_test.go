@@ -150,6 +150,12 @@ func TestPacketParseAgainstC(t *testing.T) {
 	}
 }
 
+func TestTimezoneLayoutAgainstC(t *testing.T) {
+	if got, want := opuscc.CompareTimezoneLayout(), nativeTimezoneLayout(); got != want {
+		t.Fatal("timezone layout", got, want)
+	}
+}
+
 func TestTimerHandleLayoutAgainstC(t *testing.T) {
 	var handle opuscc.OpusT_timer_t
 	if got, want := uint64(unsafe.Sizeof(handle)), nativeTimerHandleSize(); got != want {

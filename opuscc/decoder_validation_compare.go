@@ -5,6 +5,11 @@ package opuscc
 import "unsafe"
 import libc "github.com/kazzmir/opus-go/libcshim"
 
+func CompareTimezoneLayout() [3]uint64 {
+	var state tm
+	return [3]uint64{uint64(unsafe.Sizeof(state)), uint64(unsafe.Offsetof(state.Ftm_gmtoff)), uint64(unsafe.Offsetof(state.Ftm_zone))}
+}
+
 func CompareAllocationDriver(tls *libc.TLS, mode *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, cfg *[12]int32, ec *OpusT_ec_ctx) int32 {
 	return CompareAllocationDriverAlias(tls, mode, a, s, cfg, ec, 0)
 }

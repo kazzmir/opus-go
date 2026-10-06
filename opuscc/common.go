@@ -1817,7 +1817,7 @@ type tm = struct {
 	Ftm_yday   int32
 	Ftm_isdst  int32
 	Ftm_gmtoff int64
-	Ftm_zone   uintptr
+	Ftm_zone   *byte
 }
 
 type itimerspec = struct {

@@ -6,6 +6,28 @@ import (
 	"unsafe"
 )
 
+func TestTimezoneOwnerPointers(t *testing.T) {
+	type oldLayout struct {
+		Fields [9]int32
+		Offset int64
+		Zone   uintptr
+	}
+	holder := new(tm)
+	zone := []byte{'U', 'T', 'C', 0}
+	holder.Ftm_zone = &zone[0]
+	holder.Ftm_year = 123
+	zone = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if got := unsafe.Slice(holder.Ftm_zone, 4); got[0] != 'U' || got[1] != 'T' || got[2] != 'C' || got[3] != 0 || holder.Ftm_year != 123 {
+		t.Fatal("timezone owner", got)
+	}
+	var old oldLayout
+	if unsafe.Sizeof(*holder) != unsafe.Sizeof(old) || unsafe.Offsetof(holder.Ftm_zone) != unsafe.Offsetof(old.Zone) {
+		t.Fatal("existing timezone layout changed")
+	}
+}
+
 func TestTimerHandlePointers(t *testing.T) {
 	payload := []byte{29, 31}
 	holder := new(struct{ Timer OpusT_timer_t })
