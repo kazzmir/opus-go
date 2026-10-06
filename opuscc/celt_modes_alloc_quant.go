@@ -2845,16 +2845,16 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			/* Switch off dual stereo to do intensity. */
 			dual_stereo = 0
 			if resynth != 0 {
-				quantAllBandsMerge((*float32)(unsafe.Pointer(norm)), (*float32)(unsafe.Pointer(norm2)), eBands, i1, M, norm_offset)
+				quantAllBandsMerge(norm, norm2, eBands, i1, M, norm_offset)
 			}
 		}
 		if dual_stereo != 0 {
-			input := quantAllBandsFoldInput((*float32)(unsafe.Pointer(norm)), effective_lowband, N1)
-			output := quantAllBandsFoldOutput((*float32)(unsafe.Pointer(norm)), eBands, i1, M, norm_offset, N1, last)
-			x_cm = quant_band(tls, ctx, (*float32)(unsafe.Pointer(X)), N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(x_cm))
-			input = quantAllBandsFoldInput((*float32)(unsafe.Pointer(norm2)), effective_lowband, N1)
-			output = quantAllBandsFoldOutput((*float32)(unsafe.Pointer(norm2)), eBands, i1, M, norm_offset, N1, last)
-			y_cm = quant_band(tls, ctx, (*float32)(unsafe.Pointer(Y)), N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(y_cm))
+			input := quantAllBandsFoldInput(norm, effective_lowband, N1)
+			output := quantAllBandsFoldOutput(norm, eBands, i1, M, norm_offset, N1, last)
+			x_cm = quant_band(tls, ctx, X, N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(x_cm))
+			input = quantAllBandsFoldInput(norm2, effective_lowband, N1)
+			output = quantAllBandsFoldOutput(norm2, eBands, i1, M, norm_offset, N1, last)
+			y_cm = quant_band(tls, ctx, Y, N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(y_cm))
 		} else {
 			if Y != nil {
 				if theta_rdo != 0 && i1 < intensity {
