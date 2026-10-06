@@ -1306,34 +1306,34 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	// Decode fixed codebook using Go-owned per-channel collapse flags.
 	collapse_masks = celtDecodeMaskStorage(nbEBands, C)
 	spectralX, spectralY := celtDecodeSpectrumChannels(X, N, C)
-	quant_all_bands(tls, 0, mode, start, end, spectralX, spectralY, unsafe.SliceData(collapse_masks), nil, unsafe.SliceData(pulses), shortBlocks, spread_decision, dual_stereo, intensity, unsafe.SliceData(tf_res), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, &st1.Frng, 0, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdisable_inv)
-	anti_collapse_on = celtDecodeAntiCollapseBit(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), anti_collapse_rsv)
-	celtDecodeFinalEnergy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), (*float32)(unsafe.Pointer(oldBandE)), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), start, end, len1, C, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
-	celtDecodeAntiCollapse(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), unsafe.SliceData(X), unsafe.SliceData(collapse_masks), unsafe.SliceData(pulses), (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), N, LM, C, start, end, anti_collapse_on)
+	quant_all_bands(tls, 0, mode, start, end, spectralX, spectralY, unsafe.SliceData(collapse_masks), nil, unsafe.SliceData(pulses), shortBlocks, spread_decision, dual_stereo, intensity, unsafe.SliceData(tf_res), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, &st1.Frng, 0, st1.Farch, st1.Fdisable_inv)
+	anti_collapse_on = celtDecodeAntiCollapseBit(tls, dec, anti_collapse_rsv)
+	celtDecodeFinalEnergy(tls, mode, oldBandE, unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), start, end, len1, C, dec)
+	celtDecodeAntiCollapse(tls, st1, mode, unsafe.SliceData(X), unsafe.SliceData(collapse_masks), unsafe.SliceData(pulses), oldBandE, oldLogE, oldLogE2, N, LM, C, start, end, anti_collapse_on)
 	if silence != 0 {
-		celtDecodeSilenceEnergy((*float32)(unsafe.Pointer(oldBandE)), nbEBands, C)
+		celtDecodeSilenceEnergy(oldBandE, nbEBands, C)
 	}
-	celtDecodePrefilter(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), N)
-	celt_synthesis(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), unsafe.SliceData(X), &out_syn[0], (*float32)(unsafe.Pointer(oldBandE)), start, effEnd, C, CC, isTransient, LM, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample, silence, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Farch)
-	celtDecodePostfilter(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &out_syn[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap)
-	celtDecodePostfilterFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), postfilter_pitch, postfilter_gain, postfilter_tapset, LM)
+	celtDecodePrefilter(tls, st1, N)
+	celt_synthesis(tls, mode, unsafe.SliceData(X), &out_syn[0], oldBandE, start, effEnd, C, CC, isTransient, LM, st1.Fdownsample, silence, st1.Farch)
+	celtDecodePostfilter(tls, st1, mode, &out_syn[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap)
+	celtDecodePostfilterFinish(st1, postfilter_pitch, postfilter_gain, postfilter_tapset, LM)
 	if C == 1 {
-		celtDecodeEnergyMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
+		celtDecodeEnergyMono(oldBandE, nbEBands)
 	}
-	celtDecodeEnergyLogs((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, isTransient)
+	celtDecodeEnergyLogs(oldBandE, oldLogE, oldLogE2, nbEBands, isTransient)
 	/* In normal circumstances, we only allow the noise floor to increase by
 	   up to 2.4 dB/second, but when we're in DTX we give the weight of
 	   all missing packets to the update packet. */
-	celtDecodeEnergyBackground((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*float32)(unsafe.Pointer(backgroundLogE)), (*float32)(unsafe.Pointer(oldBandE)), nbEBands, M)
+	celtDecodeEnergyBackground(st1, backgroundLogE, oldBandE, nbEBands, M)
 	/* In case start or end were to change: energy, previous, log store order. */
-	celtDecodeEnergyClear((*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, start, end)
-	(*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Frng = (*OpusT_ec_dec)(unsafe.Pointer(dec)).Frng
-	celtDecodeDeemphasis(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), &out_syn[0], (*float32)(unsafe.Pointer(pcm)), N, CC, accum)
-	celtDecodePacketFinish((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)))
-	if errorCode := celtDecodePacketError((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*OpusT_ec_ctx)(unsafe.Pointer(dec)), len1); errorCode != 0 {
+	celtDecodeEnergyClear(oldBandE, oldLogE, oldLogE2, nbEBands, start, end)
+	st1.Frng = dec.Frng
+	celtDecodeDeemphasis(tls, st1, mode, &out_syn[0], pcm, N, CC, accum)
+	celtDecodePacketFinish(st1)
+	if errorCode := celtDecodePacketError(st1, dec, len1); errorCode != 0 {
 		return errorCode
 	}
-	return frame_size / (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)).Fdownsample
+	return frame_size / st1.Fdownsample
 }
 
 //go:uintptrescapes
