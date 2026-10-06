@@ -534,6 +534,32 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four numeric/typed-owner rounds replace the frame gain union pointer casts with
+math.Float32bits/Float32frombits, obtain multistream right-channel PCM directly
+from its Go audio owner, and advance down-FIR/IIR-FIR outputs through a shared
+concrete int16 consumed-prefix helper. Production unsafe.Pointer references
+decrease 252→247 (five removed); uintptr remains 173.
+
+Upstream mathops.h/opus_decoder.c, opus_multistream_decoder.c and the two
+resampler drivers remain the reference. Gain's existing float32 polynomial,
+floor/underflow test, signed narrowing/wrap, exponent shift and sign mask remain
+unchanged. Multistream only selects audio[1] after a positive child result and
+retains callback ordering, live mappings and channel counts. Resampler output
+views occur only when another block remains; zero count preserves identity,
+including nil, and terminal/lone-remainder suppression is unchanged. Tests add
+exact-sized 80-sample down-FIR and 322-sample IIR-FIR output backing and helper
+zero/positive identity checks, retaining existing state/guard/chunk comparisons.
+The actual i32/i16 resampler state union boundary is intentionally unchanged.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, followed by repeated scoped/ordinary ARM runs.
+No goldens, tolerances, assertions or live aliases are changed. Round four's
+initial native suite failed with `found pointer to free object`, with
+TestExtensionNextAgainstC on the stack; retained at
+/tmp/opus-round-iir-fir-typed-output-cursor.log. The complete retry and ARM repeats
+passed. Typed storage and numeric bits here do not repair opaque allocation
+scanning, extension EOF/GC or legacy raw callback ownership.
+
 Four typed-view rounds replace the remaining ICDF8/ICDF16 pointer walks with
 consumed-prefix indexing, the stereo deemphasis memory reinterpretation with
 Go's typed slice-to-array-pointer conversion, and the down-FIR coefficient

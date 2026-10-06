@@ -34,6 +34,12 @@ func TestIIRDriverPointers(t *testing.T) {
 	if s != ref || !slices.Equal(out[1:323], want) || out[0] != 123 || out[323] != 456 {
 		t.Fatal("batch/state/guards")
 	}
+	exactState := original
+	exact := make([]int16, len(want))
+	Opus_silk_resampler_private_IIR_FIR(nil, &exactState, &exact[0], &in[0], 161)
+	if exactState != s || !slices.Equal(exact, want) {
+		t.Fatal("exact output extent/state")
+	}
 	if !slices.Equal(s.FsFIR.Fi32[4:], original.FsFIR.Fi32[4:]) {
 		t.Fatal("union tail modified")
 	}

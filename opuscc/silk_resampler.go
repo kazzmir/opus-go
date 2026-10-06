@@ -436,7 +436,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, state *OpusT_silk_resamp
 			copy(history[:], buf[2*n:2*n+8])
 			break
 		}
-		out = (*int16)(unsafe.Add(unsafe.Pointer(out), int(written)*2))
+		out = silkResamplerAdvanceOutput(out, written)
 		copy(buf[:8], buf[2*n:2*n+8])
 	}
 }
