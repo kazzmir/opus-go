@@ -625,7 +625,7 @@ func ec_write_byte(tls *libc.TLS, _this0 *OpusT_ec_enc, _value uint32) (r int32)
 	}
 	v1 = _this0.Foffs
 	_this0.Foffs++
-	*(*uint8)(unsafe.Add(unsafe.Pointer(_this0.Fbuf), uintptr(v1))) = uint8(_value)
+	unsafe.Slice(_this0.Fbuf, uint64(v1)+1)[v1] = uint8(_value)
 	return 0
 }
 
@@ -637,7 +637,8 @@ func ec_write_byte_at_end(tls *libc.TLS, _this0 *OpusT_ec_enc, _value uint32) (r
 	}
 	_this0.Fend_offs++
 	v1 = _this0.Fend_offs
-	*(*uint8)(unsafe.Add(unsafe.Pointer(_this0.Fbuf), uintptr(_this0.Fstorage-v1))) = uint8(_value)
+	index := _this0.Fstorage - v1
+	unsafe.Slice(_this0.Fbuf, uint64(index)+1)[index] = uint8(_value)
 	return 0
 }
 
