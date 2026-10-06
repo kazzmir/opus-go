@@ -534,6 +534,30 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four entropy consumed-view rounds replace remaining integer address-offset
+casts in front/back byte readers, front/back byte writers, 8/16-bit encoder ICDF
+row loads, and final partial-byte OR with typed unsafe.Slice prefix indexing.
+Only the prefix through the consumed element is formed; a claimed full storage
+extent is not needed for individual byte operations. Exhaustion/collision checks
+still precede views, counter mutations still precede the buffer load/store, rate
+loads keep their existing current/previous caching, and final window/collision/
+sticky-error/clear behavior is unchanged. Production opuscc uintptr tokens
+ decrease 234→225 (9 removed). These are active entropy operations, though the
+ buffer/table owners were already typed before this batch.
+
+Grouped existing entropy tests add guarded front/tail sequences, empty/full
+buffers with unchanged counters/bytes, single-byte consumed prefixes despite
+larger claimed storage, counter-byte live aliases, and partial-tail empty/shared
+byte behavior. The cached rate-row state alias is explicitly Go-only: upstream
+C rereads the row after its intervening val store, whereas this port already
+cached these entries before this refactor. It is not new C alias parity.
+Existing native entropy snapshots/round trips, allocation and complete codec
+references remain unchanged; every round passes full amd64/386, ARM64/QEMU,
+scoped checkptr, native comparisons and GC stress, with repeated scoped/ordinary
+ARM validation after completion. Codec goldens/tolerances are unchanged.
+Negative/out-of-range symbols are outside the upstream table-access contract;
+no global opaque scanning, raw callback or extension EOF fix is claimed.
+
 Four numeric-size rounds simplify single decoder, multistream decoder, mapping
 matrix and projection decoder size composition. The generated uintptr(0)+8
 alignment expressions become a shared numeric opusAlignSize8 helper, preserving

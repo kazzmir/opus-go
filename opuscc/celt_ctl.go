@@ -879,8 +879,9 @@ func Opus_ec_enc_done(tls *libc.TLS, enc *OpusT_ec_enc) {
 			window &= uint32(int32(1)<<l - 1)
 			enc.Ferror1 = -1
 		}
-		p := (*byte)(unsafe.Add(unsafe.Pointer(enc.Fbuf), uintptr(enc.Fstorage-enc.Fend_offs-1)))
-		*p |= byte(window)
+		index := enc.Fstorage - enc.Fend_offs - 1
+		data := unsafe.Slice(enc.Fbuf, uint64(index)+1)
+		data[index] |= byte(window)
 	}
 	// C intentionally leaves the original end_window/nend_bits fields unchanged.
 }
