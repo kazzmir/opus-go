@@ -30,7 +30,7 @@ func modePulseCache(m *OpusT_OpusCustomMode, index int32) *byte {
 }
 
 func modePulseByte(cache *byte, index int32) byte {
-	return *(*byte)(unsafe.Add(unsafe.Pointer(cache), int(index)))
+	return unsafe.Slice(cache, int64(index)+1)[index]
 }
 
 // These are the scalar rate.h searches, with C int32 wrapping and tie order.
