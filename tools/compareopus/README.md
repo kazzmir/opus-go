@@ -534,6 +534,30 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four owner/numeric-consumer rounds keep the multistream validation packet owner
+with a numeric word-width cursor, express the projection multistream displacement
+as uint rather than pointer-valued uintptr, read forward band energies through
+consumed float32 prefixes, and expose forward delayed-NLSF rate rows through
+consumed byte prefixes. Production unsafe.Pointer references decrease 243→242;
+uintptr decreases 173→172. Negative energy/rate offsets retain explicit signed
+backward boundaries; their forward-path improvements do not reduce lexical
+unsafe.Pointer counts.
+
+Upstream opus_multistream_decoder.c/opus_projection_decoder.c, bands.c and
+NLSF_del_dec_quant.c remain the reference. Validation/error/sample comparison
+order and terminal-pointer suppression, fixed 8-byte geometry/uint32 wrapping/
+int32 narrowing/word conversion, live energy reads and NLSF row selection/store
+order remain unchanged. New grouped tests cover singleton energy backing,
+signed interior energy, exact single and final NLSF row extents/capacity/identity,
+and GC/stack growth. Negative helper geometry fixtures are Go-only, not new
+coverage of upstream negative band or generated NLSF table indices.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with repeated scoped/ordinary ARM fixtures after
+completion. No goldens, tolerances, assertions or aliases are weakened. Opaque
+allocation scanning, extension EOF/GC and raw callback boundaries are not
+claimed repaired.
+
 Four CELT typed-consumer rounds select comb-filter tail pointers from existing
 history/output slices (suppressing the unused zero tail), read coarse-energy
 encoder probability pairs through consumed byte prefixes, preserve MDCT's typed

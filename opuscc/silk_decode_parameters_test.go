@@ -93,6 +93,30 @@ func TestLTPVectorTablePointers(t *testing.T) {
 	}
 }
 
+func TestNLSFRateRowPointers(t *testing.T) {
+	const width = 2*NLSF_QUANT_MAX_AMPLITUDE + 1
+	owner := make([]byte, 3*width)
+	for i := range owner {
+		owner[i] = byte(i + 1)
+	}
+	for _, offset := range []int16{0, width, 2 * width} {
+		row := silkNLSFRateRow(&owner[0], offset)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if len(row) != width || cap(row) != width || &row[0] != &owner[offset] || row[width-1] != owner[int(offset)+width-1] {
+			t.Fatal("consumed rate row", offset)
+		}
+	}
+	row := silkNLSFRateRow(&owner[width], -width)
+	if len(row) != width || &row[0] != &owner[0] {
+		t.Fatal("signed interior rate row")
+	}
+	exact := [width]byte{1}
+	if row := silkNLSFRateRow(&exact[0], 0); len(row) != width || &row[0] != &exact[0] {
+		t.Fatal("exact single rate row")
+	}
+}
+
 func TestNLSFDelayedQuantPointers(t *testing.T) {
 	for _, N := range []int{10, 16} {
 		x, w, ix := make([]int16, N), make([]int16, N), make([]int16, N)
