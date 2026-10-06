@@ -407,7 +407,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 		}
 	}
 	/* Reset side channel decoder prediction memory for first frame with side coding */
-	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(2) && decode_only_middle == 0 && (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).Fprev_decode_only_middle == int32(1) {
+	if decControl.FnChannelsInternal == int32(2) && decode_only_middle == 0 && psDec.Fprev_decode_only_middle == int32(1) {
 		clear(decoder.Fchannel_state[1].FoutBuf[:])
 		clear(decoder.Fchannel_state[1].FsLPC_Q14_buf[:])
 		decoder.Fchannel_state[1].FlagPrev = int32(100)
@@ -430,7 +430,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 			break
 		}
 		if n == 0 || has_side != 0 {
-			FrameIndex = (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).FnFramesDecoded - n
+			FrameIndex = channel_state.FnFramesDecoded - n
 			/* Use independent coding if no previous frame available */
 			if FrameIndex <= 0 {
 				condCoding1 = CODE_INDEPENDENTLY
@@ -443,7 +443,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 					}
 					condCoding1 = v51
 				} else {
-					if n > 0 && (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).Fprev_decode_only_middle != 0 {
+					if n > 0 && psDec.Fprev_decode_only_middle != 0 {
 						/* If we skipped a side frame in this packet, we don't
 						   need LTP scaling; the LTP state is well-defined. */
 						condCoding1 = int32(CODE_INDEPENDENTLY_NO_LTP_SCALING)
@@ -452,7 +452,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 					}
 				}
 			}
-			ret = ret + silk_decode_frame(tls, &decoder.Fchannel_state[n], (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), &samplesOut1_tmp[n][2], &nSamplesOutDec, lostFlag, condCoding1, arch)
+			ret = ret + silk_decode_frame(tls, &decoder.Fchannel_state[n], psRangeDec, &samplesOut1_tmp[n][2], &nSamplesOutDec, lostFlag, condCoding1, arch)
 		} else {
 			clear(samplesOut1_tmp[n][2 : 2+nSamplesOutDec])
 		}
@@ -473,10 +473,10 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 	resample_out_ptr = samplesOut2_tmp
 	n = 0
 	for {
-		if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsAPI < (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal {
-			v51 = (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsAPI
+		if decControl.FnChannelsAPI < decControl.FnChannelsInternal {
+			v51 = decControl.FnChannelsAPI
 		} else {
-			v51 = (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal
+			v51 = decControl.FnChannelsInternal
 		}
 		if !(n < v51) {
 			break
@@ -492,7 +492,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 		n = n + 1
 	}
 	/* Create two channel output from mono stream */
-	if (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsAPI == int32(2) && (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FnChannelsInternal == int32(1) {
+	if decControl.FnChannelsAPI == int32(2) && decControl.FnChannelsInternal == int32(1) {
 		if stereo_to_mono != 0 {
 			/* Resample right channel for newly collapsed stereo just in case
 			   we weren't doing collapsing when switching to mono */
