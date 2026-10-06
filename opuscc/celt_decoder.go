@@ -1270,29 +1270,29 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	celtDecodePacketStart(st1)
 	dec = celtDecodeEntropy(tls, dec, &_dec, data, len1)
 	if C == 1 {
-		celtDecodeEnergyMergeMono((*float32)(unsafe.Pointer(oldBandE)), nbEBands)
+		celtDecodeEnergyMergeMono(oldBandE, nbEBands)
 	}
 	total_bits = len1 * int32(8)
-	silence, tell = celtDecodeSilence(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), total_bits)
-	postfilter_pitch, postfilter_gain, postfilter_tapset, tell = celtDecodePostfilterHeader(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), start, total_bits, tell)
-	isTransient, shortBlocks, intra_ener, tell = celtDecodeGlobalFlags(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), LM, M, total_bits, tell)
+	silence, tell = celtDecodeSilence(tls, dec, total_bits)
+	postfilter_pitch, postfilter_gain, postfilter_tapset, tell = celtDecodePostfilterHeader(tls, dec, start, total_bits, tell)
+	isTransient, shortBlocks, intra_ener, tell = celtDecodeGlobalFlags(tls, dec, LM, M, total_bits, tell)
 	/* If recovering from packet loss, make sure we make the energy prediction safe to reduce the
 	   risk of getting loud artifacts. */
-	celtDecodeRecoverEnergy((*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*float32)(unsafe.Pointer(oldBandE)), (*float32)(unsafe.Pointer(oldLogE)), (*float32)(unsafe.Pointer(oldLogE2)), nbEBands, start, end, LM, intra_ener)
+	celtDecodeRecoverEnergy(st1, oldBandE, oldLogE, oldLogE2, nbEBands, start, end, LM, intra_ener)
 	/* Get band energies */
-	Opus_unquant_coarse_energy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*float32)(unsafe.Pointer(oldBandE)), intra_ener, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), C, LM)
-	tf_res = celtDecodeTFStorage(tls, nbEBands, start, end, isTransient, LM, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
-	spread_decision, tell = celtDecodeSpread(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), total_bits)
-	cap1 = celtDecodeCapsStorage(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), nbEBands, LM, C)
+	Opus_unquant_coarse_energy(tls, mode, start, end, oldBandE, intra_ener, dec, C, LM)
+	tf_res = celtDecodeTFStorage(tls, nbEBands, start, end, isTransient, LM, dec)
+	spread_decision, tell = celtDecodeSpread(tls, dec, total_bits)
+	cap1 = celtDecodeCapsStorage(tls, mode, nbEBands, LM, C)
 	offsets = celtDecodeOffsetsStorage(nbEBands)
-	total_bits, tell = celtDecodeBoosts(tls, eBands, unsafe.SliceData(cap1), unsafe.SliceData(offsets), start, end, C, LM, total_bits, (*OpusT_ec_ctx)(unsafe.Pointer(dec)))
+	total_bits, tell = celtDecodeBoosts(tls, eBands, unsafe.SliceData(cap1), unsafe.SliceData(offsets), start, end, C, LM, total_bits, dec)
 	fine_quant = celtDecodeFineStorage(nbEBands)
-	alloc_trim = celtDecodeTrim(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), tell, total_bits)
-	bits, anti_collapse_rsv = celtDecodeAllocationBudget(tls, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), len1, isTransient, LM)
+	alloc_trim = celtDecodeTrim(tls, dec, tell, total_bits)
+	bits, anti_collapse_rsv = celtDecodeAllocationBudget(tls, dec, len1, isTransient, LM)
 	pulses = celtDecodePulseStorage(nbEBands)
 	fine_priority = celtDecodePriorityStorage(nbEBands)
-	codedBands = clt_compute_allocation(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, unsafe.SliceData(offsets), unsafe.SliceData(cap1), alloc_trim, &intensity, &dual_stereo, bits, &balance, unsafe.SliceData(pulses), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(dec)), 0, 0, 0)
-	Opus_unquant_fine_energy(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(mode)), start, end, (*OpusT_celt_glog)(unsafe.Pointer(oldBandE)), nil, unsafe.SliceData(fine_quant), (*OpusT_ec_dec)(unsafe.Pointer(dec)), C)
+	codedBands = clt_compute_allocation(tls, mode, start, end, unsafe.SliceData(offsets), unsafe.SliceData(cap1), alloc_trim, &intensity, &dual_stereo, bits, &balance, unsafe.SliceData(pulses), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), C, LM, dec, 0, 0, 0)
+	Opus_unquant_fine_energy(tls, mode, start, end, oldBandE, nil, unsafe.SliceData(fine_quant), dec, C)
 	X = celtDecodeSpectrumStorage(N, C) // Contiguous per-channel normalized MDCT spectra.
 	c = 0
 	for {
