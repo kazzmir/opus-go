@@ -28,6 +28,29 @@ func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage 
 	return storage
 }
 
+func TestOpusFrameNumericPCMOffsetPointers(t *testing.T) {
+	if opusFramePCMAtBytes(nil, 0) != nil {
+		t.Fatal("nil zero byte displacement")
+	}
+	samples := []float32{77, 11, 22, 88}
+	base := &samples[1]
+	middle := opusFramePCMAtBytes(base, 4)
+	samples = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *middle != 22 || *opusFramePCMAtBytes(base, 0) != 11 {
+		t.Fatal("typed numeric PCM owner")
+	}
+	*middle = 33
+	if *opusFramePCMAtBytes(base, 4) != 33 {
+		t.Fatal("PCM alias")
+	}
+	single := float32(19)
+	if *opusFramePCMAtBytes(&single, 0) != 19 {
+		t.Fatal("single consumed PCM")
+	}
+}
+
 func TestOpusFrameFecPointers(t *testing.T) {
 	storage := newOpusFrameOwnerDecoder(t, 2)
 	decoder := &storage.Decoder

@@ -2313,6 +2313,11 @@ func opusFrameCeltState(decoder *OpusT_OpusDecoder) *OpusT_OpusCustomDecoder {
 }
 
 func opusFrameSilkPCM(base *float32, offset uintptr) *float32 {
+	return opusFramePCMAtBytes(base, uint(offset))
+}
+
+// Byte displacements are numeric; the backing owner remains a typed pointer.
+func opusFramePCMAtBytes(base *float32, offset uint) *float32 {
 	if offset == 0 {
 		return base
 	}
@@ -2335,7 +2340,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 	var silk_dec *OpusT_silk_decoder
 	var celt_dec *OpusT_OpusCustomDecoder
 	var pcm_base, pcm_ptr *float32
-	var pcm_offset uintptr
+	var pcm_offset uint
 	var pcm_silk, pcm_transition_celt, pcm_transition_silk []float32
 	var pcm_transition, redundant_audio *float32
 	var frac, v175, v176 float32
@@ -2410,7 +2415,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 				if !(i < audiosize*decoder.Fchannels) {
 					break
 				}
-				*opusFrameSilkPCM(pcm_owner, uintptr(i)*4) = float32(0)
+				*opusFramePCMAtBytes(pcm_owner, uint(i)*4) = float32(0)
 				i = i + 1
 			}
 			return audiosize
@@ -2418,18 +2423,18 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		/* Avoids trying to run the PLC on sizes other than 2.5 (CELT), 5 (CELT),
 		   10, or 20 (e.g. 12.5 or 30 ms). */
 		if audiosize > F20 {
-			recursive_offset := uintptr(0)
+			recursive_offset := uint(0)
 			for cond := true; cond; cond = audiosize > 0 {
 				if audiosize < F20 {
 					v31 = audiosize
 				} else {
 					v31 = F20
 				}
-				ret = opusDecodeFrame(tls, st1, nil, 0, opusFrameSilkPCM(pcm, recursive_offset), v31, 0)
+				ret = opusDecodeFrame(tls, st1, nil, 0, opusFramePCMAtBytes(pcm, recursive_offset), v31, 0)
 				if ret < 0 {
 					return ret
 				}
-				recursive_offset += uintptr(ret*decoder.Fchannels) * 4
+				recursive_offset += uint(ret*decoder.Fchannels) * 4
 				audiosize = audiosize - ret
 			}
 			return frame_size
@@ -2531,7 +2536,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		lost_flag = v31
 		decoded_samples = 0
 		for cond := true; cond; cond = decoded_samples < frame_size {
-			pcm_ptr = opusFrameSilkPCM(pcm_base, pcm_offset)
+			pcm_ptr = opusFramePCMAtBytes(pcm_base, pcm_offset)
 			/* Call SILK decoder */
 			first_frame = libc.BoolInt32(decoded_samples == 0)
 			silk_ret = silk_Decode(tls, silk_dec, &decoder.FDecControl, lost_flag, first_frame, &dec, pcm_ptr, &silk_frame_size, decoder.Farch)
@@ -2544,14 +2549,14 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 						if !(i < frame_size*decoder.Fchannels) {
 							break
 						}
-						*opusFrameSilkPCM(pcm_ptr, uintptr(i)*4) = float32(0)
+						*opusFramePCMAtBytes(pcm_ptr, uint(i)*4) = float32(0)
 						i = i + 1
 					}
 				} else {
 					return -int32(3)
 				}
 			}
-			pcm_offset += uintptr(silk_frame_size*decoder.Fchannels) * 4
+			pcm_offset += uint(silk_frame_size*decoder.Fchannels) * 4
 			decoded_samples = decoded_samples + silk_frame_size
 		}
 		if pcm_too_small != 0 {
@@ -2694,7 +2699,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 				if !(i < frame_size*decoder.Fchannels) {
 					break
 				}
-				*opusFrameSilkPCM(pcm_owner, uintptr(i)*4) = float32(0)
+				*opusFramePCMAtBytes(pcm_owner, uint(i)*4) = float32(0)
 				i = i + 1
 			}
 		}
