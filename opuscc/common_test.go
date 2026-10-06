@@ -7,6 +7,22 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestCompositeSizeMatrix(t *testing.T) {
+	for _, shape := range [][2]int32{{0, 0}, {1, 1}, {255, 127}, {255, 128}, {200, 162}, {256, 0}, {0, 256}, {-1, 3}, {-300, 2}, {-2147483648, 2}, {-2147483648, -1}} {
+		rows, cols := shape[0], shape[1]
+		var want int32
+		if rows <= 255 && cols <= 255 {
+			size := int32(uint64(uint32(rows*cols)) * 2)
+			if size <= 65004 {
+				want = 16 + int32((uint32(size)+7)/8*8)
+			}
+		}
+		if got := Opus_mapping_matrix_get_size(nil, rows, cols); got != want {
+			t.Fatal("mapping size", shape, got, want)
+		}
+	}
+}
+
 func TestCompositeSizeMultistream(t *testing.T) {
 	for _, shape := range [][2]int32{{-1, -1}, {0, 0}, {1, 0}, {1, 1}, {2, 0}, {2, 1}, {2, 2}, {5, 2}, {1, 2}, {4, -1}, {2147483647, 0}, {2147483647, 2147483647}} {
 		streams, coupled := shape[0], shape[1]

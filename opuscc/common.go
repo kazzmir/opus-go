@@ -3912,11 +3912,7 @@ type OpusT_MappingMatrix = struct {
 	Fgain int32
 }
 
-func Opus_mapping_matrix_get_size(tls *libc.TLS, rows int32, cols int32) (r OpusT_opus_int32) {
-	var alignment uint32
-	var size OpusT_opus_int32
-	var v1, v3 int32
-	_, _, _, _ = alignment, size, v1, v3
+func Opus_mapping_matrix_get_size(tls *libc.TLS, rows int32, cols int32) int32 {
 	/* Mapping Matrix must only support up to 255 channels in or out.
 	 * Additionally, the total cell count must be <= 65004 octets in order
 	 * for the matrix to be stored in an OGG header.
@@ -3924,15 +3920,11 @@ func Opus_mapping_matrix_get_size(tls *libc.TLS, rows int32, cols int32) (r Opus
 	if rows > int32(255) || cols > int32(255) {
 		return 0
 	}
-	size = int32(uint64(uint32(rows*cols)) * uint64(2))
+	size := int32(uint64(uint32(rows*cols)) * uint64(2))
 	if size > int32(65004) {
 		return 0
 	}
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v1 = int32((uint32(int32(12)) + alignment - uint32(1)) / alignment * alignment)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v3 = int32((uint32(size) + alignment - uint32(1)) / alignment * alignment)
-	return v1 + v3
+	return opusAlignSize8(12) + opusAlignSize8(size)
 }
 
 // MappingMatrix is followed by int16 coefficients after its 8-byte-aligned
