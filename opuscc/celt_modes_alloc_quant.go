@@ -16,11 +16,11 @@ var _ unsafe.Pointer
 
 // modeLogN keeps the table address typed, including in remaining legacy callers.
 func modeLogN(m *OpusT_OpusCustomMode, band int32) int16 {
-	return *(*int16)(unsafe.Add(unsafe.Pointer(m.FlogN), uintptr(band)*2))
+	return unsafe.Slice(m.FlogN, int64(band)+1)[band]
 }
 
 func modePulseIndex(m *OpusT_OpusCustomMode, index int32) int16 {
-	return *(*int16)(unsafe.Add(unsafe.Pointer(m.Fcache.Findex), uintptr(index)*2))
+	return unsafe.Slice(m.Fcache.Findex, int64(index)+1)[index]
 }
 
 func modePulseCache(m *OpusT_OpusCustomMode, index int32) *byte {
@@ -63,7 +63,7 @@ func modePulses2Bits(cache *byte, pulses int32) int32 {
 }
 
 func modeBand(m *OpusT_OpusCustomMode, band int32) int16 {
-	return *(*int16)(unsafe.Add(unsafe.Pointer(m.FeBands), uintptr(band)*2))
+	return unsafe.Slice(m.FeBands, int64(band)+1)[band]
 }
 
 func Opus_opus_custom_mode_create(tls *libc.TLS, Fs OpusT_opus_int32, frameSize int32) (*OpusT_OpusCustomMode, error) {

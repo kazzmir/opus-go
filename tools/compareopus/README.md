@@ -534,6 +534,130 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four dormant compatibility-layout rounds change locale_t and timer_t aliases
+to unsafe.Pointer, tm's timezone abbreviation to *byte, and musl __ptcb's callback/
+argument/link members to unsafe.Pointer/unsafe.Pointer/*__ptcb. Actual Linux
+libc typedefs, tm header and vendored modernc musl pthread.h were inspected.
+Native locale/timer widths and host tm size/offsets are checked; __ptcb is checked
+against an explicit C mirror of the musl record, not glibc's different cleanup
+buffer. Exported alias types intentionally become pointer types. Production
+opuscc uintptr tokens decrease 179→173 (6 removed).
+
+Grouped layout tests drop original heap references, grow stacks/force GC, check
+opaque handle/string/cleanup-chain ownership and clearing, and compare existing
+Go record size/offsets to the old integer-word shape. The cleanup function-value
+slot is explicitly a Go-only opaque payload fixture, not a C function address
+or a repair of the raw legacy callback ABI. These layouts are unused by the
+codec and no locale/timer/pthread libc operations are newly implemented.
+The existing tm int64 gmtoff representation is unchanged on 386; host-native
+C tm parity is measured on amd64, not claimed for that port's 386 long layout.
+
+Final initial attempts hit a nested C block-comment preamble syntax error, then
+a recursive anonymous type-alias build error. A line comment and a named __ptcb
+record (same layout) resolve those errors; complete validation is rerun, with
+the original failure logs retained.
+Full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons, codec golden/
+tolerance checks and GC stress ultimately pass each round, followed by repeated scoped/
+ordinary ARM runs. No active decoder ownership coverage, opaque byte-allocation
+scanning, extension EOF/GC or raw callback fix is claimed.
+
+Four private decode offset rounds introduce numeric opusFramePCMAtBytes,
+migrate frame zeroing/SILK/recursive PCM cursors, fade/redundancy/transition/gain
+accesses, then native packet/FEC/PLC PCM dispatch and payload traversal. The
+old opusFrameSilkPCM integer-word adapter is deleted once every private caller
+and grouped fixture uses the numeric helper. All byte displacements retain the
+old uint-width wrapping, multiply order and /4 truncation; nil/zero handling and
+consumed-prefix view timing remain unchanged. Frame/payload owners were already
+typed, so this is numeric clarity cleanup, not new lifetime coverage of a formerly
+opaque owner. Public decoder escape adapters remain unchanged.
+Production opuscc uintptr tokens decrease 209→179 (30 removed).
+
+Grouped frame tests add nil/zero and heap-owner/alias checks for numeric PCM
+views; existing transition/fade/chunk fixtures are updated without changing
+assertions, data or goldens. Existing native tests extend unused negative-length
+payload-offset suppression. Real SILK/hybrid/CELT, PLC/FEC, fade/softclip and
+validation/state/range references remain unchanged. The third initial validation
+attempt failed to compile because six existing fixtures still used the retired
+helper; updating those fixture calls to the numeric equivalent resolved it,
+followed by a complete successful validation rerun (original log retained).
+
+Every round ultimately passes full amd64/386, ARM64/QEMU, scoped checkptr,
+native comparisons and GC stress; repeated scoped/ordinary ARM runs finish the
+batch. Codec goldens/tolerances are unchanged. No global opaque scanning,
+extension EOF/GC or raw callback fix is claimed.
+
+Four extension-output/multistream rounds replace bitstream- and frame-ordered
+extension record address multiplication with typed consumed-prefix stores,
+reuse opusAlignSize8 for the private multistream header/child strides, then
+express multistream packet/child offsets as numeric uint instead of uintptr.
+The uint change preserves native word-width arithmetic/wrapping on amd64/386/
+ARM64; no addresses are stored in these numeric cursors. Child advance before
+error gating and packet advance before child-return gating remain unchanged.
+Production opuscc uintptr tokens decrease 221→209 (12 removed).
+
+Grouped existing extension tests preserve live capacity reloads, prefix-sum
+snapshotting, bucket/assertion/error ordering, partial writes, GC-visible payload
+owners and guards; singleton output tests ensure only consumed records are
+viewed, not an entire nominal larger capacity. Upstream extensions.c record
+store/error order is unchanged. Frame counts must satisfy the upstream count_ext
+contract; malformed negative cumulative output indices are not a supported array
+access contract. Multistream tests retain exact-stride scanned child geometry,
+add packet-owner retention through numeric offsets and zero/negative-length
+terminal-offset suppression. Existing numeric alignment boundary tests remain.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native extension/
+multistream comparisons, codec references and GC stress, followed by repeated
+scoped/ordinary ARM runs. Goldens/tolerances are unchanged. Extension iterator/
+zero-length EOF pointer representation is deliberately unchanged: scoped parser
+fixtures use padded packet backing. This batch does not fix that separate EOF/GC
+issue, opaque allocator scanning or raw legacy function-pointer capture.
+
+Four mode/resampler rounds replace the mode log, pulse-cache index and band
+boundary helpers' integer byte-address calculations with typed int16 consumed
+prefix views, then change the resampler output byte displacement's cast from
+uintptr to numeric uint. The latter preserves machine-word width/wrapping and
+existing typed unsafe.Add behavior exactly; it is numeric cleanup, not an owner
+or EOF fix. Production opuscc uintptr tokens decrease 225→221 (4 removed).
+
+Existing grouped mode tests retain heap-owner GC/stack-growth coverage, all table
+rows and signed values; singleton views now explicitly prove that nominal larger
+band counts do not cause fabricated full-table extents. Existing resampler
+four-rate-pair driver guards/history tests at 1/2/10/21ms now also grow the stack
+and force GC before every call. The terminal remaining==0 guard, output offsets,
+driver selection and load/store order are unchanged. Negative/out-of-range table
+indices are outside the upstream table-access contract. Upstream rate/bands
+index expressions and resampler.c were inspected before changing these helpers.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native mode/rate/
+resampler comparisons, codec references and GC stress, followed by repeated
+scoped/ordinary ARM runs. Goldens/tolerances remain unchanged. These owners were
+already typed; no new opaque-allocation scanning, raw callback or extension EOF
+safety is claimed.
+
+Four entropy consumed-view rounds replace remaining integer address-offset
+casts in front/back byte readers, front/back byte writers, 8/16-bit encoder ICDF
+row loads, and final partial-byte OR with typed unsafe.Slice prefix indexing.
+Only the prefix through the consumed element is formed; a claimed full storage
+extent is not needed for individual byte operations. Exhaustion/collision checks
+still precede views, counter mutations still precede the buffer load/store, rate
+loads keep their existing current/previous caching, and final window/collision/
+sticky-error/clear behavior is unchanged. Production opuscc uintptr tokens
+ decrease 234→225 (9 removed). These are active entropy operations, though the
+ buffer/table owners were already typed before this batch.
+
+Grouped existing entropy tests add guarded front/tail sequences, empty/full
+buffers with unchanged counters/bytes, single-byte consumed prefixes despite
+larger claimed storage, counter-byte live aliases, and partial-tail empty/shared
+byte behavior. The cached rate-row state alias is explicitly Go-only: upstream
+C rereads the row after its intervening val store, whereas this port already
+cached these entries before this refactor. It is not new C alias parity.
+Existing native entropy snapshots/round trips, allocation and complete codec
+references remain unchanged; every round passes full amd64/386, ARM64/QEMU,
+scoped checkptr, native comparisons and GC stress, with repeated scoped/ordinary
+ARM validation after completion. Codec goldens/tolerances are unchanged.
+Negative/out-of-range symbols are outside the upstream table-access contract;
+no global opaque scanning, raw callback or extension EOF fix is claimed.
+
 Four numeric-size rounds simplify single decoder, multistream decoder, mapping
 matrix and projection decoder size composition. The generated uintptr(0)+8
 alignment expressions become a shared numeric opusAlignSize8 helper, preserving

@@ -20,7 +20,7 @@ func ec_read_byte(_this *OpusT_ec_dec) (r int32) {
 	if _this.Foffs < _this.Fstorage {
 		v2 = _this.Foffs
 		_this.Foffs++
-		v1 = int32(*(*uint8)(unsafe.Add(unsafe.Pointer(_this.Fbuf), uintptr(v2))))
+		v1 = int32(unsafe.Slice(_this.Fbuf, uint64(v2)+1)[v2])
 	} else {
 		v1 = 0
 	}
@@ -34,7 +34,8 @@ func ec_read_byte_from_end(_this *OpusT_ec_dec) (r int32) {
 	if _this.Fend_offs < _this.Fstorage {
 		_this.Fend_offs++
 		v2 = _this.Fend_offs
-		v1 = int32(*(*uint8)(unsafe.Add(unsafe.Pointer(_this.Fbuf), uintptr(_this.Fstorage-v2))))
+		index := _this.Fstorage - v2
+		v1 = int32(unsafe.Slice(_this.Fbuf, uint64(index)+1)[index])
 	} else {
 		v1 = 0
 	}

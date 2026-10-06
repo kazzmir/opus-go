@@ -49,6 +49,11 @@ func TestModeTablePointers(t *testing.T) {
 }
 
 func TestModeLogPointers(t *testing.T) {
+	singleton := int16(-123)
+	prefix := OpusT_OpusCustomMode{FlogN: &singleton, FnbEBands: 100}
+	if modeLogN(&prefix, 0) != singleton {
+		t.Fatal("consumed log prefix")
+	}
 	makeMode := func() *OpusT_OpusCustomMode {
 		m := mode48000_960_120
 		log := slices.Clone(logN400[:])
@@ -74,6 +79,12 @@ func TestModeLogPointers(t *testing.T) {
 }
 
 func TestModePulseIndexPointers(t *testing.T) {
+	singleton := int16(-1)
+	prefix := OpusT_OpusCustomMode{FnbEBands: 100}
+	prefix.Fcache.Findex = &singleton
+	if modePulseIndex(&prefix, 0) != singleton {
+		t.Fatal("consumed pulse index prefix")
+	}
 	makeMode := func() *OpusT_OpusCustomMode {
 		m := mode48000_960_120
 		index := slices.Clone(cache_index50[:])
@@ -147,6 +158,11 @@ func TestModePulseBitsPointers(t *testing.T) {
 }
 
 func TestModeBandPointers(t *testing.T) {
+	singleton := int16(32767)
+	prefix := OpusT_OpusCustomMode{FeBands: &singleton, FnbEBands: 100}
+	if modeBand(&prefix, 0) != singleton {
+		t.Fatal("consumed band prefix")
+	}
 	makeMode := func() *OpusT_OpusCustomMode {
 		m := mode48000_960_120
 		bands := slices.Clone(eband5ms[:])

@@ -422,7 +422,7 @@ func TestOpusNativePayloadPointers(t *testing.T) {
 	if view != &packet[2] || unsafe.Slice(view, 3)[2] != 12 {
 		t.Fatal("numeric packet cursor")
 	}
-	if opusNativePayload(&packet[0], 5, 0) != nil {
+	if opusNativePayload(&packet[0], 5, 0) != nil || opusNativePayload(&packet[0], ^uint(0), -1) != nil {
 		t.Fatal("unused exact EOF view")
 	}
 }

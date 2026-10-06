@@ -245,6 +245,13 @@ func TestExtensionCountExtPointers(t *testing.T) {
 }
 
 func TestExtensionParsePointers(t *testing.T) {
+	// A larger capacity is not a claim that unused records are backed by storage.
+	prefixPacket := [8]byte{7, 11}
+	single := OpusT_opus_extension_data{}
+	largeCapacity := int32(100)
+	if Opus_opus_packet_extensions_parse(nil, &prefixPacket[0], 2, &single, &largeCapacity, 1) != 0 || largeCapacity != 1 || single.Fid != 3 || single.Flen1 != 1 || *single.Fdata != 11 {
+		t.Fatal("consumed output prefix")
+	}
 	owned := func() [2]OpusT_opus_extension_data {
 		packet := [32]byte{7, 11, 7, 22, 65}
 		guard := struct {
@@ -282,6 +289,13 @@ func TestExtensionParsePointers(t *testing.T) {
 }
 
 func TestExtensionParseExtPointers(t *testing.T) {
+	prefixPacket := [8]byte{7, 11}
+	single := OpusT_opus_extension_data{}
+	largeCapacity := int32(100)
+	oneCount := int32(1)
+	if Opus_opus_packet_extensions_parse_ext(nil, &prefixPacket[0], 2, &single, &largeCapacity, &oneCount, 1) != 0 || largeCapacity != 1 || single.Fid != 3 || single.Fframe != 0 || single.Flen1 != 1 || *single.Fdata != 11 || oneCount != 1 {
+		t.Fatal("consumed frame output prefix")
+	}
 	owned := func() [4]OpusT_opus_extension_data {
 		packet := [32]byte{7, 11, 5, 22, 33, 9, 44}
 		counts := [3]int32{2, 1, 1}

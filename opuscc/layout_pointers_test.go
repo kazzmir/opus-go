@@ -6,6 +6,91 @@ import (
 	"unsafe"
 )
 
+// The function-value slot is a Go-only opaque-owner fixture, not a C function
+// address and not permission to invoke Go closures through legacy integer ABIs.
+func TestCleanupRecordPointers(t *testing.T) {
+	makeRecord := func() *__ptcb {
+		payload := []byte{41}
+		counter := new(int32)
+		closure := func(arg unsafe.Pointer) { *counter += int32(*(*byte)(arg)) }
+		tail := &__ptcb{F__x: unsafe.Pointer(counter)}
+		return &__ptcb{F__f: unsafe.Pointer(&closure), F__x: unsafe.Pointer(&payload[0]), F__next: tail}
+	}
+	record := makeRecord()
+	entropyInitGrowStack(12)
+	runtime.GC()
+	callback := *(*func(unsafe.Pointer))(record.F__f)
+	callback(record.F__x)
+	if record.F__next == nil || *(*int32)(record.F__next.F__x) != 41 {
+		t.Fatal("cleanup chain owners")
+	}
+	type oldLayout struct{ Function, Argument, Next uintptr }
+	var old oldLayout
+	if unsafe.Sizeof(*record) != unsafe.Sizeof(old) || unsafe.Offsetof(record.F__x) != unsafe.Offsetof(old.Argument) || unsafe.Offsetof(record.F__next) != unsafe.Offsetof(old.Next) {
+		t.Fatal("cleanup layout changed")
+	}
+	record.F__f = nil
+	record.F__x = nil
+	record.F__next = nil
+	runtime.GC()
+}
+
+func TestTimezoneOwnerPointers(t *testing.T) {
+	type oldLayout struct {
+		Fields [9]int32
+		Offset int64
+		Zone   uintptr
+	}
+	holder := new(tm)
+	zone := []byte{'U', 'T', 'C', 0}
+	holder.Ftm_zone = &zone[0]
+	holder.Ftm_year = 123
+	zone = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if got := unsafe.Slice(holder.Ftm_zone, 4); got[0] != 'U' || got[1] != 'T' || got[2] != 'C' || got[3] != 0 || holder.Ftm_year != 123 {
+		t.Fatal("timezone owner", got)
+	}
+	var old oldLayout
+	if unsafe.Sizeof(*holder) != unsafe.Sizeof(old) || unsafe.Offsetof(holder.Ftm_zone) != unsafe.Offsetof(old.Zone) {
+		t.Fatal("existing timezone layout changed")
+	}
+}
+
+func TestTimerHandlePointers(t *testing.T) {
+	payload := []byte{29, 31}
+	holder := new(struct{ Timer OpusT_timer_t })
+	holder.Timer = unsafe.Pointer(&payload[0])
+	payload = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *(*byte)(holder.Timer) != 29 {
+		t.Fatal("opaque timer owner")
+	}
+	if unsafe.Sizeof(holder.Timer) != unsafe.Sizeof(unsafe.Pointer(nil)) {
+		t.Fatal("timer handle width")
+	}
+	holder.Timer = nil
+	runtime.GC()
+}
+
+func TestLocaleHandlePointers(t *testing.T) {
+	payload := []byte{19, 23}
+	holder := new(struct{ Locale OpusT_locale_t })
+	holder.Locale = unsafe.Pointer(&payload[0])
+	payload = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *(*byte)(holder.Locale) != 19 {
+		t.Fatal("opaque locale owner")
+	}
+	if unsafe.Sizeof(holder.Locale) != unsafe.Sizeof(unsafe.Pointer(nil)) {
+		t.Fatal("locale handle width")
+	}
+	holder.Locale = nil
+	runtime.GC()
+}
+
 func TestFFTArchitectureOwnerPointers(t *testing.T) {
 	cfg := new(OpusT_kiss_fft_state)
 	architecture := new(OpusT_arch_fft_state)

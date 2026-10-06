@@ -5,6 +5,35 @@ import (
 	"unsafe"
 )
 
+func TestEntropyDonePartialPointers(t *testing.T) {
+	for _, full := range []bool{false, true} {
+		buffer := [3]byte{77, 0xaa, 88}
+		var enc OpusT_ec_enc
+		Opus_ec_enc_init(nil, &enc, &buffer[1], 1)
+		enc.Fend_window = 5
+		enc.Fnend_bits = 3
+		wantByte, wantError := byte(5), int32(0)
+		if full {
+			enc.Foffs = 1
+			wantByte = 0xaa
+			wantError = -1
+		}
+		before := enc
+		Opus_ec_enc_done(nil, &enc)
+		if buffer != [3]byte{77, wantByte, 88} || enc.Ferror1 != wantError || enc.Fend_window != before.Fend_window || enc.Fnend_bits != before.Fnend_bits || enc.Foffs != before.Foffs || enc.Fend_offs != before.Fend_offs {
+			t.Fatal("partial byte/collision", full, enc, buffer)
+		}
+	}
+	var empty OpusT_ec_enc
+	Opus_ec_enc_init(nil, &empty, nil, 0)
+	empty.Fend_window = 5
+	empty.Fnend_bits = 3
+	Opus_ec_enc_done(nil, &empty)
+	if empty.Ferror1 != -1 || empty.Fend_window != 5 || empty.Fnend_bits != 3 {
+		t.Fatal("partial empty", empty)
+	}
+}
+
 func TestEntropyDonePointers(t *testing.T) {
 	b := [8]byte{77, 99, 99, 99, 99, 99, 99, 88}
 	var e OpusT_ec_enc

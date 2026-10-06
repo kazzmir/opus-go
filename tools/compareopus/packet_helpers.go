@@ -4,6 +4,15 @@ package main
 
 /*
 #include <opus.h>
+#include <locale.h>
+#include <time.h>
+#include <stddef.h>
+// Mirror musl pthread.h's __ptcb: glibc's cleanup buffer is a different record.
+struct compare_musl_ptcb {void (*f)(void *);void *x;struct compare_musl_ptcb *next;};
+static void native_cleanup_record_layout(size_t *out){out[0]=sizeof(struct compare_musl_ptcb);out[1]=offsetof(struct compare_musl_ptcb,f);out[2]=offsetof(struct compare_musl_ptcb,x);out[3]=offsetof(struct compare_musl_ptcb,next);}
+static void native_timezone_layout(size_t *out){out[0]=sizeof(struct tm);out[1]=offsetof(struct tm,tm_gmtoff);out[2]=offsetof(struct tm,tm_zone);}
+static size_t native_timer_handle_size(void){return sizeof(timer_t);}
+static size_t native_locale_handle_size(void){return sizeof(locale_t);}
 #include "../../../opus/celt/arch.h"
 #include "../../../opus/celt/float_cast.h"
 #include "../../../opus/src/opus_private.h"
@@ -23,6 +32,22 @@ static void native_parse_packet(const unsigned char *data,int length,int self,in
 import "C"
 
 import "unsafe"
+
+func nativeCleanupRecordLayout() [4]uint64 {
+	var out [4]C.size_t
+	C.native_cleanup_record_layout(&out[0])
+	return [4]uint64{uint64(out[0]), uint64(out[1]), uint64(out[2]), uint64(out[3])}
+}
+
+func nativeTimezoneLayout() [3]uint64 {
+	var out [3]C.size_t
+	C.native_timezone_layout(&out[0])
+	return [3]uint64{uint64(out[0]), uint64(out[1]), uint64(out[2])}
+}
+
+func nativeTimerHandleSize() uint64 { return uint64(C.native_timer_handle_size()) }
+
+func nativeLocaleHandleSize() uint64 { return uint64(C.native_locale_handle_size()) }
 
 func nativeRepacketizerLayout() [9]uint64 {
 	var raw [9]C.size_t

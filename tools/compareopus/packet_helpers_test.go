@@ -150,6 +150,32 @@ func TestPacketParseAgainstC(t *testing.T) {
 	}
 }
 
+func TestCleanupRecordLayoutAgainstC(t *testing.T) {
+	if got, want := opuscc.CompareCleanupRecordLayout(), nativeCleanupRecordLayout(); got != want {
+		t.Fatal("musl cleanup mirror layout", got, want)
+	}
+}
+
+func TestTimezoneLayoutAgainstC(t *testing.T) {
+	if got, want := opuscc.CompareTimezoneLayout(), nativeTimezoneLayout(); got != want {
+		t.Fatal("timezone layout", got, want)
+	}
+}
+
+func TestTimerHandleLayoutAgainstC(t *testing.T) {
+	var handle opuscc.OpusT_timer_t
+	if got, want := uint64(unsafe.Sizeof(handle)), nativeTimerHandleSize(); got != want {
+		t.Fatal("timer handle width", got, want)
+	}
+}
+
+func TestLocaleHandleLayoutAgainstC(t *testing.T) {
+	var handle opuscc.OpusT_locale_t
+	if got, want := uint64(unsafe.Sizeof(handle)), nativeLocaleHandleSize(); got != want {
+		t.Fatal("locale handle width", got, want)
+	}
+}
+
 func TestRepacketizerLayoutAgainstC(t *testing.T) {
 	var state opuscc.OpusT_OpusRepacketizer
 	got := [9]uint64{uint64(unsafe.Sizeof(state)), uint64(unsafe.Offsetof(state.Ftoc)), uint64(unsafe.Offsetof(state.Fnb_frames)), uint64(unsafe.Offsetof(state.Fframes)), uint64(unsafe.Offsetof(state.Flen1)), uint64(unsafe.Offsetof(state.Fframesize)), uint64(unsafe.Offsetof(state.Fpaddings)), uint64(unsafe.Offsetof(state.Fpadding_len)), uint64(unsafe.Offsetof(state.Fpadding_nb_frames))}
