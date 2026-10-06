@@ -657,18 +657,18 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 		/*Figure out how many left-over bits we would be adding to this band.
 		  This can include bits we've stolen back from higher, skipped bands.*/
 		left = total - psum
-		v13 = uint32(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))
+		v13 = uint32(int32(modeBand(m, codedBands)) - int32(modeBand(m, start)))
 		_ = v13 > uint32(0)
 		v14 = uint32(left) / v13
 		percoeff = int32(v14)
-		left = left - (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))*percoeff
-		if left-(int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))-int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start))) > 0 {
-			v7 = left - (int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start)))
+		left = left - (int32(modeBand(m, codedBands))-int32(modeBand(m, start)))*percoeff
+		if left-(int32(modeBand(m, j))-int32(modeBand(m, start))) > 0 {
+			v7 = left - (int32(modeBand(m, j)) - int32(modeBand(m, start)))
 		} else {
 			v7 = 0
 		}
 		rem = v7
-		band_width = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), codedBands)) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
+		band_width = int32(modeBand(m, codedBands)) - int32(modeBand(m, j))
 		band_bits = pulse[j] + percoeff*band_width + rem
 		/*Only code a skip decision if we're above the threshold for this band.
 		  Otherwise it is force-skipped.
@@ -857,7 +857,7 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 		v5 = 0
 	}
 	total = v5
-	len1 = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbEBands
+	len1 = m.FnbEBands
 	skip_start = start
 	/* Reserve a bit to signal the end of manually skipped bands. */
 	if total >= int32(1)<<int32(BITRES) {
@@ -889,7 +889,7 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 	bits1, bits2 := make([]int32, len1), make([]int32, len1)
 	thresh, trim_offset := allocationCurve(m, start, end, len1, alloc_trim, C, LM)
 	lo = int32(1)
-	hi = (*OpusT_OpusCustomMode)(unsafe.Pointer(m)).FnbAllocVectors - int32(1)
+	hi = m.FnbAllocVectors - int32(1)
 	for cond := true; cond; cond = lo <= hi {
 		done = 0
 		psum = 0
@@ -901,7 +901,7 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 			if !(v5 > start) {
 				break
 			}
-			N = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
+			N = int32(modeBand(m, j+int32(1))) - int32(modeBand(m, j))
 			bitsj = C * N * int32(allocationVector(m, len1, mid, j)) << LM >> int32(2)
 			if bitsj > 0 {
 				v5 = max(int32(0), bitsj+trim_offset[j])
@@ -935,7 +935,7 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 		if !(j < end) {
 			break
 		}
-		N1 = int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j+int32(1))) - int32(modeBand((*OpusT_OpusCustomMode)(unsafe.Pointer(m)), j))
+		N1 = int32(modeBand(m, j+int32(1))) - int32(modeBand(m, j))
 		bits1j = C * N1 * int32(allocationVector(m, len1, lo, j)) << LM >> int32(2)
 		if hi >= m.FnbAllocVectors {
 			v5 = caps[j]
