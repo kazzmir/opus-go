@@ -689,12 +689,12 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 					depth_threshold = 0
 				}
 				if codedBands <= start+int32(2) || band_bits > depth_threshold*band_width<<LM<<int32(BITRES)>>int32(4) && j <= signalBandwidth {
-					Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), int32(1), uint32(1))
+					Opus_ec_enc_bit_logp(tls, ec, int32(1), uint32(1))
 					break
 				}
-				Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), 0, uint32(1))
+				Opus_ec_enc_bit_logp(tls, ec, 0, uint32(1))
 			} else {
-				if Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1)) != 0 {
+				if Opus_ec_dec_bit_logp(tls, ec, uint32(1)) != 0 {
 					break
 				}
 			}
@@ -1690,7 +1690,7 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y 
 		itheta_q30 = Opus_stereo_itheta(tls, X, Y, stereo, N, ctx.Farch)
 		itheta = itheta_q30 >> int32(16)
 	}
-	tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))))
+	tell = int32(Opus_ec_tell_frac(tls, ec))
 	if qn != int32(1) {
 		if encode != 0 {
 			if !(stereo != 0) || ctx.Ftheta_round == 0 {
@@ -1764,9 +1764,9 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y 
 				} else {
 					v5 = x - x0 + (x0+int32(1))*p0
 				}
-				Opus_ec_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(v1), uint32(v5), uint32(ft))
+				Opus_ec_encode(tls, ec, uint32(v1), uint32(v5), uint32(ft))
 			} else {
-				fs = int32(Opus_ec_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(ft)))
+				fs = int32(Opus_ec_decode(tls, ec, uint32(ft)))
 				if fs < (x0+int32(1))*p0 {
 					x = fs / p0
 				} else {
@@ -1782,16 +1782,16 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y 
 				} else {
 					v5 = x - x0 + (x0+int32(1))*p0
 				}
-				Opus_ec_dec_update(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(v1), uint32(v5), uint32(ft))
+				Opus_ec_dec_update(tls, ec, uint32(v1), uint32(v5), uint32(ft))
 				itheta = x
 			}
 		} else {
 			if B0 > int32(1) || stereo != 0 {
 				/* Uniform pdf */
 				if encode != 0 {
-					Opus_ec_enc_uint(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(itheta), uint32(qn+int32(1)))
+					Opus_ec_enc_uint(tls, ec, uint32(itheta), uint32(qn+int32(1)))
 				} else {
-					itheta = int32(Opus_ec_dec_uint(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(qn+int32(1))))
+					itheta = int32(Opus_ec_dec_uint(tls, ec, uint32(qn+int32(1))))
 				}
 			} else {
 				fs1 = int32(1)
@@ -1809,11 +1809,11 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y 
 						v1 = ft1 - (qn+int32(1)-itheta)*(qn+int32(2)-itheta)>>int32(1)
 					}
 					fl = v1
-					Opus_ec_encode(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(fl), uint32(fl+fs1), uint32(ft1))
+					Opus_ec_encode(tls, ec, uint32(fl), uint32(fl+fs1), uint32(ft1))
 				} else {
 					/* Triangular pdf */
 					fl1 = 0
-					fm = int32(Opus_ec_decode(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(ft1)))
+					fm = int32(Opus_ec_decode(tls, ec, uint32(ft1)))
 					if fm < qn>>int32(1)*(qn>>int32(1)+int32(1))>>int32(1) {
 						itheta = int32((Opus_isqrt32(tls, uint32(8)*uint32(fm)+uint32(1)) - uint32(1)) >> int32(1))
 						fs1 = itheta + int32(1)
@@ -1823,7 +1823,7 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y 
 						fs1 = qn + int32(1) - itheta
 						fl1 = ft1 - (qn+int32(1)-itheta)*(qn+int32(2)-itheta)>>int32(1)
 					}
-					Opus_ec_dec_update(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(fl1), uint32(fl1+fs1), uint32(ft1))
+					Opus_ec_dec_update(tls, ec, uint32(fl1), uint32(fl1+fs1), uint32(ft1))
 				}
 			}
 		}
@@ -1861,9 +1861,9 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y 
 			}
 			if *b > int32(2)<<int32(BITRES) && ctx.Fremaining_bits > int32(2)<<int32(BITRES) {
 				if encode != 0 {
-					Opus_ec_enc_bit_logp(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), inv, uint32(2))
+					Opus_ec_enc_bit_logp(tls, ec, inv, uint32(2))
 				} else {
-					inv = Opus_ec_dec_bit_logp(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(2))
+					inv = Opus_ec_dec_bit_logp(tls, ec, uint32(2))
 				}
 			} else {
 				inv = 0
@@ -1876,7 +1876,7 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y 
 			itheta_q30 = 0
 		}
 	}
-	qalloc = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))) - uint32(tell))
+	qalloc = int32(Opus_ec_tell_frac(tls, ec) - uint32(tell))
 	*b -= qalloc
 	if itheta == 0 {
 		imid = int32(32767)
@@ -2357,9 +2357,9 @@ func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X *float32, Y *float32, N i
 				/* Here we only need to encode a sign for the side. */
 				/* FIXME: Need to increase fixed-point precision? */
 				sign = libc.BoolInt32(OpusT_celt_norm(*x2*unsafe.Slice(y2, N)[1])-OpusT_celt_norm(unsafe.Slice(x2, N)[1]**y2) < float32(0))
-				Opus_ec_enc_bits(tls, (*OpusT_ec_enc)(unsafe.Pointer(ec)), uint32(sign), uint32(1))
+				Opus_ec_enc_bits(tls, ec, uint32(sign), uint32(1))
 			} else {
-				sign = int32(Opus_ec_dec_bits(tls, (*OpusT_ec_dec)(unsafe.Pointer(ec)), uint32(1)))
+				sign = int32(Opus_ec_dec_bits(tls, ec, uint32(1)))
 			}
 		}
 		sign = int32(1) - int32(2)*sign
@@ -2723,7 +2723,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 		if !(N1 > int32(0)) {
 			Opus_celt_fatal(tls, __ccgo_ts+5488, __ccgo_ts+5312, int32(1705))
 		}
-		tell = int32(Opus_ec_tell_frac(tls, (*OpusT_ec_ctx)(unsafe.Pointer(ec))))
+		tell = int32(Opus_ec_tell_frac(tls, ec))
 		/* Compute how many bits we want to allocate to this band */
 		if i1 != start {
 			balance = balance - tell
@@ -2861,7 +2861,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					quantAllBandsChannelWeights(tls, m, bandE, i1, w)
 					/* Make a copy. */
 					cm = x_cm | y_cm
-					ec_save = *(*OpusT_ec_ctx)(unsafe.Pointer(ec))
+					ec_save = *ec
 					ctx_save = *ctx
 					quantAllBandsCopy(unsafe.SliceData(X_save), (*float32)(unsafe.Pointer(X)), N1)
 					quantAllBandsCopy(unsafe.SliceData(Y_save), (*float32)(unsafe.Pointer(Y)), N1)
@@ -2875,7 +2875,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					dist0 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					/* Save first result. */
 					cm2 = x_cm
-					ec_save2 = *(*OpusT_ec_ctx)(unsafe.Pointer(ec))
+					ec_save2 = *ec
 					ctx_save2 = *ctx
 					quantAllBandsCopy(unsafe.SliceData(X_save2), (*float32)(unsafe.Pointer(X)), N1)
 					quantAllBandsCopy(unsafe.SliceData(Y_save2), (*float32)(unsafe.Pointer(Y)), N1)
@@ -2887,7 +2887,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					save_bytes = nend_bytes - nstart_bytes
 					bytes_buf = quantAllBandsByteSave(bytes_save, &ec_save, nstart_bytes, save_bytes)
 					/* Restore */
-					*(*OpusT_ec_ctx)(unsafe.Pointer(ec)) = ec_save
+					*ec = ec_save
 					*ctx = ctx_save
 					quantAllBandsCopy((*float32)(unsafe.Pointer(X)), unsafe.SliceData(X_save), N1)
 					quantAllBandsCopy((*float32)(unsafe.Pointer(Y)), unsafe.SliceData(Y_save), N1)
@@ -2904,7 +2904,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 					dist1 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					if dist0 >= dist1 {
 						x_cm = cm2
-						*(*OpusT_ec_ctx)(unsafe.Pointer(ec)) = ec_save2
+						*ec = ec_save2
 						*ctx = ctx_save2
 						quantAllBandsCopy((*float32)(unsafe.Pointer(X)), unsafe.SliceData(X_save2), N1)
 						quantAllBandsCopy((*float32)(unsafe.Pointer(Y)), unsafe.SliceData(Y_save2), N1)

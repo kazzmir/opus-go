@@ -534,6 +534,29 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four direct-pointer rounds remove redundant typed→unsafe.Pointer→same-typed
+round trips from VAD setup/input, VAD analysis/output fields, allocation mode
+reads, and private allocation/band-quantization entropy calls and RDO snapshots.
+Pointers are passed/read directly as *OpusT_silk_encoder_state, *int16,
+*OpusT_OpusCustomMode and *OpusT_ec_ctx. Go entropy enc/dec/ctx aliases have
+identical structural types, as upstream entcode.h aliases the same ec_ctx.
+Production unsafe.Pointer references decrease 556→502 (54 removed); uintptr
+remains 173. Public ABI escape conversions are retained.
+
+No pointer owners/layouts, assertion sites, field reloads, arithmetic order,
+float32 rounding, cached tells or entropy snapshot/restore fields change. Grouped
+existing VAD, allocation alias/scratch/mode, quantization and native parity tests
+remain unchanged; a grouped entropy fixture additionally proves compile-time
+ctx/encoder/decoder pointer identity, typed snapshot/restore and heap-buffer
+retention after dropping original references, stack growth and GC.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, followed by repeated scoped/ordinary ARM runs.
+Goldens/tolerances remain unchanged. VAD remains standalone in opuscc, while
+allocation/band entropy calls are active decoder paths. These owners were already
+typed, so the batch simplifies casts rather than fixing opaque allocator scanning,
+extension EOF/GC or raw callback ownership.
+
 Four concrete-view rounds replace pulse-cache byte address casts with typed
 byte prefixes, form forward cache rows as *byte prefix elements, replace the
 resampler's next-output cast with a typed int16 prefix element, and read the
