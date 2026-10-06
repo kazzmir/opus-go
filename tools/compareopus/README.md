@@ -534,6 +534,26 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four SILK API direct-pointer rounds remove redundant casts from control/rate
+reads, VAD/LBRR/mid-side entropy calls, stereo/frame dispatch and channel-count
+selection, and pitch/history finalization. decControl/psDec/channel_state/
+psRangeDec already have concrete types; their fields and typed calls now use
+those pointers directly. Production unsafe.Pointer references decrease 288→256
+(32 removed); uintptr remains 173. The public integer escape adapter is unchanged.
+
+Upstream dec_API.c and existing grouped whole/real-packet, resampler/control,
+LBRR entropy, channel-storage/views, output-count/PCM and packet-state fixtures
+remain the reference. Stereo-to-mono decision, sample-rate validation, LBRR
+consumption, conditional frame coding, live channel/count/sample-rate reloads,
+resampling/history, pitch-lag multiplication and final recovery flags keep their
+original ordering and narrowing/wrapping. No storage/layout, assertion, aliases,
+fixtures, codec golden or tolerance changes.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with repeated scoped/ordinary ARM runs after
+completion. This is direct-cast cleanup in the already typed active SILK API,
+not a new opaque allocation scanning, extension EOF/GC or raw callback repair.
+
 Four CELT direct-pointer rounds remove redundant casts from typed decoder
 entry/lost dispatch, entropy/energy/allocation calls, synthesis/finalization,
 and concealment fields/autocorrelation/finish. Concrete decoder/mode/entropy/

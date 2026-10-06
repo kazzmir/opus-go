@@ -503,29 +503,29 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 		}
 	}
 	/* Export pitch lag, measured at 48 kHz sampling rate */
-	if (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).FprevSignalType == int32(TYPE_VOICED) {
+	if channel_state.FprevSignalType == int32(TYPE_VOICED) {
 		mult_tab = [3]int32{
 			0: int32(6),
 			1: int32(4),
 			2: int32(3),
 		}
-		(*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FprevPitchLag = (*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).FlagPrev * mult_tab[((*(*OpusT_silk_decoder_state)(unsafe.Pointer(channel_state))).Ffs_kHz-int32(8))>>int32(2)]
+		decControl.FprevPitchLag = channel_state.FlagPrev * mult_tab[(channel_state.Ffs_kHz-int32(8))>>int32(2)]
 	} else {
-		(*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)).FprevPitchLag = 0
+		decControl.FprevPitchLag = 0
 	}
 	if lostFlag == int32(FLAG_PACKET_LOST) {
 		/* On packet loss, remove the gain clamping to prevent having the energy "bounce back"
 		   if we lose packets when the energy is going down */
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder)(unsafe.Pointer(psDec)).FnChannelsInternal) {
+			if !(i < psDec.FnChannelsInternal) {
 				break
 			}
 			decoder.Fchannel_state[i].FLastGainIndex = int8(10)
 			i = i + 1
 		}
 	} else {
-		(*OpusT_silk_decoder)(unsafe.Pointer(psDec)).Fprev_decode_only_middle = decode_only_middle
+		psDec.Fprev_decode_only_middle = decode_only_middle
 	}
 	return ret
 }
