@@ -76,32 +76,32 @@ func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDe
 		/* Update PLC state                                     */
 		/********************************************************/
 		silk_PLC(tls, decoder, psDecCtrl, pOut, 0, arch)
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt = 0
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType = int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType)
-		if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType >= 0 && (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType <= int32(2)) {
+		psDec.FlossCnt = 0
+		psDec.FprevSignalType = int32(psDec.Findices.FsignalType)
+		if !(psDec.FprevSignalType >= 0 && psDec.FprevSignalType <= int32(2)) {
 			Opus_celt_fatal(tls, __ccgo_ts+6033, __ccgo_ts+5898, int32(127))
 		}
 		/* A frame has been decoded without errors */
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffirst_frame_after_reset = 0
+		psDec.Ffirst_frame_after_reset = 0
 	} else {
 		/* Handle packet loss by extrapolation */
-		silk_PLC(tls, decoder, (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(pOut)), 1, arch)
+		silk_PLC(tls, decoder, psDecCtrl, pOut, 1, arch)
 		/*************************/
 		/* Update output buffer. */
 		/*************************/
-		if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length >= (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length) {
+		if !(psDec.Fltp_mem_length >= psDec.Fframe_length) {
 			Opus_celt_fatal(tls, __ccgo_ts+5970, __ccgo_ts+5898, int32(145))
 		}
-		silkDecodeFrameHistory(decoder, (*int16)(unsafe.Pointer(pOut)))
+		silkDecodeFrameHistory(decoder, pOut)
 	}
 	/************************************************/
 	/* Comfort noise generation / estimation        */
 	/************************************************/
-	Opus_silk_CNG(tls, decoder, (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(pOut)), L)
+	Opus_silk_CNG(tls, decoder, psDecCtrl, pOut, L)
 	/****************************************************************/
 	/* Ensure smooth connection of extrapolated and good frames     */
 	/****************************************************************/
-	Opus_silk_PLC_glue_frames(tls, decoder, (*int16)(unsafe.Pointer(pOut)), L)
+	Opus_silk_PLC_glue_frames(tls, decoder, pOut, L)
 	// Lag update precedes the final live count store.
 	silkDecodeFrameFinish(decoder, control, pN, L)
 	return ret
