@@ -534,6 +534,122 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT direct-pointer rounds remove redundant casts from typed decoder
+entry/lost dispatch, entropy/energy/allocation calls, synthesis/finalization,
+and concealment fields/autocorrelation/finish. Concrete decoder/mode/entropy/
+float32/byte pointers now pass directly; celt_glog is already a float32 alias.
+Production unsafe.Pointer references decrease 392→288 (104 removed); uintptr
+remains 173. Public escape adapters, actual allocation-boundary clear and stereo
+memory reinterpretation remain unchanged.
+
+Upstream celt_decoder.c order and existing scanned-state decode/concealment,
+mode/history/energy views, nil/validation/error, prefilter/postfilter/deemphasis
+and native/packet fixtures remain the reference. Live downsample/channel/arch/
+period/pitch/frame-type loads, cached tell timing, coarse→fine→bands→anti-collapse
+sequence, output/energy clear/store order and final range/error handling remain
+unchanged. Rounded float32 products and ARM fusion fixes are untouched. No
+storage/layout/algorithm, assertions, alias fixture, golden or tolerance changes.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, followed by repeated scoped/ordinary ARM runs.
+This removes redundant casts from already typed active decoder paths, not a
+new opaque allocator scanning, extension EOF/GC or raw callback fix.
+
+Four SILK direct-field rounds remove redundant same-type unsafe.Pointer casts
+from decoder core state/control reads, normal frame dispatch/history, lost-frame/
+finalization state and PCM/control calls, and PLC concealment state reads/pitch
+updates. Concrete *OpusT_silk_decoder_state, *OpusT_silk_decoder_control,
+*OpusT_silk_PLC_struct, *OpusT_ec_dec and *int16 pointers are used directly.
+Production unsafe.Pointer references decrease 463→392 (71 removed); uintptr
+remains 173. Public escape adapters and real table/address boundaries remain.
+
+Upstream decode_core.c/decode_frame.c/PLC.c field/operation order and existing
+core scratch/output/control/history/whitening aliases, frame loss/finish/history,
+PLC native reference and complete scanned-owner Opus frame fixtures remain the
+reference. Live frame/LPC/subframe/recovery loads, assertion conditions/sites,
+LTP scale narrowing, fixed-point multiply/wrap/shift order, random seed/pitch
+drift/clamp and history→PLC/CNG/glue→lag→count ordering are unchanged. These
+owners were already typed; no storage, aliases, fixtures or goldens change.
+
+Every round passes full amd64/386, ARM64/QEMU, applicable scoped checkptr, native
+comparisons, codec references and GC stress; repeated scoped/ordinary ARM runs
+finish the batch. Goldens/tolerances remain unchanged. Active SILK/private frame
+paths benefit from simpler typed code, but opaque allocator scanning, extension
+EOF/GC and raw callback ownership are not newly fixed.
+
+Four quant-all-bands direct-pointer rounds remove redundant casts from mode/
+lowband/hybrid folding setup, dual-band dispatch, RDO candidate saves/dots and
+restore/final mono/stereo dispatch. Private m/X_/X/Y/norm/norm2 pointers already
+have the required *OpusT_OpusCustomMode or *float32 types; celt_norm aliases float32.
+Call sites now pass those owners directly instead of round-tripping through
+unsafe.Pointer. Production references decrease 502→463 (39 removed); uintptr
+remains 173. Integer-valued public escape adapters are retained unchanged.
+
+Upstream bands.c folding/save/restore ordering and grouped existing whole-quantizer
+fixtures remain the reference. Spectrum/norm copy order, theta -1/+1/0 transitions,
+dot/weight float32 evaluation, complete entropy/band snapshots, byte rollback
+window, dist0>=dist1 tie rule, last-band suppression and nil/mono/dual/stereo
+branch timing are unchanged. Existing heap-owner/alias/GC/stack-growth and actual
+native quantization comparisons remain unchanged; no fixtures/goldens are weakened.
+RDO is an encode-mode branch of this helper, not new active decoder RDO coverage;
+opusccenc's independent implementation is unchanged.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, followed by repeated scoped/ordinary ARM runs.
+Goldens/tolerances remain unchanged. This is redundant-cast cleanup, not a new
+opaque-allocation scanning, extension EOF/GC or raw callback repair.
+
+Four direct-pointer rounds remove redundant typed→unsafe.Pointer→same-typed
+round trips from VAD setup/input, VAD analysis/output fields, allocation mode
+reads, and private allocation/band-quantization entropy calls and RDO snapshots.
+Pointers are passed/read directly as *OpusT_silk_encoder_state, *int16,
+*OpusT_OpusCustomMode and *OpusT_ec_ctx. Go entropy enc/dec/ctx aliases have
+identical structural types, as upstream entcode.h aliases the same ec_ctx.
+Production unsafe.Pointer references decrease 556→502 (54 removed); uintptr
+remains 173. Public ABI escape conversions are retained.
+
+No pointer owners/layouts, assertion sites, field reloads, arithmetic order,
+float32 rounding, cached tells or entropy snapshot/restore fields change. Grouped
+existing VAD, allocation alias/scratch/mode, quantization and native parity tests
+remain unchanged; a grouped entropy fixture additionally proves compile-time
+ctx/encoder/decoder pointer identity, typed snapshot/restore and heap-buffer
+retention after dropping original references, stack growth and GC.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, followed by repeated scoped/ordinary ARM runs.
+Goldens/tolerances remain unchanged. VAD remains standalone in opuscc, while
+allocation/band entropy calls are active decoder paths. These owners were already
+typed, so the batch simplifies casts rather than fixing opaque allocator scanning,
+extension EOF/GC or raw callback ownership.
+
+Four concrete-view rounds replace pulse-cache byte address casts with typed
+byte prefixes, form forward cache rows as *byte prefix elements, replace the
+resampler's next-output cast with a typed int16 prefix element, and read the
+extension frame increment through a two-byte prefix. Production unsafe.Pointer
+references decrease 559→556 (3 removed); uintptr tokens remain 173. These paths
+already had concrete owners; this removes casts rather than inventing opaque
+*byte stand-ins for unrelated libc handle/backend objects.
+
+Pulse cache zero offsets return the original pointer (including nil); signed
+negative interior offsets retain the necessary unsafe.Add boundary and the
+existing backwards-offset fixture unchanged. Only forward consumed rows use
+prefix indexing. Resampler views are formed only for a nonempty second phase;
+zero output displacement remains an identity. Valid initialized rate states and
+room for the produced second phase remain the upstream contract. Grouped driver
+tests add five rate pairs at 1ms+1 sample, exact ceil-sized output plus guards,
+stack growth/GC. The initial fixture incorrectly initialized 48k→8k in decoder
+mode and hit the existing initialization assertion; using the required encoder
+mode fixes that fixture without weakening the assertion (failed log retained).
+
+Grouped extension tests add zero/nonzero frame increments, truncated increments
+and frame overflow with output unchanged. Validation still precedes the two-byte
+view; iterator EOF representation is unchanged and fixtures use padded backing.
+All four rounds ultimately pass full amd64/386, ARM64/QEMU, scoped checkptr,
+native cache/rate/resampler/extension comparisons, codec references and GC stress,
+followed by repeated scoped/ordinary ARM runs. Goldens/tolerances remain unchanged.
+Opaque allocator scanning, extension EOF/GC and raw callback ownership remain
+separate; truly opaque pointer boundaries are not blindly changed to scalar types.
+
 Four dormant compatibility-layout rounds change locale_t and timer_t aliases
 to unsafe.Pointer, tm's timezone abbreviation to *byte, and musl __ptcb's callback/
 argument/link members to unsafe.Pointer/unsafe.Pointer/*__ptcb. Actual Linux

@@ -55,26 +55,26 @@ func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16
 	var X_offset [4]int32
 	var frac_Q7, lz, lzeros, smooth_coef_Q16, speech_nrg, sumSquared, x_tmp, y, v43, v44, v46, v47, v48, v51, v53 OpusT_opus_int32
 	var m, r, x OpusT_opus_uint32
-	encoder := (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC))
+	encoder := psEncC
 	vad := &encoder.FsVAD
 	ret = 0
 	/* Safety checks */
 	_ = true
-	if !(int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)*int32(MAX_FS_KHZ) >= (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length) {
+	if !(int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)*int32(MAX_FS_KHZ) >= psEncC.Fframe_length) {
 		Opus_celt_fatal(tls, __ccgo_ts+6796, __ccgo_ts+6855, int32(104))
 	}
-	if !((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length <= int32(512)) {
+	if !(psEncC.Fframe_length <= int32(512)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6869, __ccgo_ts+6855, int32(105))
 	}
-	if !((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length == int32(8)*((*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length>>int32(3))) {
+	if !(psEncC.Fframe_length == int32(8)*(psEncC.Fframe_length>>int32(3))) {
 		Opus_celt_fatal(tls, __ccgo_ts+6915, __ccgo_ts+6855, int32(106))
 	}
 	/***********************/
 	/* Filter and Decimate */
 	/***********************/
-	decimated_framelength1 = (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length >> int32(1)
-	decimated_framelength2 = (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length >> int32(2)
-	decimated_framelength = (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length >> int32(3)
+	decimated_framelength1 = psEncC.Fframe_length >> int32(1)
+	decimated_framelength2 = psEncC.Fframe_length >> int32(2)
+	decimated_framelength = psEncC.Fframe_length >> int32(3)
 	/* Decimate into 4 bands:
 	   0       L      3L       L              3L                             5L
 	           -      --       -              --                             --
@@ -88,7 +88,7 @@ func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16
 	X_offset[3] = X_offset[2] + decimated_framelength2
 	X = make([]int16, X_offset[3]+decimated_framelength1)
 	/* 0-8 kHz to 0-4 kHz and 4-8 kHz */
-	Opus_silk_ana_filt_bank_1(tls, (*OpusT_opus_int16)(unsafe.Pointer(pIn)), &vad.FAnaState, &X[0], &X[X_offset[3]], encoder.Fframe_length)
+	Opus_silk_ana_filt_bank_1(tls, pIn, &vad.FAnaState, &X[0], &X[X_offset[3]], encoder.Fframe_length)
 	/* 0-4 kHz to 0-2 kHz and 2-4 kHz */
 	Opus_silk_ana_filt_bank_1(tls, &X[0], &vad.FAnaState1, &X[0], &X[X_offset[2]], decimated_framelength1)
 	/* 0-2 kHz to 0-1 kHz and 1-2 kHz */
@@ -126,7 +126,7 @@ func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16
 			v37 = v34
 		}
 		v35 = v37
-		decimated_framelength = (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length >> v35
+		decimated_framelength = psEncC.Fframe_length >> v35
 		/* Split length into subframe lengths */
 		dec_subframe_length = decimated_framelength >> int32(VAD_INTERNAL_SUBFRAMES_LOG2)
 		dec_subframe_offset = 0
@@ -309,7 +309,7 @@ _57:
 	/**************************/
 	/* Frequency Tilt Measure */
 	/**************************/
-	(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Finput_tilt_Q15 = int32(uint32(Opus_silk_sigm_Q15(tls, input_tilt)-int32(16384)) << int32(1))
+	psEncC.Finput_tilt_Q15 = int32(uint32(Opus_silk_sigm_Q15(tls, input_tilt)-int32(16384)) << int32(1))
 	/**************************************************/
 	/* Scale the sigmoid output based on power levels */
 	/**************************************************/
@@ -323,7 +323,7 @@ _57:
 		speech_nrg = speech_nrg + (b1+int32(1))*((Xnrg[b1]-vad.FNL[b1])>>int32(4))
 		b1 = b1 + 1
 	}
-	if (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length == int32(20)*(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Ffs_kHz {
+	if psEncC.Fframe_length == int32(20)*psEncC.Ffs_kHz {
 		speech_nrg = speech_nrg >> int32(1)
 	}
 	/* Power scaling */
@@ -389,13 +389,13 @@ _57:
 		v37 = v34
 	}
 	v35 = v37
-	(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fspeech_activity_Q8 = v35
+	psEncC.Fspeech_activity_Q8 = v35
 	/***********************************/
 	/* Energy Level and SNR estimation */
 	/***********************************/
 	/* Smoothing coefficient */
 	smooth_coef_Q16 = int32(int64(int32(VAD_SNR_SMOOTH_COEF_Q18)) * int64(int16(int32(int64(SA_Q15)*int64(int16(SA_Q15))>>int32(16)))) >> int32(16))
-	if (*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Fframe_length == int32(10)*(*OpusT_silk_encoder_state)(unsafe.Pointer(psEncC)).Ffs_kHz {
+	if psEncC.Fframe_length == int32(10)*psEncC.Ffs_kHz {
 		smooth_coef_Q16 = smooth_coef_Q16 >> int32(1)
 	}
 	b1 = 0

@@ -240,7 +240,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	if energy1>>shift2 < energy2>>shift1 {
 		/* First sub-frame has lowest energy */
 		v53 = 0
-		v54 = ((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fnb_subfr-int32(1))*(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fsubfr_length - int32(RAND_BUF_SIZE)
+		v54 = (psPLC.Fnb_subfr-int32(1))*psPLC.Fsubfr_length - int32(RAND_BUF_SIZE)
 		if v53 > v54 {
 			v57 = v53
 		} else {
@@ -251,7 +251,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	} else {
 		/* Second sub-frame has lowest energy */
 		v53 = 0
-		v54 = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fnb_subfr*(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Fsubfr_length - int32(RAND_BUF_SIZE)
+		v54 = psPLC.Fnb_subfr*psPLC.Fsubfr_length - int32(RAND_BUF_SIZE)
 		if v53 > v54 {
 			v57 = v53
 		} else {
@@ -265,7 +265,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	rand_scale_Q14 = plc.FrandScale_Q14
 	/* Set up attenuation gains */
 	v53 = int32(NB_ATT) - int32(1)
-	v54 = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt
+	v54 = psDec.FlossCnt
 	if v53 < v54 {
 		v57 = v53
 	} else {
@@ -273,9 +273,9 @@ func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	}
 	v55 = v57
 	harm_Gain_Q15 = int32(HARM_ATT_Q15[v55])
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType == int32(TYPE_VOICED) {
+	if psDec.FprevSignalType == int32(TYPE_VOICED) {
 		v53 = int32(NB_ATT) - int32(1)
-		v54 = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt
+		v54 = psDec.FlossCnt
 		if v53 < v54 {
 			v57 = v53
 		} else {
@@ -285,7 +285,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 		rand_Gain_Q15 = int32(PLC_RAND_ATTENUATE_V_Q15[v55])
 	} else {
 		v53 = int32(NB_ATT) - int32(1)
-		v54 = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt
+		v54 = psDec.FlossCnt
 		if v53 < v54 {
 			v57 = v53
 		} else {
@@ -299,10 +299,10 @@ func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	/* Preload LPC coefficients to array on stack. Gives small performance gain */
 	copy(A_Q12[:decoder.FLPC_order], plc.FprevLPC_Q12[:decoder.FLPC_order])
 	/* First Lost frame */
-	if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt == 0 {
+	if psDec.FlossCnt == 0 {
 		rand_scale_Q14 = int16(int32(1) << int32(14))
 		/* Reduce random noise Gain for voiced frames */
-		if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType == int32(TYPE_VOICED) {
+		if psDec.FprevSignalType == int32(TYPE_VOICED) {
 			i = 0
 			for {
 				if !(i < int32(LTP_ORDER)) {
@@ -320,7 +320,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 			}
 			v81 = int16(v53)
 			rand_scale_Q14 = v81 /* 0.2 */
-			rand_scale_Q14 = int16(int32(rand_scale_Q14) * int32((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FprevLTP_scale_Q14) >> int32(14))
+			rand_scale_Q14 = int16(int32(rand_scale_Q14) * int32(psPLC.FprevLTP_scale_Q14) >> int32(14))
 		} else {
 			_ = arch
 			invGain_Q30 = Opus_silk_LPC_inverse_pred_gain_c(tls, &plc.FprevLPC_Q12[0], decoder.FLPC_order)
@@ -346,11 +346,11 @@ func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 			rand_Gain_Q15 = int32(int64(down_scale_Q30)*int64(int16(rand_Gain_Q15))>>int32(16)) >> int32(14)
 		}
 	}
-	rand_seed = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).Frand_seed
-	lag = ((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
-	sLTP_buf_idx = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length
+	rand_seed = psPLC.Frand_seed
+	lag = (psPLC.FpitchL_Q8>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
+	sLTP_buf_idx = psDec.Fltp_mem_length
 	/* Rewhiten LTP state */
-	idx = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length - lag - (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order - int32(LTP_ORDER)/int32(2)
+	idx = psDec.Fltp_mem_length - lag - psDec.FLPC_order - int32(LTP_ORDER)/int32(2)
 	if !(idx > int32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+6729, __ccgo_ts+6715, int32(319))
 	}
@@ -424,9 +424,9 @@ _102:
 		v53 = int32(silk_int32_MAX) >> int32(1)
 	}
 	inv_gain_Q30 = v53
-	i = idx + (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order
+	i = idx + psDec.FLPC_order
 	for {
-		if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length) {
+		if !(i < psDec.Fltp_mem_length) {
 			break
 		}
 		sLTP_Q14[i] = int32(int64(inv_gain_Q30) * int64(sLTP[i]) >> 16)
@@ -437,14 +437,14 @@ _102:
 	/***************************/
 	k = 0
 	for {
-		if !(k < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr) {
+		if !(k < psDec.Fnb_subfr) {
 			break
 		}
 		/* Set up pointer */
 		pred_index = sLTP_buf_idx - lag + LTP_ORDER/2
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length) {
+			if !(i < psDec.Fsubfr_length) {
 				break
 			}
 			/* Unrolled loop */
@@ -463,17 +463,17 @@ _102:
 		/* Gradually reduce excitation gain */
 		rand_scale_Q14 = int16(int32(rand_scale_Q14) * int32(int16(rand_Gain_Q15)) >> int32(15))
 		/* Slowly increase pitch lag */
-		(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8 = int32(int64((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8) + int64((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8)*int64(int16(int32(PITCH_DRIFT_FAC_Q16)))>>int32(16))
-		v84 = (*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8
-		v85 = int32(uint32(int32(int16(int32(MAX_PITCH_LAG_MS)))*int32(int16((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffs_kHz))) << int32(8))
+		psPLC.FpitchL_Q8 = int32(int64(psPLC.FpitchL_Q8) + int64(psPLC.FpitchL_Q8)*int64(int16(int32(PITCH_DRIFT_FAC_Q16)))>>int32(16))
+		v84 = psPLC.FpitchL_Q8
+		v85 = int32(uint32(int32(int16(int32(MAX_PITCH_LAG_MS)))*int32(int16(psDec.Ffs_kHz))) << int32(8))
 		if v84 < v85 {
 			v53 = v84
 		} else {
 			v53 = v85
 		}
 		v86 = v53
-		(*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8 = v86
-		lag = ((*OpusT_silk_PLC_struct)(unsafe.Pointer(psPLC)).FpitchL_Q8>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
+		psPLC.FpitchL_Q8 = v86
+		lag = (psPLC.FpitchL_Q8>>(int32(8)-int32(1)) + int32(1)) >> int32(1)
 		k = k + 1
 	}
 	// LPC uses the live tail of the same typed synthesis buffer.

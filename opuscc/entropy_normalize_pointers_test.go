@@ -6,6 +6,26 @@ import (
 	"unsafe"
 )
 
+func TestEntropyContextAliasPointers(t *testing.T) {
+	packet := []byte{11, 22}
+	context := new(OpusT_ec_ctx)
+	context.Fbuf = &packet[0]
+	context.Fstorage = 2
+	var encoder *OpusT_ec_enc = context
+	var decoder *OpusT_ec_dec = context
+	saved := *context
+	encoder.Foffs = 1
+	decoder.Fend_offs = 1
+	context.Fval = 77
+	*context = saved
+	packet = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if encoder != decoder || encoder != context || ec_read_byte(decoder) != 11 || ec_read_byte_from_end(decoder) != 22 || encoder.Foffs != 1 || encoder.Fend_offs != 1 || context.Fval != 0 {
+		t.Fatal("typed context identity/snapshot")
+	}
+}
+
 func TestEntropyByteWritePointers(t *testing.T) {
 	data := [5]byte{77, 0, 0, 0, 88}
 	enc := OpusT_ec_enc{Fbuf: &data[1], Fstorage: 3}

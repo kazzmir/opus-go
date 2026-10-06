@@ -150,7 +150,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	res_Q14 = make([]int32, decoder.Fsubfr_length)
 	sLPC_Q14 = make([]int32, decoder.Fsubfr_length+MAX_LPC_ORDER)
 	offset_Q10 = int32(Opus_silk_Quantization_Offsets_Q10[decoder.Findices.FsignalType>>1][decoder.Findices.FquantOffsetType])
-	if int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FNLSFInterpCoef_Q2) < int32(1)<<int32(2) {
+	if int32(psDec.Findices.FNLSFInterpCoef_Q2) < int32(1)<<int32(2) {
 		NLSF_interpolation_flag = int32(1)
 	} else {
 		NLSF_interpolation_flag = 0
@@ -161,17 +161,17 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	copy(sLPC_Q14[:MAX_LPC_ORDER], decoder.FsLPC_Q14_buf[:])
 	pexc_Q14 = decoder.Fexc_Q14[:decoder.Fframe_length]
 	pxq = unsafe.Slice(xq, decoder.Fframe_length)
-	sLTP_buf_idx = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length
+	sLTP_buf_idx = psDec.Fltp_mem_length
 	/* Loop over subframes */
 	k = 0
 	for {
-		if !(k < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fnb_subfr) {
+		if !(k < psDec.Fnb_subfr) {
 			break
 		}
 		pres_Q14 = res_Q14
 		/* Preload only LPC_order coefficients; rewhitening still uses live A. */
 		A_Q12, B_Q14 = silkDecodeCoreCoefficients(decoder, control, k, &A_Q12_tmp)
-		signalType = int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType)
+		signalType = int32(psDec.Findices.FsignalType)
 		Gain_Q10 = control.FGains_Q16[k] >> int32(6)
 		v103 = control.FGains_Q16[k]
 		v104 = int32(47)
@@ -339,7 +339,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 			/* Re-whitening */
 			if k == 0 || k == int32(2) && NLSF_interpolation_flag != 0 {
 				/* Rewhiten with new A coefs */
-				start_idx = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length - lag - (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order - int32(LTP_ORDER)/int32(2)
+				start_idx = psDec.Fltp_mem_length - lag - psDec.FLPC_order - int32(LTP_ORDER)/int32(2)
 				if !(start_idx > int32(0)) {
 					Opus_celt_fatal(tls, __ccgo_ts+5866, __ccgo_ts+5844, int32(150))
 				}
@@ -350,7 +350,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 				/* After rewhitening the LTP state is unscaled */
 				if k == 0 {
 					/* Do LTP downscaling to reduce inter-packet dependency */
-					inv_gain_Q31 = int32(uint32(int32(int64(inv_gain_Q31)*int64(int16((*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)).FLTP_scale_Q14))>>int32(16))) << int32(2))
+					inv_gain_Q31 = int32(uint32(int32(int64(inv_gain_Q31)*int64(int16(psDecCtrl.FLTP_scale_Q14))>>int32(16))) << int32(2))
 				}
 				silkDecodeCoreLTPWhiten(sLTP_Q15, sLTP, sLTP_buf_idx, decoder.Fltp_mem_length, lag, inv_gain_Q31)
 			} else {
@@ -366,7 +366,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 			pred_lag_ptr = sLTP_buf_idx - lag + LTP_ORDER/2
 			i = 0
 			for {
-				if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length) {
+				if !(i < psDec.Fsubfr_length) {
 					break
 				}
 				/* Unrolled loop */
@@ -385,15 +385,15 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 		}
 		i = 0
 		for {
-			if !(i < (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fsubfr_length) {
+			if !(i < psDec.Fsubfr_length) {
 				break
 			}
 			/* Short-term prediction */
-			if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order == int32(10) || (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order == int32(16)) {
+			if !(psDec.FLPC_order == int32(10) || psDec.FLPC_order == int32(16)) {
 				Opus_celt_fatal(tls, __ccgo_ts+5777, __ccgo_ts+5844, int32(205))
 			}
 			/* Avoids introducing a bias because silk_SMLAWB() always rounds to -inf */
-			LPC_pred_Q10 = (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order >> int32(1)
+			LPC_pred_Q10 = psDec.FLPC_order >> int32(1)
 			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(sLPC_Q14[MAX_LPC_ORDER+i-1])*int64(A_Q12_tmp[0])>>int32(16))
 			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(sLPC_Q14[MAX_LPC_ORDER+i-2])*int64(A_Q12_tmp[int32(1)])>>int32(16))
 			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(sLPC_Q14[MAX_LPC_ORDER+i-3])*int64(A_Q12_tmp[int32(2)])>>int32(16))
@@ -404,7 +404,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(sLPC_Q14[MAX_LPC_ORDER+i-8])*int64(A_Q12_tmp[int32(7)])>>int32(16))
 			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(sLPC_Q14[MAX_LPC_ORDER+i-9])*int64(A_Q12_tmp[int32(8)])>>int32(16))
 			LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(sLPC_Q14[MAX_LPC_ORDER+i-10])*int64(A_Q12_tmp[int32(9)])>>int32(16))
-			if (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FLPC_order == int32(16) {
+			if psDec.FLPC_order == int32(16) {
 				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(sLPC_Q14[MAX_LPC_ORDER+i-11])*int64(A_Q12_tmp[int32(10)])>>int32(16))
 				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(sLPC_Q14[MAX_LPC_ORDER+i-12])*int64(A_Q12_tmp[int32(11)])>>int32(16))
 				LPC_pred_Q10 = int32(int64(LPC_pred_Q10) + int64(sLPC_Q14[MAX_LPC_ORDER+i-13])*int64(A_Q12_tmp[int32(12)])>>int32(16))

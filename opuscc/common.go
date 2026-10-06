@@ -4553,7 +4553,7 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter *OpusT_OpusExtensionI
 			if l == 0 {
 				iter.Fcurr_frame++
 			} else {
-				increment := *(*byte)(unsafe.Add(unsafe.Pointer(start), 1))
+				increment := unsafe.Slice(start, 2)[1]
 				if increment == 0 {
 					continue
 				}

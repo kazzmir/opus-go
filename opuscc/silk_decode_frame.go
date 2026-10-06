@@ -41,7 +41,7 @@ func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDe
 	L = decoder.Fframe_length
 	psDecCtrl = new(OpusT_silk_decoder_control)
 	control := psDecCtrl
-	(*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)).FLTP_scale_Q14 = 0
+	psDecCtrl.FLTP_scale_Q14 = 0
 	/* Safety checks */
 	if !(L > 0 && L <= int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)*int32(MAX_FS_KHZ)) {
 		Opus_celt_fatal(tls, __ccgo_ts+5921, __ccgo_ts+5898, int32(68))
@@ -52,56 +52,56 @@ func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDe
 		/*********************************************/
 		/* Decode quantization indices of side info  */
 		/*********************************************/
-		Opus_silk_decode_indices(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FnFramesDecoded, lostFlag, condCoding)
+		Opus_silk_decode_indices(tls, psDec, psRangeDec, psDec.FnFramesDecoded, lostFlag, condCoding)
 		/*********************************************/
 		/* Decode quantization indices of excitation */
 		/*********************************************/
-		Opus_silk_decode_pulses(tls, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), unsafe.SliceData(pulses), int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType), int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FquantOffsetType), (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length)
+		Opus_silk_decode_pulses(tls, psRangeDec, unsafe.SliceData(pulses), int32(psDec.Findices.FsignalType), int32(psDec.Findices.FquantOffsetType), psDec.Fframe_length)
 		/********************************************/
 		/* Decode parameters and pulse signal       */
 		/********************************************/
-		Opus_silk_decode_parameters(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), condCoding)
+		Opus_silk_decode_parameters(tls, psDec, psDecCtrl, condCoding)
 		/********************************************************/
 		/* Run inverse NSQ                                      */
 		/********************************************************/
-		silk_decode_core(tls, decoder, (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(pOut)), unsafe.SliceData(pulses), arch)
+		silk_decode_core(tls, decoder, psDecCtrl, pOut, unsafe.SliceData(pulses), arch)
 		/*************************/
 		/* Update output buffer. */
 		/*************************/
-		if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length >= (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length) {
+		if !(psDec.Fltp_mem_length >= psDec.Fframe_length) {
 			Opus_celt_fatal(tls, __ccgo_ts+5970, __ccgo_ts+5898, int32(104))
 		}
-		silkDecodeFrameHistory(decoder, (*int16)(unsafe.Pointer(pOut)))
+		silkDecodeFrameHistory(decoder, pOut)
 		/********************************************************/
 		/* Update PLC state                                     */
 		/********************************************************/
-		silk_PLC(tls, decoder, (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(pOut)), 0, arch)
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FlossCnt = 0
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType = int32((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Findices.FsignalType)
-		if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType >= 0 && (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).FprevSignalType <= int32(2)) {
+		silk_PLC(tls, decoder, psDecCtrl, pOut, 0, arch)
+		psDec.FlossCnt = 0
+		psDec.FprevSignalType = int32(psDec.Findices.FsignalType)
+		if !(psDec.FprevSignalType >= 0 && psDec.FprevSignalType <= int32(2)) {
 			Opus_celt_fatal(tls, __ccgo_ts+6033, __ccgo_ts+5898, int32(127))
 		}
 		/* A frame has been decoded without errors */
-		(*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Ffirst_frame_after_reset = 0
+		psDec.Ffirst_frame_after_reset = 0
 	} else {
 		/* Handle packet loss by extrapolation */
-		silk_PLC(tls, decoder, (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(pOut)), 1, arch)
+		silk_PLC(tls, decoder, psDecCtrl, pOut, 1, arch)
 		/*************************/
 		/* Update output buffer. */
 		/*************************/
-		if !((*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fltp_mem_length >= (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)).Fframe_length) {
+		if !(psDec.Fltp_mem_length >= psDec.Fframe_length) {
 			Opus_celt_fatal(tls, __ccgo_ts+5970, __ccgo_ts+5898, int32(145))
 		}
-		silkDecodeFrameHistory(decoder, (*int16)(unsafe.Pointer(pOut)))
+		silkDecodeFrameHistory(decoder, pOut)
 	}
 	/************************************************/
 	/* Comfort noise generation / estimation        */
 	/************************************************/
-	Opus_silk_CNG(tls, decoder, (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(pOut)), L)
+	Opus_silk_CNG(tls, decoder, psDecCtrl, pOut, L)
 	/****************************************************************/
 	/* Ensure smooth connection of extrapolated and good frames     */
 	/****************************************************************/
-	Opus_silk_PLC_glue_frames(tls, decoder, (*int16)(unsafe.Pointer(pOut)), L)
+	Opus_silk_PLC_glue_frames(tls, decoder, pOut, L)
 	// Lag update precedes the final live count store.
 	silkDecodeFrameFinish(decoder, control, pN, L)
 	return ret
