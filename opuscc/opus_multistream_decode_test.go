@@ -399,6 +399,20 @@ func TestMultistreamAudioScratchPointers(t *testing.T) {
 	}
 }
 
+func TestMultistreamPacketOffsetPointers(t *testing.T) {
+	packet := []byte{77, 11, 22, 33, 88}
+	payload := opusMSPacketAt(&packet[0], 1, 3)
+	packet = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if got := unsafe.Slice(payload, 3); got[0] != 11 || got[1] != 22 || got[2] != 33 {
+		t.Fatal("numeric packet offset owner", got)
+	}
+	if opusMSPacketAt(nil, ^uint(0), 0) != nil || opusMSPacketAt(payload, ^uint(0), -1) != nil {
+		t.Fatal("unused terminal offset")
+	}
+}
+
 func TestMultistreamChildOwnerPointers(t *testing.T) {
 	type owner struct {
 		MS      OpusT_OpusMSDecoder
@@ -407,8 +421,8 @@ func TestMultistreamChildOwnerPointers(t *testing.T) {
 	}
 	storage := new(owner)
 	storage.Child = *newOpusFrameOwnerDecoder(t, 2)
-	offset := uintptr((uint32(268) + 7) / 8 * 8)
-	if offset != unsafe.Offsetof(storage.Child) {
+	offset := uint((uint32(268) + 7) / 8 * 8)
+	if offset != uint(unsafe.Offsetof(storage.Child)) {
 		t.Fatal("multistream header geometry")
 	}
 	decoder := opusMSDecoderAt(&storage.MS, offset)

@@ -534,6 +534,32 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four extension-output/multistream rounds replace bitstream- and frame-ordered
+extension record address multiplication with typed consumed-prefix stores,
+reuse opusAlignSize8 for the private multistream header/child strides, then
+express multistream packet/child offsets as numeric uint instead of uintptr.
+The uint change preserves native word-width arithmetic/wrapping on amd64/386/
+ARM64; no addresses are stored in these numeric cursors. Child advance before
+error gating and packet advance before child-return gating remain unchanged.
+Production opuscc uintptr tokens decrease 221→209 (12 removed).
+
+Grouped existing extension tests preserve live capacity reloads, prefix-sum
+snapshotting, bucket/assertion/error ordering, partial writes, GC-visible payload
+owners and guards; singleton output tests ensure only consumed records are
+viewed, not an entire nominal larger capacity. Upstream extensions.c record
+store/error order is unchanged. Frame counts must satisfy the upstream count_ext
+contract; malformed negative cumulative output indices are not a supported array
+access contract. Multistream tests retain exact-stride scanned child geometry,
+add packet-owner retention through numeric offsets and zero/negative-length
+terminal-offset suppression. Existing numeric alignment boundary tests remain.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native extension/
+multistream comparisons, codec references and GC stress, followed by repeated
+scoped/ordinary ARM runs. Goldens/tolerances are unchanged. Extension iterator/
+zero-length EOF pointer representation is deliberately unchanged: scoped parser
+fixtures use padded packet backing. This batch does not fix that separate EOF/GC
+issue, opaque allocator scanning or raw legacy function-pointer capture.
+
 Four mode/resampler rounds replace the mode log, pulse-cache index and band
 boundary helpers' integer byte-address calculations with typed int16 consumed
 prefix views, then change the resampler output byte displacement's cast from
