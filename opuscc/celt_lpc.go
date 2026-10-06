@@ -117,8 +117,13 @@ func Opus_celt_iir(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float
 		history[i+ord] = sum
 		output[i] = sum
 	}
-	// For N<ord, C reads caller-owned samples preceding out as well.
-	tail := unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(out), int(N-ord)*4)), ord)
+	var tail []float32
+	if N >= ord {
+		tail = output[N-ord:]
+	} else {
+		// For N<ord, C reads caller-owned samples preceding out as well.
+		tail = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(out), int(N-ord)*4)), ord)
+	}
 	for i := int32(0); i < ord; i++ {
 		memory[i] = tail[ord-i-1]
 	}

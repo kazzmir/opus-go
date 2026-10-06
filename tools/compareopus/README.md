@@ -534,6 +534,30 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT typed-consumer rounds select comb-filter tail pointers from existing
+history/output slices (suppressing the unused zero tail), read coarse-energy
+encoder probability pairs through consumed byte prefixes, preserve MDCT's typed
+base for nonnegative/zero strides, and select the IIR forward history tail from
+its existing output slice. Production unsafe.Pointer references decrease
+247→243 (four removed); uintptr remains 173. Negative MDCT strides and N<order
+IIR tails still use the necessary signed backward pointer boundary; lexical
+counts do not capture these forward-path improvements.
+
+Upstream celt.c, quant_bands.c, mdct.c and celt_lpc.c remain the reference.
+Comb transition load/store order and rounded products, coarse-energy budget/
+clamp/probability order, wrapped stride geometry/zero-stride store order, and
+IIR's four-sample/tail sign convention and reversed live memory stores remain
+unchanged. New grouped MDCT tests cover singleton prefixes at extreme signed
+strides, forward/backward/zero owner identity with GC/stack growth. IIR tests
+retain N=0 preceding-output behavior and add N=1<order backward history and
+empty order-zero cases. Existing overlap-only comb and native energy/MDCT/IIR
+fixtures and codec goldens remain unchanged.
+
+All four rounds pass full amd64/386, ARM64/QEMU, scoped checkptr, native
+comparisons, codec references and GC stress, followed by repeated scoped/ordinary
+ARM fixtures. Genuine backward and opaque/public ABI boundaries remain; this
+is not global opaque-state scanning, extension EOF/GC or raw callback repair.
+
 Four numeric/typed-owner rounds replace the frame gain union pointer casts with
 math.Float32bits/Float32frombits, obtain multistream right-channel PCM directly
 from its Go audio owner, and advance down-FIR/IIR-FIR outputs through a shared

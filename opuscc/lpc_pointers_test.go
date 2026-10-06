@@ -130,6 +130,13 @@ func TestIIRPointers(t *testing.T) {
 	if mem != [6]float32{77, 4, 3, 2, 1, 88} {
 		t.Fatal(mem)
 	}
+	singleton := float32(17)
+	Opus_celt_iir(nil, &singleton, &coeff[0], &history[4], 1, 4, &mem[1], 0)
+	if mem != [6]float32{77, 17, 4, 3, 2, 88} || history != [5]float32{1, 2, 3, 4, 17} {
+		t.Fatal("short backward tail", mem, history)
+	}
+	// The empty order-zero tail consumes no pointers.
+	Opus_celt_iir(nil, nil, nil, nil, 0, 0, nil, 0)
 }
 
 func TestFIRPointers(t *testing.T) {
