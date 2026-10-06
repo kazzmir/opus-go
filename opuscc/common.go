@@ -874,7 +874,7 @@ type OpusT_ec_dec = struct {
 	Ferror1      int32
 }
 
-type OpusT_locale_t = uintptr
+type OpusT_locale_t = unsafe.Pointer
 
 type OpusT_div_t = struct {
 	Fquot int32

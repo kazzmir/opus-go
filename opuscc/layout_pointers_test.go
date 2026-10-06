@@ -6,6 +6,23 @@ import (
 	"unsafe"
 )
 
+func TestLocaleHandlePointers(t *testing.T) {
+	payload := []byte{19, 23}
+	holder := new(struct{ Locale OpusT_locale_t })
+	holder.Locale = unsafe.Pointer(&payload[0])
+	payload = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *(*byte)(holder.Locale) != 19 {
+		t.Fatal("opaque locale owner")
+	}
+	if unsafe.Sizeof(holder.Locale) != unsafe.Sizeof(unsafe.Pointer(nil)) {
+		t.Fatal("locale handle width")
+	}
+	holder.Locale = nil
+	runtime.GC()
+}
+
 func TestFFTArchitectureOwnerPointers(t *testing.T) {
 	cfg := new(OpusT_kiss_fft_state)
 	architecture := new(OpusT_arch_fft_state)
