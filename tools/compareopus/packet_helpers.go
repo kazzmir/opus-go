@@ -6,6 +6,7 @@ package main
 #include <opus.h>
 #include <locale.h>
 #include <time.h>
+static size_t native_timer_handle_size(void){return sizeof(timer_t);}
 static size_t native_locale_handle_size(void){return sizeof(locale_t);}
 #include "../../../opus/celt/arch.h"
 #include "../../../opus/celt/float_cast.h"
@@ -26,6 +27,8 @@ static void native_parse_packet(const unsigned char *data,int length,int self,in
 import "C"
 
 import "unsafe"
+
+func nativeTimerHandleSize() uint64 { return uint64(C.native_timer_handle_size()) }
 
 func nativeLocaleHandleSize() uint64 { return uint64(C.native_locale_handle_size()) }
 

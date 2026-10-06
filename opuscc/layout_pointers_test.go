@@ -6,6 +6,23 @@ import (
 	"unsafe"
 )
 
+func TestTimerHandlePointers(t *testing.T) {
+	payload := []byte{29, 31}
+	holder := new(struct{ Timer OpusT_timer_t })
+	holder.Timer = unsafe.Pointer(&payload[0])
+	payload = nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *(*byte)(holder.Timer) != 29 {
+		t.Fatal("opaque timer owner")
+	}
+	if unsafe.Sizeof(holder.Timer) != unsafe.Sizeof(unsafe.Pointer(nil)) {
+		t.Fatal("timer handle width")
+	}
+	holder.Timer = nil
+	runtime.GC()
+}
+
 func TestLocaleHandlePointers(t *testing.T) {
 	payload := []byte{19, 23}
 	holder := new(struct{ Locale OpusT_locale_t })

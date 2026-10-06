@@ -1802,7 +1802,7 @@ type OpusT_cpu_set_t = struct {
 	F__bits [16]uint64
 }
 
-type OpusT_timer_t = uintptr
+type OpusT_timer_t = unsafe.Pointer
 
 type OpusT_clock_t = int64
 

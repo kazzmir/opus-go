@@ -150,6 +150,13 @@ func TestPacketParseAgainstC(t *testing.T) {
 	}
 }
 
+func TestTimerHandleLayoutAgainstC(t *testing.T) {
+	var handle opuscc.OpusT_timer_t
+	if got, want := uint64(unsafe.Sizeof(handle)), nativeTimerHandleSize(); got != want {
+		t.Fatal("timer handle width", got, want)
+	}
+}
+
 func TestLocaleHandleLayoutAgainstC(t *testing.T) {
 	var handle opuscc.OpusT_locale_t
 	if got, want := uint64(unsafe.Sizeof(handle)), nativeLocaleHandleSize(); got != want {
