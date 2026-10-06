@@ -49,6 +49,11 @@ func TestModeTablePointers(t *testing.T) {
 }
 
 func TestModeLogPointers(t *testing.T) {
+	singleton := int16(-123)
+	prefix := OpusT_OpusCustomMode{FlogN: &singleton, FnbEBands: 100}
+	if modeLogN(&prefix, 0) != singleton {
+		t.Fatal("consumed log prefix")
+	}
 	makeMode := func() *OpusT_OpusCustomMode {
 		m := mode48000_960_120
 		log := slices.Clone(logN400[:])

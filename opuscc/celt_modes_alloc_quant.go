@@ -16,7 +16,7 @@ var _ unsafe.Pointer
 
 // modeLogN keeps the table address typed, including in remaining legacy callers.
 func modeLogN(m *OpusT_OpusCustomMode, band int32) int16 {
-	return *(*int16)(unsafe.Add(unsafe.Pointer(m.FlogN), uintptr(band)*2))
+	return unsafe.Slice(m.FlogN, int64(band)+1)[band]
 }
 
 func modePulseIndex(m *OpusT_OpusCustomMode, index int32) int16 {
