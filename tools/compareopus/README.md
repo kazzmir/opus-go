@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four SILK direct-field rounds remove redundant same-type unsafe.Pointer casts
+from decoder core state/control reads, normal frame dispatch/history, lost-frame/
+finalization state and PCM/control calls, and PLC concealment state reads/pitch
+updates. Concrete *OpusT_silk_decoder_state, *OpusT_silk_decoder_control,
+*OpusT_silk_PLC_struct, *OpusT_ec_dec and *int16 pointers are used directly.
+Production unsafe.Pointer references decrease 463→392 (71 removed); uintptr
+remains 173. Public escape adapters and real table/address boundaries remain.
+
+Upstream decode_core.c/decode_frame.c/PLC.c field/operation order and existing
+core scratch/output/control/history/whitening aliases, frame loss/finish/history,
+PLC native reference and complete scanned-owner Opus frame fixtures remain the
+reference. Live frame/LPC/subframe/recovery loads, assertion conditions/sites,
+LTP scale narrowing, fixed-point multiply/wrap/shift order, random seed/pitch
+drift/clamp and history→PLC/CNG/glue→lag→count ordering are unchanged. These
+owners were already typed; no storage, aliases, fixtures or goldens change.
+
+Every round passes full amd64/386, ARM64/QEMU, applicable scoped checkptr, native
+comparisons, codec references and GC stress; repeated scoped/ordinary ARM runs
+finish the batch. Goldens/tolerances remain unchanged. Active SILK/private frame
+paths benefit from simpler typed code, but opaque allocator scanning, extension
+EOF/GC and raw callback ownership are not newly fixed.
+
 Four quant-all-bands direct-pointer rounds remove redundant casts from mode/
 lowband/hybrid folding setup, dual-band dispatch, RDO candidate saves/dots and
 restore/final mono/stereo dispatch. Private m/X_/X/Y/norm/norm2 pointers already
