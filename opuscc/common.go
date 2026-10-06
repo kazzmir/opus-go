@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"math"
 	"reflect"
 	"unsafe"
 
@@ -2779,7 +2780,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		}
 		frac = v175 - float32(integer)
 		res.Ff = float32(0.9999999403953552) + float32(frac*(float32(0.6931530833244324)+float32(frac*(float32(0.24015361070632935)+float32(frac*(float32(0.05582631751894951)+float32(frac*(float32(0.00898933969438076)+float32(frac*float32(0.0018775766948238015))))))))))
-		*(*OpusT_opus_uint32)(unsafe.Pointer(&res)) = uint32(int32(*(*OpusT_opus_uint32)(unsafe.Pointer(&res)))+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff)
+		res.Ff = math.Float32frombits(uint32(int32(math.Float32bits(res.Ff))+int32(uint32(integer)<<int32(23))) & uint32(0x7fffffff))
 		v176 = res.Ff
 	_177:
 		gain = v176
