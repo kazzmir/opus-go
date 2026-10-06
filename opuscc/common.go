@@ -3628,8 +3628,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 	var dec *OpusT_OpusDecoder
 	var buf *float32
 	var ptr uintptr
-	var alignment uint32
-	var c, chan1, chan11, coupled_size, do_plc, mono_size, prev, prev1, ret, ret1, s, v31, v56, v75 int32
+	var c, chan1, chan11, coupled_size, do_plc, mono_size, prev, prev1, ret, ret1, s, v31 int32
 	validate_ms_decoder(tls, decoder)
 	if frame_size <= 0 {
 		return -1
@@ -3646,8 +3645,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 	frame_size = v31
 	audio := opusFrameAudioStorage(2 * frame_size)
 	buf = unsafe.SliceData(audio)
-	alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-	v31 = int32((uint32(int32(268)) + alignment - uint32(1)) / alignment * alignment)
+	v31 = opusAlignSize8(268)
 	ptr = uintptr(v31) // numeric byte offset; only consumed children become pointers
 	coupled_size = Opus_opus_decoder_get_size(tls, int32(2))
 	mono_size = Opus_opus_decoder_get_size(tls, int32(1))
@@ -3676,13 +3674,9 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 		}
 		dec = opusMSDecoderAt(decoder, ptr)
 		if s < decoder.Flayout.Fnb_coupled_streams {
-			alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-			v56 = int32((uint32(coupled_size) + alignment - uint32(1)) / alignment * alignment)
-			v31 = v56
+			v31 = opusAlignSize8(coupled_size)
 		} else {
-			alignment = uint32(uint64(uintptr(uint32(0)) + 8))
-			v75 = int32((uint32(mono_size) + alignment - uint32(1)) / alignment * alignment)
-			v31 = v75
+			v31 = opusAlignSize8(mono_size)
 		}
 		ptr = ptr + uintptr(v31)
 		if do_plc == 0 && len1 <= 0 {
