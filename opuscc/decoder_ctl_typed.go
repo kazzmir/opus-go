@@ -102,8 +102,8 @@ func opusCtlLegacyArgs(request int32, ap uintptr) (a OpusDecoderCtlArgs) {
 
 func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, a OpusDecoderCtlArgs) int32 {
 	// C derives these interiors before dispatch, even for an unknown request.
-	silk := (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), st.Fsilk_dec_offset))
-	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), st.Fcelt_dec_offset))
+	silk := opusFrameSilkState(st)
+	celt := opusFrameCeltState(st)
 	switch request {
 	case OPUS_GET_BANDWIDTH_REQUEST:
 		if a.I32 == nil {
