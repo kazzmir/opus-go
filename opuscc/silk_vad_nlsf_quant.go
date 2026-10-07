@@ -552,6 +552,15 @@ func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices, x, w, pred, ix, rates 
 	return silkNLSFDelayedQuant(tls, (*int8)(unsafe.Pointer(indices)), (*int16)(unsafe.Pointer(x)), (*int16)(unsafe.Pointer(w)), (*byte)(unsafe.Pointer(pred)), (*int16)(unsafe.Pointer(ix)), (*byte)(unsafe.Pointer(rates)), step, inv, mu, order)
 }
 
+func silkNLSFRateRow(rates *byte, offset int16) []byte {
+	const width = 2*NLSF_QUANT_MAX_AMPLITUDE + 1
+	if offset < 0 {
+		// Preserve caller-owned rows preceding an interior rate-table base.
+		return unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(rates), offset)), width)
+	}
+	return unsafe.Slice(rates, int64(offset)+width)[offset:]
+}
+
 func silkNLSFDelayedQuant(tls *libc.TLS, indices *int8, x_Q10, w_Q5 *int16, pred_coef_Q8 *byte, ec_ix *int16, ec_rates_Q5 *byte, quant_step_size_Q16 int32, inv_quant_step_size_Q6 int16, mu_Q20 int32, order int16) (r int32) {
 	output := unsafe.Slice(indices, max(int(order), 1))
 	input := unsafe.Slice(x_Q10, max(int(order), 0))
@@ -604,7 +613,7 @@ func silkNLSFDelayedQuant(tls *libc.TLS, indices *int8, x_Q10, w_Q5 *int16, pred
 		if !(i >= 0) {
 			break
 		}
-		rates_Q5 = unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(ec_rates_Q5), rateIndices[i])), 2*NLSF_QUANT_MAX_AMPLITUDE+1)
+		rates_Q5 = silkNLSFRateRow(ec_rates_Q5, rateIndices[i])
 		in_Q10 = int32(input[i])
 		j = 0
 		for {

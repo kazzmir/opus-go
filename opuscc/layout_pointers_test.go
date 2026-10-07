@@ -4,7 +4,58 @@ import (
 	"runtime"
 	"testing"
 	"unsafe"
+
+	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestDREDFactoryPointers(t *testing.T) {
+	Opus_opus_dred_decoder_destroy_typed(nil, nil)
+	if dec, err := Opus_opus_dred_decoder_create_typed(nil); dec != nil || err == nil {
+		t.Fatal("DRED allocation failure", dec, err)
+	}
+	tls := libc.NewTLS()
+	defer tls.Close()
+	dec, err := Opus_opus_dred_decoder_create_typed(tls)
+	if err != nil || dec == nil {
+		t.Fatal("typed DRED create", dec, err)
+	}
+	defer Opus_opus_dred_decoder_destroy_typed(tls, dec)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *dec != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) {
+		t.Fatal("typed DRED fields", dec)
+	}
+}
+
+// This port has no DRED model/SIMD initialization; test its existing disabled
+// header behavior, not an enabled upstream DRED decoder or model lifetime.
+func TestDREDInitPointers(t *testing.T) {
+	var alias OpusDREDDecoder
+	var canonical *OpusT_OpusDREDDecoder = &alias
+	if canonical != &alias || unsafe.Sizeof(alias) != 12 || Opus_opus_dred_decoder_get_size(nil) != int32(unsafe.Sizeof(alias)) {
+		t.Fatal("canonical disabled DRED alias/layout")
+	}
+	owner := &struct {
+		Before  uint32
+		Decoder OpusT_OpusDREDDecoder
+		After   uint32
+	}{Before: 0x12345678, After: 0x87654321}
+	owner.Decoder = OpusT_OpusDREDDecoder{Floaded: -1, Farch: -1, Fmagic: 0xffffffff}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if ret := opusDREDDecoderInit(nil, &owner.Decoder); ret != OPUS_OK {
+		t.Fatal("disabled DRED init", ret)
+	}
+	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {
+		t.Fatal("disabled DRED fields/guards", owner)
+	}
+	// Go-only: nil TLS makes the allocator free a no-op, so invalidation can
+	// be inspected without reading an actually freed registered allocation.
+	Opus_opus_dred_decoder_destroy_typed(nil, &owner.Decoder)
+	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xDE57801D}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {
+		t.Fatal("disabled DRED invalidation/guards", owner)
+	}
+}
 
 // The function-value slot is a Go-only opaque-owner fixture, not a C function
 // address and not permission to invoke Go closures through legacy integer ABIs.

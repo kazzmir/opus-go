@@ -7,6 +7,28 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeIndicesTablePointers(t *testing.T) {
+	if silkDecodeICDFAt(nil, 0) != nil {
+		t.Fatal("nil zero offset identity")
+	}
+	singleton := byte(0)
+	if silkDecodeICDFAt(&singleton, 0) != &singleton {
+		t.Fatal("singleton identity")
+	}
+	owner := []byte{200, 120, 30, 0}
+	last := silkDecodeICDFAt(&owner[0], 3)
+	preceding := silkDecodeICDFAt(last, -2)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if last != &owner[3] || preceding != &owner[1] || *preceding != 120 {
+		t.Fatal("consumed/interior ICDF entries")
+	}
+	dec := OpusT_ec_dec{Frng: 0x80000000}
+	if Opus_ec_dec_icdf(nil, &dec, last, 8) != 0 || dec.Frng != 0x80000000 {
+		t.Fatal("final singleton terminator")
+	}
+}
+
 func TestDecodeIndicesPointers(t *testing.T) {
 	for _, fs := range []int32{8, 12, 16} {
 		for _, sub := range []int32{2, 4} {

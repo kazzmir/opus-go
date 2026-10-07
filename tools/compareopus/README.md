@@ -534,6 +534,108 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four disabled-DRED lifecycle rounds canonicalize OpusDREDDecoder's state alias,
+derive its existing 12-byte size from the concrete type, expose a typed factory
+that calls the typed initializer without an integer allocation handle, and
+expose typed destruction with magic invalidation before allocator release.
+Public integer factory/destruction adapters remain. Production uintptr decreases
+171→167; unsafe.Pointer increases 224→227 because explicit allocator/error-cleanup
+and public-adapter boundaries are now visible. This is an internal integer-handle
+removal, not a claim that every lexical pointer counter must fall.
+
+Upstream disabled DRED layout/get_size/init/create/destroy in opus_decoder.c
+remain the reference. Allocation→nil/error→init→cleanup/return ordering, size
+uint32/uint64 conversion, loaded=0/arch=0/init magic, destruction magic-before-free,
+nil free, return/error behavior and exported legacy signatures remain unchanged.
+Grouped tests verify canonical alias/12-byte geometry across architectures,
+allocation failure with nil TLS, registered typed creation/init with GC/stack
+growth and typed release, plus enclosing guards and Go-only invalidation under
+nil TLS (free is a shim no-op, not reading freed registered storage). The init-
+failure cleanup is retained but unreachable in the current disabled init.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, followed by repeated scoped/ordinary ARM fixtures.
+No goldens/tolerances changed. These are disabled DRED header/lifecycle fixtures,
+not enabled native DRED model/SIMD parity or model lifetime coverage. The malloc
+backing is still bytes (this state has only scalars), not a general scanned
+allocator repair; extension EOF/GC and raw callback ownership remain unresolved.
+
+Four bound-destination rounds separate opusMSDecodeBound from the explicit
+legacy/format-erased opusMSDecodeNative adapter, capture standard multistream
+int16/int24/float32 PCM as concrete pointers, capture projection integer PCM
+with its typed matrix, and complete projection float capture. The shared active
+core now accepts only a bound copy callback, with no opaque PCM destination
+argument. Production unsafe.Pointer references decrease 233→224 (nine removed);
+uintptr remains 171. Actual legacy custom callbacks/standard token binding still
+use the explicit opaque adapter; raw closure-address ownership is not repaired.
+
+Upstream multistream/projection decoder callback and copy functions remain the
+reference. Validation/packet/child error order, positive-return gating, live
+mapping/channel reloads, left→right→mono→unmapped copy order, nil-source clearing,
+short-only clipping, matrix column-zero clear and accumulation order remain
+unchanged. No staging PCM or numeric conversion changes; captured pointers keep
+the same live aliases. Existing grouped format/guard/native/scanned-owner/GC
+fixtures remain unchanged except the projection float callback-owner fixture
+now binds its concrete destination instead of passing an unsafe destination at
+each call; dropped matrix owner, stack growth, GC and nil-source clear persist.
+The old opaque private adapter remains for compatibility fixtures and public
+custom callback crossings, rather than reinterpreting those handles as a
+fictional concrete destination type.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+No goldens/tolerances changed; opaque allocation scanning and extension EOF/GC
+remain outside this callback-binding improvement.
+
+Four typed-binding rounds give multistream CTLs numeric uint child sizes/cursors
+and reuse opusMSDecoderAt, bind single-decoder CTL children through the existing
+typed frame helpers, select SILK ICDF entries through consumed byte prefixes,
+and isolate disabled DRED initialization behind a concrete decoder pointer.
+Production unsafe.Pointer references decrease 242→233 (nine removed); uintptr
+171 replaces the previous 172. CTL changes centralize existing necessary layout
+casts rather than eliminating allocation boundaries. SILK negative row offsets
+retain a signed backward boundary. DRED's public integer adapter remains (with
+an explicit uintptrescapes annotation); creation/destruction remain legacy.
+
+Upstream multistream/single-decoder CTLs, decode_indices.c and DRED init in
+opus_decoder.c were inspected. Size-call order, fixed8/uint32/word-width wrapping,
+live coupled/stream reloads, child selection→next→dispatch, output/error order,
+unconditional single-decoder interior derivation before dispatch, ICDF first/
+residual row selection and assertion timing remain unchanged. Grouped tests add
+zero/nil/singleton/final ICDF entry and signed interior selection with GC/stack
+growth, plus disabled DRED loaded/arch/magic initialization and enclosing guards.
+DRED has no model/SIMD initialization in this port; this Go-only header test is
+not parity or model ownership coverage for an enabled native DRED build.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+Goldens/tolerances unchanged. Opaque allocation scanning, extension EOF/GC and
+raw callback ownership remain independent unresolved boundaries.
+
+Four owner/numeric-consumer rounds keep the multistream validation packet owner
+with a numeric word-width cursor, express the projection multistream displacement
+as uint rather than pointer-valued uintptr, read forward band energies through
+consumed float32 prefixes, and expose forward delayed-NLSF rate rows through
+consumed byte prefixes. Production unsafe.Pointer references decrease 243→242;
+uintptr decreases 173→172. Negative energy/rate offsets retain explicit signed
+backward boundaries; their forward-path improvements do not reduce lexical
+unsafe.Pointer counts.
+
+Upstream opus_multistream_decoder.c/opus_projection_decoder.c, bands.c and
+NLSF_del_dec_quant.c remain the reference. Validation/error/sample comparison
+order and terminal-pointer suppression, fixed 8-byte geometry/uint32 wrapping/
+int32 narrowing/word conversion, live energy reads and NLSF row selection/store
+order remain unchanged. New grouped tests cover singleton energy backing,
+signed interior energy, exact single and final NLSF row extents/capacity/identity,
+and GC/stack growth. Negative helper geometry fixtures are Go-only, not new
+coverage of upstream negative band or generated NLSF table indices.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with repeated scoped/ordinary ARM fixtures after
+completion. No goldens, tolerances, assertions or aliases are weakened. Opaque
+allocation scanning, extension EOF/GC and raw callback boundaries are not
+claimed repaired.
+
 Four CELT typed-consumer rounds select comb-filter tail pointers from existing
 history/output slices (suppressing the unused zero tail), read coarse-energy
 encoder probability pairs through consumed byte prefixes, preserve MDCT's typed

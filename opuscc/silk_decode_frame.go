@@ -150,6 +150,17 @@ func Opus_silk_decode_parameters(tls *libc.TLS, decoder *OpusT_silk_decoder_stat
 	}
 }
 
+// ICDF callers consume the selected entry; do not expose a guessed full row.
+func silkDecodeICDFAt(table *byte, offset int32) *byte {
+	if offset == 0 {
+		return table
+	}
+	if offset < 0 {
+		return (*byte)(unsafe.Add(unsafe.Pointer(table), offset))
+	}
+	return &unsafe.Slice(table, int64(offset)+1)[offset]
+}
+
 // C documentation
 //
 //	/* Decode side-information parameters from payload */
@@ -172,11 +183,11 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 	for i := int32(1); i < decoder.Fnb_subfr; i++ {
 		indices.FGainsIndices[i] = int8(Opus_ec_dec_icdf(tls, dec, &Opus_silk_delta_gain_iCDF[0], 8))
 	}
-	// Codebook/table fields remain legacy; retain typed bases while traversing their tables.
+	// Retain concrete codebook/table bases while selecting consumed rows.
 	cb := decoder.FpsNLSF_CB
 	first := cb.FCB1_iCDF
 	residual := cb.Fec_iCDF
-	indices.FNLSFIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, (*byte)(unsafe.Add(unsafe.Pointer(first), int32(indices.FsignalType>>1)*int32(cb.FnVectors))), 8))
+	indices.FNLSFIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, silkDecodeICDFAt(first, int32(indices.FsignalType>>1)*int32(cb.FnVectors)), 8))
 	var ecIX [MAX_LPC_ORDER]int16
 	var pred [MAX_LPC_ORDER]byte
 	Opus_silk_NLSF_unpack(tls, &ecIX[0], &pred[0], cb, int32(indices.FNLSFIndices[0]))
@@ -184,7 +195,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 		Opus_celt_fatal(tls, __ccgo_ts+6108, __ccgo_ts+6170, 82)
 	}
 	for i := int32(0); i < int32(cb.Forder); i++ {
-		ix = Opus_ec_dec_icdf(tls, dec, (*byte)(unsafe.Add(unsafe.Pointer(residual), ecIX[i])), 8)
+		ix = Opus_ec_dec_icdf(tls, dec, silkDecodeICDFAt(residual, int32(ecIX[i])), 8)
 		if ix == 0 {
 			ix -= Opus_ec_dec_icdf(tls, dec, &Opus_silk_NLSF_EXT_iCDF[0], 8)
 		} else if ix == 2*NLSF_QUANT_MAX_AMPLITUDE {
