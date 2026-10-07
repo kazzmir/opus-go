@@ -3631,7 +3631,17 @@ func opusMSPacketAt(data *byte, offset uint, length int32) *byte {
 	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
 }
 
-func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, len1 int32, pcm unsafe.Pointer, copyChannel opusMSChannelCopy, frame_size, decode_fec, soft_clip int32) (r int32) {
+// Bind the genuine legacy/format-erased destination only at this boundary.
+func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, len1 int32, pcm unsafe.Pointer, copyChannel opusMSChannelCopy, frame_size, decode_fec, soft_clip int32) int32 {
+	copyBound := func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+		copyChannel(tls, pcm, ds, dc, src, ss, n)
+	}
+	return opusMSDecodeBound(tls, decoder, data, len1, copyBound, frame_size, decode_fec, soft_clip)
+}
+
+type opusMSBoundChannelCopy func(*libc.TLS, int32, int32, *float32, int32, int32)
+
+func opusMSDecodeBound(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, len1 int32, copyChannel opusMSBoundChannelCopy, frame_size, decode_fec, soft_clip int32) (r int32) {
 	var position uint
 	var scratch struct{ Fs, packetOffset int32 } // typed CTL and child outputs need no opaque allocation
 	var dec *OpusT_OpusDecoder
@@ -3710,7 +3720,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 				if !(v31 != -int32(1)) {
 					break
 				}
-				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, buf, 2, frame_size)
+				copyChannel(tls, decoder.Flayout.Fnb_channels, chan1, buf, 2, frame_size)
 				prev = chan1
 			}
 			prev = -int32(1)
@@ -3721,7 +3731,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 				if !(v31 != -int32(1)) {
 					break
 				}
-				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan1, &audio[1], 2, frame_size)
+				copyChannel(tls, decoder.Flayout.Fnb_channels, chan1, &audio[1], 2, frame_size)
 				prev = chan1
 			}
 		} else {
@@ -3733,7 +3743,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 				if !(v31 != -int32(1)) {
 					break
 				}
-				copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, chan11, buf, 1, frame_size)
+				copyChannel(tls, decoder.Flayout.Fnb_channels, chan11, buf, 1, frame_size)
 				prev1 = chan11
 			}
 		}
@@ -3746,7 +3756,7 @@ func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte,
 			break
 		}
 		if int32(decoder.Flayout.Fmapping[c]) == int32(255) {
-			copyChannel(tls, pcm, decoder.Flayout.Fnb_channels, c, nil, 0, frame_size)
+			copyChannel(tls, decoder.Flayout.Fnb_channels, c, nil, 0, frame_size)
 		}
 		c = c + 1
 	}
