@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 *OpusT_opus_int16, NLSF *OpusT_opus_int16, d int32, arch int32) {
 	a := unsafe.Slice(a_Q12, d)

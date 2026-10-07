@@ -12,7 +12,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func celt_decoder_reset(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 	mode := st.Fmode

@@ -11,7 +11,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 // Keep signed strides and zero-stride store order without integer addresses.
 func mdctStridedSlice(p *float32, n, stride int32) ([]float32, int32) {

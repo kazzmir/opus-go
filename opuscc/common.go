@@ -11,7 +11,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 const ARG_MAX = 131072
 const ATAN2_2_OVER_PI = 0.636619772367581

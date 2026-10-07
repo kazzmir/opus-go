@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus__celt_lpc(tls *libc.TLS, _lpc *OpusT_opus_val16, ac *OpusT_opus_val32, p int32) {
 	lpc := unsafe.Slice(_lpc, int(p))

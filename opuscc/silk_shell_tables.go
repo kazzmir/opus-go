@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func combine_pulses(tls *libc.TLS, out *int32, in *int32, len1 int32) {
 	if len1 <= 0 {

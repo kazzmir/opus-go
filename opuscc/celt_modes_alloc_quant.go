@@ -12,7 +12,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 // modeLogN keeps the table address typed, including in remaining legacy callers.
 func modeLogN(m *OpusT_OpusCustomMode, band int32) int16 {

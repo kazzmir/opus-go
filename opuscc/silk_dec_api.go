@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_decoder_set_fs(tls *libc.TLS, st *OpusT_silk_decoder_state, fsKHz, apiHz int32) int32 {
 	if fsKHz != 8 && fsKHz != 12 && fsKHz != 16 {

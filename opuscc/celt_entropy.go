@@ -11,7 +11,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func ec_read_byte(_this *OpusT_ec_dec) (r int32) {
 	var v1 int32

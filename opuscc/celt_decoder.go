@@ -12,7 +12,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_validate_celt_decoder(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 	mode, _ := Opus_opus_custom_mode_create(tls, 48000, 960)

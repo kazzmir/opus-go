@@ -534,6 +534,32 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four cleanup-consolidation rounds route single-decoder, multistream and
+projection factory init-error release through their existing concrete typed
+destructors, then remove 23 obsolete generated `var _ unsafe.Pointer` markers
+(and the resulting unused unsafe import in silk.go). Production unsafe.Pointer
+references decrease 227→201: three duplicate factory allocator casts centralized,
+23 metadata-only markers removed. uintptr remains 167. Marker removal does not
+change a pointer representation or improve lifetime safety; the actual allocator
+casts remain in the typed destruction boundaries.
+
+Upstream create/destroy paths in the single/multistream/projection C sources
+remain the reference. Prevalidation, size/allocation-before-init ordering,
+init→release→error construction, nil/success behavior, one-base-only release and
+public legacy signatures remain unchanged. Typed destructors perform exactly
+the same allocator release without inspecting or resetting partially initialized
+child states. Existing grouped create/destroy/allocation/validation/native and
+scanned-owner fixtures remain unchanged. Single-decoder init error after valid
+prevalidation remains only defensive/unforced coverage; no failure injection or
+new opaque-allocation ownership claim is made.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+No code arithmetic, assertions, goldens, tolerances or aliases changed. This
+centralizes real boundary conversions and removes misleading lexical noise;
+opaque allocation scanning, extension EOF/GC and raw callback lifetime remain
+unresolved separately.
+
 Four disabled-DRED lifecycle rounds canonicalize OpusDREDDecoder's state alias,
 derive its existing 12-byte size from the concrete type, expose a typed factory
 that calls the typed initializer without an integer allocation handle, and

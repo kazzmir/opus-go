@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_gains_quant(tls *libc.TLS, ind *int8, gainQ16 *int32, previous *int8, conditional, nbSubfr int32) {
 	if nbSubfr <= 0 {

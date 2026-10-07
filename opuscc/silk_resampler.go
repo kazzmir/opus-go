@@ -11,7 +11,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_resampler_init(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, inRate, outRate int32, forEnc int32) int32 {
 	// sizeof(state), not the generated amd64-only 400-byte memset.
