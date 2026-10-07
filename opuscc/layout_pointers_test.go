@@ -4,7 +4,27 @@ import (
 	"runtime"
 	"testing"
 	"unsafe"
+
+	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestDREDFactoryPointers(t *testing.T) {
+	if dec, err := Opus_opus_dred_decoder_create_typed(nil); dec != nil || err == nil {
+		t.Fatal("DRED allocation failure", dec, err)
+	}
+	tls := libc.NewTLS()
+	defer tls.Close()
+	dec, err := Opus_opus_dred_decoder_create_typed(tls)
+	if err != nil || dec == nil {
+		t.Fatal("typed DRED create", dec, err)
+	}
+	defer libc.XfreePointer(tls, unsafe.Pointer(dec))
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if *dec != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) {
+		t.Fatal("typed DRED fields", dec)
+	}
+}
 
 // This port has no DRED model/SIMD initialization; test its existing disabled
 // header behavior, not an enabled upstream DRED decoder or model lifetime.

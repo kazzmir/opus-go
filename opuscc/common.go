@@ -3196,22 +3196,21 @@ func opusDREDDecoderInit(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) (r int32) {
 	return v1
 }
 
-func Opus_opus_dred_decoder_create(tls *libc.TLS) (uintptr, error) {
-	var dec, v1 uintptr
-	var ret int32
-	_, _, _ = dec, ret, v1
-	v1 = libc.Xmalloc(tls, uint64(uint32(Opus_opus_dred_decoder_get_size(tls))))
-	dec = v1
-	if dec == uintptr(uint32(0)) {
-		return uintptr(uint32(0)), opusErrorFromCode(-int32(7))
+func Opus_opus_dred_decoder_create_typed(tls *libc.TLS) (*OpusT_OpusDREDDecoder, error) {
+	dec := (*OpusT_OpusDREDDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_dred_decoder_get_size(tls)))))
+	if dec == nil {
+		return nil, opusErrorFromCode(-int32(7))
 	}
-	ret = Opus_opus_dred_decoder_init(tls, dec)
-	if ret != OPUS_OK {
-		libc.Xfree(tls, dec)
-		dec = uintptr(uint32(0))
-		return uintptr(uint32(0)), opusErrorFromCode(ret)
+	if ret := opusDREDDecoderInit(tls, dec); ret != OPUS_OK {
+		libc.XfreePointer(tls, unsafe.Pointer(dec))
+		return nil, opusErrorFromCode(ret)
 	}
 	return dec, nil
+}
+
+func Opus_opus_dred_decoder_create(tls *libc.TLS) (uintptr, error) {
+	dec, err := Opus_opus_dred_decoder_create_typed(tls)
+	return uintptr(unsafe.Pointer(dec)), err
 }
 
 func Opus_opus_dred_decoder_destroy(tls *libc.TLS, dec uintptr) {
