@@ -3178,15 +3178,20 @@ func Opus_opus_dred_decoder_get_size(tls *libc.TLS) (r int32) {
 	return int32(12)
 }
 
-func Opus_opus_dred_decoder_init(tls *libc.TLS, dec uintptr) (r int32) {
+//go:uintptrescapes
+func Opus_opus_dred_decoder_init(tls *libc.TLS, dec uintptr) int32 {
+	return opusDREDDecoderInit(tls, (*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)))
+}
+
+func opusDREDDecoderInit(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) (r int32) {
 	var ret, v1 int32
 	_, _ = ret, v1
 	ret = 0
-	(*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)).Floaded = 0
+	dec.Floaded = 0
 	v1 = 0
-	(*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)).Farch = v1
+	dec.Farch = v1
 	/* To make sure nobody forgets to init, use a magic number. */
-	(*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)).Fmagic = uint32(0xD8EDDEC0)
+	dec.Fmagic = uint32(0xD8EDDEC0)
 	if ret == 0 {
 		v1 = OPUS_OK
 	} else {

@@ -6,6 +6,25 @@ import (
 	"unsafe"
 )
 
+// This port has no DRED model/SIMD initialization; test its existing disabled
+// header behavior, not an enabled upstream DRED decoder or model lifetime.
+func TestDREDInitPointers(t *testing.T) {
+	owner := &struct {
+		Before  uint32
+		Decoder OpusT_OpusDREDDecoder
+		After   uint32
+	}{Before: 0x12345678, After: 0x87654321}
+	owner.Decoder = OpusT_OpusDREDDecoder{Floaded: -1, Farch: -1, Fmagic: 0xffffffff}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if ret := opusDREDDecoderInit(nil, &owner.Decoder); ret != OPUS_OK {
+		t.Fatal("disabled DRED init", ret)
+	}
+	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {
+		t.Fatal("disabled DRED fields/guards", owner)
+	}
+}
+
 // The function-value slot is a Go-only opaque-owner fixture, not a C function
 // address and not permission to invoke Go closures through legacy integer ABIs.
 func TestCleanupRecordPointers(t *testing.T) {

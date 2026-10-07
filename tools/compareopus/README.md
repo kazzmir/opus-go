@@ -534,6 +534,31 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four typed-binding rounds give multistream CTLs numeric uint child sizes/cursors
+and reuse opusMSDecoderAt, bind single-decoder CTL children through the existing
+typed frame helpers, select SILK ICDF entries through consumed byte prefixes,
+and isolate disabled DRED initialization behind a concrete decoder pointer.
+Production unsafe.Pointer references decrease 242→233 (nine removed); uintptr
+171 replaces the previous 172. CTL changes centralize existing necessary layout
+casts rather than eliminating allocation boundaries. SILK negative row offsets
+retain a signed backward boundary. DRED's public integer adapter remains (with
+an explicit uintptrescapes annotation); creation/destruction remain legacy.
+
+Upstream multistream/single-decoder CTLs, decode_indices.c and DRED init in
+opus_decoder.c were inspected. Size-call order, fixed8/uint32/word-width wrapping,
+live coupled/stream reloads, child selection→next→dispatch, output/error order,
+unconditional single-decoder interior derivation before dispatch, ICDF first/
+residual row selection and assertion timing remain unchanged. Grouped tests add
+zero/nil/singleton/final ICDF entry and signed interior selection with GC/stack
+growth, plus disabled DRED loaded/arch/magic initialization and enclosing guards.
+DRED has no model/SIMD initialization in this port; this Go-only header test is
+not parity or model ownership coverage for an enabled native DRED build.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+Goldens/tolerances unchanged. Opaque allocation scanning, extension EOF/GC and
+raw callback ownership remain independent unresolved boundaries.
+
 Four owner/numeric-consumer rounds keep the multistream validation packet owner
 with a numeric word-width cursor, express the projection multistream displacement
 as uint rather than pointer-valued uintptr, read forward band energies through
