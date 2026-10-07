@@ -4271,16 +4271,16 @@ func Opus_opus_projection_decode(tls *libc.TLS, st, data uintptr, length int32, 
 	return opusProjectionDecodeShort(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int16)(unsafe.Pointer(pcm)), frame, fec)
 }
 
-func opusProjectionShortCopy(matrix *OpusT_MappingMatrix) opusMSChannelCopy {
-	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-		opus_projection_copy_channel_out_short(tls, (*int16)(dst), ds, dc, src, ss, n, matrix)
+func opusProjectionShortCopy(matrix *OpusT_MappingMatrix, pcm *int16) opusMSBoundChannelCopy {
+	return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+		opus_projection_copy_channel_out_short(tls, pcm, ds, dc, src, ss, n, matrix)
 	}
 }
 
 func opusProjectionDecodeShort(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
 	ms := get_multistream_decoder(tls, decoder)
 	matrix := get_dec_demixing_matrix(tls, decoder)
-	return opusMSDecodeNative(tls, ms, data, length, unsafe.Pointer(pcm), opusProjectionShortCopy(matrix), frame, fec, OPTIONAL_CLIP)
+	return opusMSDecodeBound(tls, ms, data, length, opusProjectionShortCopy(matrix, pcm), frame, fec, OPTIONAL_CLIP)
 }
 
 //go:uintptrescapes
@@ -4288,16 +4288,16 @@ func Opus_opus_projection_decode24(tls *libc.TLS, st, data uintptr, length int32
 	return opusProjectionDecodeInt24(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int32)(unsafe.Pointer(pcm)), frame, fec)
 }
 
-func opusProjectionInt24Copy(matrix *OpusT_MappingMatrix) opusMSChannelCopy {
-	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-		opus_projection_copy_channel_out_int24(tls, (*int32)(dst), ds, dc, src, ss, n, matrix)
+func opusProjectionInt24Copy(matrix *OpusT_MappingMatrix, pcm *int32) opusMSBoundChannelCopy {
+	return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+		opus_projection_copy_channel_out_int24(tls, pcm, ds, dc, src, ss, n, matrix)
 	}
 }
 
 func opusProjectionDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
 	ms := get_multistream_decoder(tls, decoder)
 	matrix := get_dec_demixing_matrix(tls, decoder)
-	return opusMSDecodeNative(tls, ms, data, length, unsafe.Pointer(pcm), opusProjectionInt24Copy(matrix), frame, fec, 0)
+	return opusMSDecodeBound(tls, ms, data, length, opusProjectionInt24Copy(matrix, pcm), frame, fec, 0)
 }
 
 //go:uintptrescapes
