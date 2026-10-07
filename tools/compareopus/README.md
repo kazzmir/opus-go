@@ -534,6 +534,33 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four bound-destination rounds separate opusMSDecodeBound from the explicit
+legacy/format-erased opusMSDecodeNative adapter, capture standard multistream
+int16/int24/float32 PCM as concrete pointers, capture projection integer PCM
+with its typed matrix, and complete projection float capture. The shared active
+core now accepts only a bound copy callback, with no opaque PCM destination
+argument. Production unsafe.Pointer references decrease 233→224 (nine removed);
+uintptr remains 171. Actual legacy custom callbacks/standard token binding still
+use the explicit opaque adapter; raw closure-address ownership is not repaired.
+
+Upstream multistream/projection decoder callback and copy functions remain the
+reference. Validation/packet/child error order, positive-return gating, live
+mapping/channel reloads, left→right→mono→unmapped copy order, nil-source clearing,
+short-only clipping, matrix column-zero clear and accumulation order remain
+unchanged. No staging PCM or numeric conversion changes; captured pointers keep
+the same live aliases. Existing grouped format/guard/native/scanned-owner/GC
+fixtures remain unchanged except the projection float callback-owner fixture
+now binds its concrete destination instead of passing an unsafe destination at
+each call; dropped matrix owner, stack growth, GC and nil-source clear persist.
+The old opaque private adapter remains for compatibility fixtures and public
+custom callback crossings, rather than reinterpreting those handles as a
+fictional concrete destination type.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+No goldens/tolerances changed; opaque allocation scanning and extension EOF/GC
+remain outside this callback-binding improvement.
+
 Four typed-binding rounds give multistream CTLs numeric uint child sizes/cursors
 and reuse opusMSDecoderAt, bind single-decoder CTL children through the existing
 typed frame helpers, select SILK ICDF entries through consumed byte prefixes,
