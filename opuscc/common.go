@@ -3530,7 +3530,7 @@ func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int
 		return nil, opusErrorFromCode(-7)
 	}
 	if ret := Opus_opus_multistream_decoder_init(tls, st, Fs, channels, streams, coupled, mapping); ret != OPUS_OK {
-		libc.XfreePointer(tls, unsafe.Pointer(st))
+		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
 	return st, nil
