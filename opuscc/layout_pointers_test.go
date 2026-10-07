@@ -9,6 +9,7 @@ import (
 )
 
 func TestDREDFactoryPointers(t *testing.T) {
+	Opus_opus_dred_decoder_destroy_typed(nil, nil)
 	if dec, err := Opus_opus_dred_decoder_create_typed(nil); dec != nil || err == nil {
 		t.Fatal("DRED allocation failure", dec, err)
 	}
@@ -18,7 +19,7 @@ func TestDREDFactoryPointers(t *testing.T) {
 	if err != nil || dec == nil {
 		t.Fatal("typed DRED create", dec, err)
 	}
-	defer libc.XfreePointer(tls, unsafe.Pointer(dec))
+	defer Opus_opus_dred_decoder_destroy_typed(tls, dec)
 	entropyInitGrowStack(12)
 	runtime.GC()
 	if *dec != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) {
@@ -47,6 +48,12 @@ func TestDREDInitPointers(t *testing.T) {
 	}
 	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {
 		t.Fatal("disabled DRED fields/guards", owner)
+	}
+	// Go-only: nil TLS makes the allocator free a no-op, so invalidation can
+	// be inspected without reading an actually freed registered allocation.
+	Opus_opus_dred_decoder_destroy_typed(nil, &owner.Decoder)
+	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xDE57801D}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {
+		t.Fatal("disabled DRED invalidation/guards", owner)
 	}
 }
 

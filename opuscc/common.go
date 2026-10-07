@@ -3213,11 +3213,16 @@ func Opus_opus_dred_decoder_create(tls *libc.TLS) (uintptr, error) {
 	return uintptr(unsafe.Pointer(dec)), err
 }
 
-func Opus_opus_dred_decoder_destroy(tls *libc.TLS, dec uintptr) {
-	if dec != 0 {
-		(*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)).Fmagic = uint32(0xDE57801D)
+func Opus_opus_dred_decoder_destroy_typed(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) {
+	if dec != nil {
+		dec.Fmagic = uint32(0xDE57801D)
 	}
-	libc.Xfree(tls, dec)
+	libc.XfreePointer(tls, unsafe.Pointer(dec))
+}
+
+//go:uintptrescapes
+func Opus_opus_dred_decoder_destroy(tls *libc.TLS, dec uintptr) {
+	Opus_opus_dred_decoder_destroy_typed(tls, (*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)))
 }
 
 func Opus_opus_dred_decoder_ctl(tls *libc.TLS, dred_dec uintptr, request int32, va uintptr) (r int32) {
