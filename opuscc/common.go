@@ -3168,11 +3168,7 @@ func Opus_opus_decoder_get_nb_samples(tls *libc.TLS, dec *OpusT_OpusDecoder, pac
 	return Opus_opus_packet_get_nb_samples(tls, packet, len1, dec.FFs)
 }
 
-type OpusDREDDecoder = struct {
-	Floaded int32
-	Farch   int32
-	Fmagic  OpusT_opus_uint32
-}
+type OpusDREDDecoder = OpusT_OpusDREDDecoder
 
 func Opus_opus_dred_decoder_get_size(tls *libc.TLS) (r int32) {
 	return int32(12)

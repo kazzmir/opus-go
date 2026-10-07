@@ -9,6 +9,11 @@ import (
 // This port has no DRED model/SIMD initialization; test its existing disabled
 // header behavior, not an enabled upstream DRED decoder or model lifetime.
 func TestDREDInitPointers(t *testing.T) {
+	var alias OpusDREDDecoder
+	var canonical *OpusT_OpusDREDDecoder = &alias
+	if canonical != &alias || unsafe.Sizeof(alias) != 12 {
+		t.Fatal("canonical disabled DRED alias/layout")
+	}
 	owner := &struct {
 		Before  uint32
 		Decoder OpusT_OpusDREDDecoder
