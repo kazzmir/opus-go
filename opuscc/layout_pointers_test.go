@@ -11,7 +11,7 @@ import (
 func TestDREDInitPointers(t *testing.T) {
 	var alias OpusDREDDecoder
 	var canonical *OpusT_OpusDREDDecoder = &alias
-	if canonical != &alias || unsafe.Sizeof(alias) != 12 {
+	if canonical != &alias || unsafe.Sizeof(alias) != 12 || Opus_opus_dred_decoder_get_size(nil) != int32(unsafe.Sizeof(alias)) {
 		t.Fatal("canonical disabled DRED alias/layout")
 	}
 	owner := &struct {
