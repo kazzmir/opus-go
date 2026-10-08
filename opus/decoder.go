@@ -33,7 +33,7 @@ type Decoder struct {
 	multistream bool
 
 	// Typed scratch protects caller PCM from negative decode returns.
-	packetBuf cBuf
+	packetBuf []byte
 	pcm16     []int16
 	pcmFloat  []float32
 }
@@ -125,7 +125,7 @@ func (d *Decoder) Close() error {
 			opuscc.Opus_opus_decoder_destroy_typed(d.tls, d.st)
 			d.st = nil
 		}
-		d.packetBuf.free(d.tls)
+		d.packetBuf = nil
 		d.pcm16 = nil
 		d.pcmFloat = nil
 		opuscc.FreePseudostackTLS(d.tls)
@@ -133,6 +133,18 @@ func (d *Decoder) Close() error {
 		d.tls = nil
 	}
 	return nil
+}
+
+// Empty input means PLC and must pass nil even when scratch is retained.
+func (d *Decoder) stagePacket(packet []byte) *byte {
+	if len(packet) == 0 {
+		return nil
+	}
+	if len(packet) > len(d.packetBuf) {
+		d.packetBuf = make([]byte, len(packet))
+	}
+	copy(d.packetBuf, packet)
+	return unsafe.SliceData(d.packetBuf)
 }
 
 func (d *Decoder) SampleRate() int { return d.sampleRate }
@@ -162,7 +174,7 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
 	}
 
-	dataPtr := copyInPointer(d.tls, &d.packetBuf, packet)
+	dataPtr := d.stagePacket(packet)
 	dataLen := int32(len(packet))
 	if nNeeded > len(d.pcm16) {
 		d.pcm16 = make([]int16, nNeeded)
@@ -211,7 +223,7 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
 	}
 
-	dataPtr := copyInPointer(d.tls, &d.packetBuf, packet)
+	dataPtr := d.stagePacket(packet)
 	dataLen := int32(len(packet))
 	if nNeeded > len(d.pcmFloat) {
 		d.pcmFloat = make([]float32, nNeeded)

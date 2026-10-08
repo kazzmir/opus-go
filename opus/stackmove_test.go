@@ -65,10 +65,35 @@ func TestTypedDecoderStatePointers(t *testing.T) {
 		if n, err := d.DecodeF32(nil, floats, 120, false); err != nil || n != 120 {
 			t.Fatal("typed float PLC", n, err)
 		}
+		shortOwner, floatOwner := &d.pcm16[0], &d.pcmFloat[0]
+		if _, err := d.Decode(nil, pcm, 120, false); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.DecodeF32(nil, floats, 120, false); err != nil {
+			t.Fatal(err)
+		}
+		if shortOwner != &d.pcm16[0] || floatOwner != &d.pcmFloat[0] {
+			t.Fatal("typed PCM reuse")
+		}
+		for i := range pcm {
+			pcm[i] = 77
+		}
+		if _, err := d.Decode([]byte{3, 0}, pcm, 120, false); err == nil {
+			t.Fatal("invalid packet accepted")
+		}
+		for _, sample := range pcm {
+			if sample != 77 {
+				t.Fatal("negative return changed caller PCM")
+			}
+		}
+		packetOwner := unsafe.SliceData(d.packetBuf)
+		if d.stagePacket(nil) != nil || unsafe.SliceData(d.packetBuf) != packetOwner || d.stagePacket([]byte{0}) != packetOwner {
+			t.Fatal("typed packet reuse/nil PLC")
+		}
 		if err := d.Close(); err != nil {
 			t.Fatal(err)
 		}
-		if d.st != nil || d.ms != nil || d.tls != nil {
+		if d.st != nil || d.ms != nil || d.tls != nil || d.packetBuf != nil || d.pcm16 != nil || d.pcmFloat != nil {
 			t.Fatal("typed decoder close")
 		}
 		if err := d.Close(); err != nil {
