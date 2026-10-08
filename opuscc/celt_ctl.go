@@ -202,7 +202,7 @@ func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x, _y *OpusT_opus_val16, xcorr *Opu
 	  32-bit aligned.
 	 Since it's hard to put asserts in assembly, put them here.*/
 	if !(max_pitch > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+4629, __ccgo_ts+4659, int32(265))
+		opusCeltFatal(tls, opusDiagnosticString(4629), opusDiagnosticString(4659), int32(265))
 	}
 	xS := unsafe.Slice(_x, int(len1))
 	// The final lag reads through y[max_pitch+len1-2]. No input is
@@ -216,7 +216,7 @@ func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x, _y *OpusT_opus_val16, xcorr *Opu
 
 	// The original unrolled path requires len1 >= 3.
 	if max_pitch > 3 && len1 < 3 {
-		Opus_celt_fatal(tls, __ccgo_ts+3349, __ccgo_ts+3374, int32(69))
+		opusCeltFatal(tls, opusDiagnosticString(3349), opusDiagnosticString(3374), int32(69))
 	}
 
 	for i1 := int32(0); i1 < max_pitch-3; i1 += 4 {
@@ -307,10 +307,10 @@ func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x, _y *OpusT_opus_val16, xcorr *Opu
 
 func Opus_pitch_search(tls *libc.TLS, x, y *float32, length, maxPitch int32, pitch *int32, arch int32) {
 	if length <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+4675, __ccgo_ts+4659, 325)
+		opusCeltFatal(tls, opusDiagnosticString(4675), opusDiagnosticString(4659), 325)
 	}
 	if maxPitch <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+4629, __ccgo_ts+4659, 326)
+		opusCeltFatal(tls, opusDiagnosticString(4629), opusDiagnosticString(4659), 326)
 	}
 	input := unsafe.Slice(x, length>>1)
 	history := unsafe.Slice(y, (length+maxPitch)>>1)
@@ -785,7 +785,7 @@ func Opus_ec_enc_icdf16(tls *libc.TLS, enc *OpusT_ec_enc, symbol int32, icdf *ui
 
 func Opus_ec_enc_uint(tls *libc.TLS, enc *OpusT_ec_enc, value, total OpusT_opus_uint32) {
 	if total <= 1 {
-		Opus_celt_fatal(tls, __ccgo_ts+3569, __ccgo_ts+4699, 191)
+		opusCeltFatal(tls, opusDiagnosticString(3569), opusDiagnosticString(4699), 191)
 	}
 	maximum := total - 1
 	width := bits.Len32(maximum)
@@ -803,7 +803,7 @@ func Opus_ec_enc_uint(tls *libc.TLS, enc *OpusT_ec_enc, value, total OpusT_opus_
 func Opus_ec_enc_bits(tls *libc.TLS, enc *OpusT_ec_enc, value OpusT_opus_uint32, bits uint32) {
 	window, used := enc.Fend_window, enc.Fnend_bits
 	if bits == 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+4716, __ccgo_ts+4699, 209)
+		opusCeltFatal(tls, opusDiagnosticString(4716), opusDiagnosticString(4699), 209)
 	}
 	if uint32(used)+bits > 32 {
 		// Flush at least one byte, then continue through complete bytes.
@@ -824,7 +824,7 @@ func Opus_ec_enc_bits(tls *libc.TLS, enc *OpusT_ec_enc, value OpusT_opus_uint32,
 
 func Opus_ec_enc_patch_initial_bits(tls *libc.TLS, enc *OpusT_ec_enc, value, nbits uint32) {
 	if nbits > EC_SYM_BITS {
-		Opus_celt_fatal(tls, __ccgo_ts+4742, __ccgo_ts+4699, 228)
+		opusCeltFatal(tls, opusDiagnosticString(4742), opusDiagnosticString(4699), 228)
 	}
 	shift := uint32(EC_SYM_BITS) - nbits
 	mask := ((uint32(1) << nbits) - 1) << shift
@@ -846,7 +846,7 @@ func Opus_ec_enc_patch_initial_bits(tls *libc.TLS, enc *OpusT_ec_enc, value, nbi
 
 func Opus_ec_enc_shrink(tls *libc.TLS, enc *OpusT_ec_enc, size OpusT_opus_uint32) {
 	if !(enc.Foffs+enc.Fend_offs <= size) {
-		Opus_celt_fatal(tls, __ccgo_ts+4780, __ccgo_ts+4699, 249)
+		opusCeltFatal(tls, opusDiagnosticString(4780), opusDiagnosticString(4699), 249)
 	}
 	if enc.Fend_offs > 0 {
 		buf := unsafe.Slice(enc.Fbuf, enc.Fstorage)
