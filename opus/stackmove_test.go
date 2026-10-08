@@ -9,6 +9,35 @@ import (
 	"unsafe"
 )
 
+func TestTypedDecoderStatePointers(t *testing.T) {
+	for _, multi := range []bool{false, true} {
+		var d *Decoder
+		var err error
+		if multi {
+			d, err = NewMultistreamDecoder(48000, 3, 2, 1, []uint8{0, 1, 2})
+		} else {
+			d, err = NewDecoder(48000, 2)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		st, ms := d.st, d.ms
+		runtime.GC()
+		if d.st != st || d.ms != ms || (multi && (d.ms == nil || d.st != nil)) || (!multi && (d.st == nil || d.ms != nil)) {
+			t.Fatal("typed decoder state owners")
+		}
+		if err := d.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if d.st != nil || d.ms != nil || d.tls != nil {
+			t.Fatal("typed decoder close")
+		}
+		if err := d.Close(); err != nil {
+			t.Fatal("repeated close", err)
+		}
+	}
+}
+
 // skipOn32Bit skips encoder tests on 32-bit targets, where the transpiled
 // encoder aborts inside celt's FFT (celt_fatal from opus_fft_c during
 // tonality analysis) before any of this is exercised. That predates these

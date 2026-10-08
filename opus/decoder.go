@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 
@@ -23,7 +24,8 @@ type Decoder struct {
 	mu sync.Mutex
 
 	tls *libc.TLS
-	st  uintptr
+	st  *opuscc.OpusT_OpusDecoder
+	ms  *opuscc.OpusT_OpusMSDecoder
 
 	sampleRate int
 	channels   int
@@ -63,8 +65,8 @@ func NewDecoder(sampleRate, channels int) (*Decoder, error) {
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	st, err := opuscc.Opus_opus_decoder_create(tls, opuscc.OpusT_opus_int32(sampleRate), int32(channels))
-	if err != nil || st == 0 {
+	st, err := opuscc.Opus_opus_decoder_create_typed(tls, opuscc.OpusT_opus_int32(sampleRate), int32(channels))
+	if err != nil || st == nil {
 		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
 			msg := opusccErrorString(oe.Code)
 			tls.Close()
@@ -89,15 +91,15 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 	mappingPtr := copyIn(tls, &mappingBuf, mapping)
 	defer mappingBuf.free(tls)
 
-	st, err := opuscc.Opus_opus_multistream_decoder_create(
+	st, err := opuscc.Opus_opus_multistream_decoder_create_typed(
 		tls,
 		opuscc.OpusT_opus_int32(sampleRate),
 		int32(channels),
 		int32(streams),
 		int32(coupledStreams),
-		mappingPtr,
+		(*byte)(unsafe.Pointer(mappingPtr)),
 	)
-	if err != nil || st == 0 {
+	if err != nil || st == nil {
 		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
 			msg := opusccErrorString(oe.Code)
 			tls.Close()
@@ -107,7 +109,7 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 		return nil, fmt.Errorf("opus: multistream_decoder_create failed: %w", err)
 	}
 
-	return &Decoder{tls: tls, st: st, sampleRate: sampleRate, channels: channels, multistream: true}, nil
+	return &Decoder{tls: tls, ms: st, sampleRate: sampleRate, channels: channels, multistream: true}, nil
 }
 
 func (d *Decoder) Close() error {
@@ -118,13 +120,13 @@ func (d *Decoder) Close() error {
 	defer d.mu.Unlock()
 
 	if d.tls != nil {
-		if d.st != 0 {
-			if d.multistream {
-				opuscc.Opus_opus_multistream_decoder_destroy(d.tls, d.st)
-			} else {
-				opuscc.Opus_opus_decoder_destroy(d.tls, d.st)
-			}
-			d.st = 0
+		if d.ms != nil {
+			opuscc.Opus_opus_multistream_decoder_destroy_typed(d.tls, d.ms)
+			d.ms = nil
+		}
+		if d.st != nil {
+			opuscc.Opus_opus_decoder_destroy_typed(d.tls, d.st)
+			d.st = nil
 		}
 		d.packetBuf.free(d.tls)
 		d.pcmBuf.free(d.tls)
@@ -151,7 +153,7 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if d == nil || d.tls == nil || d.st == 0 {
+	if d == nil || d.tls == nil || (d.st == nil && d.ms == nil) {
 		return 0, errors.New("opus: decoder closed")
 	}
 	if frameSize <= 0 {
@@ -172,9 +174,9 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 
 	var ret int32
 	if d.multistream {
-		ret = opuscc.Opus_opus_multistream_decode(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+		ret = opuscc.Opus_opus_multistream_decode_typed(d.tls, d.ms, (*byte)(unsafe.Pointer(dataPtr)), opuscc.OpusT_opus_int32(dataLen), (*int16)(unsafe.Pointer(pcmPtr)), int32(frameSize), fec)
 	} else {
-		ret = opuscc.Opus_opus_decode(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+		ret = opuscc.Opus_opus_decode_typed(d.tls, d.st, (*byte)(unsafe.Pointer(dataPtr)), opuscc.OpusT_opus_int32(dataLen), (*int16)(unsafe.Pointer(pcmPtr)), int32(frameSize), fec)
 	}
 
 	if ret < 0 {
@@ -197,7 +199,7 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if d == nil || d.tls == nil || d.st == 0 {
+	if d == nil || d.tls == nil || (d.st == nil && d.ms == nil) {
 		return 0, errors.New("opus: decoder closed")
 	}
 	if frameSize <= 0 {
@@ -218,9 +220,9 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 
 	var ret int32
 	if d.multistream {
-		ret = opuscc.Opus_opus_multistream_decode_float(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+		ret = opuscc.Opus_opus_multistream_decode_float_typed(d.tls, d.ms, (*byte)(unsafe.Pointer(dataPtr)), opuscc.OpusT_opus_int32(dataLen), (*float32)(unsafe.Pointer(pcmPtr)), int32(frameSize), fec)
 	} else {
-		ret = opuscc.Opus_opus_decode_float(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+		ret = opuscc.Opus_opus_decode_float_typed(d.tls, d.st, (*byte)(unsafe.Pointer(dataPtr)), opuscc.OpusT_opus_int32(dataLen), (*float32)(unsafe.Pointer(pcmPtr)), int32(frameSize), fec)
 	}
 
 	if ret < 0 {
@@ -232,18 +234,18 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 
 // convenience function to decode an Ogg OpusAudioPacket
 func (decoder *Decoder) DecodePacket(packet *ogg.OpusAudioPacket, pcm []int16) ([]int16, int, error) {
-    const maxMsPerFrame = 120
-    maxSize := ogg.OpusSampleRateHz * maxMsPerFrame / 1000
-    if len(pcm) < maxSize * decoder.channels {
-        pcm = make([]int16, maxSize * decoder.channels)
-    }
+	const maxMsPerFrame = 120
+	maxSize := ogg.OpusSampleRateHz * maxMsPerFrame / 1000
+	if len(pcm) < maxSize*decoder.channels {
+		pcm = make([]int16, maxSize*decoder.channels)
+	}
 
-    n, err := decoder.Decode(packet.Data, pcm, maxSize, false)
-    if err != nil {
-        return nil, 0, err
-    }
+	n, err := decoder.Decode(packet.Data, pcm, maxSize, false)
+	if err != nil {
+		return nil, 0, err
+	}
 
-    return pcm[:n*decoder.channels], n, nil
+	return pcm[:n*decoder.channels], n, nil
 }
 
 // convenience function to decode an Ogg OpusAudioPacket
