@@ -534,6 +534,18 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four further diagnostic rounds migrate eight CELT control, six LPC filter,
+six MDCT and six SILK API assertion sites to the existing Go-string fatal
+helper. This removes another 52 integer-address constructions at 26 sites;
+production lexical counts remain 196 unsafe.Pointer/167 uintptr. This is
+representation cleanup of static diagnostic arguments, not a lifetime or
+allocator-scanning repair. The grouped all-pool string/GC fixture remains.
+All conditions, source lines, filenames, fatal format, abort calls, scalar
+arithmetic and assertion positions remain unchanged. Each round passes full
+amd64/386, ARM64/QEMU, scoped checkptr, native comparisons, codec references,
+GC stress and diff checks, with final repeated scoped/ordinary ARM fixtures.
+No goldens/tolerances/assertions changed; public legacy adapters remain.
+
 Four diagnostic-string rounds introduce a Go-string fatal helper and static
 pool numeric-offset string lookup, then migrate three CELT setup assertions,
 three FFT assertions, five entropy assertions and twelve SILK resampler
