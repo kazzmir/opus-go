@@ -35,12 +35,11 @@ func celtDecoderResetFields(st *OpusT_OpusCustomDecoder) {
 func celt_decoder_reset(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 	mode := st.Fmode
 	size := opus_custom_decoder_get_size(tls, mode, st.Fchannels)
-	start := unsafe.Offsetof(st.F_decode_mem)
 	_, log, previous, _ := celtDecodeEnergyViews(st, mode.FnbEBands, st.Foverlap, st.Fchannels)
 	oldLog := unsafe.Slice(log, 2*mode.FnbEBands)
 	oldLog2 := unsafe.Slice(previous, 2*mode.FnbEBands)
 	celtDecoderResetFields(st)
-	clear(unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(st), start)), int(size)-int(start)))
+	celtDecoderClearMemory(st, size)
 	for i := range oldLog {
 		oldLog2[i] = -28
 		oldLog[i] = -28

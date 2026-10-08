@@ -100,6 +100,15 @@ func Opus_celt_decoder_init(tls *libc.TLS, st *OpusT_OpusCustomDecoder, rate Opu
 	return OPUS_OK
 }
 
+// The valid allocation remainder is float32 words, including header tail padding.
+func celtDecoderClearMemory(st *OpusT_OpusCustomDecoder, size int32) {
+	words := (int(size) - int(unsafe.Offsetof(st.F_decode_mem))) / 4
+	if words == 0 {
+		return
+	}
+	clear(unsafe.Slice(&st.F_decode_mem[0], words))
+}
+
 func opus_custom_decoder_init(tls *libc.TLS, st *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, channels int32) int32 {
 	if channels < 0 || channels > 2 {
 		return OPUS_BAD_ARG
