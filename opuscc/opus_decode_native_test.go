@@ -55,7 +55,7 @@ func TestOpusIntegerRatesPointers(t *testing.T) {
 			a[0], a[len(a)-1], b[0], b[len(b)-1] = 77, 88, 77, 88
 			entropyInitGrowStack(12)
 			runtime.GC()
-			if opusDecodeInt16(nil, &left.Decoder, &packet[0], int32(len(packet)), &a[1], N, 0) != N || opusDecodeInt24(nil, &right.Decoder, &packet[0], int32(len(packet)), &b[1], N, 0) != N || left.Decoder.FrangeFinal != 0x50373c71 || right.Decoder.FrangeFinal != 0x50373c71 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 {
+			if Opus_opus_decode_typed(nil, &left.Decoder, &packet[0], int32(len(packet)), &a[1], N, 0) != N || opusDecodeInt24(nil, &right.Decoder, &packet[0], int32(len(packet)), &b[1], N, 0) != N || left.Decoder.FrangeFinal != 0x50373c71 || right.Decoder.FrangeFinal != 0x50373c71 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 {
 				t.Fatal("integer API rate/guards", rate, C)
 			}
 		}
@@ -267,7 +267,7 @@ func TestOpusFloatDecodeWholePointers(t *testing.T) {
 		pcm[0], pcm[11521] = 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if opusDecodeFloat(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0) != tc.n || fnv1aFloats(pcm[1:1+2*tc.n]) != tc.hash || storage.Decoder.FrangeFinal != tc.rng || pcm[0] != 77 || pcm[11521] != 88 {
+		if Opus_opus_decode_float_typed(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0) != tc.n || fnv1aFloats(pcm[1:1+2*tc.n]) != tc.hash || storage.Decoder.FrangeFinal != tc.rng || pcm[0] != 77 || pcm[11521] != 88 {
 			t.Fatal("float decode typed golden")
 		}
 		entropyInitGrowStack(12)

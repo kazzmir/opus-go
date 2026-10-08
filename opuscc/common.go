@@ -2991,6 +2991,10 @@ func Opus_opus_decode(tls *libc.TLS, st1, data uintptr, length int32, pcm uintpt
 	return opusDecodeInt16(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), length, (*int16)(unsafe.Pointer(pcm)), frameSize, fec)
 }
 
+func Opus_opus_decode_typed(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *int16, frameSize, fec int32) int32 {
+	return opusDecodeInt16(tls, decoder, data, length, pcm, frameSize, fec)
+}
+
 func opusDecodeInt16(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *int16, frameSize, fec int32) int32 {
 	if frameSize <= 0 {
 		return -1
@@ -3058,6 +3062,10 @@ func opusDecodeInt24PCM(tls *libc.TLS, input *float32, output *int32, count int3
 	for i := int32(0); i < count; i++ {
 		dst[i] = int32(libc.Xlrintf(tls, float32(float32(float32(32768)*float32(256))*src[i])))
 	}
+}
+
+func Opus_opus_decode_float_typed(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, frameSize, fec int32) int32 {
+	return opusDecodeFloat(tls, decoder, data, length, pcm, frameSize, fec)
 }
 
 func opusDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *float32, frameSize, fec int32) int32 {
