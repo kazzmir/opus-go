@@ -113,10 +113,10 @@ func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_Opus
 	st := (*OpusT_OpusMSDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
 	streams, coupled := st.Flayout.Fnb_streams, st.Flayout.Fnb_coupled_streams
 	visit := func(mode *OpusT_OpusCustomMode) {
-		offset := int((unsafe.Sizeof(*st) + 7) &^ uintptr(7))
+		offset := (int(unsafe.Sizeof(*st)) + 7) &^ 7
 		for i := int32(0); i < streams; i++ {
-			dec := (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
-			celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(dec), dec.Fcelt_dec_offset))
+			dec := opusMSDecoderAt(st, uint(offset))
+			celt := opusFrameCeltState(dec)
 			celt.Fmode = mode
 			ch := int32(1)
 			if i < coupled {
@@ -127,6 +127,7 @@ func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_Opus
 	}
 	visit(&mode48000_960_120)
 	out := uint32(77)
+	signedOut := int32(77)
 	var decoder *OpusT_OpusDecoder
 	a := OpusDecoderCtlArgs{Value: value}
 	if alias != -2 {
@@ -136,11 +137,14 @@ func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_Opus
 			a.I32 = (*int32)(p)
 			a.U32 = (*uint32)(p)
 		} else {
-			a.I32 = (*int32)(unsafe.Pointer(&out))
+			a.I32 = &signedOut
 			a.U32 = &out
 		}
 	}
 	r := ctl(st, request, a)
+	if alias < 0 && request != OPUS_GET_FINAL_RANGE_REQUEST {
+		out = uint32(signedOut)
+	}
 	if request == OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST && decoder != nil {
 		out = uint32(uintptr(unsafe.Pointer(decoder)) - uintptr(unsafe.Pointer(st)))
 	}
