@@ -43,7 +43,7 @@ func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDe
 	psDecCtrl.FLTP_scale_Q14 = 0
 	/* Safety checks */
 	if !(L > 0 && L <= int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)*int32(MAX_FS_KHZ)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5921, __ccgo_ts+5898, int32(68))
+		opusCeltFatal(tls, opusDiagnosticString(5921), opusDiagnosticString(5898), int32(68))
 	}
 	decode := lostFlag == FLAG_DECODE_NORMAL || lostFlag == FLAG_DECODE_LBRR && decoder.FLBRR_flags[decoder.FnFramesDecoded] == 1
 	if decode {
@@ -68,7 +68,7 @@ func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDe
 		/* Update output buffer. */
 		/*************************/
 		if !(psDec.Fltp_mem_length >= psDec.Fframe_length) {
-			Opus_celt_fatal(tls, __ccgo_ts+5970, __ccgo_ts+5898, int32(104))
+			opusCeltFatal(tls, opusDiagnosticString(5970), opusDiagnosticString(5898), int32(104))
 		}
 		silkDecodeFrameHistory(decoder, pOut)
 		/********************************************************/
@@ -78,7 +78,7 @@ func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDe
 		psDec.FlossCnt = 0
 		psDec.FprevSignalType = int32(psDec.Findices.FsignalType)
 		if !(psDec.FprevSignalType >= 0 && psDec.FprevSignalType <= int32(2)) {
-			Opus_celt_fatal(tls, __ccgo_ts+6033, __ccgo_ts+5898, int32(127))
+			opusCeltFatal(tls, opusDiagnosticString(6033), opusDiagnosticString(5898), int32(127))
 		}
 		/* A frame has been decoded without errors */
 		psDec.Ffirst_frame_after_reset = 0
@@ -89,7 +89,7 @@ func silk_decode_frame(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psRangeDe
 		/* Update output buffer. */
 		/*************************/
 		if !(psDec.Fltp_mem_length >= psDec.Fframe_length) {
-			Opus_celt_fatal(tls, __ccgo_ts+5970, __ccgo_ts+5898, int32(145))
+			opusCeltFatal(tls, opusDiagnosticString(5970), opusDiagnosticString(5898), int32(145))
 		}
 		silkDecodeFrameHistory(decoder, pOut)
 	}
@@ -191,7 +191,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 	var pred [MAX_LPC_ORDER]byte
 	Opus_silk_NLSF_unpack(tls, &ecIX[0], &pred[0], cb, int32(indices.FNLSFIndices[0]))
 	if int32(cb.Forder) != decoder.FLPC_order {
-		Opus_celt_fatal(tls, __ccgo_ts+6108, __ccgo_ts+6170, 82)
+		opusCeltFatal(tls, opusDiagnosticString(6108), opusDiagnosticString(6170), 82)
 	}
 	for i := int32(0); i < int32(cb.Forder); i++ {
 		ix = Opus_ec_dec_icdf(tls, dec, silkDecodeICDFAt(residual, int32(ecIX[i])), 8)
@@ -247,7 +247,7 @@ func Opus_silk_decode_pulses(tls *libc.TLS, dec *OpusT_ec_dec, pulses *OpusT_opu
 	blocks := frame_length >> LOG2_SHELL_CODEC_FRAME_LENGTH
 	if blocks*SHELL_CODEC_FRAME_LENGTH < frame_length {
 		if frame_length != 120 {
-			Opus_celt_fatal(tls, __ccgo_ts+6195, __ccgo_ts+6237, 59)
+			opusCeltFatal(tls, opusDiagnosticString(6195), opusDiagnosticString(6237), 59)
 		}
 		blocks++ // 10 ms at 12 kHz has a padded final shell block.
 	}
