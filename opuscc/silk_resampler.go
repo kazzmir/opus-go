@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"encoding/binary"
 	"math/bits"
 	"reflect"
 	"unsafe"
@@ -416,6 +417,17 @@ func silk_resampler_private_IIR_FIR_INTERPOL(tls *libc.TLS, out, buf *int16, max
 	return count
 }
 
+// Decode the union's first four int32 words as eight native-endian int16s.
+func silkResamplerIIRHistory(state *OpusT_silk_resampler_state_struct) (history [8]int16) {
+	var word [4]byte
+	for i := 0; i < 4; i++ {
+		binary.NativeEndian.PutUint32(word[:], uint32(state.FsFIR.Fi32[i]))
+		history[2*i] = int16(binary.NativeEndian.Uint16(word[:2]))
+		history[2*i+1] = int16(binary.NativeEndian.Uint16(word[2:]))
+	}
+	return history
+}
+
 // C documentation
 //
 //	/* Upsample using a combination of allpass-based 2x upsampling and FIR interpolation */
@@ -423,7 +435,8 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, state *OpusT_silk_resamp
 	buf := make([]int16, 2*state.FbatchSize+8)
 	// The C union uses its first eight int16 elements in this mode.
 	history := (*[8]int16)(unsafe.Pointer(&state.FsFIR.Fi32[0]))
-	copy(buf, history[:])
+	initial := silkResamplerIIRHistory(state)
+	copy(buf, initial[:])
 	input := unsafe.Slice(in, inLen)
 	increment := state.FinvRatio_Q16
 	for {
