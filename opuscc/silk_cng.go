@@ -110,7 +110,7 @@ func Opus_silk_CNG(tls *libc.TLS, dec *OpusT_silk_decoder_state, control *OpusT_
 		Opus_silk_NLSF2A(tls, &coefficients[0], &cng.FCNG_smth_NLSF_Q15[0], dec.FLPC_order, dec.Farch)
 		copy(signal[:MAX_LPC_ORDER], cng.FCNG_synth_state[:])
 		if !(dec.FLPC_order == 10 || dec.FLPC_order == 16) {
-			Opus_celt_fatal(tls, __ccgo_ts+5777, __ccgo_ts+5763, 153)
+			opusCeltFatal(tls, opusDiagnosticString(5777), opusDiagnosticString(5763), 153)
 		}
 		pcm := unsafe.Slice(frame, length)
 		for i := int32(0); i < length; i++ {
