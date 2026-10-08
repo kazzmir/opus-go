@@ -14,7 +14,7 @@ var _ reflect.Type
 func kf_bfly2(tls *libc.TLS, out *OpusT_kiss_fft_cpx, m, N int32) {
 	// The no-custom-modes radix-2 stage always follows a radix-4 stage.
 	if m != 4 {
-		Opus_celt_fatal(tls, __ccgo_ts+3470, __ccgo_ts+3493, 80)
+		opusCeltFatal(tls, opusDiagnosticString(3470), opusDiagnosticString(3493), 80)
 	}
 	if N <= 0 {
 		return
@@ -216,7 +216,7 @@ func Opus_opus_fft_impl(tls *libc.TLS, state *OpusT_kiss_fft_state, twiddles *Op
 
 func Opus_opus_fft_c(tls *libc.TLS, st *OpusT_kiss_fft_state, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, fin, fout *OpusT_kiss_fft_cpx) {
 	if fin == fout {
-		Opus_celt_fatal(tls, __ccgo_ts+3512, __ccgo_ts+3493, 626)
+		opusCeltFatal(tls, opusDiagnosticString(3512), opusDiagnosticString(3493), 626)
 	}
 	scale := st.Fscale
 	in := unsafe.Slice(fin, st.Fnfft)
@@ -233,7 +233,7 @@ func Opus_opus_fft_c(tls *libc.TLS, st *OpusT_kiss_fft_state, bitrev *int16, twi
 
 func Opus_opus_ifft_c(tls *libc.TLS, st *OpusT_kiss_fft_state, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, fin, fout *OpusT_kiss_fft_cpx) {
 	if fin == fout {
-		Opus_celt_fatal(tls, __ccgo_ts+3512, __ccgo_ts+3493, 641)
+		opusCeltFatal(tls, opusDiagnosticString(3512), opusDiagnosticString(3493), 641)
 	}
 	in := unsafe.Slice(fin, st.Fnfft)
 	out := unsafe.Slice(fout, st.Fnfft)
