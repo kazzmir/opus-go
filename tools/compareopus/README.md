@@ -534,6 +534,32 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT reset/init rounds bind old logs through existing concrete energy
+views, reset the named scalar suffix before clearing trailing storage, clear the
+allocation remainder through typed float32 words, and initialize the pointer/
+scalar header through named fields plus that same memory clear. Production
+unsafe.Pointer references decrease 199→196; uintptr remains 167. No byte-pointer
+clear or integer-address energy/log traversal remains in these private paths.
+
+Upstream celt_decoder.c init/reset remains the reference. Size-call/validation
+order, GC-visible mode nil/rebind stores, all zeroing before initialization/
+child dispatch, oldLog2→oldLog -28 writes and skip_plc/frame-type stores remain
+unchanged. The 40-byte scalar prefix and 64-byte reset suffix have explicit
+layout fixtures; the complete trailing region is 4-byte float words, including
+header tail padding when present. Raw-byte-clear comparisons cover prefix/
+flexible-element preservation, padding, terminal guards and empty memory clears.
+Named header stores deliberately avoid whole-struct assignment, which could
+write a flexible element/padding excluded by a minimal zero-channel allocation.
+Existing whole-state native/init/reset/scanned-owner/golden fixtures persist.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+Physical scalar stores replace bulk byte clearing, with no reads or externally
+observable callbacks between those stores; live dependencies and final byte
+images remain unchanged. No goldens/tolerances/assertions changed. Typed clears
+do not turn opaque byte allocations into scanned state or repair extension
+EOF/GC or legacy raw callback lifetime.
+
 Four typed-state rounds read the IIR resampler union history through numeric
 native-endian int32/int16 conversion, write its final history the same way
 (removing the array-pointer reinterpretation), clear the standard decoder's

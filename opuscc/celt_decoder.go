@@ -109,6 +109,23 @@ func celtDecoderClearMemory(st *OpusT_OpusCustomDecoder, size int32) {
 	clear(unsafe.Slice(&st.F_decode_mem[0], words))
 }
 
+// Clear fields, not a whole struct assignment: a zero-channel allocation may
+// exclude the flexible decode-memory element and some trailing header padding.
+func celtDecoderClearHeader(st *OpusT_OpusCustomDecoder) {
+	st.Fmode = nil // typed pointer store retains the GC write barrier
+	st.Foverlap = 0
+	st.Fchannels = 0
+	st.Fstream_channels = 0
+	st.Fdownsample = 0
+	st.Fstart = 0
+	st.Fend = 0
+	st.Fsignalling = 0
+	st.Fdisable_inv = 0
+	st.Fcomplexity = 0
+	st.Farch = 0
+	celtDecoderResetFields(st)
+}
+
 func opus_custom_decoder_init(tls *libc.TLS, st *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, channels int32) int32 {
 	if channels < 0 || channels > 2 {
 		return OPUS_BAD_ARG
@@ -117,10 +134,8 @@ func opus_custom_decoder_init(tls *libc.TLS, st *OpusT_OpusCustomDecoder, mode *
 		return -7
 	}
 	size := opus_custom_decoder_get_size(tls, mode, channels)
-	pointerBytes := unsafe.Sizeof(st.Fmode)
-	// Clear the sole pointer through its typed slot (including the GC write barrier).
-	st.Fmode = nil
-	clear(unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(st), pointerBytes)), int(size)-int(pointerBytes)))
+	celtDecoderClearHeader(st)
+	celtDecoderClearMemory(st, size)
 	st.Fmode = mode
 	st.Foverlap = mode.Foverlap
 	st.Fchannels = channels

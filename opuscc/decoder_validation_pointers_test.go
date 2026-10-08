@@ -360,6 +360,26 @@ func TestCeltDecoderInitPointers(t *testing.T) {
 	}
 }
 
+func TestCeltInitHeaderPointers(t *testing.T) {
+	var mode OpusT_OpusCustomMode
+	state := OpusT_OpusCustomDecoder{Fmode: &mode}
+	start, end := unsafe.Offsetof(state.Foverlap), unsafe.Offsetof(state.F_decode_mem)
+	if start != unsafe.Sizeof(state.Fmode) || unsafe.Offsetof(state.Frng)-start != 40 {
+		t.Fatal("CELT init prefix geometry needs updating")
+	}
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(&state.Foverlap)), unsafe.Sizeof(state)-start)
+	for i := range raw {
+		raw[i] = 0xa5
+	}
+	want := state
+	want.Fmode = nil
+	clear(unsafe.Slice((*byte)(unsafe.Pointer(&want.Foverlap)), end-start))
+	celtDecoderClearHeader(&state)
+	if state != want {
+		t.Fatal("CELT typed header/flexible memory preservation")
+	}
+}
+
 func TestCeltResetMemoryPointers(t *testing.T) {
 	var owner struct {
 		State OpusT_OpusCustomDecoder
