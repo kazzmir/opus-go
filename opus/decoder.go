@@ -85,11 +85,7 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	// Copied into shim memory for the same reason as cBuf; libopus copies
-	// the mapping into the decoder state, so it's freed right after.
-	var mappingBuf cBuf
-	mappingPtr := copyIn(tls, &mappingBuf, mapping)
-	defer mappingBuf.free(tls)
+	// The typed initializer consumes/copies the mapping synchronously.
 
 	st, err := opuscc.Opus_opus_multistream_decoder_create_typed(
 		tls,
@@ -97,7 +93,7 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 		int32(channels),
 		int32(streams),
 		int32(coupledStreams),
-		(*byte)(unsafe.Pointer(mappingPtr)),
+		unsafe.SliceData(mapping),
 	)
 	if err != nil || st == nil {
 		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
@@ -164,9 +160,9 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
 	}
 
-	dataPtr := copyIn(d.tls, &d.packetBuf, packet)
+	dataPtr := copyInPointer(d.tls, &d.packetBuf, packet)
 	dataLen := int32(len(packet))
-	pcmPtr := d.pcmBuf.ensure(d.tls, nNeeded*2)
+	pcmPtr := d.pcmBuf.ensurePointer(d.tls, nNeeded*2)
 	fec := int32(0)
 	if decodeFEC {
 		fec = 1
@@ -174,15 +170,15 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 
 	var ret int32
 	if d.multistream {
-		ret = opuscc.Opus_opus_multistream_decode_typed(d.tls, d.ms, (*byte)(unsafe.Pointer(dataPtr)), opuscc.OpusT_opus_int32(dataLen), (*int16)(unsafe.Pointer(pcmPtr)), int32(frameSize), fec)
+		ret = opuscc.Opus_opus_multistream_decode_typed(d.tls, d.ms, dataPtr, opuscc.OpusT_opus_int32(dataLen), cPointer[int16](pcmPtr), int32(frameSize), fec)
 	} else {
-		ret = opuscc.Opus_opus_decode_typed(d.tls, d.st, (*byte)(unsafe.Pointer(dataPtr)), opuscc.OpusT_opus_int32(dataLen), (*int16)(unsafe.Pointer(pcmPtr)), int32(frameSize), fec)
+		ret = opuscc.Opus_opus_decode_typed(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), cPointer[int16](pcmPtr), int32(frameSize), fec)
 	}
 
 	if ret < 0 {
 		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(ret), ret)
 	}
-	copy(pcm, cSlice[int16](pcmPtr, int(ret)*d.channels))
+	copy(pcm, cBufferSlice[int16](pcmPtr, int(ret)*d.channels))
 	return int(ret), nil
 }
 
@@ -210,9 +206,9 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
 	}
 
-	dataPtr := copyIn(d.tls, &d.packetBuf, packet)
+	dataPtr := copyInPointer(d.tls, &d.packetBuf, packet)
 	dataLen := int32(len(packet))
-	pcmPtr := d.pcmBuf.ensure(d.tls, nNeeded*4)
+	pcmPtr := d.pcmBuf.ensurePointer(d.tls, nNeeded*4)
 	fec := int32(0)
 	if decodeFEC {
 		fec = 1
@@ -220,15 +216,15 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 
 	var ret int32
 	if d.multistream {
-		ret = opuscc.Opus_opus_multistream_decode_float_typed(d.tls, d.ms, (*byte)(unsafe.Pointer(dataPtr)), opuscc.OpusT_opus_int32(dataLen), (*float32)(unsafe.Pointer(pcmPtr)), int32(frameSize), fec)
+		ret = opuscc.Opus_opus_multistream_decode_float_typed(d.tls, d.ms, dataPtr, opuscc.OpusT_opus_int32(dataLen), cPointer[float32](pcmPtr), int32(frameSize), fec)
 	} else {
-		ret = opuscc.Opus_opus_decode_float_typed(d.tls, d.st, (*byte)(unsafe.Pointer(dataPtr)), opuscc.OpusT_opus_int32(dataLen), (*float32)(unsafe.Pointer(pcmPtr)), int32(frameSize), fec)
+		ret = opuscc.Opus_opus_decode_float_typed(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), cPointer[float32](pcmPtr), int32(frameSize), fec)
 	}
 
 	if ret < 0 {
 		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(ret), ret)
 	}
-	copy(pcm, cSlice[float32](pcmPtr, int(ret)*d.channels))
+	copy(pcm, cBufferSlice[float32](pcmPtr, int(ret)*d.channels))
 	return int(ret), nil
 }
 

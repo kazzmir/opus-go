@@ -534,6 +534,36 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four public-wrapper rounds expose typed single and multistream int16/float
+entry points, retain Decoder's single/MS state in concrete pointer fields with
+typed creation/destruction, and retain scratch in cBuf's *byte owner with typed
+allocation/copy/view operations. Decoder packet/PCM calls now bypass all integer
+escape entry points; mapping is synchronously consumed directly from its Go
+slice. Legacy encoder cBuf ensure/copyIn/cSlice integer adapters remain explicit.
+Production opuscc counts remain 196 unsafe.Pointer/167 uintptr: this batch moves
+the outer Go wrapper rather than deleting its retained public C-style adapters.
+Decoder.go now has neither uintptr nor unsafe.Pointer references. Lexical counts
+of cbuf.go include newly explicit encoder adapters, not an active decoder path.
+
+Existing grouped scanned-owner int16/float single/MS fixtures now exercise the
+new exported entries without changing goldens or guard/native comparisons.
+Wrapper tests verify concrete state ownership, GC, both PCM-format PLC paths,
+close/repeated close, scratch reuse/growth/signed values and empty-input owner
+retention. Decoder validation/closed/error order, format/FEC dispatch, allocation
+before decode, positive-return copy gating and actual returned-prefix views
+remain unchanged. Full scratch views are not formed before decode, preserving
+existing invalid-size/error ordering. Encoder calls and stable shim allocation
+behavior remain unchanged; no caller stack slice crosses a raw integer encoder
+interface. Mapping no longer needs its temporary shim copy.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped opuscc checkptr, native
+comparisons, codec references and GC stress. Final typed wrapper/scratch tests
+also pass scoped checkptr on amd64/386/ARM64, with repeated scoped/ordinary ARM
+fixtures. No goldens/tolerances/assertions changed. Typed cBuf holds byte-backed
+PCM/packet storage, not a general scanned object allocator. Decoder state still
+uses existing opaque byte allocations: embedded pointer scanning, extension
+EOF/GC and raw custom callback ownership are not claimed globally repaired.
+
 Four CELT reset/init rounds bind old logs through existing concrete energy
 views, reset the named scalar suffix before clearing trailing storage, clear the
 allocation remainder through typed float32 words, and initialize the pointer/

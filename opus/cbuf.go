@@ -6,50 +6,61 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
-// cBuf is scratch memory the transpiled libopus code can safely be handed
-// a uintptr to. A caller's slice can't be: converting it to uintptr hides
-// the pointer from escape analysis, so the slice may live on the goroutine
-// stack, and the transpiled code's deep call chains can grow - move - that
-// stack mid-call. Go fixes up real pointers when it moves a stack, but not
-// uintptrs, so libopus would read from and write to the stack's old copy
-// (observed as encoded packets left all-zero). cBuf memory comes from the
-// shim's malloc, which keeps it reachable from the TLS and never moves it.
+// cBuf owns registered, stable shim scratch through a GC-visible byte pointer.
+// Typed decoder calls use the pointer directly. Legacy encoder calls still use
+// explicit integer adapters: stack slices must not cross those raw interfaces.
+// The allocation is bytes, not a generally GC-scanned C struct image.
 type cBuf struct {
-	p uintptr
+	p *byte
 	n int
 }
 
-// ensure makes the buffer at least n bytes and returns its address.
-func (b *cBuf) ensure(tls *libc.TLS, n int) uintptr {
+func (b *cBuf) ensurePointer(tls *libc.TLS, n int) *byte {
 	if n > b.n {
 		b.free(tls)
-		b.p = libc.Xmalloc(tls, uint64(n))
+		b.p = (*byte)(libc.XmallocPointer(tls, uint64(n)))
 		b.n = n
 	}
 	return b.p
 }
 
+// Legacy encoder address boundary.
+func (b *cBuf) ensure(tls *libc.TLS, n int) uintptr {
+	return uintptr(unsafe.Pointer(b.ensurePointer(tls, n)))
+}
+
 func (b *cBuf) free(tls *libc.TLS) {
-	if b.p != 0 {
-		libc.Xfree(tls, b.p)
+	if b.p != nil {
+		libc.XfreePointer(tls, unsafe.Pointer(b.p))
 	}
-	b.p, b.n = 0, 0
+	b.p, b.n = nil, 0
 }
 
-// cSlice views n elements of T at p - memory from a cBuf.
+// Reinterpret registered scratch at the concrete element-type boundary.
+func cPointer[T any](p *byte) *T {
+	return (*T)(unsafe.Pointer(p))
+}
+
+func cBufferSlice[T any](p *byte, n int) []T {
+	return unsafe.Slice(cPointer[T](p), n)
+}
+
+// Legacy encoder view boundary.
 func cSlice[T any](p uintptr, n int) []T {
-	return unsafe.Slice((*T)(unsafe.Pointer(p)), n)
+	return cBufferSlice[T]((*byte)(unsafe.Pointer(p)), n)
 }
 
-// copyIn copies src into b (growing it as needed) and returns its
-// address, or 0 for an empty src (libopus's "no packet" / packet-loss
-// convention).
-func copyIn[T any](tls *libc.TLS, b *cBuf, src []T) uintptr {
+func copyInPointer[T any](tls *libc.TLS, b *cBuf, src []T) *byte {
 	if len(src) == 0 {
-		return 0
+		return nil // packet-loss convention; retain any existing scratch owner
 	}
 	var zero T
-	p := b.ensure(tls, len(src)*int(unsafe.Sizeof(zero)))
-	copy(cSlice[T](p, len(src)), src)
+	p := b.ensurePointer(tls, len(src)*int(unsafe.Sizeof(zero)))
+	copy(cBufferSlice[T](p, len(src)), src)
 	return p
+}
+
+// Legacy encoder input boundary.
+func copyIn[T any](tls *libc.TLS, b *cBuf, src []T) uintptr {
+	return uintptr(unsafe.Pointer(copyInPointer(tls, b, src)))
 }
