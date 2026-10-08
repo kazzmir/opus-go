@@ -35,6 +35,7 @@ type Decoder struct {
 	// packetBuf/pcmBuf carry Decode's input and output across the call
 	// into transpiled code - see cBuf.
 	packetBuf, pcmBuf cBuf
+	pcm16             []int16
 }
 
 func NewDecoderFromHead(head ogg.OpusHead) (*Decoder, error) {
@@ -126,6 +127,7 @@ func (d *Decoder) Close() error {
 		}
 		d.packetBuf.free(d.tls)
 		d.pcmBuf.free(d.tls)
+		d.pcm16 = nil
 		opuscc.FreePseudostackTLS(d.tls)
 		d.tls.Close()
 		d.tls = nil
@@ -162,7 +164,10 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 
 	dataPtr := copyInPointer(d.tls, &d.packetBuf, packet)
 	dataLen := int32(len(packet))
-	pcmPtr := d.pcmBuf.ensurePointer(d.tls, nNeeded*2)
+	if nNeeded > len(d.pcm16) {
+		d.pcm16 = make([]int16, nNeeded)
+	}
+	pcmPtr := unsafe.SliceData(d.pcm16)
 	fec := int32(0)
 	if decodeFEC {
 		fec = 1
@@ -170,15 +175,15 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 
 	var ret int32
 	if d.multistream {
-		ret = opuscc.Opus_opus_multistream_decode_typed(d.tls, d.ms, dataPtr, opuscc.OpusT_opus_int32(dataLen), cPointer[int16](pcmPtr), int32(frameSize), fec)
+		ret = opuscc.Opus_opus_multistream_decode_typed(d.tls, d.ms, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
 	} else {
-		ret = opuscc.Opus_opus_decode_typed(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), cPointer[int16](pcmPtr), int32(frameSize), fec)
+		ret = opuscc.Opus_opus_decode_typed(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
 	}
 
 	if ret < 0 {
 		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(ret), ret)
 	}
-	copy(pcm, cBufferSlice[int16](pcmPtr, int(ret)*d.channels))
+	copy(pcm, d.pcm16[:int(ret)*d.channels])
 	return int(ret), nil
 }
 
