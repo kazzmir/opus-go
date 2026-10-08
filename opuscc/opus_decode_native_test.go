@@ -55,7 +55,7 @@ func TestOpusIntegerRatesPointers(t *testing.T) {
 			a[0], a[len(a)-1], b[0], b[len(b)-1] = 77, 88, 77, 88
 			entropyInitGrowStack(12)
 			runtime.GC()
-			if Opus_opus_decode_typed(nil, &left.Decoder, &packet[0], int32(len(packet)), &a[1], N, 0) != N || opusDecodeInt24(nil, &right.Decoder, &packet[0], int32(len(packet)), &b[1], N, 0) != N || left.Decoder.FrangeFinal != 0x50373c71 || right.Decoder.FrangeFinal != 0x50373c71 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 {
+			if Opus_opus_decode_typed(nil, &left.Decoder, &packet[0], int32(len(packet)), &a[1], N, 0) != N || Opus_opus_decode24_typed(nil, &right.Decoder, &packet[0], int32(len(packet)), &b[1], N, 0) != N || left.Decoder.FrangeFinal != 0x50373c71 || right.Decoder.FrangeFinal != 0x50373c71 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 {
 				t.Fatal("integer API rate/guards", rate, C)
 			}
 		}

@@ -534,6 +534,33 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four Go-staging/API rounds move Decoder's int16 PCM, float PCM and packet
+scratch into concrete Go slices, then expose typed single/MS int24 and all three
+projection PCM entry points. Decoder no longer uses cBuf, cPointer/cBufferSlice,
+shim scratch allocations or packet/PCM reinterpretation. It still stages rather
+than writing caller PCM directly, preserving error-return isolation. Core opuscc
+lexical counts remain 196 unsafe.Pointer/167 uintptr because legacy public entry
+adapters remain; this batch improves actual outer allocation/consumer paths.
+
+Existing int24/projection scanned-owner/native/golden/guard fixtures now also
+exercise the newly exported typed entries. Grouped wrapper tests add int16/float
+scratch reuse, invalid-packet caller-PCM preservation, packet reuse and nil PLC
+with retained backing, plus release of all Go scratch at close. Existing deep
+stack, full player seek/chunk, native encode/decode and GC fixtures persist.
+Validation/frame-size/buffer/error order, typed format/FEC dispatch, staging-
+before-decode, returned-prefix copying and repeated-close behavior remain
+unchanged. PCM scratch is now separate by format; its stale contents are not an
+input to valid non-accumulating decode. Encoder stable raw-interface buffers and
+integer compatibility helpers remain unchanged. Go scratch uses normal GC
+release rather than shim free; no whole output view is formed before validation.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped opuscc and typed-wrapper
+checkptr, native comparisons, codec references and GC stress, with final repeated
+scoped/ordinary ARM fixtures and wrapper repetitions across all three arches.
+No goldens/tolerances/assertions changed. Decoder state remains byte-backed;
+this is typed scalar scratch, not global embedded-pointer scanning, extension
+EOF/GC or raw callback ownership repair.
+
 Four public-wrapper rounds expose typed single and multistream int16/float
 entry points, retain Decoder's single/MS state in concrete pointer fields with
 typed creation/destruction, and retain scratch in cBuf's *byte owner with typed

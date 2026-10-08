@@ -3025,6 +3025,10 @@ func Opus_opus_decode24(tls *libc.TLS, st1, data uintptr, length int32, pcm uint
 	return opusDecodeInt24(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), length, (*int32)(unsafe.Pointer(pcm)), frameSize, fec)
 }
 
+func Opus_opus_decode24_typed(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *int32, frameSize, fec int32) int32 {
+	return opusDecodeInt24(tls, decoder, data, length, pcm, frameSize, fec)
+}
+
 func opusDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *int32, frameSize, fec int32) int32 {
 	if frameSize <= 0 {
 		return -1
@@ -3870,6 +3874,10 @@ func Opus_opus_multistream_decode24(tls *libc.TLS, st, data uintptr, length int3
 	return opusMSDecodeInt24(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int32)(unsafe.Pointer(pcm)), frame, fec)
 }
 
+func Opus_opus_multistream_decode24_typed(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
+	return opusMSDecodeInt24(tls, decoder, data, length, pcm, frame, fec)
+}
+
 func opusMSDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
 	copyOut := func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
 		opus_copy_channel_out_int24(tls, pcm, ds, dc, src, ss, n)
@@ -4292,6 +4300,10 @@ func opusProjectionShortCopy(matrix *OpusT_MappingMatrix, pcm *int16) opusMSBoun
 	}
 }
 
+func Opus_opus_projection_decode_typed(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
+	return opusProjectionDecodeShort(tls, decoder, data, length, pcm, frame, fec)
+}
+
 func opusProjectionDecodeShort(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
 	ms := get_multistream_decoder(tls, decoder)
 	matrix := get_dec_demixing_matrix(tls, decoder)
@@ -4309,6 +4321,10 @@ func opusProjectionInt24Copy(matrix *OpusT_MappingMatrix, pcm *int32) opusMSBoun
 	}
 }
 
+func Opus_opus_projection_decode24_typed(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
+	return opusProjectionDecodeInt24(tls, decoder, data, length, pcm, frame, fec)
+}
+
 func opusProjectionDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
 	ms := get_multistream_decoder(tls, decoder)
 	matrix := get_dec_demixing_matrix(tls, decoder)
@@ -4324,6 +4340,10 @@ func opusProjectionFloatCopy(matrix *OpusT_MappingMatrix, pcm *float32) opusMSBo
 	return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
 		opus_projection_copy_channel_out_float(tls, pcm, ds, dc, src, ss, n, matrix)
 	}
+}
+
+func Opus_opus_projection_decode_float_typed(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
+	return opusProjectionDecodeFloat(tls, decoder, data, length, pcm, frame, fec)
 }
 
 func opusProjectionDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *float32, frame, fec int32) int32 {

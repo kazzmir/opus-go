@@ -71,7 +71,7 @@ func TestMultistreamInt24WrapperPointers(t *testing.T) {
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		got := opusMSDecodeInt24(nil, &owner.MS, data, length, &out[1], 5760, fec)
+		got := Opus_opus_multistream_decode24_typed(nil, &owner.MS, data, length, &out[1], 5760, fec)
 		expected := opusMSDecodeNative(nil, &baseline.MS, data, length, unsafe.Pointer(&want[1]), opusMSCopyInt24, 5760, fec, 0)
 		if got != expected || got <= 0 || owner.Children[0].Decoder != baseline.Children[0].Decoder || owner.Children[1].Decoder != baseline.Children[1].Decoder || out[0] != 77 || out[len(out)-1] != 88 {
 			t.Fatal("int24 wrapper dispatch/state")
