@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_reset_decoder(tls *libc.TLS, dec *OpusT_silk_decoder_state) int32 {
 	// This build has no pre-reset OSCE fields; reset starts at prev_gain_Q16.

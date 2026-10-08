@@ -12,7 +12,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 const CELT_LPC_ORDER = 24
 const CELT_MAX_PULSES = 128

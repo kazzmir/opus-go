@@ -360,6 +360,72 @@ func TestCeltDecoderInitPointers(t *testing.T) {
 	}
 }
 
+func TestCeltInitHeaderPointers(t *testing.T) {
+	var mode OpusT_OpusCustomMode
+	state := OpusT_OpusCustomDecoder{Fmode: &mode}
+	start, end := unsafe.Offsetof(state.Foverlap), unsafe.Offsetof(state.F_decode_mem)
+	if start != unsafe.Sizeof(state.Fmode) || unsafe.Offsetof(state.Frng)-start != 40 {
+		t.Fatal("CELT init prefix geometry needs updating")
+	}
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(&state.Foverlap)), unsafe.Sizeof(state)-start)
+	for i := range raw {
+		raw[i] = 0xa5
+	}
+	want := state
+	want.Fmode = nil
+	clear(unsafe.Slice((*byte)(unsafe.Pointer(&want.Foverlap)), end-start))
+	celtDecoderClearHeader(&state)
+	if state != want {
+		t.Fatal("CELT typed header/flexible memory preservation")
+	}
+}
+
+func TestCeltResetMemoryPointers(t *testing.T) {
+	var owner struct {
+		State OpusT_OpusCustomDecoder
+		Tail  [7]float32
+	}
+	start := unsafe.Offsetof(owner.State.F_decode_mem)
+	size := unsafe.Offsetof(owner.Tail) + 2*4
+	if start%4 != 0 || (size-start)%4 != 0 {
+		t.Fatal("CELT float memory geometry")
+	}
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(&owner.State.F_decode_mem[0])), unsafe.Sizeof(owner)-start)
+	for i := range raw {
+		raw[i] = 0xa5
+	}
+	want := slices.Clone(raw)
+	clear(want[:size-start])
+	celtDecoderClearMemory(&owner.State, int32(size))
+	if !slices.Equal(raw, want) {
+		t.Fatal("CELT float clear/padding/terminal guards")
+	}
+	celtDecoderClearMemory(&owner.State, int32(start))
+	if !slices.Equal(raw, want) {
+		t.Fatal("empty memory clear")
+	}
+}
+
+func TestCeltResetFieldsPointers(t *testing.T) {
+	var mode OpusT_OpusCustomMode
+	state := OpusT_OpusCustomDecoder{Fmode: &mode}
+	start, end := unsafe.Offsetof(state.Frng), unsafe.Offsetof(state.F_decode_mem)
+	if end-start != 64 || unsafe.Offsetof(state.Fpreemph_memD)+8 != end {
+		t.Fatal("CELT reset fields geometry needs updating")
+	}
+	numericStart := unsafe.Offsetof(state.Foverlap)
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(&state.Foverlap)), unsafe.Sizeof(state)-numericStart)
+	for i := range raw {
+		raw[i] = 0xa5
+	}
+	want := state
+	clear(unsafe.Slice((*byte)(unsafe.Pointer(&want.Frng)), 64))
+	celtDecoderResetFields(&state)
+	if state != want {
+		t.Fatal("CELT reset fields/prefix/decode memory")
+	}
+}
+
 func TestCustomDecoderInitPointers(t *testing.T) {
 	if opus_custom_decoder_init(nil, nil, nil, -1) != OPUS_BAD_ARG || opus_custom_decoder_init(nil, nil, nil, 1) != -7 {
 		t.Fatal("argument order")

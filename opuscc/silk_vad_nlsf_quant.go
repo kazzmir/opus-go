@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_VAD_Init(tls *libc.TLS, state *OpusT_silk_VAD_state) int32 {
 	*state = OpusT_silk_VAD_state{}

@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func kf_bfly2(tls *libc.TLS, out *OpusT_kiss_fft_cpx, m, N int32) {
 	// The no-custom-modes radix-2 stage always follows a radix-4 stage.

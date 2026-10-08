@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 
@@ -23,16 +24,18 @@ type Decoder struct {
 	mu sync.Mutex
 
 	tls *libc.TLS
-	st  uintptr
+	st  *opuscc.OpusT_OpusDecoder
+	ms  *opuscc.OpusT_OpusMSDecoder
 
 	sampleRate int
 	channels   int
 
 	multistream bool
 
-	// packetBuf/pcmBuf carry Decode's input and output across the call
-	// into transpiled code - see cBuf.
-	packetBuf, pcmBuf cBuf
+	// Typed scratch protects caller PCM from negative decode returns.
+	packetBuf []byte
+	pcm16     []int16
+	pcmFloat  []float32
 }
 
 func NewDecoderFromHead(head ogg.OpusHead) (*Decoder, error) {
@@ -63,8 +66,8 @@ func NewDecoder(sampleRate, channels int) (*Decoder, error) {
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	st, err := opuscc.Opus_opus_decoder_create(tls, opuscc.OpusT_opus_int32(sampleRate), int32(channels))
-	if err != nil || st == 0 {
+	st, err := opuscc.Opus_opus_decoder_create_typed(tls, opuscc.OpusT_opus_int32(sampleRate), int32(channels))
+	if err != nil || st == nil {
 		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
 			msg := opusccErrorString(oe.Code)
 			tls.Close()
@@ -83,21 +86,17 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	// Copied into shim memory for the same reason as cBuf; libopus copies
-	// the mapping into the decoder state, so it's freed right after.
-	var mappingBuf cBuf
-	mappingPtr := copyIn(tls, &mappingBuf, mapping)
-	defer mappingBuf.free(tls)
+	// The typed initializer consumes/copies the mapping synchronously.
 
-	st, err := opuscc.Opus_opus_multistream_decoder_create(
+	st, err := opuscc.Opus_opus_multistream_decoder_create_typed(
 		tls,
 		opuscc.OpusT_opus_int32(sampleRate),
 		int32(channels),
 		int32(streams),
 		int32(coupledStreams),
-		mappingPtr,
+		unsafe.SliceData(mapping),
 	)
-	if err != nil || st == 0 {
+	if err != nil || st == nil {
 		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
 			msg := opusccErrorString(oe.Code)
 			tls.Close()
@@ -107,7 +106,7 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 		return nil, fmt.Errorf("opus: multistream_decoder_create failed: %w", err)
 	}
 
-	return &Decoder{tls: tls, st: st, sampleRate: sampleRate, channels: channels, multistream: true}, nil
+	return &Decoder{tls: tls, ms: st, sampleRate: sampleRate, channels: channels, multistream: true}, nil
 }
 
 func (d *Decoder) Close() error {
@@ -118,21 +117,34 @@ func (d *Decoder) Close() error {
 	defer d.mu.Unlock()
 
 	if d.tls != nil {
-		if d.st != 0 {
-			if d.multistream {
-				opuscc.Opus_opus_multistream_decoder_destroy(d.tls, d.st)
-			} else {
-				opuscc.Opus_opus_decoder_destroy(d.tls, d.st)
-			}
-			d.st = 0
+		if d.ms != nil {
+			opuscc.Opus_opus_multistream_decoder_destroy_typed(d.tls, d.ms)
+			d.ms = nil
 		}
-		d.packetBuf.free(d.tls)
-		d.pcmBuf.free(d.tls)
+		if d.st != nil {
+			opuscc.Opus_opus_decoder_destroy_typed(d.tls, d.st)
+			d.st = nil
+		}
+		d.packetBuf = nil
+		d.pcm16 = nil
+		d.pcmFloat = nil
 		opuscc.FreePseudostackTLS(d.tls)
 		d.tls.Close()
 		d.tls = nil
 	}
 	return nil
+}
+
+// Empty input means PLC and must pass nil even when scratch is retained.
+func (d *Decoder) stagePacket(packet []byte) *byte {
+	if len(packet) == 0 {
+		return nil
+	}
+	if len(packet) > len(d.packetBuf) {
+		d.packetBuf = make([]byte, len(packet))
+	}
+	copy(d.packetBuf, packet)
+	return unsafe.SliceData(d.packetBuf)
 }
 
 func (d *Decoder) SampleRate() int { return d.sampleRate }
@@ -151,7 +163,7 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if d == nil || d.tls == nil || d.st == 0 {
+	if d == nil || d.tls == nil || (d.st == nil && d.ms == nil) {
 		return 0, errors.New("opus: decoder closed")
 	}
 	if frameSize <= 0 {
@@ -162,9 +174,12 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
 	}
 
-	dataPtr := copyIn(d.tls, &d.packetBuf, packet)
+	dataPtr := d.stagePacket(packet)
 	dataLen := int32(len(packet))
-	pcmPtr := d.pcmBuf.ensure(d.tls, nNeeded*2)
+	if nNeeded > len(d.pcm16) {
+		d.pcm16 = make([]int16, nNeeded)
+	}
+	pcmPtr := unsafe.SliceData(d.pcm16)
 	fec := int32(0)
 	if decodeFEC {
 		fec = 1
@@ -172,15 +187,15 @@ func (d *Decoder) Decode(packet []byte, pcm []int16, frameSize int, decodeFEC bo
 
 	var ret int32
 	if d.multistream {
-		ret = opuscc.Opus_opus_multistream_decode(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+		ret = opuscc.Opus_opus_multistream_decode_typed(d.tls, d.ms, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
 	} else {
-		ret = opuscc.Opus_opus_decode(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+		ret = opuscc.Opus_opus_decode_typed(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
 	}
 
 	if ret < 0 {
 		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(ret), ret)
 	}
-	copy(pcm, cSlice[int16](pcmPtr, int(ret)*d.channels))
+	copy(pcm, d.pcm16[:int(ret)*d.channels])
 	return int(ret), nil
 }
 
@@ -197,7 +212,7 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if d == nil || d.tls == nil || d.st == 0 {
+	if d == nil || d.tls == nil || (d.st == nil && d.ms == nil) {
 		return 0, errors.New("opus: decoder closed")
 	}
 	if frameSize <= 0 {
@@ -208,9 +223,12 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 		return 0, fmt.Errorf("opus: pcm buffer too small: need %d samples, have %d", nNeeded, len(pcm))
 	}
 
-	dataPtr := copyIn(d.tls, &d.packetBuf, packet)
+	dataPtr := d.stagePacket(packet)
 	dataLen := int32(len(packet))
-	pcmPtr := d.pcmBuf.ensure(d.tls, nNeeded*4)
+	if nNeeded > len(d.pcmFloat) {
+		d.pcmFloat = make([]float32, nNeeded)
+	}
+	pcmPtr := unsafe.SliceData(d.pcmFloat)
 	fec := int32(0)
 	if decodeFEC {
 		fec = 1
@@ -218,32 +236,32 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 
 	var ret int32
 	if d.multistream {
-		ret = opuscc.Opus_opus_multistream_decode_float(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+		ret = opuscc.Opus_opus_multistream_decode_float_typed(d.tls, d.ms, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
 	} else {
-		ret = opuscc.Opus_opus_decode_float(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
+		ret = opuscc.Opus_opus_decode_float_typed(d.tls, d.st, dataPtr, opuscc.OpusT_opus_int32(dataLen), pcmPtr, int32(frameSize), fec)
 	}
 
 	if ret < 0 {
 		return 0, fmt.Errorf("%w: %s (%d)", ErrBadPacket, opusccErrorString(ret), ret)
 	}
-	copy(pcm, cSlice[float32](pcmPtr, int(ret)*d.channels))
+	copy(pcm, d.pcmFloat[:int(ret)*d.channels])
 	return int(ret), nil
 }
 
 // convenience function to decode an Ogg OpusAudioPacket
 func (decoder *Decoder) DecodePacket(packet *ogg.OpusAudioPacket, pcm []int16) ([]int16, int, error) {
-    const maxMsPerFrame = 120
-    maxSize := ogg.OpusSampleRateHz * maxMsPerFrame / 1000
-    if len(pcm) < maxSize * decoder.channels {
-        pcm = make([]int16, maxSize * decoder.channels)
-    }
+	const maxMsPerFrame = 120
+	maxSize := ogg.OpusSampleRateHz * maxMsPerFrame / 1000
+	if len(pcm) < maxSize*decoder.channels {
+		pcm = make([]int16, maxSize*decoder.channels)
+	}
 
-    n, err := decoder.Decode(packet.Data, pcm, maxSize, false)
-    if err != nil {
-        return nil, 0, err
-    }
+	n, err := decoder.Decode(packet.Data, pcm, maxSize, false)
+	if err != nil {
+		return nil, 0, err
+	}
 
-    return pcm[:n*decoder.channels], n, nil
+	return pcm[:n*decoder.channels], n, nil
 }
 
 // convenience function to decode an Ogg OpusAudioPacket

@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 //go:uintptrescapes
 func Opus_silk_decode_frame(tls *libc.TLS, psDec, psRangeDec, pOut, pN uintptr, lostFlag, condCoding, arch int32) int32 {

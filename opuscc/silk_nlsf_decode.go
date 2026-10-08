@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_NLSF_decode(tls *libc.TLS, pNLSF_Q15 *OpusT_opus_int16, NLSFIndices *OpusT_opus_int8, cb *OpusT_silk_NLSF_CB_struct) {
 	order := int(cb.Forder)

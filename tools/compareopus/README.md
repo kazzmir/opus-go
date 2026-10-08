@@ -534,6 +534,144 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four Go-staging/API rounds move Decoder's int16 PCM, float PCM and packet
+scratch into concrete Go slices, then expose typed single/MS int24 and all three
+projection PCM entry points. Decoder no longer uses cBuf, cPointer/cBufferSlice,
+shim scratch allocations or packet/PCM reinterpretation. It still stages rather
+than writing caller PCM directly, preserving error-return isolation. Core opuscc
+lexical counts remain 196 unsafe.Pointer/167 uintptr because legacy public entry
+adapters remain; this batch improves actual outer allocation/consumer paths.
+
+Existing int24/projection scanned-owner/native/golden/guard fixtures now also
+exercise the newly exported typed entries. Grouped wrapper tests add int16/float
+scratch reuse, invalid-packet caller-PCM preservation, packet reuse and nil PLC
+with retained backing, plus release of all Go scratch at close. Existing deep
+stack, full player seek/chunk, native encode/decode and GC fixtures persist.
+Validation/frame-size/buffer/error order, typed format/FEC dispatch, staging-
+before-decode, returned-prefix copying and repeated-close behavior remain
+unchanged. PCM scratch is now separate by format; its stale contents are not an
+input to valid non-accumulating decode. Encoder stable raw-interface buffers and
+integer compatibility helpers remain unchanged. Go scratch uses normal GC
+release rather than shim free; no whole output view is formed before validation.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped opuscc and typed-wrapper
+checkptr, native comparisons, codec references and GC stress, with final repeated
+scoped/ordinary ARM fixtures and wrapper repetitions across all three arches.
+No goldens/tolerances/assertions changed. Decoder state remains byte-backed;
+this is typed scalar scratch, not global embedded-pointer scanning, extension
+EOF/GC or raw callback ownership repair.
+
+Four public-wrapper rounds expose typed single and multistream int16/float
+entry points, retain Decoder's single/MS state in concrete pointer fields with
+typed creation/destruction, and retain scratch in cBuf's *byte owner with typed
+allocation/copy/view operations. Decoder packet/PCM calls now bypass all integer
+escape entry points; mapping is synchronously consumed directly from its Go
+slice. Legacy encoder cBuf ensure/copyIn/cSlice integer adapters remain explicit.
+Production opuscc counts remain 196 unsafe.Pointer/167 uintptr: this batch moves
+the outer Go wrapper rather than deleting its retained public C-style adapters.
+Decoder.go now has neither uintptr nor unsafe.Pointer references. Lexical counts
+of cbuf.go include newly explicit encoder adapters, not an active decoder path.
+
+Existing grouped scanned-owner int16/float single/MS fixtures now exercise the
+new exported entries without changing goldens or guard/native comparisons.
+Wrapper tests verify concrete state ownership, GC, both PCM-format PLC paths,
+close/repeated close, scratch reuse/growth/signed values and empty-input owner
+retention. Decoder validation/closed/error order, format/FEC dispatch, allocation
+before decode, positive-return copy gating and actual returned-prefix views
+remain unchanged. Full scratch views are not formed before decode, preserving
+existing invalid-size/error ordering. Encoder calls and stable shim allocation
+behavior remain unchanged; no caller stack slice crosses a raw integer encoder
+interface. Mapping no longer needs its temporary shim copy.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped opuscc checkptr, native
+comparisons, codec references and GC stress. Final typed wrapper/scratch tests
+also pass scoped checkptr on amd64/386/ARM64, with repeated scoped/ordinary ARM
+fixtures. No goldens/tolerances/assertions changed. Typed cBuf holds byte-backed
+PCM/packet storage, not a general scanned object allocator. Decoder state still
+uses existing opaque byte allocations: embedded pointer scanning, extension
+EOF/GC and raw custom callback ownership are not claimed globally repaired.
+
+Four CELT reset/init rounds bind old logs through existing concrete energy
+views, reset the named scalar suffix before clearing trailing storage, clear the
+allocation remainder through typed float32 words, and initialize the pointer/
+scalar header through named fields plus that same memory clear. Production
+unsafe.Pointer references decrease 199→196; uintptr remains 167. No byte-pointer
+clear or integer-address energy/log traversal remains in these private paths.
+
+Upstream celt_decoder.c init/reset remains the reference. Size-call/validation
+order, GC-visible mode nil/rebind stores, all zeroing before initialization/
+child dispatch, oldLog2→oldLog -28 writes and skip_plc/frame-type stores remain
+unchanged. The 40-byte scalar prefix and 64-byte reset suffix have explicit
+layout fixtures; the complete trailing region is 4-byte float words, including
+header tail padding when present. Raw-byte-clear comparisons cover prefix/
+flexible-element preservation, padding, terminal guards and empty memory clears.
+Named header stores deliberately avoid whole-struct assignment, which could
+write a flexible element/padding excluded by a minimal zero-channel allocation.
+Existing whole-state native/init/reset/scanned-owner/golden fixtures persist.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+Physical scalar stores replace bulk byte clearing, with no reads or externally
+observable callbacks between those stores; live dependencies and final byte
+images remain unchanged. No goldens/tolerances/assertions changed. Typed clears
+do not turn opaque byte allocations into scanned state or repair extension
+EOF/GC or legacy raw callback lifetime.
+
+Four typed-state rounds read the IIR resampler union history through numeric
+native-endian int32/int16 conversion, write its final history the same way
+(removing the array-pointer reinterpretation), clear the standard decoder's
+scalar reset suffix through its named fields, and preserve celtNormAdd's concrete
+pointer identity at zero displacement. Production unsafe.Pointer references
+decrease 201→199; uintptr remains 167. Nonzero norm offsets still retain genuine
+signed history/unused-end-pointer support at the existing boundary.
+
+Upstream resampler_private_IIR_FIR.c, opus_decoder.c reset and bands.c norm use
+remain the reference. NativeEndian preserves both signed halfwords rather than
+assuming little endian. Initial history is copied before input processing, and
+final history comes from separate Go scratch: grouping its eight int16 stores
+into four int32 words has no intervening reads/aliasing source or changed final
+bits. Only the first four union words change; the tail is preserved. Tests use
+native-memory union load/store oracles, signed extrema and roundtrip/tail checks.
+Big-endian hardware is not validated (amd64/386/ARM64 only).
+
+The reset suffix is ten contiguous 32-bit words, verified by a new layout and
+raw-byte-clear comparison fixture. Prefix fields remain untouched and all suffix
+stores precede child reset; short-channel/range/softclip behavior is unchanged.
+Zero/nil/singleton and signed interior norm tests retain the old nonzero address
+semantics without creating a forward slice for potentially unused EOF pointers.
+No assertions, output/load/store dependencies, codec goldens or tolerances change.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+This removes a real union reinterpretation and reset byte span, not a global
+opaque-state scanning, extension EOF/GC or raw callback ownership repair.
+
+Four cleanup-consolidation rounds route single-decoder, multistream and
+projection factory init-error release through their existing concrete typed
+destructors, then remove 23 obsolete generated `var _ unsafe.Pointer` markers
+(and the resulting unused unsafe import in silk.go). Production unsafe.Pointer
+references decrease 227→201: three duplicate factory allocator casts centralized,
+23 metadata-only markers removed. uintptr remains 167. Marker removal does not
+change a pointer representation or improve lifetime safety; the actual allocator
+casts remain in the typed destruction boundaries.
+
+Upstream create/destroy paths in the single/multistream/projection C sources
+remain the reference. Prevalidation, size/allocation-before-init ordering,
+init→release→error construction, nil/success behavior, one-base-only release and
+public legacy signatures remain unchanged. Typed destructors perform exactly
+the same allocator release without inspecting or resetting partially initialized
+child states. Existing grouped create/destroy/allocation/validation/native and
+scanned-owner fixtures remain unchanged. Single-decoder init error after valid
+prevalidation remains only defensive/unforced coverage; no failure injection or
+new opaque-allocation ownership claim is made.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+No code arithmetic, assertions, goldens, tolerances or aliases changed. This
+centralizes real boundary conversions and removes misleading lexical noise;
+opaque allocation scanning, extension EOF/GC and raw callback lifetime remain
+unresolved separately.
+
 Four disabled-DRED lifecycle rounds canonicalize OpusDREDDecoder's state alias,
 derive its existing 12-byte size from the concrete type, expose a typed factory
 that calls the typed initializer without an integer allocation handle, and

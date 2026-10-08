@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_encode_signs(tls *libc.TLS, enc *OpusT_ec_enc, pulses *int8, length, signalType, quantOffsetType int32, sumPulses *int32) {
 	blocks := (length + SHELL_CODEC_FRAME_LENGTH/2) >> LOG2_SHELL_CODEC_FRAME_LENGTH

@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"encoding/binary"
 	"math/bits"
 	"reflect"
 	"unsafe"
@@ -11,7 +12,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_resampler_init(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, inRate, outRate int32, forEnc int32) int32 {
 	// sizeof(state), not the generated amd64-only 400-byte memset.
@@ -417,14 +417,35 @@ func silk_resampler_private_IIR_FIR_INTERPOL(tls *libc.TLS, out, buf *int16, max
 	return count
 }
 
+// Decode the union's first four int32 words as eight native-endian int16s.
+func silkResamplerIIRHistory(state *OpusT_silk_resampler_state_struct) (history [8]int16) {
+	var word [4]byte
+	for i := 0; i < 4; i++ {
+		binary.NativeEndian.PutUint32(word[:], uint32(state.FsFIR.Fi32[i]))
+		history[2*i] = int16(binary.NativeEndian.Uint16(word[:2]))
+		history[2*i+1] = int16(binary.NativeEndian.Uint16(word[2:]))
+	}
+	return history
+}
+
+// History comes from the driver's separate Go-owned scratch buffer.
+func silkResamplerStoreIIRHistory(state *OpusT_silk_resampler_state_struct, history []int16) {
+	var word [4]byte
+	for i := 0; i < 4; i++ {
+		binary.NativeEndian.PutUint16(word[:2], uint16(history[2*i]))
+		binary.NativeEndian.PutUint16(word[2:], uint16(history[2*i+1]))
+		state.FsFIR.Fi32[i] = int32(binary.NativeEndian.Uint32(word[:]))
+	}
+}
+
 // C documentation
 //
 //	/* Upsample using a combination of allpass-based 2x upsampling and FIR interpolation */
 func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, out, in *int16, inLen int32) {
 	buf := make([]int16, 2*state.FbatchSize+8)
 	// The C union uses its first eight int16 elements in this mode.
-	history := (*[8]int16)(unsafe.Pointer(&state.FsFIR.Fi32[0]))
-	copy(buf, history[:])
+	initial := silkResamplerIIRHistory(state)
+	copy(buf, initial[:])
 	input := unsafe.Slice(in, inLen)
 	increment := state.FinvRatio_Q16
 	for {
@@ -433,7 +454,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, state *OpusT_silk_resamp
 		written := silk_resampler_private_IIR_FIR_INTERPOL(tls, out, &buf[0], n<<17, increment)
 		input = input[n:]
 		if len(input) == 0 {
-			copy(history[:], buf[2*n:2*n+8])
+			silkResamplerStoreIIRHistory(state, buf[2*n:2*n+8])
 			break
 		}
 		out = silkResamplerAdvanceOutput(out, written)

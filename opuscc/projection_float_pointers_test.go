@@ -54,7 +54,7 @@ func TestProjectionFloatWrapperPointers(t *testing.T) {
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		got := opusProjectionDecodeFloat(nil, &owner.Projection, data, length, &out[1], 5760, fec)
+		got := Opus_opus_projection_decode_float_typed(nil, &owner.Projection, data, length, &out[1], 5760, fec)
 		copyOut := func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 			opus_projection_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n, &baseline.Matrix)
 		}

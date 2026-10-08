@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_stereo_decode_pred(tls *libc.TLS, psRangeDec *OpusT_ec_dec, pred_Q13 *[2]OpusT_opus_int32) {
 	var low_Q13, step_Q13 OpusT_opus_int32

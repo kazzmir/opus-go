@@ -11,7 +11,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_PLC_Reset(tls *libc.TLS, decoder *OpusT_silk_decoder_state) {
 	plc := &decoder.FsPLC

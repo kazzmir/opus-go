@@ -35,6 +35,21 @@ func xmallocArray[T any](tls *libc.TLS, n int) []T {
 	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
 }
 
+func TestQuantAllBandsNormIdentityPointers(t *testing.T) {
+	if celtNormAdd(nil, 0) != nil {
+		t.Fatal("nil zero displacement")
+	}
+	singleton := float32(.25)
+	if celtNormAdd(&singleton, 0) != &singleton {
+		t.Fatal("singleton zero displacement")
+	}
+	owner := []float32{.25, .5, 1}
+	base := &owner[1]
+	if celtNormAdd(base, -1) != &owner[0] || celtNormAdd(base, 1) != &owner[2] || celtNormAdd(base, 0) != base {
+		t.Fatal("signed norm owner displacements")
+	}
+}
+
 func TestQuantAllBandsActivePointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, C := range []int32{1, 2} {

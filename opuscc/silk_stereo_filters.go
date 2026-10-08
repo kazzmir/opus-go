@@ -10,7 +10,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 func Opus_silk_stereo_MS_to_LR(tls *libc.TLS, state *OpusT_stereo_dec_state, x1 *OpusT_opus_int16, x2 *OpusT_opus_int16, pred_Q13 *[2]OpusT_opus_int32, fs_kHz int32, frame_length int32) {
 	// Codec frames contain at least the 8 ms interpolation interval, plus two history slots.

@@ -2,13 +2,9 @@
 
 package opuscc
 
-import (
-	"reflect"
-	"unsafe"
-)
+import "reflect"
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 const BWE_COEF = 0.99
 const LOG2_INV_LPC_GAIN_HIGH_THRES = 3

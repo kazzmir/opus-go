@@ -7,7 +7,100 @@ import (
 	"runtime/debug"
 	"testing"
 	"unsafe"
+
+	libc "github.com/kazzmir/opus-go/libcshim"
 )
+
+func TestTypedScratchPointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	var buffer cBuf
+	defer buffer.free(tls)
+	if copyInPointer[byte](tls, &buffer, nil) != nil || buffer.p != nil {
+		t.Fatal("empty scratch input")
+	}
+	p := copyInPointer(tls, &buffer, []int16{-32768, -1, 0, 32767})
+	runtime.GC()
+	got := cBufferSlice[int16](p, 4)
+	if p != buffer.p || got[0] != -32768 || got[1] != -1 || got[2] != 0 || got[3] != 32767 || buffer.ensurePointer(tls, 1) != p {
+		t.Fatal("typed scratch ownership/reuse", got)
+	}
+	if copyInPointer[byte](tls, &buffer, nil) != nil || buffer.p != p {
+		t.Fatal("empty input must retain scratch")
+	}
+	buffer.ensurePointer(tls, 64)
+	if buffer.p == nil || buffer.n != 64 {
+		t.Fatal("typed scratch growth")
+	}
+	buffer.free(tls)
+	buffer.free(tls)
+	if buffer.p != nil || buffer.n != 0 {
+		t.Fatal("typed scratch release")
+	}
+}
+
+func TestTypedDecoderStatePointers(t *testing.T) {
+	for _, multi := range []bool{false, true} {
+		var d *Decoder
+		var err error
+		if multi {
+			d, err = NewMultistreamDecoder(48000, 3, 2, 1, []uint8{0, 1, 2})
+		} else {
+			d, err = NewDecoder(48000, 2)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		st, ms := d.st, d.ms
+		runtime.GC()
+		if d.st != st || d.ms != ms || (multi && (d.ms == nil || d.st != nil)) || (!multi && (d.st == nil || d.ms != nil)) {
+			t.Fatal("typed decoder state owners")
+		}
+		pcm := make([]int16, 120*d.channels)
+		if n, err := d.Decode(nil, pcm, 120, false); err != nil || n != 120 {
+			t.Fatal("typed int16 PLC", n, err)
+		}
+		floats := make([]float32, 120*d.channels)
+		runtime.GC()
+		if n, err := d.DecodeF32(nil, floats, 120, false); err != nil || n != 120 {
+			t.Fatal("typed float PLC", n, err)
+		}
+		shortOwner, floatOwner := &d.pcm16[0], &d.pcmFloat[0]
+		if _, err := d.Decode(nil, pcm, 120, false); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.DecodeF32(nil, floats, 120, false); err != nil {
+			t.Fatal(err)
+		}
+		if shortOwner != &d.pcm16[0] || floatOwner != &d.pcmFloat[0] {
+			t.Fatal("typed PCM reuse")
+		}
+		for i := range pcm {
+			pcm[i] = 77
+		}
+		if _, err := d.Decode([]byte{3, 0}, pcm, 120, false); err == nil {
+			t.Fatal("invalid packet accepted")
+		}
+		for _, sample := range pcm {
+			if sample != 77 {
+				t.Fatal("negative return changed caller PCM")
+			}
+		}
+		packetOwner := unsafe.SliceData(d.packetBuf)
+		if d.stagePacket(nil) != nil || unsafe.SliceData(d.packetBuf) != packetOwner || d.stagePacket([]byte{0}) != packetOwner {
+			t.Fatal("typed packet reuse/nil PLC")
+		}
+		if err := d.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if d.st != nil || d.ms != nil || d.tls != nil || d.packetBuf != nil || d.pcm16 != nil || d.pcmFloat != nil {
+			t.Fatal("typed decoder close")
+		}
+		if err := d.Close(); err != nil {
+			t.Fatal("repeated close", err)
+		}
+	}
+}
 
 // skipOn32Bit skips encoder tests on 32-bit targets, where the transpiled
 // encoder aborts inside celt's FFT (celt_fatal from opus_fft_c during

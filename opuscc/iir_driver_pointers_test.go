@@ -6,6 +6,27 @@ import (
 	"unsafe"
 )
 
+func TestIIRHistoryWordsPointers(t *testing.T) {
+	var state OpusT_silk_resampler_state_struct
+	state.FsFIR.Fi32[0] = -2147483648
+	state.FsFIR.Fi32[1] = -1
+	state.FsFIR.Fi32[2] = 0x12345678
+	state.FsFIR.Fi32[3] = -0x1234567
+	state.FsFIR.Fi32[4] = 77
+	before := state
+	want := *(*[8]int16)(unsafe.Pointer(&state.FsFIR.Fi32[0]))
+	if got := silkResamplerIIRHistory(&state); got != want || state != before {
+		t.Fatal("native-endian signed history", got, want)
+	}
+	values := [8]int16{-32768, -1, 0, 1, 32767, -12345, 23456, -2}
+	wantState := state
+	copy((*[8]int16)(unsafe.Pointer(&wantState.FsFIR.Fi32[0]))[:], values[:])
+	silkResamplerStoreIIRHistory(&state, values[:])
+	if state != wantState || silkResamplerIIRHistory(&state) != values {
+		t.Fatal("native-endian store/tail/roundtrip")
+	}
+}
+
 func TestIIRDriverPointers(t *testing.T) {
 	s := OpusT_silk_resampler_state_struct{FbatchSize: 80, FinvRatio_Q16: 65536}
 	for i := range s.FsFIR.Fi32 {

@@ -12,7 +12,6 @@ import (
 )
 
 var _ reflect.Type
-var _ unsafe.Pointer
 
 // modeLogN keeps the table address typed, including in remaining legacy callers.
 func modeLogN(m *OpusT_OpusCustomMode, band int32) int16 {
@@ -1636,6 +1635,10 @@ type band_ctx = struct {
 }
 
 func celtNormAdd(p *float32, offset int32) *float32 {
+	if offset == 0 {
+		return p
+	}
+	// Nonzero callers may need preceding history or an unused end pointer.
 	return (*float32)(unsafe.Add(unsafe.Pointer(p), int(offset)*4))
 }
 

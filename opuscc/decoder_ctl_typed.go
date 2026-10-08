@@ -100,6 +100,20 @@ func opusCtlLegacyArgs(request int32, ap uintptr) (a OpusDecoderCtlArgs) {
 	return
 }
 
+// The reset suffix is ten contiguous 32-bit scalar words, with no padding.
+// Keep all suffix stores before child reset, leaving prefix fields untouched.
+func opusDecoderResetTail(st *OpusT_OpusDecoder) {
+	st.Fstream_channels = 0
+	st.Fbandwidth = 0
+	st.Fmode = 0
+	st.Fprev_mode = 0
+	st.Fframe_size = 0
+	st.Fprev_redundancy = 0
+	st.Flast_packet_duration = 0
+	clear(st.Fsoftclip_mem[:])
+	st.FrangeFinal = 0
+}
+
 func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, a OpusDecoderCtlArgs) int32 {
 	// C derives these interiors before dispatch, even for an unknown request.
 	silk := opusFrameSilkState(st)
@@ -128,7 +142,7 @@ func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request i
 		}
 		*a.U32 = st.FrangeFinal
 	case OPUS_RESET_STATE:
-		clear(unsafe.Slice((*byte)(unsafe.Pointer(&st.Fstream_channels)), int(unsafe.Sizeof(*st)-unsafe.Offsetof(st.Fstream_channels))))
+		opusDecoderResetTail(st)
 		Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
 		Opus_silk_ResetDecoder(tls, silk)
 		st.Fstream_channels = st.Fchannels
