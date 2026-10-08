@@ -74,7 +74,10 @@ type OpusT_cookie_io_functions_t = struct {
 type _IO_cookie_io_functions_t = OpusT_cookie_io_functions_t
 
 func Opus_celt_fatal(tls *libc.TLS, str uintptr, file uintptr, line int32) {
-	opusCeltFatal(tls, libc.GoString(str), libc.GoString(file), line)
+	// Retain the legacy file-before-message conversion order.
+	fileString := libc.GoString(file)
+	strString := libc.GoString(str)
+	opusCeltFatal(tls, strString, fileString, line)
 }
 
 // Static diagnostic pool offsets are numbers, not integer addresses.

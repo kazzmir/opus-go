@@ -534,6 +534,23 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four diagnostic-string rounds introduce a Go-string fatal helper and static
+pool numeric-offset string lookup, then migrate three CELT setup assertions,
+three FFT assertions, five entropy assertions and twelve SILK resampler
+assertions. These 23 sites eliminate 46 integer-address constructions and raw
+string-address arguments; other sites and public Opus_celt_fatal remain legacy.
+Production lexical counts stay 196 unsafe.Pointer/167 uintptr. This is diagnostic
+representation cleanup, not allocator/scanning/callback lifetime repair.
+
+Upstream arch.h supplies the unchanged format, assertion conditions, filenames,
+line numbers and abort behavior. The public adapter retains file-before-message
+conversion order; private string lookup returns the same NUL-terminated pool
+prefix. A grouped fixture checks every pool string boundary under GC/checkptr.
+Assertions remain at their existing points, with unchanged narrowing/branches,
+codec arithmetic and error ordering. Each round passes full amd64/386,
+ARM64/QEMU, scoped checkptr, native comparisons, codec references and GC stress,
+with final repeated scoped/ordinary ARM fixtures. Goldens/tolerances unchanged.
+
 Four Go-staging/API rounds move Decoder's int16 PCM, float PCM and packet
 scratch into concrete Go slices, then expose typed single/MS int24 and all three
 projection PCM entry points. Decoder no longer uses cBuf, cPointer/cBufferSlice,
