@@ -360,6 +360,26 @@ func TestCeltDecoderInitPointers(t *testing.T) {
 	}
 }
 
+func TestCeltResetFieldsPointers(t *testing.T) {
+	var mode OpusT_OpusCustomMode
+	state := OpusT_OpusCustomDecoder{Fmode: &mode}
+	start, end := unsafe.Offsetof(state.Frng), unsafe.Offsetof(state.F_decode_mem)
+	if end-start != 64 || unsafe.Offsetof(state.Fpreemph_memD)+8 != end {
+		t.Fatal("CELT reset fields geometry needs updating")
+	}
+	numericStart := unsafe.Offsetof(state.Foverlap)
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(&state.Foverlap)), unsafe.Sizeof(state)-numericStart)
+	for i := range raw {
+		raw[i] = 0xa5
+	}
+	want := state
+	clear(unsafe.Slice((*byte)(unsafe.Pointer(&want.Frng)), 64))
+	celtDecoderResetFields(&state)
+	if state != want {
+		t.Fatal("CELT reset fields/prefix/decode memory")
+	}
+}
+
 func TestCustomDecoderInitPointers(t *testing.T) {
 	if opus_custom_decoder_init(nil, nil, nil, -1) != OPUS_BAD_ARG || opus_custom_decoder_init(nil, nil, nil, 1) != -7 {
 		t.Fatal("argument order")

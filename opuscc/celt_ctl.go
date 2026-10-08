@@ -13,13 +13,33 @@ import (
 
 var _ reflect.Type
 
+// The scalar reset suffix before decode memory is 64 bytes without padding.
+func celtDecoderResetFields(st *OpusT_OpusCustomDecoder) {
+	st.Frng = 0
+	st.Ferror1 = 0
+	st.Flast_pitch_index = 0
+	st.Floss_duration = 0
+	st.Fplc_duration = 0
+	st.Flast_frame_type = 0
+	st.Fskip_plc = 0
+	st.Fpostfilter_period = 0
+	st.Fpostfilter_period_old = 0
+	st.Fpostfilter_gain = 0
+	st.Fpostfilter_gain_old = 0
+	st.Fpostfilter_tapset = 0
+	st.Fpostfilter_tapset_old = 0
+	st.Fprefilter_and_fold = 0
+	clear(st.Fpreemph_memD[:])
+}
+
 func celt_decoder_reset(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 	mode := st.Fmode
 	size := opus_custom_decoder_get_size(tls, mode, st.Fchannels)
-	start := unsafe.Offsetof(st.Frng)
+	start := unsafe.Offsetof(st.F_decode_mem)
 	_, log, previous, _ := celtDecodeEnergyViews(st, mode.FnbEBands, st.Foverlap, st.Fchannels)
 	oldLog := unsafe.Slice(log, 2*mode.FnbEBands)
 	oldLog2 := unsafe.Slice(previous, 2*mode.FnbEBands)
+	celtDecoderResetFields(st)
 	clear(unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(st), start)), int(size)-int(start)))
 	for i := range oldLog {
 		oldLog2[i] = -28
