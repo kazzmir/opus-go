@@ -204,6 +204,24 @@ func TestDecoderSetFSPointers(t *testing.T) {
 	}
 }
 
+func TestDecoderResetTailPointers(t *testing.T) {
+	var state OpusT_OpusDecoder
+	start := unsafe.Offsetof(state.Fstream_channels)
+	if unsafe.Sizeof(state)-start != 40 || unsafe.Offsetof(state.FrangeFinal)+4 != unsafe.Sizeof(state) {
+		t.Fatal("reset suffix geometry needs updating")
+	}
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(&state)), unsafe.Sizeof(state))
+	for i := range raw {
+		raw[i] = byte(i*17 + 31)
+	}
+	want := state
+	clear(unsafe.Slice((*byte)(unsafe.Pointer(&want.Fstream_channels)), 40))
+	opusDecoderResetTail(&state)
+	if state != want {
+		t.Fatal("typed reset suffix/preserved prefix")
+	}
+}
+
 func TestDecoderResetPointers(t *testing.T) {
 	want := OpusT_silk_decoder_state{Ffirst_frame_after_reset: 1, Fprev_gain_Q16: 65536}
 	want.FsCNG.Frand_seed = 3176576
