@@ -545,10 +545,10 @@ func Opus_ec_laplace_encode(tls *libc.TLS, enc *OpusT_ec_enc, value *int32, fs u
 			fl += fs & uint32(^s)
 		}
 		if fl+fs > 32768 {
-			Opus_celt_fatal(tls, __ccgo_ts+5600, __ccgo_ts+5631, 88)
+			opusCeltFatal(tls, opusDiagnosticString(5600), opusDiagnosticString(5631), 88)
 		}
 		if fs == 0 {
-			Opus_celt_fatal(tls, __ccgo_ts+5649, __ccgo_ts+5631, 89)
+			opusCeltFatal(tls, opusDiagnosticString(5649), opusDiagnosticString(5631), 89)
 		}
 	}
 	Opus_ec_encode_bin(tls, enc, fl, fl+fs, 15)
@@ -586,13 +586,13 @@ func Opus_ec_laplace_decode(tls *libc.TLS, dec *OpusT_ec_dec, fs uint32, decay i
 		}
 	}
 	if !(fl < uint32(32768)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5672, __ccgo_ts+5631, int32(128))
+		opusCeltFatal(tls, opusDiagnosticString(5672), opusDiagnosticString(5631), int32(128))
 	}
 	if !(fs > uint32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5649, __ccgo_ts+5631, int32(129))
+		opusCeltFatal(tls, opusDiagnosticString(5649), opusDiagnosticString(5631), int32(129))
 	}
 	if !(fl <= fm) {
-		Opus_celt_fatal(tls, __ccgo_ts+5699, __ccgo_ts+5631, int32(130))
+		opusCeltFatal(tls, opusDiagnosticString(5699), opusDiagnosticString(5631), int32(130))
 	}
 	if fl+fs < uint32(int32(32768)) {
 		v1 = fl + fs
@@ -600,7 +600,7 @@ func Opus_ec_laplace_decode(tls *libc.TLS, dec *OpusT_ec_dec, fs uint32, decay i
 		v1 = uint32(int32(32768))
 	}
 	if !(fm < v1) {
-		Opus_celt_fatal(tls, __ccgo_ts+5724, __ccgo_ts+5631, int32(131))
+		opusCeltFatal(tls, opusDiagnosticString(5724), opusDiagnosticString(5631), int32(131))
 	}
 	if fl+fs < uint32(int32(32768)) {
 		v1 = fl + fs
