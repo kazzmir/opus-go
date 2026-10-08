@@ -1635,6 +1635,10 @@ type band_ctx = struct {
 }
 
 func celtNormAdd(p *float32, offset int32) *float32 {
+	if offset == 0 {
+		return p
+	}
+	// Nonzero callers may need preceding history or an unused end pointer.
 	return (*float32)(unsafe.Add(unsafe.Pointer(p), int(offset)*4))
 }
 

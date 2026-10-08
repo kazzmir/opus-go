@@ -534,6 +534,35 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four typed-state rounds read the IIR resampler union history through numeric
+native-endian int32/int16 conversion, write its final history the same way
+(removing the array-pointer reinterpretation), clear the standard decoder's
+scalar reset suffix through its named fields, and preserve celtNormAdd's concrete
+pointer identity at zero displacement. Production unsafe.Pointer references
+decrease 201→199; uintptr remains 167. Nonzero norm offsets still retain genuine
+signed history/unused-end-pointer support at the existing boundary.
+
+Upstream resampler_private_IIR_FIR.c, opus_decoder.c reset and bands.c norm use
+remain the reference. NativeEndian preserves both signed halfwords rather than
+assuming little endian. Initial history is copied before input processing, and
+final history comes from separate Go scratch: grouping its eight int16 stores
+into four int32 words has no intervening reads/aliasing source or changed final
+bits. Only the first four union words change; the tail is preserved. Tests use
+native-memory union load/store oracles, signed extrema and roundtrip/tail checks.
+Big-endian hardware is not validated (amd64/386/ARM64 only).
+
+The reset suffix is ten contiguous 32-bit words, verified by a new layout and
+raw-byte-clear comparison fixture. Prefix fields remain untouched and all suffix
+stores precede child reset; short-channel/range/softclip behavior is unchanged.
+Zero/nil/singleton and signed interior norm tests retain the old nonzero address
+semantics without creating a forward slice for potentially unused EOF pointers.
+No assertions, output/load/store dependencies, codec goldens or tolerances change.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references and GC stress, with final repeated scoped/ordinary ARM fixtures.
+This removes a real union reinterpretation and reset byte span, not a global
+opaque-state scanning, extension EOF/GC or raw callback ownership repair.
+
 Four cleanup-consolidation rounds route single-decoder, multistream and
 projection factory init-error release through their existing concrete typed
 destructors, then remove 23 obsolete generated `var _ unsafe.Pointer` markers
