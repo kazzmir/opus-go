@@ -1320,31 +1320,6 @@ func Opus_opus_packet_parse_impl(tls *libc.TLS, packet *byte, length, selfDelimi
 	return count
 }
 
-// Remaining outer decode APIs still store packet/frame addresses as integers.
-func opus_packet_parse_impl_legacy(tls *libc.TLS, data uintptr, length, selfDelimited int32, toc, frames, size, payloadOffset, packetOffset, padding, paddingLen uintptr) int32 {
-	var framePointers [48]*byte
-	var f *[48]*byte
-	if frames != 0 {
-		f = &framePointers
-	}
-	var pad *byte
-	var p **byte
-	if padding != 0 {
-		p = &pad
-	}
-	r := Opus_opus_packet_parse_impl(tls, (*byte)(unsafe.Pointer(data)), length, selfDelimited, (*byte)(unsafe.Pointer(toc)), f, (*[48]int16)(unsafe.Pointer(size)), (*int32)(unsafe.Pointer(payloadOffset)), (*int32)(unsafe.Pointer(packetOffset)), p, (*int32)(unsafe.Pointer(paddingLen)))
-	if r > 0 && frames != 0 {
-		out := unsafe.Slice((*uintptr)(unsafe.Pointer(frames)), r)
-		for i := range out {
-			out[i] = uintptr(unsafe.Pointer(framePointers[i]))
-		}
-	}
-	if padding != 0 {
-		*(*uintptr)(unsafe.Pointer(padding)) = uintptr(unsafe.Pointer(pad))
-	}
-	return r
-}
-
 func Opus_opus_packet_parse(tls *libc.TLS, data *byte, length int32, toc *byte, frames *[48]*byte, size *[48]int16, payload *int32) int32 {
 	return Opus_opus_packet_parse_impl(tls, data, length, 0, toc, frames, size, payload, nil, nil, nil)
 }
