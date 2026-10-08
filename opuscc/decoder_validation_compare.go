@@ -154,9 +154,10 @@ func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_Opus
 
 func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
 	st := (*OpusT_OpusDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
-	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), st.Fcelt_dec_offset))
+	celt := opusFrameCeltState(st)
 	celt.Fmode = &mode48000_960_120
 	out := uint32(77)
+	signedOut := int32(77)
 	a := OpusDecoderCtlArgs{Value: value}
 	if alias != -2 {
 		if alias >= 0 {
@@ -164,11 +165,14 @@ func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
 			a.I32 = (*int32)(p)
 			a.U32 = (*uint32)(p)
 		} else {
-			a.I32 = (*int32)(unsafe.Pointer(&out))
+			a.I32 = &signedOut
 			a.U32 = &out
 		}
 	}
 	r := Opus_opus_decoder_ctl_typed(nil, st, request, a)
+	if alias < 0 && request != OPUS_GET_FINAL_RANGE_REQUEST {
+		out = uint32(signedOut)
+	}
 	celt.Fmode = nil
 	return r, out
 }
