@@ -534,6 +534,31 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four pointer-removal rounds delete the unused private integer packet-parser
+adapter (no callers in opuscc), then migrate multistream, single and custom
+CTL native-reference bridges to concrete int32/uint32 output cells instead of
+reinterpreting one uint32 cell as *int32. Numeric signed→unsigned conversion
+preserves result bits; only final-range requests consume unsigned outputs.
+Real state/output alias fixtures retain their explicit raw-layout pointers.
+Mode/decoder outputs, nil-output requests, initial 77 sentinels and error order
+remain unchanged. Single/MS child lookup reuses typed layout helpers; this
+centralizes three casts rather than eliminating their underlying boundaries.
+The MS header alignment is numeric int arithmetic, not a uintptr word mask.
+
+Production lexical counts decrease 196→180 unsafe.Pointer and 167→159 uintptr.
+Ten pointer casts/seven integer tokens belonged to the deleted dead adapter;
+three scalar casts are genuinely removed, three layout casts centralized and
+one size mask is numeric. Public parser/escape APIs remain intact. These CTL
+changes are tagged native-reference bridge code, not decoder hot-path/allocator
+scanning improvements. Native matrices already cover signed gain and high-bit
+range output; added grouped custom CTL tests compare signed/unsigned 0, max,
+minimum and all-one result bits plus complete state images against C.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references, GC stress and diff checks, with final twenty-repeat scoped/
+ordinary ARM fixtures. No goldens/tolerances/assertions changed. Opaque byte
+allocation scanning, extension EOF/GC and raw callback ownership remain open.
+
 Four state/recovery diagnostic rounds migrate the remaining seventeen CELT
 state-validation assertions, six SILK frame assertions, five SILK core/CNG/PLC
 assertions and five NLSF/gain helper assertions. All 33 sites now pass Go strings:

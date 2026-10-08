@@ -1023,6 +1023,26 @@ func TestOpusCtlAgainstC(t *testing.T) {
 	}
 }
 
+func TestCustomCtlScalarBitsAgainstC(t *testing.T) {
+	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
+	for _, bits := range []uint32{0, 0x7fffffff, 0x80000000, 0xffffffff} {
+		for _, request := range []int32{opuscc.CELT_GET_AND_CLEAR_ERROR_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST} {
+			g := make([]byte, opuscc.CompareCustomDecoderSize(mode, 1)+16)
+			st := (*opuscc.OpusT_OpusCustomDecoder)(unsafe.Pointer(&g[0]))
+			opuscc.CompareCustomDecoderInit(st, mode, 1)
+			st.Ferror1 = int32(bits)
+			st.Frng = bits
+			st.Fmode = nil
+			c := slices.Clone(g)
+			ret, out := opuscc.CompareCustomCtl(g, request, 0, -1)
+			cr, co := nativeCustomCtl(c, request, 0, -1)
+			if ret != cr || out != bits || out != co || !slices.Equal(g, c) {
+				t.Fatal("custom scalar bits", bits, request, ret, cr, out, co)
+			}
+		}
+	}
+}
+
 func TestCustomCtlAgainstC(t *testing.T) {
 	mode, _ := opuscc.Opus_opus_custom_mode_create(nil, 48000, 960)
 	requests := []int32{opuscc.OPUS_SET_COMPLEXITY_REQUEST, opuscc.OPUS_GET_COMPLEXITY_REQUEST, opuscc.CELT_SET_START_BAND_REQUEST, opuscc.CELT_SET_END_BAND_REQUEST, opuscc.CELT_SET_CHANNELS_REQUEST, opuscc.CELT_GET_AND_CLEAR_ERROR_REQUEST, opuscc.OPUS_GET_LOOKAHEAD_REQUEST, opuscc.OPUS_RESET_STATE, opuscc.OPUS_GET_PITCH_REQUEST, opuscc.CELT_GET_MODE_REQUEST, opuscc.CELT_SET_SIGNALLING_REQUEST, opuscc.OPUS_GET_FINAL_RANGE_REQUEST, opuscc.OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, opuscc.OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, 123456}

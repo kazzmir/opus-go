@@ -181,6 +181,7 @@ func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) 
 	st := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
 	st.Fmode = &mode48000_960_120
 	out := uint32(77)
+	signedOut := int32(77)
 	var mode *OpusT_OpusCustomMode
 	a := OpusDecoderCtlArgs{Value: value}
 	if alias != -2 {
@@ -190,12 +191,15 @@ func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) 
 			a.U32 = (*uint32)(p)
 			a.Mode = (**OpusT_OpusCustomMode)(p)
 		} else {
-			a.I32 = (*int32)(unsafe.Pointer(&out))
+			a.I32 = &signedOut
 			a.U32 = &out
 			a.Mode = &mode
 		}
 	}
 	r := Opus_opus_custom_decoder_ctl_typed(nil, st, request, a)
+	if alias < 0 && request != OPUS_GET_FINAL_RANGE_REQUEST {
+		out = uint32(signedOut)
+	}
 	if request == CELT_GET_MODE_REQUEST {
 		out = 0
 		if mode == st.Fmode {
