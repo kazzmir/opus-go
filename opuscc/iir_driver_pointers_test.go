@@ -18,6 +18,13 @@ func TestIIRHistoryWordsPointers(t *testing.T) {
 	if got := silkResamplerIIRHistory(&state); got != want || state != before {
 		t.Fatal("native-endian signed history", got, want)
 	}
+	values := [8]int16{-32768, -1, 0, 1, 32767, -12345, 23456, -2}
+	wantState := state
+	copy((*[8]int16)(unsafe.Pointer(&wantState.FsFIR.Fi32[0]))[:], values[:])
+	silkResamplerStoreIIRHistory(&state, values[:])
+	if state != wantState || silkResamplerIIRHistory(&state) != values {
+		t.Fatal("native-endian store/tail/roundtrip")
+	}
 }
 
 func TestIIRDriverPointers(t *testing.T) {

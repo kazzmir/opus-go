@@ -428,13 +428,22 @@ func silkResamplerIIRHistory(state *OpusT_silk_resampler_state_struct) (history 
 	return history
 }
 
+// History comes from the driver's separate Go-owned scratch buffer.
+func silkResamplerStoreIIRHistory(state *OpusT_silk_resampler_state_struct, history []int16) {
+	var word [4]byte
+	for i := 0; i < 4; i++ {
+		binary.NativeEndian.PutUint16(word[:2], uint16(history[2*i]))
+		binary.NativeEndian.PutUint16(word[2:], uint16(history[2*i+1]))
+		state.FsFIR.Fi32[i] = int32(binary.NativeEndian.Uint32(word[:]))
+	}
+}
+
 // C documentation
 //
 //	/* Upsample using a combination of allpass-based 2x upsampling and FIR interpolation */
 func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, out, in *int16, inLen int32) {
 	buf := make([]int16, 2*state.FbatchSize+8)
 	// The C union uses its first eight int16 elements in this mode.
-	history := (*[8]int16)(unsafe.Pointer(&state.FsFIR.Fi32[0]))
 	initial := silkResamplerIIRHistory(state)
 	copy(buf, initial[:])
 	input := unsafe.Slice(in, inLen)
@@ -445,7 +454,7 @@ func Opus_silk_resampler_private_IIR_FIR(tls *libc.TLS, state *OpusT_silk_resamp
 		written := silk_resampler_private_IIR_FIR_INTERPOL(tls, out, &buf[0], n<<17, increment)
 		input = input[n:]
 		if len(input) == 0 {
-			copy(history[:], buf[2*n:2*n+8])
+			silkResamplerStoreIIRHistory(state, buf[2*n:2*n+8])
 			break
 		}
 		out = silkResamplerAdvanceOutput(out, written)
