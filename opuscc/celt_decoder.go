@@ -16,13 +16,13 @@ var _ reflect.Type
 func Opus_validate_celt_decoder(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 	mode, _ := Opus_opus_custom_mode_create(tls, 48000, 960)
 	if st.Fmode != mode {
-		Opus_celt_fatal(tls, __ccgo_ts+3695, __ccgo_ts+3767, 147)
+		opusCeltFatal(tls, opusDiagnosticString(3695), opusDiagnosticString(3767), 147)
 	}
 	if st.Foverlap != 120 {
-		Opus_celt_fatal(tls, __ccgo_ts+3790, __ccgo_ts+3767, 148)
+		opusCeltFatal(tls, opusDiagnosticString(3790), opusDiagnosticString(3767), 148)
 	}
 	if st.Fend > 21 {
-		Opus_celt_fatal(tls, __ccgo_ts+3827, __ccgo_ts+3767, 149)
+		opusCeltFatal(tls, opusDiagnosticString(3827), opusDiagnosticString(3767), 149)
 	}
 	if !(st.Fchannels == 1 || st.Fchannels == 2) {
 		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+3767, 157)

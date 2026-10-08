@@ -360,6 +360,21 @@ func TestCeltDecoderInitPointers(t *testing.T) {
 	}
 }
 
+func TestDiagnosticStringsPointers(t *testing.T) {
+	runtime.GC()
+	for start := 0; start < len(__ccgo_ts1); {
+		end := start
+		for end < len(__ccgo_ts1) && __ccgo_ts1[end] != 0 {
+			end++
+		}
+		got := opusDiagnosticString(start)
+		if got != __ccgo_ts1[start:end] {
+			t.Fatalf("diagnostic at %d", start)
+		}
+		start = end + 1
+	}
+}
+
 func TestCeltInitHeaderPointers(t *testing.T) {
 	var mode OpusT_OpusCustomMode
 	state := OpusT_OpusCustomDecoder{Fmode: &mode}
