@@ -25,55 +25,55 @@ func Opus_validate_celt_decoder(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 		opusCeltFatal(tls, opusDiagnosticString(3827), opusDiagnosticString(3767), 149)
 	}
 	if !(st.Fchannels == 1 || st.Fchannels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+3767, 157)
+		opusCeltFatal(tls, opusDiagnosticString(0), opusDiagnosticString(3767), 157)
 	}
 	if !(st.Fstream_channels == 1 || st.Fstream_channels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts+925, __ccgo_ts+3767, 158)
+		opusCeltFatal(tls, opusDiagnosticString(925), opusDiagnosticString(3767), 158)
 	}
 	if st.Fdownsample <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+3859, __ccgo_ts+3767, 159)
+		opusCeltFatal(tls, opusDiagnosticString(3859), opusDiagnosticString(3767), 159)
 	}
 	if !(st.Fstart == 0 || st.Fstart == 17) {
-		Opus_celt_fatal(tls, __ccgo_ts+3896, __ccgo_ts+3767, 160)
+		opusCeltFatal(tls, opusDiagnosticString(3896), opusDiagnosticString(3767), 160)
 	}
 	if st.Fstart >= st.Fend {
-		Opus_celt_fatal(tls, __ccgo_ts+3948, __ccgo_ts+3767, 161)
+		opusCeltFatal(tls, opusDiagnosticString(3948), opusDiagnosticString(3767), 161)
 	}
 	if st.Farch < 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+849, __ccgo_ts+3767, 163)
+		opusCeltFatal(tls, opusDiagnosticString(849), opusDiagnosticString(3767), 163)
 	}
 	if st.Farch > OPUS_ARCHMASK {
-		Opus_celt_fatal(tls, __ccgo_ts+881, __ccgo_ts+3767, 164)
+		opusCeltFatal(tls, opusDiagnosticString(881), opusDiagnosticString(3767), 164)
 	}
 	if st.Flast_pitch_index > PLC_PITCH_LAG_MAX {
-		Opus_celt_fatal(tls, __ccgo_ts+3986, __ccgo_ts+3767, 167)
+		opusCeltFatal(tls, opusDiagnosticString(3986), opusDiagnosticString(3767), 167)
 	}
 	if !(st.Flast_pitch_index >= PLC_PITCH_LAG_MIN || st.Flast_pitch_index == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+4046, __ccgo_ts+3767, 168)
+		opusCeltFatal(tls, opusDiagnosticString(4046), opusDiagnosticString(3767), 168)
 	}
 	if st.Fpostfilter_period >= MAX_PERIOD {
-		Opus_celt_fatal(tls, __ccgo_ts+4135, __ccgo_ts+3767, 170)
+		opusCeltFatal(tls, opusDiagnosticString(4135), opusDiagnosticString(3767), 170)
 	}
 	if !(st.Fpostfilter_period >= COMBFILTER_MINPERIOD || st.Fpostfilter_period == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+4188, __ccgo_ts+3767, 171)
+		opusCeltFatal(tls, opusDiagnosticString(4188), opusDiagnosticString(3767), 171)
 	}
 	if st.Fpostfilter_period_old >= MAX_PERIOD {
-		Opus_celt_fatal(tls, __ccgo_ts+4282, __ccgo_ts+3767, 172)
+		opusCeltFatal(tls, opusDiagnosticString(4282), opusDiagnosticString(3767), 172)
 	}
 	if !(st.Fpostfilter_period_old >= COMBFILTER_MINPERIOD || st.Fpostfilter_period_old == 0) {
-		Opus_celt_fatal(tls, __ccgo_ts+4339, __ccgo_ts+3767, 173)
+		opusCeltFatal(tls, opusDiagnosticString(4339), opusDiagnosticString(3767), 173)
 	}
 	if st.Fpostfilter_tapset > 2 {
-		Opus_celt_fatal(tls, __ccgo_ts+4441, __ccgo_ts+3767, 174)
+		opusCeltFatal(tls, opusDiagnosticString(4441), opusDiagnosticString(3767), 174)
 	}
 	if st.Fpostfilter_tapset < 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+4486, __ccgo_ts+3767, 175)
+		opusCeltFatal(tls, opusDiagnosticString(4486), opusDiagnosticString(3767), 175)
 	}
 	if st.Fpostfilter_tapset_old > 2 {
-		Opus_celt_fatal(tls, __ccgo_ts+4531, __ccgo_ts+3767, 176)
+		opusCeltFatal(tls, opusDiagnosticString(4531), opusDiagnosticString(3767), 176)
 	}
 	if st.Fpostfilter_tapset_old < 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+4580, __ccgo_ts+3767, 177)
+		opusCeltFatal(tls, opusDiagnosticString(4580), opusDiagnosticString(3767), 177)
 	}
 }
 
