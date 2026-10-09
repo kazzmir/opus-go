@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
@@ -73,9 +74,23 @@ type OpusT_cookie_io_functions_t = struct {
 type _IO_cookie_io_functions_t = OpusT_cookie_io_functions_t
 
 func Opus_celt_fatal(tls *libc.TLS, str uintptr, file uintptr, line int32) {
-	// Format directly: the fprintf shim ignores varargs. Go strings also avoid
-	// passing stack-backed va_list storage through uintptr-taking callees.
-	fmt.Fprintf(os.Stderr, "Fatal (internal) error in %s, line %d: %s\n", libc.GoString(file), line, libc.GoString(str))
+	// Retain the legacy file-before-message conversion order.
+	fileString := libc.GoString(file)
+	strString := libc.GoString(str)
+	opusCeltFatal(tls, strString, fileString, line)
+}
+
+// Static diagnostic pool offsets are numbers, not integer addresses.
+func opusDiagnosticString(offset int) string {
+	s := __ccgo_ts1[offset:]
+	if end := strings.IndexByte(s, 0); end >= 0 {
+		return s[:end]
+	}
+	return s
+}
+
+func opusCeltFatal(tls *libc.TLS, str, file string, line int32) {
+	fmt.Fprintf(os.Stderr, "Fatal (internal) error in %s, line %d: %s\n", file, line, str)
 	libc.Xabort(tls)
 }
 

@@ -534,6 +534,99 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four numeric/private-entry rounds share projection's matrix→MS numeric
+displacement with the native-reference CTL bridge, track returned MS decoder
+children by concrete pointer identity plus recorded numeric displacement, then
+migrate private opus_decode_frame's state/packet and PCM arguments to concrete
+pointers in separate steps. No pointer-address subtraction remains in these
+reference bridges, and the private frame forwarder has no integer handles,
+reinterpretation casts or uintptrescapes directive. Its eight grouped fixtures
+now pass concrete owners directly; registered byte-backed test state retains
+an explicit allocation-boundary cast. Public integer entry APIs remain intact.
+
+Production lexical counts decrease 180→173 unsafe.Pointer and 159→153 uintptr:
+four casts/four integer tokens from reference address subtraction, three casts/
+two tokens from private entry conversion. The numeric projection helper retains
+uint32 addition/alignment then int32 narrowing and machine-word conversion.
+Grouped numeric fixtures cover ordinary sizes, high-bit/negative/wrapped values
+without forming invalid addresses. Existing native CTL child/matrix/alias
+matrices and frame PCM/error/GC/stack/golden fixtures remain unchanged. Child
+identity tracking is reference-only; opaque state allocations are not globally
+made GC-scanned. Decoder/packet/PCM validation and argument order persist.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references, GC stress and diff checks, with final twenty-repeat ARM scoped/
+ordinary fixtures. Goldens/tolerances/assertions unchanged. Layout boundaries,
+extension EOF/GC and raw callback lifetime remain independently scoped.
+
+Four pointer-removal rounds delete the unused private integer packet-parser
+adapter (no callers in opuscc), then migrate multistream, single and custom
+CTL native-reference bridges to concrete int32/uint32 output cells instead of
+reinterpreting one uint32 cell as *int32. Numeric signed→unsigned conversion
+preserves result bits; only final-range requests consume unsigned outputs.
+Real state/output alias fixtures retain their explicit raw-layout pointers.
+Mode/decoder outputs, nil-output requests, initial 77 sentinels and error order
+remain unchanged. Single/MS child lookup reuses typed layout helpers; this
+centralizes three casts rather than eliminating their underlying boundaries.
+The MS header alignment is numeric int arithmetic, not a uintptr word mask.
+
+Production lexical counts decrease 196→180 unsafe.Pointer and 167→159 uintptr.
+Ten pointer casts/seven integer tokens belonged to the deleted dead adapter;
+three scalar casts are genuinely removed, three layout casts centralized and
+one size mask is numeric. Public parser/escape APIs remain intact. These CTL
+changes are tagged native-reference bridge code, not decoder hot-path/allocator
+scanning improvements. Native matrices already cover signed gain and high-bit
+range output; added grouped custom CTL tests compare signed/unsigned 0, max,
+minimum and all-one result bits plus complete state images against C.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references, GC stress and diff checks, with final twenty-repeat scoped/
+ordinary ARM fixtures. No goldens/tolerances/assertions changed. Opaque byte
+allocation scanning, extension EOF/GC and raw callback ownership remain open.
+
+Four state/recovery diagnostic rounds migrate the remaining seventeen CELT
+state-validation assertions, six SILK frame assertions, five SILK core/CNG/PLC
+assertions and five NLSF/gain helper assertions. All 33 sites now pass Go strings:
+66 raw integer string-address arguments replaced, with 65 integer-addition
+expressions removed (one argument was the pool base at numeric offset zero).
+Production lexical counts remain 196 unsafe.Pointer/167 uintptr. This remains
+static diagnostic representation work, not allocator/GC scanning repair.
+The existing all-pool/GC string fixture covers these numeric offsets. Conditions,
+source lines, file strings, format/abort behavior, assertion timing, arithmetic,
+error order and public legacy adapters remain unchanged. Every round passes
+full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons, codec references,
+GC stress and diff checks; final ARM scoped/ordinary fixtures repeat twenty
+times. Goldens/tolerances unchanged.
+
+Four further diagnostic rounds migrate eight CELT control, six LPC filter,
+six MDCT and six SILK API assertion sites to the existing Go-string fatal
+helper. This removes another 52 integer-address constructions at 26 sites;
+production lexical counts remain 196 unsafe.Pointer/167 uintptr. This is
+representation cleanup of static diagnostic arguments, not a lifetime or
+allocator-scanning repair. The grouped all-pool string/GC fixture remains.
+All conditions, source lines, filenames, fatal format, abort calls, scalar
+arithmetic and assertion positions remain unchanged. Each round passes full
+amd64/386, ARM64/QEMU, scoped checkptr, native comparisons, codec references,
+GC stress and diff checks, with final repeated scoped/ordinary ARM fixtures.
+No goldens/tolerances/assertions changed; public legacy adapters remain.
+
+Four diagnostic-string rounds introduce a Go-string fatal helper and static
+pool numeric-offset string lookup, then migrate three CELT setup assertions,
+three FFT assertions, five entropy assertions and twelve SILK resampler
+assertions. These 23 sites eliminate 46 integer-address constructions and raw
+string-address arguments; other sites and public Opus_celt_fatal remain legacy.
+Production lexical counts stay 196 unsafe.Pointer/167 uintptr. This is diagnostic
+representation cleanup, not allocator/scanning/callback lifetime repair.
+
+Upstream arch.h supplies the unchanged format, assertion conditions, filenames,
+line numbers and abort behavior. The public adapter retains file-before-message
+conversion order; private string lookup returns the same NUL-terminated pool
+prefix. A grouped fixture checks every pool string boundary under GC/checkptr.
+Assertions remain at their existing points, with unchanged narrowing/branches,
+codec arithmetic and error ordering. Each round passes full amd64/386,
+ARM64/QEMU, scoped checkptr, native comparisons, codec references and GC stress,
+with final repeated scoped/ordinary ARM fixtures. Goldens/tolerances unchanged.
+
 Four Go-staging/API rounds move Decoder's int16 PCM, float PCM and packet
 scratch into concrete Go slices, then expose typed single/MS int24 and all three
 projection PCM entry points. Decoder no longer uses cBuf, cPointer/cBufferSlice,

@@ -171,7 +171,7 @@ func Opus_ec_dec_icdf16(tls *libc.TLS, dec *OpusT_ec_dec, icdf *OpusT_opus_uint1
 
 func Opus_ec_dec_uint(tls *libc.TLS, dec *OpusT_ec_dec, ft OpusT_opus_uint32) OpusT_opus_uint32 {
 	if ft <= 1 {
-		Opus_celt_fatal(tls, __ccgo_ts+3569, __ccgo_ts+3593, int32(224))
+		opusCeltFatal(tls, opusDiagnosticString(3569), opusDiagnosticString(3593), int32(224))
 	}
 	maximum := ft - 1
 	ftb := bits.Len32(maximum)
@@ -1498,7 +1498,7 @@ var CELT_PVQ_U_DATA = [1272]OpusT_opus_uint32{
 
 func icwrs(tls *libc.TLS, n int32, input *int32) uint32 {
 	if n < 2 {
-		Opus_celt_fatal(tls, __ccgo_ts+3610, __ccgo_ts+3634, 448)
+		opusCeltFatal(tls, opusDiagnosticString(3610), opusDiagnosticString(3634), 448)
 	}
 	y := unsafe.Slice(input, n)
 	j := n - 1
@@ -1530,7 +1530,7 @@ func icwrs(tls *libc.TLS, n int32, input *int32) uint32 {
 
 func Opus_encode_pulses(tls *libc.TLS, y *int32, n, k int32, enc *OpusT_ec_enc) {
 	if k <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+3649, __ccgo_ts+3634, 463)
+		opusCeltFatal(tls, opusDiagnosticString(3649), opusDiagnosticString(3634), 463)
 	}
 	total := celtPVQU(min(n, k), max(n, k)) + celtPVQU(min(n, k+1), max(n, k+1))
 	Opus_ec_enc_uint(tls, enc, icwrs(tls, n, y), total)
@@ -1554,10 +1554,10 @@ func cwrsi(tls *libc.TLS, _n int32, _k int32, _i OpusT_opus_uint32, output *int3
 	_, _, _, _, _, _, _, _ = k0, p, q, row, s, val, yy, v1
 	yy = float32(0)
 	if !(_k > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3649, __ccgo_ts+3634, int32(473))
+		opusCeltFatal(tls, opusDiagnosticString(3649), opusDiagnosticString(3634), int32(473))
 	}
 	if !(_n > int32(1)) {
-		Opus_celt_fatal(tls, __ccgo_ts+3672, __ccgo_ts+3634, int32(474))
+		opusCeltFatal(tls, opusDiagnosticString(3672), opusDiagnosticString(3634), int32(474))
 	}
 	for _n > int32(2) {
 		/*Lots of pulses case:*/

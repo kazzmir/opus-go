@@ -20,12 +20,12 @@ func Opus_silk_resampler_init(tls *libc.TLS, state *OpusT_silk_resampler_state_s
 	external := func(rate int32) bool { return internal(rate) || rate == 24000 || rate == 48000 }
 	if forEnc != 0 {
 		if !external(inRate) || !internal(outRate) {
-			Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, 99)
+			opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(7386), 99)
 			return -1
 		}
 	} else {
 		if !internal(inRate) || !external(outRate) {
-			Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, 110)
+			opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(7386), 110)
 			return -1
 		}
 	}
@@ -78,7 +78,7 @@ func Opus_silk_resampler_init(tls *libc.TLS, state *OpusT_silk_resampler_state_s
 			state.FFIR_Order = RESAMPLER_DOWN_ORDER_FIR2
 			state.FCoefs = &Opus_silk_Resampler_1_6_COEFS[0]
 		default:
-			Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7386, 163)
+			opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(7386), 163)
 			return -1
 		}
 	default:
@@ -97,10 +97,10 @@ func Opus_silk_resampler_init(tls *libc.TLS, state *OpusT_silk_resampler_state_s
 //	/* Input and output sampling rate are at most 48000 Hz  */
 func Opus_silk_resampler(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, out, in *int16, inLen int32) int32 {
 	if inLen < state.FFs_in_kHz {
-		Opus_celt_fatal(tls, __ccgo_ts+7406, __ccgo_ts+7386, 193)
+		opusCeltFatal(tls, opusDiagnosticString(7406), opusDiagnosticString(7386), 193)
 	}
 	if state.FinputDelay > state.FFs_in_kHz {
-		Opus_celt_fatal(tls, __ccgo_ts+7446, __ccgo_ts+7386, 195)
+		opusCeltFatal(tls, opusDiagnosticString(7446), opusDiagnosticString(7386), 195)
 	}
 	samples := unsafe.Slice(in, inLen)
 	nSamples := state.FFs_in_kHz - state.FinputDelay
@@ -221,10 +221,10 @@ var silk_resampler_up2_hq_12 = [3]OpusT_opus_int16{
 func Opus_silk_resampler_down2(tls *libc.TLS, S *[2]OpusT_opus_int32, out *OpusT_opus_int16, in *OpusT_opus_int16, inLen OpusT_opus_int32) {
 	len2 := int(inLen >> 1)
 	if !(int32(silk_resampler_down2_02) > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7522, __ccgo_ts+7567, int32(46))
+		opusCeltFatal(tls, opusDiagnosticString(7522), opusDiagnosticString(7567), int32(46))
 	}
 	if !(int32(silk_resampler_down2_12) < int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7593, __ccgo_ts+7567, int32(47))
+		opusCeltFatal(tls, opusDiagnosticString(7593), opusDiagnosticString(7567), int32(47))
 	}
 	if len2 <= 0 {
 		return
@@ -302,7 +302,7 @@ var silk_resampler_up2_hq_14 = [3]OpusT_opus_int16{
 
 func silk_resampler_private_down_FIR_INTERPOL(tls *libc.TLS, out *int16, buf *int32, coefs *int16, order, fracs, maxIndex, increment int32) int32 {
 	if order != 18 && order != 24 && order != 36 {
-		Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+7638, 139)
+		opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(7638), 139)
 	}
 	if maxIndex <= 0 {
 		return 0
@@ -721,13 +721,13 @@ POSSIBILITY OF SUCH DAMAGE.
 func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a *OpusT_opus_int32, idx *int32, L int32, K int32) {
 	/* Safety checks */
 	if !(K > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7711, __ccgo_ts+7735, int32(51))
+		opusCeltFatal(tls, opusDiagnosticString(7711), opusDiagnosticString(7735), int32(51))
 	}
 	if !(L > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7750, __ccgo_ts+7735, int32(52))
+		opusCeltFatal(tls, opusDiagnosticString(7750), opusDiagnosticString(7735), int32(52))
 	}
 	if !(L >= K) {
-		Opus_celt_fatal(tls, __ccgo_ts+7774, __ccgo_ts+7735, int32(53))
+		opusCeltFatal(tls, opusDiagnosticString(7774), opusDiagnosticString(7735), int32(53))
 	}
 	values := unsafe.Slice(a, int(L))
 	indices := unsafe.Slice(idx, int(K))
@@ -757,7 +757,7 @@ func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a *OpusT_opus_int32, idx
 
 func Opus_silk_insertion_sort_increasing_all_values_int16(tls *libc.TLS, a *OpusT_opus_int16, L int32) {
 	if !(L > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7750, __ccgo_ts+7735, int32(144))
+		opusCeltFatal(tls, opusDiagnosticString(7750), opusDiagnosticString(7735), int32(144))
 	}
 	values := unsafe.Slice(a, int(L))
 	for i := 1; i < len(values); i++ {

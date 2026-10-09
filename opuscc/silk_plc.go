@@ -160,7 +160,7 @@ func silkPLCAddPrediction(excitation, prediction int32) int32 {
 func silkPLCLPC(tls *libc.TLS, decoder *OpusT_silk_decoder_state, history []int32, A *[MAX_LPC_ORDER]int16, frame *int16, gain int32) {
 	copy(history[:MAX_LPC_ORDER], decoder.FsLPC_Q14_buf[:])
 	if decoder.FLPC_order < 10 {
-		Opus_celt_fatal(tls, __ccgo_ts+6755, __ccgo_ts+6715, 373)
+		opusCeltFatal(tls, opusDiagnosticString(6755), opusDiagnosticString(6715), 373)
 	}
 	pcm := unsafe.Slice(frame, decoder.Fframe_length)
 	for i := int32(0); i < decoder.Fframe_length; i++ {
@@ -351,7 +351,7 @@ func silk_PLC_conceal(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 	/* Rewhiten LTP state */
 	idx = psDec.Fltp_mem_length - lag - psDec.FLPC_order - int32(LTP_ORDER)/int32(2)
 	if !(idx > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+6729, __ccgo_ts+6715, int32(319))
+		opusCeltFatal(tls, opusDiagnosticString(6729), opusDiagnosticString(6715), int32(319))
 	}
 	silkPLCWhiten(tls, decoder, sLTP, &A_Q12, idx, arch)
 	/* Scale LTP state */

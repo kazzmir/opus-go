@@ -340,7 +340,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 				/* Rewhiten with new A coefs */
 				start_idx = psDec.Fltp_mem_length - lag - psDec.FLPC_order - int32(LTP_ORDER)/int32(2)
 				if !(start_idx > int32(0)) {
-					Opus_celt_fatal(tls, __ccgo_ts+5866, __ccgo_ts+5844, int32(150))
+					opusCeltFatal(tls, opusDiagnosticString(5866), opusDiagnosticString(5844), int32(150))
 				}
 				if k == int32(2) {
 					silkDecodeCoreHistory(decoder, xq)
@@ -389,7 +389,7 @@ func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl 
 			}
 			/* Short-term prediction */
 			if !(psDec.FLPC_order == int32(10) || psDec.FLPC_order == int32(16)) {
-				Opus_celt_fatal(tls, __ccgo_ts+5777, __ccgo_ts+5844, int32(205))
+				opusCeltFatal(tls, opusDiagnosticString(5777), opusDiagnosticString(5844), int32(205))
 			}
 			/* Avoids introducing a bias because silk_SMLAWB() always rounds to -inf */
 			LPC_pred_Q10 = psDec.FLPC_order >> int32(1)

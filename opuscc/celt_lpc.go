@@ -41,7 +41,7 @@ func Opus__celt_lpc(tls *libc.TLS, _lpc *OpusT_opus_val16, ac *OpusT_opus_val32,
 
 func Opus_celt_fir_c(tls *libc.TLS, x, num, y *float32, N, ord, arch int32) {
 	if x == y {
-		Opus_celt_fatal(tls, __ccgo_ts+3305, __ccgo_ts+3330, 157)
+		opusCeltFatal(tls, opusDiagnosticString(3305), opusDiagnosticString(3330), 157)
 	}
 	coeff := unsafe.Slice(num, ord)
 	reversed := make([]float32, ord)
@@ -54,7 +54,7 @@ func Opus_celt_fir_c(tls *libc.TLS, x, num, y *float32, N, ord, arch int32) {
 	i := int32(0)
 	for ; i < N-3; i += 4 {
 		if ord < 3 {
-			Opus_celt_fatal(tls, __ccgo_ts+3349, __ccgo_ts+3374, 69)
+			opusCeltFatal(tls, opusDiagnosticString(3349), opusDiagnosticString(3374), 69)
 		}
 		sum := [4]float32{input[ord+i], input[ord+i+1], input[ord+i+2], input[ord+i+3]}
 		celtCorrelation4(reversed, input[i:], &sum)
@@ -80,7 +80,7 @@ func celtCorrelation4(coeff, input []float32, sum *[4]float32) {
 
 func Opus_celt_iir(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float32, arch int32) {
 	if ord&3 != 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+3390, __ccgo_ts+3330, 225)
+		opusCeltFatal(tls, opusDiagnosticString(3390), opusDiagnosticString(3330), 225)
 	}
 	input, coeff, output, memory := unsafe.Slice(x, N), unsafe.Slice(den, ord), unsafe.Slice(out, N), unsafe.Slice(mem, ord)
 	reversed := make([]float32, ord)
@@ -94,7 +94,7 @@ func Opus_celt_iir(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float
 	i := int32(0)
 	for ; i < N-3; i += 4 {
 		if ord < 3 {
-			Opus_celt_fatal(tls, __ccgo_ts+3349, __ccgo_ts+3374, 69)
+			opusCeltFatal(tls, opusDiagnosticString(3349), opusDiagnosticString(3374), 69)
 		}
 		sum := [4]float32{input[i], input[i+1], input[i+2], input[i+3]}
 		celtCorrelation4(reversed, history[i:], &sum)
@@ -130,10 +130,10 @@ func Opus_celt_iir(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float
 
 func Opus__celt_autocorr(tls *libc.TLS, x, ac, window *float32, overlap, lag, n, arch int32) int32 {
 	if n <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+3419, __ccgo_ts+3330, 302)
+		opusCeltFatal(tls, opusDiagnosticString(3419), opusDiagnosticString(3330), 302)
 	}
 	if overlap < 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+3441, __ccgo_ts+3330, 303)
+		opusCeltFatal(tls, opusDiagnosticString(3441), opusDiagnosticString(3330), 303)
 	}
 	input := unsafe.Slice(x, n)
 	signal := input

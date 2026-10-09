@@ -106,10 +106,10 @@ func Opus_silk_gains_ID(tls *libc.TLS, ind *OpusT_opus_int8, nb_subfr int32) (r 
 //	/* Interpolate two vectors */
 func Opus_silk_interpolate(tls *libc.TLS, xi *OpusT_opus_int16, x0 *OpusT_opus_int16, x1 *OpusT_opus_int16, ifact_Q2 int32, d int32) {
 	if !(ifact_Q2 >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+6629, __ccgo_ts+6661, int32(45))
+		opusCeltFatal(tls, opusDiagnosticString(6629), opusDiagnosticString(6661), int32(45))
 	}
 	if !(ifact_Q2 <= int32(4)) {
-		Opus_celt_fatal(tls, __ccgo_ts+6683, __ccgo_ts+6661, int32(46))
+		opusCeltFatal(tls, opusDiagnosticString(6683), opusDiagnosticString(6661), int32(46))
 	}
 	if d <= 0 {
 		return

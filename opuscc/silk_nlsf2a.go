@@ -22,7 +22,7 @@ func Opus_silk_NLSF2A(tls *libc.TLS, a_Q12 *OpusT_opus_int16, NLSF *OpusT_opus_i
 	var Q [SILK_MAX_ORDER_LPC/2 + 1]OpusT_opus_int32
 	var a32_QA1 [SILK_MAX_ORDER_LPC]OpusT_opus_int32
 	if !(d == int32(10) || d == int32(16)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7246, __ccgo_ts+7279, int32(89))
+		opusCeltFatal(tls, opusDiagnosticString(7246), opusDiagnosticString(7279), int32(89))
 	}
 	/* convert LSFs to 2*cos(LSF), using piecewise linear curve from table */
 	if d == int32(16) {
@@ -309,10 +309,10 @@ Signal Processing, pp. 641-644, 1991.
 //	/* Laroia low complexity NLSF weights */
 func Opus_silk_NLSF_VQ_weights_laroia(tls *libc.TLS, pNLSFW_Q_OUT *OpusT_opus_int16, pNLSF_Q15 *OpusT_opus_int16, D int32) {
 	if !(D > int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7296, __ccgo_ts+7320, int32(51))
+		opusCeltFatal(tls, opusDiagnosticString(7296), opusDiagnosticString(7320), int32(51))
 	}
 	if !(D&int32(1) == int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7353, __ccgo_ts+7320, int32(52))
+		opusCeltFatal(tls, opusDiagnosticString(7353), opusDiagnosticString(7320), int32(52))
 	}
 	input := unsafe.Slice(pNLSF_Q15, int(D))
 	output := unsafe.Slice(pNLSFW_Q_OUT, int(D))

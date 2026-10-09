@@ -13,10 +13,10 @@ var _ reflect.Type
 
 func Opus_silk_decoder_set_fs(tls *libc.TLS, st *OpusT_silk_decoder_state, fsKHz, apiHz int32) int32 {
 	if fsKHz != 8 && fsKHz != 12 && fsKHz != 16 {
-		Opus_celt_fatal(tls, __ccgo_ts+6261, __ccgo_ts+6323, 43)
+		opusCeltFatal(tls, opusDiagnosticString(6261), opusDiagnosticString(6323), 43)
 	}
 	if st.Fnb_subfr != MAX_NB_SUBFR && st.Fnb_subfr != MAX_NB_SUBFR/2 {
-		Opus_celt_fatal(tls, __ccgo_ts+6348, __ccgo_ts+6323, 44)
+		opusCeltFatal(tls, opusDiagnosticString(6348), opusDiagnosticString(6323), 44)
 	}
 	st.Fsubfr_length = int32(int16(SUB_FRAME_LENGTH_MS)) * int32(int16(fsKHz))
 	frameLength := int32(int16(st.Fnb_subfr)) * int32(int16(st.Fsubfr_length))
@@ -67,7 +67,7 @@ func Opus_silk_decoder_set_fs(tls *libc.TLS, st *OpusT_silk_decoder_state, fsKHz
 		st.Fframe_length = frameLength
 	}
 	if st.Fframe_length <= 0 || st.Fframe_length > SUB_FRAME_LENGTH_MS*MAX_NB_SUBFR*MAX_FS_KHZ {
-		Opus_celt_fatal(tls, __ccgo_ts+6435, __ccgo_ts+6323, 104)
+		opusCeltFatal(tls, opusDiagnosticString(6435), opusDiagnosticString(6323), 104)
 	}
 	return ret
 }
@@ -257,7 +257,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 	psDec = decoder
 	channel_state = &decoder.Fchannel_state[0]
 	if !(control.FnChannelsInternal == int32(1) || control.FnChannelsInternal == int32(2)) {
-		Opus_celt_fatal(tls, __ccgo_ts+6520, __ccgo_ts+6611, int32(165))
+		opusCeltFatal(tls, opusDiagnosticString(6520), opusDiagnosticString(6611), int32(165))
 	}
 	/**********************************/
 	/* Test if first frame in payload */
@@ -296,7 +296,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 								decoder.Fchannel_state[n].Fnb_subfr = int32(4)
 							} else {
 								if !(int32(0) != 0) {
-									Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+6611, int32(204))
+									opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(6611), int32(204))
 								}
 								return -int32(203)
 							}
@@ -307,7 +307,7 @@ func silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_
 			fs_kHz_dec = control.FinternalSampleRate>>int32(10) + int32(1)
 			if fs_kHz_dec != int32(8) && fs_kHz_dec != int32(12) && fs_kHz_dec != int32(16) {
 				if !(int32(0) != 0) {
-					Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+6611, int32(210))
+					opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(6611), int32(210))
 				}
 				return -int32(200)
 			}

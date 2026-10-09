@@ -90,8 +90,7 @@ func CompareDeemphasis(tls *libc.TLS, left, right, pcm *float32, N, C, downsampl
 
 func CompareProjectionCtl(data []byte, request, value, alias int32) (int32, uint32) {
 	st := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
-	ms := get_multistream_decoder(nil, st)
-	offset := int(uintptr(unsafe.Pointer(ms)) - uintptr(unsafe.Pointer(st)))
+	offset := int(opusProjectionMSOffset(st))
 	if alias >= 0 {
 		alias -= int32(offset)
 	}
@@ -112,11 +111,13 @@ func CompareMSCtl(data []byte, request, value, alias int32) (int32, uint32) {
 func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_OpusMSDecoder, int32, OpusDecoderCtlArgs) int32) (int32, uint32) {
 	st := (*OpusT_OpusMSDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
 	streams, coupled := st.Flayout.Fnb_streams, st.Flayout.Fnb_coupled_streams
+	childOffsets := make(map[*OpusT_OpusDecoder]uint32)
 	visit := func(mode *OpusT_OpusCustomMode) {
-		offset := int((unsafe.Sizeof(*st) + 7) &^ uintptr(7))
+		offset := (int(unsafe.Sizeof(*st)) + 7) &^ 7
 		for i := int32(0); i < streams; i++ {
-			dec := (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
-			celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(dec), dec.Fcelt_dec_offset))
+			dec := opusMSDecoderAt(st, uint(offset))
+			childOffsets[dec] = uint32(offset)
+			celt := opusFrameCeltState(dec)
 			celt.Fmode = mode
 			ch := int32(1)
 			if i < coupled {
@@ -127,6 +128,7 @@ func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_Opus
 	}
 	visit(&mode48000_960_120)
 	out := uint32(77)
+	signedOut := int32(77)
 	var decoder *OpusT_OpusDecoder
 	a := OpusDecoderCtlArgs{Value: value}
 	if alias != -2 {
@@ -136,13 +138,16 @@ func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_Opus
 			a.I32 = (*int32)(p)
 			a.U32 = (*uint32)(p)
 		} else {
-			a.I32 = (*int32)(unsafe.Pointer(&out))
+			a.I32 = &signedOut
 			a.U32 = &out
 		}
 	}
 	r := ctl(st, request, a)
+	if alias < 0 && request != OPUS_GET_FINAL_RANGE_REQUEST {
+		out = uint32(signedOut)
+	}
 	if request == OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST && decoder != nil {
-		out = uint32(uintptr(unsafe.Pointer(decoder)) - uintptr(unsafe.Pointer(st)))
+		out = childOffsets[decoder]
 	}
 	visit(nil)
 	return r, out
@@ -150,9 +155,10 @@ func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_Opus
 
 func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
 	st := (*OpusT_OpusDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
-	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), st.Fcelt_dec_offset))
+	celt := opusFrameCeltState(st)
 	celt.Fmode = &mode48000_960_120
 	out := uint32(77)
+	signedOut := int32(77)
 	a := OpusDecoderCtlArgs{Value: value}
 	if alias != -2 {
 		if alias >= 0 {
@@ -160,11 +166,14 @@ func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
 			a.I32 = (*int32)(p)
 			a.U32 = (*uint32)(p)
 		} else {
-			a.I32 = (*int32)(unsafe.Pointer(&out))
+			a.I32 = &signedOut
 			a.U32 = &out
 		}
 	}
 	r := Opus_opus_decoder_ctl_typed(nil, st, request, a)
+	if alias < 0 && request != OPUS_GET_FINAL_RANGE_REQUEST {
+		out = uint32(signedOut)
+	}
 	celt.Fmode = nil
 	return r, out
 }
@@ -173,6 +182,7 @@ func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) 
 	st := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
 	st.Fmode = &mode48000_960_120
 	out := uint32(77)
+	signedOut := int32(77)
 	var mode *OpusT_OpusCustomMode
 	a := OpusDecoderCtlArgs{Value: value}
 	if alias != -2 {
@@ -182,12 +192,15 @@ func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) 
 			a.U32 = (*uint32)(p)
 			a.Mode = (**OpusT_OpusCustomMode)(p)
 		} else {
-			a.I32 = (*int32)(unsafe.Pointer(&out))
+			a.I32 = &signedOut
 			a.U32 = &out
 			a.Mode = &mode
 		}
 	}
 	r := Opus_opus_custom_decoder_ctl_typed(nil, st, request, a)
+	if alias < 0 && request != OPUS_GET_FINAL_RANGE_REQUEST {
+		out = uint32(signedOut)
+	}
 	if request == CELT_GET_MODE_REQUEST {
 		out = 0
 		if mode == st.Fmode {

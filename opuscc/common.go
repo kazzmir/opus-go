@@ -1320,31 +1320,6 @@ func Opus_opus_packet_parse_impl(tls *libc.TLS, packet *byte, length, selfDelimi
 	return count
 }
 
-// Remaining outer decode APIs still store packet/frame addresses as integers.
-func opus_packet_parse_impl_legacy(tls *libc.TLS, data uintptr, length, selfDelimited int32, toc, frames, size, payloadOffset, packetOffset, padding, paddingLen uintptr) int32 {
-	var framePointers [48]*byte
-	var f *[48]*byte
-	if frames != 0 {
-		f = &framePointers
-	}
-	var pad *byte
-	var p **byte
-	if padding != 0 {
-		p = &pad
-	}
-	r := Opus_opus_packet_parse_impl(tls, (*byte)(unsafe.Pointer(data)), length, selfDelimited, (*byte)(unsafe.Pointer(toc)), f, (*[48]int16)(unsafe.Pointer(size)), (*int32)(unsafe.Pointer(payloadOffset)), (*int32)(unsafe.Pointer(packetOffset)), p, (*int32)(unsafe.Pointer(paddingLen)))
-	if r > 0 && frames != 0 {
-		out := unsafe.Slice((*uintptr)(unsafe.Pointer(frames)), r)
-		for i := range out {
-			out[i] = uintptr(unsafe.Pointer(framePointers[i]))
-		}
-	}
-	if padding != 0 {
-		*(*uintptr)(unsafe.Pointer(padding)) = uintptr(unsafe.Pointer(pad))
-	}
-	return r
-}
-
 func Opus_opus_packet_parse(tls *libc.TLS, data *byte, length int32, toc *byte, frames *[48]*byte, size *[48]int16, payload *int32) int32 {
 	return Opus_opus_packet_parse_impl(tls, data, length, 0, toc, frames, size, payload, nil, nil, nil)
 }
@@ -2325,9 +2300,8 @@ func opusFrameSilkState(decoder *OpusT_OpusDecoder) *OpusT_silk_decoder {
 	return (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(decoder), decoder.Fsilk_dec_offset))
 }
 
-//go:uintptrescapes
-func opus_decode_frame(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, frame_size, decode_fec int32) int32 {
-	return opusDecodeFrame(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(pcm)), frame_size, decode_fec)
+func opus_decode_frame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int32, pcm *float32, frame_size, decode_fec int32) int32 {
+	return opusDecodeFrame(tls, st1, data, len1, pcm, frame_size, decode_fec)
 }
 
 func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int32, pcm *float32, frame_size, decode_fec int32) (r int32) {
@@ -4222,10 +4196,13 @@ func get_dec_demixing_matrix(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *Op
 	return (*OpusT_MappingMatrix)(unsafe.Add(unsafe.Pointer(st), 8))
 }
 
+func opusProjectionMSOffset(st *OpusT_OpusProjectionDecoder) uint {
+	return uint(int32((uint32(st.Fdemixing_matrix_size_in_bytes) + 4 + 7) / 8 * 8))
+}
+
 // st belongs to the full header/matrix/multistream backing allocation.
 func get_multistream_decoder(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *OpusT_OpusMSDecoder {
-	offset := int32((uint32(st.Fdemixing_matrix_size_in_bytes) + 4 + 7) / 8 * 8)
-	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), uint(offset)))
+	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), opusProjectionMSOffset(st)))
 }
 
 func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels, streams, coupled_streams int32) int32 {

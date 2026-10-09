@@ -158,7 +158,7 @@ func TestOpusFrameTypedPCMViews(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		ra := opusDecodeFrame(nil, &left.Decoder, &data[0], 128, &a[1], 120, 0)
-		rb := opus_decode_frame(nil, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&data[0])), 128, uintptr(unsafe.Pointer(&b[1])), 120, 0)
+		rb := opus_decode_frame(nil, &right.Decoder, &data[0], 128, &b[1], 120, 0)
 		if ra != 120 || ra != rb || left.Decoder != right.Decoder || a[0] != 77 || a[121] != 88 {
 			t.Fatal("PCM view gain/guards", gain)
 		}
@@ -187,7 +187,7 @@ func TestOpusFrameTypedPayloadEntry(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		ra := opusDecodeFrame(nil, &left.Decoder, &data[0], length, &a[1], 120, 0)
-		rb := opus_decode_frame(nil, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&data[0])), length, uintptr(unsafe.Pointer(&b[1])), 120, 0)
+		rb := opus_decode_frame(nil, &right.Decoder, &data[0], length, &b[1], 120, 0)
 		if ra != 120 || rb != ra || left.Decoder != right.Decoder {
 			t.Fatal("typed payload gates", length)
 		}
@@ -206,7 +206,7 @@ func TestOpusFrameTypedDecoderEntry(t *testing.T) {
 	entropyInitGrowStack(12)
 	runtime.GC()
 	ra := opusDecodeFrame(nil, &left.Decoder, nil, 0, &a[1], 120, 0)
-	rb := opus_decode_frame(nil, uintptr(unsafe.Pointer(&right.Decoder)), 0, 0, uintptr(unsafe.Pointer(&b[1])), 120, 0)
+	rb := opus_decode_frame(nil, &right.Decoder, nil, 0, &b[1], 120, 0)
 	if ra != 120 || rb != ra || left.Decoder != right.Decoder {
 		t.Fatal("typed/legacy decoder entry")
 	}
@@ -302,7 +302,7 @@ func TestOpusFrameNormalReturnCursor(t *testing.T) {
 	pcm[0], pcm[121] = 77, 88
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if opus_decode_frame(tls, uintptr(unsafe.Pointer(decoder)), uintptr(unsafe.Pointer(&data[0])), 128, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || decoder.Fprev_mode != MODE_CELT_ONLY || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
+	if opus_decode_frame(tls, decoder, &data[0], 128, &pcm[1], 120, 0) != 120 || decoder.Fprev_mode != MODE_CELT_ONLY || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
 		t.Fatal("normal frame cursor/finalization")
 	}
 }
@@ -319,7 +319,7 @@ func TestOpusFrameEarlyReturnCursor(t *testing.T) {
 	storage := newOpusFrameOwnerDecoder(t, 1)
 	pcm := make([]float32, 122)
 	pcm[0], pcm[121] = 77, 88
-	if opus_decode_frame(tls, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
+	if opus_decode_frame(tls, &storage.Decoder, nil, 0, &pcm[1], 120, 0) != 120 || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
 		t.Fatal("initial no-packet return")
 	}
 	storage.Decoder.Fmode = MODE_CELT_ONLY
@@ -327,7 +327,7 @@ func TestOpusFrameEarlyReturnCursor(t *testing.T) {
 	storage.Decoder.Fbandwidth = OPUS_BANDWIDTH_FULLBAND
 	data := make([]byte, 64)
 	data[0] = 165
-	if opus_decode_frame(tls, uintptr(unsafe.Pointer(&storage.Decoder)), uintptr(unsafe.Pointer(&data[0])), 64, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != -1 || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
+	if opus_decode_frame(tls, &storage.Decoder, &data[0], 64, &pcm[1], 120, 0) != -1 || *cursor != before || pcm[0] != 77 || pcm[121] != 88 {
 		t.Fatal("bad frame-size return")
 	}
 }
@@ -342,7 +342,7 @@ func TestOpusFrameNoScratchInitialization(t *testing.T) {
 	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
 	storage := newOpusFrameOwnerDecoder(t, 1)
 	sample := float32(77)
-	if opus_decode_frame(tls, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&sample)), 119, 0) != -2 || sample != 77 || cursor.Fscratch_ptr != 0 || cursor.Fglobal_stack != 0 {
+	if opus_decode_frame(tls, &storage.Decoder, nil, 0, &sample, 119, 0) != -2 || sample != 77 || cursor.Fscratch_ptr != 0 || cursor.Fglobal_stack != 0 {
 		t.Fatal("frame scratch/early validation")
 	}
 }
@@ -547,7 +547,7 @@ func TestOpusDecodeFrameFieldAccesses(t *testing.T) {
 	}
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(memory))
 	output := make([]float32, 120)
-	if got := opus_decode_frame(tls, memory, 0, 0, uintptr(unsafe.Pointer(&output[0])), 120, 0); got != 60 {
+	if got := opus_decode_frame(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), nil, 0, &output[0], 120, 0); got != 60 {
 		t.Fatalf("decoded samples: got %d, want 60", got)
 	}
 	if got, want := decoder.Fframe_size, int32(60); got != want {

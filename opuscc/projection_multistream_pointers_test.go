@@ -6,6 +6,18 @@ import (
 	"unsafe"
 )
 
+func TestProjectionNumericOffsetPointers(t *testing.T) {
+	for _, tc := range []struct{ size, want int32 }{
+		{0, 8}, {4, 8}, {8, 16}, {12, 16},
+		{0x7ffffff0, 0x7ffffff8}, {0x7fffffff, -2147483640}, {-1, 8}, {-16, -8},
+	} {
+		state := OpusT_OpusProjectionDecoder{Fdemixing_matrix_size_in_bytes: tc.size}
+		if got := opusProjectionMSOffset(&state); got != uint(tc.want) {
+			t.Fatal("projection numeric narrowing/wrapping", tc.size, got, uint(tc.want))
+		}
+	}
+}
+
 func TestProjectionMultistreamPointers(t *testing.T) {
 	var ms *OpusT_OpusMSDecoder
 	func() {
