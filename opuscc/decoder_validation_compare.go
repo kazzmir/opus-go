@@ -111,10 +111,12 @@ func CompareMSCtl(data []byte, request, value, alias int32) (int32, uint32) {
 func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_OpusMSDecoder, int32, OpusDecoderCtlArgs) int32) (int32, uint32) {
 	st := (*OpusT_OpusMSDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
 	streams, coupled := st.Flayout.Fnb_streams, st.Flayout.Fnb_coupled_streams
+	childOffsets := make(map[*OpusT_OpusDecoder]uint32)
 	visit := func(mode *OpusT_OpusCustomMode) {
 		offset := (int(unsafe.Sizeof(*st)) + 7) &^ 7
 		for i := int32(0); i < streams; i++ {
 			dec := opusMSDecoderAt(st, uint(offset))
+			childOffsets[dec] = uint32(offset)
 			celt := opusFrameCeltState(dec)
 			celt.Fmode = mode
 			ch := int32(1)
@@ -145,7 +147,7 @@ func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_Opus
 		out = uint32(signedOut)
 	}
 	if request == OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST && decoder != nil {
-		out = uint32(uintptr(unsafe.Pointer(decoder)) - uintptr(unsafe.Pointer(st)))
+		out = childOffsets[decoder]
 	}
 	visit(nil)
 	return r, out
