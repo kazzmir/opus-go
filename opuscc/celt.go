@@ -183,6 +183,11 @@ func comb_filter_const_c(tls *libc.TLS, y *OpusT_opus_val32, xHistory *OpusT_opu
 }
 
 func Opus_comb_filter(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32) {
+	combFilterWithHistory(tls, y, x, T0, T1, N, g0, g1, tapset0, tapset1, window, overlap, arch, nil, 0)
+}
+
+// owner contains x's history/current samples; offset names x within that owner.
+func combFilterWithHistory(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32, owner []float32, offset int32) {
 	if g0 == 0 && g1 == 0 {
 		if x != y {
 			copy(unsafe.Slice(y, N), unsafe.Slice(x, N))
@@ -201,7 +206,12 @@ func Opus_comb_filter(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1 floa
 		history = max(history, T0+2)
 	}
 	// The preceding history and current samples belong to the same allocation.
-	src := unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(x), -int(history)*4)), history+N)
+	var src []float32
+	if owner != nil {
+		src = owner[offset-history : offset+N]
+	} else {
+		src = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(x), -int(history)*4)), history+N)
+	}
 	dst := unsafe.Slice(y, N)
 	x1, x2, x3, x4 := src[history-T1+1], src[history-T1], src[history-T1-1], src[history-T1-2]
 	win := unsafe.Slice(window, overlap)

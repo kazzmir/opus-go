@@ -139,6 +139,31 @@ func TestIIRPointers(t *testing.T) {
 	Opus_celt_iir(nil, nil, nil, nil, 0, 0, nil, 0)
 }
 
+func TestCombHistoryOwnerPointers(t *testing.T) {
+	for _, n := range []int32{0, 1, 4, 12} {
+		for _, overlap := range []int32{0, 4} {
+			if overlap > n {
+				continue
+			}
+			for _, gains := range [][2]float32{{0, 0}, {0, 0.5}, {0.4, 0}, {0.3, 0.6}} {
+				var left [200]float32
+				for i := range left {
+					left[i] = float32(i-99) / 113
+				}
+				right := left
+				window := [4]float32{0.1, 0.3, 0.6, 0.9}
+				Opus_comb_filter(nil, &left[128], &left[128], 20, 31, n, gains[0], gains[1], 0, 1, &window[0], overlap, 0)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				combFilterWithHistory(nil, &right[128], &right[128], 20, 31, n, gains[0], gains[1], 0, 1, &window[0], overlap, 0, right[:], 128)
+				if left != right {
+					t.Fatal("owned comb live alias/guards", n, overlap, gains)
+				}
+			}
+		}
+	}
+}
+
 func TestFIRHistoryOwnerPointers(t *testing.T) {
 	for _, ord := range []int32{0, 4, 8} {
 		for _, n := range []int32{0, 1, 4, 12} {
