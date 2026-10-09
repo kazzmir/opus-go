@@ -4197,10 +4197,13 @@ func get_dec_demixing_matrix(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *Op
 	return (*OpusT_MappingMatrix)(unsafe.Add(unsafe.Pointer(st), 8))
 }
 
+func opusProjectionMSOffset(st *OpusT_OpusProjectionDecoder) uint {
+	return uint(int32((uint32(st.Fdemixing_matrix_size_in_bytes) + 4 + 7) / 8 * 8))
+}
+
 // st belongs to the full header/matrix/multistream backing allocation.
 func get_multistream_decoder(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *OpusT_OpusMSDecoder {
-	offset := int32((uint32(st.Fdemixing_matrix_size_in_bytes) + 4 + 7) / 8 * 8)
-	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), uint(offset)))
+	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), opusProjectionMSOffset(st)))
 }
 
 func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels, streams, coupled_streams int32) int32 {
