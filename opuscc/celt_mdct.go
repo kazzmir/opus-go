@@ -357,13 +357,27 @@ func kf_factor(tls *libc.TLS, n int32, factors *[2 * MINI_MAXFACTORS]int32) int 
 //	 * The return value is a contiguous block of memory, allocated with malloc.  As such,
 //	 * It can be freed with free(), rather than a kiss_fft-specific function.
 //	 * */
+//
+// Allocate a contiguous, dynamically sized Go object with a canonical typed
+// header. Unlike a word slice, its pointer fields (if any) are GC-scanned.
+func miniFFTStorage[T any](needed uint64) *T {
+	header := reflect.TypeFor[T]()
+	tail := needed - uint64(header.Size())
+	if needed < uint64(header.Size()) || int(needed) < 0 || uint64(int(needed)) != needed {
+		panic("mini FFT allocation size overflow")
+	}
+	layout := reflect.StructOf([]reflect.StructField{
+		{Name: "Header", Type: header},
+		{Name: "Tail", Type: reflect.ArrayOf(int(tail), reflect.TypeFor[byte]())},
+	})
+	return reflect.New(layout).Elem().Field(0).Addr().Interface().(*T)
+}
+
 func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fft_state {
 	needed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{})) + 8*uint64(uint32(nfft-1))
 	var state *OpusT_mini_kiss_fft_state
 	if lenmem == nil {
-		// The returned interior pointer owns the complete flexible-array allocation.
-		backing := make([]uint64, (needed+7)/8)
-		state = (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(unsafe.SliceData(backing)))
+		state = miniFFTStorage[OpusT_mini_kiss_fft_state](needed)
 	} else {
 		if mem != nil && *lenmem >= needed {
 			state = (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(mem))
