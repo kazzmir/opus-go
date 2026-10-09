@@ -2301,8 +2301,8 @@ func opusFrameSilkState(decoder *OpusT_OpusDecoder) *OpusT_silk_decoder {
 }
 
 //go:uintptrescapes
-func opus_decode_frame(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, frame_size, decode_fec int32) int32 {
-	return opusDecodeFrame(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(pcm)), frame_size, decode_fec)
+func opus_decode_frame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int32, pcm uintptr, frame_size, decode_fec int32) int32 {
+	return opusDecodeFrame(tls, st1, data, len1, (*float32)(unsafe.Pointer(pcm)), frame_size, decode_fec)
 }
 
 func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int32, pcm *float32, frame_size, decode_fec int32) (r int32) {
