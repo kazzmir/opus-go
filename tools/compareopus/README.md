@@ -534,6 +534,31 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four numeric/private-entry rounds share projection's matrix→MS numeric
+displacement with the native-reference CTL bridge, track returned MS decoder
+children by concrete pointer identity plus recorded numeric displacement, then
+migrate private opus_decode_frame's state/packet and PCM arguments to concrete
+pointers in separate steps. No pointer-address subtraction remains in these
+reference bridges, and the private frame forwarder has no integer handles,
+reinterpretation casts or uintptrescapes directive. Its eight grouped fixtures
+now pass concrete owners directly; registered byte-backed test state retains
+an explicit allocation-boundary cast. Public integer entry APIs remain intact.
+
+Production lexical counts decrease 180→173 unsafe.Pointer and 159→153 uintptr:
+four casts/four integer tokens from reference address subtraction, three casts/
+two tokens from private entry conversion. The numeric projection helper retains
+uint32 addition/alignment then int32 narrowing and machine-word conversion.
+Grouped numeric fixtures cover ordinary sizes, high-bit/negative/wrapped values
+without forming invalid addresses. Existing native CTL child/matrix/alias
+matrices and frame PCM/error/GC/stack/golden fixtures remain unchanged. Child
+identity tracking is reference-only; opaque state allocations are not globally
+made GC-scanned. Decoder/packet/PCM validation and argument order persist.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references, GC stress and diff checks, with final twenty-repeat ARM scoped/
+ordinary fixtures. Goldens/tolerances/assertions unchanged. Layout boundaries,
+extension EOF/GC and raw callback lifetime remain independently scoped.
+
 Four pointer-removal rounds delete the unused private integer packet-parser
 adapter (no callers in opuscc), then migrate multistream, single and custom
 CTL native-reference bridges to concrete int32/uint32 output cells instead of
