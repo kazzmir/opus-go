@@ -1204,7 +1204,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			   of the region for which we're computing the excitation. */
 			/* Compute the excitation for exc_length samples before the loss. We need the copy
 			   because celt_fir() cannot filter in-place. */
-			Opus_celt_fir_c(tls, unsafe.SliceData(exc[max_period-exc_length:]), &lpc[c*CELT_LPC_ORDER], unsafe.SliceData(fir_tmp), exc_length, CELT_LPC_ORDER, st1.Farch)
+			celtFIRWithHistory(tls, unsafe.SliceData(exc[max_period-exc_length:]), &lpc[c*CELT_LPC_ORDER], unsafe.SliceData(fir_tmp), exc_length, CELT_LPC_ORDER, st1.Farch, _exc[max_period-exc_length:CELT_LPC_ORDER+max_period])
 			copy(exc[max_period-exc_length:], fir_tmp)
 			/* Check if the waveform is decaying, and if so how fast.
 			   We do this to avoid adding energy when concealing in a segment
