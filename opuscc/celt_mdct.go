@@ -462,7 +462,7 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	}
 	if lenmem != nil {
 		// Explicit layout boundary for externally supplied opaque byte storage.
-		submem = (*byte)(unsafe.Add(unsafe.Pointer(st), header))
+		submem = &unsafe.Slice(mem, needed)[header]
 	}
 	st.Fsubstate = Opus_mini_kiss_fft_alloc(tls, nfft, inverse, submem, &subsize)
 	st.Ftmpbuf = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(submem), subsize))
