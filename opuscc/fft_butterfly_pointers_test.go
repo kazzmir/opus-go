@@ -210,6 +210,26 @@ func TestMiniFFTRScannedHeaderPointers(t *testing.T) {
 	runtime.KeepAlive(st)
 }
 
+func TestMiniFFTRSuperPrefixPointers(t *testing.T) {
+	for _, n := range []int32{2, 3, 8} {
+		owner := make([]OpusT_mini_kiss_fft_cpx, n+n/2)
+		p := miniFFTRSuperTwiddles(&owner[0], n)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if p != &owner[n] {
+			t.Fatal("consumed super-twiddle owner")
+		}
+		p.Fr = 77
+		if owner[n].Fr != 77 || owner[n-1].Fr != 0 {
+			t.Fatal("super-twiddle alias/guard")
+		}
+	}
+	var owner [2]OpusT_mini_kiss_fft_cpx
+	if miniFFTRSuperTwiddles(nil, 0) != nil || miniFFTRSuperTwiddles(&owner[0], 1) != &owner[1] || miniFFTRSuperTwiddles(&owner[1], -1) != &owner[0] {
+		t.Fatalf("empty/backward native super-twiddle boundary: nil=%p forward=%p want=%p backward=%p want=%p", miniFFTRSuperTwiddles(nil, 0), miniFFTRSuperTwiddles(&owner[0], 1), &owner[1], miniFFTRSuperTwiddles(&owner[1], -1), &owner[0])
+	}
+}
+
 func TestMiniFFTRAllocPointers(t *testing.T) {
 	var needed OpusT_size_t
 	Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, &needed)

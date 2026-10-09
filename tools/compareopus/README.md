@@ -534,6 +534,42 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four mini-FFT storage rounds replace Go-created scalar/real FFT word-slice
+images with dynamically sized, contiguous Go objects containing canonical typed
+headers, bind real-FFT substorage through the owning Go byte tail, and index
+consumed super-twiddle prefixes through concrete complex pointers. Dynamic
+reflect.StructOf allocation gives the real FFT header an actual runtime GC
+pointer bitmap; this is not a typed cast over unscanned bytes. Its scalar flexible
+suffix remains pointer-free. Caller-supplied opaque byte layouts still use
+explicit casts, and empty/backward/unused-end super-twiddle boundaries remain.
+Production unsafe.Pointer counts decrease 173→171; uintptr stays 153. The latter
+two rounds improve consumed paths without claiming lexical boundary deletion.
+
+Upstream mini_kfft.c's header→substate→temporary→super-twiddle layout, reported
+size, factor/twiddle arithmetic, assertion order and caller-buffer capacity
+checks remain unchanged. Go allocation may include additional end padding for
+zero-length tail fields, outside the reported/consumed ABI image. Nonrepresentable
+Go allocation sizes fail before initialization; huge/invalid FFT configurations
+are not an allocation-success compatibility claim. Dynamic type creation is on
+standalone mini-FFT allocation paths, not active decoder FFT hot loops.
+Grouped layout/tail/GC/stack tests cover typed ownership and exact consumed
+prefixes; a noinline weak-owner fixture proves a foreign Go temporary stored in
+a Go-created real-FFT header survives GC. This scan guarantee does not extend
+to externally supplied byte buffers or the codec's other opaque allocations.
+
+The first final-round run failed the new nil/zero-offset identity fixture:
+`/tmp/opus-round-mini-fftr-consumed-super-prefix.log`. The arithmetic boundary
+produced a nil-looking pointer yet failed the inlined nil comparison. The helper
+now returns the concrete input directly at offset zero, without unsafe.Add;
+fixtures/assertions were retained and a complete retry passed. This is not a
+codec golden/tolerance adjustment.
+
+Each round ultimately passes full amd64/386, ARM64/QEMU, scoped checkptr, native
+comparisons, codec references, GC stress and diff checks, with final repeated
+ARM scoped/ordinary fixtures. Existing native mini-FFT/allocation references and codec
+goldens/tolerances remain unchanged. Extension EOF/GC and raw callback lifetime
+remain independently unresolved.
+
 Four numeric/private-entry rounds share projection's matrix→MS numeric
 displacement with the native-reference CTL bridge, track returned MS decoder
 children by concrete pointer identity plus recorded numeric displacement, then

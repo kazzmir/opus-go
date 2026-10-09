@@ -424,6 +424,18 @@ type OpusT_mini_kiss_fftr_state = struct {
 	Fsuper_twiddles *OpusT_mini_kiss_fft_cpx
 }
 
+func miniFFTRSuperTwiddles(tmp *OpusT_mini_kiss_fft_cpx, nfft int32) *OpusT_mini_kiss_fft_cpx {
+	if nfft == 0 {
+		return tmp
+	}
+	if nfft >= 2 {
+		// Include only the temporary samples and consumed super-twiddle prefix.
+		return &unsafe.Slice(tmp, int64(nfft)+int64(nfft/2))[nfft]
+	}
+	// Keep the native unused-end/backward boundary for empty/invalid geometry.
+	return (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(tmp), int(nfft)*8))
+}
+
 func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fftr_state {
 	if nfft&1 != 0 {
 		libc.X__assert_fail(tls, __ccgo_ts+5561, __ccgo_ts+5529, 416, 0)
@@ -454,7 +466,7 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	}
 	st.Fsubstate = Opus_mini_kiss_fft_alloc(tls, nfft, inverse, submem, &subsize)
 	st.Ftmpbuf = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(submem), subsize))
-	st.Fsuper_twiddles = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(st.Ftmpbuf), int(nfft)*8))
+	st.Fsuper_twiddles = miniFFTRSuperTwiddles(st.Ftmpbuf, nfft)
 	tw := unsafe.Slice(st.Fsuper_twiddles, nfft/2)
 	for i := int32(0); i < nfft/2; i++ {
 		phase := -float64(3.141592653589793) * (float64(i+1)/float64(nfft) + 0.5)
