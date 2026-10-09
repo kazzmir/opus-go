@@ -360,25 +360,35 @@ func kf_factor(tls *libc.TLS, n int32, factors *[2 * MINI_MAXFACTORS]int32) int 
 //
 // Allocate a contiguous, dynamically sized Go object with a canonical typed
 // header. Unlike a word slice, its pointer fields (if any) are GC-scanned.
-func miniFFTStorage[T any](needed uint64) (*T, []byte) {
+func miniFFTStorageObject[T any](needed uint64, element reflect.Type) reflect.Value {
 	header := reflect.TypeFor[T]()
 	tail := needed - uint64(header.Size())
-	if needed < uint64(header.Size()) || int(needed) < 0 || uint64(int(needed)) != needed {
+	if needed < uint64(header.Size()) || int(needed) < 0 || uint64(int(needed)) != needed || tail%uint64(element.Size()) != 0 {
 		panic("mini FFT allocation size overflow")
 	}
 	layout := reflect.StructOf([]reflect.StructField{
 		{Name: "Header", Type: header},
-		{Name: "Tail", Type: reflect.ArrayOf(int(tail), reflect.TypeFor[byte]())},
+		{Name: "Tail", Type: reflect.ArrayOf(int(tail/uint64(element.Size())), element)},
 	})
-	owner := reflect.New(layout).Elem()
-	return owner.Field(0).Addr().Interface().(*T), owner.Field(1).Slice(0, int(tail)).Bytes()
+	return reflect.New(layout).Elem()
+}
+
+func miniFFTStorage[T any](needed uint64) (*T, []byte) {
+	owner := miniFFTStorageObject[T](needed, reflect.TypeFor[byte]())
+	tail := owner.Field(1)
+	return owner.Field(0).Addr().Interface().(*T), tail.Slice(0, tail.Len()).Bytes()
+}
+
+func miniFFTScalarStorage(needed uint64) *OpusT_mini_kiss_fft_state {
+	owner := miniFFTStorageObject[OpusT_mini_kiss_fft_state](needed, reflect.TypeFor[OpusT_mini_kiss_fft_cpx]())
+	return owner.Field(0).Addr().Interface().(*OpusT_mini_kiss_fft_state)
 }
 
 func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fft_state {
 	needed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{})) + 8*uint64(uint32(nfft-1))
 	var state *OpusT_mini_kiss_fft_state
 	if lenmem == nil {
-		state, _ = miniFFTStorage[OpusT_mini_kiss_fft_state](needed)
+		state = miniFFTScalarStorage(needed)
 	} else {
 		if mem != nil && *lenmem >= needed {
 			state = (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(mem))

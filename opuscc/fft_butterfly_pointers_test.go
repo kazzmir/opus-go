@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	"math"
+	"reflect"
 	"runtime"
 	"slices"
 	"testing"
@@ -280,6 +281,24 @@ func TestMiniFFTRAllocPointers(t *testing.T) {
 	}
 	if uintptr(unsafe.Pointer(owned.Fsubstate))-uintptr(unsafe.Pointer(owned)) != header {
 		t.Fatal("header size")
+	}
+}
+
+func TestMiniFFTScalarTailPointers(t *testing.T) {
+	for _, n := range []int32{1, 2, 6, 16} {
+		needed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{})) + uint64(n-1)*8
+		owner := miniFFTStorageObject[OpusT_mini_kiss_fft_state](needed, reflect.TypeFor[OpusT_mini_kiss_fft_cpx]())
+		if owner.Field(1).Len() != int(n-1) || owner.Field(1).Type().Elem() != reflect.TypeFor[OpusT_mini_kiss_fft_cpx]() {
+			t.Fatal("canonical scalar complex suffix", n)
+		}
+		state := Opus_mini_kiss_fft_alloc(nil, n, 0, nil, nil)
+		tw := unsafe.Slice(&state.Ftwiddles[0], n)
+		tw[n-1].Fr = 77
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if tw[n-1].Fr != 77 || state.Fnfft != n {
+			t.Fatal("scalar complex suffix owner", n)
+		}
 	}
 }
 
