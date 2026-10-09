@@ -434,9 +434,7 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	needed := uint64(header) + subsize + 8*uint64(uint32(nfft*3/2))
 	var st *OpusT_mini_kiss_fftr_state
 	if lenmem == nil {
-		// Every stored pointer is an interior of this complete owning allocation.
-		backing := make([]uint64, (needed+7)/8)
-		st = (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(unsafe.SliceData(backing)))
+		st = miniFFTStorage[OpusT_mini_kiss_fftr_state](needed)
 	} else {
 		if *lenmem >= needed {
 			st = (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(mem))

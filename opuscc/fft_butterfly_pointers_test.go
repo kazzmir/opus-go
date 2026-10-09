@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 	"unsafe"
+	"weak"
 )
 
 func TestMDCTConsumedStridePointers(t *testing.T) {
@@ -187,6 +188,26 @@ func TestMiniFFTRPointers(t *testing.T) {
 	if out[0].Fr != 77 || out[10].Fr != 88 || input != [16]float32{1} {
 		t.Fatal("guards/input")
 	}
+}
+
+//go:noinline
+func miniFFTRForeignTemporary(st *OpusT_mini_kiss_fftr_state) weak.Pointer[[8]OpusT_mini_kiss_fft_cpx] {
+	tmp := new([8]OpusT_mini_kiss_fft_cpx)
+	tmp[0].Fr = 123
+	st.Ftmpbuf = &tmp[0]
+	return weak.Make(tmp)
+}
+
+func TestMiniFFTRScannedHeaderPointers(t *testing.T) {
+	st := Opus_mini_kiss_fftr_alloc(nil, 16, 0, nil, nil)
+	foreign := miniFFTRForeignTemporary(st)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	runtime.GC()
+	if foreign.Value() == nil || st.Ftmpbuf.Fr != 123 {
+		t.Fatal("Go-created FFT header must scan its typed pointer fields")
+	}
+	runtime.KeepAlive(st)
 }
 
 func TestMiniFFTRAllocPointers(t *testing.T) {
