@@ -40,6 +40,11 @@ func Opus__celt_lpc(tls *libc.TLS, _lpc *OpusT_opus_val16, ac *OpusT_opus_val32,
 }
 
 func Opus_celt_fir_c(tls *libc.TLS, x, num, y *float32, N, ord, arch int32) {
+	celtFIRWithHistory(tls, x, num, y, N, ord, arch, nil)
+}
+
+// history, when supplied, starts ord samples before x and includes N samples.
+func celtFIRWithHistory(tls *libc.TLS, x, num, y *float32, N, ord, arch int32, history []float32) {
 	if x == y {
 		opusCeltFatal(tls, opusDiagnosticString(3305), opusDiagnosticString(3330), 157)
 	}
@@ -49,7 +54,14 @@ func Opus_celt_fir_c(tls *libc.TLS, x, num, y *float32, N, ord, arch int32) {
 		reversed[i] = coeff[len(coeff)-1-i]
 	}
 	// x points just past ord history samples, all within the same allocation.
-	input := unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(x), -int(ord)*4)), N+ord)
+	var input []float32
+	if history != nil {
+		input = history[:N+ord]
+	} else if ord == 0 {
+		input = unsafe.Slice(x, N)
+	} else {
+		input = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(x), -int(ord)*4)), N+ord)
+	}
 	output := unsafe.Slice(y, N)
 	i := int32(0)
 	for ; i < N-3; i += 4 {

@@ -139,6 +139,33 @@ func TestIIRPointers(t *testing.T) {
 	Opus_celt_iir(nil, nil, nil, nil, 0, 0, nil, 0)
 }
 
+func TestFIRHistoryOwnerPointers(t *testing.T) {
+	for _, ord := range []int32{0, 4, 8} {
+		for _, n := range []int32{0, 1, 4, 12} {
+			if ord == 0 && n >= 4 {
+				continue // existing unrolled correlation asserts ord >= 3
+			}
+			input := make([]float32, ord+n+2)
+			for i := range input {
+				input[i] = float32(i-9) / 7
+			}
+			coeff := make([]float32, ord+1)
+			for i := range coeff {
+				coeff[i] = float32(i+1) / 31
+			}
+			want, got := make([]float32, n+2), make([]float32, n+2)
+			want[0], want[n+1], got[0], got[n+1] = 77, 88, 77, 88
+			Opus_celt_fir_c(nil, &input[ord], &coeff[0], &want[1], n, ord, 0)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtFIRWithHistory(nil, &input[ord], &coeff[0], &got[1], n, ord, 0, input[:ord+n])
+			if !slices.Equal(got, want) {
+				t.Fatal("typed FIR history/guards", ord, n)
+			}
+		}
+	}
+}
+
 func TestFIRPointers(t *testing.T) {
 	input := [12]float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
 	coeff := [4]float32{1, 2, 3, 4}
