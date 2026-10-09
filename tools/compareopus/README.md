@@ -534,6 +534,31 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four owned-history rounds add history-aware CELT FIR and comb kernels, then
+bind periodic PLC FIR to its complete Go excitation prefix and prefilter/fold
+comb filtering to its known decoder history owner plus numeric current offset.
+These active consumers no longer recover preceding samples by subtracting from
+an interior pointer. Public pointer APIs still use the explicit backward-layout
+fallback. Production lexical counts remain 169 unsafe.Pointer/153 uintptr:
+this batch bypasses required compatibility boundaries rather than hiding or
+deleting them. FIR's zero-order fallback directly uses its typed input pointer.
+
+The excitation prefix begins ord samples before the consumed source; the comb
+owner is the existing DEC_PITCH_BUF_SIZE+overlap per-channel history. Live channel
+state reads, initial coefficient reversal, assertions, gain/tapset lookup and
+zero-gain early returns, overlap/window reads, in-place dependencies, terminal
+copy suppression and float32 products remain in their original order. Existing
+upstream FIR/comb and PLC/prefilter native/golden fixtures persist. Grouped owner
+fixtures compare exact output/guards with compatibility kernels across empty,
+short/unrolled work, valid orders, gain combinations, overlap, live in-place
+aliases and GC/stack growth. No goldens/tolerances/assertions changed.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references, GC stress and diff checks, plus final repeated ARM scoped/
+ordinary fixtures. Owned scalar prefixes do not repair opaque allocation
+scanning, extension EOF/GC or raw callback lifetime; other comb/history callers
+still retain their necessary boundary until their owners are separately bound.
+
 Four further mini-storage rounds index externally supplied real-FFT submemory
 through its validated byte prefix, derive temporary storage from the canonical
 scalar FFT twiddle/temporary complex prefix, give Go-created scalar flexible
