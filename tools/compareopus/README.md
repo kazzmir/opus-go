@@ -534,6 +534,34 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four further mini-storage rounds index externally supplied real-FFT submemory
+through its validated byte prefix, derive temporary storage from the canonical
+scalar FFT twiddle/temporary complex prefix, give Go-created scalar flexible
+tails an actual complex-cell array type, and allocate Go-created real FFTs with
+canonical typed outer and scalar substate headers. The latter initializes its
+substate through miniFFTInit without a byte-buffer reinterpretation; supplied
+C-layout memory still uses its explicit scalar-header cast. The shared initializer
+preserves all stores, factor/twiddle operations and ordering. The outer header
+continues to have a real GC bitmap; this does not scan arbitrary caller bytes.
+
+Production unsafe.Pointer counts decrease 171→169; uintptr stays 153. Two offset
+casts are removed; the typed-tail/subheader rounds improve Go allocation and
+consumer representation without claiming additional lexical deletion. Grouped
+geometry fixtures prove flexible twiddles end at the scalar header boundary,
+check temporary offsets for real sizes 2/4/6/16, typed scalar tail element kinds,
+canonical substate displacement, empty/short tails and GC/stack ownership.
+Existing foreign weak-owner, caller-buffer capacity/guard, scalar/native mini
+FFT and codec fixtures remain. Numerical phases, reported sizes, layout,
+assertion/validation ordering and supplied-buffer aliases remain unchanged.
+Dynamic Go allocations may have extra unconsumed final padding; oversized/
+invalid allocation configurations retain the previously documented limits.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references, GC stress and diff checks, with final repeated ARM scoped/
+ordinary fixtures. No goldens/tolerances/assertions changed. These are standalone
+mini-FFT paths, not active decoder FFT hot loops or global opaque-state scanning,
+extension EOF/GC or raw callback lifetime repair.
+
 Four mini-FFT storage rounds replace Go-created scalar/real FFT word-slice
 images with dynamically sized, contiguous Go objects containing canonical typed
 headers, bind real-FFT substorage through the owning Go byte tail, and index

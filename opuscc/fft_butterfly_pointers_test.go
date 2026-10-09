@@ -303,19 +303,25 @@ func TestMiniFFTScalarTailPointers(t *testing.T) {
 }
 
 func TestMiniFFTStorageTailPointers(t *testing.T) {
+	fixed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fftr_state{})) + uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{}))
 	for _, extra := range []uint64{0, 8, 24} {
-		header, tail := miniFFTStorage[OpusT_mini_kiss_fft_state](uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{})) + extra)
+		header, substate := miniFFTRStorage(fixed + extra)
+		if substate != (*OpusT_mini_kiss_fft_state)(unsafe.Add(unsafe.Pointer(header), unsafe.Sizeof(*header))) {
+			t.Fatal("canonical mini FFT substate displacement")
+		}
+		tail := unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(substate), unsafe.Sizeof(*substate))), extra)
 		if uint64(len(tail)) != extra {
 			t.Fatal("typed mini FFT tail length")
 		}
-		if extra != 0 && unsafe.SliceData(tail) != (*byte)(unsafe.Add(unsafe.Pointer(header), unsafe.Sizeof(*header))) {
-			t.Fatal("typed mini FFT tail displacement")
-		}
+		header.Fsubstate = substate
 		entropyInitGrowStack(12)
 		runtime.GC()
-		header.Fnfft = 123
+		substate.Fnfft = 123
 		if extra != 0 {
 			tail[0] = 77
+		}
+		if header.Fsubstate.Fnfft != 123 {
+			t.Fatal("canonical substate owner")
 		}
 		runtime.KeepAlive(header)
 	}
