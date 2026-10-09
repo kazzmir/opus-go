@@ -465,7 +465,7 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 		submem = &unsafe.Slice(mem, needed)[header]
 	}
 	st.Fsubstate = Opus_mini_kiss_fft_alloc(tls, nfft, inverse, submem, &subsize)
-	st.Ftmpbuf = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(submem), subsize))
+	st.Ftmpbuf = &unsafe.Slice(&st.Fsubstate.Ftwiddles[0], int64(nfft)*2)[nfft]
 	st.Fsuper_twiddles = miniFFTRSuperTwiddles(st.Ftmpbuf, nfft)
 	tw := unsafe.Slice(st.Fsuper_twiddles, nfft/2)
 	for i := int32(0); i < nfft/2; i++ {

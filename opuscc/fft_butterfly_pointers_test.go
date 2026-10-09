@@ -210,6 +210,27 @@ func TestMiniFFTRScannedHeaderPointers(t *testing.T) {
 	runtime.KeepAlive(st)
 }
 
+func TestMiniFFTRTemporaryGeometryPointers(t *testing.T) {
+	if unsafe.Offsetof(OpusT_mini_kiss_fft_state{}.Ftwiddles)+unsafe.Sizeof(OpusT_mini_kiss_fft_cpx{}) != unsafe.Sizeof(OpusT_mini_kiss_fft_state{}) {
+		t.Fatal("mini FFT flexible tail geometry")
+	}
+	for _, n := range []int32{2, 4, 6, 16} {
+		st := Opus_mini_kiss_fftr_alloc(nil, n, 0, nil, nil)
+		var subsize OpusT_size_t
+		Opus_mini_kiss_fft_alloc(nil, n/2, 0, nil, &subsize)
+		want := (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(st.Fsubstate), subsize))
+		if st.Ftmpbuf != want {
+			t.Fatal("mini FFT temporary displacement", n)
+		}
+		st.Ftmpbuf.Fr = 77
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if st.Ftmpbuf.Fr != 77 {
+			t.Fatal("mini FFT temporary owner")
+		}
+	}
+}
+
 func TestMiniFFTRSuperPrefixPointers(t *testing.T) {
 	for _, n := range []int32{2, 3, 8} {
 		owner := make([]OpusT_mini_kiss_fft_cpx, n+n/2)
