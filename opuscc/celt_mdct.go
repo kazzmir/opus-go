@@ -360,7 +360,7 @@ func kf_factor(tls *libc.TLS, n int32, factors *[2 * MINI_MAXFACTORS]int32) int 
 //
 // Allocate a contiguous, dynamically sized Go object with a canonical typed
 // header. Unlike a word slice, its pointer fields (if any) are GC-scanned.
-func miniFFTStorage[T any](needed uint64) *T {
+func miniFFTStorage[T any](needed uint64) (*T, []byte) {
 	header := reflect.TypeFor[T]()
 	tail := needed - uint64(header.Size())
 	if needed < uint64(header.Size()) || int(needed) < 0 || uint64(int(needed)) != needed {
@@ -370,14 +370,15 @@ func miniFFTStorage[T any](needed uint64) *T {
 		{Name: "Header", Type: header},
 		{Name: "Tail", Type: reflect.ArrayOf(int(tail), reflect.TypeFor[byte]())},
 	})
-	return reflect.New(layout).Elem().Field(0).Addr().Interface().(*T)
+	owner := reflect.New(layout).Elem()
+	return owner.Field(0).Addr().Interface().(*T), owner.Field(1).Slice(0, int(tail)).Bytes()
 }
 
 func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fft_state {
 	needed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{})) + 8*uint64(uint32(nfft-1))
 	var state *OpusT_mini_kiss_fft_state
 	if lenmem == nil {
-		state = miniFFTStorage[OpusT_mini_kiss_fft_state](needed)
+		state, _ = miniFFTStorage[OpusT_mini_kiss_fft_state](needed)
 	} else {
 		if mem != nil && *lenmem >= needed {
 			state = (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(mem))
@@ -433,8 +434,11 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	header := unsafe.Sizeof(OpusT_mini_kiss_fftr_state{})
 	needed := uint64(header) + subsize + 8*uint64(uint32(nfft*3/2))
 	var st *OpusT_mini_kiss_fftr_state
+	var submem *byte
 	if lenmem == nil {
-		st = miniFFTStorage[OpusT_mini_kiss_fftr_state](needed)
+		var tail []byte
+		st, tail = miniFFTStorage[OpusT_mini_kiss_fftr_state](needed)
+		submem = unsafe.SliceData(tail)
 	} else {
 		if *lenmem >= needed {
 			st = (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(mem))
@@ -444,7 +448,10 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	if st == nil {
 		return nil
 	}
-	submem := (*byte)(unsafe.Add(unsafe.Pointer(st), header))
+	if lenmem != nil {
+		// Explicit layout boundary for externally supplied opaque byte storage.
+		submem = (*byte)(unsafe.Add(unsafe.Pointer(st), header))
+	}
 	st.Fsubstate = Opus_mini_kiss_fft_alloc(tls, nfft, inverse, submem, &subsize)
 	st.Ftmpbuf = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(submem), subsize))
 	st.Fsuper_twiddles = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(st.Ftmpbuf), int(nfft)*8))

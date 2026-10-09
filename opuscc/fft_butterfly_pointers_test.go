@@ -242,6 +242,25 @@ func TestMiniFFTRAllocPointers(t *testing.T) {
 	}
 }
 
+func TestMiniFFTStorageTailPointers(t *testing.T) {
+	for _, extra := range []uint64{0, 8, 24} {
+		header, tail := miniFFTStorage[OpusT_mini_kiss_fft_state](uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{})) + extra)
+		if uint64(len(tail)) != extra {
+			t.Fatal("typed mini FFT tail length")
+		}
+		if extra != 0 && unsafe.SliceData(tail) != (*byte)(unsafe.Add(unsafe.Pointer(header), unsafe.Sizeof(*header))) {
+			t.Fatal("typed mini FFT tail displacement")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		header.Fnfft = 123
+		if extra != 0 {
+			tail[0] = 77
+		}
+		runtime.KeepAlive(header)
+	}
+}
+
 func TestMiniFFTAllocPointers(t *testing.T) {
 	var needed OpusT_size_t
 	if Opus_mini_kiss_fft_alloc(nil, 8, 0, nil, &needed) != nil || needed != 328 {
