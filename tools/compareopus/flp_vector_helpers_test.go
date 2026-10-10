@@ -22,6 +22,26 @@ func flpSameBits(a, b []float32) bool {
 	return true
 }
 
+func TestScaleFLPAgainstC(t *testing.T) {
+	for _, size := range []int32{0, 1, 3, 4, 5, 8, 31, 65537, -1, -65536} {
+		for _, gain := range []float32{0, -.75, 1, 1.125} {
+			length := max(size, size&0xFFFC)
+			goData := make([]float32, length+2)
+			for i := range goData {
+				goData[i] = float32(i%19-9) / 7
+			}
+			cData := slices.Clone(goData)
+			opusccenc.Opus_silk_scale_vector_FLP(nil, uintptr(unsafe.Pointer(&goData[1])), gain, size)
+			nativeScaleFLP(cData[1:], gain, size)
+			if !flpSameBits(goData, cData) {
+				t.Fatal("scale", size, gain)
+			}
+		}
+	}
+	nativeScaleFLP(nil, 1, 0)
+	nativeScaleFLP(nil, 1, -65536)
+}
+
 func TestScaleCopyFLPAgainstC(t *testing.T) {
 	for _, size := range []int32{0, 1, 3, 4, 5, 8, 31, 65537, -1, -65536} {
 		for _, shift := range []int32{-1, 0, 1} {

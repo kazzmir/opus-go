@@ -14446,29 +14446,27 @@ func silkScaleCopyVectorFLP(out, in *float32, gain float32, size int32) {
 //
 //	/* multiply a vector by a constant */
 
+//go:uintptrescapes
 func Opus_silk_scale_vector_FLP(tls *libc.TLS, data1 uintptr, gain float32, dataSize int32) {
-	var dataSize4, i int32
-	_, _ = dataSize4, i
-	/* 4x unrolled loop */
-	dataSize4 = dataSize & int32(0xFFFC)
-	i = 0
-	for {
-		if !(i < dataSize4) {
-			break
-		}
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i+0)*4)) *= gain
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(1))*4)) *= gain
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(2))*4)) *= gain
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(3))*4)) *= gain
-		i = i + int32(4)
+	silkScaleVectorFLP((*float32)(unsafe.Pointer(data1)), gain, dataSize)
+}
+
+func silkScaleVectorFLP(data *float32, gain float32, size int32) {
+	bulk := size & 0xFFFC
+	length := max(size, bulk)
+	if length == 0 {
+		return
 	}
-	/* any remaining elements */
-	for {
-		if !(i < dataSize) {
-			break
-		}
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i)*4)) *= gain
-		i = i + 1
+	values := unsafe.Slice(data, length)
+	var i int32
+	for ; i < bulk; i += 4 {
+		values[i] = float32(values[i] * gain)
+		values[i+1] = float32(values[i+1] * gain)
+		values[i+2] = float32(values[i+2] * gain)
+		values[i+3] = float32(values[i+3] * gain)
+	}
+	for ; i < size; i++ {
+		values[i] = float32(values[i] * gain)
 	}
 }
 

@@ -42,6 +42,38 @@ func TestScaleCopyVectorFLPPointers(t *testing.T) {
 	silkScaleCopyVectorFLP(nil, nil, 1, -65536)
 }
 
+func TestScaleVectorFLPPointers(t *testing.T) {
+	for _, size := range []int32{0, 1, 3, 4, 5, 8, 31, 65537, -1, -65536} {
+		length := max(size, size&0xFFFC)
+		data := make([]float32, length+2)
+		for i := range data {
+			data[i] = float32(i%19-9) / 7
+		}
+		want := slices.Clone(data)
+		for i := int32(0); i < length; i++ {
+			want[1+i] = float32(want[1+i] * -.75)
+		}
+		runtime.GC()
+		silkScaleVectorFLP(&data[1], -.75, size)
+		if !flpVectorBitsEqual(data, want) {
+			t.Fatal("scale/guards", size)
+		}
+	}
+	for _, gain := range []float32{0, float32(math.Copysign(0, -1)), .75} {
+		data := []float32{float32(math.Copysign(0, -1)), 0, float32(math.Inf(1)), float32(math.Inf(-1)), math.Float32frombits(0x7fc12345)}
+		want := slices.Clone(data)
+		for i := range want {
+			want[i] = float32(want[i] * gain)
+		}
+		silkScaleVectorFLP(&data[0], gain, int32(len(data)))
+		if !flpVectorBitsEqual(data, want) {
+			t.Fatal("scale IEEE", gain)
+		}
+	}
+	silkScaleVectorFLP(nil, 1, 0)
+	silkScaleVectorFLP(nil, 1, -65536)
+}
+
 func TestFloatPCMPointers(t *testing.T) {
 	input := []float32{-2, -1, -2.5 / 32768, -1.5 / 32768, -0.5 / 32768, 0, 0.5 / 32768, 1.5 / 32768, 2.5 / 32768, 1, 2, float32(math.NaN()), float32(math.Inf(-1)), float32(math.Inf(1))}
 	want := []int16{-32768, -32768, -2, -2, 0, 0, 0, 2, 2, 32767, 32767, -32768, -32768, 32767}
