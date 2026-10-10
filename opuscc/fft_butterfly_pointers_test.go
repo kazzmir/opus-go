@@ -2,10 +2,12 @@ package opuscc
 
 import (
 	"math"
+	"reflect"
 	"runtime"
 	"slices"
 	"testing"
 	"unsafe"
+	"weak"
 )
 
 func TestMDCTConsumedStridePointers(t *testing.T) {
@@ -189,6 +191,67 @@ func TestMiniFFTRPointers(t *testing.T) {
 	}
 }
 
+//go:noinline
+func miniFFTRForeignTemporary(st *OpusT_mini_kiss_fftr_state) weak.Pointer[[8]OpusT_mini_kiss_fft_cpx] {
+	tmp := new([8]OpusT_mini_kiss_fft_cpx)
+	tmp[0].Fr = 123
+	st.Ftmpbuf = &tmp[0]
+	return weak.Make(tmp)
+}
+
+func TestMiniFFTRScannedHeaderPointers(t *testing.T) {
+	st := Opus_mini_kiss_fftr_alloc(nil, 16, 0, nil, nil)
+	foreign := miniFFTRForeignTemporary(st)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	runtime.GC()
+	if foreign.Value() == nil || st.Ftmpbuf.Fr != 123 {
+		t.Fatal("Go-created FFT header must scan its typed pointer fields")
+	}
+	runtime.KeepAlive(st)
+}
+
+func TestMiniFFTRTemporaryGeometryPointers(t *testing.T) {
+	if unsafe.Offsetof(OpusT_mini_kiss_fft_state{}.Ftwiddles)+unsafe.Sizeof(OpusT_mini_kiss_fft_cpx{}) != unsafe.Sizeof(OpusT_mini_kiss_fft_state{}) {
+		t.Fatal("mini FFT flexible tail geometry")
+	}
+	for _, n := range []int32{2, 4, 6, 16} {
+		st := Opus_mini_kiss_fftr_alloc(nil, n, 0, nil, nil)
+		var subsize OpusT_size_t
+		Opus_mini_kiss_fft_alloc(nil, n/2, 0, nil, &subsize)
+		want := (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(st.Fsubstate), subsize))
+		if st.Ftmpbuf != want {
+			t.Fatal("mini FFT temporary displacement", n)
+		}
+		st.Ftmpbuf.Fr = 77
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if st.Ftmpbuf.Fr != 77 {
+			t.Fatal("mini FFT temporary owner")
+		}
+	}
+}
+
+func TestMiniFFTRSuperPrefixPointers(t *testing.T) {
+	for _, n := range []int32{2, 3, 8} {
+		owner := make([]OpusT_mini_kiss_fft_cpx, n+n/2)
+		p := miniFFTRSuperTwiddles(&owner[0], n)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if p != &owner[n] {
+			t.Fatal("consumed super-twiddle owner")
+		}
+		p.Fr = 77
+		if owner[n].Fr != 77 || owner[n-1].Fr != 0 {
+			t.Fatal("super-twiddle alias/guard")
+		}
+	}
+	var owner [2]OpusT_mini_kiss_fft_cpx
+	if miniFFTRSuperTwiddles(nil, 0) != nil || miniFFTRSuperTwiddles(&owner[0], 1) != &owner[1] || miniFFTRSuperTwiddles(&owner[1], -1) != &owner[0] {
+		t.Fatalf("empty/backward native super-twiddle boundary: nil=%p forward=%p want=%p backward=%p want=%p", miniFFTRSuperTwiddles(nil, 0), miniFFTRSuperTwiddles(&owner[0], 1), &owner[1], miniFFTRSuperTwiddles(&owner[1], -1), &owner[0])
+	}
+}
+
 func TestMiniFFTRAllocPointers(t *testing.T) {
 	var needed OpusT_size_t
 	Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, &needed)
@@ -218,6 +281,49 @@ func TestMiniFFTRAllocPointers(t *testing.T) {
 	}
 	if uintptr(unsafe.Pointer(owned.Fsubstate))-uintptr(unsafe.Pointer(owned)) != header {
 		t.Fatal("header size")
+	}
+}
+
+func TestMiniFFTScalarTailPointers(t *testing.T) {
+	for _, n := range []int32{1, 2, 6, 16} {
+		needed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{})) + uint64(n-1)*8
+		owner := miniFFTStorageObject[OpusT_mini_kiss_fft_state](needed, reflect.TypeFor[OpusT_mini_kiss_fft_cpx]())
+		if owner.Field(1).Len() != int(n-1) || owner.Field(1).Type().Elem() != reflect.TypeFor[OpusT_mini_kiss_fft_cpx]() {
+			t.Fatal("canonical scalar complex suffix", n)
+		}
+		state := Opus_mini_kiss_fft_alloc(nil, n, 0, nil, nil)
+		tw := unsafe.Slice(&state.Ftwiddles[0], n)
+		tw[n-1].Fr = 77
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if tw[n-1].Fr != 77 || state.Fnfft != n {
+			t.Fatal("scalar complex suffix owner", n)
+		}
+	}
+}
+
+func TestMiniFFTStorageTailPointers(t *testing.T) {
+	fixed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fftr_state{})) + uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{}))
+	for _, extra := range []uint64{0, 8, 24} {
+		header, substate := miniFFTRStorage(fixed + extra)
+		if substate != (*OpusT_mini_kiss_fft_state)(unsafe.Add(unsafe.Pointer(header), unsafe.Sizeof(*header))) {
+			t.Fatal("canonical mini FFT substate displacement")
+		}
+		tail := unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(substate), unsafe.Sizeof(*substate))), extra)
+		if uint64(len(tail)) != extra {
+			t.Fatal("typed mini FFT tail length")
+		}
+		header.Fsubstate = substate
+		entropyInitGrowStack(12)
+		runtime.GC()
+		substate.Fnfft = 123
+		if extra != 0 {
+			tail[0] = 77
+		}
+		if header.Fsubstate.Fnfft != 123 {
+			t.Fatal("canonical substate owner")
+		}
+		runtime.KeepAlive(header)
 	}
 }
 

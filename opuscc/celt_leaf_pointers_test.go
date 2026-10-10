@@ -973,6 +973,43 @@ func TestCeltDecodeEnergyMergeMonoPointers(t *testing.T) {
 		}
 	}
 }
+func TestCeltDecodePostfilterHistoryPointers(t *testing.T) {
+	for LM := int32(0); LM <= 3; LM++ {
+		for _, channels := range []int32{0, 1, 2} {
+			N := int32(120) << LM
+			mode := newSynthesisTestMode()
+			state := OpusT_OpusCustomDecoder{Fmode: mode, Fpostfilter_period: -1, Fpostfilter_period_old: 0, Fpostfilter_gain: .3, Fpostfilter_gain_old: .5, Fpostfilter_tapset: 2, Fpostfilter_tapset_old: 1}
+			wantState := state
+			var owners, expected [2][]float32
+			var out, wantOut [2]*float32
+			for c := range owners {
+				owners[c] = make([]float32, DEC_PITCH_BUF_SIZE+120+2)
+				for i := range owners[c] {
+					owners[c][i] = float32(i%17-8) / 256
+				}
+				expected[c] = append([]float32(nil), owners[c]...)
+				out[c] = &owners[c][1+DEC_PITCH_BUF_SIZE-N]
+				wantOut[c] = &expected[c][1+DEC_PITCH_BUF_SIZE-N]
+			}
+			celtDecodePostfilter(nil, &wantState, mode, &wantOut[0], channels, N, LM, 80, .7, 0, 120)
+			history := [2][]float32{owners[0][1 : len(owners[0])-1], owners[1][1 : len(owners[1])-1]}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtDecodePostfilterWithHistory(nil, &state, mode, &out[0], channels, N, LM, 80, .7, 0, 120, history)
+			if state != wantState {
+				t.Fatal("owned postfilter state")
+			}
+			for c := range owners {
+				for i := range owners[c] {
+					if math.Float32bits(owners[c][i]) != math.Float32bits(expected[c][i]) {
+						t.Fatal("owned postfilter/guards", LM, channels, c, i)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestCeltDecodePostfilterPointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, channels := range []int32{0, 1, 2} {

@@ -357,13 +357,32 @@ func kf_factor(tls *libc.TLS, n int32, factors *[2 * MINI_MAXFACTORS]int32) int 
 //	 * The return value is a contiguous block of memory, allocated with malloc.  As such,
 //	 * It can be freed with free(), rather than a kiss_fft-specific function.
 //	 * */
+//
+// Allocate a contiguous, dynamically sized Go object with a canonical typed
+// header. Unlike a word slice, its pointer fields (if any) are GC-scanned.
+func miniFFTStorageObject[T any](needed uint64, element reflect.Type) reflect.Value {
+	header := reflect.TypeFor[T]()
+	tail := needed - uint64(header.Size())
+	if needed < uint64(header.Size()) || int(needed) < 0 || uint64(int(needed)) != needed || tail%uint64(element.Size()) != 0 {
+		panic("mini FFT allocation size overflow")
+	}
+	layout := reflect.StructOf([]reflect.StructField{
+		{Name: "Header", Type: header},
+		{Name: "Tail", Type: reflect.ArrayOf(int(tail/uint64(element.Size())), element)},
+	})
+	return reflect.New(layout).Elem()
+}
+
+func miniFFTScalarStorage(needed uint64) *OpusT_mini_kiss_fft_state {
+	owner := miniFFTStorageObject[OpusT_mini_kiss_fft_state](needed, reflect.TypeFor[OpusT_mini_kiss_fft_cpx]())
+	return owner.Field(0).Addr().Interface().(*OpusT_mini_kiss_fft_state)
+}
+
 func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fft_state {
 	needed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{})) + 8*uint64(uint32(nfft-1))
 	var state *OpusT_mini_kiss_fft_state
 	if lenmem == nil {
-		// The returned interior pointer owns the complete flexible-array allocation.
-		backing := make([]uint64, (needed+7)/8)
-		state = (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(unsafe.SliceData(backing)))
+		state = miniFFTScalarStorage(needed)
 	} else {
 		if mem != nil && *lenmem >= needed {
 			state = (*OpusT_mini_kiss_fft_state)(unsafe.Pointer(mem))
@@ -373,6 +392,10 @@ func Opus_mini_kiss_fft_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, len
 	if state == nil {
 		return nil
 	}
+	return miniFFTInit(tls, state, nfft, inverse)
+}
+
+func miniFFTInit(tls *libc.TLS, state *OpusT_mini_kiss_fft_state, nfft, inverse int32) *OpusT_mini_kiss_fft_state {
 	state.Fnfft = nfft
 	state.Finverse = inverse
 	twiddles := unsafe.Slice(&state.Ftwiddles[0], nfft)
@@ -409,6 +432,34 @@ type OpusT_mini_kiss_fftr_state = struct {
 	Fsuper_twiddles *OpusT_mini_kiss_fft_cpx
 }
 
+func miniFFTRStorage(needed uint64) (*OpusT_mini_kiss_fftr_state, *OpusT_mini_kiss_fft_state) {
+	header := reflect.TypeFor[OpusT_mini_kiss_fftr_state]()
+	substate := reflect.TypeFor[OpusT_mini_kiss_fft_state]()
+	fixed := uint64(header.Size() + substate.Size())
+	if needed < fixed || int(needed) < 0 || uint64(int(needed)) != needed {
+		panic("mini FFT allocation size overflow")
+	}
+	layout := reflect.StructOf([]reflect.StructField{
+		{Name: "Header", Type: header},
+		{Name: "Substate", Type: substate},
+		{Name: "Tail", Type: reflect.ArrayOf(int(needed-fixed), reflect.TypeFor[byte]())},
+	})
+	owner := reflect.New(layout).Elem()
+	return owner.Field(0).Addr().Interface().(*OpusT_mini_kiss_fftr_state), owner.Field(1).Addr().Interface().(*OpusT_mini_kiss_fft_state)
+}
+
+func miniFFTRSuperTwiddles(tmp *OpusT_mini_kiss_fft_cpx, nfft int32) *OpusT_mini_kiss_fft_cpx {
+	if nfft == 0 {
+		return tmp
+	}
+	if nfft >= 2 {
+		// Include only the temporary samples and consumed super-twiddle prefix.
+		return &unsafe.Slice(tmp, int64(nfft)+int64(nfft/2))[nfft]
+	}
+	// Keep the native unused-end/backward boundary for empty/invalid geometry.
+	return (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(tmp), int(nfft)*8))
+}
+
 func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fftr_state {
 	if nfft&1 != 0 {
 		libc.X__assert_fail(tls, __ccgo_ts+5561, __ccgo_ts+5529, 416, 0)
@@ -419,10 +470,9 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	header := unsafe.Sizeof(OpusT_mini_kiss_fftr_state{})
 	needed := uint64(header) + subsize + 8*uint64(uint32(nfft*3/2))
 	var st *OpusT_mini_kiss_fftr_state
+	var substate *OpusT_mini_kiss_fft_state
 	if lenmem == nil {
-		// Every stored pointer is an interior of this complete owning allocation.
-		backing := make([]uint64, (needed+7)/8)
-		st = (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(unsafe.SliceData(backing)))
+		st, substate = miniFFTRStorage(needed)
 	} else {
 		if *lenmem >= needed {
 			st = (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(mem))
@@ -432,10 +482,15 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	if st == nil {
 		return nil
 	}
-	submem := (*byte)(unsafe.Add(unsafe.Pointer(st), header))
-	st.Fsubstate = Opus_mini_kiss_fft_alloc(tls, nfft, inverse, submem, &subsize)
-	st.Ftmpbuf = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(submem), subsize))
-	st.Fsuper_twiddles = (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(st.Ftmpbuf), int(nfft)*8))
+	if lenmem == nil {
+		st.Fsubstate = miniFFTInit(tls, substate, nfft, inverse)
+	} else {
+		// Explicit layout boundary for externally supplied opaque byte storage.
+		submem := &unsafe.Slice(mem, needed)[header]
+		st.Fsubstate = Opus_mini_kiss_fft_alloc(tls, nfft, inverse, submem, &subsize)
+	}
+	st.Ftmpbuf = &unsafe.Slice(&st.Fsubstate.Ftwiddles[0], int64(nfft)*2)[nfft]
+	st.Fsuper_twiddles = miniFFTRSuperTwiddles(st.Ftmpbuf, nfft)
 	tw := unsafe.Slice(st.Fsuper_twiddles, nfft/2)
 	for i := int32(0); i < nfft/2; i++ {
 		phase := -float64(3.141592653589793) * (float64(i+1)/float64(nfft) + 0.5)

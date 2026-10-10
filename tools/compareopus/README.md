@@ -534,6 +534,144 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four encoder LPC-analysis rounds migrate the independent encoder leaf's output
+stores/late prefix clearing, fixed six prediction taps, remaining taps/prediction
+subtraction, then its private parameters/cursor to concrete int16 pointers and
+numeric indices. The public integer API remains an explicit three-cast adapter
+with uintptrescapes; active math no longer constructs addresses. Production
+opusccenc counts fall 11320→11305 unsafe.Pointer and 6696→6684 uintptr. Decoder
+opuscc counts remain 169/153. The last unused integer cursor assignment/declaration
+is separately dead-code cleanup; the load/store changes are actual representation
+improvements, not merely moving casts to another helper.
+
+Upstream silk/LPC_analysis_filter.c and its wrap macros confirm six initial taps,
+paired remaining taps, uint32 wrapping adds/subtraction, signed rounded shift,
+saturation, and zeroing the first d samples only after every prediction. The
+original three assertions/diagnostics/order persist. Input/coefficient views are
+formed only for len>d; no-work calls consume only output. Coefficients and input
+remain live views, including output overlaps. Native C fixtures now exercise both
+ports across orders6/8/10/16/24, empty/short/long work, extrema/random values,
+forward/backward/in-place input/output overlap and coefficient/output overlap;
+whole buffers/guards are compared. Grouped typed-encoder fixtures cover GC,
+overlap and nil unused input/coefficient pointers under scoped checkptr.
+
+Each round passes full amd64/386, ARM64/QEMU, decoder scoped checkptr, native
+comparisons, GC decode stress, unchanged encode/decode references and diff checks.
+The completed private encoder kernel additionally passes amd64/386/ARM scoped
+checkptr and final repeated ARM ordinary/checkptr fixtures. Goldens/tolerances
+are unchanged. This does not repair the encoder's legacy pseudostack or opaque
+state scanning, nor the known extension EOF/GC or raw callback lifetime issues.
+
+Four postfilter-owner rounds bind normal CELT first/tail postfiltering and
+noise-PLC first/tail postfiltering to their existing per-channel history slices.
+Normal dispatch carries the concrete history array into first/tail helpers;
+compatibility helpers still accept standalone output pointers through nil-owner
+fallbacks. Noise PLC passes its already-bound history directly. All active comb
+calls in celt_decoder.go now bypass backward pointer recovery. Production
+lexical counts remain 169 unsafe.Pointer/153 uintptr: required public/standalone
+compatibility boundaries are retained rather than artificially concealed.
+
+The numeric current offset is DEC_PITCH_BUF_SIZE-N (plus the short-MDCT length
+for tail work). Channel-zero do-while behavior, clamp→first→tail order, LM==0
+tail suppression, source/destination live aliases, control/window reads, cached
+mode and float32 arithmetic remain unchanged. Grouped owned-dispatch fixtures
+compare complete state and bitwise histories/guards against standalone kernels
+for LM0..3 and channels0/1/2 under GC/stack growth. Existing noise PLC, normal
+decode, native postfilter and entropy/PCM goldens persist without tolerance or
+assertion changes. Each round passes full amd64/386, ARM64/QEMU, scoped checkptr,
+native comparisons, codec references, GC stress and diff checks, with final
+repeated ARM scoped/ordinary fixtures. This is active scalar-owner binding, not
+opaque-allocation scanning, extension EOF/GC or raw callback lifetime repair.
+
+Four owned-history rounds add history-aware CELT FIR and comb kernels, then
+bind periodic PLC FIR to its complete Go excitation prefix and prefilter/fold
+comb filtering to its known decoder history owner plus numeric current offset.
+These active consumers no longer recover preceding samples by subtracting from
+an interior pointer. Public pointer APIs still use the explicit backward-layout
+fallback. Production lexical counts remain 169 unsafe.Pointer/153 uintptr:
+this batch bypasses required compatibility boundaries rather than hiding or
+deleting them. FIR's zero-order fallback directly uses its typed input pointer.
+
+The excitation prefix begins ord samples before the consumed source; the comb
+owner is the existing DEC_PITCH_BUF_SIZE+overlap per-channel history. Live channel
+state reads, initial coefficient reversal, assertions, gain/tapset lookup and
+zero-gain early returns, overlap/window reads, in-place dependencies, terminal
+copy suppression and float32 products remain in their original order. Existing
+upstream FIR/comb and PLC/prefilter native/golden fixtures persist. Grouped owner
+fixtures compare exact output/guards with compatibility kernels across empty,
+short/unrolled work, valid orders, gain combinations, overlap, live in-place
+aliases and GC/stack growth. No goldens/tolerances/assertions changed.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references, GC stress and diff checks, plus final repeated ARM scoped/
+ordinary fixtures. Owned scalar prefixes do not repair opaque allocation
+scanning, extension EOF/GC or raw callback lifetime; other comb/history callers
+still retain their necessary boundary until their owners are separately bound.
+
+Four further mini-storage rounds index externally supplied real-FFT submemory
+through its validated byte prefix, derive temporary storage from the canonical
+scalar FFT twiddle/temporary complex prefix, give Go-created scalar flexible
+tails an actual complex-cell array type, and allocate Go-created real FFTs with
+canonical typed outer and scalar substate headers. The latter initializes its
+substate through miniFFTInit without a byte-buffer reinterpretation; supplied
+C-layout memory still uses its explicit scalar-header cast. The shared initializer
+preserves all stores, factor/twiddle operations and ordering. The outer header
+continues to have a real GC bitmap; this does not scan arbitrary caller bytes.
+
+Production unsafe.Pointer counts decrease 171→169; uintptr stays 153. Two offset
+casts are removed; the typed-tail/subheader rounds improve Go allocation and
+consumer representation without claiming additional lexical deletion. Grouped
+geometry fixtures prove flexible twiddles end at the scalar header boundary,
+check temporary offsets for real sizes 2/4/6/16, typed scalar tail element kinds,
+canonical substate displacement, empty/short tails and GC/stack ownership.
+Existing foreign weak-owner, caller-buffer capacity/guard, scalar/native mini
+FFT and codec fixtures remain. Numerical phases, reported sizes, layout,
+assertion/validation ordering and supplied-buffer aliases remain unchanged.
+Dynamic Go allocations may have extra unconsumed final padding; oversized/
+invalid allocation configurations retain the previously documented limits.
+
+Every round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+codec references, GC stress and diff checks, with final repeated ARM scoped/
+ordinary fixtures. No goldens/tolerances/assertions changed. These are standalone
+mini-FFT paths, not active decoder FFT hot loops or global opaque-state scanning,
+extension EOF/GC or raw callback lifetime repair.
+
+Four mini-FFT storage rounds replace Go-created scalar/real FFT word-slice
+images with dynamically sized, contiguous Go objects containing canonical typed
+headers, bind real-FFT substorage through the owning Go byte tail, and index
+consumed super-twiddle prefixes through concrete complex pointers. Dynamic
+reflect.StructOf allocation gives the real FFT header an actual runtime GC
+pointer bitmap; this is not a typed cast over unscanned bytes. Its scalar flexible
+suffix remains pointer-free. Caller-supplied opaque byte layouts still use
+explicit casts, and empty/backward/unused-end super-twiddle boundaries remain.
+Production unsafe.Pointer counts decrease 173→171; uintptr stays 153. The latter
+two rounds improve consumed paths without claiming lexical boundary deletion.
+
+Upstream mini_kfft.c's header→substate→temporary→super-twiddle layout, reported
+size, factor/twiddle arithmetic, assertion order and caller-buffer capacity
+checks remain unchanged. Go allocation may include additional end padding for
+zero-length tail fields, outside the reported/consumed ABI image. Nonrepresentable
+Go allocation sizes fail before initialization; huge/invalid FFT configurations
+are not an allocation-success compatibility claim. Dynamic type creation is on
+standalone mini-FFT allocation paths, not active decoder FFT hot loops.
+Grouped layout/tail/GC/stack tests cover typed ownership and exact consumed
+prefixes; a noinline weak-owner fixture proves a foreign Go temporary stored in
+a Go-created real-FFT header survives GC. This scan guarantee does not extend
+to externally supplied byte buffers or the codec's other opaque allocations.
+
+The first final-round run failed the new nil/zero-offset identity fixture:
+`/tmp/opus-round-mini-fftr-consumed-super-prefix.log`. The arithmetic boundary
+produced a nil-looking pointer yet failed the inlined nil comparison. The helper
+now returns the concrete input directly at offset zero, without unsafe.Add;
+fixtures/assertions were retained and a complete retry passed. This is not a
+codec golden/tolerance adjustment.
+
+Each round ultimately passes full amd64/386, ARM64/QEMU, scoped checkptr, native
+comparisons, codec references, GC stress and diff checks, with final repeated
+ARM scoped/ordinary fixtures. Existing native mini-FFT/allocation references and codec
+goldens/tolerances remain unchanged. Extension EOF/GC and raw callback lifetime
+remain independently unresolved.
+
 Four numeric/private-entry rounds share projection's matrix→MS numeric
 displacement with the native-reference CTL bridge, track returned MS decoder
 children by concrete pointer identity plus recorded numeric displacement, then
