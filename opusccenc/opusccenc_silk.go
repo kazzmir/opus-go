@@ -11623,10 +11623,12 @@ func Opus_silk_insertion_sort_decreasing_FLP(tls *libc.TLS, a uintptr, idx uintp
 	}
 }
 
+//go:uintptrescapes
 func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a uintptr, idx uintptr, L int32, K int32) {
-	var i, j int32
-	var value OpusT_opus_int32
-	_, _, _ = i, j, value
+	silkInsertionSortIncreasing(tls, (*int32)(unsafe.Pointer(a)), (*int32)(unsafe.Pointer(idx)), L, K)
+}
+
+func silkInsertionSortIncreasing(tls *libc.TLS, a, idx *int32, L, K int32) {
 	/* Safety checks */
 	if !(K > libc.Int32FromInt32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+10564, __ccgo_ts+10588, int32(51))
@@ -11637,57 +11639,35 @@ func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a uintptr, idx uintptr, 
 	if !(L >= K) {
 		Opus_celt_fatal(tls, __ccgo_ts+10627, __ccgo_ts+10588, int32(53))
 	}
-	/* Write start indices in index vector */
-	i = 0
-	for {
-		if !(i < K) {
-			break
-		}
-		*(*int32)(unsafe.Pointer(idx + uintptr(i)*4)) = i
-		i = i + 1
+	indices := unsafe.Slice(idx, K)
+	for i := int32(0); i < K; i++ {
+		indices[i] = i
 	}
-	/* Sort vector elements by value, increasing order */
-	i = int32(1)
-	for {
-		if !(i < K) {
-			break
-		}
-		value = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(i)*4))
-		j = i - int32(1)
-		for {
-			if !(j >= 0 && value < *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4))) {
-				break
-			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4)) /* Shift value */
-			*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = *(*int32)(unsafe.Pointer(idx + uintptr(j)*4))                   /* Shift index */
-			j = j - 1
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = value /* Write value */
-		*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = i              /* Write index */
-		i = i + 1
+	if L == 1 {
+		return // no value pointer is consumed by the C loops
 	}
-	/* If less than L values are asked for, check the remaining values, */
-	/* but only spend CPU to ensure that the K first values are correct */
-	i = K
-	for {
-		if !(i < L) {
-			break
+	values := unsafe.Slice(a, L)
+	for i := int32(1); i < K; i++ {
+		value := values[i]
+		j := i - 1
+		for ; j >= 0 && value < values[j]; j-- {
+			values[j+1] = values[j]
+			indices[j+1] = indices[j]
 		}
-		value = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(i)*4))
-		if value < *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(K-int32(1))*4)) {
-			j = K - int32(2)
-			for {
-				if !(j >= 0 && value < *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4))) {
-					break
-				}
-				*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4)) /* Shift value */
-				*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = *(*int32)(unsafe.Pointer(idx + uintptr(j)*4))                   /* Shift index */
-				j = j - 1
+		values[j+1] = value
+		indices[j+1] = i
+	}
+	for i := K; i < L; i++ {
+		value := values[i]
+		if value < values[K-1] {
+			j := K - 2
+			for ; j >= 0 && value < values[j]; j-- {
+				values[j+1] = values[j]
+				indices[j+1] = indices[j]
 			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = value /* Write value */
-			*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = i              /* Write index */
+			values[j+1] = value
+			indices[j+1] = i
 		}
-		i = i + 1
 	}
 }
 
