@@ -4,9 +4,11 @@ package main
 
 import (
 	"github.com/kazzmir/opus-go/opuscc"
+	"github.com/kazzmir/opus-go/opusccenc"
 	"math/rand"
 	"slices"
 	"testing"
+	"unsafe"
 )
 
 func TestLPCAnalysisAgainstC(t *testing.T) {
@@ -33,6 +35,11 @@ func TestLPCAnalysisAgainstC(t *testing.T) {
 				g, c := make([]int16, n), make([]int16, n)
 				opuscc.Opus_silk_LPC_analysis_filter(nil, &g[0], &in[0], &b[0], int32(n), int32(d), 0)
 				nativeLPCAnalysis(c, in, b)
+				e := make([]int16, n)
+				opusccenc.Opus_silk_LPC_analysis_filter(nil, uintptr(unsafe.Pointer(&e[0])), uintptr(unsafe.Pointer(&in[0])), uintptr(unsafe.Pointer(&b[0])), int32(n), int32(d), 0)
+				if !slices.Equal(e, c) {
+					t.Fatalf("encoder d=%d n=%d trial=%d", d, n, trial)
+				}
 				if !slices.Equal(g, c) || !slices.Equal(in, before) || !slices.Equal(b, bc) {
 					t.Fatalf("d=%d n=%d trial=%d Go=%v C=%v", d, n, trial, g, c)
 				}
@@ -41,9 +48,11 @@ func TestLPCAnalysisAgainstC(t *testing.T) {
 					g = make([]int16, n+2)
 					copy(g[1:], in)
 					c = slices.Clone(g)
+					e = slices.Clone(g)
+					opusccenc.Opus_silk_LPC_analysis_filter(nil, uintptr(unsafe.Pointer(&e[1+shift])), uintptr(unsafe.Pointer(&e[1])), uintptr(unsafe.Pointer(&b[0])), int32(n), int32(d), 0)
 					opuscc.Opus_silk_LPC_analysis_filter(nil, &g[1+shift], &g[1], &b[0], int32(n), int32(d), 0)
 					nativeLPCAnalysis(c[1+shift:1+shift+n], c[1:1+n], b)
-					if !slices.Equal(g, c) {
+					if !slices.Equal(g, c) || !slices.Equal(e, c) {
 						t.Fatalf("overlap d=%d n=%d trial=%d shift=%d", d, n, trial, shift)
 					}
 				}

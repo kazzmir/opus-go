@@ -2215,6 +2215,7 @@ func Opus_silk_InitEncoder(tls *libc.TLS, encState uintptr, channels int32, arch
 //	/* Read control structure from encoder */
 //	/***************************************/
 
+//go:uintptrescapes
 func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uintptr, len1 OpusT_opus_int32, d OpusT_opus_int32, arch int32) {
 	var in_ptr uintptr
 	var ix, j, v3, v4 int32
@@ -2230,6 +2231,7 @@ func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uin
 		Opus_celt_fatal(tls, __ccgo_ts+10072, __ccgo_ts+10011, int32(69))
 	}
 	_ = arch
+	output := unsafe.Slice((*int16)(unsafe.Pointer(out)), len1)
 	ix = d
 	for {
 		if !(ix < len1) {
@@ -2268,11 +2270,11 @@ func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uin
 			}
 			v3 = v4
 		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(out + uintptr(ix)*2)) = int16(v3)
+		output[ix] = int16(v3)
 		ix = ix + 1
 	}
-	/* Set first d output samples to zero */
-	libc.Xmemset(tls, out, 0, libc.Uint64FromInt32(d)*libc.Uint64FromInt64(2))
+	/* Set first d output samples to zero, after every prediction/alias read. */
+	clear(output[:d])
 }
 
 const MAX_PREDICTION_POWER_GAIN1 = 10000
