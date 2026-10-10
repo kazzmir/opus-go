@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	libc "github.com/kazzmir/opus-go/libcshim"
+	"reflect"
 	"runtime"
 	"slices"
 	"testing"
@@ -283,6 +284,65 @@ func celtStateTestBuffer(mode *OpusT_OpusCustomMode, channels int32) (*celtState
 	storage.State.Fchannels = channels
 	storage.State.Foverlap = mode.Foverlap
 	return storage, image, size
+}
+
+//go:noinline
+func decoderStorageForeignPointers(st *OpusT_OpusDecoder) (weak.Pointer[OpusT_OpusCustomMode], [2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2]weak.Pointer[[32]int16]) {
+	celt := opusFrameCeltState(st)
+	mode := new(OpusT_OpusCustomMode)
+	*mode = *celt.Fmode
+	celt.Fmode = mode
+	var books [2]weak.Pointer[OpusT_silk_NLSF_CB_struct]
+	var coefs [2]weak.Pointer[[32]int16]
+	silk := opusFrameSilkState(st)
+	for i := range silk.Fchannel_state {
+		book := new(OpusT_silk_NLSF_CB_struct)
+		coeff := new([32]int16)
+		coeff[0] = int16(100 + i)
+		silk.Fchannel_state[i].FpsNLSF_CB = book
+		silk.Fchannel_state[i].Fresampler_state.FCoefs = &coeff[0]
+		books[i], coefs[i] = weak.Make(book), weak.Make(coeff)
+	}
+	return weak.Make(mode), books, coefs
+}
+
+func TestOpusDecoderStoragePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		layout := opusDecoderStorageType(channels)
+		sf, _ := layout.FieldByName("Silk")
+		cf, _ := layout.FieldByName("Celt")
+		tail, _ := layout.FieldByName("Tail")
+		if sf.Type != reflect.TypeFor[OpusT_silk_decoder]() || cf.Type != reflect.TypeFor[OpusT_OpusCustomDecoder]() || tail.Type.Elem() != reflect.TypeFor[float32]() {
+			t.Fatal("noncanonical decoder storage")
+		}
+		st := opusDecoderStorage(channels)
+		if uintptr(unsafe.Pointer(st))&15 != 0 {
+			t.Fatal("decoder allocation alignment")
+		}
+		if ret := Opus_opus_decoder_init(nil, st, 48000, channels); ret != 0 {
+			t.Fatal(ret)
+		}
+		if uint64(st.Fsilk_dec_offset) != uint64(sf.Offset) || uint64(st.Fcelt_dec_offset) != uint64(cf.Offset) {
+			t.Fatal("decoder child offsets")
+		}
+		mode, books, coefs := decoderStorageForeignPointers(st)
+		entropyInitGrowStack(12)
+		for trial := 0; trial < 3; trial++ {
+			runtime.GC()
+			if mode.Value() == nil {
+				t.Fatal("unscanned CELT mode")
+			}
+			for i := range books {
+				if books[i].Value() == nil || coefs[i].Value() == nil {
+					t.Fatal("unscanned SILK child pointers", i)
+				}
+			}
+		}
+		if ret := Opus_opus_decoder_init(nil, st, 24000, channels); ret != 0 {
+			t.Fatal("typed owner re-init", ret)
+		}
+		runtime.KeepAlive(st)
+	}
 }
 
 func TestOpusDecoderInitPointers(t *testing.T) {
