@@ -34,7 +34,8 @@ type TLS struct {
 }
 
 type heapAlloc struct {
-	buf []byte
+	buf   []byte
+	owner any // actual Go allocation root, including its runtime pointer bitmap
 }
 
 func NewTLS() *TLS {
@@ -184,6 +185,22 @@ func XmallocPointer(tls *TLS, size uint64) unsafe.Pointer {
 	tls.heap[aligned] = &heapAlloc{buf: buf}
 	tls.heapMu.Unlock()
 	return pointer
+}
+
+// RegisterGoAllocation keeps an actual Go allocation alive for legacy integer
+// handles. An interior typed pointer roots the entire allocation with its real
+// GC bitmap; this does not make a cast byte image pointer-scanned.
+func RegisterGoAllocation[T any](tls *TLS, p *T) *T {
+	if tls == nil || p == nil {
+		return nil
+	}
+	tls.heapMu.Lock()
+	if tls.heap == nil {
+		tls.heap = make(map[uintptr]*heapAlloc)
+	}
+	tls.heap[uintptr(unsafe.Pointer(p))] = &heapAlloc{owner: p}
+	tls.heapMu.Unlock()
+	return p
 }
 
 // XfreePointer unregisters storage; callers must stop using it as with Xfree.

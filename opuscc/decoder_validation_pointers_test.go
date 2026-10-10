@@ -306,6 +306,37 @@ func decoderStorageForeignPointers(st *OpusT_OpusDecoder) (weak.Pointer[OpusT_Op
 	return weak.Make(mode), books, coefs
 }
 
+//go:noinline
+func registeredDecoderStorage(tls *libc.TLS, channels int32) (uintptr, weak.Pointer[OpusT_OpusCustomMode], [2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2]weak.Pointer[[32]int16]) {
+	st, err := Opus_opus_decoder_create_typed(tls, 48000, channels)
+	if err != nil {
+		panic(err)
+	}
+	mode, books, coefs := decoderStorageForeignPointers(st)
+	return uintptr(unsafe.Pointer(st)), mode, books, coefs
+}
+
+func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		tls := libc.NewTLS()
+		address, mode, books, coefs := registeredDecoderStorage(tls, channels)
+		entropyInitGrowStack(12)
+		for trial := 0; trial < 3; trial++ {
+			runtime.GC()
+			if mode.Value() == nil {
+				t.Fatal("registry lost Go CELT owner")
+			}
+			for i := range books {
+				if books[i].Value() == nil || coefs[i].Value() == nil {
+					t.Fatal("registry lost Go SILK owner", i)
+				}
+			}
+		}
+		Opus_opus_decoder_destroy(tls, address)
+		tls.Close()
+	}
+}
+
 func TestOpusDecoderStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		layout := opusDecoderStorageType(channels)

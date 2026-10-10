@@ -2232,7 +2232,10 @@ func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels
 	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
 		return nil, opusErrorFromCode(-1)
 	}
-	st := (*OpusT_OpusDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_decoder_get_size(tls, channels)))))
+	if tls == nil {
+		return nil, opusErrorFromCode(-7)
+	}
+	st := libc.RegisterGoAllocation(tls, opusDecoderStorage(channels))
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}

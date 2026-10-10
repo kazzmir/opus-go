@@ -4,7 +4,42 @@ import (
 	"runtime"
 	"testing"
 	"unsafe"
+	"weak"
 )
+
+//go:noinline
+func registeredGoInterior(tls *TLS) (uintptr, weak.Pointer[[64]byte]) {
+	parent := new(struct {
+		Header int64
+		Child  *[64]byte
+	})
+	parent.Child = new([64]byte)
+	parent.Child[0] = 77
+	p := RegisterGoAllocation(tls, &parent.Header)
+	return uintptr(unsafe.Pointer(p)), weak.Make(parent.Child)
+}
+
+func TestRegisterGoAllocation(t *testing.T) {
+	tls := NewTLS()
+	defer tls.Close()
+	address, child := registeredGoInterior(tls)
+	for i := 0; i < 3; i++ {
+		runtime.GC()
+		if child.Value() == nil || child.Value()[0] != 77 {
+			t.Fatal("interior Go root must scan its actual parent")
+		}
+	}
+	if len(tls.heap) != 1 {
+		t.Fatal("Go registry insertion")
+	}
+	Xfree(tls, address)
+	if len(tls.heap) != 0 {
+		t.Fatal("Go registry release")
+	}
+	if RegisterGoAllocation[int64](nil, new(int64)) != nil || RegisterGoAllocation[int64](tls, nil) != nil {
+		t.Fatal("nil registration")
+	}
+}
 
 func TestMallocPointer(t *testing.T) {
 	if XmallocPointer(nil, ^uint64(0)) != nil || Xmalloc(nil, 1) != 0 {
