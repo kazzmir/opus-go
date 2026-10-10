@@ -2217,10 +2217,13 @@ func Opus_silk_InitEncoder(tls *libc.TLS, encState uintptr, channels int32, arch
 
 //go:uintptrescapes
 func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uintptr, len1 OpusT_opus_int32, d OpusT_opus_int32, arch int32) {
-	var in_ptr uintptr
+	silkLPCAnalysisFilter(tls, (*int16)(unsafe.Pointer(out)), (*int16)(unsafe.Pointer(in)), (*int16)(unsafe.Pointer(B)), len1, d, arch)
+}
+
+func silkLPCAnalysisFilter(tls *libc.TLS, out, in, B *int16, len1, d int32, arch int32) {
 	var ix, j, v3, v4 int32
 	var out32, out32_Q12 OpusT_opus_int32
-	_, _, _, _, _, _, _ = in_ptr, ix, j, out32, out32_Q12, v3, v4
+	_, _, _, _, _, _ = ix, j, out32, out32_Q12, v3, v4
 	if !(d >= libc.Int32FromInt32(6)) {
 		Opus_celt_fatal(tls, __ccgo_ts+9986, __ccgo_ts+10011, int32(67))
 	}
@@ -2231,18 +2234,17 @@ func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uin
 		Opus_celt_fatal(tls, __ccgo_ts+10072, __ccgo_ts+10011, int32(69))
 	}
 	_ = arch
-	output := unsafe.Slice((*int16)(unsafe.Pointer(out)), len1)
+	output := unsafe.Slice(out, len1)
 	var input, coeff []int16
 	if len1 > d {
-		input = unsafe.Slice((*int16)(unsafe.Pointer(in)), len1)
-		coeff = unsafe.Slice((*int16)(unsafe.Pointer(B)), d)
+		input = unsafe.Slice(in, len1)
+		coeff = unsafe.Slice(B, d)
 	}
 	ix = d
 	for {
 		if !(ix < len1) {
 			break
 		}
-		in_ptr = in + uintptr(ix-int32(1))*2
 		out32_Q12 = int32(input[ix-1]) * int32(coeff[0])
 		/* Allowing wrap around so that two wraps can cancel each other. The rare
 		   cases where the result wraps around can only be triggered by invalid streams*/

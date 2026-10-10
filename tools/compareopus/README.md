@@ -534,6 +534,34 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four encoder LPC-analysis rounds migrate the independent encoder leaf's output
+stores/late prefix clearing, fixed six prediction taps, remaining taps/prediction
+subtraction, then its private parameters/cursor to concrete int16 pointers and
+numeric indices. The public integer API remains an explicit three-cast adapter
+with uintptrescapes; active math no longer constructs addresses. Production
+opusccenc counts fall 11320→11305 unsafe.Pointer and 6696→6684 uintptr. Decoder
+opuscc counts remain 169/153. The last unused integer cursor assignment/declaration
+is separately dead-code cleanup; the load/store changes are actual representation
+improvements, not merely moving casts to another helper.
+
+Upstream silk/LPC_analysis_filter.c and its wrap macros confirm six initial taps,
+paired remaining taps, uint32 wrapping adds/subtraction, signed rounded shift,
+saturation, and zeroing the first d samples only after every prediction. The
+original three assertions/diagnostics/order persist. Input/coefficient views are
+formed only for len>d; no-work calls consume only output. Coefficients and input
+remain live views, including output overlaps. Native C fixtures now exercise both
+ports across orders6/8/10/16/24, empty/short/long work, extrema/random values,
+forward/backward/in-place input/output overlap and coefficient/output overlap;
+whole buffers/guards are compared. Grouped typed-encoder fixtures cover GC,
+overlap and nil unused input/coefficient pointers under scoped checkptr.
+
+Each round passes full amd64/386, ARM64/QEMU, decoder scoped checkptr, native
+comparisons, GC decode stress, unchanged encode/decode references and diff checks.
+The completed private encoder kernel additionally passes amd64/386/ARM scoped
+checkptr and final repeated ARM ordinary/checkptr fixtures. Goldens/tolerances
+are unchanged. This does not repair the encoder's legacy pseudostack or opaque
+state scanning, nor the known extension EOF/GC or raw callback lifetime issues.
+
 Four postfilter-owner rounds bind normal CELT first/tail postfiltering and
 noise-PLC first/tail postfiltering to their existing per-channel history slices.
 Normal dispatch carries the concrete history array into first/tail helpers;

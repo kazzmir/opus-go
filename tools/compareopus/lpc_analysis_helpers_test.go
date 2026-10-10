@@ -43,6 +43,16 @@ func TestLPCAnalysisAgainstC(t *testing.T) {
 				if !slices.Equal(g, c) || !slices.Equal(in, before) || !slices.Equal(b, bc) {
 					t.Fatalf("d=%d n=%d trial=%d Go=%v C=%v", d, n, trial, g, c)
 				}
+				// Coefficients may share output storage: later taps must remain live reads.
+				g = make([]int16, n+d+2)
+				copy(g[1+d:], b)
+				c, e = slices.Clone(g), slices.Clone(g)
+				opuscc.Opus_silk_LPC_analysis_filter(nil, &g[1], &in[0], &g[1+d], int32(n), int32(d), 0)
+				opusccenc.Opus_silk_LPC_analysis_filter(nil, uintptr(unsafe.Pointer(&e[1])), uintptr(unsafe.Pointer(&in[0])), uintptr(unsafe.Pointer(&e[1+d])), int32(n), int32(d), 0)
+				nativeLPCAnalysis(c[1:1+n], in, c[1+d:1+2*d])
+				if !slices.Equal(g, c) || !slices.Equal(e, c) {
+					t.Fatalf("coefficient/output overlap d=%d n=%d trial=%d", d, n, trial)
+				}
 				// The C API has no restrict qualifier: preserve forward store order when overlapping.
 				for _, shift := range []int{-1, 0, 1} {
 					g = make([]int16, n+2)

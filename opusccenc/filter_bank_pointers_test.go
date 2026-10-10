@@ -1,9 +1,41 @@
 package opusccenc
 
 import (
+	"github.com/kazzmir/opus-go/opuscc"
+	"runtime"
 	"slices"
 	"testing"
 )
+
+func TestLPCAnalysisFilterPointers(t *testing.T) {
+	for _, d := range []int32{6, 8, 10, 16, 24} {
+		for _, extra := range []int32{0, 1, 32} {
+			for _, shift := range []int32{-1, 0, 1} {
+				n := d + extra
+				input := make([]int16, n+2)
+				for i := range input {
+					input[i] = int16(i*7919 - 32768)
+				}
+				coeff := make([]int16, d)
+				for i := range coeff {
+					coeff[i] = int16(i*257 - 32768)
+				}
+				want := slices.Clone(input)
+				opuscc.Opus_silk_LPC_analysis_filter(nil, &want[1+shift], &want[1], &coeff[0], n, d, 0)
+				runtime.GC()
+				silkLPCAnalysisFilter(nil, &input[1+shift], &input[1], &coeff[0], n, d, 0)
+				if !slices.Equal(input, want) {
+					t.Fatal("typed encoder LPC/guards", d, n, shift)
+				}
+			}
+		}
+	}
+	out := [8]int16{77, 1, 2, 3, 4, 5, 6, 88}
+	silkLPCAnalysisFilter(nil, &out[1], nil, nil, 6, 6, 0)
+	if out != [8]int16{77, 0, 0, 0, 0, 0, 0, 88} {
+		t.Fatal("empty LPC predictions must not consume input/coefficients")
+	}
+}
 
 func TestFilterBankPointers(t *testing.T) {
 	input := []int16{-32768, 32767, 0, 1, -1, 100, 20000, -30000, 0, 0, 1234}
