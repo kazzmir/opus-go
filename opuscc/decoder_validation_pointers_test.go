@@ -339,6 +339,50 @@ func registeredMSDecoderStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_O
 	return uintptr(unsafe.Pointer(st)), modes, books, coefs
 }
 
+//go:noinline
+func registeredProjectionStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_OpusCustomMode], [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2][2]weak.Pointer[[32]int16]) {
+	matrix := make([]byte, 18)
+	st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], int32(len(matrix)))
+	if err != nil {
+		panic(err)
+	}
+	ms := get_multistream_decoder(nil, st)
+	var modes [2]weak.Pointer[OpusT_OpusCustomMode]
+	var books [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct]
+	var coefs [2][2]weak.Pointer[[32]int16]
+	offset := uint(opusAlignSize8(int32(unsafe.Sizeof(*ms))))
+	for i := range modes {
+		modes[i], books[i], coefs[i] = decoderStorageForeignPointers(opusMSDecoderAt(ms, offset))
+		channels := int32(1)
+		if i == 0 {
+			channels = 2
+		}
+		offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+	}
+	return uintptr(unsafe.Pointer(st)), modes, books, coefs
+}
+
+func TestOpusDecoderRegisteredProjectionStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	address, modes, books, coefs := registeredProjectionStorage(tls)
+	entropyInitGrowStack(12)
+	for trial := 0; trial < 3; trial++ {
+		runtime.GC()
+		for i := range modes {
+			if modes[i].Value() == nil {
+				t.Fatal("registered projection lost CELT owner", i)
+			}
+			for j := range books[i] {
+				if books[i][j].Value() == nil || coefs[i][j].Value() == nil {
+					t.Fatal("registered projection lost SILK owner", i, j)
+				}
+			}
+		}
+	}
+	Opus_opus_projection_decoder_destroy(tls, address)
+	tls.Close()
+}
+
 func TestOpusDecoderProjectionStoragePointers(t *testing.T) {
 	for _, geometry := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {3, 2, 1}, {4, 2, 2}} {
 		channels, streams, coupled := geometry[0], geometry[1], geometry[2]

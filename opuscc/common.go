@@ -4256,7 +4256,16 @@ func Opus_opus_projection_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int3
 	if size == 0 {
 		return nil, opusErrorFromCode(-7)
 	}
-	st := (*OpusT_OpusProjectionDecoder)(libc.XmallocPointer(tls, uint64(uint32(size))))
+	if tls == nil {
+		return nil, opusErrorFromCode(-7)
+	}
+	var st *OpusT_OpusProjectionDecoder
+	if channels >= 1 && channels <= 255 && streams >= 1 && coupled >= 0 && coupled <= streams && streams <= 255-coupled {
+		st = libc.RegisterGoAllocation(tls, opusProjectionDecoderStorage(channels, streams, coupled))
+	} else {
+		// Keep size/allocation-before-validation behavior for malformed layouts.
+		st = (*OpusT_OpusProjectionDecoder)(libc.XmallocPointer(tls, uint64(uint32(size))))
+	}
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
