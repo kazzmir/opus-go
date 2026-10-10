@@ -4421,6 +4421,19 @@ var tapset_icdf6 = [3]uint8{
 //	   N.B., a "Repeat These Extensions" extension (ID==2) does not advance past
 //	    the repeated extension payloads.
 //	   That requires higher-level logic. */
+//
+// extensionByteAt indexes only a consumed prefix. Zero offsets preserve pointer
+// identity; exact EOF/backward compatibility cursors retain their explicit boundary.
+func extensionByteAt(data *byte, offset, available int32) *byte {
+	if offset == 0 {
+		return data
+	}
+	if offset > 0 && offset < available {
+		return &unsafe.Slice(data, offset+1)[offset]
+	}
+	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
+}
+
 func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSize *int32, idByte, trailingShort int32) int32 {
 	data := *pdata
 	header := int32(0)
@@ -4430,13 +4443,13 @@ func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSiz
 		if length < L {
 			return -1
 		}
-		data = (*byte)(unsafe.Add(unsafe.Pointer(data), L))
+		data = extensionByteAt(data, L, length)
 		length -= L
 	} else if L == 0 {
 		if length < trailingShort {
 			return -1
 		}
-		data = (*byte)(unsafe.Add(unsafe.Pointer(data), length-trailingShort))
+		data = extensionByteAt(data, length-trailingShort, length)
 		length = trailingShort
 	} else {
 		bytes := int32(0)

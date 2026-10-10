@@ -8,6 +8,29 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestExtensionByteCursorPointers(t *testing.T) {
+	var packet [17]byte
+	for i := range packet {
+		packet[i] = byte(i + 1)
+	}
+	for _, offset := range []int32{0, 1, 5, 11} {
+		p := extensionByteAt(&packet[4], offset, 12)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if p != &packet[4+offset] || *p != byte(5+offset) {
+			t.Fatal("consumed cursor", offset)
+		}
+	}
+	if extensionByteAt(nil, 0, 0) != nil || extensionByteAt(&packet[4], 0, 0) != &packet[4] {
+		t.Fatal("zero cursor identity")
+	}
+	// Semantic EOF still preserves its exact native identity; the test's guard
+	// makes this boundary representable without claiming global EOF safety.
+	if extensionByteAt(&packet[4], 12, 12) != &packet[16] || extensionByteAt(&packet[4], -1, 12) != &packet[3] || packet[16] != 17 {
+		t.Fatal("compatibility cursor boundary/guard")
+	}
+}
+
 func TestExtensionIteratorInitPointers(t *testing.T) {
 	owned := func() OpusT_OpusExtensionIterator {
 		packet := [3]byte{7, 99, 0}
