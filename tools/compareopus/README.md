@@ -534,6 +534,42 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four encoder sort/ID rounds migrate int32 increasing top-K sort, int16 full
+sort, float32 decreasing top-K sort, and gains-ID into concrete private kernels.
+Public integer adapters retain six explicit casts and uintptrescapes. Production
+opusccenc counts fall 11276→11240 unsafe.Pointer and 6649→6607 uintptr; decoder
+opuscc remains 169/153. Active loads/stores use numeric indices and typed views.
+Original assertion conditions/diagnostics/order, stable strict ties, float NaN
+comparisons/signed-zero copies, initial index writes, untouched top-K tails and
+separate value→index stores persist. Singleton sorts consume only the index
+output (or no pointers for int16); nonpositive ID counts consume no bytes. Gains
+use signed int8 extension and uint32 shift/int32 wrapping addition.
+
+Upstream silk/sort.c, silk/float/sort_FLP.c and silk/gain_quant.c/macros are the
+oracles. Native fixtures now test both integer ports, float sorting (including
+NaNs, signed zeros and whole-buffer/index guards), and signed/wrapping gain IDs.
+Grouped private fixtures cover GC, aliases, singleton nil values and empty IDs.
+All four rounds pass full amd64/386, ARM64/QEMU, scoped decoder/private-encoder
+checkptr, native comparisons, GC decode stress, unchanged codec references and
+diff checks; final ARM ordinary/scoped fixtures repeat twenty times.
+
+The first sort32 run failed its new alias comparison at L16/K5/shift1:
+/tmp/opus-round-encoder-sort32.log. A direct native probe confirmed the encoder
+rewrite matched C (/tmp/opus-round-encoder-sort32-alias-native-probe.log). The
+existing decoder sort's parallel Go assignment incorrectly cached the index
+read before C's preceding value store. Changing its four assignment sites to
+sequential stores repairs that live alias; preserving the fixture and extending
+the C alias oracle to both ports gives a passing full
+/tmp/opus-round-encoder-sort32-retry.log. Disjoint codec paths/goldens remain
+unchanged; this is an upstream-order correction, not weakened expectations.
+
+The float-sort full run hit the recurring native extension GC failure, fatal
+error: found pointer to free object, in TestExtensionNextAgainstC (extensions
+iterator stack), retained in /tmp/opus-round-encoder-sort-float.log. Its complete
+retry /tmp/opus-round-encoder-sort-float-retry.log passes; no extension/allocator
+repair is claimed. Encoder opaque-state scanning/pseudostack, extension EOF/GC
+and raw callback lifetime remain outside these scalar-leaf migrations.
+
 Four encoder FLP-vector rounds migrate scale-copy, in-place scale, inner product
 and energy into concrete float32-pointer private kernels, with numeric indices
 and consumed-prefix slices. Public integer adapters retain uintptrescapes and

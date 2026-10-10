@@ -11186,20 +11186,21 @@ const MAX_PREDICTION_POWER_GAIN_AFTER_RESET2 = "1e2f"
 //
 //	/* 16th order LPC analysis filter, does not write first 16 samples */
 
+//go:uintptrescapes
 func Opus_silk_gains_ID(tls *libc.TLS, ind uintptr, nb_subfr int32) (r OpusT_opus_int32) {
-	var gainsID OpusT_opus_int32
-	var k int32
-	_, _ = gainsID, k
-	gainsID = 0
-	k = 0
-	for {
-		if !(k < nb_subfr) {
-			break
-		}
-		gainsID = int32(*(*OpusT_opus_int8)(unsafe.Pointer(ind + uintptr(k)))) + libc.Int32FromUint32(libc.Uint32FromInt32(gainsID)<<libc.Int32FromInt32(8))
-		k = k + 1
+	return silkGainsID((*int8)(unsafe.Pointer(ind)), nb_subfr)
+}
+
+func silkGainsID(ind *int8, count int32) int32 {
+	if count <= 0 {
+		return 0
 	}
-	return gainsID
+	indices := unsafe.Slice(ind, count)
+	var id int32
+	for _, index := range indices {
+		id = int32(index) + int32(uint32(id)<<8)
+	}
+	return id
 }
 
 // C documentation

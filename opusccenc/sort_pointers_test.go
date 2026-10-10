@@ -8,6 +8,26 @@ import (
 	"testing"
 )
 
+func TestEncoderGainsIDPointers(t *testing.T) {
+	for _, count := range []int32{1, 2, 4, 8, 16} {
+		indices := make([]int8, count+2)
+		for i := range indices {
+			indices[i] = int8(i*73 - 128)
+		}
+		before := slices.Clone(indices)
+		want := opuscc.Opus_silk_gains_ID(nil, &indices[1], count)
+		runtime.GC()
+		if got := silkGainsID(&indices[1], count); got != want || !slices.Equal(indices, before) {
+			t.Fatal("signed/wrapping gains ID/guards", count, got, want)
+		}
+	}
+	for _, count := range []int32{0, -1} {
+		if silkGainsID(nil, count) != 0 {
+			t.Fatal("empty gains ID", count)
+		}
+	}
+}
+
 func TestEncoderSortFloatPointers(t *testing.T) {
 	cases := []struct {
 		values, want []float32
