@@ -2232,20 +2232,25 @@ func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uin
 	}
 	_ = arch
 	output := unsafe.Slice((*int16)(unsafe.Pointer(out)), len1)
+	var input, coeff []int16
+	if len1 > d {
+		input = unsafe.Slice((*int16)(unsafe.Pointer(in)), len1)
+		coeff = unsafe.Slice((*int16)(unsafe.Pointer(B)), d)
+	}
 	ix = d
 	for {
 		if !(ix < len1) {
 			break
 		}
 		in_ptr = in + uintptr(ix-int32(1))*2
-		out32_Q12 = int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr))) * int32(*(*OpusT_opus_int16)(unsafe.Pointer(B)))
+		out32_Q12 = int32(input[ix-1]) * int32(coeff[0])
 		/* Allowing wrap around so that two wraps can cancel each other. The rare
 		   cases where the result wraps around can only be triggered by invalid streams*/
-		out32_Q12 = libc.Int32FromUint32(libc.Uint32FromInt32(out32_Q12) + libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-libc.Int32FromInt32(1))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 1*2)))))
-		out32_Q12 = libc.Int32FromUint32(libc.Uint32FromInt32(out32_Q12) + libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-libc.Int32FromInt32(2))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 2*2)))))
-		out32_Q12 = libc.Int32FromUint32(libc.Uint32FromInt32(out32_Q12) + libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-libc.Int32FromInt32(3))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 3*2)))))
-		out32_Q12 = libc.Int32FromUint32(libc.Uint32FromInt32(out32_Q12) + libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-libc.Int32FromInt32(4))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 4*2)))))
-		out32_Q12 = libc.Int32FromUint32(libc.Uint32FromInt32(out32_Q12) + libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-libc.Int32FromInt32(5))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + 5*2)))))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(input[ix-2])*int32(coeff[1])))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(input[ix-3])*int32(coeff[2])))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(input[ix-4])*int32(coeff[3])))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(input[ix-5])*int32(coeff[4])))
+		out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(input[ix-6])*int32(coeff[5])))
 		j = int32(6)
 		for {
 			if !(j < d) {
