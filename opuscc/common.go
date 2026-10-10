@@ -2200,9 +2200,11 @@ func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_
 	silkOffset := align(int32(unsafe.Sizeof(*st)))
 	celtOffset := silkOffset + align(silkSize)
 	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), celtOffset))
-	// This is the sole typed pointer slot in the composite decoder layout.
-	// Clear it through its typed slot before clearing the surrounding numeric storage.
+	// Clear every embedded pointer through typed stores before clearing the ABI
+	// image: SILK also contains codebook/resampler pointers in both channels.
 	celt.Fmode = nil
+	silk := (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
+	*silk = OpusT_silk_decoder{}
 	clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
 	st.Fsilk_dec_offset = silkOffset
 	st.Fcelt_dec_offset = celtOffset
@@ -2212,7 +2214,6 @@ func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_
 	st.FFs = Fs
 	st.FDecControl.FAPI_sampleRate = st.FFs
 	st.FDecControl.FnChannelsAPI = st.Fchannels
-	silk := (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
 	if Opus_silk_InitDecoder(tls, silk) != 0 {
 		return -3
 	}
