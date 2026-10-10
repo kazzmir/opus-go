@@ -2,9 +2,45 @@ package opusccenc
 
 import (
 	"math"
+	"runtime"
 	"slices"
 	"testing"
 )
+
+func flpVectorBitsEqual(a, b []float32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func TestScaleCopyVectorFLPPointers(t *testing.T) {
+	for _, size := range []int32{0, 1, 3, 4, 5, 8, 31, 65537, -1, -65536} {
+		for _, shift := range []int32{-1, 0, 1} {
+			length := max(size, size&0xFFFC)
+			data := make([]float32, length+3)
+			for i := range data {
+				data[i] = float32(i%19-9) / 7
+			}
+			want := slices.Clone(data)
+			for i := int32(0); i < length; i++ {
+				want[1+shift+i] = float32(.75 * want[1+i])
+			}
+			runtime.GC()
+			silkScaleCopyVectorFLP(&data[1+shift], &data[1], .75, size)
+			if !flpVectorBitsEqual(data, want) {
+				t.Fatal("scale-copy alias/guards", size, shift)
+			}
+		}
+	}
+	silkScaleCopyVectorFLP(nil, nil, 1, 0)
+	silkScaleCopyVectorFLP(nil, nil, 1, -65536)
+}
 
 func TestFloatPCMPointers(t *testing.T) {
 	input := []float32{-2, -1, -2.5 / 32768, -1.5 / 32768, -0.5 / 32768, 0, 0.5 / 32768, 1.5 / 32768, 2.5 / 32768, 1, 2, float32(math.NaN()), float32(math.Inf(-1)), float32(math.Inf(1))}

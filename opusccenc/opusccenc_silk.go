@@ -14417,29 +14417,28 @@ func Opus_silk_residual_energy_covar_FLP(tls *libc.TLS, c uintptr, wXX uintptr, 
 //	/* Calculates residual energies of input subframes where all subframes have LPC_order   */
 //	/* of preceding samples                                                                 */
 
+//go:uintptrescapes
 func Opus_silk_scale_copy_vector_FLP(tls *libc.TLS, data_out uintptr, data_in uintptr, gain float32, dataSize int32) {
-	var dataSize4, i int32
-	_, _ = dataSize4, i
-	/* 4x unrolled loop */
-	dataSize4 = dataSize & int32(0xFFFC)
-	i = 0
-	for {
-		if !(i < dataSize4) {
-			break
-		}
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i+0)*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i+0)*4)))
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i+int32(1))*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i+int32(1))*4)))
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i+int32(2))*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i+int32(2))*4)))
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i+int32(3))*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i+int32(3))*4)))
-		i = i + int32(4)
+	silkScaleCopyVectorFLP((*float32)(unsafe.Pointer(data_out)), (*float32)(unsafe.Pointer(data_in)), gain, dataSize)
+}
+
+func silkScaleCopyVectorFLP(out, in *float32, gain float32, size int32) {
+	// Keep the upstream 16-bit mask, including its negative-size work prefix.
+	bulk := size & 0xFFFC
+	length := max(size, bulk)
+	if length == 0 {
+		return
 	}
-	/* any remaining elements */
-	for {
-		if !(i < dataSize) {
-			break
-		}
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i)*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i)*4)))
-		i = i + 1
+	dst, src := unsafe.Slice(out, length), unsafe.Slice(in, length)
+	var i int32
+	for ; i < bulk; i += 4 {
+		dst[i] = float32(gain * src[i])
+		dst[i+1] = float32(gain * src[i+1])
+		dst[i+2] = float32(gain * src[i+2])
+		dst[i+3] = float32(gain * src[i+3])
+	}
+	for ; i < size; i++ {
+		dst[i] = float32(gain * src[i])
 	}
 }
 
