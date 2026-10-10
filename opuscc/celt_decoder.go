@@ -633,10 +633,14 @@ func celtDecodeEnergyMergeMono(energy *float32, bands int32) {
 }
 
 func celtDecodePostfilter(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, channels, N, LM, period int32, gain float32, tapset, overlap int32) {
+	celtDecodePostfilterWithHistory(tls, state, mode, outputs, channels, N, LM, period, gain, tapset, overlap, [2][]float32{})
+}
+
+func celtDecodePostfilterWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, channels, N, LM, period int32, gain float32, tapset, overlap int32, history [2][]float32) {
 	out := unsafe.Slice(outputs, max(int32(1), channels))
 	for c := int32(0); ; c++ {
 		celtDecodePostfilterClamp(state)
-		celtDecodePostfilterFirst(tls, state, mode, out[c], overlap)
+		celtDecodePostfilterFirstWithHistory(tls, state, mode, out[c], overlap, history[c], DEC_PITCH_BUF_SIZE-N)
 		if LM != 0 {
 			celtDecodePostfilterTail(tls, state, mode, out[c], N, period, gain, tapset, overlap)
 		}
@@ -652,7 +656,11 @@ func celtDecodePostfilterTail(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mod
 }
 
 func celtDecodePostfilterFirst(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, overlap int32) {
-	Opus_comb_filter(tls, output, output, state.Fpostfilter_period_old, state.Fpostfilter_period, mode.FshortMdctSize, state.Fpostfilter_gain_old, state.Fpostfilter_gain, state.Fpostfilter_tapset_old, state.Fpostfilter_tapset, mode.Fwindow, overlap, state.Farch)
+	celtDecodePostfilterFirstWithHistory(tls, state, mode, output, overlap, nil, 0)
+}
+
+func celtDecodePostfilterFirstWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, overlap int32, history []float32, offset int32) {
+	combFilterWithHistory(tls, output, output, state.Fpostfilter_period_old, state.Fpostfilter_period, mode.FshortMdctSize, state.Fpostfilter_gain_old, state.Fpostfilter_gain, state.Fpostfilter_tapset_old, state.Fpostfilter_tapset, mode.Fwindow, overlap, state.Farch, history, offset)
 }
 
 func celtDecodePostfilterClamp(state *OpusT_OpusCustomDecoder) {
@@ -1343,7 +1351,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	}
 	celtDecodePrefilter(tls, st1, N)
 	celt_synthesis(tls, mode, unsafe.SliceData(X), &out_syn[0], oldBandE, start, effEnd, C, CC, isTransient, LM, st1.Fdownsample, silence, st1.Farch)
-	celtDecodePostfilter(tls, st1, mode, &out_syn[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap)
+	celtDecodePostfilterWithHistory(tls, st1, mode, &out_syn[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap, decode_mem)
 	celtDecodePostfilterFinish(st1, postfilter_pitch, postfilter_gain, postfilter_tapset, LM)
 	if C == 1 {
 		celtDecodeEnergyMono(oldBandE, nbEBands)
