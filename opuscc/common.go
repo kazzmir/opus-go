@@ -3477,6 +3477,10 @@ func Opus_opus_multistream_decoder_get_size(tls *libc.TLS, nb_streams, nb_couple
 }
 
 func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte) int32 {
+	return opusMSDecoderInitWithChildren(tls, st, Fs, channels, streams, coupled, mapping, nil)
+}
+
+func opusMSDecoderInitWithChildren(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte, children []*OpusT_OpusDecoder) int32 {
 	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
 		return OPUS_BAD_ARG
 	}
@@ -3500,8 +3504,13 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, 
 		if i < layout.Fnb_coupled_streams {
 			ch, size = 2, coupledSize
 		}
-		ptr := unsafe.Add(unsafe.Pointer(st), offset)
-		if ret := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(ptr), Fs, ch); ret != OPUS_OK {
+		var child *OpusT_OpusDecoder
+		if children != nil {
+			child = children[i]
+		} else {
+			child = (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
+		}
+		if ret := Opus_opus_decoder_init(tls, child, Fs, ch); ret != OPUS_OK {
 			return ret
 		}
 		// Do not materialize an unused end pointer on an exactly-sized allocation.
@@ -3517,11 +3526,12 @@ func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int
 	if tls == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	st := libc.RegisterGoAllocation(tls, opusMSDecoderStorage(streams, coupled))
+	owned := opusMSDecoderOwnedStorage(streams, coupled)
+	st := libc.RegisterGoAllocation(tls, owned.Decoder)
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	if ret := Opus_opus_multistream_decoder_init(tls, st, Fs, channels, streams, coupled, mapping); ret != OPUS_OK {
+	if ret := opusMSDecoderInitWithChildren(tls, st, Fs, channels, streams, coupled, mapping, owned.Children); ret != OPUS_OK {
 		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}

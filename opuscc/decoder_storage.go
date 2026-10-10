@@ -118,9 +118,32 @@ func opusProjectionDecoderStorage(channels, streams, coupled int32) *OpusT_OpusP
 	return owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusProjectionDecoder)
 }
 
+type opusMSStorageViews struct {
+	Decoder  *OpusT_OpusMSDecoder
+	Children []*OpusT_OpusDecoder
+}
+
+func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
+	views := opusMSStorageViews{Decoder: owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusMSDecoder)}
+	for _, name := range []string{"Coupled", "Mono"} {
+		array := owner.FieldByName(name)
+		if !array.IsValid() {
+			continue
+		}
+		for i := 0; i < array.Len(); i++ {
+			child := array.Index(i).FieldByName("Image").FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder)
+			views.Children = append(views.Children, child)
+		}
+	}
+	return views
+}
+
+func opusMSDecoderOwnedStorage(streams, coupled int32) opusMSStorageViews {
+	return opusMSStorageViewsAt(opusDecoderAlignedStorage(opusMSDecoderStorageType(streams, coupled)))
+}
+
 func opusMSDecoderStorage(streams, coupled int32) *OpusT_OpusMSDecoder {
-	owner := opusDecoderAlignedStorage(opusMSDecoderStorageType(streams, coupled))
-	return owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusMSDecoder)
+	return opusMSDecoderOwnedStorage(streams, coupled).Decoder
 }
 
 func opusDecoderStorage(channels int32) *OpusT_OpusDecoder {

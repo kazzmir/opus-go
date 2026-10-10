@@ -419,6 +419,39 @@ func TestOpusDecoderProjectionStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderMSBoundStoragePointers(t *testing.T) {
+	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 1}, {3, 1}} {
+		streams, coupled := geometry[0], geometry[1]
+		for _, rate := range []int32{48000, 44100} {
+			owned := opusMSDecoderOwnedStorage(streams, coupled)
+			legacy := opusMSDecoderStorage(streams, coupled)
+			mapping := make([]byte, streams+coupled)
+			for i := range mapping {
+				mapping[i] = byte(i)
+			}
+			offset := uint(opusAlignSize8(int32(unsafe.Sizeof(*owned.Decoder))))
+			for i, child := range owned.Children {
+				if child != opusMSDecoderAt(owned.Decoder, offset) {
+					t.Fatal("bound MS child identity", geometry, i)
+				}
+				channels := int32(1)
+				if int32(i) < coupled {
+					channels = 2
+				}
+				offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+			}
+			want := Opus_opus_multistream_decoder_init(nil, legacy, rate, int32(len(mapping)), streams, coupled, &mapping[0])
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := opusMSDecoderInitWithChildren(nil, owned.Decoder, rate, int32(len(mapping)), streams, coupled, &mapping[0], owned.Children)
+			n := Opus_opus_multistream_decoder_get_size(nil, streams, coupled)
+			if got != want || !slices.Equal(unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n), unsafe.Slice((*byte)(unsafe.Pointer(legacy)), n)) {
+				t.Fatal("bound MS init image/error ordering", geometry, rate, got, want)
+			}
+		}
+	}
+}
+
 func TestOpusDecoderMSStoragePointers(t *testing.T) {
 	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 0}, {2, 1}, {2, 2}, {3, 1}} {
 		streams, coupled := geometry[0], geometry[1]
