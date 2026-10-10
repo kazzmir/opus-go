@@ -642,7 +642,7 @@ func celtDecodePostfilterWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecod
 		celtDecodePostfilterClamp(state)
 		celtDecodePostfilterFirstWithHistory(tls, state, mode, out[c], overlap, history[c], DEC_PITCH_BUF_SIZE-N)
 		if LM != 0 {
-			celtDecodePostfilterTail(tls, state, mode, out[c], N, period, gain, tapset, overlap)
+			celtDecodePostfilterTailWithHistory(tls, state, mode, out[c], N, period, gain, tapset, overlap, history[c], DEC_PITCH_BUF_SIZE-N)
 		}
 		if c+1 >= channels {
 			break
@@ -651,8 +651,12 @@ func celtDecodePostfilterWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecod
 }
 
 func celtDecodePostfilterTail(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, N, period int32, gain float32, tapset, overlap int32) {
+	celtDecodePostfilterTailWithHistory(tls, state, mode, output, N, period, gain, tapset, overlap, nil, 0)
+}
+
+func celtDecodePostfilterTailWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, N, period int32, gain float32, tapset, overlap int32, history []float32, offset int32) {
 	tail := &unsafe.Slice(output, N)[mode.FshortMdctSize]
-	Opus_comb_filter(tls, tail, tail, state.Fpostfilter_period, period, N-mode.FshortMdctSize, state.Fpostfilter_gain, gain, state.Fpostfilter_tapset, tapset, mode.Fwindow, overlap, state.Farch)
+	combFilterWithHistory(tls, tail, tail, state.Fpostfilter_period, period, N-mode.FshortMdctSize, state.Fpostfilter_gain, gain, state.Fpostfilter_tapset, tapset, mode.Fwindow, overlap, state.Farch, history, offset+mode.FshortMdctSize)
 }
 
 func celtDecodePostfilterFirst(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, overlap int32) {
