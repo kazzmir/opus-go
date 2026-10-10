@@ -5,6 +5,7 @@ package main
 import (
 	"github.com/kazzmir/opus-go/opusccenc"
 	"math"
+	"math/rand"
 	"slices"
 	"testing"
 	"unsafe"
@@ -20,6 +21,30 @@ func flpSameBits(a, b []float32) bool {
 		}
 	}
 	return true
+}
+
+func TestInnerProductFLPAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(9541))
+	for _, size := range []int32{0, 1, 3, 4, 5, 8, 31, 320, 2048} {
+		for trial := 0; trial < 100; trial++ {
+			a, b := make([]float32, size+2), make([]float32, size+2)
+			for i := range a {
+				a[i] = math.Float32frombits(rng.Uint32() & 0xfeffffff)
+				b[i] = math.Float32frombits(rng.Uint32() & 0xfeffffff)
+			}
+			beforeA, beforeB := slices.Clone(a), slices.Clone(b)
+			g := opusccenc.Opus_silk_inner_product_FLP_c(nil, uintptr(unsafe.Pointer(&a[1])), uintptr(unsafe.Pointer(&b[1])), size)
+			c := nativeInnerProductFLP(a[1:], b[1:], size)
+			if math.Float64bits(g) != math.Float64bits(c) || !flpSameBits(a, beforeA) || !flpSameBits(b, beforeB) {
+				t.Fatal("inner-product", size, trial, g, c)
+			}
+		}
+	}
+	for _, size := range []int32{0, -1, -65536} {
+		if nativeInnerProductFLP(nil, nil, size) != 0 || opusccenc.Opus_silk_inner_product_FLP_c(nil, 0, 0, size) != 0 {
+			t.Fatal("empty product", size)
+		}
+	}
 }
 
 func TestScaleFLPAgainstC(t *testing.T) {

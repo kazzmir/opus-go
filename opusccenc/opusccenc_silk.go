@@ -11523,27 +11523,33 @@ POSSIBILITY OF SUCH DAMAGE.
 //	/* Approximation of 128 * log2() (very close inverse of silk_log2lin()) */
 //	/* Convert input to a log scale    */
 
+//go:uintptrescapes
 func Opus_silk_inner_product_FLP_c(tls *libc.TLS, data1 uintptr, data2 uintptr, dataSize int32) (r float64) {
-	var i int32
-	var result float64
-	_, _ = i, result
-	/* 4x unrolled loop */
-	result = float64(0)
-	i = 0
-	for {
-		if !(i < dataSize-int32(3)) {
-			break
-		}
-		result = result + (float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i+0)*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i+0)*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(1))*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i+int32(1))*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(2))*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i+int32(2))*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(3))*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i+int32(3))*4)))))
-		i = i + int32(4)
+	return silkInnerProductFLP((*float32)(unsafe.Pointer(data1)), (*float32)(unsafe.Pointer(data2)), dataSize)
+}
+
+// Match the actual four-lane loop extent, retaining its int32 bound arithmetic.
+func silkFLPReductionLength(size int32) int64 {
+	length := int64(size)
+	if end := size - 3; end > 0 {
+		length = max(length, (int64(end)+3)&^3)
 	}
-	/* add any remaining products */
-	for {
-		if !(i < dataSize) {
-			break
-		}
-		result = result + float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i)*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i)*4))))
-		i = i + 1
+	return max(int64(0), length)
+}
+
+func silkInnerProductFLP(data1, data2 *float32, size int32) float64 {
+	length := silkFLPReductionLength(size)
+	if length == 0 {
+		return 0
+	}
+	a, b := unsafe.Slice(data1, length), unsafe.Slice(data2, length)
+	var result float64
+	var i int32
+	for ; i < size-3; i += 4 {
+		result = result + (float64(float64(a[i])*float64(b[i])) + float64(float64(a[i+1])*float64(b[i+1])) + float64(float64(a[i+2])*float64(b[i+2])) + float64(float64(a[i+3])*float64(b[i+3])))
+	}
+	for ; i < size; i++ {
+		result = result + float64(float64(a[i])*float64(b[i]))
 	}
 	return result
 }

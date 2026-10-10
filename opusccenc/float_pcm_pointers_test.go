@@ -74,6 +74,39 @@ func TestScaleVectorFLPPointers(t *testing.T) {
 	silkScaleVectorFLP(nil, 1, -65536)
 }
 
+func TestInnerProductFLPPointers(t *testing.T) {
+	for _, size := range []int32{0, 1, 3, 4, 5, 8, 31} {
+		a, b := make([]float32, size+2), make([]float32, size+2)
+		for i := range a {
+			a[i], b[i] = float32(i%19-9)/7, float32(i%13-6)/3
+		}
+		var want float64
+		var i int32
+		for ; i < size-3; i += 4 {
+			want += float64(a[1+i])*float64(b[1+i]) + float64(a[2+i])*float64(b[2+i]) + float64(a[3+i])*float64(b[3+i]) + float64(a[4+i])*float64(b[4+i])
+		}
+		for ; i < size; i++ {
+			want += float64(a[1+i]) * float64(b[1+i])
+		}
+		runtime.GC()
+		if got := silkInnerProductFLP(&a[1], &b[1], size); math.Float64bits(got) != math.Float64bits(want) {
+			t.Fatal("inner-product", size, got, want)
+		}
+	}
+	a, b := [8]float32{1, 0, 0, 0, 1e20, -1e20, 0, 0}, [8]float32{1, 1, 1, 1, 1, 1, 1, 1}
+	if silkInnerProductFLP(&a[0], &b[0], 8) != 1 {
+		t.Fatal("four-product grouping")
+	}
+	for _, size := range []int32{0, -1, -65536} {
+		if silkInnerProductFLP(nil, nil, size) != 0 {
+			t.Fatal("empty product", size)
+		}
+	}
+	if silkFLPReductionLength(math.MinInt32) != 2147483648 {
+		t.Fatal("int32 loop bound wrap")
+	}
+}
+
 func TestFloatPCMPointers(t *testing.T) {
 	input := []float32{-2, -1, -2.5 / 32768, -1.5 / 32768, -0.5 / 32768, 0, 0.5 / 32768, 1.5 / 32768, 2.5 / 32768, 1, 2, float32(math.NaN()), float32(math.Inf(-1)), float32(math.Inf(1))}
 	want := []int16{-32768, -32768, -2, -2, 0, 0, 0, 2, 2, 32767, 32767, -32768, -32768, 32767}
