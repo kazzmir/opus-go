@@ -339,6 +339,42 @@ func registeredMSDecoderStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_O
 	return uintptr(unsafe.Pointer(st)), modes, books, coefs
 }
 
+func TestOpusDecoderProjectionStoragePointers(t *testing.T) {
+	for _, geometry := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {3, 2, 1}, {4, 2, 2}} {
+		channels, streams, coupled := geometry[0], geometry[1], geometry[2]
+		layout := opusProjectionDecoderStorageType(channels, streams, coupled)
+		st := opusProjectionDecoderStorage(channels, streams, coupled)
+		if uintptr(unsafe.Pointer(st))&15 != 0 {
+			t.Fatal("projection storage alignment")
+		}
+		matrix := make([]byte, channels*(streams+coupled)*2)
+		if ret := Opus_opus_projection_decoder_init(nil, st, 48000, channels, streams, coupled, &matrix[0], int32(len(matrix))); ret != 0 {
+			t.Fatal("projection owned init", geometry, ret)
+		}
+		mf, _ := layout.FieldByName("Demixing")
+		msf, _ := layout.FieldByName("Multistream")
+		if mf.Offset != 8 || uint(msf.Offset) != opusProjectionMSOffset(st) || int32(layout.Size()) != Opus_opus_projection_decoder_get_size(nil, channels, streams, coupled) {
+			t.Fatal("projection storage offsets", geometry)
+		}
+		ms := get_multistream_decoder(nil, st)
+		child := opusMSDecoderAt(ms, uint(opusAlignSize8(int32(unsafe.Sizeof(*ms)))))
+		mode, books, coefs := decoderStorageForeignPointers(child)
+		entropyInitGrowStack(12)
+		for trial := 0; trial < 3; trial++ {
+			runtime.GC()
+			if mode.Value() == nil {
+				t.Fatal("projection lost CELT owner")
+			}
+			for i := range books {
+				if books[i].Value() == nil || coefs[i].Value() == nil {
+					t.Fatal("projection lost SILK owner", i)
+				}
+			}
+		}
+		runtime.KeepAlive(st)
+	}
+}
+
 func TestOpusDecoderMSStoragePointers(t *testing.T) {
 	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 0}, {2, 1}, {2, 2}, {3, 1}} {
 		streams, coupled := geometry[0], geometry[1]

@@ -89,6 +89,35 @@ func opusMSDecoderStorageType(streams, coupled int32) reflect.Type {
 	return layout
 }
 
+func opusProjectionDecoderStorageType(channels, streams, coupled int32) reflect.Type {
+	matrixSize := Opus_mapping_matrix_get_size(nil, channels, streams+coupled)
+	matrixFields := []reflect.StructField{
+		{Name: "Matrix", Type: reflect.TypeFor[OpusT_MappingMatrix]()},
+		{Name: "HeaderPadding", Type: reflect.ArrayOf(4, reflect.TypeFor[byte]())},
+	}
+	if matrixSize > 16 {
+		matrixFields = append(matrixFields, reflect.StructField{Name: "Coefficients", Type: reflect.ArrayOf(int((matrixSize-16)/2), reflect.TypeFor[int16]())})
+	}
+	matrix := reflect.StructOf(matrixFields)
+	layout := reflect.StructOf([]reflect.StructField{
+		{Name: "Decoder", Type: reflect.TypeFor[OpusT_OpusProjectionDecoder]()},
+		{Name: "HeaderPadding", Type: reflect.ArrayOf(4, reflect.TypeFor[byte]())},
+		{Name: "Demixing", Type: matrix},
+		{Name: "Multistream", Type: opusMSDecoderStorageType(streams, coupled)},
+	})
+	mf, _ := layout.FieldByName("Demixing")
+	msf, _ := layout.FieldByName("Multistream")
+	if uint64(matrix.Size()) != uint64(matrixSize) || mf.Offset != 8 || uint64(msf.Offset) != uint64(8+matrixSize) || uint64(layout.Size()) != uint64(Opus_opus_projection_decoder_get_size(nil, channels, streams, coupled)) {
+		panic("opus projection Go storage layout mismatch")
+	}
+	return layout
+}
+
+func opusProjectionDecoderStorage(channels, streams, coupled int32) *OpusT_OpusProjectionDecoder {
+	owner := opusDecoderAlignedStorage(opusProjectionDecoderStorageType(channels, streams, coupled))
+	return owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusProjectionDecoder)
+}
+
 func opusMSDecoderStorage(streams, coupled int32) *OpusT_OpusMSDecoder {
 	owner := opusDecoderAlignedStorage(opusMSDecoderStorageType(streams, coupled))
 	return owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusMSDecoder)
