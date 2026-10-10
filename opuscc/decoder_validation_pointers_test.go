@@ -383,6 +383,33 @@ func TestOpusDecoderRegisteredProjectionStoragePointers(t *testing.T) {
 	tls.Close()
 }
 
+func TestOpusDecoderProjectionBoundStoragePointers(t *testing.T) {
+	for _, rate := range []int32{48000, 44100} {
+		for _, size := range []int32{18, 17} {
+			owned := opusProjectionDecoderOwnedStorage(3, 2, 1)
+			legacy := opusProjectionDecoderStorage(3, 2, 1)
+			if owned.Matrix != get_dec_demixing_matrix(nil, owned.Decoder) || owned.Coefficients != mappingMatrixData(owned.Matrix) || owned.Multistream.Decoder != (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(owned.Decoder), 48)) {
+				t.Fatal("projection concrete view identity")
+			}
+			// Source overlaps both projection and matrix headers. All coefficients
+			// must be snapshotted before either header or destination is written.
+			goSource := unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), 18)
+			oldSource := unsafe.Slice((*byte)(unsafe.Pointer(legacy)), 18)
+			for i := range goSource {
+				goSource[i], oldSource[i] = byte(i*37+19), byte(i*37+19)
+			}
+			want := Opus_opus_projection_decoder_init(nil, legacy, rate, 3, 2, 1, &oldSource[0], size)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := opusProjectionDecoderInitWithStorage(nil, owned.Decoder, rate, 3, 2, 1, &goSource[0], size, &owned)
+			n := Opus_opus_projection_decoder_get_size(nil, 3, 2, 1)
+			if got != want || !slices.Equal(unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n), unsafe.Slice((*byte)(unsafe.Pointer(legacy)), n)) {
+				t.Fatal("bound projection init image/error/snapshot", rate, size, got, want)
+			}
+		}
+	}
+}
+
 func TestOpusDecoderProjectionStoragePointers(t *testing.T) {
 	for _, geometry := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {3, 2, 1}, {4, 2, 2}} {
 		channels, streams, coupled := geometry[0], geometry[1], geometry[2]

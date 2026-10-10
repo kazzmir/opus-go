@@ -3974,6 +3974,10 @@ func Opus_mapping_matrix_get_data(tls *libc.TLS, matrix *OpusT_MappingMatrix) *i
 }
 
 func Opus_mapping_matrix_init(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, cols, gain int32, data *int16, data_size OpusT_opus_int32) {
+	mappingMatrixInitWithStorage(tls, matrix, rows, cols, gain, data, data_size, nil)
+}
+
+func mappingMatrixInitWithStorage(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, cols, gain int32, data *int16, data_size int32, destination *int16) {
 	if (uint32(data_size)+7)&^uint32(7) != (uint32(rows*cols)*2+7)&^uint32(7) {
 		Opus_celt_fatal(tls, __ccgo_ts+2234, __ccgo_ts+2312, 72)
 	}
@@ -3981,7 +3985,10 @@ func Opus_mapping_matrix_init(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, 
 	if rows*cols == 0 {
 		return
 	}
-	dst := unsafe.Slice(mappingMatrixData(matrix), rows*cols)
+	if destination == nil {
+		destination = mappingMatrixData(matrix)
+	}
+	dst := unsafe.Slice(destination, rows*cols)
 	src := unsafe.Slice(data, rows*cols)
 	// Preserve the C forward-copy order, including overlapping coefficients.
 	for i := range dst {
@@ -4235,6 +4242,10 @@ func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels, streams, cou
 }
 
 func Opus_opus_projection_decoder_init(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes OpusT_opus_int32) int32 {
+	return opusProjectionDecoderInitWithStorage(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes, nil)
+}
+
+func opusProjectionDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes int32, owned *opusProjectionStorageViews) int32 {
 	inputs := streams + coupled
 	count := inputs * channels
 	expected := count * 2
@@ -4252,10 +4263,17 @@ func Opus_opus_projection_decoder_init(tls *libc.TLS, st *OpusT_OpusProjectionDe
 	if st.Fdemixing_matrix_size_in_bytes == 0 {
 		return OPUS_BAD_ARG
 	}
-	Opus_mapping_matrix_init(tls, get_dec_demixing_matrix(tls, st), channels, inputs, 0, unsafe.SliceData(coefficients), matrixBytes)
+	if owned == nil {
+		Opus_mapping_matrix_init(tls, get_dec_demixing_matrix(tls, st), channels, inputs, 0, unsafe.SliceData(coefficients), matrixBytes)
+	} else {
+		mappingMatrixInitWithStorage(tls, owned.Matrix, channels, inputs, 0, unsafe.SliceData(coefficients), matrixBytes, owned.Coefficients)
+	}
 	var mapping [255]byte
 	for i := int32(0); i < channels; i++ {
 		mapping[i] = byte(i)
+	}
+	if owned != nil {
+		return opusMSDecoderInitWithChildren(tls, owned.Multistream.Decoder, Fs, channels, streams, coupled, &mapping[0], owned.Multistream.Children)
 	}
 	return Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st), Fs, channels, streams, coupled, &mapping[0])
 }
@@ -4270,8 +4288,11 @@ func Opus_opus_projection_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int3
 		return nil, opusErrorFromCode(-7)
 	}
 	var st *OpusT_OpusProjectionDecoder
+	var owned *opusProjectionStorageViews
 	if channels >= 1 && channels <= 255 && streams >= 1 && coupled >= 0 && coupled <= streams && streams <= 255-coupled {
-		st = libc.RegisterGoAllocation(tls, opusProjectionDecoderStorage(channels, streams, coupled))
+		views := opusProjectionDecoderOwnedStorage(channels, streams, coupled)
+		owned = &views
+		st = libc.RegisterGoAllocation(tls, views.Decoder)
 	} else {
 		// Keep size/allocation-before-validation behavior for malformed layouts.
 		st = (*OpusT_OpusProjectionDecoder)(libc.XmallocPointer(tls, uint64(uint32(size))))
@@ -4279,7 +4300,7 @@ func Opus_opus_projection_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int3
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	if ret := Opus_opus_projection_decoder_init(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes); ret != OPUS_OK {
+	if ret := opusProjectionDecoderInitWithStorage(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes, owned); ret != OPUS_OK {
 		Opus_opus_projection_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}

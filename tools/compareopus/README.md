@@ -534,6 +534,41 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four projection/initialization ownership rounds add canonical projection Go
+storage, migrate valid projection factories to registered scanned owners, bind
+standalone multistream factory initialization to concrete child headers, then
+bind projection factory matrix/coefficient/MS/child initialization to concrete
+views. The projection runtime type contains the actual scalar projection header,
+canonical matrix header plus int16 coefficient/padding cells, and the canonical
+multistream compound type. All successful projection factory states now scan
+their embedded decoder pointers, superseding the earlier factory limitation.
+
+Factory creation still queries size and attempts allocation before initialization
+validation. Invalid geometries keep the old byte-allocation/error path rather
+than inventing a reflective layout or changing error ordering. Nil-TLS behavior,
+coefficient little-endian/signed conversion, complete input snapshot before
+header writes, forward matrix stores, mapping validation before child rate checks,
+coupled-before-mono order, cleanup and 16-byte alignment are preserved. Bound
+factory initialization no longer recovers matrix/MS/child pointers with layout
+arithmetic; public initializers and malformed-layout paths retain explicit
+compatibility fallbacks. Decode-time layout accessors remain necessary boundaries.
+Production counts remain 169 unsafe.Pointer/153 uintptr; these are genuine Go
+allocation/ownership and concrete-view improvements, not lexical cast deletion.
+
+Upstream src/opus_projection_decoder.c and mapping_matrix.c establish the header,
+matrix, child layout and snapshot/error order. Grouped canonical/registered
+projection fixtures cover exact sizes/offsets/alignment and weak-reference survival
+of both coupled/mono children with only integer handles plus TLS. Bound init
+fixtures compare complete ABI images and return codes against compatibility
+initializers under GC/stack growth, including aliased projection/matrix source
+headers, size mismatch and invalid rate. Existing native layouts/initialization,
+format comparisons and codec goldens are unchanged. Each round passes full
+amd64/386, ARM64/QEMU, scoped checkptr, native comparisons, GC decode stress,
+encode/decode references and diff checks, with twenty final ARM ordinary/scoped
+repetitions. Scanned-alignment fallback overhead and reflective type creation
+remain as documented below. Caller-supplied/invalid byte images, extension EOF/GC,
+raw callbacks and other opaque allocations are not globally repaired.
+
 Four decoder ownership rounds clear every embedded SILK pointer via typed
 stores before composite initialization's ABI-image clear, construct canonical
 Go single-decoder storage, register/migrate single factories, then construct and
