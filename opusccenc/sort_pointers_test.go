@@ -7,6 +7,23 @@ import (
 	"testing"
 )
 
+func TestEncoderSort16Pointers(t *testing.T) {
+	for _, n := range []int32{1, 6, 16, 32} {
+		data := make([]int16, n+2)
+		for i := range data {
+			data[i] = int16(i*7919 - 32768)
+		}
+		want := slices.Clone(data)
+		opuscc.Opus_silk_insertion_sort_increasing_all_values_int16(nil, &want[1], n)
+		runtime.GC()
+		silkInsertionSortInt16(nil, &data[1], n)
+		if !slices.Equal(data, want) {
+			t.Fatal("sort16/guards", n)
+		}
+	}
+	silkInsertionSortInt16(nil, nil, 1)
+}
+
 func TestEncoderSort32Pointers(t *testing.T) {
 	for _, n := range []int32{1, 6, 16, 32} {
 		for k := int32(1); k <= n; k++ {

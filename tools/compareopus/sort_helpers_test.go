@@ -48,7 +48,8 @@ func TestSortAgainstC(t *testing.T) {
 					} // Repeated values exercise stable indices.
 				}
 				c, c16 := slices.Clone(a), slices.Clone(a16)
-				e := slices.Clone(a)
+				e, e16 := slices.Clone(a), slices.Clone(a16)
+				opusccenc.Opus_silk_insertion_sort_increasing_all_values_int16(nil, uintptr(unsafe.Pointer(&e16[0])), int32(n))
 				eidx := make([]int32, k)
 				opusccenc.Opus_silk_insertion_sort_increasing(nil, uintptr(unsafe.Pointer(&e[0])), uintptr(unsafe.Pointer(&eidx[0])), int32(n), int32(k))
 				idx, cidx := make([]int32, k), make([]int32, k)
@@ -56,7 +57,7 @@ func TestSortAgainstC(t *testing.T) {
 				opuscc.Opus_silk_insertion_sort_increasing_all_values_int16(nil, &a16[0], int32(n))
 				nativeSort32(c, cidx)
 				nativeSort16(c16)
-				if !slices.Equal(a, c) || !slices.Equal(idx, cidx) || !slices.Equal(a16, c16) || !slices.Equal(e, c) || !slices.Equal(eidx, cidx) {
+				if !slices.Equal(a, c) || !slices.Equal(idx, cidx) || !slices.Equal(a16, c16) || !slices.Equal(e, c) || !slices.Equal(eidx, cidx) || !slices.Equal(e16, c16) {
 					t.Fatalf("n=%d k=%d trial=%d: sorting differs from C", n, k, trial)
 				}
 			}

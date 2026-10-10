@@ -11671,30 +11671,27 @@ func silkInsertionSortIncreasing(tls *libc.TLS, a, idx *int32, L, K int32) {
 	}
 }
 
+//go:uintptrescapes
 func Opus_silk_insertion_sort_increasing_all_values_int16(tls *libc.TLS, a uintptr, L int32) {
-	var i, j, value int32
-	_, _, _ = i, j, value
+	silkInsertionSortInt16(tls, (*int16)(unsafe.Pointer(a)), L)
+}
+
+func silkInsertionSortInt16(tls *libc.TLS, a *int16, L int32) {
 	/* Safety checks */
 	if !(L > libc.Int32FromInt32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+10603, __ccgo_ts+10588, int32(144))
 	}
-	/* Sort vector elements by value, increasing order */
-	i = int32(1)
-	for {
-		if !(i < L) {
-			break
+	if L == 1 {
+		return
+	}
+	values := unsafe.Slice(a, L)
+	for i := int32(1); i < L; i++ {
+		value := int32(values[i])
+		j := i - 1
+		for ; j >= 0 && value < int32(values[j]); j-- {
+			values[j+1] = values[j]
 		}
-		value = int32(*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(i)*2)))
-		j = i - int32(1)
-		for {
-			if !(j >= 0 && value < int32(*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j)*2)))) {
-				break
-			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j+int32(1))*2)) = *(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j)*2)) /* Shift value */
-			j = j - 1
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j+int32(1))*2)) = int16(value) /* Write value */
-		i = i + 1
+		values[j+1] = int16(value)
 	}
 }
 
