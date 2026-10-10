@@ -2256,12 +2256,12 @@ func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out uintptr, in uintptr, B uin
 			if !(j < d) {
 				break
 			}
-			out32_Q12 = libc.Int32FromUint32(libc.Uint32FromInt32(out32_Q12) + libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-j)*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + uintptr(j)*2)))))
-			out32_Q12 = libc.Int32FromUint32(libc.Uint32FromInt32(out32_Q12) + libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + uintptr(-j-int32(1))*2)))*int32(*(*OpusT_opus_int16)(unsafe.Pointer(B + uintptr(j+int32(1))*2)))))
+			out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(input[ix-1-j])*int32(coeff[j])))
+			out32_Q12 = int32(uint32(out32_Q12) + uint32(int32(input[ix-2-j])*int32(coeff[j+1])))
 			j = j + int32(2)
 		}
 		/* Subtract prediction */
-		out32_Q12 = libc.Int32FromUint32(libc.Uint32FromInt32(libc.Int32FromUint32(libc.Uint32FromInt32(int32(*(*OpusT_opus_int16)(unsafe.Pointer(in_ptr + 1*2))))<<libc.Int32FromInt32(12))) - libc.Uint32FromInt32(out32_Q12))
+		out32_Q12 = int32(uint32(int32(input[ix])<<12) - uint32(out32_Q12))
 		/* Scale to Q0 */
 		out32 = (out32_Q12>>(libc.Int32FromInt32(12)-libc.Int32FromInt32(1)) + libc.Int32FromInt32(1)) >> libc.Int32FromInt32(1)
 		/* Saturate output */
