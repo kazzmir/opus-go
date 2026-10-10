@@ -8,6 +8,27 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestExtensionLacingCursorPointers(t *testing.T) {
+	packet := make([]byte, 260)
+	packet[0], packet[1], packet[2], packet[258], packet[259] = 77, 255, 0, 99, 88
+	for _, length := range []int32{0, 1, 255, 256, 257, 258} {
+		cursor, header := &packet[1], int32(777)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		left := skip_extension_payload(nil, &cursor, length, &header, 129, 0)
+		if length < 257 {
+			if left != -1 || cursor != &packet[1] || header != 777 {
+				t.Fatal("lacing failure outputs/order", length)
+			}
+		} else if left != length-257 || header != 2 || cursor != &packet[258] {
+			t.Fatal("physical lacing/payload budget", length, left, header)
+		}
+		if packet[0] != 77 || packet[258] != 99 || packet[259] != 88 {
+			t.Fatal("lacing cursor guards")
+		}
+	}
+}
+
 func TestExtensionByteCursorPointers(t *testing.T) {
 	var packet [17]byte
 	for i := range packet {

@@ -4453,12 +4453,14 @@ func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSiz
 		length = trailingShort
 	} else {
 		bytes := int32(0)
+		available := length // physical suffix: payload bytes have not been advanced yet
 		for {
 			if length < 1 {
 				return -1
 			}
 			lacing := int32(*data)
-			data = (*byte)(unsafe.Add(unsafe.Pointer(data), 1))
+			data = extensionByteAt(data, 1, available)
+			available--
 			bytes += lacing
 			header++
 			length -= lacing + 1
@@ -4469,7 +4471,7 @@ func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSiz
 		if length < 0 {
 			return -1
 		}
-		data = (*byte)(unsafe.Add(unsafe.Pointer(data), bytes))
+		data = extensionByteAt(data, bytes, available)
 	}
 	*pdata = data
 	*headerSize = header
