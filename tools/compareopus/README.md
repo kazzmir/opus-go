@@ -534,6 +534,27 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four postfilter-owner rounds bind normal CELT first/tail postfiltering and
+noise-PLC first/tail postfiltering to their existing per-channel history slices.
+Normal dispatch carries the concrete history array into first/tail helpers;
+compatibility helpers still accept standalone output pointers through nil-owner
+fallbacks. Noise PLC passes its already-bound history directly. All active comb
+calls in celt_decoder.go now bypass backward pointer recovery. Production
+lexical counts remain 169 unsafe.Pointer/153 uintptr: required public/standalone
+compatibility boundaries are retained rather than artificially concealed.
+
+The numeric current offset is DEC_PITCH_BUF_SIZE-N (plus the short-MDCT length
+for tail work). Channel-zero do-while behavior, clamp→first→tail order, LM==0
+tail suppression, source/destination live aliases, control/window reads, cached
+mode and float32 arithmetic remain unchanged. Grouped owned-dispatch fixtures
+compare complete state and bitwise histories/guards against standalone kernels
+for LM0..3 and channels0/1/2 under GC/stack growth. Existing noise PLC, normal
+decode, native postfilter and entropy/PCM goldens persist without tolerance or
+assertion changes. Each round passes full amd64/386, ARM64/QEMU, scoped checkptr,
+native comparisons, codec references, GC stress and diff checks, with final
+repeated ARM scoped/ordinary fixtures. This is active scalar-owner binding, not
+opaque-allocation scanning, extension EOF/GC or raw callback lifetime repair.
+
 Four owned-history rounds add history-aware CELT FIR and comb kernels, then
 bind periodic PLC FIR to its complete Go excitation prefix and prefilter/fold
 comb filtering to its known decoder history owner plus numeric current offset.
