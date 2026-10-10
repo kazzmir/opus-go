@@ -2,10 +2,39 @@ package opusccenc
 
 import (
 	"github.com/kazzmir/opus-go/opuscc"
+	"math"
 	"runtime"
 	"slices"
 	"testing"
 )
+
+func TestEncoderSortFloatPointers(t *testing.T) {
+	cases := []struct {
+		values, want []float32
+		idx          []int32
+		k            int32
+	}{
+		{[]float32{3, 1, 3, -2, 4, 4, 0}, []float32{4, 4, 3, -2, 4, 4, 0}, []int32{4, 5, 0}, 3},
+		{[]float32{math.Float32frombits(0x7fc12345), 3, 1, 4}, []float32{math.Float32frombits(0x7fc12345), 4, 3, 1}, []int32{0, 3, 1, 2}, 4},
+		{[]float32{0, float32(math.Copysign(0, -1)), float32(math.Inf(1)), float32(math.Inf(-1)), math.Float32frombits(0x7fc12345)}, []float32{float32(math.Inf(1)), 0, float32(math.Copysign(0, -1)), float32(math.Inf(-1)), math.Float32frombits(0x7fc12345)}, []int32{2, 0, 1, 3, 4}, 5},
+	}
+	for _, tc := range cases {
+		data := append([]float32{77}, tc.values...)
+		data = append(data, 88)
+		idx := make([]int32, tc.k+2)
+		idx[0], idx[len(idx)-1] = 99, 111
+		runtime.GC()
+		silkInsertionSortDecreasingFLP(nil, &data[1], &idx[1], int32(len(tc.values)), tc.k)
+		if !flpVectorBitsEqual(data[1:len(data)-1], tc.want) || !slices.Equal(idx[1:len(idx)-1], tc.idx) || data[0] != 77 || data[len(data)-1] != 88 || idx[0] != 99 || idx[len(idx)-1] != 111 {
+			t.Fatal("float sort/ties/IEEE/guards")
+		}
+	}
+	index := int32(99)
+	silkInsertionSortDecreasingFLP(nil, nil, &index, 1, 1)
+	if index != 0 {
+		t.Fatal("float singleton index")
+	}
+}
 
 func TestEncoderSort16Pointers(t *testing.T) {
 	for _, n := range []int32{1, 6, 16, 32} {
