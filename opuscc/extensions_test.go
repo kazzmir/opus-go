@@ -29,6 +29,38 @@ func TestExtensionLacingCursorPointers(t *testing.T) {
 	}
 }
 
+func TestExtensionHeaderCursorPointers(t *testing.T) {
+	packet := [5]byte{77, 7, 99, 101, 88}
+	for _, length := range []int32{-1, 0, 1, 2, 3} {
+		cursor, header := &packet[1], int32(777)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		left := skip_extension(nil, &cursor, length, &header)
+		switch {
+		case length < 0 || length == 1:
+			if left != -1 || cursor != &packet[1] || header != 777 {
+				t.Fatal("header failure outputs/order", length)
+			}
+		case length == 0:
+			if left != 0 || cursor != &packet[1] || header != 0 {
+				t.Fatal("empty header")
+			}
+		default:
+			if left != length-2 || cursor != &packet[3] || header != 1 {
+				t.Fatal("header cursor", length, left, header)
+			}
+		}
+	}
+	var empty *byte
+	header := int32(777)
+	if skip_extension(nil, &empty, 0, &header) != 0 || empty != nil || header != 0 {
+		t.Fatal("nil empty header")
+	}
+	if packet != [5]byte{77, 7, 99, 101, 88} {
+		t.Fatal("header source/guards")
+	}
+}
+
 func TestExtensionByteCursorPointers(t *testing.T) {
 	var packet [17]byte
 	for i := range packet {

@@ -4496,7 +4496,7 @@ func skip_extension(tls *libc.TLS, pdata **byte, length int32, header *int32) in
 	}
 	data := *pdata
 	id := int32(*data)
-	data = (*byte)(unsafe.Add(unsafe.Pointer(data), 1))
+	data = extensionByteAt(data, 1, length)
 	result := skip_extension_payload(tls, &data, length-1, header, id, 0)
 	if result >= 0 {
 		*pdata = data
