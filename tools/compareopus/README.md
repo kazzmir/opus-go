@@ -534,6 +534,49 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder ownership rounds clear every embedded SILK pointer via typed
+stores before composite initialization's ABI-image clear, construct canonical
+Go single-decoder storage, register/migrate single factories, then construct and
+register canonical multistream factories. SILK has ICDF, codebook and resampler
+pointer slots in both channels, not just the CELT mode slot; its complete typed
+zero assignment preserves write barriers before the byte clear. Caller-supplied
+byte images still require external referent lifetime management.
+
+opuscc/decoder_storage.go uses actual runtime-created structs containing the
+canonical decoder/SILK/CELT types and float32 tail, with fixed-eight ABI padding.
+Multistream images contain canonical coupled/mono child arrays at the original
+aligned strides. Unlike casts over byte/word allocations, these allocations have
+real GC pointer maps. An interior typed header roots the complete actual Go
+allocation; libcshim.RegisterGoAllocation records that Go root for legacy integer
+handles, while free/Close remove the registry entry. XmallocPointer itself remains
+opaque byte allocation. Single and standalone multistream factories migrate;
+projection factories and caller-owned ABI images remain separate unresolved
+scanning boundaries. Production opuscc counts stay 169 unsafe.Pointer/153 uintptr:
+this batch repairs representation/lifetime, not necessary layout/ABI casts.
+
+Sixteen-byte allocation alignment is preserved without pretending a byte image
+is scanned. Normally an aligned reflective image is used directly; otherwise a
+scanned array of canonical images with controlled stride covers every alignment
+residue. This fallback can cost two images on amd64/ARM64 or four on 386, and the
+first unaligned allocation becomes GC-reclaimable. Single storage may have final
+Go padding outside the reported ABI image; multistream child stride/report sizes
+remain exact. Reflection/type creation is factory work, not per-packet decode;
+no allocation-performance or huge/malformed-layout success claim is made.
+
+Upstream src/opus_decoder.c and opus_multistream_decoder.c confirm validation,
+initialization, cleanup and coupled-before-mono layout. Nil-TLS allocation failure,
+mapping-before-child-rate validation, error cleanup, public APIs and numerical
+codec behavior remain intact. Grouped geometry/alignment/weak-reference fixtures
+prove that dynamically allocated CELT modes, SILK codebooks and resampler arrays
+survive GC/stack growth through the actual compound owner, including both channels
+and coupled/mono children. Registry fixtures retain only integer handles plus TLS;
+the generic shim test roots a pointer-bearing parent through its scalar interior
+header. Existing native layout/init/reset/control/format comparisons persist.
+All four rounds pass full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+GC decode stress, unchanged encode/decode references and diff checks; final ARM
+scoped/ordinary fixtures repeat twenty times. Opaque projection allocation,
+extension EOF/GC and raw callback ownership are not globally repaired.
+
 Four encoder sort/ID rounds migrate int32 increasing top-K sort, int16 full
 sort, float32 decreasing top-K sort, and gains-ID into concrete private kernels.
 Public integer adapters retain six explicit casts and uintptrescapes. Production

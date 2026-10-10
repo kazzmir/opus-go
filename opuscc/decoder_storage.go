@@ -57,6 +57,43 @@ func opusDecoderAlignedStorage(layout reflect.Type) reflect.Value {
 	panic("opus decoder Go storage alignment mismatch")
 }
 
+func opusMSDecoderStorageType(streams, coupled int32) reflect.Type {
+	header := reflect.TypeFor[OpusT_OpusMSDecoder]()
+	fields := []reflect.StructField{{Name: "Decoder", Type: header}}
+	padding := uint64(opusAlignSize8(int32(header.Size()))) - uint64(header.Size())
+	if padding != 0 {
+		fields = append(fields, reflect.StructField{Name: "HeaderPadding", Type: reflect.ArrayOf(int(padding), reflect.TypeFor[byte]())})
+	}
+	appendChildren := func(name string, count, channels int32) {
+		if count == 0 {
+			return
+		}
+		image := opusDecoderStorageType(channels)
+		stride := uint64(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+		childFields := []reflect.StructField{{Name: "Image", Type: image}}
+		if uint64(image.Size()) < stride {
+			childFields = append(childFields, reflect.StructField{Name: "StridePadding", Type: reflect.ArrayOf(int(stride-uint64(image.Size())), reflect.TypeFor[byte]())})
+		}
+		child := reflect.StructOf(childFields)
+		if uint64(child.Size()) != stride {
+			panic("opus multistream Go child stride mismatch")
+		}
+		fields = append(fields, reflect.StructField{Name: name, Type: reflect.ArrayOf(int(count), child)})
+	}
+	appendChildren("Coupled", coupled, 2)
+	appendChildren("Mono", streams-coupled, 1)
+	layout := reflect.StructOf(fields)
+	if uint64(layout.Size()) != uint64(Opus_opus_multistream_decoder_get_size(nil, streams, coupled)) {
+		panic("opus multistream Go storage size mismatch")
+	}
+	return layout
+}
+
+func opusMSDecoderStorage(streams, coupled int32) *OpusT_OpusMSDecoder {
+	owner := opusDecoderAlignedStorage(opusMSDecoderStorageType(streams, coupled))
+	return owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusMSDecoder)
+}
+
 func opusDecoderStorage(channels int32) *OpusT_OpusDecoder {
 	owner := opusDecoderAlignedStorage(opusDecoderStorageType(channels))
 	return owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder)

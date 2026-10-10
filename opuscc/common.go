@@ -3514,7 +3514,10 @@ func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int
 	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
 		return nil, opusErrorFromCode(-1)
 	}
-	st := (*OpusT_OpusMSDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_multistream_decoder_get_size(tls, streams, coupled)))))
+	if tls == nil {
+		return nil, opusErrorFromCode(-7)
+	}
+	st := libc.RegisterGoAllocation(tls, opusMSDecoderStorage(streams, coupled))
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}

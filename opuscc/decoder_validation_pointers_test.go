@@ -316,6 +316,84 @@ func registeredDecoderStorage(tls *libc.TLS, channels int32) (uintptr, weak.Poin
 	return uintptr(unsafe.Pointer(st)), mode, books, coefs
 }
 
+//go:noinline
+func registeredMSDecoderStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_OpusCustomMode], [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2][2]weak.Pointer[[32]int16]) {
+	mapping := [4]byte{0, 1, 2, 255}
+	st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 4, 2, 1, &mapping[0])
+	if err != nil {
+		panic(err)
+	}
+	var modes [2]weak.Pointer[OpusT_OpusCustomMode]
+	var books [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct]
+	var coefs [2][2]weak.Pointer[[32]int16]
+	offset := uint(opusAlignSize8(int32(unsafe.Sizeof(*st))))
+	for i := range modes {
+		child := opusMSDecoderAt(st, offset)
+		modes[i], books[i], coefs[i] = decoderStorageForeignPointers(child)
+		channels := int32(1)
+		if i == 0 {
+			channels = 2
+		}
+		offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+	}
+	return uintptr(unsafe.Pointer(st)), modes, books, coefs
+}
+
+func TestOpusDecoderMSStoragePointers(t *testing.T) {
+	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 0}, {2, 1}, {2, 2}, {3, 1}} {
+		streams, coupled := geometry[0], geometry[1]
+		layout := opusMSDecoderStorageType(streams, coupled)
+		if int32(layout.Size()) != Opus_opus_multistream_decoder_get_size(nil, streams, coupled) {
+			t.Fatal("multistream storage extent", geometry)
+		}
+		st := opusMSDecoderStorage(streams, coupled)
+		if uintptr(unsafe.Pointer(st))&15 != 0 {
+			t.Fatal("multistream storage alignment")
+		}
+		mapping := make([]byte, streams+coupled)
+		for i := range mapping {
+			mapping[i] = byte(i)
+		}
+		if ret := Opus_opus_multistream_decoder_init(nil, st, 48000, int32(len(mapping)), streams, coupled, &mapping[0]); ret != 0 {
+			t.Fatal("multistream owned init", geometry, ret)
+		}
+		offset := uint(opusAlignSize8(int32(unsafe.Sizeof(*st))))
+		for i := int32(0); i < streams; i++ {
+			child := opusMSDecoderAt(st, offset)
+			channels := int32(1)
+			if i < coupled {
+				channels = 2
+			}
+			if child.Fchannels != channels || opusFrameCeltState(child).Fmode == nil {
+				t.Fatal("multistream child geometry", geometry, i)
+			}
+			offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+		}
+		if offset != uint(layout.Size()) {
+			t.Fatal("multistream child strides", geometry)
+		}
+		runtime.KeepAlive(st)
+	}
+	tls := libc.NewTLS()
+	address, modes, books, coefs := registeredMSDecoderStorage(tls)
+	entropyInitGrowStack(12)
+	for trial := 0; trial < 3; trial++ {
+		runtime.GC()
+		for i := range modes {
+			if modes[i].Value() == nil {
+				t.Fatal("registry lost MS CELT owner", i)
+			}
+			for j := range books[i] {
+				if books[i][j].Value() == nil || coefs[i][j].Value() == nil {
+					t.Fatal("registry lost MS SILK owner", i, j)
+				}
+			}
+		}
+	}
+	Opus_opus_multistream_decoder_destroy(tls, address)
+	tls.Close()
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()
