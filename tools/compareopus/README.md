@@ -534,6 +534,39 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder extension-cursor rounds index short/terminal payload advances,
+lacing/payload advances, ID headers, and normal/repeated payload starts through
+consumed byte prefixes plus numeric offsets. extensionByteAt returns the exact
+input at offset0; readable positive offsets use an actually consumed prefix.
+Exact EOF, backward and otherwise unproven cursors retain one explicit unsafe
+boundary. Counts fall 169→163 unsafe.Pointer, with uintptr153 unchanged. The six
+lexical deletions centralize seven necessary cursor sites into one fallback;
+readable consumers genuinely use typed indexing, but this is not a global EOF or
+GC lifetime repair and is not counted as deleting public ABI adapters.
+
+Upstream src/extensions.c confirms failure/output ordering and lacing semantics.
+The lacing loop tracks its physical suffix separately: logical remaining length
+has already deducted payload bytes not yet advanced. This lets its header and
+payload cursors use exact physical budgets, without guessed extents. Payload-start
+spans are cached before output stores only to choose the consumed view; payload
+length still computes the live pointer difference after those stores, and both
+iterator pointer/remaining-length assertions remain unchanged. Repetition, frame
+limits, sticky errors and header/payload IDs are unchanged.
+
+Grouped fixtures cover zero/nil identity, readable offsets, guarded semantic EOF
+and backward boundaries, multi-byte lacing with cached 255-byte payload and
+malformed lengths, untouched failure outputs, ID-header work, normal/repeated
+payload starts, GC/stack growth and whole-packet guards. A Go-only output alias
+into scalar iterator counters (not its GC pointer slots) verifies final live
+length reloads; it does not claim C cross-struct-alias validity. Existing native
+extension/init/next/find/parse/generate comparisons and codec goldens remain.
+Each round passes full amd64/386, ARM64/QEMU, existing decoder plus new cursor
+scoped checkptr, native comparisons, GC decode stress, unchanged encode/decode
+references and diff checks; final ARM ordinary/scoped fixtures repeat twenty
+times. These scopes do not establish global opaque-buffer/EOF safety. Native
+extension GC failures, raw callbacks and malformed external allocations remain
+separate issues.
+
 Four projection/initialization ownership rounds add canonical projection Go
 storage, migrate valid projection factories to registered scanned owners, bind
 standalone multistream factory initialization to concrete child headers, then

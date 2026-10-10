@@ -61,6 +61,42 @@ func TestExtensionHeaderCursorPointers(t *testing.T) {
 	}
 }
 
+func TestExtensionPayloadCursorPointers(t *testing.T) {
+	packet := [7]byte{77, 7, 88, 4, 99, 0, 111}
+	var iter OpusT_OpusExtensionIterator
+	Opus_opus_extension_iterator_init(nil, &iter, &packet[1], 5, 2)
+	var ext OpusT_opus_extension_data
+	for frame := int32(0); frame < 2; frame++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_extension_iterator_next(nil, &iter, &ext) != 1 || ext.Fid != 3 || ext.Fframe != frame || ext.Flen1 != 1 {
+			t.Fatal("normal/repeated payload", frame)
+		}
+		want := &packet[2]
+		if frame == 1 {
+			want = &packet[4]
+		}
+		if ext.Fdata != want {
+			t.Fatal("payload start identity", frame)
+		}
+	}
+	if Opus_opus_extension_iterator_next(nil, &iter, &ext) != 0 || packet != [7]byte{77, 7, 88, 4, 99, 0, 111} {
+		t.Fatal("payload termination/guards")
+	}
+
+	// A Go-only layout alias: outputs overlap scalar iterator counters, never
+	// its GC pointer slots. Length must still reload the cursor after stores;
+	// only the payload-start view's physical span may be cached before them.
+	aliasPacket := [5]byte{77, 7, 99, 0, 88}
+	var alias OpusT_OpusExtensionIterator
+	Opus_opus_extension_iterator_init(nil, &alias, &aliasPacket[1], 3, 1)
+	output := (*OpusT_opus_extension_data)(unsafe.Pointer(&alias.Flen1))
+	if Opus_opus_extension_iterator_next(nil, &alias, output) != 1 || output.Fdata != &aliasPacket[2] || output.Flen1 != 1 || alias.Fcurr_len != 0 {
+		t.Fatal("payload store/live-length alias")
+	}
+	runtime.KeepAlive(aliasPacket)
+}
+
 func TestExtensionByteCursorPointers(t *testing.T) {
 	var packet [17]byte
 	for i := range packet {

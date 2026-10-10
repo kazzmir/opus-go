@@ -4586,6 +4586,7 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensio
 				idByte &= ^int32(1)
 			}
 			start := iter.Fcurr_data
+			previousLength := iter.Fcurr_len
 			iter.Fcurr_len = skip_extension_payload(tls, &iter.Fcurr_data, iter.Fcurr_len, &header, idByte, iter.Ftrailing_short_len)
 			if iter.Fcurr_len < 0 {
 				return OPUS_INVALID_PACKET
@@ -4597,9 +4598,10 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensio
 				continue
 			}
 			if ext != nil {
+				consumed := previousLength - iter.Fcurr_len
 				ext.Fid = idByte >> 1
 				ext.Fframe = iter.Frepeat_frame
-				ext.Fdata = (*byte)(unsafe.Add(unsafe.Pointer(start), header))
+				ext.Fdata = extensionByteAt(start, header, consumed)
 				ext.Flen1 = int32(extensionPointerDifference(iter.Fcurr_data, start) - int64(header))
 			}
 			return 1
@@ -4641,6 +4643,7 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter *OpusT_OpusExtensionI
 	}
 	for iter.Fcurr_len > 0 {
 		start := iter.Fcurr_data
+		previousLength := iter.Fcurr_len
 		id := int32(*start) >> 1
 		l := int32(*start) & 1
 		iter.Fcurr_len = skip_extension(tls, &iter.Fcurr_data, iter.Fcurr_len, &header)
@@ -4687,9 +4690,10 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter *OpusT_OpusExtensionI
 				iter.Ftrailing_short_len += l
 			}
 			if ext != nil {
+				consumed := previousLength - iter.Fcurr_len
 				ext.Fid = id
 				ext.Fframe = iter.Fcurr_frame
-				ext.Fdata = (*byte)(unsafe.Add(unsafe.Pointer(start), header))
+				ext.Fdata = extensionByteAt(start, header, consumed)
 				ext.Flen1 = int32(extensionPointerDifference(iter.Fcurr_data, start) - int64(header))
 			}
 			return 1
