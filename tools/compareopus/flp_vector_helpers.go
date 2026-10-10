@@ -9,6 +9,10 @@ package main
 import "C"
 import "unsafe"
 
+func nativeEnergyFLP(data []float32, size int32) float64 {
+	return float64(C.silk_energy_FLP((*C.silk_float)(unsafe.Pointer(unsafe.SliceData(data))), C.opus_int(size)))
+}
+
 func nativeInnerProductFLP(a, b []float32, size int32) float64 {
 	return float64(C.silk_inner_product_FLP_c((*C.silk_float)(unsafe.Pointer(unsafe.SliceData(a))), (*C.silk_float)(unsafe.Pointer(unsafe.SliceData(b))), C.opus_int(size)))
 }

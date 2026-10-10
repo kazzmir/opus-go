@@ -10674,29 +10674,26 @@ func Opus_silk_encode_signs(tls *libc.TLS, psRangeEnc uintptr, pulses uintptr, l
 //
 //	/* Decodes signs of excitation */
 
+//go:uintptrescapes
 func Opus_silk_energy_FLP(tls *libc.TLS, data uintptr, dataSize int32) (r float64) {
-	var i int32
+	return silkEnergyFLP((*float32)(unsafe.Pointer(data)), dataSize)
+}
+
+func silkEnergyFLP(data *float32, size int32) float64 {
+	length := silkFLPReductionLength(size)
+	if length == 0 {
+		return 0
+	}
+	values := unsafe.Slice(data, length)
 	var result float64
-	_, _ = i, result
-	/* 4x unrolled loop */
-	result = float64(0)
-	i = 0
-	for {
-		if !(i < dataSize-int32(3)) {
-			break
-		}
-		result = result + (float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i+0)*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i+0)*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(1))*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(1))*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(2))*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(2))*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(3))*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(3))*4)))))
-		i = i + int32(4)
+	var i int32
+	for ; i < size-3; i += 4 {
+		result = result + (float64(float64(values[i])*float64(values[i])) + float64(float64(values[i+1])*float64(values[i+1])) + float64(float64(values[i+2])*float64(values[i+2])) + float64(float64(values[i+3])*float64(values[i+3])))
 	}
-	/* add any remaining products */
-	for {
-		if !(i < dataSize) {
-			break
-		}
-		result = result + float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i)*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i)*4))))
-		i = i + 1
+	for ; i < size; i++ {
+		result = result + float64(float64(values[i])*float64(values[i]))
 	}
-	_ = result >= libc.Float64FromFloat64(0)
+	_ = result >= float64(0) // Keep the translated build's disabled silk_assert.
 	return result
 }
 

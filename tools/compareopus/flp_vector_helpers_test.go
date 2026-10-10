@@ -23,6 +23,29 @@ func flpSameBits(a, b []float32) bool {
 	return true
 }
 
+func TestEnergyFLPAgainstC(t *testing.T) {
+	rng := rand.New(rand.NewSource(9542))
+	for _, size := range []int32{0, 1, 3, 4, 5, 8, 31, 320, 2048} {
+		for trial := 0; trial < 100; trial++ {
+			data := make([]float32, size+2)
+			for i := range data {
+				data[i] = math.Float32frombits(rng.Uint32() & 0xfeffffff)
+			}
+			before := slices.Clone(data)
+			g := opusccenc.Opus_silk_energy_FLP(nil, uintptr(unsafe.Pointer(&data[1])), size)
+			c := nativeEnergyFLP(data[1:], size)
+			if math.Float64bits(g) != math.Float64bits(c) || !flpSameBits(data, before) {
+				t.Fatal("energy", size, trial, g, c)
+			}
+		}
+	}
+	for _, size := range []int32{0, -1, -65536} {
+		if nativeEnergyFLP(nil, size) != 0 || opusccenc.Opus_silk_energy_FLP(nil, 0, size) != 0 {
+			t.Fatal("empty energy", size)
+		}
+	}
+}
+
 func TestInnerProductFLPAgainstC(t *testing.T) {
 	rng := rand.New(rand.NewSource(9541))
 	for _, size := range []int32{0, 1, 3, 4, 5, 8, 31, 320, 2048} {

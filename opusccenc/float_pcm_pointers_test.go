@@ -107,6 +107,38 @@ func TestInnerProductFLPPointers(t *testing.T) {
 	}
 }
 
+func TestEnergyFLPPointers(t *testing.T) {
+	for _, size := range []int32{0, 1, 3, 4, 5, 8, 31, 320} {
+		data := make([]float32, size+2)
+		for i := range data {
+			data[i] = float32(i%19-9) / 7
+		}
+		before := slices.Clone(data)
+		want := silkInnerProductFLP(&data[1], &data[1], size)
+		runtime.GC()
+		if got := silkEnergyFLP(&data[1], size); math.Float64bits(got) != math.Float64bits(want) || !flpVectorBitsEqual(data, before) {
+			t.Fatal("energy/guards", size, got, want)
+		}
+	}
+	small := float32(math.SmallestNonzeroFloat32)
+	if silkEnergyFLP(&small, 1) != float64(small)*float64(small) {
+		t.Fatal("double product before accumulation")
+	}
+	negativeZero := float32(math.Copysign(0, -1))
+	if math.Float64bits(silkEnergyFLP(&negativeZero, 1)) != 0 {
+		t.Fatal("energy zero sign")
+	}
+	nan := float32(math.NaN())
+	if !math.IsNaN(silkEnergyFLP(&nan, 1)) {
+		t.Fatal("disabled assertion/NaN")
+	}
+	for _, size := range []int32{0, -1, -65536} {
+		if silkEnergyFLP(nil, size) != 0 {
+			t.Fatal("empty energy", size)
+		}
+	}
+}
+
 func TestFloatPCMPointers(t *testing.T) {
 	input := []float32{-2, -1, -2.5 / 32768, -1.5 / 32768, -0.5 / 32768, 0, 0.5 / 32768, 1.5 / 32768, 2.5 / 32768, 1, 2, float32(math.NaN()), float32(math.Inf(-1)), float32(math.Inf(1))}
 	want := []int16{-32768, -32768, -2, -2, 0, 0, 0, 2, 2, 32767, 32767, -32768, -32768, 32767}

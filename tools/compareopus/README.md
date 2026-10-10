@@ -534,6 +534,42 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four encoder FLP-vector rounds migrate scale-copy, in-place scale, inner product
+and energy into concrete float32-pointer private kernels, with numeric indices
+and consumed-prefix slices. Public integer adapters retain uintptrescapes and
+six explicit casts. Production opusccenc counts fall 11305→11276 unsafe.Pointer
+and 6684→6649 uintptr; decoder opuscc remains 169/153. These are actual load/store
+and address-representation changes, not deletion of dormant implementations.
+
+Upstream silk/float/{scale_copy_vector_FLP,scale_vector_FLP,inner_product_FLP,
+energy_FLP}.c confirms forward stores/live overlapping aliases and the scale
+helpers' literal 0xFFFC mask, not ~3. In particular size=-1 still consumes 65532
+samples; size=-65536 consumes none. Views use max(size, masked bulk), preserving
+that behavior and >65535 tails. Reduction bounds retain int32 size-3 arithmetic;
+the numeric extent oracle tests the signed wrap without constructing enormous
+addresses. Native signed-overflow/unrepresentable buffer geometries are not
+claimed supported. Four-product groups are added to the running float64 total,
+not four independent updates; products widen both operands first and retain
+explicit rounding. Energy's translated disabled assertion remains a no-op.
+
+Grouped private fixtures exercise aliases/whole-buffer guards, GC, empty/nil
+unused inputs, signed zeros, Inf/NaN, subnormal double products and a cancellation
+case distinguishing group accumulation. New upstream C bridges compare finite
+outputs/results bitwise for unrolled/tail/large/negative-mask work and random
+wide-exponent reductions; native fixtures/goldens/tolerances stay unchanged.
+Each round passes full amd64/386, ARM64/QEMU, decoder and private encoder scoped
+checkptr, native comparisons, GC decode stress, codec references and diff checks,
+plus final repeated ARM scoped/ordinary runs. No opaque encoder-state scanning,
+pseudostack, extension EOF/GC or raw callback lifetime repair is claimed.
+
+The first scale-copy run failed its new fixture: the zero-work forward-overlap
+case formed &buffer[2] in a length-2 buffer before calling the kernel. Giving the
+fixture the same extra terminal guard as its shifted cases fixed the fixture;
+production code/goldens were not changed. The failure is retained in
+/tmp/opus-round-encoder-flp-scale-copy.log and full retry passed in
+/tmp/opus-round-encoder-flp-scale-copy-retry.log. Later round logs are
+/tmp/opus-round-encoder-flp-{scale,inner-product,energy}.log.
+
 Four encoder LPC-analysis rounds migrate the independent encoder leaf's output
 stores/late prefix clearing, fixed six prediction taps, remaining taps/prediction
 subtraction, then its private parameters/cursor to concrete int16 pointers and
