@@ -7,6 +7,33 @@ import (
 	"weak"
 )
 
+func TestDiagnosticAssertFail(t *testing.T) {
+	assertion, file := []byte("test expression"), []byte("test-file.c")
+	runtime.GC()
+	var caught any
+	func() { defer func() { caught = recover() }(); AssertFail(nil, string(assertion), string(file), 17) }()
+	if caught != "assertion failed: test expression (test-file.c:17)" {
+		t.Fatal("typed assert diagnostic", caught)
+	}
+}
+
+// Raw GoString reconstruction remains an ordinary ABI compatibility fixture;
+// it is not a scoped checkptr claim for legacy integer string addresses.
+func TestAssertFailLegacyABI(t *testing.T) {
+	assertion, file := []byte("test expression\x00"), []byte("test-file.c\x00")
+	runtime.GC()
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		X__assert_fail(nil, uintptr(unsafe.Pointer(&assertion[0])), uintptr(unsafe.Pointer(&file[0])), 17, 0)
+	}()
+	if caught != "assertion failed: test expression (test-file.c:17)" {
+		t.Fatal("raw assert diagnostic", caught)
+	}
+	runtime.KeepAlive(assertion)
+	runtime.KeepAlive(file)
+}
+
 //go:noinline
 func registeredGoInterior(tls *TLS) (uintptr, weak.Pointer[[64]byte]) {
 	parent := new(struct {
@@ -17,6 +44,24 @@ func registeredGoInterior(tls *TLS) (uintptr, weak.Pointer[[64]byte]) {
 	parent.Child[0] = 77
 	p := RegisterGoAllocation(tls, &parent.Header)
 	return uintptr(unsafe.Pointer(p)), weak.Make(parent.Child)
+}
+
+func TestRegisteredGoAllocationLookup(t *testing.T) {
+	tls := NewTLS()
+	defer tls.Close()
+	root := RegisterGoAllocation(tls, new(int32))
+	handle := uintptr(unsafe.Pointer(root))
+	if RegisteredGoAllocation[int32](tls, handle) != root || RegisteredGoAllocation[int64](tls, handle) != nil || RegisteredGoAllocation[int32](nil, handle) != nil || RegisteredGoAllocation[int32](tls, 0) != nil {
+		t.Fatal("typed allocation lookup")
+	}
+	bytes := Xmalloc(tls, 32)
+	if RegisteredGoAllocation[int32](tls, bytes) != nil {
+		t.Fatal("opaque byte allocation promoted to Go object")
+	}
+	Xfree(tls, handle)
+	if RegisteredGoAllocation[int32](tls, handle) != nil {
+		t.Fatal("freed registered root")
+	}
 }
 
 func TestRegisterGoAllocation(t *testing.T) {

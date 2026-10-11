@@ -534,6 +534,205 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder diagnostic rounds finish migrating PRIVATE static-pool consumers
+from integer C-string addresses to GC-visible Go strings and numeric pool offsets:
+28 decoder/frame checks;25 MS/matrix/CELT quantization checks;20 extension checks;
+then10 remaining CELT/SILK checks and5 mini-FFT assertion sites. The mini-FFT sites
+use libcshim.AssertFail(string,string,line); legacy X__assert_fail still converts
+assertion before file and emits the identical panic. Opus_celt_fatal remains a
+raw public adapter with file-before-message conversion. No static call sites
+cross either integer-string adapter anymore.
+
+The inferred pointer-valued uintptr __ccgo_ts and its reflect.StringHeader cast
+are DELETED, not renamed/relocated. One real residual consumer was public version
+query: it now uses Opus_opus_get_version_string_typed's actual static *byte, with
+an explicit integer conversion ONLY in the public adapter. That preserves static
+address identity, text and the trailing NUL, without allocation or guessed data.
+Because the old address variable's type was inferred, lexical totals are
+157 unsafe.Pointer/134 uintptr (previous157/133): the removed StringHeader cast
+is offset by the explicit version adapter cast, and uintptr's extra spelling is
+that public conversion. This is active integer-address removal, not a claim of
+reduced lexical counts or repaired DSP heap ownership. No opaque pointer aliases
+are introduced; the original immutable pooled string remains Go text.
+
+All conditions, evaluation/error ordering, diagnostic text/file/line, multiline
+messages, abort-vs-assert panic shape and valid-path arithmetic remain. Grouped
+fixtures assert exact stderr/abort for decoder/quantization/extension checks,
+capacity-before-ID assertions, exact mini-FFT panic strings, Go-text assertion
+and ordinary raw ABI compatibility, full pool splitting and static version
+identity/text/NUL after GC/stack growth. Native checks/goldens/tolerances persist.
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped checkptr,
+native comparison, GC stress and codec references. Final ARM scoped/ordinary
+fixtures including typed frame references repeat twenty times. No global raw
+string adapter/opaque-image/extension EOF/GC safety or direct macOS claim follows.
+
+Retained failures: /tmp/opus-round-extension-go-diagnostics.log has a NEW fixture
+compile error (undefined OPUS_BUFFER_TOO_SMALL); use the unchanged port code-2,
+then the complete ...-retry.log passes. The initial
+/tmp/opus-round-mini-assert-go-text-focused.log exposed the separate legacy
+GoString raw ABI checkptr limitation AND the missed public version pool consumer.
+The new raw ABI assertion fixture is an ordinary compatibility test, separate
+from the Go-text scoped test; this does NOT fix/suppress legacy GoString or weaken
+an existing test/golden. Version now uses the typed static pointer; the complete
+focused retry passes. Logs: /tmp/opus-round-decoder-frame-go-diagnostics.log,
+/tmp/opus-round-codec-matrix-go-diagnostics.log,
+/tmp/opus-round-extension-go-diagnostics-retry.log,
+/tmp/opus-round-mini-assert-go-text-focused{,-retry}.log,
+/tmp/opus-round-mini-assert-static-version-go-text.log and
+/tmp/opus-round-diagnostic-go-text-arm-{checkptr,golden}-repeat.log.
+
+Four active CELT FFT/MDCT output rounds replace direct complex-only butterfly
+access with concrete complex/float-lane output views: radix2, radix4, radix3/5,
+then the common dispatcher and backward MDCT consumer. Backward MDCT now passes
+its actual *float32 output to FFT; the float→complex unsafe.Pointer reinterpret
+cast is REMOVED, not moved to a helper or hidden in an opaque alias. The output
+descriptor contains concrete *kiss_fft_cpx and *float32 alternatives; consumed
+buffer views contain corresponding Go slices. There is no whole-buffer scratch
+copy/snapshot that would break live aliases. Counts fall158→157 unsafe.Pointer;
+uintptr remains133. The prior rounds were required kernel representation work
+before deleting this cast on the normal decoder's active synthesis path.
+
+Upstream celt/kiss_fft.c, mdct.c and complex macros guide lane/store semantics.
+No-work/assertion guards precede prefix construction. Each stage uses its original
+consumed extent, factor/shift arithmetic and live state-factor reads; twiddle
+loads remain live, while epi3/ya/yb retain their original caches. Whole-pair stores
+capture both RHS lanes before writing real then imaginary; lane updates keep
+sequential reload/store ordering. Radix3/5 explicit float32 product rounding,
+ARM fusion safeguards, middle-pair MDCT dependencies and window/overlap order
+remain unchanged. Native FFT/MDCT fixtures and decoder goldens/tolerances persist.
+
+Grouped fixtures compare complete complex vs scalar float bits/guards across
+all radices, m1/general paths, multiple groups and output/twiddle aliases through
+GC/stack growth. They also check radix2's assertion-before-no-work and null
+operands on no-work paths, and full FFT scalar/complex bit identity at all four
+codec shifts. Test-only twiddle alias casts describe genuine ABI/layout aliases;
+no production output cast was displaced into them. Reflection/FFT accessor
+costs are not benchmarked or claimed to improve performance.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged encode/decode references
+and diff checks. Final validation additionally checks typed PartA/PartB frame
+references and FFT/MDCT fixtures on amd64/386/ARM; final ARM ordinary/scoped tests
+repeat twenty times. No global opaque-image, extension EOF/GC or raw-callback
+safety claim follows. Logs: /tmp/opus-round-fft-concrete-float-radix{2,4,35}.log,
+/tmp/opus-round-mdct-float-fft-focused.log,
+/tmp/opus-round-mdct-concrete-float-fft-output.log and
+/tmp/opus-round-mdct-float-fft-arm-{checkptr,golden}-repeat.log.
+
+Four DRED/frame-reference rounds add concrete aligned Go storage for the
+port's disabled12-byte DRED scalar header, register that owner in the factory,
+then migrate PartA and PartB frame-reference fixtures to typed create/destroy,
+float decode, and (PartA) gain-control entries. DRED scalar fields, magic,
+16-byte allocator alignment, nil-TLS allocation error and cleanup remain;
+required ABI size stays12 despite possible alignment-array storage. No enabled
+DRED model/weights behavior is claimed. The prior opaque malloc→DRED cast is
+actually removed from the factory, not relocated. Lexical production counts
+remain158 unsafe.Pointer/133 uintptr because that implicit allocator cast did
+not spell unsafe.Pointer; most other changes are fixture crossings.
+
+Both frame fixtures retain EVERY packet, step, sample count, float bits, hash,
+range, mode, redundancy and CELT PLC golden/tolerance. They now keep decoder,
+packet and PCM roots concrete instead of reconstructing a decoder from a raw
+handle and passing data/PCM through uintptr. PartA gains use the same int32
+values256/0 without legacy varargs staging. New DRED fixtures verify zero/init
+scalar images, alignment, GC/stack growth, registry-only retention via weak
+references, typed lookup/free and nil-TLS errors. Existing disabled/native DRED
+validation/ABI fixtures and public integer adapters persist.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged codec references and
+diff checks. Rounds3/4 additionally run the unchanged PartA/PartB goldens under
+checkptr on amd64/386/ARM, and final ARM scoped/ordinary fixtures (including
+BOTH reference parts) repeat twenty times. The previous raw PartB fixture
+checkptr blocker at opus_decode_frame_ref_test.go:168 is now removed; this is a
+fixture representation repair, NOT a claim that all legacy tests or opaque
+allocations are globally checkptr-safe. Extension EOF/GC/raw-callback issues
+remain outside this scope.
+Logs: /tmp/opus-round-dred-canonical-scalar-storage.log,
+/tmp/opus-round-dred-registered-concrete-factory.log,
+/tmp/opus-round-frame-reference-{a,b}-typed-entries.log,
+/tmp/opus-round-frame-reference-{a,b}-focused-checkptr.log and
+/tmp/opus-round-dred-typed-frame-arm-{checkptr,golden}-repeat.log.
+
+Four decoder pseudostack-compatibility rounds resolve registered headers as
+actual typed roots via libcshim.RegisteredGoAllocation, replace both scratch/cursor
+uintptr fields with *byte, construct resampler reference headers as registered
+scanned Go objects, and do the same for quant-all-bands reference headers/cursor
+resets. Upstream celt/stack_alloc.h declares scratch_ptr/global_stack as char*.
+The two pointer fields retain their two-word ABI on amd64/386/ARM; they are not
+opaque aliases. Cleanup uses typed nil stores/write barriers, preserving its
+scratch-nonnull conditional, free/key ordering, nil TLS and idempotence. Integer
+TLS keys remain real compatibility handles. Unknown external headers still need
+an explicit ABI cast; registering/casting byte images does not supply a GC map.
+Decoder kernels still do not consume this legacy pseudostack for DSP scratch.
+
+Counts change156→158 unsafe.Pointer and138→133 uintptr. Two actual pointer-valued
+field types are removed; three further uintptr tokens were stale comment/numeric
+offset cleanup. The two added unsafe casts are honest external-header/free
+boundaries replacing previously hidden integer loads/stores, not opacity
+concealed in a helper. The generic registry lookup returns the real typed owner
+only (byte allocations/type mismatches return nil); it reconstructs no pointer.
+Sentinel fixtures now use real Go byte addresses instead of invalid integer
+123/456 pointers, while testing the same untouched/reset cursor behavior. Codec
+PCM/state/range goldens and native VAD fixtures retain their expectations.
+
+Grouped fixtures verify field size/offset ABI, scratch/cursor live alias, byte
+owners through weak references/GC/stack growth, registered header cleanup,
+conditional empty-scratch cursor preservation, deleted registry/key and repeated
+free. Legacy producer migrations are test-storage ownership repairs, not new
+codec pseudostack work. Retained failures:
+/tmp/opus-round-pseudostack-concrete-byte-fields.log caught one native VAD fixture
+still assigning uintptr to the new fields; concrete byte-pointer assignments fix
+it and the complete -retry.log passes. /tmp/opus-round-resampler-pseudostack-partb-checkptr.log
+shows the old setupResamplerPseudostack issue is bypassed, but PartB still fails
+checkptr at opus_decode_frame_ref_test.go:168 on its separate raw decoder fixture.
+It remains an ordinary golden test, not a claimed global checkptr success.
+/tmp/opus-round-quant-scanned-pseudostack-producer.log caught its old Xmemset
+integer argument after scratch became *byte; clearing the exact known byte
+allocation with a typed slice preserves its zeroed reference scratch, and the
+complete -retry.log passes.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged encode/decode references
+and diff checks; final ARM ordinary/scoped fixtures repeat twenty times. No
+extension EOF/GC, opaque-image or raw-callback global safety claim is made.
+Logs: /tmp/opus-round-pseudostack-typed-registry-cleanup.log,
+/tmp/opus-round-pseudostack-concrete-byte-fields-retry.log,
+/tmp/opus-round-resampler-scanned-pseudostack-producer.log,
+/tmp/opus-round-quant-scanned-pseudostack-producer-retry.log and
+/tmp/opus-round-pseudostack-byte-roots-arm-{checkptr,golden}-repeat.log.
+
+Four multistream-offset/pthread-declaration rounds replace positive consumed
+MS packet-offset arithmetic with byte indexing, express the fixed MS header's
+alignment as a numeric int offset, remove unused generated mutex/condition
+layouts, and remove unused rwlock/barrier layouts plus pthread_t. Counts fall
+157→156 unsafe.Pointer and144→138 uintptr. ONE active cursor representation
+change, ONE numeric-size bookkeeping change, and TWO dead-declaration rounds
+are distinct: zero-length pointer-array alignment metadata and an unused thread
+handle declaration are not repaired pointer lifetimes. Removed generated Go
+type names have no repository consumers; real TLS/pthread emulation, public
+integer adapters and allocator synchronization are unchanged.
+
+Upstream src/opus_multistream_decoder.c verifies the current packet cursor is
+consumed only with positive remaining length outside PLC. opusMSPacketAt returns
+nil before any offset arithmetic for no work and preserves exact offset0
+identity (including nil); positive offsets index only through the current byte,
+not a guessed/unused suffix. Numeric MS header alignment still gives the port's
+fixed272-byte offset on amd64/386/ARM. Existing owner/packet fixtures now also
+check zero-offset identity, a minimal consumed prefix and a source guard, plus
+numeric header offset vs actual child layout. No EOF pointer is synthesized.
+Malformed unrepresentable offset/extent geometries are not claimed supported.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged encode/decode references
+and diff checks; final ARM scoped/ordinary fixtures repeat twenty times. No
+extension EOF/GC, opaque-allocation or raw-callback safety claim is made.
+Logs: /tmp/opus-round-ms-consumed-packet-offset.log,
+/tmp/opus-round-ms-numeric-header-alignment.log,
+/tmp/opus-round-remove-unused-mutex-cond-address-layouts.log,
+/tmp/opus-round-remove-unused-rwlock-barrier-thread-address-layouts.log and
+/tmp/opus-round-ms-offset-pthread-arm-{checkptr,golden}-repeat.log.
+
 Four packet/dead-declaration rounds index readable packet-parse cursors directly
 through the already consumed byte view, remove unused generated stdio cookie
 callback-address fields, delete duplicate unused compiler/isoc varargs aliases,

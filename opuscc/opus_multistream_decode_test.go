@@ -476,6 +476,13 @@ func TestMultistreamPacketOffsetPointers(t *testing.T) {
 	if opusMSPacketAt(nil, ^uint(0), 0) != nil || opusMSPacketAt(payload, ^uint(0), -1) != nil {
 		t.Fatal("unused terminal offset")
 	}
+	if opusMSPacketAt(payload, 0, 1) != payload || opusMSPacketAt(nil, 0, 1) != nil {
+		t.Fatal("zero offset identity without a view")
+	}
+	last := [3]byte{77, 99, 88}
+	if opusMSPacketAt(&last[0], 1, 1) != &last[1] || last[2] != 88 {
+		t.Fatal("minimal consumed prefix/guard")
+	}
 }
 
 func TestMultistreamChildOwnerPointers(t *testing.T) {
@@ -487,7 +494,7 @@ func TestMultistreamChildOwnerPointers(t *testing.T) {
 	storage := new(owner)
 	storage.Child = *newOpusFrameOwnerDecoder(t, 2)
 	offset := uint((uint32(268) + 7) / 8 * 8)
-	if offset != uint(unsafe.Offsetof(storage.Child)) {
+	if offset != uint(unsafe.Offsetof(storage.Child)) || offset != uint(opusAlignSize8(int32(unsafe.Sizeof(storage.MS)))) {
 		t.Fatal("multistream header geometry")
 	}
 	decoder := opusMSDecoderAt(&storage.MS, offset)

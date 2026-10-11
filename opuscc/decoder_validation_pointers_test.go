@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	libc "github.com/kazzmir/opus-go/libcshim"
+	"os"
 	"reflect"
 	"runtime"
 	"slices"
@@ -829,6 +830,118 @@ func TestOpusDecoderProjectionTypedClearStoragePointers(t *testing.T) {
 	runtime.KeepAlive(owned)
 }
 
+func TestOpusDecoderPseudostackStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	state := libc.RegisterGoAllocation(tls, new(OpusT_opus_ccgo_pseudostack_state))
+	if unsafe.Sizeof(*state) != 2*unsafe.Sizeof(uintptr(0)) || unsafe.Offsetof(state.Fglobal_stack) != unsafe.Sizeof(uintptr(0)) {
+		t.Fatal("pseudostack byte-pointer ABI")
+	}
+	buffer := new([32]byte)
+	buffer[3] = 77
+	owner := weak.Make(buffer)
+	state.Fscratch_ptr, state.Fglobal_stack = &buffer[0], &buffer[3]
+	buffer = nil
+	libc.Xpthread_setspecific(tls, opusPseudostackTLSKey, uintptr(unsafe.Pointer(state)))
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if owner.Value() == nil || *state.Fglobal_stack != 77 {
+		t.Fatal("scanned pseudostack byte owners")
+	}
+	FreePseudostackTLS(tls)
+	if state.Fscratch_ptr != nil || state.Fglobal_stack != nil || libc.Xpthread_getspecific(tls, opusPseudostackTLSKey) != 0 {
+		t.Fatal("typed pseudostack cleanup")
+	}
+	FreePseudostackTLS(tls)
+	runtime.KeepAlive(state)
+}
+
+func TestOpusDecoderResamplerPseudostackStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	setupResamplerPseudostack(tls)
+	handle := libc.Xpthread_getspecific(tls, opusPseudostackTLSKey)
+	state := libc.RegisteredGoAllocation[OpusT_opus_ccgo_pseudostack_state](tls, handle)
+	if state == nil || state.Fscratch_ptr == nil || state.Fglobal_stack != state.Fscratch_ptr {
+		t.Fatal("resampler scanned pseudostack producer")
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	*state.Fscratch_ptr = 77
+	if *state.Fglobal_stack != 77 {
+		t.Fatal("resampler scratch/cursor alias")
+	}
+	FreePseudostackTLS(tls)
+	if state.Fscratch_ptr != nil || state.Fglobal_stack != nil || libc.RegisteredGoAllocation[OpusT_opus_ccgo_pseudostack_state](tls, handle) != nil {
+		t.Fatal("resampler pseudostack typed release")
+	}
+}
+
+func TestOpusDecoderPseudostackEmptyStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	state := libc.RegisterGoAllocation(tls, new(OpusT_opus_ccgo_pseudostack_state))
+	state.Fglobal_stack = &opusPseudostackTestMarker[1]
+	handle := uintptr(unsafe.Pointer(state))
+	libc.Xpthread_setspecific(tls, opusPseudostackTLSKey, handle)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	FreePseudostackTLS(tls)
+	if state.Fscratch_ptr != nil || state.Fglobal_stack != &opusPseudostackTestMarker[1] || libc.RegisteredGoAllocation[OpusT_opus_ccgo_pseudostack_state](tls, handle) != nil || libc.Xpthread_getspecific(tls, opusPseudostackTLSKey) != 0 {
+		t.Fatal("empty scratch preserves native conditional cursor clear/release")
+	}
+	FreePseudostackTLS(nil)
+	FreePseudostackTLS(tls)
+	runtime.KeepAlive(state)
+}
+
+func TestOpusDecoderDREDStoragePointers(t *testing.T) {
+	for trial := 0; trial < 32; trial++ {
+		state := opusDREDDecoderStorage()
+		if unsafe.Sizeof(*state) != 12 || uintptr(unsafe.Pointer(state))&15 != 0 || *state != (OpusT_OpusDREDDecoder{}) {
+			t.Fatal("canonical aligned DRED header")
+		}
+		if opusDREDDecoderInit(nil, state) != OPUS_OK {
+			t.Fatal("DRED scalar init")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if state.Floaded != 0 || state.Farch != 0 || state.Fmagic != 0xD8EDDEC0 {
+			t.Fatal("DRED scalar Go storage")
+		}
+		runtime.KeepAlive(state)
+	}
+}
+
+//go:noinline
+func registeredDREDStorage(tls *libc.TLS) (uintptr, weak.Pointer[OpusT_OpusDREDDecoder]) {
+	state, err := Opus_opus_dred_decoder_create_typed(tls)
+	if err != nil {
+		panic(err)
+	}
+	return uintptr(unsafe.Pointer(state)), weak.Make(state)
+}
+
+func TestOpusDecoderDREDRegisteredStoragePointers(t *testing.T) {
+	if state, err := Opus_opus_dred_decoder_create_typed(nil); state != nil || err == nil {
+		t.Fatal("nil TLS DRED allocation failure")
+	}
+	tls := libc.NewTLS()
+	defer tls.Close()
+	handle, owner := registeredDREDStorage(tls)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	state := libc.RegisteredGoAllocation[OpusT_OpusDREDDecoder](tls, handle)
+	if state == nil || state != owner.Value() || state.Fmagic != 0xD8EDDEC0 || handle&15 != 0 {
+		t.Fatal("registered concrete DRED owner")
+	}
+	Opus_opus_dred_decoder_destroy_typed(tls, state)
+	if libc.RegisteredGoAllocation[OpusT_OpusDREDDecoder](tls, handle) != nil {
+		t.Fatal("DRED registry cleanup")
+	}
+	Opus_opus_dred_decoder_destroy_typed(tls, nil)
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()
@@ -961,6 +1074,71 @@ func TestCeltDecoderInitPointers(t *testing.T) {
 	}
 	if Opus_celt_decoder_init(nil, nil, 44100, 1) != -7 || Opus_celt_decoder_init(nil, nil, 48000, 3) != OPUS_BAD_ARG {
 		t.Fatal("early errors")
+	}
+}
+
+func checkDiagnosticFatal(t *testing.T, f func(), want string) {
+	t.Helper()
+	file, err := os.CreateTemp(t.TempDir(), "fatal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stderr
+	os.Stderr = file
+	defer func() { os.Stderr = old; file.Close() }()
+	var caught any
+	func() { defer func() { caught = recover() }(); f() }()
+	os.Stderr = old
+	got, err := os.ReadFile(file.Name())
+	if err != nil || string(got) != want || caught != "libcshim: abort" {
+		t.Fatalf("fatal diagnostic: %q panic=%v err=%v", got, caught, err)
+	}
+}
+
+func TestDiagnosticDecoderPointers(t *testing.T) {
+	entropyInitGrowStack(12)
+	runtime.GC()
+	checkDiagnosticFatal(t, func() { validate_opus_decoder(nil, &OpusT_OpusDecoder{}) }, "Fatal (internal) error in ../src/opus_decoder.c, line 99: assertion failed: st->channels == 1 || st->channels == 2\n")
+	checkDiagnosticFatal(t, func() { validate_opus_decoder(nil, &OpusT_OpusDecoder{Fchannels: 2}) }, "Fatal (internal) error in ../src/opus_decoder.c, line 103: assertion failed: st->Fs == 48000 || st->Fs == 24000 || st->Fs == 16000 || st->Fs == 12000 || st->Fs == 8000\n")
+}
+
+func TestDiagnosticQuantPointers(t *testing.T) {
+	entropyInitGrowStack(12)
+	runtime.GC()
+	checkDiagnosticFatal(t, func() { Opus_alg_quant(nil, nil, 0, 0, 0, 1, nil, 1, 0, 0) }, "Fatal (internal) error in ../celt/vq.c, line 562: assertion failed: K>0\nalg_quant() needs at least one pulse\n")
+	checkDiagnosticFatal(t, func() { Opus_alg_quant(nil, nil, 1, 1, 0, 1, nil, 1, 0, 0) }, "Fatal (internal) error in ../celt/vq.c, line 563: assertion failed: N>1\nalg_quant() needs at least two dimensions\n")
+}
+
+func TestDiagnosticMiniAssertPointers(t *testing.T) {
+	cases := []struct {
+		f    func()
+		want string
+	}{
+		{func() { Opus_mini_kiss_fft_stride(nil, nil, nil, nil, 1) }, "assertion failed: fin != fout (../celt/mini_kfft.c:391)"},
+		{func() { miniFFTRealInput(nil, nil, nil, nil) }, "assertion failed: fin != fout (../celt/mini_kfft.c:391)"},
+		{func() { Opus_mini_kiss_fftr_alloc(nil, 3, 0, nil, nil) }, "assertion failed: (nfft & 1) == 0 (../celt/mini_kfft.c:416)"},
+		{func() {
+			Opus_mini_kiss_fftr(nil, &OpusT_mini_kiss_fftr_state{Fsubstate: &OpusT_mini_kiss_fft_state{Finverse: 1}}, nil, nil)
+		}, "assertion failed: !st->substate->inverse (../celt/mini_kfft.c:453)"},
+	}
+	for _, c := range cases {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		var caught any
+		func() { defer func() { caught = recover() }(); c.f() }()
+		if caught != c.want {
+			t.Fatalf("mini assert text/ordering: %v want %s", caught, c.want)
+		}
+	}
+}
+
+func TestDiagnosticVersionPointers(t *testing.T) {
+	const want = "libopus 1.6.1"
+	p := Opus_opus_get_version_string_typed(nil)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if p != unsafe.StringData(__ccgo_ts1[3291:]) || unsafe.String(p, len(want)) != want || unsafe.Slice(p, len(want)+1)[len(want)] != 0 || Opus_opus_get_version_string(nil) != uintptr(unsafe.Pointer(p)) {
+		t.Fatal("static typed/raw version pointer/text/NUL")
 	}
 }
 

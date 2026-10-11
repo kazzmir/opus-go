@@ -8,6 +8,18 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDiagnosticExtensionPointers(t *testing.T) {
+	entropyInitGrowStack(12)
+	runtime.GC()
+	checkDiagnosticFatal(t, func() { Opus_opus_extension_iterator_init(nil, nil, nil, -1, 49) }, "Fatal (internal) error in ../src/extensions.c, line 122: assertion failed: len >= 0\n")
+	checkDiagnosticFatal(t, func() { Opus_opus_extension_iterator_init(nil, nil, nil, 1, 49) }, "Fatal (internal) error in ../src/extensions.c, line 123: assertion failed: data != NULL || len == 0\n")
+	checkDiagnosticFatal(t, func() { Opus_opus_extension_iterator_init(nil, nil, nil, 0, 49) }, "Fatal (internal) error in ../src/extensions.c, line 124: assertion failed: nb_frames >= 0 && nb_frames <= 48\n")
+	checkDiagnosticFatal(t, func() { write_extension_payload(nil, nil, 0, 0, 2, 0, nil, 0) }, "Fatal (internal) error in ../src/extensions.c, line 425: assertion failed: ext->id >= 3 && ext->id <= 127\n")
+	if got := write_extension(nil, nil, 0, 0, 2, 0, nil, 0); got != -2 {
+		t.Fatal("capacity before ID assertion", got)
+	}
+}
+
 func TestExtensionLacingCursorPointers(t *testing.T) {
 	packet := make([]byte, 260)
 	packet[0], packet[1], packet[2], packet[258], packet[259] = 77, 255, 0, 99, 88

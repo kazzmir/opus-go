@@ -363,10 +363,10 @@ func Opus_op_pvq_search_c(tls *libc.TLS, X *float32, iy *int32, K, N, arch int32
 
 func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, enc *OpusT_ec_enc, gain OpusT_opus_val32, resynth, arch int32) uint32 {
 	if K <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+4868, __ccgo_ts+4855, 562)
+		opusCeltFatal(tls, opusDiagnosticString(4868), opusDiagnosticString(4855), 562)
 	}
 	if N <= 1 {
-		Opus_celt_fatal(tls, __ccgo_ts+4927, __ccgo_ts+4855, 563)
+		opusCeltFatal(tls, opusDiagnosticString(4927), opusDiagnosticString(4855), 563)
 	}
 	// Preserve C's three padding words for up-to-four-lane pulse search.
 	pulses := make([]int32, N+3)
@@ -388,10 +388,10 @@ func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, en
 //	    the final normalised signal in the current band. */
 func Opus_alg_unquant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, dec *OpusT_ec_dec, gain OpusT_opus_val32) uint32 {
 	if K <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+4991, __ccgo_ts+4855, 629)
+		opusCeltFatal(tls, opusDiagnosticString(4991), opusDiagnosticString(4855), 629)
 	}
 	if N <= 1 {
-		Opus_celt_fatal(tls, __ccgo_ts+5052, __ccgo_ts+4855, 630)
+		opusCeltFatal(tls, opusDiagnosticString(5052), opusDiagnosticString(4855), 630)
 	}
 	// Keep the decoded pulse vector owned by Go throughout reconstruction.
 	pulses := make([]int32, N)
@@ -718,7 +718,7 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 		codedBands = codedBands - 1
 	}
 	if !(codedBands > start) {
-		Opus_celt_fatal(tls, __ccgo_ts+5118, __ccgo_ts+5155, int32(394))
+		opusCeltFatal(tls, opusDiagnosticString(5118), opusDiagnosticString(5155), int32(394))
 	}
 	// Scalar stores and array accesses remain live: callers may alias them.
 	if intensity_rsv > 0 {
@@ -758,7 +758,7 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 	balance := int32(0)
 	for j = start; j < codedBands; j++ {
 		if pulse[j] < 0 {
-			Opus_celt_fatal(tls, __ccgo_ts+5170, __ccgo_ts+5155, 445)
+			opusCeltFatal(tls, opusDiagnosticString(5170), opusDiagnosticString(5155), 445)
 		}
 		N := (int32(modeBand(m, j+1)) - int32(modeBand(m, j))) << LM
 		bit := pulse[j] + balance
@@ -800,17 +800,17 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 		}
 		balance = excess
 		if pulse[j] < 0 {
-			Opus_celt_fatal(tls, __ccgo_ts+5170, __ccgo_ts+5155, 516)
+			opusCeltFatal(tls, opusDiagnosticString(5170), opusDiagnosticString(5155), 516)
 		}
 		if fine[j] < 0 {
-			Opus_celt_fatal(tls, __ccgo_ts+5201, __ccgo_ts+5155, 517)
+			opusCeltFatal(tls, opusDiagnosticString(5201), opusDiagnosticString(5155), 517)
 		}
 	}
 	*_balance = balance
 	for ; j < end; j++ {
 		fine[j] = pulse[j] >> stereo >> BITRES
 		if C*fine[j]<<BITRES != pulse[j] {
-			Opus_celt_fatal(tls, __ccgo_ts+5233, __ccgo_ts+5155, 527)
+			opusCeltFatal(tls, opusDiagnosticString(5233), opusDiagnosticString(5155), 527)
 		}
 		pulse[j] = 0
 		priority[j] = libc.BoolInt32(fine[j] < 1)
@@ -1220,7 +1220,7 @@ func Opus_denormalise_bands(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSiz
 		}
 	}
 	if start > end {
-		Opus_celt_fatal(tls, __ccgo_ts+5281, __ccgo_ts+5312, 254)
+		opusCeltFatal(tls, opusDiagnosticString(5281), opusDiagnosticString(5312), 254)
 	}
 	clear(output[bound:])
 }
@@ -1391,7 +1391,7 @@ func stereo_merge(tls *libc.TLS, X *OpusT_celt_norm, Y *OpusT_celt_norm, mid Opu
 //	/* Decide whether we should spread the pulses in the current frame */
 func Opus_spreading_decision(tls *libc.TLS, bands *int16, nbBands, shortMdctSize int32, X *float32, average *int32, lastDecision int32, hfAverage, tapset *int32, updateHF, end, C, M int32, spreadWeight *int32) int32 {
 	if end <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+5328, __ccgo_ts+5312, 480)
+		opusCeltFatal(tls, opusDiagnosticString(5328), opusDiagnosticString(5312), 480)
 	}
 	b := unsafe.Slice(bands, end+1)
 	n0 := M * shortMdctSize
@@ -1451,10 +1451,10 @@ func Opus_spreading_decision(tls *libc.TLS, bands *int16, nbBands, shortMdctSize
 		}
 	}
 	if weightedBands <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+5352, __ccgo_ts+5312, 536)
+		opusCeltFatal(tls, opusDiagnosticString(5352), opusDiagnosticString(5312), 536)
 	}
 	if sum < 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+5380, __ccgo_ts+5312, 537)
+		opusCeltFatal(tls, opusDiagnosticString(5380), opusDiagnosticString(5312), 537)
 	}
 	sum = int32(uint32(sum<<8) / uint32(weightedBands))
 	sum = (sum + *average) >> 1
@@ -1509,7 +1509,7 @@ var ordery_table = [30]int32{
 
 func deinterleave_hadamard(tls *libc.TLS, X *OpusT_celt_norm, N0 int32, stride int32, hadamard int32) {
 	if stride <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+5405, __ccgo_ts+5312, 582)
+		opusCeltFatal(tls, opusDiagnosticString(5405), opusDiagnosticString(5312), 582)
 	}
 	if N0 == 0 {
 		return
@@ -1600,7 +1600,7 @@ func compute_qn(tls *libc.TLS, N int32, b int32, offset int32, pulse_cap int32, 
 		qn = (qn + int32(1)) >> int32(1) << int32(1)
 	}
 	if !(qn <= int32(256)) {
-		Opus_celt_fatal(tls, __ccgo_ts+5432, __ccgo_ts+5312, int32(660))
+		opusCeltFatal(tls, opusDiagnosticString(5432), opusDiagnosticString(5312), int32(660))
 	}
 	return qn
 }
@@ -1835,7 +1835,7 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y 
 			}
 		}
 		if !(itheta >= int32(0)) {
-			Opus_celt_fatal(tls, __ccgo_ts+5460, __ccgo_ts+5312, int32(840))
+			opusCeltFatal(tls, opusDiagnosticString(5460), opusDiagnosticString(5312), int32(840))
 		}
 		v2 = uint32(qn)
 		_ = v2 > uint32(0)
@@ -2728,7 +2728,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 		}
 		N1 = M*quantAllBandsBoundary(eBands, i1+1) - M*quantAllBandsBoundary(eBands, i1)
 		if !(N1 > int32(0)) {
-			Opus_celt_fatal(tls, __ccgo_ts+5488, __ccgo_ts+5312, int32(1705))
+			opusCeltFatal(tls, opusDiagnosticString(5488), opusDiagnosticString(5312), int32(1705))
 		}
 		tell = int32(Opus_ec_tell_frac(tls, ec))
 		/* Compute how many bits we want to allocate to this band */

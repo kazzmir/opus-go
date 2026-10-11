@@ -203,6 +203,23 @@ func RegisterGoAllocation[T any](tls *TLS, p *T) *T {
 	return p
 }
 
+// RegisteredGoAllocation returns the actual registered typed root, without
+// reconstructing a pointer from a handle. Byte allocations/type mismatches are
+// deliberately not promoted into scanned Go objects.
+func RegisteredGoAllocation[T any](tls *TLS, handle uintptr) *T {
+	if tls == nil || handle == 0 {
+		return nil
+	}
+	tls.heapMu.Lock()
+	defer tls.heapMu.Unlock()
+	allocation := tls.heap[handle]
+	if allocation == nil {
+		return nil
+	}
+	root, _ := allocation.owner.(*T)
+	return root
+}
+
 // XfreePointer unregisters storage; callers must stop using it as with Xfree.
 func XfreePointer(tls *TLS, p unsafe.Pointer) { Xfree(tls, uintptr(p)) }
 
@@ -291,8 +308,13 @@ func Xfprintf(_ *TLS, _ uintptr, format uintptr, ap uintptr) int32 {
 
 func Xabort(_ *TLS) { panic("libcshim: abort") }
 
-func X__assert_fail(_ *TLS, assertion, file uintptr, line int32, _ uintptr) {
-	panic(fmt.Sprintf("assertion failed: %s (%s:%d)", GoString(assertion), GoString(file), line))
+func X__assert_fail(tls *TLS, assertion, file uintptr, line int32, _ uintptr) {
+	AssertFail(tls, GoString(assertion), GoString(file), line)
+}
+
+// AssertFail accepts GC-visible Go text; the raw ABI adapter above is retained.
+func AssertFail(_ *TLS, assertion, file string, line int32) {
+	panic(fmt.Sprintf("assertion failed: %s (%s:%d)", assertion, file, line))
 }
 
 // ---- Math/bit helpers ----

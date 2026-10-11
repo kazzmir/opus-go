@@ -11,7 +11,75 @@ import (
 
 var _ reflect.Type
 
+// FFT output is either actual complex cells or adjacent real float lanes.
+// Each butterfly declares only its consumed prefix after no-work/assert guards.
+type fftOutput struct {
+	complex    *OpusT_kiss_fft_cpx
+	scalar     *float32
+	floatLanes bool
+}
+type fftBuffer struct {
+	complex []OpusT_kiss_fft_cpx
+	scalar  []float32
+}
+
+func (out fftOutput) prefix(n int32) fftBuffer {
+	if out.floatLanes {
+		return fftBuffer{scalar: unsafe.Slice(out.scalar, int64(n)*2)}
+	}
+	return fftBuffer{complex: unsafe.Slice(out.complex, n)}
+}
+func (b fftBuffer) window(first, count int32) fftBuffer {
+	if b.scalar != nil {
+		return fftBuffer{scalar: b.scalar[2*int64(first) : 2*int64(first+count)]}
+	}
+	return fftBuffer{complex: b.complex[first : first+count]}
+}
+func (b fftBuffer) get(i int32) OpusT_kiss_fft_cpx {
+	if b.scalar != nil {
+		return OpusT_kiss_fft_cpx{Fr: b.scalar[2*int64(i)], Fi: b.scalar[2*int64(i)+1]}
+	}
+	return b.complex[i]
+}
+func (b fftBuffer) put(i int32, v OpusT_kiss_fft_cpx) {
+	if b.scalar != nil {
+		b.scalar[2*int64(i)] = v.Fr
+		b.scalar[2*int64(i)+1] = v.Fi
+	} else {
+		b.complex[i] = v
+	}
+}
+func (b fftBuffer) re(i int32) float32 {
+	if b.scalar != nil {
+		return b.scalar[2*int64(i)]
+	}
+	return b.complex[i].Fr
+}
+func (b fftBuffer) im(i int32) float32 {
+	if b.scalar != nil {
+		return b.scalar[2*int64(i)+1]
+	}
+	return b.complex[i].Fi
+}
+func (b fftBuffer) putRe(i int32, v float32) {
+	if b.scalar != nil {
+		b.scalar[2*int64(i)] = v
+	} else {
+		b.complex[i].Fr = v
+	}
+}
+func (b fftBuffer) putIm(i int32, v float32) {
+	if b.scalar != nil {
+		b.scalar[2*int64(i)+1] = v
+	} else {
+		b.complex[i].Fi = v
+	}
+}
+
 func kf_bfly2(tls *libc.TLS, out *OpusT_kiss_fft_cpx, m, N int32) {
+	kfBfly2Output(tls, fftOutput{complex: out}, m, N)
+}
+func kfBfly2Output(tls *libc.TLS, out fftOutput, m, N int32) {
 	// The no-custom-modes radix-2 stage always follows a radix-4 stage.
 	if m != 4 {
 		opusCeltFatal(tls, opusDiagnosticString(3470), opusDiagnosticString(3493), 80)
@@ -19,12 +87,12 @@ func kf_bfly2(tls *libc.TLS, out *OpusT_kiss_fft_cpx, m, N int32) {
 	if N <= 0 {
 		return
 	}
-	data := unsafe.Slice(out, 8*N)
+	data := out.prefix(8 * N)
 	const tw = float32(0.7071067812)
 	for i := int32(0); i < N; i++ {
-		f := data[8*i : 8*i+8]
-		for j := 0; j < 4; j++ {
-			t := f[j+4]
+		f := data.window(8*i, 8)
+		for j := int32(0); j < 4; j++ {
+			t := f.get(j + 4)
 			switch j {
 			case 1:
 				t = OpusT_kiss_fft_cpx{Fr: float32((t.Fr + t.Fi) * tw), Fi: float32((t.Fi - t.Fr) * tw)}
@@ -33,53 +101,56 @@ func kf_bfly2(tls *libc.TLS, out *OpusT_kiss_fft_cpx, m, N int32) {
 			case 3:
 				t = OpusT_kiss_fft_cpx{Fr: float32((t.Fi - t.Fr) * tw), Fi: float32(-(t.Fi + t.Fr) * tw)}
 			}
-			f[j+4].Fr = f[j].Fr - t.Fr
-			f[j+4].Fi = f[j].Fi - t.Fi
-			f[j].Fr += t.Fr
-			f[j].Fi += t.Fi
+			f.putRe(j+4, f.re(j)-t.Fr)
+			f.putIm(j+4, f.im(j)-t.Fi)
+			f.putRe(j, f.re(j)+t.Fr)
+			f.putIm(j, f.im(j)+t.Fi)
 		}
 	}
 }
 
 // Twiddles are explicit so a local table is not hidden in the legacy FFT state.
 func kf_bfly4(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
+	kfBfly4Output(tls, fftOutput{complex: out}, stride, twiddles, m, N, mm)
+}
+func kfBfly4Output(tls *libc.TLS, out fftOutput, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
 	if N <= 0 {
 		return
 	}
 	if m == 1 {
-		data := unsafe.Slice(out, 4*N)
+		data := out.prefix(4 * N)
 		for i := int32(0); i < N; i++ {
-			f := data[4*i : 4*i+4]
-			s0 := fftSub(f[0], f[2])
-			f[0] = fftAdd(f[0], f[2])
-			s1 := fftAdd(f[1], f[3])
-			f[2] = fftSub(f[0], s1)
-			f[0] = fftAdd(f[0], s1)
-			s1 = fftSub(f[1], f[3])
-			f[1] = OpusT_kiss_fft_cpx{Fr: s0.Fr + s1.Fi, Fi: s0.Fi - s1.Fr}
-			f[3] = OpusT_kiss_fft_cpx{Fr: s0.Fr - s1.Fi, Fi: s0.Fi + s1.Fr}
+			f := data.window(4*i, 4)
+			s0 := fftSub(f.get(0), f.get(2))
+			f.put(0, fftAdd(f.get(0), f.get(2)))
+			s1 := fftAdd(f.get(1), f.get(3))
+			f.put(2, fftSub(f.get(0), s1))
+			f.put(0, fftAdd(f.get(0), s1))
+			s1 = fftSub(f.get(1), f.get(3))
+			f.put(1, OpusT_kiss_fft_cpx{Fr: s0.Fr + s1.Fi, Fi: s0.Fi - s1.Fr})
+			f.put(3, OpusT_kiss_fft_cpx{Fr: s0.Fr - s1.Fi, Fi: s0.Fi + s1.Fr})
 		}
 		return
 	}
 	if m <= 0 {
 		return
 	}
-	data := unsafe.Slice(out, (N-1)*mm+4*m)
+	data := out.prefix((N-1)*mm + 4*m)
 	tw := unsafe.Slice(twiddles, 3*uint64(m-1)*stride+1)
 	for i := int32(0); i < N; i++ {
-		f := data[i*mm : i*mm+4*m]
+		f := data.window(i*mm, 4*m)
 		for j := int32(0); j < m; j++ {
-			s0 := fftMul(f[j+m], tw[uint64(j)*stride])
-			s1 := fftMul(f[j+2*m], tw[2*uint64(j)*stride])
-			s2 := fftMul(f[j+3*m], tw[3*uint64(j)*stride])
-			s5 := fftSub(f[j], s1)
-			f[j] = fftAdd(f[j], s1)
+			s0 := fftMul(f.get(j+m), tw[uint64(j)*stride])
+			s1 := fftMul(f.get(j+2*m), tw[2*uint64(j)*stride])
+			s2 := fftMul(f.get(j+3*m), tw[3*uint64(j)*stride])
+			s5 := fftSub(f.get(j), s1)
+			f.put(j, fftAdd(f.get(j), s1))
 			s3 := fftAdd(s0, s2)
 			s4 := fftSub(s0, s2)
-			f[j+2*m] = fftSub(f[j], s3)
-			f[j] = fftAdd(f[j], s3)
-			f[j+m] = OpusT_kiss_fft_cpx{Fr: s5.Fr + s4.Fi, Fi: s5.Fi - s4.Fr}
-			f[j+3*m] = OpusT_kiss_fft_cpx{Fr: s5.Fr - s4.Fi, Fi: s5.Fi + s4.Fr}
+			f.put(j+2*m, fftSub(f.get(j), s3))
+			f.put(j, fftAdd(f.get(j), s3))
+			f.put(j+m, OpusT_kiss_fft_cpx{Fr: s5.Fr + s4.Fi, Fi: s5.Fi - s4.Fr})
+			f.put(j+3*m, OpusT_kiss_fft_cpx{Fr: s5.Fr - s4.Fi, Fi: s5.Fi + s4.Fr})
 		}
 	}
 }
@@ -96,11 +167,14 @@ func fftMul(a OpusT_kiss_fft_cpx, b OpusT_kiss_twiddle_cpx) OpusT_kiss_fft_cpx {
 }
 
 func kf_bfly3(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
+	kfBfly3Output(tls, fftOutput{complex: out}, stride, twiddles, m, N, mm)
+}
+func kfBfly3Output(tls *libc.TLS, out fftOutput, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
 	// C requires positive m; no output or twiddle access for an empty Go call.
 	if N <= 0 || m <= 0 {
 		return
 	}
-	data := unsafe.Slice(out, (N-1)*mm+3*m)
+	data := out.prefix((N-1)*mm + 3*m)
 	maxTw := uint64(m) * stride
 	if v := 2 * uint64(m-1) * stride; v > maxTw {
 		maxTw = v
@@ -108,30 +182,33 @@ func kf_bfly3(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twidd
 	tw := unsafe.Slice(twiddles, maxTw+1)
 	epi3 := tw[uint64(m)*stride]
 	for i := int32(0); i < N; i++ {
-		f := data[i*mm : i*mm+3*m]
+		f := data.window(i*mm, 3*m)
 		for j := int32(0); j < m; j++ {
-			s1 := fftMul(f[j+m], tw[uint64(j)*stride])
-			s2 := fftMul(f[j+2*m], tw[2*uint64(j)*stride])
+			s1 := fftMul(f.get(j+m), tw[uint64(j)*stride])
+			s2 := fftMul(f.get(j+2*m), tw[2*uint64(j)*stride])
 			s3 := fftAdd(s1, s2)
 			s0 := fftSub(s1, s2)
-			f[j+m] = OpusT_kiss_fft_cpx{Fr: f[j].Fr - float32(s3.Fr*.5), Fi: f[j].Fi - float32(s3.Fi*.5)}
+			f.put(j+m, OpusT_kiss_fft_cpx{Fr: f.re(j) - float32(s3.Fr*.5), Fi: f.im(j) - float32(s3.Fi*.5)})
 			// Explicit rounding prevents ARM64 from fusing these products with
 			// the following additions/subtractions (C stores scratch first).
 			s0.Fr = float32(s0.Fr * epi3.Fi)
 			s0.Fi = float32(s0.Fi * epi3.Fi)
-			f[j] = fftAdd(f[j], s3)
-			f[j+2*m] = OpusT_kiss_fft_cpx{Fr: f[j+m].Fr + s0.Fi, Fi: f[j+m].Fi - s0.Fr}
-			f[j+m].Fr -= s0.Fi
-			f[j+m].Fi += s0.Fr
+			f.put(j, fftAdd(f.get(j), s3))
+			f.put(j+2*m, OpusT_kiss_fft_cpx{Fr: f.re(j+m) + s0.Fi, Fi: f.im(j+m) - s0.Fr})
+			f.putRe(j+m, f.re(j+m)-s0.Fi)
+			f.putIm(j+m, f.im(j+m)+s0.Fr)
 		}
 	}
 }
 
 func kf_bfly5(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
+	kfBfly5Output(tls, fftOutput{complex: out}, stride, twiddles, m, N, mm)
+}
+func kfBfly5Output(tls *libc.TLS, out fftOutput, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
 	if N <= 0 || m <= 0 {
 		return
 	}
-	data := unsafe.Slice(out, (N-1)*mm+5*m)
+	data := out.prefix((N-1)*mm + 5*m)
 	maxTw := 2 * uint64(m) * stride
 	if v := 4 * uint64(m-1) * stride; v > maxTw {
 		maxTw = v
@@ -140,35 +217,39 @@ func kf_bfly5(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twidd
 	ya := tw[uint64(m)*stride]
 	yb := tw[2*uint64(m)*stride]
 	for i := int32(0); i < N; i++ {
-		f := data[i*mm : i*mm+5*m]
+		f := data.window(i*mm, 5*m)
 		for u := int32(0); u < m; u++ {
 			var s [13]OpusT_kiss_fft_cpx
-			s[0] = f[u]
+			s[0] = f.get(u)
 			for k := int32(1); k <= 4; k++ {
-				s[k] = fftMul(f[u+k*m], tw[uint64(k*u)*stride])
+				s[k] = fftMul(f.get(u+k*m), tw[uint64(k*u)*stride])
 			}
 			s[7] = fftAdd(s[1], s[4])
 			s[10] = fftSub(s[1], s[4])
 			s[8] = fftAdd(s[2], s[3])
 			s[9] = fftSub(s[2], s[3])
-			f[u] = fftAdd(f[u], fftAdd(s[7], s[8]))
+			f.put(u, fftAdd(f.get(u), fftAdd(s[7], s[8])))
 			s[5].Fr = s[0].Fr + (float32(s[7].Fr*ya.Fr) + float32(s[8].Fr*yb.Fr))
 			s[5].Fi = s[0].Fi + (float32(s[7].Fi*ya.Fr) + float32(s[8].Fi*yb.Fr))
 			s[6].Fr = float32(s[10].Fi*ya.Fi) + float32(s[9].Fi*yb.Fi)
 			s[6].Fi = -(float32(s[10].Fr*ya.Fi) + float32(s[9].Fr*yb.Fi))
-			f[u+m] = fftSub(s[5], s[6])
-			f[u+4*m] = fftAdd(s[5], s[6])
+			f.put(u+m, fftSub(s[5], s[6]))
+			f.put(u+4*m, fftAdd(s[5], s[6]))
 			s[11].Fr = s[0].Fr + (float32(s[7].Fr*yb.Fr) + float32(s[8].Fr*ya.Fr))
 			s[11].Fi = s[0].Fi + (float32(s[7].Fi*yb.Fr) + float32(s[8].Fi*ya.Fr))
 			s[12].Fr = float32(s[9].Fi*ya.Fi) - float32(s[10].Fi*yb.Fi)
 			s[12].Fi = float32(s[10].Fr*yb.Fi) - float32(s[9].Fr*ya.Fi)
-			f[u+2*m] = fftAdd(s[11], s[12])
-			f[u+3*m] = fftSub(s[11], s[12])
+			f.put(u+2*m, fftAdd(s[11], s[12]))
+			f.put(u+3*m, fftSub(s[11], s[12]))
 		}
 	}
 }
 
 func Opus_opus_fft_impl(tls *libc.TLS, state *OpusT_kiss_fft_state, twiddles *OpusT_kiss_twiddle_cpx, fout *OpusT_kiss_fft_cpx) {
+	opusFFTImplOutput(tls, state, twiddles, fftOutput{complex: fout})
+}
+
+func opusFFTImplOutput(tls *libc.TLS, state *OpusT_kiss_fft_state, twiddles *OpusT_kiss_twiddle_cpx, out fftOutput) {
 	var L, i, m, m2, p, shift, v1 int32
 	var fstride [8]int32
 	_, _, _, _, _, _, _, _ = L, fstride, i, m, m2, p, shift, v1
@@ -200,13 +281,13 @@ func Opus_opus_fft_impl(tls *libc.TLS, state *OpusT_kiss_fft_state, twiddles *Op
 		}
 		switch int32(state.Ffactors[2*i]) {
 		case int32(2):
-			kf_bfly2(tls, fout, m, fstride[i])
+			kfBfly2Output(tls, out, m, fstride[i])
 		case int32(4):
-			kf_bfly4(tls, fout, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
+			kfBfly4Output(tls, out, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
 		case int32(3):
-			kf_bfly3(tls, fout, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
+			kfBfly3Output(tls, out, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
 		case int32(5):
-			kf_bfly5(tls, fout, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
+			kfBfly5Output(tls, out, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
 			break
 		}
 		m = m2

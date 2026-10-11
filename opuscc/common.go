@@ -1689,8 +1689,6 @@ type timespec = struct {
 	Ftv_nsec int64
 }
 
-type OpusT_pthread_t = uintptr
-
 type OpusT_pthread_once_t = int32
 
 type OpusT_pthread_key_t = uint32
@@ -1724,38 +1722,6 @@ type OpusT_pthread_attr_t = struct {
 		F__vi [0][14]int32
 		F__s  [0][7]uint64
 		F__i  [14]int32
-	}
-}
-
-type OpusT_pthread_mutex_t = struct {
-	F__u struct {
-		F__vi [0][10]int32
-		F__p  [0][5]uintptr
-		F__i  [10]int32
-	}
-}
-
-type OpusT_pthread_cond_t = struct {
-	F__u struct {
-		F__vi [0][12]int32
-		F__p  [0][6]uintptr
-		F__i  [12]int32
-	}
-}
-
-type OpusT_pthread_rwlock_t = struct {
-	F__u struct {
-		F__vi [0][14]int32
-		F__p  [0][7]uintptr
-		F__i  [14]int32
-	}
-}
-
-type OpusT_pthread_barrier_t = struct {
-	F__u struct {
-		F__vi [0][8]int32
-		F__p  [0][4]uintptr
-		F__i  [8]int32
 	}
 }
 
@@ -1809,8 +1775,8 @@ type cpu_set_t = struct {
 }
 
 type OpusT_opus_ccgo_pseudostack_state = struct {
-	Fscratch_ptr  uintptr
-	Fglobal_stack uintptr
+	Fscratch_ptr  *byte
+	Fglobal_stack *byte
 }
 
 type OpusT_silk_resampler_state_struct = struct {
@@ -2134,35 +2100,35 @@ type OpusDecoder = struct {
 
 func validate_opus_decoder(tls *libc.TLS, st *OpusT_OpusDecoder) {
 	if !(st.Fchannels == 1 || st.Fchannels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 99)
+		opusCeltFatal(tls, opusDiagnosticString(0), opusDiagnosticString(57), 99)
 	}
 	if !(st.FFs == 48000 || st.FFs == 24000 || st.FFs == 16000 || st.FFs == 12000 || st.FFs == 8000) {
-		Opus_celt_fatal(tls, __ccgo_ts+79, __ccgo_ts+57, 103)
+		opusCeltFatal(tls, opusDiagnosticString(79), opusDiagnosticString(57), 103)
 	}
 	if st.FDecControl.FAPI_sampleRate != st.FFs {
-		Opus_celt_fatal(tls, __ccgo_ts+188, __ccgo_ts+57, 105)
+		opusCeltFatal(tls, opusDiagnosticString(188), opusDiagnosticString(57), 105)
 	}
 	dc := &st.FDecControl
 	if !(dc.FinternalSampleRate == 0 || dc.FinternalSampleRate == 16000 || dc.FinternalSampleRate == 12000 || dc.FinternalSampleRate == 8000) {
-		Opus_celt_fatal(tls, __ccgo_ts+246, __ccgo_ts+57, 106)
+		opusCeltFatal(tls, opusDiagnosticString(246), opusDiagnosticString(57), 106)
 	}
 	if dc.FnChannelsAPI != st.Fchannels {
-		Opus_celt_fatal(tls, __ccgo_ts+440, __ccgo_ts+57, 107)
+		opusCeltFatal(tls, opusDiagnosticString(440), opusDiagnosticString(57), 107)
 	}
 	if !(dc.FnChannelsInternal == 0 || dc.FnChannelsInternal == 1 || dc.FnChannelsInternal == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts+502, __ccgo_ts+57, 108)
+		opusCeltFatal(tls, opusDiagnosticString(502), opusDiagnosticString(57), 108)
 	}
 	if !(dc.FpayloadSize_ms == 0 || dc.FpayloadSize_ms == 10 || dc.FpayloadSize_ms == 20 || dc.FpayloadSize_ms == 40 || dc.FpayloadSize_ms == 60) {
-		Opus_celt_fatal(tls, __ccgo_ts+640, __ccgo_ts+57, 109)
+		opusCeltFatal(tls, opusDiagnosticString(640), opusDiagnosticString(57), 109)
 	}
 	if st.Farch < 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+849, __ccgo_ts+57, 111)
+		opusCeltFatal(tls, opusDiagnosticString(849), opusDiagnosticString(57), 111)
 	}
 	if st.Farch > OPUS_ARCHMASK {
-		Opus_celt_fatal(tls, __ccgo_ts+881, __ccgo_ts+57, 112)
+		opusCeltFatal(tls, opusDiagnosticString(881), opusDiagnosticString(57), 112)
 	}
 	if !(st.Fstream_channels == 1 || st.Fstream_channels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts+925, __ccgo_ts+57, 114)
+		opusCeltFatal(tls, opusDiagnosticString(925), opusDiagnosticString(57), 114)
 	}
 }
 
@@ -2509,7 +2475,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 						} else {
 							decoder.FDecControl.FinternalSampleRate = int32(16000)
 							if !(int32(0) != 0) {
-								Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+57, int32(436))
+								opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(57), int32(436))
 							}
 						}
 					}
@@ -2622,18 +2588,18 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 			endband = int32(21)
 		default:
 			if !(int32(0) != 0) {
-				Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+57, int32(567))
+				opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(57), int32(567))
 			}
 			break
 		}
 		_ = endband == int32(0)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_END_BAND_REQUEST, OpusDecoderCtlArgs{Value: endband}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1037, __ccgo_ts+57, int32(570))
+			opusCeltFatal(tls, opusDiagnosticString(1037), opusDiagnosticString(57), int32(570))
 		}
 	}
 	_ = decoder.Fstream_channels == int32(0)
 	if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_CHANNELS_REQUEST, OpusDecoderCtlArgs{Value: decoder.Fstream_channels}) == int32(OPUS_OK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+1172, __ccgo_ts+57, int32(572))
+		opusCeltFatal(tls, opusDiagnosticString(1172), opusDiagnosticString(57), int32(572))
 	}
 	/* Only allocation memory for redundancy if/when needed */
 	if redundancy != 0 {
@@ -2652,17 +2618,17 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		   always decoded but the decoded audio may not be used */
 		_ = int32(0) == int32(0)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(586))
+			opusCeltFatal(tls, opusDiagnosticString(1331), opusDiagnosticString(57), int32(586))
 		}
 		opusFrameCeltRedundant(tls, celt_dec, data, len1, redundancy_bytes, redundant_audio, F5)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &redundant_rng}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(589))
+			opusCeltFatal(tls, opusDiagnosticString(1454), opusDiagnosticString(57), int32(589))
 		}
 	}
 	/* MUST be after PLC */
 	_ = start_band == int32(0)
 	if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: start_band}) == int32(OPUS_OK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+1599, __ccgo_ts+57, int32(593))
+		opusCeltFatal(tls, opusDiagnosticString(1599), opusDiagnosticString(57), int32(593))
 	}
 	if mode != int32(MODE_SILK_ONLY) {
 		if F20 < frame_size {
@@ -2674,7 +2640,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		/* Make sure to discard any previous CELT state */
 		if mode != decoder.Fprev_mode && decoder.Fprev_mode > 0 && !(decoder.Fprev_redundancy != 0) {
 			if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
-				Opus_celt_fatal(tls, __ccgo_ts+1740, __ccgo_ts+57, int32(604))
+				opusCeltFatal(tls, opusDiagnosticString(1740), opusDiagnosticString(57), int32(604))
 			}
 		}
 		/* Decode CELT */
@@ -2700,28 +2666,28 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		if decoder.Fprev_mode == int32(MODE_HYBRID) && !(redundancy != 0 && celt_to_silk != 0 && decoder.Fprev_redundancy != 0) {
 			_ = int32(0) == int32(0)
 			if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
-				Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(624))
+				opusCeltFatal(tls, opusDiagnosticString(1331), opusDiagnosticString(57), int32(624))
 			}
 			opusFrameCeltSilence(tls, celt_dec, &silence, pcm_owner, F2_5, celt_accum)
 		}
 		decoder.FrangeFinal = dec.Frng
 	}
 	if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &celt_mode}) == int32(OPUS_OK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+1811, __ccgo_ts+57, int32(632))
+		opusCeltFatal(tls, opusDiagnosticString(1811), opusDiagnosticString(57), int32(632))
 	}
 	window = celt_mode.Fwindow
 	/* 5 ms redundant frame for SILK->CELT */
 	if redundancy != 0 && !(celt_to_silk != 0) {
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1740, __ccgo_ts+57, int32(639))
+			opusCeltFatal(tls, opusDiagnosticString(1740), opusDiagnosticString(57), int32(639))
 		}
 		_ = int32(0) == int32(0)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(640))
+			opusCeltFatal(tls, opusDiagnosticString(1331), opusDiagnosticString(57), int32(640))
 		}
 		opusFrameCeltRedundant(tls, celt_dec, data, len1, redundancy_bytes, redundant_audio, F5)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &redundant_rng}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(643))
+			opusCeltFatal(tls, opusDiagnosticString(1454), opusDiagnosticString(57), int32(643))
 		}
 		smooth_fade(tls, opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*(frame_size-F2_5))*4), opusFramePCMAtBytes(redundant_audio, uint(decoder.Fchannels*F2_5)*4), opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*(frame_size-F2_5))*4), F2_5, decoder.Fchannels, window, decoder.FFs)
 	}
@@ -2884,7 +2850,7 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len
 			pcm_count = pcm_count + ret
 		}
 		if !(pcm_count == frame_size) {
-			Opus_celt_fatal(tls, __ccgo_ts+1955, __ccgo_ts+57, int32(773))
+			opusCeltFatal(tls, opusDiagnosticString(1955), opusDiagnosticString(57), int32(773))
 		}
 		v1 = 0
 		if v1 != 0 {
@@ -2924,7 +2890,7 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len
 				return ret1
 			}
 			if !(ret1 == frame_size-packet_frame_size) {
-				Opus_celt_fatal(tls, __ccgo_ts+1997, __ccgo_ts+57, int32(815))
+				opusCeltFatal(tls, opusDiagnosticString(1997), opusDiagnosticString(57), int32(815))
 			}
 		}
 		/* Complete with FEC */
@@ -2962,7 +2928,7 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len
 			return ret2
 		}
 		if !(ret2 == packet_frame_size) {
-			Opus_celt_fatal(tls, __ccgo_ts+2049, __ccgo_ts+57, int32(865))
+			opusCeltFatal(tls, opusDiagnosticString(2049), opusDiagnosticString(57), int32(865))
 		}
 		payload_offset += uint(size[i])
 		nb_samples = nb_samples + ret2
@@ -3005,7 +2971,7 @@ func opusDecodeInt16(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, leng
 		}
 	}
 	if !(decoder.Fchannels == 1 || decoder.Fchannels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 917)
+		opusCeltFatal(tls, opusDiagnosticString(0), opusDiagnosticString(57), 917)
 	}
 	out := opusFrameAudioStorage(frameSize * decoder.Fchannels)
 	result := opusDecodeNative(tls, decoder, data, length, unsafe.SliceData(out), frameSize, fec, 0, nil, OPTIONAL_CLIP)
@@ -3039,7 +3005,7 @@ func opusDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, leng
 		}
 	}
 	if !(decoder.Fchannels == 1 || decoder.Fchannels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 966)
+		opusCeltFatal(tls, opusDiagnosticString(0), opusDiagnosticString(57), 966)
 	}
 	out := opusFrameAudioStorage(frameSize * decoder.Fchannels)
 	result := opusDecodeNative(tls, decoder, data, length, unsafe.SliceData(out), frameSize, fec, 0, nil, 0)
@@ -3204,7 +3170,10 @@ func opusDREDDecoderInit(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) (r int32) {
 }
 
 func Opus_opus_dred_decoder_create_typed(tls *libc.TLS) (*OpusT_OpusDREDDecoder, error) {
-	dec := (*OpusT_OpusDREDDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_dred_decoder_get_size(tls)))))
+	if tls == nil {
+		return nil, opusErrorFromCode(-int32(7))
+	}
+	dec := libc.RegisterGoAllocation(tls, opusDREDDecoderStorage())
 	if dec == nil {
 		return nil, opusErrorFromCode(-int32(7))
 	}
@@ -3518,7 +3487,7 @@ func opusMSDecoderInitWithCodecs(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs Opus
 	if Opus_validate_layout(tls, layout) == 0 {
 		return OPUS_BAD_ARG
 	}
-	offset := int((unsafe.Sizeof(*st) + 7) &^ uintptr(7))
+	offset := int(opusAlignSize8(int32(unsafe.Sizeof(*st))))
 	coupledSize := Opus_opus_decoder_get_size(tls, 2)
 	monoSize := Opus_opus_decoder_get_size(tls, 1)
 	for i := int32(0); i < layout.Fnb_streams; i++ {
@@ -3652,7 +3621,12 @@ func opusMSPacketAt(data *byte, offset uint, length int32) *byte {
 	if length <= 0 {
 		return nil
 	}
-	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
+	if offset == 0 {
+		return data
+	}
+	// A positive remaining length proves that this current byte is consumed;
+	// do not declare the unused suffix or form a terminal pointer.
+	return &unsafe.Slice(data, uint64(offset)+1)[offset]
 }
 
 type opusMSBoundChannelCopy func(*libc.TLS, int32, int32, *float32, int32, int32)
@@ -3670,7 +3644,7 @@ func opusMSDecodeBound(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, 
 	}
 	/* Limit frame_size to avoid excessive stack allocations. */
 	if !(Opus_opus_multistream_decoder_ctl_typed(tls, decoder, OPUS_GET_SAMPLE_RATE_REQUEST, OpusDecoderCtlArgs{I32: &scratch.Fs}) == int32(OPUS_OK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2090, __ccgo_ts+2200, int32(206))
+		opusCeltFatal(tls, opusDiagnosticString(2090), opusDiagnosticString(2200), int32(206))
 	}
 	if frame_size < scratch.Fs/int32(25)*int32(3) {
 		v31 = frame_size
@@ -3993,7 +3967,7 @@ func Opus_mapping_matrix_init(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, 
 
 func mappingMatrixInitWithStorage(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, cols, gain int32, data *int16, data_size int32, destination *int16) {
 	if (uint32(data_size)+7)&^uint32(7) != (uint32(rows*cols)*2+7)&^uint32(7) {
-		Opus_celt_fatal(tls, __ccgo_ts+2234, __ccgo_ts+2312, 72)
+		opusCeltFatal(tls, opusDiagnosticString(2234), opusDiagnosticString(2312), 72)
 	}
 	matrix.Frows, matrix.Fcols, matrix.Fgain = rows, cols, gain
 	if rows*cols == 0 {
@@ -4012,7 +3986,7 @@ func mappingMatrixInitWithStorage(tls *libc.TLS, matrix *OpusT_MappingMatrix, ro
 
 func Opus_mapping_matrix_multiply_channel_in_float(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *float32, input_rows int32, output *OpusT_opus_res, output_row, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 98)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 98)
 	}
 	if frame_size <= 0 {
 		return
@@ -4032,7 +4006,7 @@ func Opus_mapping_matrix_multiply_channel_in_float(tls *libc.TLS, matrix *OpusT_
 
 func Opus_mapping_matrix_multiply_channel_out_float(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *OpusT_opus_res, input_row, input_rows int32, output *float32, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 130)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 130)
 	}
 	if frame_size <= 0 || output_rows == 0 {
 		return
@@ -4052,7 +4026,7 @@ func Opus_mapping_matrix_multiply_channel_out_float(tls *libc.TLS, matrix *OpusT
 
 func Opus_mapping_matrix_multiply_channel_in_short(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *int16, input_rows int32, output *OpusT_opus_res, output_row, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 161)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 161)
 	}
 	if frame_size <= 0 {
 		return
@@ -4072,7 +4046,7 @@ func Opus_mapping_matrix_multiply_channel_in_short(tls *libc.TLS, matrix *OpusT_
 
 func Opus_mapping_matrix_multiply_channel_out_short(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *OpusT_opus_res, input_row, input_rows int32, output *int16, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 206)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 206)
 	}
 	if frame_size <= 0 || output_rows == 0 {
 		return
@@ -4100,7 +4074,7 @@ func Opus_mapping_matrix_multiply_channel_out_short(tls *libc.TLS, matrix *OpusT
 
 func Opus_mapping_matrix_multiply_channel_in_int24(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *int32, input_rows int32, output *OpusT_opus_res, output_row, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 236)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 236)
 	}
 	if frame_size <= 0 {
 		return
@@ -4121,7 +4095,7 @@ func Opus_mapping_matrix_multiply_channel_in_int24(tls *libc.TLS, matrix *OpusT_
 
 func Opus_mapping_matrix_multiply_channel_out_int24(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *OpusT_opus_res, input_row, input_rows int32, output *int32, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 271)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 271)
 	}
 	if frame_size <= 0 || output_rows == 0 {
 		return
@@ -4521,13 +4495,13 @@ func skip_extension(tls *libc.TLS, pdata **byte, length int32, header *int32) in
 
 func Opus_opus_extension_iterator_init(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, data *byte, length, frames int32) {
 	if length < 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2445, __ccgo_ts+2472, 122)
+		opusCeltFatal(tls, opusDiagnosticString(2445), opusDiagnosticString(2472), 122)
 	}
 	if data == nil && length != 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2492, __ccgo_ts+2472, 123)
+		opusCeltFatal(tls, opusDiagnosticString(2492), opusDiagnosticString(2472), 123)
 	}
 	if frames < 0 || frames > 48 {
-		Opus_celt_fatal(tls, __ccgo_ts+2535, __ccgo_ts+2472, 124)
+		opusCeltFatal(tls, opusDiagnosticString(2535), opusDiagnosticString(2472), 124)
 	}
 	iter.Fdata = data
 	iter.Fcurr_data = data
@@ -4583,7 +4557,7 @@ func Opus_opus_extension_iterator_set_frame_max(tls *libc.TLS, iter *OpusT_OpusE
 func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, ext *OpusT_opus_extension_data) int32 {
 	var header int32
 	if iter.Frepeat_frame <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2587, __ccgo_ts+2472, 160)
+		opusCeltFatal(tls, opusDiagnosticString(2587), opusDiagnosticString(2472), 160)
 	}
 	for ; iter.Frepeat_frame < iter.Fnb_frames; iter.Frepeat_frame++ {
 		for iter.Fsrc_len > 0 {
@@ -4591,7 +4565,7 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensio
 			iter.Fsrc_len = skip_extension(tls, &iter.Fsrc_data, iter.Fsrc_len, &header)
 			// This source was already skipped successfully when the repeat was recorded.
 			if iter.Fsrc_len < 0 {
-				Opus_celt_fatal(tls, __ccgo_ts+2628, __ccgo_ts+2472, 169)
+				opusCeltFatal(tls, opusDiagnosticString(2628), opusDiagnosticString(2472), 169)
 			}
 			if idByte <= 3 {
 				continue
@@ -4606,7 +4580,7 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensio
 				return OPUS_INVALID_PACKET
 			}
 			if extensionPointerDifference(iter.Fcurr_data, iter.Fdata) != int64(iter.Flen1-iter.Fcurr_len) {
-				Opus_celt_fatal(tls, __ccgo_ts+2665, __ccgo_ts+2472, 187)
+				opusCeltFatal(tls, opusDiagnosticString(2665), opusDiagnosticString(2472), 187)
 			}
 			if iter.Frepeat_frame >= iter.Fframe_max {
 				continue
@@ -4665,7 +4639,7 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter *OpusT_OpusExtensionI
 			return OPUS_INVALID_PACKET
 		}
 		if extensionPointerDifference(iter.Fcurr_data, iter.Fdata) != int64(iter.Flen1-iter.Fcurr_len) {
-			Opus_celt_fatal(tls, __ccgo_ts+2665, __ccgo_ts+2472, 255)
+			opusCeltFatal(tls, opusDiagnosticString(2665), opusDiagnosticString(2472), 255)
 		}
 		if id == 1 {
 			if l == 0 {
@@ -4774,10 +4748,10 @@ func Opus_opus_packet_extensions_count_ext(tls *libc.TLS, data *byte, length int
 //	    returned in frame order. */
 func Opus_opus_packet_extensions_parse(tls *libc.TLS, data *byte, length int32, extensions *OpusT_opus_extension_data, nbExtensions *int32, frames int32) int32 {
 	if nbExtensions == nil {
-		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, 365)
+		opusCeltFatal(tls, opusDiagnosticString(2742), opusDiagnosticString(2472), 365)
 	}
 	if extensions == nil && *nbExtensions != 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, 366)
+		opusCeltFatal(tls, opusDiagnosticString(2782), opusDiagnosticString(2472), 366)
 	}
 	var iter OpusT_OpusExtensionIterator
 	var ext OpusT_opus_extension_data
@@ -4807,13 +4781,13 @@ func Opus_opus_packet_extensions_parse(tls *libc.TLS, data *byte, length int32, 
 //	    opus_packet_extensions_count_ext(). */
 func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data *byte, length int32, extensions *OpusT_opus_extension_data, nbExtensions, frameCounts *int32, frames int32) int32 {
 	if nbExtensions == nil {
-		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, 395)
+		opusCeltFatal(tls, opusDiagnosticString(2742), opusDiagnosticString(2472), 395)
 	}
 	if extensions == nil && *nbExtensions != 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, 396)
+		opusCeltFatal(tls, opusDiagnosticString(2782), opusDiagnosticString(2472), 396)
 	}
 	if frames > 48 {
-		Opus_celt_fatal(tls, __ccgo_ts+2842, __ccgo_ts+2472, 397)
+		opusCeltFatal(tls, opusDiagnosticString(2842), opusDiagnosticString(2472), 397)
 	}
 	// Snapshot prefix sums before iterator initialization or any output writes.
 	// Negative frame counts reach the iterator's assertion after an empty prefix loop, as in C.
@@ -4841,7 +4815,7 @@ func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data *byte, length int
 			return -2
 		}
 		if idx >= cumulative[ext.Fframe+1] {
-			Opus_celt_fatal(tls, __ccgo_ts+2876, __ccgo_ts+2472, 416)
+			opusCeltFatal(tls, opusDiagnosticString(2876), opusDiagnosticString(2472), 416)
 		}
 		unsafe.Slice(extensions, int64(idx)+1)[idx] = ext
 		count++
@@ -4850,7 +4824,7 @@ func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data *byte, length int
 
 func write_extension_payload(tls *libc.TLS, data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
 	if id < 3 || id > 127 {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 425)
+		opusCeltFatal(tls, opusDiagnosticString(2929), opusDiagnosticString(2472), 425)
 	}
 	if id < 32 {
 		if length < 0 || length > 1 {
@@ -4901,7 +4875,7 @@ func write_extension_payload(tls *libc.TLS, data *byte, capacity, pos, id, lengt
 
 func write_extension_payload_record(tls *libc.TLS, data *byte, capacity, pos int32, e *OpusT_opus_extension_data, last int32) int32 {
 	if e.Fid < 3 || e.Fid > 127 {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 425)
+		opusCeltFatal(tls, opusDiagnosticString(2929), opusDiagnosticString(2472), 425)
 	}
 	if e.Fid < 32 {
 		if e.Flen1 < 0 || e.Flen1 > 1 {
@@ -4951,7 +4925,7 @@ func write_extension(tls *libc.TLS, data *byte, capacity, pos, id, length int32,
 		return -2
 	}
 	if id < 3 || id > 127 {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 465)
+		opusCeltFatal(tls, opusDiagnosticString(2929), opusDiagnosticString(2472), 465)
 	}
 	if data != nil {
 		L := length
@@ -4968,7 +4942,7 @@ func write_extension_record(tls *libc.TLS, data *byte, capacity, pos int32, e *O
 		return -2
 	}
 	if e.Fid < 3 || e.Fid > 127 {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 465)
+		opusCeltFatal(tls, opusDiagnosticString(2929), opusDiagnosticString(2472), 465)
 	}
 	if data != nil {
 		L := e.Flen1
@@ -4991,7 +4965,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data *byte, len1 OpusT_
 	pos = 0
 	written = 0
 	if !(len1 >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2445, __ccgo_ts+2472, int32(484))
+		opusCeltFatal(tls, opusDiagnosticString(2445), opusDiagnosticString(2472), int32(484))
 	}
 	if nb_frames > int32(48) {
 		return -int32(1)
@@ -5066,7 +5040,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data *byte, len1 OpusT_
 							break
 						}
 						if !(exts[frame_repeat_idx[g]].Fframe == g) {
-							Opus_celt_fatal(tls, __ccgo_ts+2978, __ccgo_ts+2472, int32(518))
+							opusCeltFatal(tls, opusDiagnosticString(2978), opusDiagnosticString(2472), int32(518))
 						}
 						if exts[frame_repeat_idx[g]].Fid != exts[i].Fid {
 							break
@@ -5200,7 +5174,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data *byte, len1 OpusT_
 		f = f + 1
 	}
 	if !(written == nb_extensions) {
-		Opus_celt_fatal(tls, __ccgo_ts+3039, __ccgo_ts+2472, int32(624))
+		opusCeltFatal(tls, opusDiagnosticString(3039), opusDiagnosticString(2472), int32(624))
 	}
 	/* If we need to pad, just prepend 0x01 bytes. Even better would be to fill the
 	   end with zeros, but that requires checking that turning the last extension into

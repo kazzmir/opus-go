@@ -10,6 +10,134 @@ import (
 	"weak"
 )
 
+func TestFFTFloatRadix2Pointers(t *testing.T) {
+	for _, n := range []int32{1, 2, 3} {
+		complex := make([]OpusT_kiss_fft_cpx, 8*n+2)
+		scalar := make([]float32, len(complex)*2)
+		for i := range complex {
+			complex[i] = OpusT_kiss_fft_cpx{Fr: float32(i%13-6) / 17, Fi: float32(i%11-5) / 19}
+			scalar[2*i], scalar[2*i+1] = complex[i].Fr, complex[i].Fi
+		}
+		kf_bfly2(nil, &complex[1], 4, n)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		kfBfly2Output(nil, fftOutput{scalar: &scalar[2], floatLanes: true}, 4, n)
+		for i, v := range complex {
+			if math.Float32bits(scalar[2*i]) != math.Float32bits(v.Fr) || math.Float32bits(scalar[2*i+1]) != math.Float32bits(v.Fi) {
+				t.Fatal("float radix2 lanes/guards", n, i)
+			}
+		}
+	}
+	kfBfly2Output(nil, fftOutput{floatLanes: true}, 4, 0)
+	if !validationPanics(func() { kfBfly2Output(nil, fftOutput{floatLanes: true}, 3, 0) }) {
+		t.Fatal("radix2 assertion before no work")
+	}
+}
+
+func TestFFTFloatRadix4Pointers(t *testing.T) {
+	for _, m := range []int32{1, 2, 4} {
+		for _, n := range []int32{1, 2} {
+			for _, alias := range []bool{false, true} {
+				mm := 4*m + 2
+				complex := make([]OpusT_kiss_fft_cpx, (n-1)*mm+4*m+2)
+				scalar := make([]float32, len(complex)*2)
+				for i := range complex {
+					complex[i] = OpusT_kiss_fft_cpx{Fr: float32(i%13-6) / 17, Fi: float32(i%11-5) / 19}
+					scalar[2*i], scalar[2*i+1] = complex[i].Fr, complex[i].Fi
+				}
+				tw := make([]OpusT_kiss_twiddle_cpx, 3*(m-1)+1)
+				for i := range tw {
+					tw[i] = OpusT_kiss_twiddle_cpx{Fr: float32(i+1) / 7, Fi: -float32(i+2) / 11}
+				}
+				twComplex, twScalar := &tw[0], &tw[0]
+				if alias {
+					twComplex = (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(&complex[1]))
+					twScalar = (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(&scalar[2]))
+				}
+				kf_bfly4(nil, &complex[1], 1, twComplex, m, n, mm)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				kfBfly4Output(nil, fftOutput{scalar: &scalar[2], floatLanes: true}, 1, twScalar, m, n, mm)
+				for i, v := range complex {
+					if math.Float32bits(scalar[2*i]) != math.Float32bits(v.Fr) || math.Float32bits(scalar[2*i+1]) != math.Float32bits(v.Fi) {
+						t.Fatal("float radix4 lanes/live twiddles/guards", m, n, alias, i)
+					}
+				}
+			}
+		}
+	}
+	kfBfly4Output(nil, fftOutput{floatLanes: true}, 1, nil, 0, 1, 0)
+	kfBfly4Output(nil, fftOutput{floatLanes: true}, 1, nil, 1, 0, 0)
+}
+
+func TestFFTFloatRadix35Pointers(t *testing.T) {
+	for _, radix := range []int32{3, 5} {
+		for _, m := range []int32{1, 2, 4} {
+			for _, n := range []int32{1, 2} {
+				for _, alias := range []bool{false, true} {
+					mm := radix*m + 2
+					complex := make([]OpusT_kiss_fft_cpx, (n-1)*mm+radix*m+2)
+					scalar := make([]float32, len(complex)*2)
+					for i := range complex {
+						complex[i] = OpusT_kiss_fft_cpx{Fr: float32(i%13-6) / 17, Fi: float32(i%11-5) / 19}
+						scalar[2*i], scalar[2*i+1] = complex[i].Fr, complex[i].Fi
+					}
+					tw := make([]OpusT_kiss_twiddle_cpx, radix*m)
+					for i := range tw {
+						tw[i] = OpusT_kiss_twiddle_cpx{Fr: float32(i+1) / 7, Fi: -float32(i+2) / 11}
+					}
+					twComplex, twScalar := &tw[0], &tw[0]
+					if alias {
+						twComplex = (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(&complex[1]))
+						twScalar = (*OpusT_kiss_twiddle_cpx)(unsafe.Pointer(&scalar[2]))
+					}
+					if radix == 3 {
+						kf_bfly3(nil, &complex[1], 1, twComplex, m, n, mm)
+					} else {
+						kf_bfly5(nil, &complex[1], 1, twComplex, m, n, mm)
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					out := fftOutput{scalar: &scalar[2], floatLanes: true}
+					if radix == 3 {
+						kfBfly3Output(nil, out, 1, twScalar, m, n, mm)
+					} else {
+						kfBfly5Output(nil, out, 1, twScalar, m, n, mm)
+					}
+					for i, v := range complex {
+						if math.Float32bits(scalar[2*i]) != math.Float32bits(v.Fr) || math.Float32bits(scalar[2*i+1]) != math.Float32bits(v.Fi) {
+							t.Fatal("float radix3/5 bits/live twiddles/guards", radix, m, n, alias, i)
+						}
+					}
+				}
+			}
+		}
+	}
+	kfBfly3Output(nil, fftOutput{floatLanes: true}, 1, nil, 0, 1, 0)
+	kfBfly5Output(nil, fftOutput{floatLanes: true}, 1, nil, 1, 0, 0)
+}
+
+func TestFFTFloatImplPointers(t *testing.T) {
+	for shift := 0; shift < 4; shift++ {
+		state := mode48000_960_120.Fmdct.Fkfft[shift]
+		complex := make([]OpusT_kiss_fft_cpx, state.Fnfft+2)
+		scalar := make([]float32, len(complex)*2)
+		for i := range complex {
+			complex[i] = OpusT_kiss_fft_cpx{Fr: float32(i%13-6) / 17, Fi: float32(i%11-5) / 19}
+			scalar[2*i], scalar[2*i+1] = complex[i].Fr, complex[i].Fi
+		}
+		Opus_opus_fft_impl(nil, state, state.Ftwiddles, &complex[1])
+		entropyInitGrowStack(12)
+		runtime.GC()
+		opusFFTImplOutput(nil, state, state.Ftwiddles, fftOutput{scalar: &scalar[2], floatLanes: true})
+		for i, v := range complex {
+			if math.Float32bits(scalar[2*i]) != math.Float32bits(v.Fr) || math.Float32bits(scalar[2*i+1]) != math.Float32bits(v.Fi) {
+				t.Fatal("full float FFT bits/guards", shift, i)
+			}
+		}
+	}
+}
+
 func TestMDCTConsumedStridePointers(t *testing.T) {
 	singleton := float32(7)
 	for _, stride := range []int32{-2147483648, -2, 0, 2, 2147483647} {

@@ -91,7 +91,7 @@ func TestOpusFrameWholeArgumentsPointers(t *testing.T) {
 func TestOpusFrameWholeCursorPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	cursor := &OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	cursor := &OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: &opusPseudostackTestMarker[0], Fglobal_stack: &opusPseudostackTestMarker[1]}
 	before := *cursor
 	libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(cursor)))
 	storage := newOpusFrameOwnerDecoder(t, 1)
@@ -286,7 +286,7 @@ func TestOpusFrameNormalReturnCursor(t *testing.T) {
 	raw := libc.Xmalloc(tls, 16)
 	defer libc.Xfree(tls, raw)
 	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
-	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: &opusPseudostackTestMarker[0], Fglobal_stack: &opusPseudostackTestMarker[1]}
 	before := *cursor
 	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
 	storage := newOpusFrameOwnerDecoder(t, 1)
@@ -313,7 +313,7 @@ func TestOpusFrameEarlyReturnCursor(t *testing.T) {
 	raw := libc.Xmalloc(tls, 16)
 	defer libc.Xfree(tls, raw)
 	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
-	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: &opusPseudostackTestMarker[0], Fglobal_stack: &opusPseudostackTestMarker[1]}
 	before := *cursor
 	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
 	storage := newOpusFrameOwnerDecoder(t, 1)
@@ -342,7 +342,7 @@ func TestOpusFrameNoScratchInitialization(t *testing.T) {
 	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
 	storage := newOpusFrameOwnerDecoder(t, 1)
 	sample := float32(77)
-	if opus_decode_frame(tls, &storage.Decoder, nil, 0, &sample, 119, 0) != -2 || sample != 77 || cursor.Fscratch_ptr != 0 || cursor.Fglobal_stack != 0 {
+	if opus_decode_frame(tls, &storage.Decoder, nil, 0, &sample, 119, 0) != -2 || sample != 77 || cursor.Fscratch_ptr != nil || cursor.Fglobal_stack != nil {
 		t.Fatal("frame scratch/early validation")
 	}
 }

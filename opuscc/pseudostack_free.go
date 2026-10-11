@@ -1,6 +1,8 @@
 package opuscc
 
 import (
+	"unsafe"
+
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
@@ -18,15 +20,16 @@ func FreePseudostackTLS(tls *libc.TLS) {
 	if p == 0 {
 		return
 	}
-	// struct opusPseudostackState { uintptr scratchPtr; uintptr globalStack; }
-	const offScratch = 0
-	const offGlobal = uintptr(libc.PtrSize)
-
-	scratch := libc.LoadUintptrAt(p, offScratch)
-	if scratch != 0 {
-		libc.Xfree(tls, scratch)
-		libc.StoreUintptrAt(p, offScratch, 0)
-		libc.StoreUintptrAt(p, offGlobal, 0)
+	state := libc.RegisteredGoAllocation[OpusT_opus_ccgo_pseudostack_state](tls, p)
+	if state == nil {
+		// Explicit compatibility boundary for externally supplied ABI headers.
+		state = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(p))
+	}
+	scratch := state.Fscratch_ptr
+	if scratch != nil {
+		libc.XfreePointer(tls, unsafe.Pointer(scratch))
+		state.Fscratch_ptr = nil
+		state.Fglobal_stack = nil
 	}
 	libc.Xfree(tls, p)
 	_ = libc.Xpthread_setspecific(tls, opusPseudostackTLSKey, 0)

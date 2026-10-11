@@ -701,7 +701,7 @@ func Opus_silk_decode_pitch(tls *libc.TLS, lagIndex OpusT_opus_int16, contourInd
 			cbk_size = int32(PE_NB_CBKS_STAGE2_EXT)
 		} else {
 			if !(nb_subfr == int32(PE_MAX_NB_SUBFR)>>int32(1)) {
-				Opus_celt_fatal(tls, __ccgo_ts+7059, __ccgo_ts+7110, int32(54))
+				opusCeltFatal(tls, opusDiagnosticString(7059), opusDiagnosticString(7110), int32(54))
 			}
 			lags = unsafe.Slice(&Opus_silk_CB_lags_stage2_10_ms[0][0], 2*3)
 			cbk_size = int32(PE_NB_CBKS_STAGE2_10MS)
@@ -712,7 +712,7 @@ func Opus_silk_decode_pitch(tls *libc.TLS, lagIndex OpusT_opus_int16, contourInd
 			cbk_size = int32(PE_NB_CBKS_STAGE3_MAX)
 		} else {
 			if !(nb_subfr == int32(PE_MAX_NB_SUBFR)>>int32(1)) {
-				Opus_celt_fatal(tls, __ccgo_ts+7059, __ccgo_ts+7110, int32(63))
+				opusCeltFatal(tls, opusDiagnosticString(7059), opusDiagnosticString(7110), int32(63))
 			}
 			lags = unsafe.Slice(&Opus_silk_CB_lags_stage3_10_ms[0][0], 2*12)
 			cbk_size = int32(PE_NB_CBKS_STAGE3_10MS)
@@ -1002,13 +1002,13 @@ const silk_int16_MAX13 = 32767
 
 func Opus_silk_LPC_analysis_filter(tls *libc.TLS, out, in, B *OpusT_opus_int16, len1, d OpusT_opus_int32, arch int32) {
 	if d < 6 {
-		Opus_celt_fatal(tls, __ccgo_ts+7133, __ccgo_ts+7158, 67)
+		opusCeltFatal(tls, opusDiagnosticString(7133), opusDiagnosticString(7158), 67)
 	}
 	if d&1 != 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+7188, __ccgo_ts+7158, 68)
+		opusCeltFatal(tls, opusDiagnosticString(7188), opusDiagnosticString(7158), 68)
 	}
 	if d > len1 {
-		Opus_celt_fatal(tls, __ccgo_ts+7219, __ccgo_ts+7158, 69)
+		opusCeltFatal(tls, opusDiagnosticString(7219), opusDiagnosticString(7158), 69)
 	}
 	dst, src, coefficients := unsafe.Slice(out, len1), unsafe.Slice(in, len1), unsafe.Slice(B, d)
 	for i := d; i < len1; i++ {

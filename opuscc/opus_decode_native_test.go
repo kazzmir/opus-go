@@ -191,7 +191,7 @@ func TestOpusIntegerDecodeGoScratch(t *testing.T) {
 	raw := libc.Xmalloc(tls, 16)
 	defer libc.Xfree(tls, raw)
 	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
-	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: &opusPseudostackTestMarker[0], Fglobal_stack: &opusPseudostackTestMarker[1]}
 	before := *cursor
 	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
 	packet := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")

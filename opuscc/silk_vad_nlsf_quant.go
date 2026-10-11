@@ -60,13 +60,13 @@ func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16
 	/* Safety checks */
 	_ = true
 	if !(int32(SUB_FRAME_LENGTH_MS)*int32(MAX_NB_SUBFR)*int32(MAX_FS_KHZ) >= psEncC.Fframe_length) {
-		Opus_celt_fatal(tls, __ccgo_ts+6796, __ccgo_ts+6855, int32(104))
+		opusCeltFatal(tls, opusDiagnosticString(6796), opusDiagnosticString(6855), int32(104))
 	}
 	if !(psEncC.Fframe_length <= int32(512)) {
-		Opus_celt_fatal(tls, __ccgo_ts+6869, __ccgo_ts+6855, int32(105))
+		opusCeltFatal(tls, opusDiagnosticString(6869), opusDiagnosticString(6855), int32(105))
 	}
 	if !(psEncC.Fframe_length == int32(8)*(psEncC.Fframe_length>>int32(3))) {
-		Opus_celt_fatal(tls, __ccgo_ts+6915, __ccgo_ts+6855, int32(106))
+		opusCeltFatal(tls, opusDiagnosticString(6915), opusDiagnosticString(6855), int32(106))
 	}
 	/***********************/
 	/* Filter and Decimate */
@@ -496,7 +496,7 @@ const silk_uint8_MAX2 = 0xFF
 //	/* Compute quantization errors for an LPC_order element input vector for a VQ codebook */
 func Opus_silk_NLSF_VQ(tls *libc.TLS, err_Q24 *OpusT_opus_int32, in_Q15 *OpusT_opus_int16, pCB_Q8 *OpusT_opus_uint8, pWght_Q9 *OpusT_opus_int16, K int32, LPC_order int32) {
 	if !(LPC_order&int32(1) == int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+7000, __ccgo_ts+7041, int32(49))
+		opusCeltFatal(tls, opusDiagnosticString(7000), opusDiagnosticString(7041), int32(49))
 	}
 	if K <= 0 {
 		return
