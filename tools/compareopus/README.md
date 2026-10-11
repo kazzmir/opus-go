@@ -534,6 +534,58 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four partition/deemphasis/unused-adapter rounds change active positive pointer
+advances and remove unreferenced generated C-internal leaf adapters. Round1
+indexes the split partition's second spectrum through a minimal readable prefix
+and deletes the unused Opus_silk_decode_core integer wrapper; round2 does the
+same for the split lowband and unused Opus_silk_PLC wrapper. Round3 migrates
+consumed general deemphasis channel starts and removes the unused
+Opus_silk_decode_frame wrapper. Round4 migrates all four general deemphasis
+output stores (direct/downsample, replace/accumulate) and deletes the unused
+Opus_clt_compute_allocation wrapper and its obsolete uintptr-local comment.
+
+Both split pointers are formed only in the existing N>2 branch AFTER halving N;
+lowband's nil guard and pointer-formation position after theta/budget updates
+remain. No guessed full suffix, unused EOF pointer or scratch copy is introduced.
+Deemphasis preserves channel zero/nil identity, no-work/downsample guards,
+coefficient/memory reload ordering, float32 recurrence/rounding and sequential
+accumulate reads/stores. celtNormConsumedAt indexes readable positive prefixes;
+zero and negative caller-owned history explicitly retain celtNormAdd compatibility.
+The other synthesis/history/boundary consumers of celtNormAdd are NOT claimed
+migrated. New grouped consumed-norm fixtures verify nil/zero identity, last
+readable interior cell, negative history, GC/stack growth and live write aliases.
+Existing scalar/native partition, spectrum/lowband alias, deemphasis scratch/zero
+work/C0/downsample/accumulate fixtures and codec goldens remain unchanged.
+
+All four removed wrappers have no call sites in this repository's opuscc decoder,
+its fixtures or tools: active calls already use the concrete private SILK/core/PLC/
+frame and allocation kernels. Same-spelled functions in opusccenc are distinct
+and untouched. This removes generated C-internal Go exports, NOT public Opus
+codec create/init/decode/CTL/destroy APIs or used leaf compatibility adapters.
+Counts157→136 unsafe.Pointer and134→125 uintptr. The21 cast deletions are DEAD
+adapter removal, not lifetime fixes or relocated casts;8 uintptr declarations
+and1 obsolete comment disappear. Active cursor changes reduce address arithmetic
+but not lexical unsafe.Pointer counts because necessary backward/EOF boundaries
+remain. No performance, global checkptr/opaque-image/extension EOF or macOS claim.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+GC stress and unchanged encode/decode references. Final validation additionally
+checks partition/deemphasis paths and typed frame references on amd64/386/ARM;
+final ARM ordinary/scoped fixtures repeat twenty times. The initial
+/tmp/opus-round-partition-remove-obsolete-address-helper.log fails compilation:
+the attempted celtNormAdd removal inspected only partition-local references and
+missed active celt_decoder.go synthesis users. Restore the genuine remaining
+boundary helper (not just a test helper), migrate only proven consumed sites,
+then the full /tmp/opus-round-consumed-deemphasis-channel-prefix-retry.log passes.
+No fixture/golden was weakened. Other logs:
+/tmp/opus-round-partition-consumed-{spectrum,lowband}-prefix.log,
+/tmp/opus-round-deemphasis-consumed-output-prefix.log retains a native comparison
+runtime failure (fatal error: sweep increased allocation count); the complete
+/tmp/opus-round-deemphasis-consumed-output-prefix-retry.log passes. This recurring
+native/GC failure is NOT repaired by a retry or these cursor/adapter changes.
+/tmp/opus-round-consumed-norm-deemphasis-arm-{checkptr,golden}-repeat.log retain the
+successful final repeats.
+
 Four decoder diagnostic rounds finish migrating PRIVATE static-pool consumers
 from integer C-string addresses to GC-visible Go strings and numeric pool offsets:
 28 decoder/frame checks;25 MS/matrix/CELT quantization checks;20 extension checks;

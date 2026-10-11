@@ -818,15 +818,6 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 	return codedBands
 }
 
-// Callers pass addresses of Go locals (intensity, dual_stereo, balance) as
-// uintptr. Keep those locals alive at stable addresses across nested calls:
-// otherwise stack growth can leave these output pointers referring to the old
-// stack, making decoded PCM depend on the caller's stack depth.
-//
-//go:uintptrescapes
-func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start, end int32, offsets, cap1 uintptr, trim int32, intensity, dual uintptr, total int32, balance, pulses, ebits, priority uintptr, C, LM int32, ec uintptr, encode, prev, bandwidth int32) int32 {
-	return clt_compute_allocation(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, (*int32)(unsafe.Pointer(offsets)), (*int32)(unsafe.Pointer(cap1)), trim, (*int32)(unsafe.Pointer(intensity)), (*int32)(unsafe.Pointer(dual)), total, (*int32)(unsafe.Pointer(balance)), (*int32)(unsafe.Pointer(pulses)), (*int32)(unsafe.Pointer(ebits)), (*int32)(unsafe.Pointer(priority)), C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), encode, prev, bandwidth)
-}
 func allocationVector(mode *OpusT_OpusCustomMode, stride, vector, band int32) byte {
 	return unsafe.Slice(mode.FallocVectors, mode.FnbAllocVectors*stride)[vector*stride+band]
 }
