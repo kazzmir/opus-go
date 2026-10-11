@@ -785,6 +785,50 @@ func TestOpusDecoderMSTypedClearStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderProjectionTypedClearStoragePointers(t *testing.T) {
+	owned := opusProjectionDecoderOwnedStorage(3, 2, 1)
+	matrix := [18]byte{}
+	for i := range matrix {
+		matrix[i] = byte(i*37 + 19)
+	}
+	for _, codec := range owned.Multistream.Codecs {
+		if codec.Clear == nil {
+			t.Fatal("projection factory clear descriptor")
+		}
+	}
+	if opusProjectionDecoderInitWithStorage(nil, owned.Decoder, 48000, 3, 2, 1, &matrix[0], 18, &owned) != 0 {
+		t.Fatal("projection typed clear init")
+	}
+	decoderStorageForeignPointers(owned.Multistream.Codecs[0].Decoder)
+	mode, books, coefs := decoderStorageForeignPointers(owned.Multistream.Codecs[1].Decoder)
+	start := int(opusProjectionMSOffset(owned.Decoder)) + int(opusAlignSize8(int32(unsafe.Sizeof(*owned.Multistream.Decoder))))
+	needed := int(Opus_opus_decoder_get_size(nil, 2))
+	bytes := unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), Opus_opus_projection_decoder_get_size(nil, 3, 2, 1))
+	before := slices.Clone(bytes)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	owned.Multistream.Codecs[0].Clear()
+	for i, value := range bytes {
+		want := before[i]
+		if i >= start && i < start+needed {
+			want = 0
+		}
+		if value != want {
+			t.Fatal("projection clear child extent/matrix/header/sibling", i)
+		}
+	}
+	runtime.GC()
+	if mode.Value() == nil {
+		t.Fatal("projection clear lost sibling mode")
+	}
+	for i := range books {
+		if books[i].Value() == nil || coefs[i].Value() == nil {
+			t.Fatal("projection clear lost sibling SILK owner")
+		}
+	}
+	runtime.KeepAlive(owned)
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

@@ -534,6 +534,41 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four typed decoder-clearing rounds add field-wise SetZero descriptors for actual
+canonical Go images, use them in single factory initialization, extend them to
+standalone MS children, and enable them for projection children. A descriptor
+captures its real typed reflection image, not an opaque address. Each declared
+field (including numeric padding arrays and the float tail) is cleared by its
+actual type; pointer-bearing SILK/CELT fields therefore use Go's typed clearing
+barriers. The initializer keeps its pre-existing CELT mode nil and full typed
+SILK zero ordering. Public caller-buffer initializers still clear the ABI byte
+image after those pointer stores; all valid Go factory paths now bypass that
+byte-wise clear. Counts remain162 unsafe.Pointer/153 uintptr: their necessary
+external-buffer fallback is not removed or disguised.
+
+The entire enclosing reflection struct is deliberately NOT zeroed. A single
+image may have final Go padding outside the reported decoder size; for MS/projection
+that padding can live in the child stride. Clearing declared fields preserves
+those bytes, the MS header/mapping, projection matrix, and sibling children.
+Grouped fixtures install live foreign mode/codebook/resampler pointers, verify
+exact zero ABI images through GC/stack growth, poison only scalar outside-image
+padding/neighbor/stride bytes, and confirm neighboring bytes and sibling foreign
+owners survive. Single init/re-init checks count descriptor invocation and verify
+invalid rates do not clear anything. Existing complete initializer image/status,
+projection source-alias, native init/reset/validation and registry fixtures also
+exercise this path without changed expectations. Reflection/closure metadata
+costs are not benchmarked or claimed to improve performance.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged codec references and
+diff checks; final ARM ordinary and scoped fixtures repeat twenty times. No
+global opaque-allocation, extension EOF/GC or raw-callback safety claim is made.
+Logs: /tmp/opus-round-decoder-typed-field-clear.log,
+/tmp/opus-round-single-factory-typed-clear.log,
+/tmp/opus-round-ms-factory-typed-child-clear.log,
+/tmp/opus-round-projection-factory-typed-child-clear.log and
+/tmp/opus-round-typed-child-clear-arm-{checkptr,golden}-repeat.log.
+
 Four concrete decoder-codec initialization rounds expose Decoder/SILK/CELT
 views from canonical Go images, bind single-decoder factory initialization to
 those fields, bind standalone multistream children to complete codec views, and
