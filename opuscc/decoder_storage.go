@@ -145,6 +145,10 @@ type opusMSStorageViews struct {
 }
 
 func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
+	return opusMSStorageViewsAtWithClear(owner, false)
+}
+
+func opusMSStorageViewsAtWithClear(owner reflect.Value, typedClear bool) opusMSStorageViews {
 	views := opusMSStorageViews{Decoder: owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusMSDecoder)}
 	for _, name := range []string{"Coupled", "Mono"} {
 		array := owner.FieldByName(name)
@@ -152,7 +156,11 @@ func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
 			continue
 		}
 		for i := 0; i < array.Len(); i++ {
-			child := opusDecoderStorageViewsAt(array.Index(i).FieldByName("Image"))
+			image := array.Index(i).FieldByName("Image")
+			child := opusDecoderStorageViewsAt(image)
+			if typedClear {
+				child.Clear = opusDecoderStorageClearAt(image)
+			}
 			views.Children = append(views.Children, child.Decoder)
 			views.Codecs = append(views.Codecs, child)
 		}
@@ -161,7 +169,7 @@ func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
 }
 
 func opusMSDecoderOwnedStorage(streams, coupled int32) opusMSStorageViews {
-	return opusMSStorageViewsAt(opusDecoderAlignedStorage(opusMSDecoderStorageType(streams, coupled)))
+	return opusMSStorageViewsAtWithClear(opusDecoderAlignedStorage(opusMSDecoderStorageType(streams, coupled)), true)
 }
 
 func opusMSDecoderStorage(streams, coupled int32) *OpusT_OpusMSDecoder {

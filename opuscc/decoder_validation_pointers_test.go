@@ -731,6 +731,60 @@ func TestOpusDecoderSingleTypedClearStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderMSTypedClearStoragePointers(t *testing.T) {
+	for _, coupled := range []int32{0, 1} {
+		owned := opusMSDecoderOwnedStorage(3, coupled)
+		mapping := make([]byte, 3+coupled)
+		for i := range mapping {
+			mapping[i] = byte(i)
+		}
+		for _, codec := range owned.Codecs {
+			if codec.Clear == nil {
+				t.Fatal("MS factory clear descriptor")
+			}
+		}
+		if opusMSDecoderInitWithCodecs(nil, owned.Decoder, 48000, int32(len(mapping)), 3, coupled, &mapping[0], owned.Children, owned.Codecs) != 0 {
+			t.Fatal("MS typed clear init")
+		}
+		decoderStorageForeignPointers(owned.Codecs[0].Decoder)
+		mode, books, coefs := decoderStorageForeignPointers(owned.Codecs[1].Decoder)
+		ch := int32(1)
+		if coupled > 0 {
+			ch = 2
+		}
+		start := int(opusAlignSize8(int32(unsafe.Sizeof(*owned.Decoder))))
+		needed := int(Opus_opus_decoder_get_size(nil, ch))
+		stride := int(opusAlignSize8(int32(needed)))
+		bytes := unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), Opus_opus_multistream_decoder_get_size(nil, 3, coupled))
+		for i := start + needed; i < start+stride; i++ {
+			bytes[i] = 0xa7
+		}
+		before := slices.Clone(bytes)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		owned.Codecs[0].Clear()
+		for i, value := range bytes {
+			want := before[i]
+			if i >= start && i < start+needed {
+				want = 0
+			}
+			if value != want {
+				t.Fatal("MS clear child extent/stride/header/siblings", coupled, i)
+			}
+		}
+		runtime.GC()
+		if mode.Value() == nil {
+			t.Fatal("clearing child lost sibling mode")
+		}
+		for i := range books {
+			if books[i].Value() == nil || coefs[i].Value() == nil {
+				t.Fatal("clearing child lost sibling SILK owner")
+			}
+		}
+		runtime.KeepAlive(owned)
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()
