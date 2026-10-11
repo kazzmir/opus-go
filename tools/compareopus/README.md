@@ -534,6 +534,48 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder callback-type removal rounds bind legacy multistream float,
+int16 and int24 destinations as concrete captured *float32/*int16/*int32 roots,
+then bind custom legacy callbacks and remove the obsolete opusMSChannelCopy
+opaque-PCM callback type, opusMSDecodeNative wrapper and intermediate binder.
+The public integer native adapter now calls opusMSDecodeBound directly. This
+also removes the format-specific erased destination adapters; standard PCM
+captures never cross the raw uintptr callback trampoline. Only the boundary
+that identifies an externally supplied callback/destination and genuinely
+custom callbacks retain an erased destination. The latter keeps that pointer
+as a GC-visible captured root and retains the real function value, user data,
+src/dst integer ABI and uintptrescapes invocation. Raw function-address ownership
+is not globally repaired. Counts fall162→158 unsafe.Pointer; uintptr remains153.
+This combines concrete active legacy-format routing with deletion of its now
+unneeded private erased bridge; no necessary boundary casts were moved to tests.
+
+Upstream src/opus_multistream_decoder.c confirms per-call live channel strides,
+left/right/mono sequential copies, muting and the float/short/int24 kernels.
+Their arithmetic, signed narrowing, rounding, clipping, validation order,
+source live aliases, decoded state, PLC/FEC, final ranges and guards are unchanged.
+Grouped fixtures test concrete bindings across forced GC/stack growth and
+muting/guards, standard callbacks ignoring user data, and the custom callback's
+arguments/function owner through GC. Existing format/projection comparison
+fixtures now invoke the same concrete kernels with bound destinations instead
+of using the deleted erased wrapper; all expected PCM/state/ranges persist.
+Native channel/codec comparisons and reference tolerances are unchanged.
+
+Retained staging failure /tmp/opus-bind-focused.log: prematurely dropping the
+old float-binder arm while old fixtures still used it sent a standard float
+through the uintptr fallback and failed checkptr. Its typed compatibility arm
+was restored until final consumer migration; the complete round1 validation
+passes. /tmp/opus-ms-bound-final-focused.log caught two now-unused test unsafe
+imports after their opaque projection sinks were removed; imports were removed,
+and /tmp/opus-ms-bound-final-focused-retry.log passes. No goldens or fixtures
+were weakened. Every separately committed round passes full amd64/386,
+ARM64/QEMU, scoped checkptr, native comparisons, GC decode stress, unchanged
+codec references and diff checks; final ARM ordinary/scoped fixtures repeat
+twenty times. These scopes do not establish global raw-callback, external-byte
+allocation or extension EOF/GC safety.
+Logs: /tmp/opus-round-ms-legacy-{float,short,int24}-bound-pcm.log,
+/tmp/opus-round-ms-remove-opaque-pcm-callback-type.log and
+/tmp/opus-round-ms-bound-pcm-arm-{checkptr,golden}-repeat.log.
+
 Four typed decoder-clearing rounds add field-wise SetZero descriptors for actual
 canonical Go images, use them in single factory initialization, extend them to
 standalone MS children, and enable them for projection children. A descriptor

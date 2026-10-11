@@ -190,8 +190,7 @@ func TestMultistreamWholePointers(t *testing.T) {
 				t.Fatal("scanned child init")
 			}
 		}
-		var dst unsafe.Pointer
-		var copyOut opusMSChannelCopy
+		var copyOut opusMSBoundChannelCopy
 		short := make([]int16, 5760*6+2)
 		wide := make([]int32, 5760*6+2)
 		floats := make([]float32, 5760*6+2)
@@ -200,21 +199,18 @@ func TestMultistreamWholePointers(t *testing.T) {
 		floats[0], floats[len(floats)-1] = 77, 88
 		switch format {
 		case 16:
-			dst = unsafe.Pointer(&short[1])
-			copyOut = opusMSBindCopy(__ccgo_fp(opus_copy_channel_out_short_legacy), 0)
+			copyOut = opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_short_legacy), 0, unsafe.Pointer(&short[1]))
 		case 24:
-			dst = unsafe.Pointer(&wide[1])
-			copyOut = opusMSBindCopy(__ccgo_fp(opus_copy_channel_out_int24_legacy), 0)
+			copyOut = opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_int24_legacy), 0, unsafe.Pointer(&wide[1]))
 		default:
-			dst = unsafe.Pointer(&floats[1])
-			copyOut = opusMSBindCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 0)
+			copyOut = opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 0, unsafe.Pointer(&floats[1]))
 		}
 		silk := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
 		combined := append([]byte{silk[0], byte(len(silk) - 1)}, silk[1:]...)
 		combined = append(combined, silk...)
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if opusMSDecodeNative(nil, &owner.MS, &combined[0], int32(len(combined)), dst, copyOut, 5760, 0, 0) != 2880 {
+		if opusMSDecodeBound(nil, &owner.MS, &combined[0], int32(len(combined)), copyOut, 5760, 0, 0) != 2880 {
 			t.Fatal("whole typed MS decode")
 		}
 		for i := range owner.Children {
@@ -230,7 +226,7 @@ func TestMultistreamWholePointers(t *testing.T) {
 				length = int32(len(combined))
 			}
 			runtime.GC()
-			if opusMSDecodeNative(nil, &owner.MS, data, length, dst, copyOut, 5760, fec, 0) != 5760 {
+			if opusMSDecodeBound(nil, &owner.MS, data, length, copyOut, 5760, fec, 0) != 5760 {
 				t.Fatal("whole typed MS PLC/FEC")
 			}
 		}
@@ -242,8 +238,8 @@ func TestMultistreamWholePointers(t *testing.T) {
 
 func TestMultistreamArgumentsPointers(t *testing.T) {
 	owner := newMultistreamOwner(t)
-	copyOut := opusMSBindCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 0)
 	value := float32(77)
+	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 0, unsafe.Pointer(&value))
 	for _, item := range []struct {
 		packet              []byte
 		length, frame, want int32
@@ -253,7 +249,7 @@ func TestMultistreamArgumentsPointers(t *testing.T) {
 			data = &item.packet[0]
 		}
 		before := owner.Child.Decoder
-		if result := opusMSDecodeNative(nil, &owner.MS, data, item.length, unsafe.Pointer(&value), copyOut, item.frame, 0, 0); result != item.want || value != 77 || owner.Child.Decoder != before {
+		if result := opusMSDecodeBound(nil, &owner.MS, data, item.length, copyOut, item.frame, 0, 0); result != item.want || value != 77 || owner.Child.Decoder != before {
 			t.Fatal("MS error order/outputs", result, item.want)
 		}
 	}
@@ -395,12 +391,12 @@ func TestMultistreamCopyBindingPointers(t *testing.T) {
 		dst      unsafe.Pointer
 	}{{__ccgo_fp(opus_copy_channel_out_float_legacy), unsafe.Pointer(&floats[1])}, {__ccgo_fp(opus_copy_channel_out_short_legacy), unsafe.Pointer(&shorts[1])}, {__ccgo_fp(opus_copy_channel_out_int24_legacy), unsafe.Pointer(&wide[1])}}
 	for _, item := range cases {
-		copyOut := opusMSBindCopy(item.callback, 123) // Standard callbacks ignore legacy user-data.
+		copyOut := opusMSBindBoundCopy(item.callback, 123, item.dst) // Standard callbacks ignore legacy user-data.
 		entropyInitGrowStack(12)
 		runtime.GC()
-		copyOut(nil, item.dst, 3, 0, &src[0], 2, 3)
-		copyOut(nil, item.dst, 3, 2, &src[1], 2, 3)
-		copyOut(nil, item.dst, 3, 1, nil, 0, 3)
+		copyOut(nil, 3, 0, &src[0], 2, 3)
+		copyOut(nil, 3, 2, &src[1], 2, 3)
+		copyOut(nil, 3, 1, nil, 0, 3)
 	}
 	for i := 0; i < 3; i++ {
 		if floats[1+3*i] != src[2*i] || floats[3+3*i] != src[2*i+1] || shorts[1+3*i] != int16(src[2*i]*32768) || shorts[3+3*i] != int16(src[2*i+1]*32768) || wide[1+3*i] != int32(src[2*i]*8388608) || wide[3+3*i] != int32(src[2*i+1]*8388608) || floats[2+3*i] != 0 || shorts[2+3*i] != 0 || wide[2+3*i] != 0 {
@@ -416,10 +412,10 @@ func TestMultistreamCopyBindingPointers(t *testing.T) {
 		runtime.GC()
 		called = dst == uintptr(unsafe.Pointer(&floats[1])) && input == uintptr(unsafe.Pointer(&src[0])) && ds == 3 && dc == 1 && ss == 2 && n == 3 && user == 123
 	}
-	copyOut := opusMSBindLegacyCopy(callback, 123)
+	copyOut := opusMSBindLegacyBoundCopy(callback, 123, unsafe.Pointer(&floats[1]))
 	callback = nil
 	runtime.GC()
-	copyOut(nil, unsafe.Pointer(&floats[1]), 3, 1, &src[0], 2, 3)
+	copyOut(nil, 3, 1, &src[0], 2, 3)
 	if !called {
 		t.Fatal("custom legacy fallback arguments/owner")
 	}

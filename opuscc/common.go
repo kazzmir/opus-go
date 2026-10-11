@@ -3602,8 +3602,6 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 
 type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr)
 
-type opusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32)
-
 func opusMSBindBoundCopy(callback, user uintptr, dst unsafe.Pointer) opusMSBoundChannelCopy {
 	if callback == __ccgo_fp(opus_copy_channel_out_float_legacy) {
 		pcm := (*float32)(dst)
@@ -3623,34 +3621,13 @@ func opusMSBindBoundCopy(callback, user uintptr, dst unsafe.Pointer) opusMSBound
 			opus_copy_channel_out_int24(tls, pcm, ds, dc, src, ss, n)
 		}
 	}
-	copyChannel := opusMSBindCopy(callback, user)
+	// Only genuinely custom callbacks retain the erased ABI and destination.
+	legacy := *(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback}))
+	return opusMSBindLegacyBoundCopy(legacy, user, dst)
+}
+
+func opusMSBindLegacyBoundCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_native_4, user uintptr, dst unsafe.Pointer) opusMSBoundChannelCopy {
 	return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
-		copyChannel(tls, dst, ds, dc, src, ss, n)
-	}
-}
-
-func opusMSBindCopy(callback, user uintptr) opusMSChannelCopy {
-	switch callback {
-	case __ccgo_fp(opus_copy_channel_out_float_legacy):
-		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-			opusMSBindBoundCopy(callback, user, dst)(tls, ds, dc, src, ss, n)
-		}
-	case __ccgo_fp(opus_copy_channel_out_short_legacy):
-		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-			opusMSBindBoundCopy(callback, user, dst)(tls, ds, dc, src, ss, n)
-		}
-	case __ccgo_fp(opus_copy_channel_out_int24_legacy):
-		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-			opusMSBindBoundCopy(callback, user, dst)(tls, ds, dc, src, ss, n)
-		}
-	default:
-		legacy := *(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback}))
-		return opusMSBindLegacyCopy(legacy, user)
-	}
-}
-
-func opusMSBindLegacyCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_native_4, user uintptr) opusMSChannelCopy {
-	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 		opusMSInvokeLegacy(tls, legacy, uintptr(dst), ds, dc, uintptr(unsafe.Pointer(src)), ss, n, user)
 	}
 }
@@ -3678,14 +3655,6 @@ func opusMSPacketAt(data *byte, offset uint, length int32) *byte {
 		return nil
 	}
 	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
-}
-
-// Bind the genuine legacy/format-erased destination only at this boundary.
-func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, len1 int32, pcm unsafe.Pointer, copyChannel opusMSChannelCopy, frame_size, decode_fec, soft_clip int32) int32 {
-	copyBound := func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
-		copyChannel(tls, pcm, ds, dc, src, ss, n)
-	}
-	return opusMSDecodeBound(tls, decoder, data, len1, copyBound, frame_size, decode_fec, soft_clip)
 }
 
 type opusMSBoundChannelCopy func(*libc.TLS, int32, int32, *float32, int32, int32)
