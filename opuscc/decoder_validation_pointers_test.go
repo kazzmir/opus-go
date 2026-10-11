@@ -912,6 +912,35 @@ func TestOpusDecoderDREDStoragePointers(t *testing.T) {
 	}
 }
 
+//go:noinline
+func registeredDREDStorage(tls *libc.TLS) (uintptr, weak.Pointer[OpusT_OpusDREDDecoder]) {
+	state, err := Opus_opus_dred_decoder_create_typed(tls)
+	if err != nil {
+		panic(err)
+	}
+	return uintptr(unsafe.Pointer(state)), weak.Make(state)
+}
+
+func TestOpusDecoderDREDRegisteredStoragePointers(t *testing.T) {
+	if state, err := Opus_opus_dred_decoder_create_typed(nil); state != nil || err == nil {
+		t.Fatal("nil TLS DRED allocation failure")
+	}
+	tls := libc.NewTLS()
+	defer tls.Close()
+	handle, owner := registeredDREDStorage(tls)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	state := libc.RegisteredGoAllocation[OpusT_OpusDREDDecoder](tls, handle)
+	if state == nil || state != owner.Value() || state.Fmagic != 0xD8EDDEC0 || handle&15 != 0 {
+		t.Fatal("registered concrete DRED owner")
+	}
+	Opus_opus_dred_decoder_destroy_typed(tls, state)
+	if libc.RegisteredGoAllocation[OpusT_OpusDREDDecoder](tls, handle) != nil {
+		t.Fatal("DRED registry cleanup")
+	}
+	Opus_opus_dred_decoder_destroy_typed(tls, nil)
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

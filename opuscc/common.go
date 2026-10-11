@@ -3170,7 +3170,10 @@ func opusDREDDecoderInit(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) (r int32) {
 }
 
 func Opus_opus_dred_decoder_create_typed(tls *libc.TLS) (*OpusT_OpusDREDDecoder, error) {
-	dec := (*OpusT_OpusDREDDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_dred_decoder_get_size(tls)))))
+	if tls == nil {
+		return nil, opusErrorFromCode(-int32(7))
+	}
+	dec := libc.RegisterGoAllocation(tls, opusDREDDecoderStorage())
 	if dec == nil {
 		return nil, opusErrorFromCode(-int32(7))
 	}
