@@ -1033,12 +1033,6 @@ type OpusMSDecoder = struct {
 	Flayout OpusT_ChannelLayout
 }
 
-type OpusT_opus_copy_channel_in_func = uintptr
-
-type OpusT_opus_copy_channel_out_func = uintptr
-
-type OpusT_downmix_func = uintptr
-
 func Opus_opus_pcm_soft_clip_impl(tls *libc.TLS, pcm *float32, N, C int32, declip_mem *float32, arch int32) {
 	if C < 1 || N < 1 || pcm == nil || declip_mem == nil {
 		return

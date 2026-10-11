@@ -534,6 +534,38 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four packet/dead-declaration rounds index readable packet-parse cursors directly
+through the already consumed byte view, remove unused generated stdio cookie
+callback-address fields, delete duplicate unused compiler/isoc varargs aliases,
+and delete unused generated channel-in/channel-out/downmix address aliases.
+Counts fall158→157 unsafe.Pointer and153→144 uintptr. This is ONE active typed
+packet-cursor change plus THREE dead-metadata deletions, not nine repaired
+pointer lifetimes. The packet cursor's exact EOF/backward identity still uses
+the existing explicit extensionByteAt compatibility boundary; its cast was not
+hidden in a new wrapper. Public integer parse/decode/control/callback adapters,
+the used OpusT_va_list and real custom callback ABI remain intact. Only unused
+generated Go declaration names are removed; no replacement opaque typedefs.
+
+Upstream src/opus.c confirms packet-size/frame/padding cursor ordering. The
+existing typed packet view already covers the input; new indexing declares no
+guessed span and changes no parsing reads, output stores, padding initialization,
+validation/errors, narrowing, private suppression of unused EOF output, or live
+aliases. Grouped packet fixtures check readable and empty-frame cursor identity,
+payload/packet offsets, semantic EOF padding identity with a real allocation
+guard, and GC/stack growth. Existing parse/native comparisons and codec goldens
+persist. The declaration deletions have no runtime behavior claim.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged codec references and
+diff checks; final ARM ordinary/scoped fixtures repeat twenty times. Guarded
+semantic EOF fixtures do not establish global exact-allocation EOF/extension GC
+safety, and other external opaque/callback boundaries remain.
+Logs: /tmp/opus-round-packet-consumed-cursors.log,
+/tmp/opus-round-remove-unused-stdio-cookie-addresses.log,
+/tmp/opus-round-remove-unused-varargs-address-aliases.log,
+/tmp/opus-round-remove-unused-codec-callback-address-aliases.log and
+/tmp/opus-round-packet-declarations-arm-{checkptr,golden}-repeat.log.
+
 Four decoder callback-type removal rounds bind legacy multistream float,
 int16 and int24 destinations as concrete captured *float32/*int16/*int32 roots,
 then bind custom legacy callbacks and remove the obsolete opusMSChannelCopy
