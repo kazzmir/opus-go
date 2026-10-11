@@ -534,6 +534,33 @@ func TestOpusDecoderMSStoragePointers(t *testing.T) {
 	tls.Close()
 }
 
+func TestOpusDecoderCodecViewsStoragePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		owned := opusDecoderOwnedStorage(channels)
+		layout := opusDecoderStorageType(channels)
+		sf, _ := layout.FieldByName("Silk")
+		cf, _ := layout.FieldByName("Celt")
+		if owned.Silk != (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(owned.Decoder), sf.Offset)) || owned.Celt != (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(owned.Decoder), cf.Offset)) {
+			t.Fatal("canonical codec view identities", channels)
+		}
+		if ret := Opus_opus_decoder_init(nil, owned.Decoder, 48000, channels); ret != 0 {
+			t.Fatal(ret)
+		}
+		mode, books, coefs := decoderStorageForeignPointers(owned.Decoder)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if owned.Celt.Fmode != mode.Value() {
+			t.Fatal("bound CELT mode owner")
+		}
+		for i := range books {
+			if owned.Silk.Fchannel_state[i].FpsNLSF_CB != books[i].Value() || owned.Silk.Fchannel_state[i].Fresampler_state.FCoefs != &coefs[i].Value()[0] {
+				t.Fatal("bound SILK owner", i)
+			}
+		}
+		runtime.KeepAlive(owned)
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

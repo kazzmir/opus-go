@@ -166,7 +166,24 @@ func opusMSDecoderStorage(streams, coupled int32) *OpusT_OpusMSDecoder {
 	return opusMSDecoderOwnedStorage(streams, coupled).Decoder
 }
 
+type opusDecoderStorageViews struct {
+	Decoder *OpusT_OpusDecoder
+	Silk    *OpusT_silk_decoder
+	Celt    *OpusT_OpusCustomDecoder
+}
+
+func opusDecoderStorageViewsAt(owner reflect.Value) opusDecoderStorageViews {
+	return opusDecoderStorageViews{
+		Decoder: owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder),
+		Silk:    owner.FieldByName("Silk").Addr().Interface().(*OpusT_silk_decoder),
+		Celt:    owner.FieldByName("Celt").Addr().Interface().(*OpusT_OpusCustomDecoder),
+	}
+}
+
+func opusDecoderOwnedStorage(channels int32) opusDecoderStorageViews {
+	return opusDecoderStorageViewsAt(opusDecoderAlignedStorage(opusDecoderStorageType(channels)))
+}
+
 func opusDecoderStorage(channels int32) *OpusT_OpusDecoder {
-	owner := opusDecoderAlignedStorage(opusDecoderStorageType(channels))
-	return owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder)
+	return opusDecoderOwnedStorage(channels).Decoder
 }
