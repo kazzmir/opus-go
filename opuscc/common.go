@@ -1727,22 +1727,6 @@ type OpusT_pthread_attr_t = struct {
 	}
 }
 
-type OpusT_pthread_mutex_t = struct {
-	F__u struct {
-		F__vi [0][10]int32
-		F__p  [0][5]uintptr
-		F__i  [10]int32
-	}
-}
-
-type OpusT_pthread_cond_t = struct {
-	F__u struct {
-		F__vi [0][12]int32
-		F__p  [0][6]uintptr
-		F__i  [12]int32
-	}
-}
-
 type OpusT_pthread_rwlock_t = struct {
 	F__u struct {
 		F__vi [0][14]int32
