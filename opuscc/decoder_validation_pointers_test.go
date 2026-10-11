@@ -661,6 +661,50 @@ func TestOpusDecoderCodecBoundStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderTypedClearStoragePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		layout := opusDecoderStorageType(channels)
+		holder := reflect.New(reflect.StructOf([]reflect.StructField{{Name: "Image", Type: layout}, {Name: "Neighbor", Type: reflect.ArrayOf(16, reflect.TypeFor[byte]())}})).Elem()
+		image := holder.FieldByName("Image")
+		owned := opusDecoderStorageViewsAt(image)
+		owned.Clear = opusDecoderStorageClearAt(image)
+		if Opus_opus_decoder_init(nil, owned.Decoder, 48000, channels) != 0 {
+			t.Fatal("clear initial state")
+		}
+		decoderStorageForeignPointers(owned.Decoder)
+		owned.Decoder.Fdecode_gain = 321
+		needed := int(Opus_opus_decoder_get_size(nil, channels))
+		bytes := unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), int(holder.Type().Size()))
+		// Only poison scalar bytes outside the ABI image, never pointer slots.
+		for i := needed; i < len(bytes); i++ {
+			bytes[i] = 0xa7
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		owned.Clear()
+		for i, value := range bytes {
+			want := byte(0)
+			if i >= needed {
+				want = 0xa7
+			}
+			if value != want {
+				t.Fatal("typed clear ABI extent/padding/neighbor", channels, i, value, want)
+			}
+		}
+		runtime.GC()
+		if owned.Celt.Fmode != nil {
+			t.Fatal("typed CELT pointer clear")
+		}
+		for i := range owned.Silk.Fchannel_state {
+			state := &owned.Silk.Fchannel_state[i]
+			if state.FpsNLSF_CB != nil || state.Fresampler_state.FCoefs != nil {
+				t.Fatal("typed SILK pointer clear", i)
+			}
+		}
+		runtime.KeepAlive(holder)
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

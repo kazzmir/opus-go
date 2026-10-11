@@ -172,6 +172,7 @@ type opusDecoderStorageViews struct {
 	Decoder *OpusT_OpusDecoder
 	Silk    *OpusT_silk_decoder
 	Celt    *OpusT_OpusCustomDecoder
+	Clear   func()
 }
 
 func opusDecoderStorageViewsAt(owner reflect.Value) opusDecoderStorageViews {
@@ -182,8 +183,22 @@ func opusDecoderStorageViewsAt(owner reflect.Value) opusDecoderStorageViews {
 	}
 }
 
+// Clear declared fields, not the enclosing image: final Go padding can be
+// outside the ABI extent (and inside a multistream child's aligned stride).
+// SetZero uses each actual field type and its pointer write barriers.
+func opusDecoderStorageClearAt(owner reflect.Value) func() {
+	return func() {
+		for i := 0; i < owner.NumField(); i++ {
+			owner.Field(i).SetZero()
+		}
+	}
+}
+
 func opusDecoderOwnedStorage(channels int32) opusDecoderStorageViews {
-	return opusDecoderStorageViewsAt(opusDecoderAlignedStorage(opusDecoderStorageType(channels)))
+	owner := opusDecoderAlignedStorage(opusDecoderStorageType(channels))
+	views := opusDecoderStorageViewsAt(owner)
+	views.Clear = opusDecoderStorageClearAt(owner)
+	return views
 }
 
 func opusDecoderStorage(channels int32) *OpusT_OpusDecoder {
