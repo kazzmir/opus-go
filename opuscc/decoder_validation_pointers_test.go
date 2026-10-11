@@ -894,6 +894,24 @@ func TestOpusDecoderPseudostackEmptyStoragePointers(t *testing.T) {
 	runtime.KeepAlive(state)
 }
 
+func TestOpusDecoderDREDStoragePointers(t *testing.T) {
+	for trial := 0; trial < 32; trial++ {
+		state := opusDREDDecoderStorage()
+		if unsafe.Sizeof(*state) != 12 || uintptr(unsafe.Pointer(state))&15 != 0 || *state != (OpusT_OpusDREDDecoder{}) {
+			t.Fatal("canonical aligned DRED header")
+		}
+		if opusDREDDecoderInit(nil, state) != OPUS_OK {
+			t.Fatal("DRED scalar init")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if state.Floaded != 0 || state.Farch != 0 || state.Fmagic != 0xD8EDDEC0 {
+			t.Fatal("DRED scalar Go storage")
+		}
+		runtime.KeepAlive(state)
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

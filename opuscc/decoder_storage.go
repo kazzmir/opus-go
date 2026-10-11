@@ -170,6 +170,13 @@ func opusMSDecoderStorage(streams, coupled int32) *OpusT_OpusMSDecoder {
 	return opusMSDecoderOwnedStorage(streams, coupled).Decoder
 }
 
+// Disabled DRED still has a concrete 12-byte scalar ABI header. Use its real
+// Go type and the existing alignment policy, not a cast malloc byte image.
+func opusDREDDecoderStorage() *OpusT_OpusDREDDecoder {
+	owner := opusDecoderAlignedStorage(reflect.TypeFor[OpusT_OpusDREDDecoder]())
+	return owner.Addr().Interface().(*OpusT_OpusDREDDecoder)
+}
+
 type opusDecoderStorageViews struct {
 	Decoder *OpusT_OpusDecoder
 	Silk    *OpusT_silk_decoder
