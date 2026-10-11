@@ -11,7 +11,75 @@ import (
 
 var _ reflect.Type
 
+// FFT output is either actual complex cells or adjacent real float lanes.
+// Each butterfly declares only its consumed prefix after no-work/assert guards.
+type fftOutput struct {
+	complex    *OpusT_kiss_fft_cpx
+	scalar     *float32
+	floatLanes bool
+}
+type fftBuffer struct {
+	complex []OpusT_kiss_fft_cpx
+	scalar  []float32
+}
+
+func (out fftOutput) prefix(n int32) fftBuffer {
+	if out.floatLanes {
+		return fftBuffer{scalar: unsafe.Slice(out.scalar, int64(n)*2)}
+	}
+	return fftBuffer{complex: unsafe.Slice(out.complex, n)}
+}
+func (b fftBuffer) window(first, count int32) fftBuffer {
+	if b.scalar != nil {
+		return fftBuffer{scalar: b.scalar[2*first : 2*(first+count)]}
+	}
+	return fftBuffer{complex: b.complex[first : first+count]}
+}
+func (b fftBuffer) get(i int32) OpusT_kiss_fft_cpx {
+	if b.scalar != nil {
+		return OpusT_kiss_fft_cpx{Fr: b.scalar[2*i], Fi: b.scalar[2*i+1]}
+	}
+	return b.complex[i]
+}
+func (b fftBuffer) put(i int32, v OpusT_kiss_fft_cpx) {
+	if b.scalar != nil {
+		b.scalar[2*i] = v.Fr
+		b.scalar[2*i+1] = v.Fi
+	} else {
+		b.complex[i] = v
+	}
+}
+func (b fftBuffer) re(i int32) float32 {
+	if b.scalar != nil {
+		return b.scalar[2*i]
+	}
+	return b.complex[i].Fr
+}
+func (b fftBuffer) im(i int32) float32 {
+	if b.scalar != nil {
+		return b.scalar[2*i+1]
+	}
+	return b.complex[i].Fi
+}
+func (b fftBuffer) putRe(i int32, v float32) {
+	if b.scalar != nil {
+		b.scalar[2*i] = v
+	} else {
+		b.complex[i].Fr = v
+	}
+}
+func (b fftBuffer) putIm(i int32, v float32) {
+	if b.scalar != nil {
+		b.scalar[2*i+1] = v
+	} else {
+		b.complex[i].Fi = v
+	}
+}
+
 func kf_bfly2(tls *libc.TLS, out *OpusT_kiss_fft_cpx, m, N int32) {
+	kfBfly2Output(tls, fftOutput{complex: out}, m, N)
+}
+func kfBfly2Output(tls *libc.TLS, out fftOutput, m, N int32) {
 	// The no-custom-modes radix-2 stage always follows a radix-4 stage.
 	if m != 4 {
 		opusCeltFatal(tls, opusDiagnosticString(3470), opusDiagnosticString(3493), 80)
@@ -19,12 +87,12 @@ func kf_bfly2(tls *libc.TLS, out *OpusT_kiss_fft_cpx, m, N int32) {
 	if N <= 0 {
 		return
 	}
-	data := unsafe.Slice(out, 8*N)
+	data := out.prefix(8 * N)
 	const tw = float32(0.7071067812)
 	for i := int32(0); i < N; i++ {
-		f := data[8*i : 8*i+8]
-		for j := 0; j < 4; j++ {
-			t := f[j+4]
+		f := data.window(8*i, 8)
+		for j := int32(0); j < 4; j++ {
+			t := f.get(j + 4)
 			switch j {
 			case 1:
 				t = OpusT_kiss_fft_cpx{Fr: float32((t.Fr + t.Fi) * tw), Fi: float32((t.Fi - t.Fr) * tw)}
@@ -33,10 +101,10 @@ func kf_bfly2(tls *libc.TLS, out *OpusT_kiss_fft_cpx, m, N int32) {
 			case 3:
 				t = OpusT_kiss_fft_cpx{Fr: float32((t.Fi - t.Fr) * tw), Fi: float32(-(t.Fi + t.Fr) * tw)}
 			}
-			f[j+4].Fr = f[j].Fr - t.Fr
-			f[j+4].Fi = f[j].Fi - t.Fi
-			f[j].Fr += t.Fr
-			f[j].Fi += t.Fi
+			f.putRe(j+4, f.re(j)-t.Fr)
+			f.putIm(j+4, f.im(j)-t.Fi)
+			f.putRe(j, f.re(j)+t.Fr)
+			f.putIm(j, f.im(j)+t.Fi)
 		}
 	}
 }
