@@ -306,6 +306,36 @@ func TestMiniFFTRGoBufferViewsPointers(t *testing.T) {
 	}
 }
 
+func TestMiniFFTRealInputPointers(t *testing.T) {
+	for _, n := range []int32{2, 3, 4, 5, 6, 8, 15, 16, 24} {
+		for _, inverse := range []int32{0, 1} {
+			cfg := Opus_mini_kiss_fft_alloc(nil, n, inverse, nil, nil)
+			for _, shift := range []int32{-1, 1} {
+				data := make([]OpusT_mini_kiss_fft_cpx, n+3)
+				for i := range data {
+					data[i] = OpusT_mini_kiss_fft_cpx{Fr: float32(i%13-6) / 17, Fi: float32(i%11-5) / 19}
+				}
+				want := slices.Clone(data)
+				Opus_mini_kiss_fft(nil, cfg, &want[1], &want[1+shift])
+				entropyInitGrowStack(12)
+				runtime.GC()
+				miniFFTRealInput(nil, cfg, &data[1].Fr, &data[1+shift])
+				if !slices.Equal(data, want) {
+					t.Fatal("real lanes/live partial aliases/guards", n, inverse, shift)
+				}
+			}
+			data := make([]OpusT_mini_kiss_fft_cpx, n)
+			if !validationPanics(func() { miniFFTRealInput(nil, cfg, &data[0].Fr, &data[0]) }) {
+				t.Fatal("real input must preserve in-place assertion")
+			}
+		}
+	}
+	cfg := Opus_mini_kiss_fft_alloc(nil, 2, 0, nil, nil)
+	if !validationPanics(func() { miniFFTRealInput(nil, cfg, nil, nil) }) {
+		t.Fatal("nil/nil in-place assertion")
+	}
+}
+
 func TestMiniFFTRAllocPointers(t *testing.T) {
 	var needed OpusT_size_t
 	Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, &needed)

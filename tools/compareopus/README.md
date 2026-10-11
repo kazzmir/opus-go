@@ -534,6 +534,46 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder-package mini-FFT rounds replace the real-FFT byte suffix with
+canonical complex cells, add an actual Go complex guard outside the reported ABI
+image, bind Go tmp/super views directly to those cells, and read packed real input
+through float32 lanes instead of a float→complex pointer reinterpretation. The
+shared recursive FFT work retains its complex-input path and gains a scalar-lane
+path with the same factor reads, leaf load-before-store order, live partial input
+aliases, recursion, twiddle reads, butterflies and explicit float32 arithmetic.
+The in-place assertion uses typed first-real-field identity, including nil/nil,
+and retains its original diagnostic/line. Counts fall 163→162 unsafe.Pointer;
+uintptr remains153. Typed tail/views are representation improvements even without
+further lexical deletions; caller-supplied byte headers retain their ABI casts.
+
+Upstream celt/mini_kfft.c confirms substate→tmp→super layout and real even/odd
+packing. The nfft2 allocation has a scalar substate of size1 with zero consumed
+super twiddles, but its native super pointer is at the reported allocation end.
+The Go guard preserves that exact pointer identity inside declared Go storage,
+so a scanned pointer field does not point past its actual compound allocation.
+Required sizes/lenmem queries and caller-byte layouts do not include the guard.
+No support for the upstream-unsupported scalar size1 transform is invented.
+
+Grouped fixtures verify complex tail types, header/substate/tmp/super geometry,
+guard placement/zeroing/identity, GC and stack growth, supported transforms,
+scalar/complex path bitwise equivalence across radices and forward/inverse modes,
+live partial aliases/whole-buffer guards and in-place assertions. Existing
+upstream native FFT/real-FFT comparisons, encode/decode goldens and tolerances
+persist. Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native
+comparisons, GC decode stress, codec references and diff checks; final ARM scoped
+and ordinary fixtures repeat twenty times. This standalone mini-FFT work does
+not repair external opaque images, extension EOF/GC or raw callback lifetimes.
+
+Retained failures: /tmp/opus-round-mini-fftr-scanned-terminal-guard.log failed a
+new fixture that incorrectly attempted the unsupported scalar size1 transform;
+the allocation/guard test stays, and transform checking uses supported size4.
+Its complete retry /tmp/opus-round-mini-fftr-scanned-terminal-guard-retry.log passes.
+/tmp/opus-round-mini-fftr-bound-complex-buffers.log caught a new test's uint vs
+uintptr size-expression compile mismatch; explicitly numeric uint sizes fix it,
+and the full -retry.log passes. Neither production behavior nor goldens were
+relaxed. Remaining round logs are /tmp/opus-round-mini-fftr-complex-go-tail.log
+and /tmp/opus-round-mini-fftr-typed-real-input.log.
+
 Four decoder extension-cursor rounds index short/terminal payload advances,
 lacing/payload advances, ID headers, and normal/repeated payload starts through
 consumed byte prefixes plus numeric offsets. extensionByteAt returns the exact
