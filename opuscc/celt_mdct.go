@@ -454,6 +454,20 @@ func miniFFTRStorage(needed uint64) (*OpusT_mini_kiss_fftr_state, *OpusT_mini_ki
 	return owner.Field(0).Addr().Interface().(*OpusT_mini_kiss_fftr_state), owner.Field(1).Addr().Interface().(*OpusT_mini_kiss_fft_state)
 }
 
+func miniFFTRStorageWithBuffers(needed uint64, nfft int32) (*OpusT_mini_kiss_fftr_state, *OpusT_mini_kiss_fft_state, *OpusT_mini_kiss_fft_cpx, *OpusT_mini_kiss_fft_cpx) {
+	owner := reflect.New(miniFFTRStorageType(needed)).Elem()
+	tail := owner.FieldByName("Tail")
+	tmp := tail.Index(int(nfft - 1)).Addr().Interface().(*OpusT_mini_kiss_fft_cpx)
+	superIndex := int(nfft)*2 - 1
+	var super *OpusT_mini_kiss_fft_cpx
+	if superIndex == tail.Len() {
+		super = owner.FieldByName("Guard").Addr().Interface().(*OpusT_mini_kiss_fft_cpx)
+	} else {
+		super = tail.Index(superIndex).Addr().Interface().(*OpusT_mini_kiss_fft_cpx)
+	}
+	return owner.Field(0).Addr().Interface().(*OpusT_mini_kiss_fftr_state), owner.Field(1).Addr().Interface().(*OpusT_mini_kiss_fft_state), tmp, super
+}
+
 func miniFFTRSuperTwiddles(tmp *OpusT_mini_kiss_fft_cpx, nfft int32) *OpusT_mini_kiss_fft_cpx {
 	if nfft == 0 {
 		return tmp
@@ -477,8 +491,9 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	needed := uint64(header) + subsize + 8*uint64(uint32(nfft*3/2))
 	var st *OpusT_mini_kiss_fftr_state
 	var substate *OpusT_mini_kiss_fft_state
+	var tmp, super *OpusT_mini_kiss_fft_cpx
 	if lenmem == nil {
-		st, substate = miniFFTRStorage(needed)
+		st, substate, tmp, super = miniFFTRStorageWithBuffers(needed, nfft)
 	} else {
 		if *lenmem >= needed {
 			st = (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(mem))
@@ -495,8 +510,12 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 		submem := &unsafe.Slice(mem, needed)[header]
 		st.Fsubstate = Opus_mini_kiss_fft_alloc(tls, nfft, inverse, submem, &subsize)
 	}
-	st.Ftmpbuf = &unsafe.Slice(&st.Fsubstate.Ftwiddles[0], int64(nfft)*2)[nfft]
-	st.Fsuper_twiddles = miniFFTRSuperTwiddles(st.Ftmpbuf, nfft)
+	if lenmem == nil {
+		st.Ftmpbuf, st.Fsuper_twiddles = tmp, super
+	} else {
+		st.Ftmpbuf = &unsafe.Slice(&st.Fsubstate.Ftwiddles[0], int64(nfft)*2)[nfft]
+		st.Fsuper_twiddles = miniFFTRSuperTwiddles(st.Ftmpbuf, nfft)
+	}
 	tw := unsafe.Slice(st.Fsuper_twiddles, nfft/2)
 	for i := int32(0); i < nfft/2; i++ {
 		phase := -float64(3.141592653589793) * (float64(i+1)/float64(nfft) + 0.5)

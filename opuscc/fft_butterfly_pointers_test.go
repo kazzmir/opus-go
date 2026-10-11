@@ -282,6 +282,30 @@ func TestMiniFFTRGoGuardPointers(t *testing.T) {
 	runtime.KeepAlive(st)
 }
 
+func TestMiniFFTRGoBufferViewsPointers(t *testing.T) {
+	for _, half := range []int32{1, 2, 3, 6, 16} {
+		var needed OpusT_size_t
+		Opus_mini_kiss_fftr_alloc(nil, half*2, 0, nil, &needed)
+		header, substate, tmp, super := miniFFTRStorageWithBuffers(needed, half)
+		tmpOffset := uint(unsafe.Sizeof(*header)+unsafe.Sizeof(*substate)) + uint(half-1)*8
+		if tmp != (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(header), tmpOffset)) || super != (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(tmp), uint(half)*8)) {
+			t.Fatal("canonical Go buffer offsets", half)
+		}
+		header.Fsubstate = substate
+		tmp.Fr = 321
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if tmp.Fr != 321 || header.Fsubstate != substate {
+			t.Fatal("canonical Go buffer owners", half)
+		}
+		st := Opus_mini_kiss_fftr_alloc(nil, half*2, 0, nil, nil)
+		if st.Ftmpbuf != (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(st), tmpOffset)) || st.Fsuper_twiddles != (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(st.Ftmpbuf), uint(half)*8)) {
+			t.Fatal("bound Go allocation buffers", half)
+		}
+		runtime.KeepAlive(header)
+	}
+}
+
 func TestMiniFFTRAllocPointers(t *testing.T) {
 	var needed OpusT_size_t
 	Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, &needed)
