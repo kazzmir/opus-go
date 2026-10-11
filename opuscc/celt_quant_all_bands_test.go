@@ -50,6 +50,23 @@ func TestQuantAllBandsNormIdentityPointers(t *testing.T) {
 	}
 }
 
+func TestQuantAllBandsNormConsumedPointers(t *testing.T) {
+	if celtNormConsumedAt(nil, 0) != nil {
+		t.Fatal("nil zero identity")
+	}
+	owner := []float32{.25, .5, 1}
+	base := &owner[1]
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if celtNormConsumedAt(base, -1) != &owner[0] || celtNormConsumedAt(base, 1) != &owner[2] || celtNormConsumedAt(base, 0) != base {
+		t.Fatal("consumed signed offsets/last readable sample")
+	}
+	*celtNormConsumedAt(base, 1) = 2
+	if owner[2] != 2 {
+		t.Fatal("consumed live alias")
+	}
+}
+
 func TestQuantAllBandsActivePointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, C := range []int32{1, 2} {

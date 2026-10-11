@@ -202,7 +202,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 		y = nil
 		// If Nd==0, C's channel cursor is never consumed; avoid forming one-past.
 		if N > 0 && (downsample <= 1 || Nd > 0) {
-			y = celtNormAdd(pcm, c)
+			y = celtNormConsumedAt(pcm, c)
 		}
 		if downsample > int32(1) {
 			/* Shortcut for the standard (non-custom modes) case */

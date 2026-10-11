@@ -1638,8 +1638,17 @@ func celtNormAdd(p *float32, offset int32) *float32 {
 	if offset == 0 {
 		return p
 	}
-	// Nonzero callers may need preceding history or an unused end pointer.
+	// Explicit compatibility boundary for preceding history and unused ends.
 	return (*float32)(unsafe.Add(unsafe.Pointer(p), int(offset)*4))
+}
+
+// Call only when the displaced sample will be consumed. Offset zero keeps
+// identity; signed caller-owned history retains the explicit legacy boundary.
+func celtNormConsumedAt(p *float32, offset int32) *float32 {
+	if offset <= 0 {
+		return celtNormAdd(p, offset)
+	}
+	return &unsafe.Slice(p, int64(offset)+1)[offset]
 }
 
 func bandContextEnergy(ctx *band_ctx, index int32) float32 {
