@@ -64,12 +64,12 @@ func TestOpusDecodeFrameCReferencePartA(t *testing.T) {
 	defer tls.Close()
 	setupResamplerPseudostack(tls)
 
-	dec, err := Opus_opus_decoder_create(tls, 48000, 2)
-	if err != nil || dec == 0 {
+	dec, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
-	defer Opus_opus_decoder_destroy(tls, dec)
-	dp := (*OpusT_OpusDecoder)(unsafe.Pointer(dec))
+	defer Opus_opus_decoder_destroy_typed(tls, dec)
+	dp := dec
 
 	/* tv02 pkt0/pkt1: SILK NB mono 60 ms; tv02 pkt602: SILK NB stereo 60 ms;
 	   tv01 pkt0: CELT FB stereo. */
@@ -105,25 +105,23 @@ func TestOpusDecodeFrameCReferencePartA(t *testing.T) {
 
 	for i, step := range decodeFrameRefA {
 		if step.tag == "gain" {
-			var slot [2]int32
-			if got := Opus_opus_decoder_ctl(tls, dec, OPUS_SET_GAIN_REQUEST, libc.VaList(uintptr(unsafe.Pointer(&slot[0])), int32(256))); got != OPUS_OK {
+			if got := Opus_opus_decoder_ctl_typed(tls, dec, OPUS_SET_GAIN_REQUEST, OpusDecoderCtlArgs{Value: 256}); got != OPUS_OK {
 				t.Fatalf("step %d (%s): OPUS_SET_GAIN: %d", i, step.tag, got)
 			}
 		} else if step.tag == "fec" {
-			var slot [2]int32
-			if got := Opus_opus_decoder_ctl(tls, dec, OPUS_SET_GAIN_REQUEST, libc.VaList(uintptr(unsafe.Pointer(&slot[0])), int32(0))); got != OPUS_OK {
+			if got := Opus_opus_decoder_ctl_typed(tls, dec, OPUS_SET_GAIN_REQUEST, OpusDecoderCtlArgs{Value: 0}); got != OPUS_OK {
 				t.Fatalf("step %d (%s): OPUS_SET_GAIN(0): %d", i, step.tag, got)
 			}
 		}
 
 		pcm := make([]float32, 5760*2)
-		var dataPtr uintptr
+		var dataPtr *byte
 		var dataLen int32
 		if step.pkt >= 0 {
-			dataPtr = uintptr(unsafe.Pointer(&packets[step.pkt][0]))
+			dataPtr = &packets[step.pkt][0]
 			dataLen = int32(len(packets[step.pkt]))
 		}
-		n := Opus_opus_decode_float(tls, dec, dataPtr, dataLen, uintptr(unsafe.Pointer(unsafe.SliceData(pcm))), step.size, step.fec)
+		n := Opus_opus_decode_float_typed(tls, dec, dataPtr, dataLen, unsafe.SliceData(pcm), step.size, step.fec)
 		if n < 0 {
 			t.Fatalf("step %d (%s): decode: %d", i, step.tag, n)
 		}
