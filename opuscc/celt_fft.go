@@ -111,43 +111,46 @@ func kfBfly2Output(tls *libc.TLS, out fftOutput, m, N int32) {
 
 // Twiddles are explicit so a local table is not hidden in the legacy FFT state.
 func kf_bfly4(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
+	kfBfly4Output(tls, fftOutput{complex: out}, stride, twiddles, m, N, mm)
+}
+func kfBfly4Output(tls *libc.TLS, out fftOutput, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
 	if N <= 0 {
 		return
 	}
 	if m == 1 {
-		data := unsafe.Slice(out, 4*N)
+		data := out.prefix(4 * N)
 		for i := int32(0); i < N; i++ {
-			f := data[4*i : 4*i+4]
-			s0 := fftSub(f[0], f[2])
-			f[0] = fftAdd(f[0], f[2])
-			s1 := fftAdd(f[1], f[3])
-			f[2] = fftSub(f[0], s1)
-			f[0] = fftAdd(f[0], s1)
-			s1 = fftSub(f[1], f[3])
-			f[1] = OpusT_kiss_fft_cpx{Fr: s0.Fr + s1.Fi, Fi: s0.Fi - s1.Fr}
-			f[3] = OpusT_kiss_fft_cpx{Fr: s0.Fr - s1.Fi, Fi: s0.Fi + s1.Fr}
+			f := data.window(4*i, 4)
+			s0 := fftSub(f.get(0), f.get(2))
+			f.put(0, fftAdd(f.get(0), f.get(2)))
+			s1 := fftAdd(f.get(1), f.get(3))
+			f.put(2, fftSub(f.get(0), s1))
+			f.put(0, fftAdd(f.get(0), s1))
+			s1 = fftSub(f.get(1), f.get(3))
+			f.put(1, OpusT_kiss_fft_cpx{Fr: s0.Fr + s1.Fi, Fi: s0.Fi - s1.Fr})
+			f.put(3, OpusT_kiss_fft_cpx{Fr: s0.Fr - s1.Fi, Fi: s0.Fi + s1.Fr})
 		}
 		return
 	}
 	if m <= 0 {
 		return
 	}
-	data := unsafe.Slice(out, (N-1)*mm+4*m)
+	data := out.prefix((N-1)*mm + 4*m)
 	tw := unsafe.Slice(twiddles, 3*uint64(m-1)*stride+1)
 	for i := int32(0); i < N; i++ {
-		f := data[i*mm : i*mm+4*m]
+		f := data.window(i*mm, 4*m)
 		for j := int32(0); j < m; j++ {
-			s0 := fftMul(f[j+m], tw[uint64(j)*stride])
-			s1 := fftMul(f[j+2*m], tw[2*uint64(j)*stride])
-			s2 := fftMul(f[j+3*m], tw[3*uint64(j)*stride])
-			s5 := fftSub(f[j], s1)
-			f[j] = fftAdd(f[j], s1)
+			s0 := fftMul(f.get(j+m), tw[uint64(j)*stride])
+			s1 := fftMul(f.get(j+2*m), tw[2*uint64(j)*stride])
+			s2 := fftMul(f.get(j+3*m), tw[3*uint64(j)*stride])
+			s5 := fftSub(f.get(j), s1)
+			f.put(j, fftAdd(f.get(j), s1))
 			s3 := fftAdd(s0, s2)
 			s4 := fftSub(s0, s2)
-			f[j+2*m] = fftSub(f[j], s3)
-			f[j] = fftAdd(f[j], s3)
-			f[j+m] = OpusT_kiss_fft_cpx{Fr: s5.Fr + s4.Fi, Fi: s5.Fi - s4.Fr}
-			f[j+3*m] = OpusT_kiss_fft_cpx{Fr: s5.Fr - s4.Fi, Fi: s5.Fi + s4.Fr}
+			f.put(j+2*m, fftSub(f.get(j), s3))
+			f.put(j, fftAdd(f.get(j), s3))
+			f.put(j+m, OpusT_kiss_fft_cpx{Fr: s5.Fr + s4.Fi, Fi: s5.Fi - s4.Fr})
+			f.put(j+3*m, OpusT_kiss_fft_cpx{Fr: s5.Fr - s4.Fi, Fi: s5.Fi + s4.Fr})
 		}
 	}
 }
