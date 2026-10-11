@@ -1981,7 +1981,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 	if LM2 != -int32(1) && b > int32(modePulseByte(cache2, int32(*cache2)))+int32(12) && N > int32(2) {
 		next_lowband2 = nil
 		N = N >> int32(1)
-		Y = celtNormAdd(X, N)
+		// This split consumes both halves: N>0 and the second half is readable.
+		Y = &unsafe.Slice(X, int64(N)+1)[N]
 		LM2 = LM2 - int32(1)
 		if B == int32(1) {
 			fill = fill&int32(1) | fill<<int32(1)
