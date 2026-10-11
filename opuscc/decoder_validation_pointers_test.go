@@ -561,6 +561,37 @@ func TestOpusDecoderCodecViewsStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderCodecBoundStoragePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		for _, rate := range []int32{48000, 24000, 16000, 12000, 8000, 44100} {
+			owned, legacy := opusDecoderOwnedStorage(channels), opusDecoderOwnedStorage(channels)
+			if Opus_opus_decoder_init(nil, owned.Decoder, 48000, channels) != 0 || Opus_opus_decoder_init(nil, legacy.Decoder, 48000, channels) != 0 {
+				t.Fatal("initial codec image")
+			}
+			decoderStorageForeignPointers(legacy.Decoder)
+			*owned.Silk, *owned.Celt = *legacy.Silk, *legacy.Celt
+			owned.Decoder.Fdecode_gain, legacy.Decoder.Fdecode_gain = 321, 321
+			n := Opus_opus_decoder_get_size(nil, channels)
+			before := slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n))
+			want := Opus_opus_decoder_init(nil, legacy.Decoder, rate, channels)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := opusDecoderInitWithStorage(nil, owned.Decoder, rate, channels, &owned)
+			image := unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n)
+			if got != want || !slices.Equal(image, unsafe.Slice((*byte)(unsafe.Pointer(legacy.Decoder)), n)) {
+				t.Fatal("bound codec init image/status", channels, rate, got, want)
+			}
+			if rate == 44100 && !slices.Equal(image, before) {
+				t.Fatal("invalid rate changed codec image")
+			}
+			runtime.KeepAlive(owned)
+		}
+	}
+	if opusDecoderInitWithStorage(nil, nil, 44100, 2, nil) != OPUS_BAD_ARG {
+		t.Fatal("rate validation before storage")
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

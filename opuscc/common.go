@@ -2188,6 +2188,10 @@ func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) int32 {
 }
 
 func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32) int32 {
+	return opusDecoderInitWithStorage(tls, st, Fs, channels, nil)
+}
+
+func opusDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32, owned *opusDecoderStorageViews) int32 {
 	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
 		return OPUS_BAD_ARG
 	}
@@ -2199,11 +2203,21 @@ func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_
 	align := func(n int32) int32 { return int32((uint32(n) + 7) &^ uint32(7)) }
 	silkOffset := align(int32(unsafe.Sizeof(*st)))
 	celtOffset := silkOffset + align(silkSize)
-	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), celtOffset))
+	var celt *OpusT_OpusCustomDecoder
+	if owned != nil {
+		celt = owned.Celt
+	} else {
+		celt = (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), celtOffset))
+	}
 	// Clear every embedded pointer through typed stores before clearing the ABI
 	// image: SILK also contains codebook/resampler pointers in both channels.
 	celt.Fmode = nil
-	silk := (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
+	var silk *OpusT_silk_decoder
+	if owned != nil {
+		silk = owned.Silk
+	} else {
+		silk = (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
+	}
 	*silk = OpusT_silk_decoder{}
 	clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
 	st.Fsilk_dec_offset = silkOffset
@@ -2235,11 +2249,12 @@ func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels
 	if tls == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	st := libc.RegisterGoAllocation(tls, opusDecoderStorage(channels))
+	owned := opusDecoderOwnedStorage(channels)
+	st := libc.RegisterGoAllocation(tls, owned.Decoder)
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	if ret := Opus_opus_decoder_init(tls, st, Fs, channels); ret != OPUS_OK {
+	if ret := opusDecoderInitWithStorage(tls, st, Fs, channels, &owned); ret != OPUS_OK {
 		Opus_opus_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
