@@ -432,19 +432,22 @@ type OpusT_mini_kiss_fftr_state = struct {
 	Fsuper_twiddles *OpusT_mini_kiss_fft_cpx
 }
 
-func miniFFTRStorage(needed uint64) (*OpusT_mini_kiss_fftr_state, *OpusT_mini_kiss_fft_state) {
+func miniFFTRStorageType(needed uint64) reflect.Type {
 	header := reflect.TypeFor[OpusT_mini_kiss_fftr_state]()
 	substate := reflect.TypeFor[OpusT_mini_kiss_fft_state]()
 	fixed := uint64(header.Size() + substate.Size())
-	if needed < fixed || int(needed) < 0 || uint64(int(needed)) != needed {
+	if needed < fixed || int(needed) < 0 || uint64(int(needed)) != needed || (needed-fixed)%8 != 0 {
 		panic("mini FFT allocation size overflow")
 	}
-	layout := reflect.StructOf([]reflect.StructField{
+	return reflect.StructOf([]reflect.StructField{
 		{Name: "Header", Type: header},
 		{Name: "Substate", Type: substate},
-		{Name: "Tail", Type: reflect.ArrayOf(int(needed-fixed), reflect.TypeFor[byte]())},
+		{Name: "Tail", Type: reflect.ArrayOf(int((needed-fixed)/8), reflect.TypeFor[OpusT_mini_kiss_fft_cpx]())},
 	})
-	owner := reflect.New(layout).Elem()
+}
+
+func miniFFTRStorage(needed uint64) (*OpusT_mini_kiss_fftr_state, *OpusT_mini_kiss_fft_state) {
+	owner := reflect.New(miniFFTRStorageType(needed)).Elem()
 	return owner.Field(0).Addr().Interface().(*OpusT_mini_kiss_fftr_state), owner.Field(1).Addr().Interface().(*OpusT_mini_kiss_fft_state)
 }
 

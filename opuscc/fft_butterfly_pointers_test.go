@@ -305,6 +305,11 @@ func TestMiniFFTScalarTailPointers(t *testing.T) {
 func TestMiniFFTStorageTailPointers(t *testing.T) {
 	fixed := uint64(unsafe.Sizeof(OpusT_mini_kiss_fftr_state{})) + uint64(unsafe.Sizeof(OpusT_mini_kiss_fft_state{}))
 	for _, extra := range []uint64{0, 8, 24} {
+		layout := miniFFTRStorageType(fixed + extra)
+		tailField, _ := layout.FieldByName("Tail")
+		if tailField.Type.Elem() != reflect.TypeFor[OpusT_mini_kiss_fft_cpx]() || tailField.Type.Len() != int(extra/8) {
+			t.Fatal("canonical real-FFT complex suffix")
+		}
 		header, substate := miniFFTRStorage(fixed + extra)
 		if substate != (*OpusT_mini_kiss_fft_state)(unsafe.Add(unsafe.Pointer(header), unsafe.Sizeof(*header))) {
 			t.Fatal("canonical mini FFT substate displacement")
