@@ -855,6 +855,27 @@ func TestOpusDecoderPseudostackStoragePointers(t *testing.T) {
 	runtime.KeepAlive(state)
 }
 
+func TestOpusDecoderResamplerPseudostackStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	setupResamplerPseudostack(tls)
+	handle := libc.Xpthread_getspecific(tls, opusPseudostackTLSKey)
+	state := libc.RegisteredGoAllocation[OpusT_opus_ccgo_pseudostack_state](tls, handle)
+	if state == nil || state.Fscratch_ptr == nil || state.Fglobal_stack != state.Fscratch_ptr {
+		t.Fatal("resampler scanned pseudostack producer")
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	*state.Fscratch_ptr = 77
+	if *state.Fglobal_stack != 77 {
+		t.Fatal("resampler scratch/cursor alias")
+	}
+	FreePseudostackTLS(tls)
+	if state.Fscratch_ptr != nil || state.Fglobal_stack != nil || libc.RegisteredGoAllocation[OpusT_opus_ccgo_pseudostack_state](tls, handle) != nil {
+		t.Fatal("resampler pseudostack typed release")
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()
