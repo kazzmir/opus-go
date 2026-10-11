@@ -1102,6 +1102,13 @@ func TestDiagnosticDecoderPointers(t *testing.T) {
 	checkDiagnosticFatal(t, func() { validate_opus_decoder(nil, &OpusT_OpusDecoder{Fchannels: 2}) }, "Fatal (internal) error in ../src/opus_decoder.c, line 103: assertion failed: st->Fs == 48000 || st->Fs == 24000 || st->Fs == 16000 || st->Fs == 12000 || st->Fs == 8000\n")
 }
 
+func TestDiagnosticQuantPointers(t *testing.T) {
+	entropyInitGrowStack(12)
+	runtime.GC()
+	checkDiagnosticFatal(t, func() { Opus_alg_quant(nil, nil, 0, 0, 0, 1, nil, 1, 0, 0) }, "Fatal (internal) error in ../celt/vq.c, line 562: assertion failed: K>0\nalg_quant() needs at least one pulse\n")
+	checkDiagnosticFatal(t, func() { Opus_alg_quant(nil, nil, 1, 1, 0, 1, nil, 1, 0, 0) }, "Fatal (internal) error in ../celt/vq.c, line 563: assertion failed: N>1\nalg_quant() needs at least two dimensions\n")
+}
+
 func TestDiagnosticStringsPointers(t *testing.T) {
 	runtime.GC()
 	for start := 0; start < len(__ccgo_ts1); {

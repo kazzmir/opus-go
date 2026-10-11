@@ -3644,7 +3644,7 @@ func opusMSDecodeBound(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, 
 	}
 	/* Limit frame_size to avoid excessive stack allocations. */
 	if !(Opus_opus_multistream_decoder_ctl_typed(tls, decoder, OPUS_GET_SAMPLE_RATE_REQUEST, OpusDecoderCtlArgs{I32: &scratch.Fs}) == int32(OPUS_OK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2090, __ccgo_ts+2200, int32(206))
+		opusCeltFatal(tls, opusDiagnosticString(2090), opusDiagnosticString(2200), int32(206))
 	}
 	if frame_size < scratch.Fs/int32(25)*int32(3) {
 		v31 = frame_size
@@ -3967,7 +3967,7 @@ func Opus_mapping_matrix_init(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, 
 
 func mappingMatrixInitWithStorage(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, cols, gain int32, data *int16, data_size int32, destination *int16) {
 	if (uint32(data_size)+7)&^uint32(7) != (uint32(rows*cols)*2+7)&^uint32(7) {
-		Opus_celt_fatal(tls, __ccgo_ts+2234, __ccgo_ts+2312, 72)
+		opusCeltFatal(tls, opusDiagnosticString(2234), opusDiagnosticString(2312), 72)
 	}
 	matrix.Frows, matrix.Fcols, matrix.Fgain = rows, cols, gain
 	if rows*cols == 0 {
@@ -3986,7 +3986,7 @@ func mappingMatrixInitWithStorage(tls *libc.TLS, matrix *OpusT_MappingMatrix, ro
 
 func Opus_mapping_matrix_multiply_channel_in_float(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *float32, input_rows int32, output *OpusT_opus_res, output_row, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 98)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 98)
 	}
 	if frame_size <= 0 {
 		return
@@ -4006,7 +4006,7 @@ func Opus_mapping_matrix_multiply_channel_in_float(tls *libc.TLS, matrix *OpusT_
 
 func Opus_mapping_matrix_multiply_channel_out_float(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *OpusT_opus_res, input_row, input_rows int32, output *float32, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 130)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 130)
 	}
 	if frame_size <= 0 || output_rows == 0 {
 		return
@@ -4026,7 +4026,7 @@ func Opus_mapping_matrix_multiply_channel_out_float(tls *libc.TLS, matrix *OpusT
 
 func Opus_mapping_matrix_multiply_channel_in_short(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *int16, input_rows int32, output *OpusT_opus_res, output_row, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 161)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 161)
 	}
 	if frame_size <= 0 {
 		return
@@ -4046,7 +4046,7 @@ func Opus_mapping_matrix_multiply_channel_in_short(tls *libc.TLS, matrix *OpusT_
 
 func Opus_mapping_matrix_multiply_channel_out_short(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *OpusT_opus_res, input_row, input_rows int32, output *int16, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 206)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 206)
 	}
 	if frame_size <= 0 || output_rows == 0 {
 		return
@@ -4074,7 +4074,7 @@ func Opus_mapping_matrix_multiply_channel_out_short(tls *libc.TLS, matrix *OpusT
 
 func Opus_mapping_matrix_multiply_channel_in_int24(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *int32, input_rows int32, output *OpusT_opus_res, output_row, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 236)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 236)
 	}
 	if frame_size <= 0 {
 		return
@@ -4095,7 +4095,7 @@ func Opus_mapping_matrix_multiply_channel_in_int24(tls *libc.TLS, matrix *OpusT_
 
 func Opus_mapping_matrix_multiply_channel_out_int24(tls *libc.TLS, matrix *OpusT_MappingMatrix, input *OpusT_opus_res, input_row, input_rows int32, output *int32, output_rows, frame_size int32) {
 	if !(input_rows <= matrix.Fcols && output_rows <= matrix.Frows) {
-		Opus_celt_fatal(tls, __ccgo_ts+2336, __ccgo_ts+2312, 271)
+		opusCeltFatal(tls, opusDiagnosticString(2336), opusDiagnosticString(2312), 271)
 	}
 	if frame_size <= 0 || output_rows == 0 {
 		return
