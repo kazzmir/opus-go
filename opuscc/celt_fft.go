@@ -167,11 +167,14 @@ func fftMul(a OpusT_kiss_fft_cpx, b OpusT_kiss_twiddle_cpx) OpusT_kiss_fft_cpx {
 }
 
 func kf_bfly3(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
+	kfBfly3Output(tls, fftOutput{complex: out}, stride, twiddles, m, N, mm)
+}
+func kfBfly3Output(tls *libc.TLS, out fftOutput, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
 	// C requires positive m; no output or twiddle access for an empty Go call.
 	if N <= 0 || m <= 0 {
 		return
 	}
-	data := unsafe.Slice(out, (N-1)*mm+3*m)
+	data := out.prefix((N-1)*mm + 3*m)
 	maxTw := uint64(m) * stride
 	if v := 2 * uint64(m-1) * stride; v > maxTw {
 		maxTw = v
@@ -179,30 +182,33 @@ func kf_bfly3(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twidd
 	tw := unsafe.Slice(twiddles, maxTw+1)
 	epi3 := tw[uint64(m)*stride]
 	for i := int32(0); i < N; i++ {
-		f := data[i*mm : i*mm+3*m]
+		f := data.window(i*mm, 3*m)
 		for j := int32(0); j < m; j++ {
-			s1 := fftMul(f[j+m], tw[uint64(j)*stride])
-			s2 := fftMul(f[j+2*m], tw[2*uint64(j)*stride])
+			s1 := fftMul(f.get(j+m), tw[uint64(j)*stride])
+			s2 := fftMul(f.get(j+2*m), tw[2*uint64(j)*stride])
 			s3 := fftAdd(s1, s2)
 			s0 := fftSub(s1, s2)
-			f[j+m] = OpusT_kiss_fft_cpx{Fr: f[j].Fr - float32(s3.Fr*.5), Fi: f[j].Fi - float32(s3.Fi*.5)}
+			f.put(j+m, OpusT_kiss_fft_cpx{Fr: f.re(j) - float32(s3.Fr*.5), Fi: f.im(j) - float32(s3.Fi*.5)})
 			// Explicit rounding prevents ARM64 from fusing these products with
 			// the following additions/subtractions (C stores scratch first).
 			s0.Fr = float32(s0.Fr * epi3.Fi)
 			s0.Fi = float32(s0.Fi * epi3.Fi)
-			f[j] = fftAdd(f[j], s3)
-			f[j+2*m] = OpusT_kiss_fft_cpx{Fr: f[j+m].Fr + s0.Fi, Fi: f[j+m].Fi - s0.Fr}
-			f[j+m].Fr -= s0.Fi
-			f[j+m].Fi += s0.Fr
+			f.put(j, fftAdd(f.get(j), s3))
+			f.put(j+2*m, OpusT_kiss_fft_cpx{Fr: f.re(j+m) + s0.Fi, Fi: f.im(j+m) - s0.Fr})
+			f.putRe(j+m, f.re(j+m)-s0.Fi)
+			f.putIm(j+m, f.im(j+m)+s0.Fr)
 		}
 	}
 }
 
 func kf_bfly5(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
+	kfBfly5Output(tls, fftOutput{complex: out}, stride, twiddles, m, N, mm)
+}
+func kfBfly5Output(tls *libc.TLS, out fftOutput, stride OpusT_size_t, twiddles *OpusT_kiss_twiddle_cpx, m, N, mm int32) {
 	if N <= 0 || m <= 0 {
 		return
 	}
-	data := unsafe.Slice(out, (N-1)*mm+5*m)
+	data := out.prefix((N-1)*mm + 5*m)
 	maxTw := 2 * uint64(m) * stride
 	if v := 4 * uint64(m-1) * stride; v > maxTw {
 		maxTw = v
@@ -211,30 +217,30 @@ func kf_bfly5(tls *libc.TLS, out *OpusT_kiss_fft_cpx, stride OpusT_size_t, twidd
 	ya := tw[uint64(m)*stride]
 	yb := tw[2*uint64(m)*stride]
 	for i := int32(0); i < N; i++ {
-		f := data[i*mm : i*mm+5*m]
+		f := data.window(i*mm, 5*m)
 		for u := int32(0); u < m; u++ {
 			var s [13]OpusT_kiss_fft_cpx
-			s[0] = f[u]
+			s[0] = f.get(u)
 			for k := int32(1); k <= 4; k++ {
-				s[k] = fftMul(f[u+k*m], tw[uint64(k*u)*stride])
+				s[k] = fftMul(f.get(u+k*m), tw[uint64(k*u)*stride])
 			}
 			s[7] = fftAdd(s[1], s[4])
 			s[10] = fftSub(s[1], s[4])
 			s[8] = fftAdd(s[2], s[3])
 			s[9] = fftSub(s[2], s[3])
-			f[u] = fftAdd(f[u], fftAdd(s[7], s[8]))
+			f.put(u, fftAdd(f.get(u), fftAdd(s[7], s[8])))
 			s[5].Fr = s[0].Fr + (float32(s[7].Fr*ya.Fr) + float32(s[8].Fr*yb.Fr))
 			s[5].Fi = s[0].Fi + (float32(s[7].Fi*ya.Fr) + float32(s[8].Fi*yb.Fr))
 			s[6].Fr = float32(s[10].Fi*ya.Fi) + float32(s[9].Fi*yb.Fi)
 			s[6].Fi = -(float32(s[10].Fr*ya.Fi) + float32(s[9].Fr*yb.Fi))
-			f[u+m] = fftSub(s[5], s[6])
-			f[u+4*m] = fftAdd(s[5], s[6])
+			f.put(u+m, fftSub(s[5], s[6]))
+			f.put(u+4*m, fftAdd(s[5], s[6]))
 			s[11].Fr = s[0].Fr + (float32(s[7].Fr*yb.Fr) + float32(s[8].Fr*ya.Fr))
 			s[11].Fi = s[0].Fi + (float32(s[7].Fi*yb.Fr) + float32(s[8].Fi*ya.Fr))
 			s[12].Fr = float32(s[9].Fi*ya.Fi) - float32(s[10].Fi*yb.Fi)
 			s[12].Fi = float32(s[10].Fr*yb.Fi) - float32(s[9].Fr*ya.Fi)
-			f[u+2*m] = fftAdd(s[11], s[12])
-			f[u+3*m] = fftSub(s[11], s[12])
+			f.put(u+2*m, fftAdd(s[11], s[12]))
+			f.put(u+3*m, fftSub(s[11], s[12]))
 		}
 	}
 }
