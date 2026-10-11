@@ -3604,10 +3604,6 @@ type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintpt
 
 type opusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32)
 
-func opusMSCopyInt24(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-	opus_copy_channel_out_int24(tls, (*int32)(dst), ds, dc, src, ss, n)
-}
-
 func opusMSBindBoundCopy(callback, user uintptr, dst unsafe.Pointer) opusMSBoundChannelCopy {
 	if callback == __ccgo_fp(opus_copy_channel_out_float_legacy) {
 		pcm := (*float32)(dst)
@@ -3619,6 +3615,12 @@ func opusMSBindBoundCopy(callback, user uintptr, dst unsafe.Pointer) opusMSBound
 		pcm := (*int16)(dst)
 		return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
 			opus_copy_channel_out_short(tls, pcm, ds, dc, src, ss, n)
+		}
+	}
+	if callback == __ccgo_fp(opus_copy_channel_out_int24_legacy) {
+		pcm := (*int32)(dst)
+		return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+			opus_copy_channel_out_int24(tls, pcm, ds, dc, src, ss, n)
 		}
 	}
 	copyChannel := opusMSBindCopy(callback, user)
@@ -3638,7 +3640,9 @@ func opusMSBindCopy(callback, user uintptr) opusMSChannelCopy {
 			opusMSBindBoundCopy(callback, user, dst)(tls, ds, dc, src, ss, n)
 		}
 	case __ccgo_fp(opus_copy_channel_out_int24_legacy):
-		return opusMSCopyInt24
+		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
+			opusMSBindBoundCopy(callback, user, dst)(tls, ds, dc, src, ss, n)
+		}
 	default:
 		legacy := *(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback}))
 		return opusMSBindLegacyCopy(legacy, user)

@@ -72,7 +72,10 @@ func TestMultistreamInt24WrapperPointers(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		got := Opus_opus_multistream_decode24_typed(nil, &owner.MS, data, length, &out[1], 5760, fec)
-		expected := opusMSDecodeNative(nil, &baseline.MS, data, length, unsafe.Pointer(&want[1]), opusMSCopyInt24, 5760, fec, 0)
+		copyOut := func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+			opus_copy_channel_out_int24(tls, &want[1], ds, dc, src, ss, n)
+		}
+		expected := opusMSDecodeBound(nil, &baseline.MS, data, length, copyOut, 5760, fec, 0)
 		if got != expected || got <= 0 || owner.Children[0].Decoder != baseline.Children[0].Decoder || owner.Children[1].Decoder != baseline.Children[1].Decoder || out[0] != 77 || out[len(out)-1] != 88 {
 			t.Fatal("int24 wrapper dispatch/state")
 		}
@@ -356,6 +359,26 @@ func TestMultistreamShortBoundBindingPointers(t *testing.T) {
 	}
 	if output[0] != 77 || output[10] != 88 {
 		t.Fatal("short bound guards")
+	}
+}
+
+func TestMultistreamInt24BoundBindingPointers(t *testing.T) {
+	output := make([]int32, 11)
+	output[0], output[10] = 77, 88
+	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_int24_legacy), 123, unsafe.Pointer(&output[1]))
+	entropyInitGrowStack(12)
+	runtime.GC()
+	src := [6]float32{.25, -.25, .5, -.5, .75, -.75}
+	copyOut(nil, 3, 0, &src[0], 2, 3)
+	copyOut(nil, 3, 2, &src[1], 2, 3)
+	copyOut(nil, 3, 1, nil, 0, 3)
+	for i := 0; i < 3; i++ {
+		if output[1+3*i] != int32(src[2*i]*8388608) || output[3+3*i] != int32(src[2*i+1]*8388608) || output[2+3*i] != 0 {
+			t.Fatal("int24 bound PCM/muting")
+		}
+	}
+	if output[0] != 77 || output[10] != 88 {
+		t.Fatal("int24 bound guards")
 	}
 }
 
