@@ -3604,10 +3604,6 @@ type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintpt
 
 type opusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32)
 
-func opusMSCopyFloat(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-	opus_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n)
-}
-
 func opusMSCopyShort(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
 	opus_copy_channel_out_short(tls, (*int16)(dst), ds, dc, src, ss, n)
 }
@@ -3616,10 +3612,25 @@ func opusMSCopyInt24(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float
 	opus_copy_channel_out_int24(tls, (*int32)(dst), ds, dc, src, ss, n)
 }
 
+func opusMSBindBoundCopy(callback, user uintptr, dst unsafe.Pointer) opusMSBoundChannelCopy {
+	if callback == __ccgo_fp(opus_copy_channel_out_float_legacy) {
+		pcm := (*float32)(dst)
+		return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+			opus_copy_channel_out_float(tls, pcm, ds, dc, src, ss, n)
+		}
+	}
+	copyChannel := opusMSBindCopy(callback, user)
+	return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+		copyChannel(tls, dst, ds, dc, src, ss, n)
+	}
+}
+
 func opusMSBindCopy(callback, user uintptr) opusMSChannelCopy {
 	switch callback {
 	case __ccgo_fp(opus_copy_channel_out_float_legacy):
-		return opusMSCopyFloat
+		return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
+			opusMSBindBoundCopy(callback, user, dst)(tls, ds, dc, src, ss, n)
+		}
 	case __ccgo_fp(opus_copy_channel_out_short_legacy):
 		return opusMSCopyShort
 	case __ccgo_fp(opus_copy_channel_out_int24_legacy):
@@ -3651,7 +3662,7 @@ func opusMSDecodeChild(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, le
 
 //go:uintptrescapes
 func Opus_opus_multistream_decode_native(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, callback uintptr, frame_size, decode_fec, soft_clip int32, user_data uintptr) int32 {
-	return opusMSDecodeNative(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, unsafe.Pointer(pcm), opusMSBindCopy(callback, user_data), frame_size, decode_fec, soft_clip)
+	return opusMSDecodeBound(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, opusMSBindBoundCopy(callback, user_data, unsafe.Pointer(pcm)), frame_size, decode_fec, soft_clip)
 }
 
 func opusMSPacketAt(data *byte, offset uint, length int32) *byte {
