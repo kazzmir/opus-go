@@ -534,6 +534,41 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four DRED/frame-reference rounds add concrete aligned Go storage for the
+port's disabled12-byte DRED scalar header, register that owner in the factory,
+then migrate PartA and PartB frame-reference fixtures to typed create/destroy,
+float decode, and (PartA) gain-control entries. DRED scalar fields, magic,
+16-byte allocator alignment, nil-TLS allocation error and cleanup remain;
+required ABI size stays12 despite possible alignment-array storage. No enabled
+DRED model/weights behavior is claimed. The prior opaque malloc→DRED cast is
+actually removed from the factory, not relocated. Lexical production counts
+remain158 unsafe.Pointer/133 uintptr because that implicit allocator cast did
+not spell unsafe.Pointer; most other changes are fixture crossings.
+
+Both frame fixtures retain EVERY packet, step, sample count, float bits, hash,
+range, mode, redundancy and CELT PLC golden/tolerance. They now keep decoder,
+packet and PCM roots concrete instead of reconstructing a decoder from a raw
+handle and passing data/PCM through uintptr. PartA gains use the same int32
+values256/0 without legacy varargs staging. New DRED fixtures verify zero/init
+scalar images, alignment, GC/stack growth, registry-only retention via weak
+references, typed lookup/free and nil-TLS errors. Existing disabled/native DRED
+validation/ABI fixtures and public integer adapters persist.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged codec references and
+diff checks. Rounds3/4 additionally run the unchanged PartA/PartB goldens under
+checkptr on amd64/386/ARM, and final ARM scoped/ordinary fixtures (including
+BOTH reference parts) repeat twenty times. The previous raw PartB fixture
+checkptr blocker at opus_decode_frame_ref_test.go:168 is now removed; this is a
+fixture representation repair, NOT a claim that all legacy tests or opaque
+allocations are globally checkptr-safe. Extension EOF/GC/raw-callback issues
+remain outside this scope.
+Logs: /tmp/opus-round-dred-canonical-scalar-storage.log,
+/tmp/opus-round-dred-registered-concrete-factory.log,
+/tmp/opus-round-frame-reference-{a,b}-typed-entries.log,
+/tmp/opus-round-frame-reference-{a,b}-focused-checkptr.log and
+/tmp/opus-round-dred-typed-frame-arm-{checkptr,golden}-repeat.log.
+
 Four decoder pseudostack-compatibility rounds resolve registered headers as
 actual typed roots via libcshim.RegisteredGoAllocation, replace both scratch/cursor
 uintptr fields with *byte, construct resampler reference headers as registered

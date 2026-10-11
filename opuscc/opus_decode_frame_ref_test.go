@@ -158,12 +158,12 @@ func TestOpusDecodeFrameCReferencePartB(t *testing.T) {
 	defer tls.Close()
 	setupResamplerPseudostack(tls)
 
-	dec, err := Opus_opus_decoder_create(tls, 48000, 2)
-	if err != nil || dec == 0 {
+	dec, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
-	defer Opus_opus_decoder_destroy(tls, dec)
-	dp := (*OpusT_OpusDecoder)(unsafe.Pointer(dec))
+	defer Opus_opus_decoder_destroy_typed(tls, dec)
+	dp := dec
 
 	/* Packets produced by the C encoder (deterministic LCG noise input; see
 	   /tmp/opencode/decodeframe_ref.c): seg0 hybrid FB @20 kbps, seg1/2 SILK
@@ -269,7 +269,7 @@ func TestOpusDecodeFrameCReferencePartB(t *testing.T) {
 
 	pcm := make([]float32, 5760*2)
 	for i, pkt := range packets {
-		n := Opus_opus_decode_float(tls, dec, uintptr(unsafe.Pointer(&pkt[0])), int32(len(pkt)), uintptr(unsafe.Pointer(unsafe.SliceData(pcm))), 5760, 0)
+		n := Opus_opus_decode_float_typed(tls, dec, &pkt[0], int32(len(pkt)), unsafe.SliceData(pcm), 5760, 0)
 		if n < 0 {
 			t.Fatalf("frame %d: decode: %d", i, n)
 		}
@@ -297,7 +297,7 @@ func TestOpusDecodeFrameCReferencePartB(t *testing.T) {
 	}
 
 	/* 120 ms PLC after CELT frames (recursion into 20 ms concealment). */
-	n := Opus_opus_decode_float(tls, dec, 0, 0, uintptr(unsafe.Pointer(unsafe.SliceData(pcm))), 5760, 0)
+	n := Opus_opus_decode_float_typed(tls, dec, nil, 0, unsafe.SliceData(pcm), 5760, 0)
 	if n != 5760 {
 		t.Fatalf("plc: n=%d want 5760", n)
 	}
