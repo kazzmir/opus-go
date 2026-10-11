@@ -54,8 +54,6 @@ type OpusT_FILE = struct {
 	F__x int8
 }
 
-type OpusT___isoc_va_list = uintptr
-
 type OpusT_fpos_t = struct {
 	F__lldata [0]int64
 	F__align  [0]float64

@@ -706,8 +706,6 @@ const math_errhandling = 2
 const opus_int = "int"
 const restrict = "__restrict"
 
-type OpusT___builtin_va_list = uintptr
-
 type OpusT___predefined_size_t = uint64
 
 type OpusT___predefined_wchar_t = int32
