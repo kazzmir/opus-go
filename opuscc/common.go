@@ -1195,7 +1195,13 @@ func Opus_opus_packet_parse_impl(tls *libc.TLS, packet *byte, length, selfDelimi
 	cbr := false
 	pad := int32(0)
 	// The typed base remains live even for zero-length frames at packet end.
-	at := func() *byte { return (*byte)(unsafe.Add(unsafe.Pointer(packet), position)) }
+	at := func() *byte {
+		if position >= 0 && position < int32(len(data)) {
+			return &data[position]
+		}
+		// Preserve native EOF/backward identity at the shared explicit boundary.
+		return extensionByteAt(packet, position, int32(len(data)))
+	}
 	switch toc & 3 {
 	case 0:
 	case 1:
