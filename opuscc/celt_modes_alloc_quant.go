@@ -2030,7 +2030,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 		sbits = b - mbits
 		ctx.Fremaining_bits -= qalloc
 		if lowband != nil {
-			next_lowband2 = celtNormAdd(lowband, N)
+			// The recursive second half consumes this interior lowband cell.
+			next_lowband2 = &unsafe.Slice(lowband, int64(N)+1)[N]
 		} /* >32-bit split case */
 		rebalance = ctx.Fremaining_bits
 		if mbits >= sbits {
