@@ -2219,7 +2219,12 @@ func opusDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_o
 		silk = (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
 	}
 	*silk = OpusT_silk_decoder{}
-	clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
+	if owned != nil && owned.Clear != nil {
+		owned.Clear()
+	} else {
+		// External ABI images have no canonical Go field descriptor.
+		clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
+	}
 	st.Fsilk_dec_offset = silkOffset
 	st.Fcelt_dec_offset = celtOffset
 	st.Fchannels = channels

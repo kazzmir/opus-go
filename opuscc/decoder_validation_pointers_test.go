@@ -705,6 +705,32 @@ func TestOpusDecoderTypedClearStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderSingleTypedClearStoragePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		owned := opusDecoderOwnedStorage(channels)
+		if owned.Clear == nil {
+			t.Fatal("single factory clear descriptor")
+		}
+		clear, calls := owned.Clear, 0
+		owned.Clear = func() { calls++; clear() }
+		if opusDecoderInitWithStorage(nil, owned.Decoder, 48000, channels, &owned) != 0 || calls != 1 {
+			t.Fatal("single bound typed clear")
+		}
+		decoderStorageForeignPointers(owned.Decoder)
+		owned.Decoder.Fdecode_gain = 321
+		n := Opus_opus_decoder_get_size(nil, channels)
+		before := slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n))
+		if opusDecoderInitWithStorage(nil, owned.Decoder, 44100, channels, &owned) != OPUS_BAD_ARG || calls != 1 || !slices.Equal(before, unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n)) {
+			t.Fatal("invalid rate before typed clear")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opusDecoderInitWithStorage(nil, owned.Decoder, 24000, channels, &owned) != 0 || calls != 2 || owned.Decoder.Fdecode_gain != 0 {
+			t.Fatal("single re-init typed clear")
+		}
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()
