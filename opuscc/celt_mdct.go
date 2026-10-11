@@ -110,7 +110,7 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16
 		output[base+2*r+1] = yr
 		output[base+2*r] = yi
 	}
-	Opus_opus_fft_impl(tls, l.Fkfft[shift], twiddles, (*OpusT_kiss_fft_cpx)(unsafe.Pointer(&output[base])))
+	opusFFTImplOutput(tls, l.Fkfft[shift], twiddles, fftOutput{scalar: &output[base], floatLanes: true})
 	// Capture both ends before storing: odd N4 computes the middle pair twice.
 	p0, p1 := base, base+N2-2
 	for i := int32(0); i < (N4+1)>>1; i++ {

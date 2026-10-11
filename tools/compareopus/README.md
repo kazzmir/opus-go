@@ -534,6 +534,44 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four active CELT FFT/MDCT output rounds replace direct complex-only butterfly
+access with concrete complex/float-lane output views: radix2, radix4, radix3/5,
+then the common dispatcher and backward MDCT consumer. Backward MDCT now passes
+its actual *float32 output to FFT; the float→complex unsafe.Pointer reinterpret
+cast is REMOVED, not moved to a helper or hidden in an opaque alias. The output
+descriptor contains concrete *kiss_fft_cpx and *float32 alternatives; consumed
+buffer views contain corresponding Go slices. There is no whole-buffer scratch
+copy/snapshot that would break live aliases. Counts fall158→157 unsafe.Pointer;
+uintptr remains133. The prior rounds were required kernel representation work
+before deleting this cast on the normal decoder's active synthesis path.
+
+Upstream celt/kiss_fft.c, mdct.c and complex macros guide lane/store semantics.
+No-work/assertion guards precede prefix construction. Each stage uses its original
+consumed extent, factor/shift arithmetic and live state-factor reads; twiddle
+loads remain live, while epi3/ya/yb retain their original caches. Whole-pair stores
+capture both RHS lanes before writing real then imaginary; lane updates keep
+sequential reload/store ordering. Radix3/5 explicit float32 product rounding,
+ARM fusion safeguards, middle-pair MDCT dependencies and window/overlap order
+remain unchanged. Native FFT/MDCT fixtures and decoder goldens/tolerances persist.
+
+Grouped fixtures compare complete complex vs scalar float bits/guards across
+all radices, m1/general paths, multiple groups and output/twiddle aliases through
+GC/stack growth. They also check radix2's assertion-before-no-work and null
+operands on no-work paths, and full FFT scalar/complex bit identity at all four
+codec shifts. Test-only twiddle alias casts describe genuine ABI/layout aliases;
+no production output cast was displaced into them. Reflection/FFT accessor
+costs are not benchmarked or claimed to improve performance.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged encode/decode references
+and diff checks. Final validation additionally checks typed PartA/PartB frame
+references and FFT/MDCT fixtures on amd64/386/ARM; final ARM ordinary/scoped tests
+repeat twenty times. No global opaque-image, extension EOF/GC or raw-callback
+safety claim follows. Logs: /tmp/opus-round-fft-concrete-float-radix{2,4,35}.log,
+/tmp/opus-round-mdct-float-fft-focused.log,
+/tmp/opus-round-mdct-concrete-float-fft-output.log and
+/tmp/opus-round-mdct-float-fft-arm-{checkptr,golden}-repeat.log.
+
 Four DRED/frame-reference rounds add concrete aligned Go storage for the
 port's disabled12-byte DRED scalar header, register that owner in the factory,
 then migrate PartA and PartB frame-reference fixtures to typed create/destroy,

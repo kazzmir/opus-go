@@ -31,46 +31,46 @@ func (out fftOutput) prefix(n int32) fftBuffer {
 }
 func (b fftBuffer) window(first, count int32) fftBuffer {
 	if b.scalar != nil {
-		return fftBuffer{scalar: b.scalar[2*first : 2*(first+count)]}
+		return fftBuffer{scalar: b.scalar[2*int64(first) : 2*int64(first+count)]}
 	}
 	return fftBuffer{complex: b.complex[first : first+count]}
 }
 func (b fftBuffer) get(i int32) OpusT_kiss_fft_cpx {
 	if b.scalar != nil {
-		return OpusT_kiss_fft_cpx{Fr: b.scalar[2*i], Fi: b.scalar[2*i+1]}
+		return OpusT_kiss_fft_cpx{Fr: b.scalar[2*int64(i)], Fi: b.scalar[2*int64(i)+1]}
 	}
 	return b.complex[i]
 }
 func (b fftBuffer) put(i int32, v OpusT_kiss_fft_cpx) {
 	if b.scalar != nil {
-		b.scalar[2*i] = v.Fr
-		b.scalar[2*i+1] = v.Fi
+		b.scalar[2*int64(i)] = v.Fr
+		b.scalar[2*int64(i)+1] = v.Fi
 	} else {
 		b.complex[i] = v
 	}
 }
 func (b fftBuffer) re(i int32) float32 {
 	if b.scalar != nil {
-		return b.scalar[2*i]
+		return b.scalar[2*int64(i)]
 	}
 	return b.complex[i].Fr
 }
 func (b fftBuffer) im(i int32) float32 {
 	if b.scalar != nil {
-		return b.scalar[2*i+1]
+		return b.scalar[2*int64(i)+1]
 	}
 	return b.complex[i].Fi
 }
 func (b fftBuffer) putRe(i int32, v float32) {
 	if b.scalar != nil {
-		b.scalar[2*i] = v
+		b.scalar[2*int64(i)] = v
 	} else {
 		b.complex[i].Fr = v
 	}
 }
 func (b fftBuffer) putIm(i int32, v float32) {
 	if b.scalar != nil {
-		b.scalar[2*i+1] = v
+		b.scalar[2*int64(i)+1] = v
 	} else {
 		b.complex[i].Fi = v
 	}
@@ -246,6 +246,10 @@ func kfBfly5Output(tls *libc.TLS, out fftOutput, stride OpusT_size_t, twiddles *
 }
 
 func Opus_opus_fft_impl(tls *libc.TLS, state *OpusT_kiss_fft_state, twiddles *OpusT_kiss_twiddle_cpx, fout *OpusT_kiss_fft_cpx) {
+	opusFFTImplOutput(tls, state, twiddles, fftOutput{complex: fout})
+}
+
+func opusFFTImplOutput(tls *libc.TLS, state *OpusT_kiss_fft_state, twiddles *OpusT_kiss_twiddle_cpx, out fftOutput) {
 	var L, i, m, m2, p, shift, v1 int32
 	var fstride [8]int32
 	_, _, _, _, _, _, _, _ = L, fstride, i, m, m2, p, shift, v1
@@ -277,13 +281,13 @@ func Opus_opus_fft_impl(tls *libc.TLS, state *OpusT_kiss_fft_state, twiddles *Op
 		}
 		switch int32(state.Ffactors[2*i]) {
 		case int32(2):
-			kf_bfly2(tls, fout, m, fstride[i])
+			kfBfly2Output(tls, out, m, fstride[i])
 		case int32(4):
-			kf_bfly4(tls, fout, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
+			kfBfly4Output(tls, out, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
 		case int32(3):
-			kf_bfly3(tls, fout, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
+			kfBfly3Output(tls, out, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
 		case int32(5):
-			kf_bfly5(tls, fout, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
+			kfBfly5Output(tls, out, uint64(uint32(fstride[i]<<shift)), twiddles, m, fstride[i], m2)
 			break
 		}
 		m = m2
