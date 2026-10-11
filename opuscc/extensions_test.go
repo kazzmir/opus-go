@@ -8,6 +8,118 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestExtensionLacingCursorPointers(t *testing.T) {
+	packet := make([]byte, 260)
+	packet[0], packet[1], packet[2], packet[258], packet[259] = 77, 255, 0, 99, 88
+	for _, length := range []int32{0, 1, 255, 256, 257, 258} {
+		cursor, header := &packet[1], int32(777)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		left := skip_extension_payload(nil, &cursor, length, &header, 129, 0)
+		if length < 257 {
+			if left != -1 || cursor != &packet[1] || header != 777 {
+				t.Fatal("lacing failure outputs/order", length)
+			}
+		} else if left != length-257 || header != 2 || cursor != &packet[258] {
+			t.Fatal("physical lacing/payload budget", length, left, header)
+		}
+		if packet[0] != 77 || packet[258] != 99 || packet[259] != 88 {
+			t.Fatal("lacing cursor guards")
+		}
+	}
+}
+
+func TestExtensionHeaderCursorPointers(t *testing.T) {
+	packet := [5]byte{77, 7, 99, 101, 88}
+	for _, length := range []int32{-1, 0, 1, 2, 3} {
+		cursor, header := &packet[1], int32(777)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		left := skip_extension(nil, &cursor, length, &header)
+		switch {
+		case length < 0 || length == 1:
+			if left != -1 || cursor != &packet[1] || header != 777 {
+				t.Fatal("header failure outputs/order", length)
+			}
+		case length == 0:
+			if left != 0 || cursor != &packet[1] || header != 0 {
+				t.Fatal("empty header")
+			}
+		default:
+			if left != length-2 || cursor != &packet[3] || header != 1 {
+				t.Fatal("header cursor", length, left, header)
+			}
+		}
+	}
+	var empty *byte
+	header := int32(777)
+	if skip_extension(nil, &empty, 0, &header) != 0 || empty != nil || header != 0 {
+		t.Fatal("nil empty header")
+	}
+	if packet != [5]byte{77, 7, 99, 101, 88} {
+		t.Fatal("header source/guards")
+	}
+}
+
+func TestExtensionPayloadCursorPointers(t *testing.T) {
+	packet := [7]byte{77, 7, 88, 4, 99, 0, 111}
+	var iter OpusT_OpusExtensionIterator
+	Opus_opus_extension_iterator_init(nil, &iter, &packet[1], 5, 2)
+	var ext OpusT_opus_extension_data
+	for frame := int32(0); frame < 2; frame++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if Opus_opus_extension_iterator_next(nil, &iter, &ext) != 1 || ext.Fid != 3 || ext.Fframe != frame || ext.Flen1 != 1 {
+			t.Fatal("normal/repeated payload", frame)
+		}
+		want := &packet[2]
+		if frame == 1 {
+			want = &packet[4]
+		}
+		if ext.Fdata != want {
+			t.Fatal("payload start identity", frame)
+		}
+	}
+	if Opus_opus_extension_iterator_next(nil, &iter, &ext) != 0 || packet != [7]byte{77, 7, 88, 4, 99, 0, 111} {
+		t.Fatal("payload termination/guards")
+	}
+
+	// A Go-only layout alias: outputs overlap scalar iterator counters, never
+	// its GC pointer slots. Length must still reload the cursor after stores;
+	// only the payload-start view's physical span may be cached before them.
+	aliasPacket := [5]byte{77, 7, 99, 0, 88}
+	var alias OpusT_OpusExtensionIterator
+	Opus_opus_extension_iterator_init(nil, &alias, &aliasPacket[1], 3, 1)
+	output := (*OpusT_opus_extension_data)(unsafe.Pointer(&alias.Flen1))
+	if Opus_opus_extension_iterator_next(nil, &alias, output) != 1 || output.Fdata != &aliasPacket[2] || output.Flen1 != 1 || alias.Fcurr_len != 0 {
+		t.Fatal("payload store/live-length alias")
+	}
+	runtime.KeepAlive(aliasPacket)
+}
+
+func TestExtensionByteCursorPointers(t *testing.T) {
+	var packet [17]byte
+	for i := range packet {
+		packet[i] = byte(i + 1)
+	}
+	for _, offset := range []int32{0, 1, 5, 11} {
+		p := extensionByteAt(&packet[4], offset, 12)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if p != &packet[4+offset] || *p != byte(5+offset) {
+			t.Fatal("consumed cursor", offset)
+		}
+	}
+	if extensionByteAt(nil, 0, 0) != nil || extensionByteAt(&packet[4], 0, 0) != &packet[4] {
+		t.Fatal("zero cursor identity")
+	}
+	// Semantic EOF still preserves its exact native identity; the test's guard
+	// makes this boundary representable without claiming global EOF safety.
+	if extensionByteAt(&packet[4], 12, 12) != &packet[16] || extensionByteAt(&packet[4], -1, 12) != &packet[3] || packet[16] != 17 {
+		t.Fatal("compatibility cursor boundary/guard")
+	}
+}
+
 func TestExtensionIteratorInitPointers(t *testing.T) {
 	owned := func() OpusT_OpusExtensionIterator {
 		packet := [3]byte{7, 99, 0}

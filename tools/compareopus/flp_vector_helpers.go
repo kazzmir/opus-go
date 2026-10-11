@@ -1,0 +1,26 @@
+//go:build compareopus && cgo
+
+package main
+
+/*
+#cgo CFLAGS: -I${SRCDIR}/../../../opus/silk/float
+#include "SigProc_FLP.h"
+*/
+import "C"
+import "unsafe"
+
+func nativeEnergyFLP(data []float32, size int32) float64 {
+	return float64(C.silk_energy_FLP((*C.silk_float)(unsafe.Pointer(unsafe.SliceData(data))), C.opus_int(size)))
+}
+
+func nativeInnerProductFLP(a, b []float32, size int32) float64 {
+	return float64(C.silk_inner_product_FLP_c((*C.silk_float)(unsafe.Pointer(unsafe.SliceData(a))), (*C.silk_float)(unsafe.Pointer(unsafe.SliceData(b))), C.opus_int(size)))
+}
+
+func nativeScaleFLP(data []float32, gain float32, size int32) {
+	C.silk_scale_vector_FLP((*C.silk_float)(unsafe.Pointer(unsafe.SliceData(data))), C.silk_float(gain), C.opus_int(size))
+}
+
+func nativeScaleCopyFLP(out, in []float32, gain float32, size int32) {
+	C.silk_scale_copy_vector_FLP((*C.silk_float)(unsafe.Pointer(unsafe.SliceData(out))), (*C.silk_float)(unsafe.Pointer(unsafe.SliceData(in))), C.silk_float(gain), C.opus_int(size))
+}

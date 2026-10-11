@@ -534,6 +534,189 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder extension-cursor rounds index short/terminal payload advances,
+lacing/payload advances, ID headers, and normal/repeated payload starts through
+consumed byte prefixes plus numeric offsets. extensionByteAt returns the exact
+input at offset0; readable positive offsets use an actually consumed prefix.
+Exact EOF, backward and otherwise unproven cursors retain one explicit unsafe
+boundary. Counts fall 169→163 unsafe.Pointer, with uintptr153 unchanged. The six
+lexical deletions centralize seven necessary cursor sites into one fallback;
+readable consumers genuinely use typed indexing, but this is not a global EOF or
+GC lifetime repair and is not counted as deleting public ABI adapters.
+
+Upstream src/extensions.c confirms failure/output ordering and lacing semantics.
+The lacing loop tracks its physical suffix separately: logical remaining length
+has already deducted payload bytes not yet advanced. This lets its header and
+payload cursors use exact physical budgets, without guessed extents. Payload-start
+spans are cached before output stores only to choose the consumed view; payload
+length still computes the live pointer difference after those stores, and both
+iterator pointer/remaining-length assertions remain unchanged. Repetition, frame
+limits, sticky errors and header/payload IDs are unchanged.
+
+Grouped fixtures cover zero/nil identity, readable offsets, guarded semantic EOF
+and backward boundaries, multi-byte lacing with cached 255-byte payload and
+malformed lengths, untouched failure outputs, ID-header work, normal/repeated
+payload starts, GC/stack growth and whole-packet guards. A Go-only output alias
+into scalar iterator counters (not its GC pointer slots) verifies final live
+length reloads; it does not claim C cross-struct-alias validity. Existing native
+extension/init/next/find/parse/generate comparisons and codec goldens remain.
+Each round passes full amd64/386, ARM64/QEMU, existing decoder plus new cursor
+scoped checkptr, native comparisons, GC decode stress, unchanged encode/decode
+references and diff checks; final ARM ordinary/scoped fixtures repeat twenty
+times. These scopes do not establish global opaque-buffer/EOF safety. Native
+extension GC failures, raw callbacks and malformed external allocations remain
+separate issues.
+
+Four projection/initialization ownership rounds add canonical projection Go
+storage, migrate valid projection factories to registered scanned owners, bind
+standalone multistream factory initialization to concrete child headers, then
+bind projection factory matrix/coefficient/MS/child initialization to concrete
+views. The projection runtime type contains the actual scalar projection header,
+canonical matrix header plus int16 coefficient/padding cells, and the canonical
+multistream compound type. All successful projection factory states now scan
+their embedded decoder pointers, superseding the earlier factory limitation.
+
+Factory creation still queries size and attempts allocation before initialization
+validation. Invalid geometries keep the old byte-allocation/error path rather
+than inventing a reflective layout or changing error ordering. Nil-TLS behavior,
+coefficient little-endian/signed conversion, complete input snapshot before
+header writes, forward matrix stores, mapping validation before child rate checks,
+coupled-before-mono order, cleanup and 16-byte alignment are preserved. Bound
+factory initialization no longer recovers matrix/MS/child pointers with layout
+arithmetic; public initializers and malformed-layout paths retain explicit
+compatibility fallbacks. Decode-time layout accessors remain necessary boundaries.
+Production counts remain 169 unsafe.Pointer/153 uintptr; these are genuine Go
+allocation/ownership and concrete-view improvements, not lexical cast deletion.
+
+Upstream src/opus_projection_decoder.c and mapping_matrix.c establish the header,
+matrix, child layout and snapshot/error order. Grouped canonical/registered
+projection fixtures cover exact sizes/offsets/alignment and weak-reference survival
+of both coupled/mono children with only integer handles plus TLS. Bound init
+fixtures compare complete ABI images and return codes against compatibility
+initializers under GC/stack growth, including aliased projection/matrix source
+headers, size mismatch and invalid rate. Existing native layouts/initialization,
+format comparisons and codec goldens are unchanged. Each round passes full
+amd64/386, ARM64/QEMU, scoped checkptr, native comparisons, GC decode stress,
+encode/decode references and diff checks, with twenty final ARM ordinary/scoped
+repetitions. Scanned-alignment fallback overhead and reflective type creation
+remain as documented below. Caller-supplied/invalid byte images, extension EOF/GC,
+raw callbacks and other opaque allocations are not globally repaired.
+
+Four decoder ownership rounds clear every embedded SILK pointer via typed
+stores before composite initialization's ABI-image clear, construct canonical
+Go single-decoder storage, register/migrate single factories, then construct and
+register canonical multistream factories. SILK has ICDF, codebook and resampler
+pointer slots in both channels, not just the CELT mode slot; its complete typed
+zero assignment preserves write barriers before the byte clear. Caller-supplied
+byte images still require external referent lifetime management.
+
+opuscc/decoder_storage.go uses actual runtime-created structs containing the
+canonical decoder/SILK/CELT types and float32 tail, with fixed-eight ABI padding.
+Multistream images contain canonical coupled/mono child arrays at the original
+aligned strides. Unlike casts over byte/word allocations, these allocations have
+real GC pointer maps. An interior typed header roots the complete actual Go
+allocation; libcshim.RegisterGoAllocation records that Go root for legacy integer
+handles, while free/Close remove the registry entry. XmallocPointer itself remains
+opaque byte allocation. Single and standalone multistream factories migrate;
+projection factories and caller-owned ABI images remain separate unresolved
+scanning boundaries. Production opuscc counts stay 169 unsafe.Pointer/153 uintptr:
+this batch repairs representation/lifetime, not necessary layout/ABI casts.
+
+Sixteen-byte allocation alignment is preserved without pretending a byte image
+is scanned. Normally an aligned reflective image is used directly; otherwise a
+scanned array of canonical images with controlled stride covers every alignment
+residue. This fallback can cost two images on amd64/ARM64 or four on 386, and the
+first unaligned allocation becomes GC-reclaimable. Single storage may have final
+Go padding outside the reported ABI image; multistream child stride/report sizes
+remain exact. Reflection/type creation is factory work, not per-packet decode;
+no allocation-performance or huge/malformed-layout success claim is made.
+
+Upstream src/opus_decoder.c and opus_multistream_decoder.c confirm validation,
+initialization, cleanup and coupled-before-mono layout. Nil-TLS allocation failure,
+mapping-before-child-rate validation, error cleanup, public APIs and numerical
+codec behavior remain intact. Grouped geometry/alignment/weak-reference fixtures
+prove that dynamically allocated CELT modes, SILK codebooks and resampler arrays
+survive GC/stack growth through the actual compound owner, including both channels
+and coupled/mono children. Registry fixtures retain only integer handles plus TLS;
+the generic shim test roots a pointer-bearing parent through its scalar interior
+header. Existing native layout/init/reset/control/format comparisons persist.
+All four rounds pass full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+GC decode stress, unchanged encode/decode references and diff checks; final ARM
+scoped/ordinary fixtures repeat twenty times. Opaque projection allocation,
+extension EOF/GC and raw callback ownership are not globally repaired.
+
+Four encoder sort/ID rounds migrate int32 increasing top-K sort, int16 full
+sort, float32 decreasing top-K sort, and gains-ID into concrete private kernels.
+Public integer adapters retain six explicit casts and uintptrescapes. Production
+opusccenc counts fall 11276→11240 unsafe.Pointer and 6649→6607 uintptr; decoder
+opuscc remains 169/153. Active loads/stores use numeric indices and typed views.
+Original assertion conditions/diagnostics/order, stable strict ties, float NaN
+comparisons/signed-zero copies, initial index writes, untouched top-K tails and
+separate value→index stores persist. Singleton sorts consume only the index
+output (or no pointers for int16); nonpositive ID counts consume no bytes. Gains
+use signed int8 extension and uint32 shift/int32 wrapping addition.
+
+Upstream silk/sort.c, silk/float/sort_FLP.c and silk/gain_quant.c/macros are the
+oracles. Native fixtures now test both integer ports, float sorting (including
+NaNs, signed zeros and whole-buffer/index guards), and signed/wrapping gain IDs.
+Grouped private fixtures cover GC, aliases, singleton nil values and empty IDs.
+All four rounds pass full amd64/386, ARM64/QEMU, scoped decoder/private-encoder
+checkptr, native comparisons, GC decode stress, unchanged codec references and
+diff checks; final ARM ordinary/scoped fixtures repeat twenty times.
+
+The first sort32 run failed its new alias comparison at L16/K5/shift1:
+/tmp/opus-round-encoder-sort32.log. A direct native probe confirmed the encoder
+rewrite matched C (/tmp/opus-round-encoder-sort32-alias-native-probe.log). The
+existing decoder sort's parallel Go assignment incorrectly cached the index
+read before C's preceding value store. Changing its four assignment sites to
+sequential stores repairs that live alias; preserving the fixture and extending
+the C alias oracle to both ports gives a passing full
+/tmp/opus-round-encoder-sort32-retry.log. Disjoint codec paths/goldens remain
+unchanged; this is an upstream-order correction, not weakened expectations.
+
+The float-sort full run hit the recurring native extension GC failure, fatal
+error: found pointer to free object, in TestExtensionNextAgainstC (extensions
+iterator stack), retained in /tmp/opus-round-encoder-sort-float.log. Its complete
+retry /tmp/opus-round-encoder-sort-float-retry.log passes; no extension/allocator
+repair is claimed. Encoder opaque-state scanning/pseudostack, extension EOF/GC
+and raw callback lifetime remain outside these scalar-leaf migrations.
+
+Four encoder FLP-vector rounds migrate scale-copy, in-place scale, inner product
+and energy into concrete float32-pointer private kernels, with numeric indices
+and consumed-prefix slices. Public integer adapters retain uintptrescapes and
+six explicit casts. Production opusccenc counts fall 11305→11276 unsafe.Pointer
+and 6684→6649 uintptr; decoder opuscc remains 169/153. These are actual load/store
+and address-representation changes, not deletion of dormant implementations.
+
+Upstream silk/float/{scale_copy_vector_FLP,scale_vector_FLP,inner_product_FLP,
+energy_FLP}.c confirms forward stores/live overlapping aliases and the scale
+helpers' literal 0xFFFC mask, not ~3. In particular size=-1 still consumes 65532
+samples; size=-65536 consumes none. Views use max(size, masked bulk), preserving
+that behavior and >65535 tails. Reduction bounds retain int32 size-3 arithmetic;
+the numeric extent oracle tests the signed wrap without constructing enormous
+addresses. Native signed-overflow/unrepresentable buffer geometries are not
+claimed supported. Four-product groups are added to the running float64 total,
+not four independent updates; products widen both operands first and retain
+explicit rounding. Energy's translated disabled assertion remains a no-op.
+
+Grouped private fixtures exercise aliases/whole-buffer guards, GC, empty/nil
+unused inputs, signed zeros, Inf/NaN, subnormal double products and a cancellation
+case distinguishing group accumulation. New upstream C bridges compare finite
+outputs/results bitwise for unrolled/tail/large/negative-mask work and random
+wide-exponent reductions; native fixtures/goldens/tolerances stay unchanged.
+Each round passes full amd64/386, ARM64/QEMU, decoder and private encoder scoped
+checkptr, native comparisons, GC decode stress, codec references and diff checks,
+plus final repeated ARM scoped/ordinary runs. No opaque encoder-state scanning,
+pseudostack, extension EOF/GC or raw callback lifetime repair is claimed.
+
+The first scale-copy run failed its new fixture: the zero-work forward-overlap
+case formed &buffer[2] in a length-2 buffer before calling the kernel. Giving the
+fixture the same extra terminal guard as its shifted cases fixed the fixture;
+production code/goldens were not changed. The failure is retained in
+/tmp/opus-round-encoder-flp-scale-copy.log and full retry passed in
+/tmp/opus-round-encoder-flp-scale-copy-retry.log. Later round logs are
+/tmp/opus-round-encoder-flp-{scale,inner-product,energy}.log.
+
 Four encoder LPC-analysis rounds migrate the independent encoder leaf's output
 stores/late prefix clearing, fixed six prediction taps, remaining taps/prediction
 subtraction, then its private parameters/cursor to concrete int16 pointers and

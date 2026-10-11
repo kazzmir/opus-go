@@ -729,18 +729,23 @@ func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a *OpusT_opus_int32, idx
 	if !(L >= K) {
 		opusCeltFatal(tls, opusDiagnosticString(7774), opusDiagnosticString(7735), int32(53))
 	}
-	values := unsafe.Slice(a, int(L))
 	indices := unsafe.Slice(idx, int(K))
 	for i := range indices {
 		indices[i] = int32(i)
 	}
+	if L == 1 {
+		return
+	}
+	values := unsafe.Slice(a, int(L))
 	for i := 1; i < int(K); i++ {
 		value := values[i]
 		j := i - 1
 		for ; j >= 0 && value < values[j]; j-- {
-			values[j+1], indices[j+1] = values[j], indices[j]
+			values[j+1] = values[j]
+			indices[j+1] = indices[j]
 		}
-		values[j+1], indices[j+1] = value, int32(i)
+		values[j+1] = value
+		indices[j+1] = int32(i)
 	}
 	// Only the first K entries are sorted; the tail is read but not changed.
 	for i := int(K); i < int(L); i++ {
@@ -748,9 +753,11 @@ func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a *OpusT_opus_int32, idx
 		if value < values[K-1] {
 			j := int(K) - 2
 			for ; j >= 0 && value < values[j]; j-- {
-				values[j+1], indices[j+1] = values[j], indices[j]
+				values[j+1] = values[j]
+				indices[j+1] = indices[j]
 			}
-			values[j+1], indices[j+1] = value, int32(i)
+			values[j+1] = value
+			indices[j+1] = int32(i)
 		}
 	}
 }

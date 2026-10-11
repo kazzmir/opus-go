@@ -10674,29 +10674,26 @@ func Opus_silk_encode_signs(tls *libc.TLS, psRangeEnc uintptr, pulses uintptr, l
 //
 //	/* Decodes signs of excitation */
 
+//go:uintptrescapes
 func Opus_silk_energy_FLP(tls *libc.TLS, data uintptr, dataSize int32) (r float64) {
-	var i int32
+	return silkEnergyFLP((*float32)(unsafe.Pointer(data)), dataSize)
+}
+
+func silkEnergyFLP(data *float32, size int32) float64 {
+	length := silkFLPReductionLength(size)
+	if length == 0 {
+		return 0
+	}
+	values := unsafe.Slice(data, length)
 	var result float64
-	_, _ = i, result
-	/* 4x unrolled loop */
-	result = float64(0)
-	i = 0
-	for {
-		if !(i < dataSize-int32(3)) {
-			break
-		}
-		result = result + (float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i+0)*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i+0)*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(1))*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(1))*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(2))*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(2))*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(3))*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i+int32(3))*4)))))
-		i = i + int32(4)
+	var i int32
+	for ; i < size-3; i += 4 {
+		result = result + (float64(float64(values[i])*float64(values[i])) + float64(float64(values[i+1])*float64(values[i+1])) + float64(float64(values[i+2])*float64(values[i+2])) + float64(float64(values[i+3])*float64(values[i+3])))
 	}
-	/* add any remaining products */
-	for {
-		if !(i < dataSize) {
-			break
-		}
-		result = result + float64(float64(*(*float32)(unsafe.Pointer(data + uintptr(i)*4)))*float64(*(*float32)(unsafe.Pointer(data + uintptr(i)*4))))
-		i = i + 1
+	for ; i < size; i++ {
+		result = result + float64(float64(values[i])*float64(values[i]))
 	}
-	_ = result >= libc.Float64FromFloat64(0)
+	_ = result >= float64(0) // Keep the translated build's disabled silk_assert.
 	return result
 }
 
@@ -11189,20 +11186,21 @@ const MAX_PREDICTION_POWER_GAIN_AFTER_RESET2 = "1e2f"
 //
 //	/* 16th order LPC analysis filter, does not write first 16 samples */
 
+//go:uintptrescapes
 func Opus_silk_gains_ID(tls *libc.TLS, ind uintptr, nb_subfr int32) (r OpusT_opus_int32) {
-	var gainsID OpusT_opus_int32
-	var k int32
-	_, _ = gainsID, k
-	gainsID = 0
-	k = 0
-	for {
-		if !(k < nb_subfr) {
-			break
-		}
-		gainsID = int32(*(*OpusT_opus_int8)(unsafe.Pointer(ind + uintptr(k)))) + libc.Int32FromUint32(libc.Uint32FromInt32(gainsID)<<libc.Int32FromInt32(8))
-		k = k + 1
+	return silkGainsID((*int8)(unsafe.Pointer(ind)), nb_subfr)
+}
+
+func silkGainsID(ind *int8, count int32) int32 {
+	if count <= 0 {
+		return 0
 	}
-	return gainsID
+	indices := unsafe.Slice(ind, count)
+	var id int32
+	for _, index := range indices {
+		id = int32(index) + int32(uint32(id)<<8)
+	}
+	return id
 }
 
 // C documentation
@@ -11523,27 +11521,33 @@ POSSIBILITY OF SUCH DAMAGE.
 //	/* Approximation of 128 * log2() (very close inverse of silk_log2lin()) */
 //	/* Convert input to a log scale    */
 
+//go:uintptrescapes
 func Opus_silk_inner_product_FLP_c(tls *libc.TLS, data1 uintptr, data2 uintptr, dataSize int32) (r float64) {
-	var i int32
-	var result float64
-	_, _ = i, result
-	/* 4x unrolled loop */
-	result = float64(0)
-	i = 0
-	for {
-		if !(i < dataSize-int32(3)) {
-			break
-		}
-		result = result + (float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i+0)*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i+0)*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(1))*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i+int32(1))*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(2))*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i+int32(2))*4)))) + float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(3))*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i+int32(3))*4)))))
-		i = i + int32(4)
+	return silkInnerProductFLP((*float32)(unsafe.Pointer(data1)), (*float32)(unsafe.Pointer(data2)), dataSize)
+}
+
+// Match the actual four-lane loop extent, retaining its int32 bound arithmetic.
+func silkFLPReductionLength(size int32) int64 {
+	length := int64(size)
+	if end := size - 3; end > 0 {
+		length = max(length, (int64(end)+3)&^3)
 	}
-	/* add any remaining products */
-	for {
-		if !(i < dataSize) {
-			break
-		}
-		result = result + float64(float64(*(*float32)(unsafe.Pointer(data1 + uintptr(i)*4)))*float64(*(*float32)(unsafe.Pointer(data2 + uintptr(i)*4))))
-		i = i + 1
+	return max(int64(0), length)
+}
+
+func silkInnerProductFLP(data1, data2 *float32, size int32) float64 {
+	length := silkFLPReductionLength(size)
+	if length == 0 {
+		return 0
+	}
+	a, b := unsafe.Slice(data1, length), unsafe.Slice(data2, length)
+	var result float64
+	var i int32
+	for ; i < size-3; i += 4 {
+		result = result + (float64(float64(a[i])*float64(b[i])) + float64(float64(a[i+1])*float64(b[i+1])) + float64(float64(a[i+2])*float64(b[i+2])) + float64(float64(a[i+3])*float64(b[i+3])))
+	}
+	for ; i < size; i++ {
+		result = result + float64(float64(a[i])*float64(b[i]))
 	}
 	return result
 }
@@ -11552,10 +11556,12 @@ func Opus_silk_inner_product_FLP_c(tls *libc.TLS, data1 uintptr, data2 uintptr, 
 //
 //	/* step up function, converts reflection coefficients to prediction coefficients */
 
+//go:uintptrescapes
 func Opus_silk_insertion_sort_decreasing_FLP(tls *libc.TLS, a uintptr, idx uintptr, L int32, K int32) {
-	var i, j int32
-	var value float32
-	_, _, _ = i, j, value
+	silkInsertionSortDecreasingFLP(tls, (*float32)(unsafe.Pointer(a)), (*int32)(unsafe.Pointer(idx)), L, K)
+}
+
+func silkInsertionSortDecreasingFLP(tls *libc.TLS, a *float32, idx *int32, L, K int32) {
 	/* Safety checks */
 	if !(K > libc.Int32FromInt32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+10564, __ccgo_ts+12490, int32(50))
@@ -11566,64 +11572,44 @@ func Opus_silk_insertion_sort_decreasing_FLP(tls *libc.TLS, a uintptr, idx uintp
 	if !(L >= K) {
 		Opus_celt_fatal(tls, __ccgo_ts+10627, __ccgo_ts+12490, int32(52))
 	}
-	/* Write start indices in index vector */
-	i = 0
-	for {
-		if !(i < K) {
-			break
-		}
-		*(*int32)(unsafe.Pointer(idx + uintptr(i)*4)) = i
-		i = i + 1
+	indices := unsafe.Slice(idx, K)
+	for i := int32(0); i < K; i++ {
+		indices[i] = i
 	}
-	/* Sort vector elements by value, decreasing order */
-	i = int32(1)
-	for {
-		if !(i < K) {
-			break
-		}
-		value = *(*float32)(unsafe.Pointer(a + uintptr(i)*4))
-		j = i - int32(1)
-		for {
-			if !(j >= 0 && value > *(*float32)(unsafe.Pointer(a + uintptr(j)*4))) {
-				break
-			}
-			*(*float32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = *(*float32)(unsafe.Pointer(a + uintptr(j)*4)) /* Shift value */
-			*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = *(*int32)(unsafe.Pointer(idx + uintptr(j)*4)) /* Shift index */
-			j = j - 1
-		}
-		*(*float32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = value /* Write value */
-		*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = i     /* Write index */
-		i = i + 1
+	if L == 1 {
+		return
 	}
-	/* If less than L values are asked check the remaining values,      */
-	/* but only spend CPU to ensure that the K first values are correct */
-	i = K
-	for {
-		if !(i < L) {
-			break
+	values := unsafe.Slice(a, L)
+	for i := int32(1); i < K; i++ {
+		value := values[i]
+		j := i - 1
+		for ; j >= 0 && value > values[j]; j-- {
+			values[j+1] = values[j]
+			indices[j+1] = indices[j]
 		}
-		value = *(*float32)(unsafe.Pointer(a + uintptr(i)*4))
-		if value > *(*float32)(unsafe.Pointer(a + uintptr(K-int32(1))*4)) {
-			j = K - int32(2)
-			for {
-				if !(j >= 0 && value > *(*float32)(unsafe.Pointer(a + uintptr(j)*4))) {
-					break
-				}
-				*(*float32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = *(*float32)(unsafe.Pointer(a + uintptr(j)*4)) /* Shift value */
-				*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = *(*int32)(unsafe.Pointer(idx + uintptr(j)*4)) /* Shift index */
-				j = j - 1
+		values[j+1] = value
+		indices[j+1] = i
+	}
+	for i := K; i < L; i++ {
+		value := values[i]
+		if value > values[K-1] {
+			j := K - 2
+			for ; j >= 0 && value > values[j]; j-- {
+				values[j+1] = values[j]
+				indices[j+1] = indices[j]
 			}
-			*(*float32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = value /* Write value */
-			*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = i     /* Write index */
+			values[j+1] = value
+			indices[j+1] = i
 		}
-		i = i + 1
 	}
 }
 
+//go:uintptrescapes
 func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a uintptr, idx uintptr, L int32, K int32) {
-	var i, j int32
-	var value OpusT_opus_int32
-	_, _, _ = i, j, value
+	silkInsertionSortIncreasing(tls, (*int32)(unsafe.Pointer(a)), (*int32)(unsafe.Pointer(idx)), L, K)
+}
+
+func silkInsertionSortIncreasing(tls *libc.TLS, a, idx *int32, L, K int32) {
 	/* Safety checks */
 	if !(K > libc.Int32FromInt32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+10564, __ccgo_ts+10588, int32(51))
@@ -11634,84 +11620,59 @@ func Opus_silk_insertion_sort_increasing(tls *libc.TLS, a uintptr, idx uintptr, 
 	if !(L >= K) {
 		Opus_celt_fatal(tls, __ccgo_ts+10627, __ccgo_ts+10588, int32(53))
 	}
-	/* Write start indices in index vector */
-	i = 0
-	for {
-		if !(i < K) {
-			break
-		}
-		*(*int32)(unsafe.Pointer(idx + uintptr(i)*4)) = i
-		i = i + 1
+	indices := unsafe.Slice(idx, K)
+	for i := int32(0); i < K; i++ {
+		indices[i] = i
 	}
-	/* Sort vector elements by value, increasing order */
-	i = int32(1)
-	for {
-		if !(i < K) {
-			break
-		}
-		value = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(i)*4))
-		j = i - int32(1)
-		for {
-			if !(j >= 0 && value < *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4))) {
-				break
-			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4)) /* Shift value */
-			*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = *(*int32)(unsafe.Pointer(idx + uintptr(j)*4))                   /* Shift index */
-			j = j - 1
-		}
-		*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = value /* Write value */
-		*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = i              /* Write index */
-		i = i + 1
+	if L == 1 {
+		return // no value pointer is consumed by the C loops
 	}
-	/* If less than L values are asked for, check the remaining values, */
-	/* but only spend CPU to ensure that the K first values are correct */
-	i = K
-	for {
-		if !(i < L) {
-			break
+	values := unsafe.Slice(a, L)
+	for i := int32(1); i < K; i++ {
+		value := values[i]
+		j := i - 1
+		for ; j >= 0 && value < values[j]; j-- {
+			values[j+1] = values[j]
+			indices[j+1] = indices[j]
 		}
-		value = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(i)*4))
-		if value < *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(K-int32(1))*4)) {
-			j = K - int32(2)
-			for {
-				if !(j >= 0 && value < *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4))) {
-					break
-				}
-				*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = *(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j)*4)) /* Shift value */
-				*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = *(*int32)(unsafe.Pointer(idx + uintptr(j)*4))                   /* Shift index */
-				j = j - 1
+		values[j+1] = value
+		indices[j+1] = i
+	}
+	for i := K; i < L; i++ {
+		value := values[i]
+		if value < values[K-1] {
+			j := K - 2
+			for ; j >= 0 && value < values[j]; j-- {
+				values[j+1] = values[j]
+				indices[j+1] = indices[j]
 			}
-			*(*OpusT_opus_int32)(unsafe.Pointer(a + uintptr(j+int32(1))*4)) = value /* Write value */
-			*(*int32)(unsafe.Pointer(idx + uintptr(j+int32(1))*4)) = i              /* Write index */
+			values[j+1] = value
+			indices[j+1] = i
 		}
-		i = i + 1
 	}
 }
 
+//go:uintptrescapes
 func Opus_silk_insertion_sort_increasing_all_values_int16(tls *libc.TLS, a uintptr, L int32) {
-	var i, j, value int32
-	_, _, _ = i, j, value
+	silkInsertionSortInt16(tls, (*int16)(unsafe.Pointer(a)), L)
+}
+
+func silkInsertionSortInt16(tls *libc.TLS, a *int16, L int32) {
 	/* Safety checks */
 	if !(L > libc.Int32FromInt32(0)) {
 		Opus_celt_fatal(tls, __ccgo_ts+10603, __ccgo_ts+10588, int32(144))
 	}
-	/* Sort vector elements by value, increasing order */
-	i = int32(1)
-	for {
-		if !(i < L) {
-			break
+	if L == 1 {
+		return
+	}
+	values := unsafe.Slice(a, L)
+	for i := int32(1); i < L; i++ {
+		value := int32(values[i])
+		j := i - 1
+		for ; j >= 0 && value < int32(values[j]); j-- {
+			values[j+1] = values[j]
 		}
-		value = int32(*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(i)*2)))
-		j = i - int32(1)
-		for {
-			if !(j >= 0 && value < int32(*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j)*2)))) {
-				break
-			}
-			*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j+int32(1))*2)) = *(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j)*2)) /* Shift value */
-			j = j - 1
-		}
-		*(*OpusT_opus_int16)(unsafe.Pointer(a + uintptr(j+int32(1))*2)) = int16(value) /* Write value */
-		i = i + 1
+		values[j+1] = int16(value)
 	}
 }
 
@@ -14417,29 +14378,28 @@ func Opus_silk_residual_energy_covar_FLP(tls *libc.TLS, c uintptr, wXX uintptr, 
 //	/* Calculates residual energies of input subframes where all subframes have LPC_order   */
 //	/* of preceding samples                                                                 */
 
+//go:uintptrescapes
 func Opus_silk_scale_copy_vector_FLP(tls *libc.TLS, data_out uintptr, data_in uintptr, gain float32, dataSize int32) {
-	var dataSize4, i int32
-	_, _ = dataSize4, i
-	/* 4x unrolled loop */
-	dataSize4 = dataSize & int32(0xFFFC)
-	i = 0
-	for {
-		if !(i < dataSize4) {
-			break
-		}
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i+0)*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i+0)*4)))
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i+int32(1))*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i+int32(1))*4)))
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i+int32(2))*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i+int32(2))*4)))
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i+int32(3))*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i+int32(3))*4)))
-		i = i + int32(4)
+	silkScaleCopyVectorFLP((*float32)(unsafe.Pointer(data_out)), (*float32)(unsafe.Pointer(data_in)), gain, dataSize)
+}
+
+func silkScaleCopyVectorFLP(out, in *float32, gain float32, size int32) {
+	// Keep the upstream 16-bit mask, including its negative-size work prefix.
+	bulk := size & 0xFFFC
+	length := max(size, bulk)
+	if length == 0 {
+		return
 	}
-	/* any remaining elements */
-	for {
-		if !(i < dataSize) {
-			break
-		}
-		*(*float32)(unsafe.Pointer(data_out + uintptr(i)*4)) = float32(gain * *(*float32)(unsafe.Pointer(data_in + uintptr(i)*4)))
-		i = i + 1
+	dst, src := unsafe.Slice(out, length), unsafe.Slice(in, length)
+	var i int32
+	for ; i < bulk; i += 4 {
+		dst[i] = float32(gain * src[i])
+		dst[i+1] = float32(gain * src[i+1])
+		dst[i+2] = float32(gain * src[i+2])
+		dst[i+3] = float32(gain * src[i+3])
+	}
+	for ; i < size; i++ {
+		dst[i] = float32(gain * src[i])
 	}
 }
 
@@ -14447,29 +14407,27 @@ func Opus_silk_scale_copy_vector_FLP(tls *libc.TLS, data_out uintptr, data_in ui
 //
 //	/* multiply a vector by a constant */
 
+//go:uintptrescapes
 func Opus_silk_scale_vector_FLP(tls *libc.TLS, data1 uintptr, gain float32, dataSize int32) {
-	var dataSize4, i int32
-	_, _ = dataSize4, i
-	/* 4x unrolled loop */
-	dataSize4 = dataSize & int32(0xFFFC)
-	i = 0
-	for {
-		if !(i < dataSize4) {
-			break
-		}
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i+0)*4)) *= gain
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(1))*4)) *= gain
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(2))*4)) *= gain
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i+int32(3))*4)) *= gain
-		i = i + int32(4)
+	silkScaleVectorFLP((*float32)(unsafe.Pointer(data1)), gain, dataSize)
+}
+
+func silkScaleVectorFLP(data *float32, gain float32, size int32) {
+	bulk := size & 0xFFFC
+	length := max(size, bulk)
+	if length == 0 {
+		return
 	}
-	/* any remaining elements */
-	for {
-		if !(i < dataSize) {
-			break
-		}
-		*(*float32)(unsafe.Pointer(data1 + uintptr(i)*4)) *= gain
-		i = i + 1
+	values := unsafe.Slice(data, length)
+	var i int32
+	for ; i < bulk; i += 4 {
+		values[i] = float32(values[i] * gain)
+		values[i+1] = float32(values[i+1] * gain)
+		values[i+2] = float32(values[i+2] * gain)
+		values[i+3] = float32(values[i+3] * gain)
+	}
+	for ; i < size; i++ {
+		values[i] = float32(values[i] * gain)
 	}
 }
 

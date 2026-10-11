@@ -2200,9 +2200,11 @@ func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_
 	silkOffset := align(int32(unsafe.Sizeof(*st)))
 	celtOffset := silkOffset + align(silkSize)
 	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), celtOffset))
-	// This is the sole typed pointer slot in the composite decoder layout.
-	// Clear it through its typed slot before clearing the surrounding numeric storage.
+	// Clear every embedded pointer through typed stores before clearing the ABI
+	// image: SILK also contains codebook/resampler pointers in both channels.
 	celt.Fmode = nil
+	silk := (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
+	*silk = OpusT_silk_decoder{}
 	clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
 	st.Fsilk_dec_offset = silkOffset
 	st.Fcelt_dec_offset = celtOffset
@@ -2212,7 +2214,6 @@ func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_
 	st.FFs = Fs
 	st.FDecControl.FAPI_sampleRate = st.FFs
 	st.FDecControl.FnChannelsAPI = st.Fchannels
-	silk := (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
 	if Opus_silk_InitDecoder(tls, silk) != 0 {
 		return -3
 	}
@@ -2231,7 +2232,10 @@ func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels
 	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
 		return nil, opusErrorFromCode(-1)
 	}
-	st := (*OpusT_OpusDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_decoder_get_size(tls, channels)))))
+	if tls == nil {
+		return nil, opusErrorFromCode(-7)
+	}
+	st := libc.RegisterGoAllocation(tls, opusDecoderStorage(channels))
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
@@ -3473,6 +3477,10 @@ func Opus_opus_multistream_decoder_get_size(tls *libc.TLS, nb_streams, nb_couple
 }
 
 func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte) int32 {
+	return opusMSDecoderInitWithChildren(tls, st, Fs, channels, streams, coupled, mapping, nil)
+}
+
+func opusMSDecoderInitWithChildren(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte, children []*OpusT_OpusDecoder) int32 {
 	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
 		return OPUS_BAD_ARG
 	}
@@ -3496,8 +3504,13 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, 
 		if i < layout.Fnb_coupled_streams {
 			ch, size = 2, coupledSize
 		}
-		ptr := unsafe.Add(unsafe.Pointer(st), offset)
-		if ret := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(ptr), Fs, ch); ret != OPUS_OK {
+		var child *OpusT_OpusDecoder
+		if children != nil {
+			child = children[i]
+		} else {
+			child = (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
+		}
+		if ret := Opus_opus_decoder_init(tls, child, Fs, ch); ret != OPUS_OK {
 			return ret
 		}
 		// Do not materialize an unused end pointer on an exactly-sized allocation.
@@ -3510,11 +3523,15 @@ func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int
 	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
 		return nil, opusErrorFromCode(-1)
 	}
-	st := (*OpusT_OpusMSDecoder)(libc.XmallocPointer(tls, uint64(uint32(Opus_opus_multistream_decoder_get_size(tls, streams, coupled)))))
+	if tls == nil {
+		return nil, opusErrorFromCode(-7)
+	}
+	owned := opusMSDecoderOwnedStorage(streams, coupled)
+	st := libc.RegisterGoAllocation(tls, owned.Decoder)
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	if ret := Opus_opus_multistream_decoder_init(tls, st, Fs, channels, streams, coupled, mapping); ret != OPUS_OK {
+	if ret := opusMSDecoderInitWithChildren(tls, st, Fs, channels, streams, coupled, mapping, owned.Children); ret != OPUS_OK {
 		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
@@ -3957,6 +3974,10 @@ func Opus_mapping_matrix_get_data(tls *libc.TLS, matrix *OpusT_MappingMatrix) *i
 }
 
 func Opus_mapping_matrix_init(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, cols, gain int32, data *int16, data_size OpusT_opus_int32) {
+	mappingMatrixInitWithStorage(tls, matrix, rows, cols, gain, data, data_size, nil)
+}
+
+func mappingMatrixInitWithStorage(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, cols, gain int32, data *int16, data_size int32, destination *int16) {
 	if (uint32(data_size)+7)&^uint32(7) != (uint32(rows*cols)*2+7)&^uint32(7) {
 		Opus_celt_fatal(tls, __ccgo_ts+2234, __ccgo_ts+2312, 72)
 	}
@@ -3964,7 +3985,10 @@ func Opus_mapping_matrix_init(tls *libc.TLS, matrix *OpusT_MappingMatrix, rows, 
 	if rows*cols == 0 {
 		return
 	}
-	dst := unsafe.Slice(mappingMatrixData(matrix), rows*cols)
+	if destination == nil {
+		destination = mappingMatrixData(matrix)
+	}
+	dst := unsafe.Slice(destination, rows*cols)
 	src := unsafe.Slice(data, rows*cols)
 	// Preserve the C forward-copy order, including overlapping coefficients.
 	for i := range dst {
@@ -4218,6 +4242,10 @@ func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels, streams, cou
 }
 
 func Opus_opus_projection_decoder_init(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes OpusT_opus_int32) int32 {
+	return opusProjectionDecoderInitWithStorage(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes, nil)
+}
+
+func opusProjectionDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes int32, owned *opusProjectionStorageViews) int32 {
 	inputs := streams + coupled
 	count := inputs * channels
 	expected := count * 2
@@ -4235,10 +4263,17 @@ func Opus_opus_projection_decoder_init(tls *libc.TLS, st *OpusT_OpusProjectionDe
 	if st.Fdemixing_matrix_size_in_bytes == 0 {
 		return OPUS_BAD_ARG
 	}
-	Opus_mapping_matrix_init(tls, get_dec_demixing_matrix(tls, st), channels, inputs, 0, unsafe.SliceData(coefficients), matrixBytes)
+	if owned == nil {
+		Opus_mapping_matrix_init(tls, get_dec_demixing_matrix(tls, st), channels, inputs, 0, unsafe.SliceData(coefficients), matrixBytes)
+	} else {
+		mappingMatrixInitWithStorage(tls, owned.Matrix, channels, inputs, 0, unsafe.SliceData(coefficients), matrixBytes, owned.Coefficients)
+	}
 	var mapping [255]byte
 	for i := int32(0); i < channels; i++ {
 		mapping[i] = byte(i)
+	}
+	if owned != nil {
+		return opusMSDecoderInitWithChildren(tls, owned.Multistream.Decoder, Fs, channels, streams, coupled, &mapping[0], owned.Multistream.Children)
 	}
 	return Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st), Fs, channels, streams, coupled, &mapping[0])
 }
@@ -4249,11 +4284,23 @@ func Opus_opus_projection_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int3
 	if size == 0 {
 		return nil, opusErrorFromCode(-7)
 	}
-	st := (*OpusT_OpusProjectionDecoder)(libc.XmallocPointer(tls, uint64(uint32(size))))
+	if tls == nil {
+		return nil, opusErrorFromCode(-7)
+	}
+	var st *OpusT_OpusProjectionDecoder
+	var owned *opusProjectionStorageViews
+	if channels >= 1 && channels <= 255 && streams >= 1 && coupled >= 0 && coupled <= streams && streams <= 255-coupled {
+		views := opusProjectionDecoderOwnedStorage(channels, streams, coupled)
+		owned = &views
+		st = libc.RegisterGoAllocation(tls, views.Decoder)
+	} else {
+		// Keep size/allocation-before-validation behavior for malformed layouts.
+		st = (*OpusT_OpusProjectionDecoder)(libc.XmallocPointer(tls, uint64(uint32(size))))
+	}
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	if ret := Opus_opus_projection_decoder_init(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes); ret != OPUS_OK {
+	if ret := opusProjectionDecoderInitWithStorage(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes, owned); ret != OPUS_OK {
 		Opus_opus_projection_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
@@ -4374,6 +4421,19 @@ var tapset_icdf6 = [3]uint8{
 //	   N.B., a "Repeat These Extensions" extension (ID==2) does not advance past
 //	    the repeated extension payloads.
 //	   That requires higher-level logic. */
+//
+// extensionByteAt indexes only a consumed prefix. Zero offsets preserve pointer
+// identity; exact EOF/backward compatibility cursors retain their explicit boundary.
+func extensionByteAt(data *byte, offset, available int32) *byte {
+	if offset == 0 {
+		return data
+	}
+	if offset > 0 && offset < available {
+		return &unsafe.Slice(data, offset+1)[offset]
+	}
+	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
+}
+
 func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSize *int32, idByte, trailingShort int32) int32 {
 	data := *pdata
 	header := int32(0)
@@ -4383,22 +4443,24 @@ func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSiz
 		if length < L {
 			return -1
 		}
-		data = (*byte)(unsafe.Add(unsafe.Pointer(data), L))
+		data = extensionByteAt(data, L, length)
 		length -= L
 	} else if L == 0 {
 		if length < trailingShort {
 			return -1
 		}
-		data = (*byte)(unsafe.Add(unsafe.Pointer(data), length-trailingShort))
+		data = extensionByteAt(data, length-trailingShort, length)
 		length = trailingShort
 	} else {
 		bytes := int32(0)
+		available := length // physical suffix: payload bytes have not been advanced yet
 		for {
 			if length < 1 {
 				return -1
 			}
 			lacing := int32(*data)
-			data = (*byte)(unsafe.Add(unsafe.Pointer(data), 1))
+			data = extensionByteAt(data, 1, available)
+			available--
 			bytes += lacing
 			header++
 			length -= lacing + 1
@@ -4409,7 +4471,7 @@ func skip_extension_payload(tls *libc.TLS, pdata **byte, length int32, headerSiz
 		if length < 0 {
 			return -1
 		}
-		data = (*byte)(unsafe.Add(unsafe.Pointer(data), bytes))
+		data = extensionByteAt(data, bytes, available)
 	}
 	*pdata = data
 	*headerSize = header
@@ -4434,7 +4496,7 @@ func skip_extension(tls *libc.TLS, pdata **byte, length int32, header *int32) in
 	}
 	data := *pdata
 	id := int32(*data)
-	data = (*byte)(unsafe.Add(unsafe.Pointer(data), 1))
+	data = extensionByteAt(data, 1, length)
 	result := skip_extension_payload(tls, &data, length-1, header, id, 0)
 	if result >= 0 {
 		*pdata = data
@@ -4524,6 +4586,7 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensio
 				idByte &= ^int32(1)
 			}
 			start := iter.Fcurr_data
+			previousLength := iter.Fcurr_len
 			iter.Fcurr_len = skip_extension_payload(tls, &iter.Fcurr_data, iter.Fcurr_len, &header, idByte, iter.Ftrailing_short_len)
 			if iter.Fcurr_len < 0 {
 				return OPUS_INVALID_PACKET
@@ -4535,9 +4598,10 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensio
 				continue
 			}
 			if ext != nil {
+				consumed := previousLength - iter.Fcurr_len
 				ext.Fid = idByte >> 1
 				ext.Fframe = iter.Frepeat_frame
-				ext.Fdata = (*byte)(unsafe.Add(unsafe.Pointer(start), header))
+				ext.Fdata = extensionByteAt(start, header, consumed)
 				ext.Flen1 = int32(extensionPointerDifference(iter.Fcurr_data, start) - int64(header))
 			}
 			return 1
@@ -4579,6 +4643,7 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter *OpusT_OpusExtensionI
 	}
 	for iter.Fcurr_len > 0 {
 		start := iter.Fcurr_data
+		previousLength := iter.Fcurr_len
 		id := int32(*start) >> 1
 		l := int32(*start) & 1
 		iter.Fcurr_len = skip_extension(tls, &iter.Fcurr_data, iter.Fcurr_len, &header)
@@ -4625,9 +4690,10 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter *OpusT_OpusExtensionI
 				iter.Ftrailing_short_len += l
 			}
 			if ext != nil {
+				consumed := previousLength - iter.Fcurr_len
 				ext.Fid = id
 				ext.Fframe = iter.Fcurr_frame
-				ext.Fdata = (*byte)(unsafe.Add(unsafe.Pointer(start), header))
+				ext.Fdata = extensionByteAt(start, header, consumed)
 				ext.Flen1 = int32(extensionPointerDifference(iter.Fcurr_data, start) - int64(header))
 			}
 			return 1

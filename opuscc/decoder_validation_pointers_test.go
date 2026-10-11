@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	libc "github.com/kazzmir/opus-go/libcshim"
+	"reflect"
 	"runtime"
 	"slices"
 	"testing"
@@ -283,6 +284,314 @@ func celtStateTestBuffer(mode *OpusT_OpusCustomMode, channels int32) (*celtState
 	storage.State.Fchannels = channels
 	storage.State.Foverlap = mode.Foverlap
 	return storage, image, size
+}
+
+//go:noinline
+func decoderStorageForeignPointers(st *OpusT_OpusDecoder) (weak.Pointer[OpusT_OpusCustomMode], [2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2]weak.Pointer[[32]int16]) {
+	celt := opusFrameCeltState(st)
+	mode := new(OpusT_OpusCustomMode)
+	*mode = *celt.Fmode
+	celt.Fmode = mode
+	var books [2]weak.Pointer[OpusT_silk_NLSF_CB_struct]
+	var coefs [2]weak.Pointer[[32]int16]
+	silk := opusFrameSilkState(st)
+	for i := range silk.Fchannel_state {
+		book := new(OpusT_silk_NLSF_CB_struct)
+		coeff := new([32]int16)
+		coeff[0] = int16(100 + i)
+		silk.Fchannel_state[i].FpsNLSF_CB = book
+		silk.Fchannel_state[i].Fresampler_state.FCoefs = &coeff[0]
+		books[i], coefs[i] = weak.Make(book), weak.Make(coeff)
+	}
+	return weak.Make(mode), books, coefs
+}
+
+//go:noinline
+func registeredDecoderStorage(tls *libc.TLS, channels int32) (uintptr, weak.Pointer[OpusT_OpusCustomMode], [2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2]weak.Pointer[[32]int16]) {
+	st, err := Opus_opus_decoder_create_typed(tls, 48000, channels)
+	if err != nil {
+		panic(err)
+	}
+	mode, books, coefs := decoderStorageForeignPointers(st)
+	return uintptr(unsafe.Pointer(st)), mode, books, coefs
+}
+
+//go:noinline
+func registeredMSDecoderStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_OpusCustomMode], [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2][2]weak.Pointer[[32]int16]) {
+	mapping := [4]byte{0, 1, 2, 255}
+	st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 4, 2, 1, &mapping[0])
+	if err != nil {
+		panic(err)
+	}
+	var modes [2]weak.Pointer[OpusT_OpusCustomMode]
+	var books [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct]
+	var coefs [2][2]weak.Pointer[[32]int16]
+	offset := uint(opusAlignSize8(int32(unsafe.Sizeof(*st))))
+	for i := range modes {
+		child := opusMSDecoderAt(st, offset)
+		modes[i], books[i], coefs[i] = decoderStorageForeignPointers(child)
+		channels := int32(1)
+		if i == 0 {
+			channels = 2
+		}
+		offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+	}
+	return uintptr(unsafe.Pointer(st)), modes, books, coefs
+}
+
+//go:noinline
+func registeredProjectionStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_OpusCustomMode], [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2][2]weak.Pointer[[32]int16]) {
+	matrix := make([]byte, 18)
+	st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], int32(len(matrix)))
+	if err != nil {
+		panic(err)
+	}
+	ms := get_multistream_decoder(nil, st)
+	var modes [2]weak.Pointer[OpusT_OpusCustomMode]
+	var books [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct]
+	var coefs [2][2]weak.Pointer[[32]int16]
+	offset := uint(opusAlignSize8(int32(unsafe.Sizeof(*ms))))
+	for i := range modes {
+		modes[i], books[i], coefs[i] = decoderStorageForeignPointers(opusMSDecoderAt(ms, offset))
+		channels := int32(1)
+		if i == 0 {
+			channels = 2
+		}
+		offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+	}
+	return uintptr(unsafe.Pointer(st)), modes, books, coefs
+}
+
+func TestOpusDecoderRegisteredProjectionStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	address, modes, books, coefs := registeredProjectionStorage(tls)
+	entropyInitGrowStack(12)
+	for trial := 0; trial < 3; trial++ {
+		runtime.GC()
+		for i := range modes {
+			if modes[i].Value() == nil {
+				t.Fatal("registered projection lost CELT owner", i)
+			}
+			for j := range books[i] {
+				if books[i][j].Value() == nil || coefs[i][j].Value() == nil {
+					t.Fatal("registered projection lost SILK owner", i, j)
+				}
+			}
+		}
+	}
+	Opus_opus_projection_decoder_destroy(tls, address)
+	tls.Close()
+}
+
+func TestOpusDecoderProjectionBoundStoragePointers(t *testing.T) {
+	for _, rate := range []int32{48000, 44100} {
+		for _, size := range []int32{18, 17} {
+			owned := opusProjectionDecoderOwnedStorage(3, 2, 1)
+			legacy := opusProjectionDecoderStorage(3, 2, 1)
+			if owned.Matrix != get_dec_demixing_matrix(nil, owned.Decoder) || owned.Coefficients != mappingMatrixData(owned.Matrix) || owned.Multistream.Decoder != (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(owned.Decoder), 48)) {
+				t.Fatal("projection concrete view identity")
+			}
+			// Source overlaps both projection and matrix headers. All coefficients
+			// must be snapshotted before either header or destination is written.
+			goSource := unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), 18)
+			oldSource := unsafe.Slice((*byte)(unsafe.Pointer(legacy)), 18)
+			for i := range goSource {
+				goSource[i], oldSource[i] = byte(i*37+19), byte(i*37+19)
+			}
+			want := Opus_opus_projection_decoder_init(nil, legacy, rate, 3, 2, 1, &oldSource[0], size)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := opusProjectionDecoderInitWithStorage(nil, owned.Decoder, rate, 3, 2, 1, &goSource[0], size, &owned)
+			n := Opus_opus_projection_decoder_get_size(nil, 3, 2, 1)
+			if got != want || !slices.Equal(unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n), unsafe.Slice((*byte)(unsafe.Pointer(legacy)), n)) {
+				t.Fatal("bound projection init image/error/snapshot", rate, size, got, want)
+			}
+		}
+	}
+}
+
+func TestOpusDecoderProjectionStoragePointers(t *testing.T) {
+	for _, geometry := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {3, 2, 1}, {4, 2, 2}} {
+		channels, streams, coupled := geometry[0], geometry[1], geometry[2]
+		layout := opusProjectionDecoderStorageType(channels, streams, coupled)
+		st := opusProjectionDecoderStorage(channels, streams, coupled)
+		if uintptr(unsafe.Pointer(st))&15 != 0 {
+			t.Fatal("projection storage alignment")
+		}
+		matrix := make([]byte, channels*(streams+coupled)*2)
+		if ret := Opus_opus_projection_decoder_init(nil, st, 48000, channels, streams, coupled, &matrix[0], int32(len(matrix))); ret != 0 {
+			t.Fatal("projection owned init", geometry, ret)
+		}
+		mf, _ := layout.FieldByName("Demixing")
+		msf, _ := layout.FieldByName("Multistream")
+		if mf.Offset != 8 || uint(msf.Offset) != opusProjectionMSOffset(st) || int32(layout.Size()) != Opus_opus_projection_decoder_get_size(nil, channels, streams, coupled) {
+			t.Fatal("projection storage offsets", geometry)
+		}
+		ms := get_multistream_decoder(nil, st)
+		child := opusMSDecoderAt(ms, uint(opusAlignSize8(int32(unsafe.Sizeof(*ms)))))
+		mode, books, coefs := decoderStorageForeignPointers(child)
+		entropyInitGrowStack(12)
+		for trial := 0; trial < 3; trial++ {
+			runtime.GC()
+			if mode.Value() == nil {
+				t.Fatal("projection lost CELT owner")
+			}
+			for i := range books {
+				if books[i].Value() == nil || coefs[i].Value() == nil {
+					t.Fatal("projection lost SILK owner", i)
+				}
+			}
+		}
+		runtime.KeepAlive(st)
+	}
+}
+
+func TestOpusDecoderMSBoundStoragePointers(t *testing.T) {
+	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 1}, {3, 1}} {
+		streams, coupled := geometry[0], geometry[1]
+		for _, rate := range []int32{48000, 44100} {
+			owned := opusMSDecoderOwnedStorage(streams, coupled)
+			legacy := opusMSDecoderStorage(streams, coupled)
+			mapping := make([]byte, streams+coupled)
+			for i := range mapping {
+				mapping[i] = byte(i)
+			}
+			offset := uint(opusAlignSize8(int32(unsafe.Sizeof(*owned.Decoder))))
+			for i, child := range owned.Children {
+				if child != opusMSDecoderAt(owned.Decoder, offset) {
+					t.Fatal("bound MS child identity", geometry, i)
+				}
+				channels := int32(1)
+				if int32(i) < coupled {
+					channels = 2
+				}
+				offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+			}
+			want := Opus_opus_multistream_decoder_init(nil, legacy, rate, int32(len(mapping)), streams, coupled, &mapping[0])
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := opusMSDecoderInitWithChildren(nil, owned.Decoder, rate, int32(len(mapping)), streams, coupled, &mapping[0], owned.Children)
+			n := Opus_opus_multistream_decoder_get_size(nil, streams, coupled)
+			if got != want || !slices.Equal(unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n), unsafe.Slice((*byte)(unsafe.Pointer(legacy)), n)) {
+				t.Fatal("bound MS init image/error ordering", geometry, rate, got, want)
+			}
+		}
+	}
+}
+
+func TestOpusDecoderMSStoragePointers(t *testing.T) {
+	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 0}, {2, 1}, {2, 2}, {3, 1}} {
+		streams, coupled := geometry[0], geometry[1]
+		layout := opusMSDecoderStorageType(streams, coupled)
+		if int32(layout.Size()) != Opus_opus_multistream_decoder_get_size(nil, streams, coupled) {
+			t.Fatal("multistream storage extent", geometry)
+		}
+		st := opusMSDecoderStorage(streams, coupled)
+		if uintptr(unsafe.Pointer(st))&15 != 0 {
+			t.Fatal("multistream storage alignment")
+		}
+		mapping := make([]byte, streams+coupled)
+		for i := range mapping {
+			mapping[i] = byte(i)
+		}
+		if ret := Opus_opus_multistream_decoder_init(nil, st, 48000, int32(len(mapping)), streams, coupled, &mapping[0]); ret != 0 {
+			t.Fatal("multistream owned init", geometry, ret)
+		}
+		offset := uint(opusAlignSize8(int32(unsafe.Sizeof(*st))))
+		for i := int32(0); i < streams; i++ {
+			child := opusMSDecoderAt(st, offset)
+			channels := int32(1)
+			if i < coupled {
+				channels = 2
+			}
+			if child.Fchannels != channels || opusFrameCeltState(child).Fmode == nil {
+				t.Fatal("multistream child geometry", geometry, i)
+			}
+			offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+		}
+		if offset != uint(layout.Size()) {
+			t.Fatal("multistream child strides", geometry)
+		}
+		runtime.KeepAlive(st)
+	}
+	tls := libc.NewTLS()
+	address, modes, books, coefs := registeredMSDecoderStorage(tls)
+	entropyInitGrowStack(12)
+	for trial := 0; trial < 3; trial++ {
+		runtime.GC()
+		for i := range modes {
+			if modes[i].Value() == nil {
+				t.Fatal("registry lost MS CELT owner", i)
+			}
+			for j := range books[i] {
+				if books[i][j].Value() == nil || coefs[i][j].Value() == nil {
+					t.Fatal("registry lost MS SILK owner", i, j)
+				}
+			}
+		}
+	}
+	Opus_opus_multistream_decoder_destroy(tls, address)
+	tls.Close()
+}
+
+func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		tls := libc.NewTLS()
+		address, mode, books, coefs := registeredDecoderStorage(tls, channels)
+		entropyInitGrowStack(12)
+		for trial := 0; trial < 3; trial++ {
+			runtime.GC()
+			if mode.Value() == nil {
+				t.Fatal("registry lost Go CELT owner")
+			}
+			for i := range books {
+				if books[i].Value() == nil || coefs[i].Value() == nil {
+					t.Fatal("registry lost Go SILK owner", i)
+				}
+			}
+		}
+		Opus_opus_decoder_destroy(tls, address)
+		tls.Close()
+	}
+}
+
+func TestOpusDecoderStoragePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		layout := opusDecoderStorageType(channels)
+		sf, _ := layout.FieldByName("Silk")
+		cf, _ := layout.FieldByName("Celt")
+		tail, _ := layout.FieldByName("Tail")
+		if sf.Type != reflect.TypeFor[OpusT_silk_decoder]() || cf.Type != reflect.TypeFor[OpusT_OpusCustomDecoder]() || tail.Type.Elem() != reflect.TypeFor[float32]() {
+			t.Fatal("noncanonical decoder storage")
+		}
+		st := opusDecoderStorage(channels)
+		if uintptr(unsafe.Pointer(st))&15 != 0 {
+			t.Fatal("decoder allocation alignment")
+		}
+		if ret := Opus_opus_decoder_init(nil, st, 48000, channels); ret != 0 {
+			t.Fatal(ret)
+		}
+		if uint64(st.Fsilk_dec_offset) != uint64(sf.Offset) || uint64(st.Fcelt_dec_offset) != uint64(cf.Offset) {
+			t.Fatal("decoder child offsets")
+		}
+		mode, books, coefs := decoderStorageForeignPointers(st)
+		entropyInitGrowStack(12)
+		for trial := 0; trial < 3; trial++ {
+			runtime.GC()
+			if mode.Value() == nil {
+				t.Fatal("unscanned CELT mode")
+			}
+			for i := range books {
+				if books[i].Value() == nil || coefs[i].Value() == nil {
+					t.Fatal("unscanned SILK child pointers", i)
+				}
+			}
+		}
+		if ret := Opus_opus_decoder_init(nil, st, 24000, channels); ret != 0 {
+			t.Fatal("typed owner re-init", ret)
+		}
+		runtime.KeepAlive(st)
+	}
 }
 
 func TestOpusDecoderInitPointers(t *testing.T) {
