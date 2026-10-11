@@ -476,6 +476,13 @@ func TestMultistreamPacketOffsetPointers(t *testing.T) {
 	if opusMSPacketAt(nil, ^uint(0), 0) != nil || opusMSPacketAt(payload, ^uint(0), -1) != nil {
 		t.Fatal("unused terminal offset")
 	}
+	if opusMSPacketAt(payload, 0, 1) != payload || opusMSPacketAt(nil, 0, 1) != nil {
+		t.Fatal("zero offset identity without a view")
+	}
+	last := [3]byte{77, 99, 88}
+	if opusMSPacketAt(&last[0], 1, 1) != &last[1] || last[2] != 88 {
+		t.Fatal("minimal consumed prefix/guard")
+	}
 }
 
 func TestMultistreamChildOwnerPointers(t *testing.T) {

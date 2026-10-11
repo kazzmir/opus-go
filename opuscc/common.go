@@ -3652,7 +3652,12 @@ func opusMSPacketAt(data *byte, offset uint, length int32) *byte {
 	if length <= 0 {
 		return nil
 	}
-	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
+	if offset == 0 {
+		return data
+	}
+	// A positive remaining length proves that this current byte is consumed;
+	// do not declare the unused suffix or form a terminal pointer.
+	return &unsafe.Slice(data, uint64(offset)+1)[offset]
 }
 
 type opusMSBoundChannelCopy func(*libc.TLS, int32, int32, *float32, int32, int32)
