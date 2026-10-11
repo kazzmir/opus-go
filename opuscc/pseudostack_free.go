@@ -26,10 +26,10 @@ func FreePseudostackTLS(tls *libc.TLS) {
 		state = (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(p))
 	}
 	scratch := state.Fscratch_ptr
-	if scratch != 0 {
-		libc.Xfree(tls, scratch)
-		state.Fscratch_ptr = 0
-		state.Fglobal_stack = 0
+	if scratch != nil {
+		libc.XfreePointer(tls, unsafe.Pointer(scratch))
+		state.Fscratch_ptr = nil
+		state.Fglobal_stack = nil
 	}
 	libc.Xfree(tls, p)
 	_ = libc.Xpthread_setspecific(tls, opusPseudostackTLSKey, 0)

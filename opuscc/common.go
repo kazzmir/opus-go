@@ -1775,8 +1775,8 @@ type cpu_set_t = struct {
 }
 
 type OpusT_opus_ccgo_pseudostack_state = struct {
-	Fscratch_ptr  uintptr
-	Fglobal_stack uintptr
+	Fscratch_ptr  *byte
+	Fglobal_stack *byte
 }
 
 type OpusT_silk_resampler_state_struct = struct {

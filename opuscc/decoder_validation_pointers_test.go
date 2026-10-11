@@ -829,6 +829,32 @@ func TestOpusDecoderProjectionTypedClearStoragePointers(t *testing.T) {
 	runtime.KeepAlive(owned)
 }
 
+func TestOpusDecoderPseudostackStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	state := libc.RegisterGoAllocation(tls, new(OpusT_opus_ccgo_pseudostack_state))
+	if unsafe.Sizeof(*state) != 2*unsafe.Sizeof(uintptr(0)) || unsafe.Offsetof(state.Fglobal_stack) != unsafe.Sizeof(uintptr(0)) {
+		t.Fatal("pseudostack byte-pointer ABI")
+	}
+	buffer := new([32]byte)
+	buffer[3] = 77
+	owner := weak.Make(buffer)
+	state.Fscratch_ptr, state.Fglobal_stack = &buffer[0], &buffer[3]
+	buffer = nil
+	libc.Xpthread_setspecific(tls, opusPseudostackTLSKey, uintptr(unsafe.Pointer(state)))
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if owner.Value() == nil || *state.Fglobal_stack != 77 {
+		t.Fatal("scanned pseudostack byte owners")
+	}
+	FreePseudostackTLS(tls)
+	if state.Fscratch_ptr != nil || state.Fglobal_stack != nil || libc.Xpthread_getspecific(tls, opusPseudostackTLSKey) != 0 {
+		t.Fatal("typed pseudostack cleanup")
+	}
+	FreePseudostackTLS(tls)
+	runtime.KeepAlive(state)
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

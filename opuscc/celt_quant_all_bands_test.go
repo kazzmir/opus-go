@@ -83,7 +83,7 @@ func TestQuantAllBandsActivePointers(t *testing.T) {
 			entropyInitGrowStack(12)
 			runtime.GC()
 			var tls *libc.TLS
-			sentinel := &OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+			sentinel := &OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: &opusPseudostackTestMarker[0], Fglobal_stack: &opusPseudostackTestMarker[1]}
 			before := *sentinel
 			if LM == 0 && C == 1 {
 				tls = libc.NewTLS()
@@ -750,8 +750,8 @@ func TestQuantAllBandsCReference(t *testing.T) {
 	pseudostack := libc.Xmalloc(tls, 16)
 	scratch := libc.Xmalloc(tls, GLOBAL_STACK_SIZE)
 	*(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)) = OpusT_opus_ccgo_pseudostack_state{
-		Fscratch_ptr:  scratch,
-		Fglobal_stack: scratch,
+		Fscratch_ptr:  (*byte)(unsafe.Pointer(scratch)),
+		Fglobal_stack: (*byte)(unsafe.Pointer(scratch)),
 	}
 	libc.Xpthread_setspecific(tls, 0x6f707573, pseudostack)
 
@@ -874,7 +874,7 @@ func TestQuantAllBandsCReference(t *testing.T) {
 		   pages; zero the pseudostack scratch the same way so uninitialized
 		   reads (if any) agree on both sides. */
 		libc.Xmemset(tls, scratch, 0, uint64(GLOBAL_STACK_SIZE))
-		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)).Fglobal_stack = scratch
+		(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)).Fglobal_stack = (*byte)(unsafe.Pointer(scratch))
 
 		Opus_ec_dec_init(tls, &decoder[0], &buffer[0], 64)
 		Opus_quant_all_bands(tls, 0, uintptr(unsafe.Pointer(&mode[0])), 0, 3,

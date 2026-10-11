@@ -508,7 +508,7 @@ func TestCeltDecodeWholeEntropyPointers(t *testing.T) {
 func TestCeltDecodeWholeCursorPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	cursor := &OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	cursor := &OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: &opusPseudostackTestMarker[0], Fglobal_stack: &opusPseudostackTestMarker[1]}
 	before := *cursor
 	libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(cursor)))
 	storage := new(celtStateTestStorage)
@@ -550,7 +550,7 @@ func TestCeltDecodeNormalCursor(t *testing.T) {
 	raw := libc.Xmalloc(tls, 16)
 	defer libc.Xfree(tls, raw)
 	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
-	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: &opusPseudostackTestMarker[0], Fglobal_stack: &opusPseudostackTestMarker[1]}
 	before := *cursor
 	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
 	storage := new(celtStateTestStorage)
@@ -577,7 +577,7 @@ func TestCeltDecodeLostCursor(t *testing.T) {
 	raw := libc.Xmalloc(tls, 16)
 	defer libc.Xfree(tls, raw)
 	cursor := (*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(raw))
-	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: 123, Fglobal_stack: 456}
+	*cursor = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: &opusPseudostackTestMarker[0], Fglobal_stack: &opusPseudostackTestMarker[1]}
 	before := *cursor
 	libc.Xpthread_setspecific(tls, 0x6f707573, raw)
 	storage := new(celtStateTestStorage)
@@ -607,7 +607,7 @@ func TestCeltDecodeScratchInitialization(t *testing.T) {
 		t.Fatal("decoder init")
 	}
 	sample := float32(77)
-	if celt_decode_with_ec_dred(tls, &storage.State, nil, 0, &sample, 119, nil, 0) != -1 || cursor.Fscratch_ptr != 0 || cursor.Fglobal_stack != 0 || sample != 77 {
+	if celt_decode_with_ec_dred(tls, &storage.State, nil, 0, &sample, 119, nil, 0) != -1 || cursor.Fscratch_ptr != nil || cursor.Fglobal_stack != nil || sample != 77 {
 		t.Fatal("decoder initialized unused scratch or changed frame validation")
 	}
 }

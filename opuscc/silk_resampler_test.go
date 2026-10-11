@@ -7,12 +7,14 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+var opusPseudostackTestMarker [2]byte
+
 func setupResamplerPseudostack(tls *libc.TLS) {
 	pseudostack := libc.Xmalloc(tls, 16)
 	scratch := libc.Xmalloc(tls, GLOBAL_STACK_SIZE)
 	*(*OpusT_opus_ccgo_pseudostack_state)(unsafe.Pointer(pseudostack)) = OpusT_opus_ccgo_pseudostack_state{
-		Fscratch_ptr:  scratch,
-		Fglobal_stack: scratch,
+		Fscratch_ptr:  (*byte)(unsafe.Pointer(scratch)),
+		Fglobal_stack: (*byte)(unsafe.Pointer(scratch)),
 	}
 	libc.Xpthread_setspecific(tls, 0x6f707573, pseudostack)
 }

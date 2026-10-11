@@ -43,8 +43,8 @@ func TestVADAnalysisAgainstC(t *testing.T) {
 	defer libc.XfreePointer(tls, storage)
 	defer libc.XfreePointer(tls, buffer)
 	cursor := (*opuscc.OpusT_opus_ccgo_pseudostack_state)(storage)
-	cursor.Fscratch_ptr = uintptr(buffer)
-	cursor.Fglobal_stack = uintptr(buffer)
+	cursor.Fscratch_ptr = (*byte)(buffer)
+	cursor.Fglobal_stack = (*byte)(buffer)
 	libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(storage))
 	for _, N := range []int{80, 120, 160, 240, 320} {
 		var state opuscc.OpusT_silk_encoder_state
