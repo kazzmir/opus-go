@@ -1689,8 +1689,6 @@ type timespec = struct {
 	Ftv_nsec int64
 }
 
-type OpusT_pthread_t = uintptr
-
 type OpusT_pthread_once_t = int32
 
 type OpusT_pthread_key_t = uint32
@@ -1724,22 +1722,6 @@ type OpusT_pthread_attr_t = struct {
 		F__vi [0][14]int32
 		F__s  [0][7]uint64
 		F__i  [14]int32
-	}
-}
-
-type OpusT_pthread_rwlock_t = struct {
-	F__u struct {
-		F__vi [0][14]int32
-		F__p  [0][7]uintptr
-		F__i  [14]int32
-	}
-}
-
-type OpusT_pthread_barrier_t = struct {
-	F__u struct {
-		F__vi [0][8]int32
-		F__p  [0][4]uintptr
-		F__i  [8]int32
 	}
 }
 

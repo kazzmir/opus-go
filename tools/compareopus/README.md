@@ -534,6 +534,37 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four multistream-offset/pthread-declaration rounds replace positive consumed
+MS packet-offset arithmetic with byte indexing, express the fixed MS header's
+alignment as a numeric int offset, remove unused generated mutex/condition
+layouts, and remove unused rwlock/barrier layouts plus pthread_t. Counts fall
+157→156 unsafe.Pointer and144→138 uintptr. ONE active cursor representation
+change, ONE numeric-size bookkeeping change, and TWO dead-declaration rounds
+are distinct: zero-length pointer-array alignment metadata and an unused thread
+handle declaration are not repaired pointer lifetimes. Removed generated Go
+type names have no repository consumers; real TLS/pthread emulation, public
+integer adapters and allocator synchronization are unchanged.
+
+Upstream src/opus_multistream_decoder.c verifies the current packet cursor is
+consumed only with positive remaining length outside PLC. opusMSPacketAt returns
+nil before any offset arithmetic for no work and preserves exact offset0
+identity (including nil); positive offsets index only through the current byte,
+not a guessed/unused suffix. Numeric MS header alignment still gives the port's
+fixed272-byte offset on amd64/386/ARM. Existing owner/packet fixtures now also
+check zero-offset identity, a minimal consumed prefix and a source guard, plus
+numeric header offset vs actual child layout. No EOF pointer is synthesized.
+Malformed unrepresentable offset/extent geometries are not claimed supported.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged encode/decode references
+and diff checks; final ARM scoped/ordinary fixtures repeat twenty times. No
+extension EOF/GC, opaque-allocation or raw-callback safety claim is made.
+Logs: /tmp/opus-round-ms-consumed-packet-offset.log,
+/tmp/opus-round-ms-numeric-header-alignment.log,
+/tmp/opus-round-remove-unused-mutex-cond-address-layouts.log,
+/tmp/opus-round-remove-unused-rwlock-barrier-thread-address-layouts.log and
+/tmp/opus-round-ms-offset-pthread-arm-{checkptr,golden}-repeat.log.
+
 Four packet/dead-declaration rounds index readable packet-parse cursors directly
 through the already consumed byte view, remove unused generated stdio cookie
 callback-address fields, delete duplicate unused compiler/isoc varargs aliases,
