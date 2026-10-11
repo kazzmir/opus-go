@@ -4296,7 +4296,7 @@ func opusProjectionDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusProjectio
 		mapping[i] = byte(i)
 	}
 	if owned != nil {
-		return opusMSDecoderInitWithChildren(tls, owned.Multistream.Decoder, Fs, channels, streams, coupled, &mapping[0], owned.Multistream.Children)
+		return opusMSDecoderInitWithCodecs(tls, owned.Multistream.Decoder, Fs, channels, streams, coupled, &mapping[0], owned.Multistream.Children, owned.Multistream.Codecs)
 	}
 	return Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st), Fs, channels, streams, coupled, &mapping[0])
 }

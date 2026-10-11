@@ -383,6 +383,38 @@ func TestOpusDecoderRegisteredProjectionStoragePointers(t *testing.T) {
 	tls.Close()
 }
 
+func TestOpusDecoderProjectionCodecBoundStoragePointers(t *testing.T) {
+	for _, geometry := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {3, 2, 1}, {4, 2, 2}} {
+		channels, streams, coupled := geometry[0], geometry[1], geometry[2]
+		for _, rate := range []int32{48000, 24000, 44100} {
+			for _, truncate := range []int32{0, 1} {
+				owned := opusProjectionDecoderOwnedStorage(channels, streams, coupled)
+				legacy := opusProjectionDecoderStorage(channels, streams, coupled)
+				matrix := make([]byte, channels*(streams+coupled)*2)
+				for i := range matrix {
+					matrix[i] = byte(i*37 + 19)
+				}
+				size := int32(len(matrix)) - truncate
+				want := Opus_opus_projection_decoder_init(nil, legacy, rate, channels, streams, coupled, &matrix[0], size)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				got := opusProjectionDecoderInitWithStorage(nil, owned.Decoder, rate, channels, streams, coupled, &matrix[0], size, &owned)
+				n := Opus_opus_projection_decoder_get_size(nil, channels, streams, coupled)
+				if got != want || !slices.Equal(unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n), unsafe.Slice((*byte)(unsafe.Pointer(legacy)), n)) {
+					t.Fatal("projection codec init image/error order", geometry, rate, size, got, want)
+				}
+				if got == 0 {
+					for i, codec := range owned.Multistream.Codecs {
+						if codec.Decoder != owned.Multistream.Children[i] || codec.Silk != opusFrameSilkState(codec.Decoder) || codec.Celt != opusFrameCeltState(codec.Decoder) {
+							t.Fatal("projection codec identities", geometry, i)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestOpusDecoderProjectionBoundStoragePointers(t *testing.T) {
 	for _, rate := range []int32{48000, 44100} {
 		for _, size := range []int32{18, 17} {

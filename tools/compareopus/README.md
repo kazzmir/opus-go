@@ -534,6 +534,45 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four concrete decoder-codec initialization rounds expose Decoder/SILK/CELT
+views from canonical Go images, bind single-decoder factory initialization to
+those fields, bind standalone multistream children to complete codec views, and
+propagate the same bindings into projection factory children. Views are obtained
+from actual typed reflection fields, not integer address reconstruction or opaque
+pointer wrappers. Valid Go factory paths no longer recover either codec pointer by layout
+arithmetic. Public caller-buffer initializers, decode-time accessors and necessary
+ABI byte clearing retain explicit boundaries. Existing header-only child helpers
+remain compatible. Counts stay162 unsafe.Pointer/153 uintptr: these changes
+bypass active factory casts, not delete their required caller-buffer fallbacks.
+
+Upstream src/opus_decoder.c, opus_multistream_decoder.c and
+opus_projection_decoder.c supply the size/offset and initialization semantics.
+This retains the port's Fs/channel checks, initialization/error ordering and
+GC-required CELT mode nil then complete typed SILK zero before the ABI clear. Single initialization still computes/stores the exact ABI
+offsets; the storage views choose only its actual codec fields. Child channel
+selection and numeric strides, forward mapping aliases, projection source
+snapshot/header/matrix-before-rate validation, malformed factory byte allocation
+and registry cleanup stay unchanged. Views are temporary initializer metadata;
+registered interior headers still root the genuinely scanned compound allocation.
+The additional codec-view vectors have no performance/memory improvement claim.
+
+Grouped fixtures verify concrete slot identities, foreign mode/codebook/resampler
+owners through GC and stack growth, single reinitialization after installing live
+pointer-bearing state, unchanged invalid-rate images, and complete single/MS/
+projection ABI-image/status comparisons across mono/coupled geometries, valid
+rates, invalid rates and matrix-size errors. Existing projection source/header
+alias tests also exercise the new codec binding. Native initialization/reset/
+validation comparisons and all codec goldens persist. Each separately committed
+round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons, GC
+decode stress, unchanged codec references and diff checks; final ARM ordinary and
+scoped fixtures repeat twenty times. This does not repair external opaque-buffer
+GC maps, raw callbacks, extension EOF/GC or decode-time layout boundaries.
+Logs: /tmp/opus-round-decoder-concrete-codec-views.log,
+/tmp/opus-round-decoder-bound-codec-init.log,
+/tmp/opus-round-ms-bound-child-codec-init.log,
+/tmp/opus-round-projection-bound-child-codec-init.log and
+/tmp/opus-round-codec-bound-init-arm-{checkptr,golden}-repeat.log.
+
 Four decoder-package mini-FFT rounds replace the real-FFT byte suffix with
 canonical complex cells, add an actual Go complex guard outside the reported ABI
 image, bind Go tmp/super views directly to those cells, and read packed real input
