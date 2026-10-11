@@ -2100,35 +2100,35 @@ type OpusDecoder = struct {
 
 func validate_opus_decoder(tls *libc.TLS, st *OpusT_OpusDecoder) {
 	if !(st.Fchannels == 1 || st.Fchannels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 99)
+		opusCeltFatal(tls, opusDiagnosticString(0), opusDiagnosticString(57), 99)
 	}
 	if !(st.FFs == 48000 || st.FFs == 24000 || st.FFs == 16000 || st.FFs == 12000 || st.FFs == 8000) {
-		Opus_celt_fatal(tls, __ccgo_ts+79, __ccgo_ts+57, 103)
+		opusCeltFatal(tls, opusDiagnosticString(79), opusDiagnosticString(57), 103)
 	}
 	if st.FDecControl.FAPI_sampleRate != st.FFs {
-		Opus_celt_fatal(tls, __ccgo_ts+188, __ccgo_ts+57, 105)
+		opusCeltFatal(tls, opusDiagnosticString(188), opusDiagnosticString(57), 105)
 	}
 	dc := &st.FDecControl
 	if !(dc.FinternalSampleRate == 0 || dc.FinternalSampleRate == 16000 || dc.FinternalSampleRate == 12000 || dc.FinternalSampleRate == 8000) {
-		Opus_celt_fatal(tls, __ccgo_ts+246, __ccgo_ts+57, 106)
+		opusCeltFatal(tls, opusDiagnosticString(246), opusDiagnosticString(57), 106)
 	}
 	if dc.FnChannelsAPI != st.Fchannels {
-		Opus_celt_fatal(tls, __ccgo_ts+440, __ccgo_ts+57, 107)
+		opusCeltFatal(tls, opusDiagnosticString(440), opusDiagnosticString(57), 107)
 	}
 	if !(dc.FnChannelsInternal == 0 || dc.FnChannelsInternal == 1 || dc.FnChannelsInternal == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts+502, __ccgo_ts+57, 108)
+		opusCeltFatal(tls, opusDiagnosticString(502), opusDiagnosticString(57), 108)
 	}
 	if !(dc.FpayloadSize_ms == 0 || dc.FpayloadSize_ms == 10 || dc.FpayloadSize_ms == 20 || dc.FpayloadSize_ms == 40 || dc.FpayloadSize_ms == 60) {
-		Opus_celt_fatal(tls, __ccgo_ts+640, __ccgo_ts+57, 109)
+		opusCeltFatal(tls, opusDiagnosticString(640), opusDiagnosticString(57), 109)
 	}
 	if st.Farch < 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+849, __ccgo_ts+57, 111)
+		opusCeltFatal(tls, opusDiagnosticString(849), opusDiagnosticString(57), 111)
 	}
 	if st.Farch > OPUS_ARCHMASK {
-		Opus_celt_fatal(tls, __ccgo_ts+881, __ccgo_ts+57, 112)
+		opusCeltFatal(tls, opusDiagnosticString(881), opusDiagnosticString(57), 112)
 	}
 	if !(st.Fstream_channels == 1 || st.Fstream_channels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts+925, __ccgo_ts+57, 114)
+		opusCeltFatal(tls, opusDiagnosticString(925), opusDiagnosticString(57), 114)
 	}
 }
 
@@ -2475,7 +2475,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 						} else {
 							decoder.FDecControl.FinternalSampleRate = int32(16000)
 							if !(int32(0) != 0) {
-								Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+57, int32(436))
+								opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(57), int32(436))
 							}
 						}
 					}
@@ -2588,18 +2588,18 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 			endband = int32(21)
 		default:
 			if !(int32(0) != 0) {
-				Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+57, int32(567))
+				opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(57), int32(567))
 			}
 			break
 		}
 		_ = endband == int32(0)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_END_BAND_REQUEST, OpusDecoderCtlArgs{Value: endband}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1037, __ccgo_ts+57, int32(570))
+			opusCeltFatal(tls, opusDiagnosticString(1037), opusDiagnosticString(57), int32(570))
 		}
 	}
 	_ = decoder.Fstream_channels == int32(0)
 	if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_CHANNELS_REQUEST, OpusDecoderCtlArgs{Value: decoder.Fstream_channels}) == int32(OPUS_OK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+1172, __ccgo_ts+57, int32(572))
+		opusCeltFatal(tls, opusDiagnosticString(1172), opusDiagnosticString(57), int32(572))
 	}
 	/* Only allocation memory for redundancy if/when needed */
 	if redundancy != 0 {
@@ -2618,17 +2618,17 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		   always decoded but the decoded audio may not be used */
 		_ = int32(0) == int32(0)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(586))
+			opusCeltFatal(tls, opusDiagnosticString(1331), opusDiagnosticString(57), int32(586))
 		}
 		opusFrameCeltRedundant(tls, celt_dec, data, len1, redundancy_bytes, redundant_audio, F5)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &redundant_rng}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(589))
+			opusCeltFatal(tls, opusDiagnosticString(1454), opusDiagnosticString(57), int32(589))
 		}
 	}
 	/* MUST be after PLC */
 	_ = start_band == int32(0)
 	if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: start_band}) == int32(OPUS_OK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+1599, __ccgo_ts+57, int32(593))
+		opusCeltFatal(tls, opusDiagnosticString(1599), opusDiagnosticString(57), int32(593))
 	}
 	if mode != int32(MODE_SILK_ONLY) {
 		if F20 < frame_size {
@@ -2640,7 +2640,7 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		/* Make sure to discard any previous CELT state */
 		if mode != decoder.Fprev_mode && decoder.Fprev_mode > 0 && !(decoder.Fprev_redundancy != 0) {
 			if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
-				Opus_celt_fatal(tls, __ccgo_ts+1740, __ccgo_ts+57, int32(604))
+				opusCeltFatal(tls, opusDiagnosticString(1740), opusDiagnosticString(57), int32(604))
 			}
 		}
 		/* Decode CELT */
@@ -2666,28 +2666,28 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 		if decoder.Fprev_mode == int32(MODE_HYBRID) && !(redundancy != 0 && celt_to_silk != 0 && decoder.Fprev_redundancy != 0) {
 			_ = int32(0) == int32(0)
 			if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
-				Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(624))
+				opusCeltFatal(tls, opusDiagnosticString(1331), opusDiagnosticString(57), int32(624))
 			}
 			opusFrameCeltSilence(tls, celt_dec, &silence, pcm_owner, F2_5, celt_accum)
 		}
 		decoder.FrangeFinal = dec.Frng
 	}
 	if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_GET_MODE_REQUEST, OpusDecoderCtlArgs{Mode: &celt_mode}) == int32(OPUS_OK)) {
-		Opus_celt_fatal(tls, __ccgo_ts+1811, __ccgo_ts+57, int32(632))
+		opusCeltFatal(tls, opusDiagnosticString(1811), opusDiagnosticString(57), int32(632))
 	}
 	window = celt_mode.Fwindow
 	/* 5 ms redundant frame for SILK->CELT */
 	if redundancy != 0 && !(celt_to_silk != 0) {
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_RESET_STATE, OpusDecoderCtlArgs{}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1740, __ccgo_ts+57, int32(639))
+			opusCeltFatal(tls, opusDiagnosticString(1740), opusDiagnosticString(57), int32(639))
 		}
 		_ = int32(0) == int32(0)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, CELT_SET_START_BAND_REQUEST, OpusDecoderCtlArgs{Value: 0}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1331, __ccgo_ts+57, int32(640))
+			opusCeltFatal(tls, opusDiagnosticString(1331), opusDiagnosticString(57), int32(640))
 		}
 		opusFrameCeltRedundant(tls, celt_dec, data, len1, redundancy_bytes, redundant_audio, F5)
 		if !(Opus_opus_custom_decoder_ctl_typed(tls, celt_dec, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{U32: &redundant_rng}) == int32(OPUS_OK)) {
-			Opus_celt_fatal(tls, __ccgo_ts+1454, __ccgo_ts+57, int32(643))
+			opusCeltFatal(tls, opusDiagnosticString(1454), opusDiagnosticString(57), int32(643))
 		}
 		smooth_fade(tls, opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*(frame_size-F2_5))*4), opusFramePCMAtBytes(redundant_audio, uint(decoder.Fchannels*F2_5)*4), opusFramePCMAtBytes(pcm_owner, uint(decoder.Fchannels*(frame_size-F2_5))*4), F2_5, decoder.Fchannels, window, decoder.FFs)
 	}
@@ -2850,7 +2850,7 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len
 			pcm_count = pcm_count + ret
 		}
 		if !(pcm_count == frame_size) {
-			Opus_celt_fatal(tls, __ccgo_ts+1955, __ccgo_ts+57, int32(773))
+			opusCeltFatal(tls, opusDiagnosticString(1955), opusDiagnosticString(57), int32(773))
 		}
 		v1 = 0
 		if v1 != 0 {
@@ -2890,7 +2890,7 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len
 				return ret1
 			}
 			if !(ret1 == frame_size-packet_frame_size) {
-				Opus_celt_fatal(tls, __ccgo_ts+1997, __ccgo_ts+57, int32(815))
+				opusCeltFatal(tls, opusDiagnosticString(1997), opusDiagnosticString(57), int32(815))
 			}
 		}
 		/* Complete with FEC */
@@ -2928,7 +2928,7 @@ func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len
 			return ret2
 		}
 		if !(ret2 == packet_frame_size) {
-			Opus_celt_fatal(tls, __ccgo_ts+2049, __ccgo_ts+57, int32(865))
+			opusCeltFatal(tls, opusDiagnosticString(2049), opusDiagnosticString(57), int32(865))
 		}
 		payload_offset += uint(size[i])
 		nb_samples = nb_samples + ret2
@@ -2971,7 +2971,7 @@ func opusDecodeInt16(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, leng
 		}
 	}
 	if !(decoder.Fchannels == 1 || decoder.Fchannels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 917)
+		opusCeltFatal(tls, opusDiagnosticString(0), opusDiagnosticString(57), 917)
 	}
 	out := opusFrameAudioStorage(frameSize * decoder.Fchannels)
 	result := opusDecodeNative(tls, decoder, data, length, unsafe.SliceData(out), frameSize, fec, 0, nil, OPTIONAL_CLIP)
@@ -3005,7 +3005,7 @@ func opusDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, leng
 		}
 	}
 	if !(decoder.Fchannels == 1 || decoder.Fchannels == 2) {
-		Opus_celt_fatal(tls, __ccgo_ts, __ccgo_ts+57, 966)
+		opusCeltFatal(tls, opusDiagnosticString(0), opusDiagnosticString(57), 966)
 	}
 	out := opusFrameAudioStorage(frameSize * decoder.Fchannels)
 	result := opusDecodeNative(tls, decoder, data, length, unsafe.SliceData(out), frameSize, fec, 0, nil, 0)

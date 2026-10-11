@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	libc "github.com/kazzmir/opus-go/libcshim"
+	"os"
 	"reflect"
 	"runtime"
 	"slices"
@@ -1074,6 +1075,31 @@ func TestCeltDecoderInitPointers(t *testing.T) {
 	if Opus_celt_decoder_init(nil, nil, 44100, 1) != -7 || Opus_celt_decoder_init(nil, nil, 48000, 3) != OPUS_BAD_ARG {
 		t.Fatal("early errors")
 	}
+}
+
+func checkDiagnosticFatal(t *testing.T, f func(), want string) {
+	t.Helper()
+	file, err := os.CreateTemp(t.TempDir(), "fatal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stderr
+	os.Stderr = file
+	defer func() { os.Stderr = old; file.Close() }()
+	var caught any
+	func() { defer func() { caught = recover() }(); f() }()
+	os.Stderr = old
+	got, err := os.ReadFile(file.Name())
+	if err != nil || string(got) != want || caught != "libcshim: abort" {
+		t.Fatalf("fatal diagnostic: %q panic=%v err=%v", got, caught, err)
+	}
+}
+
+func TestDiagnosticDecoderPointers(t *testing.T) {
+	entropyInitGrowStack(12)
+	runtime.GC()
+	checkDiagnosticFatal(t, func() { validate_opus_decoder(nil, &OpusT_OpusDecoder{}) }, "Fatal (internal) error in ../src/opus_decoder.c, line 99: assertion failed: st->channels == 1 || st->channels == 2\n")
+	checkDiagnosticFatal(t, func() { validate_opus_decoder(nil, &OpusT_OpusDecoder{Fchannels: 2}) }, "Fatal (internal) error in ../src/opus_decoder.c, line 103: assertion failed: st->Fs == 48000 || st->Fs == 24000 || st->Fs == 16000 || st->Fs == 12000 || st->Fs == 8000\n")
 }
 
 func TestDiagnosticStringsPointers(t *testing.T) {
