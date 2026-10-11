@@ -3518,7 +3518,7 @@ func opusMSDecoderInitWithCodecs(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs Opus
 	if Opus_validate_layout(tls, layout) == 0 {
 		return OPUS_BAD_ARG
 	}
-	offset := int((unsafe.Sizeof(*st) + 7) &^ uintptr(7))
+	offset := int(opusAlignSize8(int32(unsafe.Sizeof(*st))))
 	coupledSize := Opus_opus_decoder_get_size(tls, 2)
 	monoSize := Opus_opus_decoder_get_size(tls, 1)
 	for i := int32(0); i < layout.Fnb_streams; i++ {

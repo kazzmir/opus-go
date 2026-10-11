@@ -494,7 +494,7 @@ func TestMultistreamChildOwnerPointers(t *testing.T) {
 	storage := new(owner)
 	storage.Child = *newOpusFrameOwnerDecoder(t, 2)
 	offset := uint((uint32(268) + 7) / 8 * 8)
-	if offset != uint(unsafe.Offsetof(storage.Child)) {
+	if offset != uint(unsafe.Offsetof(storage.Child)) || offset != uint(opusAlignSize8(int32(unsafe.Sizeof(storage.MS)))) {
 		t.Fatal("multistream header geometry")
 	}
 	decoder := opusMSDecoderAt(&storage.MS, offset)
