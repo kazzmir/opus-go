@@ -19,6 +19,24 @@ func registeredGoInterior(tls *TLS) (uintptr, weak.Pointer[[64]byte]) {
 	return uintptr(unsafe.Pointer(p)), weak.Make(parent.Child)
 }
 
+func TestRegisteredGoAllocationLookup(t *testing.T) {
+	tls := NewTLS()
+	defer tls.Close()
+	root := RegisterGoAllocation(tls, new(int32))
+	handle := uintptr(unsafe.Pointer(root))
+	if RegisteredGoAllocation[int32](tls, handle) != root || RegisteredGoAllocation[int64](tls, handle) != nil || RegisteredGoAllocation[int32](nil, handle) != nil || RegisteredGoAllocation[int32](tls, 0) != nil {
+		t.Fatal("typed allocation lookup")
+	}
+	bytes := Xmalloc(tls, 32)
+	if RegisteredGoAllocation[int32](tls, bytes) != nil {
+		t.Fatal("opaque byte allocation promoted to Go object")
+	}
+	Xfree(tls, handle)
+	if RegisteredGoAllocation[int32](tls, handle) != nil {
+		t.Fatal("freed registered root")
+	}
+}
+
 func TestRegisterGoAllocation(t *testing.T) {
 	tls := NewTLS()
 	defer tls.Close()

@@ -203,6 +203,23 @@ func RegisterGoAllocation[T any](tls *TLS, p *T) *T {
 	return p
 }
 
+// RegisteredGoAllocation returns the actual registered typed root, without
+// reconstructing a pointer from a handle. Byte allocations/type mismatches are
+// deliberately not promoted into scanned Go objects.
+func RegisteredGoAllocation[T any](tls *TLS, handle uintptr) *T {
+	if tls == nil || handle == 0 {
+		return nil
+	}
+	tls.heapMu.Lock()
+	defer tls.heapMu.Unlock()
+	allocation := tls.heap[handle]
+	if allocation == nil {
+		return nil
+	}
+	root, _ := allocation.owner.(*T)
+	return root
+}
+
 // XfreePointer unregisters storage; callers must stop using it as with Xfree.
 func XfreePointer(tls *TLS, p unsafe.Pointer) { Xfree(tls, uintptr(p)) }
 
