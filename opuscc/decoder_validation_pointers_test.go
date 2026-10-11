@@ -876,6 +876,24 @@ func TestOpusDecoderResamplerPseudostackStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderPseudostackEmptyStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	state := libc.RegisterGoAllocation(tls, new(OpusT_opus_ccgo_pseudostack_state))
+	state.Fglobal_stack = &opusPseudostackTestMarker[1]
+	handle := uintptr(unsafe.Pointer(state))
+	libc.Xpthread_setspecific(tls, opusPseudostackTLSKey, handle)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	FreePseudostackTLS(tls)
+	if state.Fscratch_ptr != nil || state.Fglobal_stack != &opusPseudostackTestMarker[1] || libc.RegisteredGoAllocation[OpusT_opus_ccgo_pseudostack_state](tls, handle) != nil || libc.Xpthread_getspecific(tls, opusPseudostackTLSKey) != 0 {
+		t.Fatal("empty scratch preserves native conditional cursor clear/release")
+	}
+	FreePseudostackTLS(nil)
+	FreePseudostackTLS(tls)
+	runtime.KeepAlive(state)
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

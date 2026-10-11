@@ -534,6 +534,54 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder pseudostack-compatibility rounds resolve registered headers as
+actual typed roots via libcshim.RegisteredGoAllocation, replace both scratch/cursor
+uintptr fields with *byte, construct resampler reference headers as registered
+scanned Go objects, and do the same for quant-all-bands reference headers/cursor
+resets. Upstream celt/stack_alloc.h declares scratch_ptr/global_stack as char*.
+The two pointer fields retain their two-word ABI on amd64/386/ARM; they are not
+opaque aliases. Cleanup uses typed nil stores/write barriers, preserving its
+scratch-nonnull conditional, free/key ordering, nil TLS and idempotence. Integer
+TLS keys remain real compatibility handles. Unknown external headers still need
+an explicit ABI cast; registering/casting byte images does not supply a GC map.
+Decoder kernels still do not consume this legacy pseudostack for DSP scratch.
+
+Counts change156→158 unsafe.Pointer and138→133 uintptr. Two actual pointer-valued
+field types are removed; three further uintptr tokens were stale comment/numeric
+offset cleanup. The two added unsafe casts are honest external-header/free
+boundaries replacing previously hidden integer loads/stores, not opacity
+concealed in a helper. The generic registry lookup returns the real typed owner
+only (byte allocations/type mismatches return nil); it reconstructs no pointer.
+Sentinel fixtures now use real Go byte addresses instead of invalid integer
+123/456 pointers, while testing the same untouched/reset cursor behavior. Codec
+PCM/state/range goldens and native VAD fixtures retain their expectations.
+
+Grouped fixtures verify field size/offset ABI, scratch/cursor live alias, byte
+owners through weak references/GC/stack growth, registered header cleanup,
+conditional empty-scratch cursor preservation, deleted registry/key and repeated
+free. Legacy producer migrations are test-storage ownership repairs, not new
+codec pseudostack work. Retained failures:
+/tmp/opus-round-pseudostack-concrete-byte-fields.log caught one native VAD fixture
+still assigning uintptr to the new fields; concrete byte-pointer assignments fix
+it and the complete -retry.log passes. /tmp/opus-round-resampler-pseudostack-partb-checkptr.log
+shows the old setupResamplerPseudostack issue is bypassed, but PartB still fails
+checkptr at opus_decode_frame_ref_test.go:168 on its separate raw decoder fixture.
+It remains an ordinary golden test, not a claimed global checkptr success.
+/tmp/opus-round-quant-scanned-pseudostack-producer.log caught its old Xmemset
+integer argument after scratch became *byte; clearing the exact known byte
+allocation with a typed slice preserves its zeroed reference scratch, and the
+complete -retry.log passes.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged encode/decode references
+and diff checks; final ARM ordinary/scoped fixtures repeat twenty times. No
+extension EOF/GC, opaque-image or raw-callback global safety claim is made.
+Logs: /tmp/opus-round-pseudostack-typed-registry-cleanup.log,
+/tmp/opus-round-pseudostack-concrete-byte-fields-retry.log,
+/tmp/opus-round-resampler-scanned-pseudostack-producer.log,
+/tmp/opus-round-quant-scanned-pseudostack-producer-retry.log and
+/tmp/opus-round-pseudostack-byte-roots-arm-{checkptr,golden}-repeat.log.
+
 Four multistream-offset/pthread-declaration rounds replace positive consumed
 MS packet-offset arithmetic with byte indexing, express the fixed MS header's
 alignment as a numeric int offset, remove unused generated mutex/condition
