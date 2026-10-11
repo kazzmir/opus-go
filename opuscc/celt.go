@@ -64,15 +64,6 @@ type OpusT_fpos_t = struct {
 
 type _G_fpos64_t = OpusT_fpos_t
 
-type OpusT_cookie_io_functions_t = struct {
-	Fread   uintptr
-	Fwrite  uintptr
-	Fseek   uintptr
-	Fclose1 uintptr
-}
-
-type _IO_cookie_io_functions_t = OpusT_cookie_io_functions_t
-
 func Opus_celt_fatal(tls *libc.TLS, str uintptr, file uintptr, line int32) {
 	// Retain the legacy file-before-message conversion order.
 	fileString := libc.GoString(file)
