@@ -4495,13 +4495,13 @@ func skip_extension(tls *libc.TLS, pdata **byte, length int32, header *int32) in
 
 func Opus_opus_extension_iterator_init(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, data *byte, length, frames int32) {
 	if length < 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2445, __ccgo_ts+2472, 122)
+		opusCeltFatal(tls, opusDiagnosticString(2445), opusDiagnosticString(2472), 122)
 	}
 	if data == nil && length != 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2492, __ccgo_ts+2472, 123)
+		opusCeltFatal(tls, opusDiagnosticString(2492), opusDiagnosticString(2472), 123)
 	}
 	if frames < 0 || frames > 48 {
-		Opus_celt_fatal(tls, __ccgo_ts+2535, __ccgo_ts+2472, 124)
+		opusCeltFatal(tls, opusDiagnosticString(2535), opusDiagnosticString(2472), 124)
 	}
 	iter.Fdata = data
 	iter.Fcurr_data = data
@@ -4557,7 +4557,7 @@ func Opus_opus_extension_iterator_set_frame_max(tls *libc.TLS, iter *OpusT_OpusE
 func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensionIterator, ext *OpusT_opus_extension_data) int32 {
 	var header int32
 	if iter.Frepeat_frame <= 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2587, __ccgo_ts+2472, 160)
+		opusCeltFatal(tls, opusDiagnosticString(2587), opusDiagnosticString(2472), 160)
 	}
 	for ; iter.Frepeat_frame < iter.Fnb_frames; iter.Frepeat_frame++ {
 		for iter.Fsrc_len > 0 {
@@ -4565,7 +4565,7 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensio
 			iter.Fsrc_len = skip_extension(tls, &iter.Fsrc_data, iter.Fsrc_len, &header)
 			// This source was already skipped successfully when the repeat was recorded.
 			if iter.Fsrc_len < 0 {
-				Opus_celt_fatal(tls, __ccgo_ts+2628, __ccgo_ts+2472, 169)
+				opusCeltFatal(tls, opusDiagnosticString(2628), opusDiagnosticString(2472), 169)
 			}
 			if idByte <= 3 {
 				continue
@@ -4580,7 +4580,7 @@ func opus_extension_iterator_next_repeat(tls *libc.TLS, iter *OpusT_OpusExtensio
 				return OPUS_INVALID_PACKET
 			}
 			if extensionPointerDifference(iter.Fcurr_data, iter.Fdata) != int64(iter.Flen1-iter.Fcurr_len) {
-				Opus_celt_fatal(tls, __ccgo_ts+2665, __ccgo_ts+2472, 187)
+				opusCeltFatal(tls, opusDiagnosticString(2665), opusDiagnosticString(2472), 187)
 			}
 			if iter.Frepeat_frame >= iter.Fframe_max {
 				continue
@@ -4639,7 +4639,7 @@ func Opus_opus_extension_iterator_next(tls *libc.TLS, iter *OpusT_OpusExtensionI
 			return OPUS_INVALID_PACKET
 		}
 		if extensionPointerDifference(iter.Fcurr_data, iter.Fdata) != int64(iter.Flen1-iter.Fcurr_len) {
-			Opus_celt_fatal(tls, __ccgo_ts+2665, __ccgo_ts+2472, 255)
+			opusCeltFatal(tls, opusDiagnosticString(2665), opusDiagnosticString(2472), 255)
 		}
 		if id == 1 {
 			if l == 0 {
@@ -4748,10 +4748,10 @@ func Opus_opus_packet_extensions_count_ext(tls *libc.TLS, data *byte, length int
 //	    returned in frame order. */
 func Opus_opus_packet_extensions_parse(tls *libc.TLS, data *byte, length int32, extensions *OpusT_opus_extension_data, nbExtensions *int32, frames int32) int32 {
 	if nbExtensions == nil {
-		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, 365)
+		opusCeltFatal(tls, opusDiagnosticString(2742), opusDiagnosticString(2472), 365)
 	}
 	if extensions == nil && *nbExtensions != 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, 366)
+		opusCeltFatal(tls, opusDiagnosticString(2782), opusDiagnosticString(2472), 366)
 	}
 	var iter OpusT_OpusExtensionIterator
 	var ext OpusT_opus_extension_data
@@ -4781,13 +4781,13 @@ func Opus_opus_packet_extensions_parse(tls *libc.TLS, data *byte, length int32, 
 //	    opus_packet_extensions_count_ext(). */
 func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data *byte, length int32, extensions *OpusT_opus_extension_data, nbExtensions, frameCounts *int32, frames int32) int32 {
 	if nbExtensions == nil {
-		Opus_celt_fatal(tls, __ccgo_ts+2742, __ccgo_ts+2472, 395)
+		opusCeltFatal(tls, opusDiagnosticString(2742), opusDiagnosticString(2472), 395)
 	}
 	if extensions == nil && *nbExtensions != 0 {
-		Opus_celt_fatal(tls, __ccgo_ts+2782, __ccgo_ts+2472, 396)
+		opusCeltFatal(tls, opusDiagnosticString(2782), opusDiagnosticString(2472), 396)
 	}
 	if frames > 48 {
-		Opus_celt_fatal(tls, __ccgo_ts+2842, __ccgo_ts+2472, 397)
+		opusCeltFatal(tls, opusDiagnosticString(2842), opusDiagnosticString(2472), 397)
 	}
 	// Snapshot prefix sums before iterator initialization or any output writes.
 	// Negative frame counts reach the iterator's assertion after an empty prefix loop, as in C.
@@ -4815,7 +4815,7 @@ func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data *byte, length int
 			return -2
 		}
 		if idx >= cumulative[ext.Fframe+1] {
-			Opus_celt_fatal(tls, __ccgo_ts+2876, __ccgo_ts+2472, 416)
+			opusCeltFatal(tls, opusDiagnosticString(2876), opusDiagnosticString(2472), 416)
 		}
 		unsafe.Slice(extensions, int64(idx)+1)[idx] = ext
 		count++
@@ -4824,7 +4824,7 @@ func Opus_opus_packet_extensions_parse_ext(tls *libc.TLS, data *byte, length int
 
 func write_extension_payload(tls *libc.TLS, data *byte, capacity, pos, id, length int32, payload *byte, last int32) int32 {
 	if id < 3 || id > 127 {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 425)
+		opusCeltFatal(tls, opusDiagnosticString(2929), opusDiagnosticString(2472), 425)
 	}
 	if id < 32 {
 		if length < 0 || length > 1 {
@@ -4875,7 +4875,7 @@ func write_extension_payload(tls *libc.TLS, data *byte, capacity, pos, id, lengt
 
 func write_extension_payload_record(tls *libc.TLS, data *byte, capacity, pos int32, e *OpusT_opus_extension_data, last int32) int32 {
 	if e.Fid < 3 || e.Fid > 127 {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 425)
+		opusCeltFatal(tls, opusDiagnosticString(2929), opusDiagnosticString(2472), 425)
 	}
 	if e.Fid < 32 {
 		if e.Flen1 < 0 || e.Flen1 > 1 {
@@ -4925,7 +4925,7 @@ func write_extension(tls *libc.TLS, data *byte, capacity, pos, id, length int32,
 		return -2
 	}
 	if id < 3 || id > 127 {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 465)
+		opusCeltFatal(tls, opusDiagnosticString(2929), opusDiagnosticString(2472), 465)
 	}
 	if data != nil {
 		L := length
@@ -4942,7 +4942,7 @@ func write_extension_record(tls *libc.TLS, data *byte, capacity, pos int32, e *O
 		return -2
 	}
 	if e.Fid < 3 || e.Fid > 127 {
-		Opus_celt_fatal(tls, __ccgo_ts+2929, __ccgo_ts+2472, 465)
+		opusCeltFatal(tls, opusDiagnosticString(2929), opusDiagnosticString(2472), 465)
 	}
 	if data != nil {
 		L := e.Flen1
@@ -4965,7 +4965,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data *byte, len1 OpusT_
 	pos = 0
 	written = 0
 	if !(len1 >= int32(0)) {
-		Opus_celt_fatal(tls, __ccgo_ts+2445, __ccgo_ts+2472, int32(484))
+		opusCeltFatal(tls, opusDiagnosticString(2445), opusDiagnosticString(2472), int32(484))
 	}
 	if nb_frames > int32(48) {
 		return -int32(1)
@@ -5040,7 +5040,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data *byte, len1 OpusT_
 							break
 						}
 						if !(exts[frame_repeat_idx[g]].Fframe == g) {
-							Opus_celt_fatal(tls, __ccgo_ts+2978, __ccgo_ts+2472, int32(518))
+							opusCeltFatal(tls, opusDiagnosticString(2978), opusDiagnosticString(2472), int32(518))
 						}
 						if exts[frame_repeat_idx[g]].Fid != exts[i].Fid {
 							break
@@ -5174,7 +5174,7 @@ func Opus_opus_packet_extensions_generate(tls *libc.TLS, data *byte, len1 OpusT_
 		f = f + 1
 	}
 	if !(written == nb_extensions) {
-		Opus_celt_fatal(tls, __ccgo_ts+3039, __ccgo_ts+2472, int32(624))
+		opusCeltFatal(tls, opusDiagnosticString(3039), opusDiagnosticString(2472), int32(624))
 	}
 	/* If we need to pad, just prepend 0x01 bytes. Even better would be to fill the
 	   end with zeros, but that requires checking that turning the last extension into
