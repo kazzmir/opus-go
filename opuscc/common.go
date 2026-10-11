@@ -3496,6 +3496,10 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, 
 }
 
 func opusMSDecoderInitWithChildren(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte, children []*OpusT_OpusDecoder) int32 {
+	return opusMSDecoderInitWithCodecs(tls, st, Fs, channels, streams, coupled, mapping, children, nil)
+}
+
+func opusMSDecoderInitWithCodecs(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte, children []*OpusT_OpusDecoder, codecs []opusDecoderStorageViews) int32 {
 	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
 		return OPUS_BAD_ARG
 	}
@@ -3520,12 +3524,16 @@ func opusMSDecoderInitWithChildren(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs Op
 			ch, size = 2, coupledSize
 		}
 		var child *OpusT_OpusDecoder
-		if children != nil {
+		var owned *opusDecoderStorageViews
+		if codecs != nil {
+			owned = &codecs[i]
+			child = owned.Decoder
+		} else if children != nil {
 			child = children[i]
 		} else {
 			child = (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
 		}
-		if ret := Opus_opus_decoder_init(tls, child, Fs, ch); ret != OPUS_OK {
+		if ret := opusDecoderInitWithStorage(tls, child, Fs, ch, owned); ret != OPUS_OK {
 			return ret
 		}
 		// Do not materialize an unused end pointer on an exactly-sized allocation.
@@ -3546,7 +3554,7 @@ func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	if ret := opusMSDecoderInitWithChildren(tls, st, Fs, channels, streams, coupled, mapping, owned.Children); ret != OPUS_OK {
+	if ret := opusMSDecoderInitWithCodecs(tls, st, Fs, channels, streams, coupled, mapping, owned.Children, owned.Codecs); ret != OPUS_OK {
 		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}

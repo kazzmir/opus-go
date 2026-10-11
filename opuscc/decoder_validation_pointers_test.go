@@ -446,6 +446,43 @@ func TestOpusDecoderProjectionStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderMSCodecBoundStoragePointers(t *testing.T) {
+	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 0}, {2, 2}, {3, 1}} {
+		streams, coupled := geometry[0], geometry[1]
+		for _, rate := range []int32{48000, 24000, 44100} {
+			owned := opusMSDecoderOwnedStorage(streams, coupled)
+			legacy := opusMSDecoderStorage(streams, coupled)
+			mapping := make([]byte, streams+coupled)
+			for i := range mapping {
+				mapping[i] = byte(i)
+			}
+			if len(owned.Codecs) != int(streams) {
+				t.Fatal("MS codec view count")
+			}
+			for i, codec := range owned.Codecs {
+				ch := int32(1)
+				if int32(i) < coupled {
+					ch = 2
+				}
+				layout := opusDecoderStorageType(ch)
+				sf, _ := layout.FieldByName("Silk")
+				cf, _ := layout.FieldByName("Celt")
+				if codec.Decoder != owned.Children[i] || codec.Silk != (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(codec.Decoder), sf.Offset)) || codec.Celt != (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(codec.Decoder), cf.Offset)) {
+					t.Fatal("MS codec identities", geometry, i)
+				}
+			}
+			want := Opus_opus_multistream_decoder_init(nil, legacy, rate, int32(len(mapping)), streams, coupled, &mapping[0])
+			entropyInitGrowStack(12)
+			runtime.GC()
+			got := opusMSDecoderInitWithCodecs(nil, owned.Decoder, rate, int32(len(mapping)), streams, coupled, &mapping[0], owned.Children, owned.Codecs)
+			n := Opus_opus_multistream_decoder_get_size(nil, streams, coupled)
+			if got != want || !slices.Equal(unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n), unsafe.Slice((*byte)(unsafe.Pointer(legacy)), n)) {
+				t.Fatal("MS codec bound init image/status", geometry, rate, got, want)
+			}
+		}
+	}
+}
+
 func TestOpusDecoderMSBoundStoragePointers(t *testing.T) {
 	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 1}, {3, 1}} {
 		streams, coupled := geometry[0], geometry[1]

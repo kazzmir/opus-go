@@ -141,6 +141,7 @@ func opusProjectionDecoderStorage(channels, streams, coupled int32) *OpusT_OpusP
 type opusMSStorageViews struct {
 	Decoder  *OpusT_OpusMSDecoder
 	Children []*OpusT_OpusDecoder
+	Codecs   []opusDecoderStorageViews
 }
 
 func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
@@ -151,8 +152,9 @@ func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
 			continue
 		}
 		for i := 0; i < array.Len(); i++ {
-			child := array.Index(i).FieldByName("Image").FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder)
-			views.Children = append(views.Children, child)
+			child := opusDecoderStorageViewsAt(array.Index(i).FieldByName("Image"))
+			views.Children = append(views.Children, child.Decoder)
+			views.Codecs = append(views.Codecs, child)
 		}
 	}
 	return views
