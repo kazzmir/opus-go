@@ -141,7 +141,7 @@ func Opus_resampling_factor(tls *libc.TLS, rate OpusT_opus_int32) (r int32) {
 		ret = int32(6)
 	default:
 		if !(int32(0) != 0) {
-			Opus_celt_fatal(tls, __ccgo_ts+1017, __ccgo_ts+3125, int32(87))
+			opusCeltFatal(tls, opusDiagnosticString(1017), opusDiagnosticString(3125), int32(87))
 		}
 		ret = 0
 		break
@@ -280,8 +280,13 @@ var error_strings = []string{
 	__ccgo_cstring(__ccgo_ts1, 3252),
 }
 
+// The pointer addresses the existing NUL-terminated static pool, not new storage.
+func Opus_opus_get_version_string_typed(tls *libc.TLS) *byte {
+	return unsafe.StringData(opusDiagnosticString(3291))
+}
+
 func Opus_opus_get_version_string(tls *libc.TLS) (r uintptr) {
-	return __ccgo_ts + 3291
+	return uintptr(unsafe.Pointer(Opus_opus_get_version_string_typed(tls)))
 }
 
 const CELT_SIG_SCALE4 = "32768.f"

@@ -308,8 +308,13 @@ func Xfprintf(_ *TLS, _ uintptr, format uintptr, ap uintptr) int32 {
 
 func Xabort(_ *TLS) { panic("libcshim: abort") }
 
-func X__assert_fail(_ *TLS, assertion, file uintptr, line int32, _ uintptr) {
-	panic(fmt.Sprintf("assertion failed: %s (%s:%d)", GoString(assertion), GoString(file), line))
+func X__assert_fail(tls *TLS, assertion, file uintptr, line int32, _ uintptr) {
+	AssertFail(tls, GoString(assertion), GoString(file), line)
+}
+
+// AssertFail accepts GC-visible Go text; the raw ABI adapter above is retained.
+func AssertFail(_ *TLS, assertion, file string, line int32) {
+	panic(fmt.Sprintf("assertion failed: %s (%s:%d)", assertion, file, line))
 }
 
 // ---- Math/bit helpers ----

@@ -1109,6 +1109,39 @@ func TestDiagnosticQuantPointers(t *testing.T) {
 	checkDiagnosticFatal(t, func() { Opus_alg_quant(nil, nil, 1, 1, 0, 1, nil, 1, 0, 0) }, "Fatal (internal) error in ../celt/vq.c, line 563: assertion failed: N>1\nalg_quant() needs at least two dimensions\n")
 }
 
+func TestDiagnosticMiniAssertPointers(t *testing.T) {
+	cases := []struct {
+		f    func()
+		want string
+	}{
+		{func() { Opus_mini_kiss_fft_stride(nil, nil, nil, nil, 1) }, "assertion failed: fin != fout (../celt/mini_kfft.c:391)"},
+		{func() { miniFFTRealInput(nil, nil, nil, nil) }, "assertion failed: fin != fout (../celt/mini_kfft.c:391)"},
+		{func() { Opus_mini_kiss_fftr_alloc(nil, 3, 0, nil, nil) }, "assertion failed: (nfft & 1) == 0 (../celt/mini_kfft.c:416)"},
+		{func() {
+			Opus_mini_kiss_fftr(nil, &OpusT_mini_kiss_fftr_state{Fsubstate: &OpusT_mini_kiss_fft_state{Finverse: 1}}, nil, nil)
+		}, "assertion failed: !st->substate->inverse (../celt/mini_kfft.c:453)"},
+	}
+	for _, c := range cases {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		var caught any
+		func() { defer func() { caught = recover() }(); c.f() }()
+		if caught != c.want {
+			t.Fatalf("mini assert text/ordering: %v want %s", caught, c.want)
+		}
+	}
+}
+
+func TestDiagnosticVersionPointers(t *testing.T) {
+	const want = "libopus 1.6.1"
+	p := Opus_opus_get_version_string_typed(nil)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if p != unsafe.StringData(__ccgo_ts1[3291:]) || unsafe.String(p, len(want)) != want || unsafe.Slice(p, len(want)+1)[len(want)] != 0 || Opus_opus_get_version_string(nil) != uintptr(unsafe.Pointer(p)) {
+		t.Fatal("static typed/raw version pointer/text/NUL")
+	}
+}
+
 func TestDiagnosticStringsPointers(t *testing.T) {
 	runtime.GC()
 	for start := 0; start < len(__ccgo_ts1); {

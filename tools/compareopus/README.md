@@ -534,6 +534,53 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder diagnostic rounds finish migrating PRIVATE static-pool consumers
+from integer C-string addresses to GC-visible Go strings and numeric pool offsets:
+28 decoder/frame checks;25 MS/matrix/CELT quantization checks;20 extension checks;
+then10 remaining CELT/SILK checks and5 mini-FFT assertion sites. The mini-FFT sites
+use libcshim.AssertFail(string,string,line); legacy X__assert_fail still converts
+assertion before file and emits the identical panic. Opus_celt_fatal remains a
+raw public adapter with file-before-message conversion. No static call sites
+cross either integer-string adapter anymore.
+
+The inferred pointer-valued uintptr __ccgo_ts and its reflect.StringHeader cast
+are DELETED, not renamed/relocated. One real residual consumer was public version
+query: it now uses Opus_opus_get_version_string_typed's actual static *byte, with
+an explicit integer conversion ONLY in the public adapter. That preserves static
+address identity, text and the trailing NUL, without allocation or guessed data.
+Because the old address variable's type was inferred, lexical totals are
+157 unsafe.Pointer/134 uintptr (previous157/133): the removed StringHeader cast
+is offset by the explicit version adapter cast, and uintptr's extra spelling is
+that public conversion. This is active integer-address removal, not a claim of
+reduced lexical counts or repaired DSP heap ownership. No opaque pointer aliases
+are introduced; the original immutable pooled string remains Go text.
+
+All conditions, evaluation/error ordering, diagnostic text/file/line, multiline
+messages, abort-vs-assert panic shape and valid-path arithmetic remain. Grouped
+fixtures assert exact stderr/abort for decoder/quantization/extension checks,
+capacity-before-ID assertions, exact mini-FFT panic strings, Go-text assertion
+and ordinary raw ABI compatibility, full pool splitting and static version
+identity/text/NUL after GC/stack growth. Native checks/goldens/tolerances persist.
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped checkptr,
+native comparison, GC stress and codec references. Final ARM scoped/ordinary
+fixtures including typed frame references repeat twenty times. No global raw
+string adapter/opaque-image/extension EOF/GC safety or direct macOS claim follows.
+
+Retained failures: /tmp/opus-round-extension-go-diagnostics.log has a NEW fixture
+compile error (undefined OPUS_BUFFER_TOO_SMALL); use the unchanged port code-2,
+then the complete ...-retry.log passes. The initial
+/tmp/opus-round-mini-assert-go-text-focused.log exposed the separate legacy
+GoString raw ABI checkptr limitation AND the missed public version pool consumer.
+The new raw ABI assertion fixture is an ordinary compatibility test, separate
+from the Go-text scoped test; this does NOT fix/suppress legacy GoString or weaken
+an existing test/golden. Version now uses the typed static pointer; the complete
+focused retry passes. Logs: /tmp/opus-round-decoder-frame-go-diagnostics.log,
+/tmp/opus-round-codec-matrix-go-diagnostics.log,
+/tmp/opus-round-extension-go-diagnostics-retry.log,
+/tmp/opus-round-mini-assert-go-text-focused{,-retry}.log,
+/tmp/opus-round-mini-assert-static-version-go-text.log and
+/tmp/opus-round-diagnostic-go-text-arm-{checkptr,golden}-repeat.log.
+
 Four active CELT FFT/MDCT output rounds replace direct complex-only butterfly
 access with concrete complex/float-lane output views: radix2, radix4, radix3/5,
 then the common dispatcher and backward MDCT consumer. Backward MDCT now passes

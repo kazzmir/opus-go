@@ -7,6 +7,33 @@ import (
 	"weak"
 )
 
+func TestDiagnosticAssertFail(t *testing.T) {
+	assertion, file := []byte("test expression"), []byte("test-file.c")
+	runtime.GC()
+	var caught any
+	func() { defer func() { caught = recover() }(); AssertFail(nil, string(assertion), string(file), 17) }()
+	if caught != "assertion failed: test expression (test-file.c:17)" {
+		t.Fatal("typed assert diagnostic", caught)
+	}
+}
+
+// Raw GoString reconstruction remains an ordinary ABI compatibility fixture;
+// it is not a scoped checkptr claim for legacy integer string addresses.
+func TestAssertFailLegacyABI(t *testing.T) {
+	assertion, file := []byte("test expression\x00"), []byte("test-file.c\x00")
+	runtime.GC()
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		X__assert_fail(nil, uintptr(unsafe.Pointer(&assertion[0])), uintptr(unsafe.Pointer(&file[0])), 17, 0)
+	}()
+	if caught != "assertion failed: test expression (test-file.c:17)" {
+		t.Fatal("raw assert diagnostic", caught)
+	}
+	runtime.KeepAlive(assertion)
+	runtime.KeepAlive(file)
+}
+
 //go:noinline
 func registeredGoInterior(tls *TLS) (uintptr, weak.Pointer[[64]byte]) {
 	parent := new(struct {

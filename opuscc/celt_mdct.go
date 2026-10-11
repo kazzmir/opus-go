@@ -329,7 +329,7 @@ func kfWorkInput(tls *libc.TLS, out, in *OpusT_mini_kiss_fft_cpx, realInput *flo
 	case 5:
 		kf_bfly51(tls, out, fstride, tw, m)
 	default:
-		libc.X__assert_fail(tls, __ccgo_ts+5527, __ccgo_ts+5529, 317, 0)
+		libc.AssertFail(tls, opusDiagnosticString(5527), opusDiagnosticString(5529), 317)
 	}
 }
 
@@ -434,7 +434,7 @@ func miniFFTInit(tls *libc.TLS, state *OpusT_mini_kiss_fft_state, nfft, inverse 
 
 func Opus_mini_kiss_fft_stride(tls *libc.TLS, st *OpusT_mini_kiss_fft_state, fin, fout *OpusT_mini_kiss_fft_cpx, inStride int32) {
 	if fin == fout {
-		libc.X__assert_fail(tls, __ccgo_ts+5549, __ccgo_ts+5529, 391, 0)
+		libc.AssertFail(tls, opusDiagnosticString(5549), opusDiagnosticString(5529), 391)
 	}
 	kf_work(tls, fout, fin, 1, inStride, st.Ffactors[:], st)
 }
@@ -445,7 +445,7 @@ func Opus_mini_kiss_fft(tls *libc.TLS, cfg *OpusT_mini_kiss_fft_state, fin, fout
 
 func miniFFTRealInput(tls *libc.TLS, cfg *OpusT_mini_kiss_fft_state, input *float32, output *OpusT_mini_kiss_fft_cpx) {
 	if (output == nil && input == nil) || (output != nil && input == &output.Fr) {
-		libc.X__assert_fail(tls, __ccgo_ts+5549, __ccgo_ts+5529, 391, 0)
+		libc.AssertFail(tls, opusDiagnosticString(5549), opusDiagnosticString(5529), 391)
 	}
 	kfWorkInput(tls, output, nil, input, true, 1, 1, cfg.Ffactors[:], cfg)
 }
@@ -510,7 +510,7 @@ func miniFFTRSuperTwiddles(tmp *OpusT_mini_kiss_fft_cpx, nfft int32) *OpusT_mini
 
 func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, lenmem *OpusT_size_t) *OpusT_mini_kiss_fftr_state {
 	if nfft&1 != 0 {
-		libc.X__assert_fail(tls, __ccgo_ts+5561, __ccgo_ts+5529, 416, 0)
+		libc.AssertFail(tls, opusDiagnosticString(5561), opusDiagnosticString(5529), 416)
 	}
 	nfft >>= 1
 	var subsize OpusT_size_t
@@ -558,7 +558,7 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 
 func Opus_mini_kiss_fftr(tls *libc.TLS, st *OpusT_mini_kiss_fftr_state, timedata *float32, freqdata *OpusT_mini_kiss_fft_cpx) {
 	if st.Fsubstate.Finverse != 0 {
-		libc.X__assert_fail(tls, __ccgo_ts+5577, __ccgo_ts+5529, 453, 0)
+		libc.AssertFail(tls, opusDiagnosticString(5577), opusDiagnosticString(5529), 453)
 	}
 	ncfft := st.Fsubstate.Fnfft
 	// Pack even/odd real samples into complex input; the complete input stays typed.
