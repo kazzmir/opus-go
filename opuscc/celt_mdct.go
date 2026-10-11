@@ -443,6 +443,9 @@ func miniFFTRStorageType(needed uint64) reflect.Type {
 		{Name: "Header", Type: header},
 		{Name: "Substate", Type: substate},
 		{Name: "Tail", Type: reflect.ArrayOf(int((needed-fixed)/8), reflect.TypeFor[OpusT_mini_kiss_fft_cpx]())},
+		// Keep unused native terminal pointers inside a real Go allocation.
+		// This cell is outside the reported/consumed ABI image.
+		{Name: "Guard", Type: reflect.TypeFor[OpusT_mini_kiss_fft_cpx]()},
 	})
 }
 

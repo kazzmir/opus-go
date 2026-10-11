@@ -252,6 +252,36 @@ func TestMiniFFTRSuperPrefixPointers(t *testing.T) {
 	}
 }
 
+func TestMiniFFTRGoGuardPointers(t *testing.T) {
+	var needed OpusT_size_t
+	Opus_mini_kiss_fftr_alloc(nil, 2, 0, nil, &needed)
+	layout := miniFFTRStorageType(needed)
+	guard, _ := layout.FieldByName("Guard")
+	if uint64(guard.Offset) != needed || guard.Type != reflect.TypeFor[OpusT_mini_kiss_fft_cpx]() || uint64(layout.Size()) < needed+8 {
+		t.Fatal("real-FFT guard outside ABI image")
+	}
+	st := Opus_mini_kiss_fftr_alloc(nil, 2, 0, nil, nil)
+	if st.Fsuper_twiddles != (*OpusT_mini_kiss_fft_cpx)(unsafe.Add(unsafe.Pointer(st), needed)) {
+		t.Fatal("unused native super pointer identity")
+	}
+	for trial := 0; trial < 5; trial++ {
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if *st.Fsuper_twiddles != (OpusT_mini_kiss_fft_cpx{}) {
+			t.Fatal("unused super pointer/guard")
+		}
+	}
+	// The upstream butterflies do not support the scalar nfft==1 transform;
+	// allocation geometry is valid, but do not invent transform support for it.
+	transform := Opus_mini_kiss_fftr_alloc(nil, 4, 0, nil, nil)
+	input, output := [4]float32{3, -1, 2, 4}, [3]OpusT_mini_kiss_fft_cpx{}
+	Opus_mini_kiss_fftr(nil, transform, &input[0], &output[0])
+	if output != [3]OpusT_mini_kiss_fft_cpx{{Fr: 8}, {Fr: 1, Fi: 5}, {Fr: 2}} || *st.Fsuper_twiddles != (OpusT_mini_kiss_fft_cpx{}) {
+		t.Fatal("supported real FFT/unused guard")
+	}
+	runtime.KeepAlive(st)
+}
+
 func TestMiniFFTRAllocPointers(t *testing.T) {
 	var needed OpusT_size_t
 	Opus_mini_kiss_fftr_alloc(nil, 8, 0, nil, &needed)
