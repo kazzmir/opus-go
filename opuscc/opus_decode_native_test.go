@@ -522,6 +522,38 @@ func TestOpusNativePLCFramePointers(t *testing.T) {
 	}
 }
 
+func TestOpusNativePacketConsumedCursorPointers(t *testing.T) {
+	for _, encoded := range [][]byte{{0}, {0, 99}, {1, 99, 88}} {
+		packet := append(append([]byte(nil), encoded...), 0xa7)
+		var frames [48]*byte
+		var sizes [48]int16
+		var payload, offset, paddingLength int32
+		var padding *byte
+		entropyInitGrowStack(12)
+		runtime.GC()
+		count := Opus_opus_packet_parse_impl(nil, &packet[0], int32(len(encoded)), 0, nil, &frames, &sizes, &payload, &offset, &padding, &paddingLength)
+		wantCount := int32(1)
+		if encoded[0] == 1 {
+			wantCount = 2
+		}
+		if count != wantCount || payload != 1 || offset != int32(len(encoded)) || padding != &packet[len(encoded)] || paddingLength != 0 {
+			t.Fatal("packet consumed/EOF cursor descriptors", encoded, count, payload, offset)
+		}
+		position := 1
+		for i := int32(0); i < count; i++ {
+			if frames[i] != &packet[position] {
+				t.Fatal("packet frame cursor identity", encoded, i)
+			}
+			position += int(sizes[i])
+		}
+		runtime.GC()
+		if packet[len(encoded)] != 0xa7 {
+			t.Fatal("packet cursor guard")
+		}
+		runtime.KeepAlive(packet)
+	}
+}
+
 func TestOpusNativePacketDescriptorsPointers(t *testing.T) {
 	packet := []byte{255, 65, 1, 10, 11, 12, 99}
 	var toc byte

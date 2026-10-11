@@ -534,6 +534,194 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four packet/dead-declaration rounds index readable packet-parse cursors directly
+through the already consumed byte view, remove unused generated stdio cookie
+callback-address fields, delete duplicate unused compiler/isoc varargs aliases,
+and delete unused generated channel-in/channel-out/downmix address aliases.
+Counts fall158→157 unsafe.Pointer and153→144 uintptr. This is ONE active typed
+packet-cursor change plus THREE dead-metadata deletions, not nine repaired
+pointer lifetimes. The packet cursor's exact EOF/backward identity still uses
+the existing explicit extensionByteAt compatibility boundary; its cast was not
+hidden in a new wrapper. Public integer parse/decode/control/callback adapters,
+the used OpusT_va_list and real custom callback ABI remain intact. Only unused
+generated Go declaration names are removed; no replacement opaque typedefs.
+
+Upstream src/opus.c confirms packet-size/frame/padding cursor ordering. The
+existing typed packet view already covers the input; new indexing declares no
+guessed span and changes no parsing reads, output stores, padding initialization,
+validation/errors, narrowing, private suppression of unused EOF output, or live
+aliases. Grouped packet fixtures check readable and empty-frame cursor identity,
+payload/packet offsets, semantic EOF padding identity with a real allocation
+guard, and GC/stack growth. Existing parse/native comparisons and codec goldens
+persist. The declaration deletions have no runtime behavior claim.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged codec references and
+diff checks; final ARM ordinary/scoped fixtures repeat twenty times. Guarded
+semantic EOF fixtures do not establish global exact-allocation EOF/extension GC
+safety, and other external opaque/callback boundaries remain.
+Logs: /tmp/opus-round-packet-consumed-cursors.log,
+/tmp/opus-round-remove-unused-stdio-cookie-addresses.log,
+/tmp/opus-round-remove-unused-varargs-address-aliases.log,
+/tmp/opus-round-remove-unused-codec-callback-address-aliases.log and
+/tmp/opus-round-packet-declarations-arm-{checkptr,golden}-repeat.log.
+
+Four decoder callback-type removal rounds bind legacy multistream float,
+int16 and int24 destinations as concrete captured *float32/*int16/*int32 roots,
+then bind custom legacy callbacks and remove the obsolete opusMSChannelCopy
+opaque-PCM callback type, opusMSDecodeNative wrapper and intermediate binder.
+The public integer native adapter now calls opusMSDecodeBound directly. This
+also removes the format-specific erased destination adapters; standard PCM
+captures never cross the raw uintptr callback trampoline. Only the boundary
+that identifies an externally supplied callback/destination and genuinely
+custom callbacks retain an erased destination. The latter keeps that pointer
+as a GC-visible captured root and retains the real function value, user data,
+src/dst integer ABI and uintptrescapes invocation. Raw function-address ownership
+is not globally repaired. Counts fall162→158 unsafe.Pointer; uintptr remains153.
+This combines concrete active legacy-format routing with deletion of its now
+unneeded private erased bridge; no necessary boundary casts were moved to tests.
+
+Upstream src/opus_multistream_decoder.c confirms per-call live channel strides,
+left/right/mono sequential copies, muting and the float/short/int24 kernels.
+Their arithmetic, signed narrowing, rounding, clipping, validation order,
+source live aliases, decoded state, PLC/FEC, final ranges and guards are unchanged.
+Grouped fixtures test concrete bindings across forced GC/stack growth and
+muting/guards, standard callbacks ignoring user data, and the custom callback's
+arguments/function owner through GC. Existing format/projection comparison
+fixtures now invoke the same concrete kernels with bound destinations instead
+of using the deleted erased wrapper; all expected PCM/state/ranges persist.
+Native channel/codec comparisons and reference tolerances are unchanged.
+
+Retained staging failure /tmp/opus-bind-focused.log: prematurely dropping the
+old float-binder arm while old fixtures still used it sent a standard float
+through the uintptr fallback and failed checkptr. Its typed compatibility arm
+was restored until final consumer migration; the complete round1 validation
+passes. /tmp/opus-ms-bound-final-focused.log caught two now-unused test unsafe
+imports after their opaque projection sinks were removed; imports were removed,
+and /tmp/opus-ms-bound-final-focused-retry.log passes. No goldens or fixtures
+were weakened. Every separately committed round passes full amd64/386,
+ARM64/QEMU, scoped checkptr, native comparisons, GC decode stress, unchanged
+codec references and diff checks; final ARM ordinary/scoped fixtures repeat
+twenty times. These scopes do not establish global raw-callback, external-byte
+allocation or extension EOF/GC safety.
+Logs: /tmp/opus-round-ms-legacy-{float,short,int24}-bound-pcm.log,
+/tmp/opus-round-ms-remove-opaque-pcm-callback-type.log and
+/tmp/opus-round-ms-bound-pcm-arm-{checkptr,golden}-repeat.log.
+
+Four typed decoder-clearing rounds add field-wise SetZero descriptors for actual
+canonical Go images, use them in single factory initialization, extend them to
+standalone MS children, and enable them for projection children. A descriptor
+captures its real typed reflection image, not an opaque address. Each declared
+field (including numeric padding arrays and the float tail) is cleared by its
+actual type; pointer-bearing SILK/CELT fields therefore use Go's typed clearing
+barriers. The initializer keeps its pre-existing CELT mode nil and full typed
+SILK zero ordering. Public caller-buffer initializers still clear the ABI byte
+image after those pointer stores; all valid Go factory paths now bypass that
+byte-wise clear. Counts remain162 unsafe.Pointer/153 uintptr: their necessary
+external-buffer fallback is not removed or disguised.
+
+The entire enclosing reflection struct is deliberately NOT zeroed. A single
+image may have final Go padding outside the reported decoder size; for MS/projection
+that padding can live in the child stride. Clearing declared fields preserves
+those bytes, the MS header/mapping, projection matrix, and sibling children.
+Grouped fixtures install live foreign mode/codebook/resampler pointers, verify
+exact zero ABI images through GC/stack growth, poison only scalar outside-image
+padding/neighbor/stride bytes, and confirm neighboring bytes and sibling foreign
+owners survive. Single init/re-init checks count descriptor invocation and verify
+invalid rates do not clear anything. Existing complete initializer image/status,
+projection source-alias, native init/reset/validation and registry fixtures also
+exercise this path without changed expectations. Reflection/closure metadata
+costs are not benchmarked or claimed to improve performance.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped
+checkptr, native comparisons, GC decode stress, unchanged codec references and
+diff checks; final ARM ordinary and scoped fixtures repeat twenty times. No
+global opaque-allocation, extension EOF/GC or raw-callback safety claim is made.
+Logs: /tmp/opus-round-decoder-typed-field-clear.log,
+/tmp/opus-round-single-factory-typed-clear.log,
+/tmp/opus-round-ms-factory-typed-child-clear.log,
+/tmp/opus-round-projection-factory-typed-child-clear.log and
+/tmp/opus-round-typed-child-clear-arm-{checkptr,golden}-repeat.log.
+
+Four concrete decoder-codec initialization rounds expose Decoder/SILK/CELT
+views from canonical Go images, bind single-decoder factory initialization to
+those fields, bind standalone multistream children to complete codec views, and
+propagate the same bindings into projection factory children. Views are obtained
+from actual typed reflection fields, not integer address reconstruction or opaque
+pointer wrappers. Valid Go factory paths no longer recover either codec pointer by layout
+arithmetic. Public caller-buffer initializers, decode-time accessors and necessary
+ABI byte clearing retain explicit boundaries. Existing header-only child helpers
+remain compatible. Counts stay162 unsafe.Pointer/153 uintptr: these changes
+bypass active factory casts, not delete their required caller-buffer fallbacks.
+
+Upstream src/opus_decoder.c, opus_multistream_decoder.c and
+opus_projection_decoder.c supply the size/offset and initialization semantics.
+This retains the port's Fs/channel checks, initialization/error ordering and
+GC-required CELT mode nil then complete typed SILK zero before the ABI clear. Single initialization still computes/stores the exact ABI
+offsets; the storage views choose only its actual codec fields. Child channel
+selection and numeric strides, forward mapping aliases, projection source
+snapshot/header/matrix-before-rate validation, malformed factory byte allocation
+and registry cleanup stay unchanged. Views are temporary initializer metadata;
+registered interior headers still root the genuinely scanned compound allocation.
+The additional codec-view vectors have no performance/memory improvement claim.
+
+Grouped fixtures verify concrete slot identities, foreign mode/codebook/resampler
+owners through GC and stack growth, single reinitialization after installing live
+pointer-bearing state, unchanged invalid-rate images, and complete single/MS/
+projection ABI-image/status comparisons across mono/coupled geometries, valid
+rates, invalid rates and matrix-size errors. Existing projection source/header
+alias tests also exercise the new codec binding. Native initialization/reset/
+validation comparisons and all codec goldens persist. Each separately committed
+round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons, GC
+decode stress, unchanged codec references and diff checks; final ARM ordinary and
+scoped fixtures repeat twenty times. This does not repair external opaque-buffer
+GC maps, raw callbacks, extension EOF/GC or decode-time layout boundaries.
+Logs: /tmp/opus-round-decoder-concrete-codec-views.log,
+/tmp/opus-round-decoder-bound-codec-init.log,
+/tmp/opus-round-ms-bound-child-codec-init.log,
+/tmp/opus-round-projection-bound-child-codec-init.log and
+/tmp/opus-round-codec-bound-init-arm-{checkptr,golden}-repeat.log.
+
+Four decoder-package mini-FFT rounds replace the real-FFT byte suffix with
+canonical complex cells, add an actual Go complex guard outside the reported ABI
+image, bind Go tmp/super views directly to those cells, and read packed real input
+through float32 lanes instead of a float→complex pointer reinterpretation. The
+shared recursive FFT work retains its complex-input path and gains a scalar-lane
+path with the same factor reads, leaf load-before-store order, live partial input
+aliases, recursion, twiddle reads, butterflies and explicit float32 arithmetic.
+The in-place assertion uses typed first-real-field identity, including nil/nil,
+and retains its original diagnostic/line. Counts fall 163→162 unsafe.Pointer;
+uintptr remains153. Typed tail/views are representation improvements even without
+further lexical deletions; caller-supplied byte headers retain their ABI casts.
+
+Upstream celt/mini_kfft.c confirms substate→tmp→super layout and real even/odd
+packing. The nfft2 allocation has a scalar substate of size1 with zero consumed
+super twiddles, but its native super pointer is at the reported allocation end.
+The Go guard preserves that exact pointer identity inside declared Go storage,
+so a scanned pointer field does not point past its actual compound allocation.
+Required sizes/lenmem queries and caller-byte layouts do not include the guard.
+No support for the upstream-unsupported scalar size1 transform is invented.
+
+Grouped fixtures verify complex tail types, header/substate/tmp/super geometry,
+guard placement/zeroing/identity, GC and stack growth, supported transforms,
+scalar/complex path bitwise equivalence across radices and forward/inverse modes,
+live partial aliases/whole-buffer guards and in-place assertions. Existing
+upstream native FFT/real-FFT comparisons, encode/decode goldens and tolerances
+persist. Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native
+comparisons, GC decode stress, codec references and diff checks; final ARM scoped
+and ordinary fixtures repeat twenty times. This standalone mini-FFT work does
+not repair external opaque images, extension EOF/GC or raw callback lifetimes.
+
+Retained failures: /tmp/opus-round-mini-fftr-scanned-terminal-guard.log failed a
+new fixture that incorrectly attempted the unsupported scalar size1 transform;
+the allocation/guard test stays, and transform checking uses supported size4.
+Its complete retry /tmp/opus-round-mini-fftr-scanned-terminal-guard-retry.log passes.
+/tmp/opus-round-mini-fftr-bound-complex-buffers.log caught a new test's uint vs
+uintptr size-expression compile mismatch; explicitly numeric uint sizes fix it,
+and the full -retry.log passes. Neither production behavior nor goldens were
+relaxed. Remaining round logs are /tmp/opus-round-mini-fftr-complex-go-tail.log
+and /tmp/opus-round-mini-fftr-typed-real-input.log.
+
 Four decoder extension-cursor rounds index short/terminal payload advances,
 lacing/payload advances, ID headers, and normal/repeated payload starts through
 consumed byte prefixes plus numeric offsets. extensionByteAt returns the exact

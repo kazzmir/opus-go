@@ -284,17 +284,38 @@ func kf_bfly51(tls *libc.TLS, out *OpusT_mini_kiss_fft_cpx, stride OpusT_size_t,
 
 // st must belong to its complete variable-sized allocation, including all twiddles.
 func kf_work(tls *libc.TLS, out, in *OpusT_mini_kiss_fft_cpx, fstride OpusT_size_t, inStride int32, factors []int32, st *OpusT_mini_kiss_fft_state) {
+	kfWorkInput(tls, out, in, nil, false, fstride, inStride, factors, st)
+}
+
+func kfWorkInput(tls *libc.TLS, out, in *OpusT_mini_kiss_fft_cpx, realInput *float32, scalar bool, fstride OpusT_size_t, inStride int32, factors []int32, st *OpusT_mini_kiss_fft_state) {
 	p, m := factors[0], factors[1]
 	data := unsafe.Slice(out, p*m)
 	step := fstride * uint64(uint32(inStride))
-	input := unsafe.Slice(in, uint64(p*m-1)*step+1)
+	length := uint64(p*m-1)*step + 1
+	var input []OpusT_mini_kiss_fft_cpx
+	var real []float32
+	if scalar {
+		real = unsafe.Slice(realInput, length*2)
+	} else {
+		input = unsafe.Slice(in, length)
+	}
 	if m == 1 {
 		for i := int32(0); i < p; i++ {
-			data[i] = input[uint64(i)*step]
+			index := uint64(i) * step
+			if scalar {
+				data[i] = OpusT_mini_kiss_fft_cpx{Fr: real[2*index], Fi: real[2*index+1]}
+			} else {
+				data[i] = input[index]
+			}
 		}
 	} else {
 		for i := int32(0); i < p; i++ {
-			kf_work(tls, &data[i*m], &input[uint64(i)*step], fstride*uint64(uint32(p)), inStride, factors[2:], st)
+			index := uint64(i) * step
+			if scalar {
+				kfWorkInput(tls, &data[i*m], nil, &real[2*index], true, fstride*uint64(uint32(p)), inStride, factors[2:], st)
+			} else {
+				kfWorkInput(tls, &data[i*m], &input[index], nil, false, fstride*uint64(uint32(p)), inStride, factors[2:], st)
+			}
 		}
 	}
 	tw := &st.Ftwiddles[0]
@@ -422,6 +443,13 @@ func Opus_mini_kiss_fft(tls *libc.TLS, cfg *OpusT_mini_kiss_fft_state, fin, fout
 	Opus_mini_kiss_fft_stride(tls, cfg, fin, fout, 1)
 }
 
+func miniFFTRealInput(tls *libc.TLS, cfg *OpusT_mini_kiss_fft_state, input *float32, output *OpusT_mini_kiss_fft_cpx) {
+	if (output == nil && input == nil) || (output != nil && input == &output.Fr) {
+		libc.X__assert_fail(tls, __ccgo_ts+5549, __ccgo_ts+5529, 391, 0)
+	}
+	kfWorkInput(tls, output, nil, input, true, 1, 1, cfg.Ffactors[:], cfg)
+}
+
 type OpusT_mini_kiss_fftr_cfg = *OpusT_mini_kiss_fftr_state
 
 type mini_kiss_fftr_state = OpusT_mini_kiss_fftr_state
@@ -432,20 +460,40 @@ type OpusT_mini_kiss_fftr_state = struct {
 	Fsuper_twiddles *OpusT_mini_kiss_fft_cpx
 }
 
-func miniFFTRStorage(needed uint64) (*OpusT_mini_kiss_fftr_state, *OpusT_mini_kiss_fft_state) {
+func miniFFTRStorageType(needed uint64) reflect.Type {
 	header := reflect.TypeFor[OpusT_mini_kiss_fftr_state]()
 	substate := reflect.TypeFor[OpusT_mini_kiss_fft_state]()
 	fixed := uint64(header.Size() + substate.Size())
-	if needed < fixed || int(needed) < 0 || uint64(int(needed)) != needed {
+	if needed < fixed || int(needed) < 0 || uint64(int(needed)) != needed || (needed-fixed)%8 != 0 {
 		panic("mini FFT allocation size overflow")
 	}
-	layout := reflect.StructOf([]reflect.StructField{
+	return reflect.StructOf([]reflect.StructField{
 		{Name: "Header", Type: header},
 		{Name: "Substate", Type: substate},
-		{Name: "Tail", Type: reflect.ArrayOf(int(needed-fixed), reflect.TypeFor[byte]())},
+		{Name: "Tail", Type: reflect.ArrayOf(int((needed-fixed)/8), reflect.TypeFor[OpusT_mini_kiss_fft_cpx]())},
+		// Keep unused native terminal pointers inside a real Go allocation.
+		// This cell is outside the reported/consumed ABI image.
+		{Name: "Guard", Type: reflect.TypeFor[OpusT_mini_kiss_fft_cpx]()},
 	})
-	owner := reflect.New(layout).Elem()
+}
+
+func miniFFTRStorage(needed uint64) (*OpusT_mini_kiss_fftr_state, *OpusT_mini_kiss_fft_state) {
+	owner := reflect.New(miniFFTRStorageType(needed)).Elem()
 	return owner.Field(0).Addr().Interface().(*OpusT_mini_kiss_fftr_state), owner.Field(1).Addr().Interface().(*OpusT_mini_kiss_fft_state)
+}
+
+func miniFFTRStorageWithBuffers(needed uint64, nfft int32) (*OpusT_mini_kiss_fftr_state, *OpusT_mini_kiss_fft_state, *OpusT_mini_kiss_fft_cpx, *OpusT_mini_kiss_fft_cpx) {
+	owner := reflect.New(miniFFTRStorageType(needed)).Elem()
+	tail := owner.FieldByName("Tail")
+	tmp := tail.Index(int(nfft - 1)).Addr().Interface().(*OpusT_mini_kiss_fft_cpx)
+	superIndex := int(nfft)*2 - 1
+	var super *OpusT_mini_kiss_fft_cpx
+	if superIndex == tail.Len() {
+		super = owner.FieldByName("Guard").Addr().Interface().(*OpusT_mini_kiss_fft_cpx)
+	} else {
+		super = tail.Index(superIndex).Addr().Interface().(*OpusT_mini_kiss_fft_cpx)
+	}
+	return owner.Field(0).Addr().Interface().(*OpusT_mini_kiss_fftr_state), owner.Field(1).Addr().Interface().(*OpusT_mini_kiss_fft_state), tmp, super
 }
 
 func miniFFTRSuperTwiddles(tmp *OpusT_mini_kiss_fft_cpx, nfft int32) *OpusT_mini_kiss_fft_cpx {
@@ -471,8 +519,9 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 	needed := uint64(header) + subsize + 8*uint64(uint32(nfft*3/2))
 	var st *OpusT_mini_kiss_fftr_state
 	var substate *OpusT_mini_kiss_fft_state
+	var tmp, super *OpusT_mini_kiss_fft_cpx
 	if lenmem == nil {
-		st, substate = miniFFTRStorage(needed)
+		st, substate, tmp, super = miniFFTRStorageWithBuffers(needed, nfft)
 	} else {
 		if *lenmem >= needed {
 			st = (*OpusT_mini_kiss_fftr_state)(unsafe.Pointer(mem))
@@ -489,8 +538,12 @@ func Opus_mini_kiss_fftr_alloc(tls *libc.TLS, nfft, inverse int32, mem *byte, le
 		submem := &unsafe.Slice(mem, needed)[header]
 		st.Fsubstate = Opus_mini_kiss_fft_alloc(tls, nfft, inverse, submem, &subsize)
 	}
-	st.Ftmpbuf = &unsafe.Slice(&st.Fsubstate.Ftwiddles[0], int64(nfft)*2)[nfft]
-	st.Fsuper_twiddles = miniFFTRSuperTwiddles(st.Ftmpbuf, nfft)
+	if lenmem == nil {
+		st.Ftmpbuf, st.Fsuper_twiddles = tmp, super
+	} else {
+		st.Ftmpbuf = &unsafe.Slice(&st.Fsubstate.Ftwiddles[0], int64(nfft)*2)[nfft]
+		st.Fsuper_twiddles = miniFFTRSuperTwiddles(st.Ftmpbuf, nfft)
+	}
 	tw := unsafe.Slice(st.Fsuper_twiddles, nfft/2)
 	for i := int32(0); i < nfft/2; i++ {
 		phase := -float64(3.141592653589793) * (float64(i+1)/float64(nfft) + 0.5)
@@ -509,7 +562,7 @@ func Opus_mini_kiss_fftr(tls *libc.TLS, st *OpusT_mini_kiss_fftr_state, timedata
 	}
 	ncfft := st.Fsubstate.Fnfft
 	// Pack even/odd real samples into complex input; the complete input stays typed.
-	Opus_mini_kiss_fft(tls, st.Fsubstate, (*OpusT_mini_kiss_fft_cpx)(unsafe.Pointer(timedata)), st.Ftmpbuf)
+	miniFFTRealInput(tls, st.Fsubstate, timedata, st.Ftmpbuf)
 	tmp := unsafe.Slice(st.Ftmpbuf, ncfft)
 	twiddles := unsafe.Slice(st.Fsuper_twiddles, ncfft/2)
 	out := unsafe.Slice(freqdata, ncfft+1)

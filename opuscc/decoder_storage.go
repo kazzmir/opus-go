@@ -141,6 +141,7 @@ func opusProjectionDecoderStorage(channels, streams, coupled int32) *OpusT_OpusP
 type opusMSStorageViews struct {
 	Decoder  *OpusT_OpusMSDecoder
 	Children []*OpusT_OpusDecoder
+	Codecs   []opusDecoderStorageViews
 }
 
 func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
@@ -151,8 +152,11 @@ func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
 			continue
 		}
 		for i := 0; i < array.Len(); i++ {
-			child := array.Index(i).FieldByName("Image").FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder)
-			views.Children = append(views.Children, child)
+			image := array.Index(i).FieldByName("Image")
+			child := opusDecoderStorageViewsAt(image)
+			child.Clear = opusDecoderStorageClearAt(image)
+			views.Children = append(views.Children, child.Decoder)
+			views.Codecs = append(views.Codecs, child)
 		}
 	}
 	return views
@@ -166,7 +170,39 @@ func opusMSDecoderStorage(streams, coupled int32) *OpusT_OpusMSDecoder {
 	return opusMSDecoderOwnedStorage(streams, coupled).Decoder
 }
 
-func opusDecoderStorage(channels int32) *OpusT_OpusDecoder {
+type opusDecoderStorageViews struct {
+	Decoder *OpusT_OpusDecoder
+	Silk    *OpusT_silk_decoder
+	Celt    *OpusT_OpusCustomDecoder
+	Clear   func()
+}
+
+func opusDecoderStorageViewsAt(owner reflect.Value) opusDecoderStorageViews {
+	return opusDecoderStorageViews{
+		Decoder: owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder),
+		Silk:    owner.FieldByName("Silk").Addr().Interface().(*OpusT_silk_decoder),
+		Celt:    owner.FieldByName("Celt").Addr().Interface().(*OpusT_OpusCustomDecoder),
+	}
+}
+
+// Clear declared fields, not the enclosing image: final Go padding can be
+// outside the ABI extent (and inside a multistream child's aligned stride).
+// SetZero uses each actual field type and its pointer write barriers.
+func opusDecoderStorageClearAt(owner reflect.Value) func() {
+	return func() {
+		for i := 0; i < owner.NumField(); i++ {
+			owner.Field(i).SetZero()
+		}
+	}
+}
+
+func opusDecoderOwnedStorage(channels int32) opusDecoderStorageViews {
 	owner := opusDecoderAlignedStorage(opusDecoderStorageType(channels))
-	return owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder)
+	views := opusDecoderStorageViewsAt(owner)
+	views.Clear = opusDecoderStorageClearAt(owner)
+	return views
+}
+
+func opusDecoderStorage(channels int32) *OpusT_OpusDecoder {
+	return opusDecoderOwnedStorage(channels).Decoder
 }

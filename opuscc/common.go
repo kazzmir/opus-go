@@ -706,8 +706,6 @@ const math_errhandling = 2
 const opus_int = "int"
 const restrict = "__restrict"
 
-type OpusT___builtin_va_list = uintptr
-
 type OpusT___predefined_size_t = uint64
 
 type OpusT___predefined_wchar_t = int32
@@ -1035,12 +1033,6 @@ type OpusMSDecoder = struct {
 	Flayout OpusT_ChannelLayout
 }
 
-type OpusT_opus_copy_channel_in_func = uintptr
-
-type OpusT_opus_copy_channel_out_func = uintptr
-
-type OpusT_downmix_func = uintptr
-
 func Opus_opus_pcm_soft_clip_impl(tls *libc.TLS, pcm *float32, N, C int32, declip_mem *float32, arch int32) {
 	if C < 1 || N < 1 || pcm == nil || declip_mem == nil {
 		return
@@ -1195,7 +1187,13 @@ func Opus_opus_packet_parse_impl(tls *libc.TLS, packet *byte, length, selfDelimi
 	cbr := false
 	pad := int32(0)
 	// The typed base remains live even for zero-length frames at packet end.
-	at := func() *byte { return (*byte)(unsafe.Add(unsafe.Pointer(packet), position)) }
+	at := func() *byte {
+		if position >= 0 && position < int32(len(data)) {
+			return &data[position]
+		}
+		// Preserve native EOF/backward identity at the shared explicit boundary.
+		return extensionByteAt(packet, position, int32(len(data)))
+	}
 	switch toc & 3 {
 	case 0:
 	case 1:
@@ -2188,6 +2186,10 @@ func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) int32 {
 }
 
 func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32) int32 {
+	return opusDecoderInitWithStorage(tls, st, Fs, channels, nil)
+}
+
+func opusDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32, owned *opusDecoderStorageViews) int32 {
 	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
 		return OPUS_BAD_ARG
 	}
@@ -2199,13 +2201,28 @@ func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_
 	align := func(n int32) int32 { return int32((uint32(n) + 7) &^ uint32(7)) }
 	silkOffset := align(int32(unsafe.Sizeof(*st)))
 	celtOffset := silkOffset + align(silkSize)
-	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), celtOffset))
+	var celt *OpusT_OpusCustomDecoder
+	if owned != nil {
+		celt = owned.Celt
+	} else {
+		celt = (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), celtOffset))
+	}
 	// Clear every embedded pointer through typed stores before clearing the ABI
 	// image: SILK also contains codebook/resampler pointers in both channels.
 	celt.Fmode = nil
-	silk := (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
+	var silk *OpusT_silk_decoder
+	if owned != nil {
+		silk = owned.Silk
+	} else {
+		silk = (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
+	}
 	*silk = OpusT_silk_decoder{}
-	clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
+	if owned != nil && owned.Clear != nil {
+		owned.Clear()
+	} else {
+		// External ABI images have no canonical Go field descriptor.
+		clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
+	}
 	st.Fsilk_dec_offset = silkOffset
 	st.Fcelt_dec_offset = celtOffset
 	st.Fchannels = channels
@@ -2235,11 +2252,12 @@ func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels
 	if tls == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	st := libc.RegisterGoAllocation(tls, opusDecoderStorage(channels))
+	owned := opusDecoderOwnedStorage(channels)
+	st := libc.RegisterGoAllocation(tls, owned.Decoder)
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	if ret := Opus_opus_decoder_init(tls, st, Fs, channels); ret != OPUS_OK {
+	if ret := opusDecoderInitWithStorage(tls, st, Fs, channels, &owned); ret != OPUS_OK {
 		Opus_opus_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
@@ -3481,6 +3499,10 @@ func Opus_opus_multistream_decoder_init(tls *libc.TLS, st *OpusT_OpusMSDecoder, 
 }
 
 func opusMSDecoderInitWithChildren(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte, children []*OpusT_OpusDecoder) int32 {
+	return opusMSDecoderInitWithCodecs(tls, st, Fs, channels, streams, coupled, mapping, children, nil)
+}
+
+func opusMSDecoderInitWithCodecs(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte, children []*OpusT_OpusDecoder, codecs []opusDecoderStorageViews) int32 {
 	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
 		return OPUS_BAD_ARG
 	}
@@ -3505,12 +3527,16 @@ func opusMSDecoderInitWithChildren(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs Op
 			ch, size = 2, coupledSize
 		}
 		var child *OpusT_OpusDecoder
-		if children != nil {
+		var owned *opusDecoderStorageViews
+		if codecs != nil {
+			owned = &codecs[i]
+			child = owned.Decoder
+		} else if children != nil {
 			child = children[i]
 		} else {
 			child = (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
 		}
-		if ret := Opus_opus_decoder_init(tls, child, Fs, ch); ret != OPUS_OK {
+		if ret := opusDecoderInitWithStorage(tls, child, Fs, ch, owned); ret != OPUS_OK {
 			return ret
 		}
 		// Do not materialize an unused end pointer on an exactly-sized allocation.
@@ -3531,7 +3557,7 @@ func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
 	}
-	if ret := opusMSDecoderInitWithChildren(tls, st, Fs, channels, streams, coupled, mapping, owned.Children); ret != OPUS_OK {
+	if ret := opusMSDecoderInitWithCodecs(tls, st, Fs, channels, streams, coupled, mapping, owned.Children, owned.Codecs); ret != OPUS_OK {
 		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
@@ -3574,36 +3600,32 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 
 type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr)
 
-type opusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32)
-
-func opusMSCopyFloat(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-	opus_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n)
-}
-
-func opusMSCopyShort(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-	opus_copy_channel_out_short(tls, (*int16)(dst), ds, dc, src, ss, n)
-}
-
-func opusMSCopyInt24(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
-	opus_copy_channel_out_int24(tls, (*int32)(dst), ds, dc, src, ss, n)
-}
-
-func opusMSBindCopy(callback, user uintptr) opusMSChannelCopy {
-	switch callback {
-	case __ccgo_fp(opus_copy_channel_out_float_legacy):
-		return opusMSCopyFloat
-	case __ccgo_fp(opus_copy_channel_out_short_legacy):
-		return opusMSCopyShort
-	case __ccgo_fp(opus_copy_channel_out_int24_legacy):
-		return opusMSCopyInt24
-	default:
-		legacy := *(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback}))
-		return opusMSBindLegacyCopy(legacy, user)
+func opusMSBindBoundCopy(callback, user uintptr, dst unsafe.Pointer) opusMSBoundChannelCopy {
+	if callback == __ccgo_fp(opus_copy_channel_out_float_legacy) {
+		pcm := (*float32)(dst)
+		return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+			opus_copy_channel_out_float(tls, pcm, ds, dc, src, ss, n)
+		}
 	}
+	if callback == __ccgo_fp(opus_copy_channel_out_short_legacy) {
+		pcm := (*int16)(dst)
+		return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+			opus_copy_channel_out_short(tls, pcm, ds, dc, src, ss, n)
+		}
+	}
+	if callback == __ccgo_fp(opus_copy_channel_out_int24_legacy) {
+		pcm := (*int32)(dst)
+		return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+			opus_copy_channel_out_int24(tls, pcm, ds, dc, src, ss, n)
+		}
+	}
+	// Only genuinely custom callbacks retain the erased ABI and destination.
+	legacy := *(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback}))
+	return opusMSBindLegacyBoundCopy(legacy, user, dst)
 }
 
-func opusMSBindLegacyCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_native_4, user uintptr) opusMSChannelCopy {
-	return func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32) {
+func opusMSBindLegacyBoundCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_native_4, user uintptr, dst unsafe.Pointer) opusMSBoundChannelCopy {
+	return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
 		opusMSInvokeLegacy(tls, legacy, uintptr(dst), ds, dc, uintptr(unsafe.Pointer(src)), ss, n, user)
 	}
 }
@@ -3623,7 +3645,7 @@ func opusMSDecodeChild(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, le
 
 //go:uintptrescapes
 func Opus_opus_multistream_decode_native(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, callback uintptr, frame_size, decode_fec, soft_clip int32, user_data uintptr) int32 {
-	return opusMSDecodeNative(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, unsafe.Pointer(pcm), opusMSBindCopy(callback, user_data), frame_size, decode_fec, soft_clip)
+	return opusMSDecodeBound(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, opusMSBindBoundCopy(callback, user_data, unsafe.Pointer(pcm)), frame_size, decode_fec, soft_clip)
 }
 
 func opusMSPacketAt(data *byte, offset uint, length int32) *byte {
@@ -3631,14 +3653,6 @@ func opusMSPacketAt(data *byte, offset uint, length int32) *byte {
 		return nil
 	}
 	return (*byte)(unsafe.Add(unsafe.Pointer(data), offset))
-}
-
-// Bind the genuine legacy/format-erased destination only at this boundary.
-func opusMSDecodeNative(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, len1 int32, pcm unsafe.Pointer, copyChannel opusMSChannelCopy, frame_size, decode_fec, soft_clip int32) int32 {
-	copyBound := func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
-		copyChannel(tls, pcm, ds, dc, src, ss, n)
-	}
-	return opusMSDecodeBound(tls, decoder, data, len1, copyBound, frame_size, decode_fec, soft_clip)
 }
 
 type opusMSBoundChannelCopy func(*libc.TLS, int32, int32, *float32, int32, int32)
@@ -4273,7 +4287,7 @@ func opusProjectionDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusProjectio
 		mapping[i] = byte(i)
 	}
 	if owned != nil {
-		return opusMSDecoderInitWithChildren(tls, owned.Multistream.Decoder, Fs, channels, streams, coupled, &mapping[0], owned.Multistream.Children)
+		return opusMSDecoderInitWithCodecs(tls, owned.Multistream.Decoder, Fs, channels, streams, coupled, &mapping[0], owned.Multistream.Children, owned.Multistream.Codecs)
 	}
 	return Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st), Fs, channels, streams, coupled, &mapping[0])
 }
