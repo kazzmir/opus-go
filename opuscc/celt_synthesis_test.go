@@ -597,6 +597,35 @@ func TestSynthesisConsumedCursorPointers(t *testing.T) {
 	}
 }
 
+func TestSynthesisSilentOffsetPointers(t *testing.T) {
+	mode := &mode48000_960_120
+	for _, channels := range [][2]int32{{1, 2}, {2, 1}, {2, 2}, {1, 0}} {
+		for _, transient := range []int32{0, 1} {
+			N := mode.FshortMdctSize << 1
+			var outputs [2]*float32
+			var owners [2][]float32
+			for i := range owners {
+				owners[i] = make([]float32, N+mode.Foverlap+2)
+				owners[i][0], owners[i][len(owners[i])-1] = 77, 88
+				outputs[i] = &owners[i][1]
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celt_synthesis(nil, mode, nil, &outputs[0], nil, 0, mode.FnbEBands, channels[0], channels[1], transient, 1, 1, 1, 0)
+			for _, out := range owners {
+				if out[0] != 77 || out[len(out)-1] != 88 {
+					t.Fatal("silent synthesis guards", channels, transient)
+				}
+				for _, v := range out[1 : len(out)-1] {
+					if v != 0 {
+						t.Fatal("silent synthesis with nil channel bases", channels, transient)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestSynthesisScratchPointers(t *testing.T) {
 	m := newSynthesisTestMode()
 	for LM := int32(0); LM <= 3; LM++ {

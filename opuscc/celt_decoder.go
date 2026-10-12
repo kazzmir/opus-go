@@ -334,7 +334,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	} else {
 		// The C do-while visits channel zero even when CC is zero.
 		for c := int32(0); c < max(CC, 1); c++ {
-			Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, celtNormAdd(X, c*N), freqHead, celtNormAdd(oldBandE, c*nbEBands), start, effEnd, M, downsample, silence)
+			celtDenormaliseBandsAt(tls, bandBoundaries, mode.FshortMdctSize, X, c*N, freqHead, oldBandE, c*nbEBands, start, effEnd, M, downsample, silence)
 			for b := int32(0); b < B; b++ {
 				celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[c], NB*b, N), overlap, shift, B, arch)
 			}
