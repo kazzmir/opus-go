@@ -3531,6 +3531,7 @@ func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int
 		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
+	opusBindMSCodecViews(tls, owned)
 	return st, nil
 }
 
@@ -3897,11 +3898,16 @@ func Opus_opus_multistream_decoder_ctl(tls *libc.TLS, st uintptr, request int32,
 }
 
 func Opus_opus_multistream_decoder_destroy(tls *libc.TLS, st uintptr) {
+	if owned := libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, st); owned != nil {
+		Opus_opus_multistream_decoder_destroy_typed(tls, owned)
+		return
+	}
 	libc.Xfree(tls, st)
 }
 
 func Opus_opus_multistream_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
-	// All component decoders belong to the same allocation; free only the base.
+	// Child registry aliases are not allocations; remove their bindings first.
+	opusReleaseMSCodecViews(tls, st)
 	libc.XfreePointer(tls, unsafe.Pointer(st))
 }
 

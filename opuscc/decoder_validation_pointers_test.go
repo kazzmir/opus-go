@@ -974,6 +974,45 @@ func TestOpusDecoderBoundCodecStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
+	for _, raw := range []bool{false, true} {
+		tls := libc.NewTLS()
+		mapping := [3]byte{0, 1, 2}
+		st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 3, 2, 1, &mapping[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		binding, ok := libc.GoAllocationMetadata[OpusT_OpusMSDecoder, opusMSCodecBinding](tls, st)
+		if !ok || len(binding.Views.Codecs) != 2 {
+			t.Fatal("MS codec views")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for _, codec := range binding.Views.Codecs {
+			if opusCodecSilkState(tls, codec.Decoder) != codec.Silk || opusCodecCeltState(tls, codec.Decoder) != codec.Celt {
+				t.Fatal("MS concrete frame/CTL views")
+			}
+		}
+		// A child alias can be independently unregistered without freeing parent.
+		Opus_opus_decoder_destroy_typed(tls, binding.Views.Codecs[0].Decoder)
+		if libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, uintptr(unsafe.Pointer(st))) != st {
+			t.Fatal("child alias freed parent")
+		}
+		if raw {
+			Opus_opus_multistream_decoder_destroy(tls, uintptr(unsafe.Pointer(st)))
+		} else {
+			Opus_opus_multistream_decoder_destroy_typed(tls, st)
+		}
+		for _, codec := range binding.Views.Codecs {
+			if _, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, codec.Decoder); ok {
+				t.Fatal("MS child binding leaked")
+			}
+		}
+		Opus_opus_multistream_decoder_destroy_typed(tls, st)
+		tls.Close()
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()
