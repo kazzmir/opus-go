@@ -394,7 +394,7 @@ func prefilterFoldHistory(st *OpusT_OpusCustomDecoder, overlap, channel int32) *
 func prefilterFoldTDAC(mode *OpusT_OpusCustomMode, memory, filtered *float32, overlap int32) {
 	for i := int32(0); i < overlap/2; i++ {
 		// Keep the generated/C operand order and live window/sample reads.
-		*celtNormAdd(memory, i) = float32(OpusT_celt_coef(*celtNormAdd(mode.Fwindow, i))**celtNormAdd(filtered, overlap-1-i)) + float32(OpusT_celt_coef(*celtNormAdd(mode.Fwindow, overlap-i-1))**celtNormAdd(filtered, i))
+		*celtNormConsumedAt(memory, i) = float32(OpusT_celt_coef(*celtNormConsumedAt(mode.Fwindow, i))**celtNormConsumedAt(filtered, overlap-1-i)) + float32(OpusT_celt_coef(*celtNormConsumedAt(mode.Fwindow, overlap-i-1))**celtNormConsumedAt(filtered, i))
 	}
 }
 func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
