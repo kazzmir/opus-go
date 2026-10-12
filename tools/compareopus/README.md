@@ -534,6 +534,48 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four ACTIVE canonical accessor rounds select MS decode children, projection's
+embedded MS header, demixing matrix header, then coefficient cells (and MS typed
+CTL child consumers) from actual registered Go views. opusMSStorageViews.Offsets
+contains numeric reflection-field/array stride displacements, not pointer
+subtraction. MS decode/CTL selection requires the exact parent root, original
+live stream/coupled geometry and an exact consumed offset match; otherwise it
+uses the unchanged explicit byte-layout accessor. CTL offset increments and live
+header reloads, alias outputs, child order and validation/error order remain.
+
+Projection storage records the actual Go Multistream field offset. Its accessor
+compares the original live signed/narrowed matrix-size alignment computation to
+that numeric offset: mutated layouts still use the original boundary. Demixing
+matrix header and coefficient location are FIXED fields independent of mutable
+rows/cols/matrix-size values; registered views return the actual matrix header
+and int16 cells. Matrix registered aliases join the projection base allocation
+group, so typed/raw/raw-allocator free or TLS.Close clears matrix, MS and codec
+bindings together, including prior interior MS cleanup. External matrix/header
+images, nil/foreign TLS and unbound storage keep the original ABI accessor casts.
+No audio/control/matrix samples, modes or entropy are snapshotted or copied.
+
+Grouped fixtures compare bound/nil-TLS child and matrix/coefficient identities,
+MS GET_DECODER_STATE returned children, live coupled geometry and projection
+matrix-size mutations forcing offset fallback, matrix fixed-field identity after
+header mutations, GC/stack growth and matrix alias cleanup on every destructor
+path. Native MS/projection matrix/source aliases, caller buffer geometry, child
+strides/padding, reinitialization/errors and codec goldens/tolerances persist.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped storage/pointer checkptr,
+three-architecture typed PartA/PartB references, native comparison, GC stress,
+unchanged encode/decode references and diff checks; final ARM ordinary/scoped
+fixtures repeat twenty times. Counts remain136 unsafe.Pointer/125 uintptr:
+these are ACTIVE opaque layout-recovery bypasses for Go factories, not cast
+relocation, new pointer maps or global byte-image/EOF/raw callback safety. Registry
+metadata lookup/linear child matching costs are not benchmarked; no performance
+or direct macOS success is claimed. Logs:
+/tmp/opus-round-ms-concrete-child-accessors.log,
+/tmp/opus-round-projection-concrete-ms-accessor.log,
+/tmp/opus-round-projection-concrete-matrix-header.log,
+/tmp/opus-round-projection-concrete-coefficients-focused.log,
+/tmp/opus-round-projection-concrete-coefficients.log and
+/tmp/opus-round-canonical-decoder-accessors-arm-{checkptr,golden}-repeat.log.
+
 Four registered codec-view rounds add exact-root typed metadata APIs in libcshim,
 bind single-decoder factory SILK/CELT views for frame/control use, propagate MS
 child views, then propagate projection MS/children with alias-group cleanup.

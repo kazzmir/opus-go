@@ -3965,6 +3965,10 @@ func mappingMatrixData(matrix *OpusT_MappingMatrix) *int16 {
 }
 
 func Opus_mapping_matrix_get_data(tls *libc.TLS, matrix *OpusT_MappingMatrix) *int16 {
+	binding, ok := libc.GoAllocationMetadata[OpusT_MappingMatrix, opusMatrixBinding](tls, matrix)
+	if ok && binding.Matrix == matrix && binding.Coefficients != nil {
+		return binding.Coefficients
+	}
 	return mappingMatrixData(matrix)
 }
 

@@ -51,7 +51,14 @@ func opusReleaseMSCodecViews(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
 
 type opusProjectionCodecBinding struct{ Views opusProjectionStorageViews }
 
+type opusMatrixBinding struct {
+	Matrix       *OpusT_MappingMatrix
+	Coefficients *int16
+}
+
 func opusBindProjectionCodecViews(tls *libc.TLS, views opusProjectionStorageViews) {
+	libc.RegisterGoAllocationAlias(tls, views.Decoder, views.Matrix)
+	libc.SetGoAllocationMetadata(tls, views.Matrix, opusMatrixBinding{views.Matrix, views.Coefficients})
 	libc.RegisterGoAllocationAlias(tls, views.Decoder, views.Multistream.Decoder)
 	opusBindMSCodecViews(tls, views.Multistream)
 	libc.SetGoAllocationMetadata(tls, views.Decoder, opusProjectionCodecBinding{views})
@@ -66,6 +73,7 @@ func opusReleaseProjectionCodecViews(tls *libc.TLS, st *OpusT_OpusProjectionDeco
 		libc.RemoveGoAllocation(tls, codec.Decoder)
 	}
 	libc.RemoveGoAllocation(tls, binding.Views.Multistream.Decoder)
+	libc.RemoveGoAllocation(tls, binding.Views.Matrix)
 }
 
 func opusCodecSilkState(tls *libc.TLS, st *OpusT_OpusDecoder) *OpusT_silk_decoder {

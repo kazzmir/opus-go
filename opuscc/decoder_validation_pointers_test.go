@@ -992,6 +992,10 @@ func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
 			if opusCodecSilkState(tls, codec.Decoder) != codec.Silk || opusCodecCeltState(tls, codec.Decoder) != codec.Celt || opusMSDecoderBoundAt(tls, st, binding.Views.Offsets[i]) != codec.Decoder || opusMSDecoderBoundAt(nil, st, binding.Views.Offsets[i]) != codec.Decoder {
 				t.Fatal("MS concrete child/frame/CTL views and layout fallback")
 			}
+			var returned *OpusT_OpusDecoder
+			if Opus_opus_multistream_decoder_ctl_typed(tls, st, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Value: int32(i), Decoder: &returned}) != OPUS_OK || returned != codec.Decoder {
+				t.Fatal("MS bound CTL child")
+			}
 		}
 		st.Flayout.Fnb_coupled_streams = 0
 		shifted := uint(opusAlignSize8(268)) + uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, 1)))
@@ -1037,6 +1041,15 @@ func TestOpusDecoderProjectionBoundCodecStoragePointers(t *testing.T) {
 		if get_dec_demixing_matrix(tls, st) != binding.Views.Matrix || get_dec_demixing_matrix(nil, st) != binding.Views.Matrix {
 			t.Fatal("projection concrete matrix/fallback")
 		}
+		if Opus_mapping_matrix_get_data(tls, binding.Views.Matrix) != binding.Views.Coefficients || Opus_mapping_matrix_get_data(nil, binding.Views.Matrix) != binding.Views.Coefficients {
+			t.Fatal("concrete coefficient view/fallback")
+		}
+		oldRows, oldCols := binding.Views.Matrix.Frows, binding.Views.Matrix.Fcols
+		binding.Views.Matrix.Frows, binding.Views.Matrix.Fcols = 1, 1
+		if Opus_mapping_matrix_get_data(tls, binding.Views.Matrix) != binding.Views.Coefficients {
+			t.Fatal("live matrix geometry does not move coefficient field")
+		}
+		binding.Views.Matrix.Frows, binding.Views.Matrix.Fcols = oldRows, oldCols
 		oldSize := st.Fdemixing_matrix_size_in_bytes
 		st.Fdemixing_matrix_size_in_bytes += 8
 		if get_multistream_decoder(tls, st) != get_multistream_decoder(nil, st) || get_multistream_decoder(tls, st) == binding.Views.Multistream.Decoder {
@@ -1069,6 +1082,9 @@ func TestOpusDecoderProjectionBoundCodecStoragePointers(t *testing.T) {
 		}
 		if _, ok := libc.GoAllocationMetadata[OpusT_OpusMSDecoder, opusMSCodecBinding](tls, binding.Views.Multistream.Decoder); ok {
 			t.Fatal("projection MS binding leaked")
+		}
+		if _, ok := libc.GoAllocationMetadata[OpusT_MappingMatrix, opusMatrixBinding](tls, binding.Views.Matrix); ok {
+			t.Fatal("projection matrix binding leaked")
 		}
 		for _, codec := range binding.Views.Multistream.Codecs {
 			if _, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, codec.Decoder); ok {
