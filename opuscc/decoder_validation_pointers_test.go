@@ -1013,6 +1013,52 @@ func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
 	}
 }
 
+func TestOpusDecoderProjectionBoundCodecStoragePointers(t *testing.T) {
+	for method := 0; method < 4; method++ {
+		tls := libc.NewTLS()
+		matrix := [18]byte{}
+		st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], 18)
+		if err != nil {
+			t.Fatal(err)
+		}
+		binding, ok := libc.GoAllocationMetadata[OpusT_OpusProjectionDecoder, opusProjectionCodecBinding](tls, st)
+		if !ok || len(binding.Views.Multistream.Codecs) != 2 {
+			t.Fatal("projection codec views")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for _, codec := range binding.Views.Multistream.Codecs {
+			if opusCodecSilkState(tls, codec.Decoder) != codec.Silk || opusCodecCeltState(tls, codec.Decoder) != codec.Celt {
+				t.Fatal("projection concrete frame/control views")
+			}
+		}
+		// An interior MS destructor must not unregister the projection base.
+		if method == 0 {
+			Opus_opus_multistream_decoder_destroy_typed(tls, binding.Views.Multistream.Decoder)
+		}
+		switch method {
+		case 0:
+			Opus_opus_projection_decoder_destroy_typed(tls, st)
+		case 1:
+			Opus_opus_projection_decoder_destroy(tls, uintptr(unsafe.Pointer(st)))
+		case 2:
+			libc.Xfree(tls, uintptr(unsafe.Pointer(st)))
+		case 3:
+			tls.Close()
+		}
+		if _, ok := libc.GoAllocationMetadata[OpusT_OpusMSDecoder, opusMSCodecBinding](tls, binding.Views.Multistream.Decoder); ok {
+			t.Fatal("projection MS binding leaked")
+		}
+		for _, codec := range binding.Views.Multistream.Codecs {
+			if _, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, codec.Decoder); ok {
+				t.Fatal("projection child binding leaked")
+			}
+		}
+		Opus_opus_projection_decoder_destroy_typed(tls, st)
+		tls.Close()
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

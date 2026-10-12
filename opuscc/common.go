@@ -4299,6 +4299,9 @@ func Opus_opus_projection_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int3
 		Opus_opus_projection_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
+	if owned != nil {
+		opusBindProjectionCodecViews(tls, *owned)
+	}
 	return st, nil
 }
 
@@ -4378,11 +4381,16 @@ func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, 
 }
 
 func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {
+	if owned := libc.RegisteredGoAllocation[OpusT_OpusProjectionDecoder](tls, st); owned != nil {
+		Opus_opus_projection_decoder_destroy_typed(tls, owned)
+		return
+	}
 	libc.Xfree(tls, st)
 }
 
 func Opus_opus_projection_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) {
-	// Demixing coefficients and multistream decoders are interiors, not owners.
+	// Remove registered child/MS aliases, then unregister only the base owner.
+	opusReleaseProjectionCodecViews(tls, st)
 	libc.XfreePointer(tls, unsafe.Pointer(st))
 }
 

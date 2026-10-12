@@ -534,6 +534,54 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four registered codec-view rounds add exact-root typed metadata APIs in libcshim,
+bind single-decoder factory SILK/CELT views for frame/control use, propagate MS
+child views, then propagate projection MS/children with alias-group cleanup.
+Normal factory-created decoders with their TLS now obtain SILK/CELT state from
+actual canonical reflection fields, not decode-time unsafe.Add layout recovery.
+Private opusCodecSilkState/opusCodecCeltState require the exact registered root,
+correct metadata type and unchanged corresponding live offset; mutated offsets,
+nil/foreign TLS, caller buffers and other unbound images retain the original
+layout accessors. Matching views do not snapshot mode, codebook, entropy or audio
+state. Public decode/control signatures, initialization/validation/error ordering,
+caller-buffer extents, codec arithmetic and ALL goldens/tolerances remain.
+
+Metadata attaches ONLY to a registered actual *T owner of the same type/identity:
+byte images and mismatched root/value types cannot be promoted. TLS registry
+integer keys (including alias group keys) are allocation identity/ABI transport;
+new typed lookup accepts *T and never reconstructs a pointer from those keys.
+Metadata contains actual Go views/closures, not opaque pointers. MS/projection
+interior aliases are associated with the actual base registry group, never
+independent allocations. Typed and raw codec destruction removes bindings;
+underlying raw Xfree or TLS.Close also removes all aliases. Removing an interior
+alias leaves the group base/siblings intact. Projection cleanup tolerates prior
+interior MS destruction; malformed projection allocation/error fallback stays.
+
+Grouped fixtures cover metadata-only weak-owner retention, type mismatch, opaque
+byte rejection, nil/idempotent cleanup, alias-group raw free, single codec views
+through GC/stack growth, live-offset mutations and nil-TLS fallback, MS/projection
+child views and typed/raw/raw-allocator/TLS cleanup. Existing reinitialization,
+foreign mode/codebook owners, child stride/padding, matrix aliases, native/error
+snapshots and codec goldens persist. The canonical scanned owner allocations
+predate these rounds: this is ACTIVE decode/control representation bypass plus
+registry lifetime bookkeeping, NOT new GC pointer maps, global opaque-image
+safety or cast relocation. Production counts stay136 unsafe.Pointer/125 uintptr;
+necessary external-layout/ABI casts stay visible. Registry locking/metadata cost
+is not benchmarked; no performance or direct macOS claim is made.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped pointer/storage/registry
+checkptr, native comparisons, GC stress, unchanged codec references and diff
+checks. The final three codec rounds also check typed PartA/PartB on all three
+architectures; final ARM scoped/ordinary fixtures repeat twenty times. Initial
+/tmp/opus-round-concrete-registry-view-metadata.log retains recurring native
+runtime failure (fatal error: s.allocCount != s.nelems && freeIndex == s.nelems);
+complete ...-retry.log passes, not a repair claim. Other logs:
+/tmp/opus-round-single-bound-decode-codec-views.log,
+/tmp/opus-round-ms-bound-decode-child-codecs.log,
+/tmp/opus-round-projection-bound-codecs-focused.log,
+/tmp/opus-round-projection-bound-decode-child-codecs.log and
+/tmp/opus-round-registered-codec-views-arm-{checkptr,golden}-repeat.log.
+
 Four ACTIVE denormalization/history rounds add celtDenormaliseBandsAt and its
 concrete float span selector, migrate stereo→mono channel spectrum/energy offsets,
 then general synthesis channel offsets, and finally migrate prefilter's per-channel

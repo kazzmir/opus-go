@@ -91,6 +91,41 @@ func TestRegisteredGoAllocationMetadata(t *testing.T) {
 	}
 }
 
+func TestRegisteredGoAllocationAliasGroup(t *testing.T) {
+	tls := NewTLS()
+	defer tls.Close()
+	owner := new(struct {
+		Base  uint64
+		Mid   uint64
+		Child [8]byte
+	})
+	base := RegisterGoAllocation(tls, &owner.Base)
+	mid := RegisterGoAllocationAlias(tls, base, &owner.Mid)
+	child := RegisterGoAllocationAlias(tls, mid, &owner.Child)
+	if mid == nil || child == nil || !SetGoAllocationMetadata(tls, child, 77) {
+		t.Fatal("actual aliases")
+	}
+	runtime.GC()
+	if !RemoveGoAllocation(tls, mid) {
+		t.Fatal("alias remove")
+	}
+	if _, ok := GoAllocationMetadata[[8]byte, int](tls, child); !ok {
+		t.Fatal("alias freed sibling/base group")
+	}
+	Xfree(tls, uintptr(unsafe.Pointer(base)))
+	if _, ok := GoAllocationMetadata[[8]byte, int](tls, child); ok {
+		t.Fatal("raw base free leaked aliases")
+	}
+	if RegisterGoAllocationAlias(tls, base, child) != nil {
+		t.Fatal("unregistered parent")
+	}
+	bytes := XmallocPointer(tls, 8)
+	if RegisterGoAllocationAlias(tls, (*uint64)(bytes), child) != nil {
+		t.Fatal("opaque parent promoted")
+	}
+	XfreePointer(tls, bytes)
+}
+
 func TestRegisteredGoAllocationLookup(t *testing.T) {
 	tls := NewTLS()
 	defer tls.Close()
