@@ -412,7 +412,8 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 		return
 	}
 	for c := int32(0); c < max(CC, 1); c++ {
-		input := celtNormAdd(decodeMem[c], DEC_PITCH_BUF_SIZE-N)
+		// Nonzero overlap consumes this sample, including N==0's overlap tail.
+		input := celtNormConsumedAt(decodeMem[c], DEC_PITCH_BUF_SIZE-N)
 		// Filter the overlap before writing any TDAC samples, then reuse scratch
 		// for the next channel. State controls remain live reads per channel.
 		combFilterWithHistory(tls, etmp, input, st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch, unsafe.Slice(decodeMem[c], DEC_PITCH_BUF_SIZE+overlap), DEC_PITCH_BUF_SIZE-N)
