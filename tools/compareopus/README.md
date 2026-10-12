@@ -534,6 +534,45 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four ACTIVE denormalization/history rounds add celtDenormaliseBandsAt and its
+concrete float span selector, migrate stereo→mono channel spectrum/energy offsets,
+then general synthesis channel offsets, and finally migrate prefilter's per-channel
+history header. Public Opus_denormalise_bands retains its signature and zero-offset
+semantics. Synthesis passes actual *float32 bases and numeric int32 offsets instead
+of computing X+c*N/oldBandE+c*nbEBands addresses before calling a silent/no-work
+consumer. Original multiplication/wrapping, table/size/bound reads and output-span
+selection remain. Only AFTER the original silence return are input and energy
+spans selected, in their original order, before initial output clearing and live
+sample/energy loads. No values are copied/cached: output/spectrum/energy aliases
+retain sequential behavior. Nonzero-offset EMPTY spans form no unused cursor;
+zero-offset spans retain the original Go slice shape. Signed history and invalid
+negative-span compatibility remain explicit boundaries, not guessed readable views.
+
+Prefilter history headers select actual configured channel-first samples (each
+channel owns DEC_PITCH_BUF_SIZE samples even when overlap is zero). Zero offset
+still preserves pointer identity; the right-channel start is interior, not EOF.
+Existing mode/window/history-owner GC/weak retention, zero overlap/CC0 and filter
+control fixtures remain. Grouped offset fixtures compare full float bits/guards
+against zero-offset calls across start/downsample cases and output overlapping BOTH
+spectrum and energy; they check signed history, empty displaced nil spans, silent
+nil bases with large numeric offsets and no extra stores. Grouped silent synthesis
+fixtures cover upmix/downmix/general/CC0 and transient/nontransient nil spectrum/
+energy bases. Native/reference cases and ALL codec goldens/tolerances remain.
+
+All4 rounds pass full amd64/386, ARM64/QEMU, scoped denormalization/prefilter/
+synthesis and broad pointer checkptr, native comparisons, GC stress, unchanged
+codec references and diff checks. Final validation also checks typed PartA/PartB
+on all three architectures, with final ARM scoped/ordinary fixtures repeated20
+(times, unchanged scopes/counts). Counts remain136 unsafe.Pointer/125 uintptr:
+these are active deferred-offset/readable-view changes; the arithmetic cast
+remains ONLY for genuine compatibility branches, not hidden by opaque aliases.
+No global exact-allocation EOF, raw-image/GC or direct macOS safety claim follows.
+Logs: /tmp/opus-round-denormalise-offset-kernel.log,
+/tmp/opus-round-downmix-denormalise-offsets.log,
+/tmp/opus-round-general-denormalise-channel-offsets.log,
+/tmp/opus-round-prefilter-history-consumed-header.log and
+/tmp/opus-round-denormalise-history-offset-arm-{checkptr,golden}-repeat.log.
+
 Four ACTIVE prefilter/synthesis cursor rounds migrate TDAC memory/window/filtered
 sample accesses, prefilter overlap input, mono→stereo synthesis cursors, then
 stereo→mono and general synthesis block cursors. These use minimal readable Go

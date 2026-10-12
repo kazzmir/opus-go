@@ -398,7 +398,9 @@ func prefilterFoldState(st *OpusT_OpusCustomDecoder) (mode *OpusT_OpusCustomMode
 	return st.Fmode, st.Foverlap, st.Fchannels
 }
 func prefilterFoldHistory(st *OpusT_OpusCustomDecoder, overlap, channel int32) *float32 {
-	return celtNormAdd(&st.F_decode_mem[0], channel*(DEC_PITCH_BUF_SIZE+overlap))
+	// Each configured channel owns DEC_PITCH_BUF_SIZE history samples even
+	// when overlap==0; this selects an interior first sample, not an end.
+	return celtNormConsumedAt(&st.F_decode_mem[0], channel*(DEC_PITCH_BUF_SIZE+overlap))
 }
 func prefilterFoldTDAC(mode *OpusT_OpusCustomMode, memory, filtered *float32, overlap int32) {
 	for i := int32(0); i < overlap/2; i++ {
