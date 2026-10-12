@@ -116,8 +116,8 @@ func opusDecoderResetTail(st *OpusT_OpusDecoder) {
 
 func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, a OpusDecoderCtlArgs) int32 {
 	// C derives these interiors before dispatch, even for an unknown request.
-	silk := opusFrameSilkState(st)
-	celt := opusFrameCeltState(st)
+	silk := opusCodecSilkState(tls, st)
+	celt := opusCodecCeltState(tls, st)
 	switch request {
 	case OPUS_GET_BANDWIDTH_REQUEST:
 		if a.I32 == nil {

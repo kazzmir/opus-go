@@ -2227,6 +2227,7 @@ func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels
 		Opus_opus_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
+	opusBindCodecViews(tls, owned)
 	return st, nil
 }
 
@@ -2324,8 +2325,8 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 	redundancy_bytes = 0
 	celt_to_silk = 0
 	redundant_rng = uint32(0)
-	silk_dec = opusFrameSilkState(decoder)
-	celt_dec = opusFrameCeltState(decoder)
+	silk_dec = opusCodecSilkState(tls, decoder)
+	celt_dec = opusCodecCeltState(tls, decoder)
 	F20 = decoder.FFs / int32(50)
 	F10 = F20 >> int32(1)
 	F5 = F10 >> int32(1)

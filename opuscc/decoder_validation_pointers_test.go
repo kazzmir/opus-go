@@ -942,6 +942,38 @@ func TestOpusDecoderDREDRegisteredStoragePointers(t *testing.T) {
 	Opus_opus_dred_decoder_destroy_typed(tls, nil)
 }
 
+func TestOpusDecoderBoundCodecStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	st, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Opus_opus_decoder_destroy_typed(tls, st)
+	binding, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, st)
+	if !ok {
+		t.Fatal("factory codec views")
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if opusCodecSilkState(tls, st) != binding.Views.Silk || opusCodecCeltState(tls, st) != binding.Views.Celt {
+		t.Fatal("concrete frame/control state")
+	}
+	st.Fcelt_dec_offset += 8
+	if opusCodecCeltState(tls, st) != opusFrameCeltState(st) || opusCodecCeltState(tls, st) == binding.Views.Celt {
+		t.Fatal("live changed CELT offset fallback")
+	}
+	st.Fcelt_dec_offset = binding.CeltOffset
+	st.Fsilk_dec_offset += 8
+	if opusCodecSilkState(tls, st) != opusFrameSilkState(st) {
+		t.Fatal("live changed SILK offset fallback")
+	}
+	st.Fsilk_dec_offset = binding.SilkOffset
+	if opusCodecCeltState(nil, st) != binding.Views.Celt || opusCodecSilkState(nil, st) != binding.Views.Silk {
+		t.Fatal("unregistered/nil TLS layout compatibility")
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()
