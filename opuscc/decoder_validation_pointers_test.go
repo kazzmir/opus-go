@@ -1034,10 +1034,16 @@ func TestOpusDecoderProjectionBoundCodecStoragePointers(t *testing.T) {
 		if get_multistream_decoder(tls, st) != binding.Views.Multistream.Decoder || get_multistream_decoder(nil, st) != binding.Views.Multistream.Decoder {
 			t.Fatal("projection concrete MS/fallback")
 		}
+		if get_dec_demixing_matrix(tls, st) != binding.Views.Matrix || get_dec_demixing_matrix(nil, st) != binding.Views.Matrix {
+			t.Fatal("projection concrete matrix/fallback")
+		}
 		oldSize := st.Fdemixing_matrix_size_in_bytes
 		st.Fdemixing_matrix_size_in_bytes += 8
 		if get_multistream_decoder(tls, st) != get_multistream_decoder(nil, st) || get_multistream_decoder(tls, st) == binding.Views.Multistream.Decoder {
 			t.Fatal("live projection MS offset fallback")
+		}
+		if get_dec_demixing_matrix(tls, st) != binding.Views.Matrix {
+			t.Fatal("matrix fixed-field identity independent of MS offset")
 		}
 		st.Fdemixing_matrix_size_in_bytes = oldSize
 		entropyInitGrowStack(12)

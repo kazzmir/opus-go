@@ -4212,6 +4212,10 @@ func opus_projection_copy_channel_out_int24(tls *libc.TLS, dst *int32, dstStride
 
 // The header must belong to the complete projection decoder backing allocation.
 func get_dec_demixing_matrix(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *OpusT_MappingMatrix {
+	binding, ok := libc.GoAllocationMetadata[OpusT_OpusProjectionDecoder, opusProjectionCodecBinding](tls, st)
+	if ok && binding.Views.Decoder == st && binding.Views.Matrix != nil {
+		return binding.Views.Matrix
+	}
 	return (*OpusT_MappingMatrix)(unsafe.Add(unsafe.Pointer(st), 8))
 }
 
