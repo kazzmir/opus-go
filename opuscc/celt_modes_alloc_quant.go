@@ -1176,6 +1176,25 @@ func Opus_normalise_bands(tls *libc.TLS, bands *int16, shortMdctSize, nbEBands i
 //
 //	/* De-normalise the energy to produce the synthesis from the unit-energy bands */
 func Opus_denormalise_bands(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, freq *OpusT_celt_sig, bandLogE *OpusT_celt_glog, start, end, M, downsample, silence int32) {
+	celtDenormaliseBandsAt(tls, bands, shortMdctSize, X, 0, freq, bandLogE, 0, start, end, M, downsample, silence)
+}
+
+// Channel offsets stay numeric until their spans are needed. Silent calls
+// never form input/energy cursors; empty displaced spans need no end pointer.
+func celtDenormaliseSpan(p *float32, offset, length int32) []float32 {
+	if offset == 0 {
+		return unsafe.Slice(p, length)
+	}
+	if length == 0 {
+		return nil
+	}
+	if length < 0 {
+		return unsafe.Slice(celtNormAdd(p, offset), length)
+	}
+	return unsafe.Slice(celtNormConsumedAt(p, offset), length)
+}
+
+func celtDenormaliseBandsAt(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, xOffset int32, freq *OpusT_celt_sig, bandLogE *OpusT_celt_glog, energyOffset int32, start, end, M, downsample, silence int32) {
 	// Pass the two mode inputs explicitly so the table stays GC-visible here.
 	eBands := unsafe.Slice(bands, end+1)
 	N := M * shortMdctSize
@@ -1188,8 +1207,8 @@ func Opus_denormalise_bands(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSiz
 		clear(output)
 		return
 	}
-	input := unsafe.Slice(X, M*int32(eBands[end]))
-	logE := unsafe.Slice(bandLogE, end)
+	input := celtDenormaliseSpan(X, xOffset, M*int32(eBands[end]))
+	logE := celtDenormaliseSpan(bandLogE, energyOffset, end)
 	if start != 0 {
 		clear(output[:M*int32(eBands[start])])
 	}
