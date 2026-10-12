@@ -3683,7 +3683,7 @@ func opusMSDecodeBound(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, 
 		if !(s < decoder.Flayout.Fnb_streams) {
 			break
 		}
-		dec = opusMSDecoderAt(decoder, childOffset)
+		dec = opusMSDecoderBoundAt(tls, decoder, childOffset)
 		if s < decoder.Flayout.Fnb_coupled_streams {
 			v31 = opusAlignSize8(coupled_size)
 		} else {

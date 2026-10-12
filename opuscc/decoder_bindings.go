@@ -14,14 +14,29 @@ func opusBindCodecViews(tls *libc.TLS, views opusDecoderStorageViews) {
 	libc.SetGoAllocationMetadata(tls, st, opusCodecBinding{views, st.Fsilk_dec_offset, st.Fcelt_dec_offset})
 }
 
-type opusMSCodecBinding struct{ Views opusMSStorageViews }
+type opusMSCodecBinding struct {
+	Views            opusMSStorageViews
+	Streams, Coupled int32
+}
 
 func opusBindMSCodecViews(tls *libc.TLS, views opusMSStorageViews) {
 	for _, codec := range views.Codecs {
 		libc.RegisterGoAllocationAlias(tls, views.Decoder, codec.Decoder)
 		opusBindCodecViews(tls, codec)
 	}
-	libc.SetGoAllocationMetadata(tls, views.Decoder, opusMSCodecBinding{views})
+	libc.SetGoAllocationMetadata(tls, views.Decoder, opusMSCodecBinding{views, views.Decoder.Flayout.Fnb_streams, views.Decoder.Flayout.Fnb_coupled_streams})
+}
+
+func opusMSDecoderBoundAt(tls *libc.TLS, st *OpusT_OpusMSDecoder, offset uint) *OpusT_OpusDecoder {
+	binding, ok := libc.GoAllocationMetadata[OpusT_OpusMSDecoder, opusMSCodecBinding](tls, st)
+	if ok && binding.Views.Decoder == st && binding.Streams == st.Flayout.Fnb_streams && binding.Coupled == st.Flayout.Fnb_coupled_streams {
+		for i, at := range binding.Views.Offsets {
+			if at == offset {
+				return binding.Views.Codecs[i].Decoder
+			}
+		}
+	}
+	return opusMSDecoderAt(st, offset)
 }
 
 func opusReleaseMSCodecViews(tls *libc.TLS, st *OpusT_OpusMSDecoder) {

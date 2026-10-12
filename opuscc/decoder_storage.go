@@ -142,6 +142,7 @@ type opusMSStorageViews struct {
 	Decoder  *OpusT_OpusMSDecoder
 	Children []*OpusT_OpusDecoder
 	Codecs   []opusDecoderStorageViews
+	Offsets  []uint // numeric offsets from actual Go fields, not pointer subtraction
 }
 
 func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
@@ -151,12 +152,15 @@ func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
 		if !array.IsValid() {
 			continue
 		}
+		arrayField, _ := owner.Type().FieldByName(name)
+		imageField, _ := array.Type().Elem().FieldByName("Image")
 		for i := 0; i < array.Len(); i++ {
 			image := array.Index(i).FieldByName("Image")
 			child := opusDecoderStorageViewsAt(image)
 			child.Clear = opusDecoderStorageClearAt(image)
 			views.Children = append(views.Children, child.Decoder)
 			views.Codecs = append(views.Codecs, child)
+			views.Offsets = append(views.Offsets, uint(arrayField.Offset)+uint(i)*uint(array.Type().Elem().Size())+uint(imageField.Offset))
 		}
 	}
 	return views

@@ -988,11 +988,17 @@ func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		for _, codec := range binding.Views.Codecs {
-			if opusCodecSilkState(tls, codec.Decoder) != codec.Silk || opusCodecCeltState(tls, codec.Decoder) != codec.Celt {
-				t.Fatal("MS concrete frame/CTL views")
+		for i, codec := range binding.Views.Codecs {
+			if opusCodecSilkState(tls, codec.Decoder) != codec.Silk || opusCodecCeltState(tls, codec.Decoder) != codec.Celt || opusMSDecoderBoundAt(tls, st, binding.Views.Offsets[i]) != codec.Decoder || opusMSDecoderBoundAt(nil, st, binding.Views.Offsets[i]) != codec.Decoder {
+				t.Fatal("MS concrete child/frame/CTL views and layout fallback")
 			}
 		}
+		st.Flayout.Fnb_coupled_streams = 0
+		shifted := uint(opusAlignSize8(268)) + uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, 1)))
+		if opusMSDecoderBoundAt(tls, st, shifted) != opusMSDecoderAt(st, shifted) {
+			t.Fatal("live MS geometry fallback")
+		}
+		st.Flayout.Fnb_coupled_streams = binding.Coupled
 		// A child alias can be independently unregistered without freeing parent.
 		Opus_opus_decoder_destroy_typed(tls, binding.Views.Codecs[0].Decoder)
 		if libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, uintptr(unsafe.Pointer(st))) != st {
