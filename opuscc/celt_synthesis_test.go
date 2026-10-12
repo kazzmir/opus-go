@@ -572,6 +572,31 @@ func TestPrefilterStatePointers(t *testing.T) {
 	}
 }
 
+func TestSynthesisConsumedCursorPointers(t *testing.T) {
+	if celtSynthesisCursor(nil, 0, 0) != nil || celtSynthesisCursor(nil, 0, 1) != nil {
+		t.Fatal("zero offset identity")
+	}
+	owner := new(struct {
+		image [3]float32
+		guard float32
+	})
+	owner.image = [3]float32{.25, .5, 1}
+	p := &owner.image[1]
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if celtSynthesisCursor(p, 1, 1) != &owner.image[2] || celtSynthesisCursor(p, -1, 1) != &owner.image[0] || celtSynthesisCursor(p, 0, 1) != p {
+		t.Fatal("readable/signed cursor")
+	}
+	// End of the ABI image is interior to the actual guarded Go owner.
+	if celtSynthesisCursor(&owner.image[0], 3, 0) != &owner.guard {
+		t.Fatal("unused end identity")
+	}
+	*celtSynthesisCursor(p, 1, 1) = 2
+	if owner.image[2] != 2 {
+		t.Fatal("live cursor alias")
+	}
+}
+
 func TestSynthesisScratchPointers(t *testing.T) {
 	m := newSynthesisTestMode()
 	for LM := int32(0); LM <= 3; LM++ {

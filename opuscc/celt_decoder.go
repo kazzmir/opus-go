@@ -284,6 +284,15 @@ func celtSynthesisIMDCT(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq, out *fl
 	st := lookup.Fkfft[shift]
 	Opus_clt_mdct_backward_c(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, out, mode.Fwindow, overlap, shift, stride, arch)
 }
+
+// A zero-length consumer may still require C's unused end identity. Only
+// positive consumed spans may turn a displaced address into a readable prefix.
+func celtSynthesisCursor(p *float32, offset, consumed int32) *float32 {
+	if consumed <= 0 {
+		return celtNormAdd(p, offset)
+	}
+	return celtNormConsumedAt(p, offset)
+}
 func celtSynthesisOutputCopy(destination, source *float32, N int32) {
 	copy(unsafe.Slice(destination, N), unsafe.Slice(source, N))
 }
@@ -302,13 +311,13 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	if CC == 2 && C == 1 {
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
-		temp := celtNormAdd(outputs[1], overlap/2)
+		temp := celtSynthesisCursor(outputs[1], overlap/2, N)
 		celtSynthesisOutputCopy(temp, freqHead, N)
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCT(tls, mode, celtNormAdd(temp, b), celtNormAdd(outputs[0], NB*b), overlap, shift, B, arch)
+			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(temp, b, N), celtSynthesisCursor(outputs[0], NB*b, N), overlap, shift, B, arch)
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCT(tls, mode, celtNormAdd(freqHead, b), celtNormAdd(outputs[1], NB*b), overlap, shift, B, arch)
+			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[1], NB*b, N), overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
 		temp := celtNormAdd(outputs[0], overlap/2)
