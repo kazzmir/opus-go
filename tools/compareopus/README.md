@@ -534,6 +534,52 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four ACTIVE prefilter/synthesis cursor rounds migrate TDAC memory/window/filtered
+sample accesses, prefilter overlap input, mono→stereo synthesis cursors, then
+stereo→mono and general synthesis block cursors. These use minimal readable Go
+prefixes rather than positive unsafe.Add-derived addresses. Every selected TDAC
+lane is consumed inside the overlap/2 loop, with its original live window/sample
+read order, two separately rounded products and sequential store. Prefilter input
+is selected only after the original overlap==0 return; signed preceding-history
+cases still use the explicit compatibility boundary and filter history owner.
+
+Synthesis copied/downmixed temporary starts and IMDCT interleaved spectrum/output
+block starts use celtSynthesisCursor: positive consumer length selects readable
+prefixes; zero/nonpositive consumer length retains the original unused-end
+identity. Offset zero remains identity (including nil). Negative offsets retain
+caller-owned history semantics. No guessed full suffix, additional scratch copy,
+source snapshot, cached controls or changes to channel-zero do-while behavior,
+left-before-right transforms, output-as-input aliases, half-product rounding,
+window/overlap order, SATURATE identity or entropy/arithmetic are introduced.
+Remaining celtNormAdd users (e.g. potentially unconsumed denormalization channel
+inputs/energy and history headers) remain honest explicit boundaries. Production
+counts stay136 unsafe.Pointer/125 uintptr: these are ACTIVE arithmetic consumer
+migrations, not dead adapter removal, cast relocation or global lifetime proofs.
+
+Grouped synthesis cursor fixtures cover nil/zero identity, last readable sample,
+negative history, live alias writes and a terminal ABI-image cursor INTERIOR to
+an actual guarded Go owner through GC/stack growth. They do not claim exact-Go-
+allocation EOF safety. Existing TDAC rounding/window-memory aliases, prefilter
+N0/zero overlap/controls/history, synthesis branches/transients/source-output
+aliases/mode reloads and native/reference fixtures/goldens/tolerances persist.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped
+prefilter/synthesis and broad pointer checkptr, native comparisons, GC stress,
+unchanged encode/decode references and diff checks. Final validation also checks
+typed PartA/PartB references, and final ARM scoped/ordinary fixtures repeat twenty
+times. No performance/global opaque-image/extension EOF/GC or macOS claim.
+Logs: /tmp/opus-round-prefilter-tdac-consumed-samples.log,
+/tmp/opus-round-prefilter-consumed-overlap-input.log,
+/tmp/opus-round-synthesis-mono-stereo-consumed-cursors.log,
+/tmp/opus-round-synthesis-general-downmix-consumed-cursors.log and
+/tmp/opus-round-synthesis-consumed-cursors-arm-{checkptr,golden}-repeat.log.
+The combined360-second final shell timed out DURING the ordinary ARM repetition
+(after full validation and the scoped20-repeat ARM run passed in176.472s).
+The interrupted ordinary log is retained; rerun the SAME ordinary scope/count
+separately to completion in
+/tmp/opus-round-synthesis-consumed-cursors-arm-golden-repeat-retry.log. No scope,
+fixtures, golden or tolerances are changed for that time-budget retry.
+
 Four partition/deemphasis/unused-adapter rounds change active positive pointer
 advances and remove unreferenced generated C-internal leaf adapters. Round1
 indexes the split partition's second spectrum through a minimal readable prefix

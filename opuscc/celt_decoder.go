@@ -320,7 +320,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[1], NB*b, N), overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
-		temp := celtNormAdd(outputs[0], overlap/2)
+		temp := celtSynthesisCursor(outputs[0], overlap/2, N)
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, celtNormAdd(X, N), temp, celtNormAdd(oldBandE, nbEBands), start, effEnd, M, downsample, silence)
 		other := unsafe.Slice(temp, N)
@@ -329,14 +329,14 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 			freq[i] = float32(float32(.5)*freq[i]) + float32(float32(.5)*other[i])
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCT(tls, mode, celtNormAdd(freqHead, b), celtNormAdd(outputs[0], NB*b), overlap, shift, B, arch)
+			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[0], NB*b, N), overlap, shift, B, arch)
 		}
 	} else {
 		// The C do-while visits channel zero even when CC is zero.
 		for c := int32(0); c < max(CC, 1); c++ {
 			Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, celtNormAdd(X, c*N), freqHead, celtNormAdd(oldBandE, c*nbEBands), start, effEnd, M, downsample, silence)
 			for b := int32(0); b < B; b++ {
-				celtSynthesisIMDCT(tls, mode, celtNormAdd(freqHead, b), celtNormAdd(outputs[c], NB*b), overlap, shift, B, arch)
+				celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[c], NB*b, N), overlap, shift, B, arch)
 			}
 		}
 	}
