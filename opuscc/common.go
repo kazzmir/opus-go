@@ -4221,7 +4221,12 @@ func opusProjectionMSOffset(st *OpusT_OpusProjectionDecoder) uint {
 
 // st belongs to the full header/matrix/multistream backing allocation.
 func get_multistream_decoder(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *OpusT_OpusMSDecoder {
-	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), opusProjectionMSOffset(st)))
+	offset := opusProjectionMSOffset(st)
+	binding, ok := libc.GoAllocationMetadata[OpusT_OpusProjectionDecoder, opusProjectionCodecBinding](tls, st)
+	if ok && binding.Views.Decoder == st && binding.Views.MultistreamOffset == offset {
+		return binding.Views.Multistream.Decoder
+	}
+	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
 }
 
 func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels, streams, coupled_streams int32) int32 {

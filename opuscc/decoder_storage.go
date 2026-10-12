@@ -114,19 +114,22 @@ func opusProjectionDecoderStorageType(channels, streams, coupled int32) reflect.
 }
 
 type opusProjectionStorageViews struct {
-	Decoder      *OpusT_OpusProjectionDecoder
-	Matrix       *OpusT_MappingMatrix
-	Coefficients *int16
-	Multistream  opusMSStorageViews
+	Decoder           *OpusT_OpusProjectionDecoder
+	Matrix            *OpusT_MappingMatrix
+	Coefficients      *int16
+	Multistream       opusMSStorageViews
+	MultistreamOffset uint // actual reflection-field displacement
 }
 
 func opusProjectionDecoderOwnedStorage(channels, streams, coupled int32) opusProjectionStorageViews {
 	owner := opusDecoderAlignedStorage(opusProjectionDecoderStorageType(channels, streams, coupled))
 	matrix := owner.FieldByName("Demixing")
+	msField, _ := owner.Type().FieldByName("Multistream")
 	views := opusProjectionStorageViews{
-		Decoder:     owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusProjectionDecoder),
-		Matrix:      matrix.FieldByName("Matrix").Addr().Interface().(*OpusT_MappingMatrix),
-		Multistream: opusMSStorageViewsAt(owner.FieldByName("Multistream")),
+		Decoder:           owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusProjectionDecoder),
+		Matrix:            matrix.FieldByName("Matrix").Addr().Interface().(*OpusT_MappingMatrix),
+		Multistream:       opusMSStorageViewsAt(owner.FieldByName("Multistream")),
+		MultistreamOffset: uint(msField.Offset),
 	}
 	if coefficients := matrix.FieldByName("Coefficients"); coefficients.IsValid() {
 		views.Coefficients = coefficients.Index(0).Addr().Interface().(*int16)
