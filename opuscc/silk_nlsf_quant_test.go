@@ -1,8 +1,8 @@
 package opuscc
 
 import (
+	"runtime"
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -18,7 +18,9 @@ func TestNLSFDelayedDecisionQuantizerLocalStates(t *testing.T) {
 	ecIndices := make([]OpusT_opus_int16, len(indices))
 	ecRates := []OpusT_opus_uint8{12, 17, 21, 25, 29, 34, 39, 44, 50, 56, 63, 71}
 
-	if got, want := Opus_silk_NLSF_del_dec_quant(tls, uintptr(unsafe.Pointer(&indices[0])), uintptr(unsafe.Pointer(&xQ10[0])), uintptr(unsafe.Pointer(&wQ5[0])), uintptr(unsafe.Pointer(&predictors[0])), uintptr(unsafe.Pointer(&ecIndices[0])), uintptr(unsafe.Pointer(&ecRates[0])), 65536, 64, 8192, 10), OpusT_opus_int32(15284434); got != want {
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if got, want := Opus_silk_NLSF_del_dec_quant(tls, &indices[0], &xQ10[0], &wQ5[0], &predictors[0], &ecIndices[0], &ecRates[0], 65536, 64, 8192, 10), OpusT_opus_int32(15284434); got != want {
 		t.Fatalf("rate-distortion: got %d, want %d", got, want)
 	}
 	wantIndices := []OpusT_opus_int8{0, -1, 0, -1, 0, -1, 0, -1, 0, -1}

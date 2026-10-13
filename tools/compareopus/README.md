@@ -534,6 +534,46 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four generated leaf-entry rounds delete the unreferenced Opus_celt_decode_with_ec
+integer forwarding alias, then its unreferenced Opus_celt_decode_with_ec_dred
+integer adapter, and convert VAD plus delayed-NLSF quantizer leaf entry signatures
+to real Go pointers. Standard CELT frame/audio/native comparison paths already
+call the concrete private decoder, so the two deletions are DEAD adapter cleanup,
+not lifetime repairs. Repository-wide searches find no decoder/tools references;
+same-named opusccenc functions belong to the independent encoder package and stay.
+
+Opus_silk_VAD_GetSA_Q8_c now receives *silk_encoder_state and *int16 input;
+Opus_silk_NLSF_del_dec_quant receives *int8 indices, int16 sample/weight/index
+pointers and byte predictor/rate pointers. Both delegate unchanged to the existing
+concrete kernels; removed uintptrescapes annotations/integer→pointer conversions
+are not relocated. VAD Go/reference-native fixture calls and the delayed quantizer
+fixture now pass actual pointers. Existing scratch/state aliasing, rounding/
+wrapping, signed narrowing, search/tie order, error/validation conditions and
+pseudostack non-consumption semantics remain. VAD native whole-state/fields and
+quantizer RD15284434/indices are unchanged; delayed fixture adds GC/stack growth
+before the same golden call. No encoder-state embedded legacy-pointer bitmap or
+unrelated table backward-boundary safety is claimed repaired.
+
+These generated C-INTERNAL Go leaf exports are not the public Opus codec API:
+external Go users of the removed CELT leaf wrappers or old uintptr VAD/NLSF
+signatures must adapt; this is a source-level leaf API cleanup. Public Opus
+create/init/decode/CTL/destroy, required used adapters and custom callback ABI
+remain untouched. Counts136→124 unsafe.Pointer/125→116 uintptr:4 cast deletions
+are unused CELT cleanup and8 are the concrete leaf parameter crossings;9 uintptr
+parameter spellings disappear. No opaque aliases, raw casts hidden in helpers,
+full-buffer copies or changed codec goldens/tolerances.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, broad/scoped
+checkptr, typed PartA/PartB on all three architectures, native comparisons, GC
+stress, unchanged codec references and diff checks. VAD/NLSF typed entries also
+pass their specific scoped checkptr runs; final ARM ordinary/scoped fixtures
+repeat twenty times. No global opaque-image/extension EOF/GC or macOS claim.
+Logs: /tmp/opus-round-remove-unused-celt-decode-alias.log,
+/tmp/opus-round-remove-unused-celt-dred-adapter.log,
+/tmp/opus-round-vad-concrete-leaf-entry.log,
+/tmp/opus-round-nlsf-concrete-leaf-entry{,-focused}.log and
+/tmp/opus-round-concrete-celt-vad-nlsf-leaves-arm-{checkptr,golden}-repeat.log.
+
 Four ACTIVE canonical accessor rounds select MS decode children, projection's
 embedded MS header, demixing matrix header, then coefficient cells (and MS typed
 CTL child consumers) from actual registered Go views. opusMSStorageViews.Offsets
