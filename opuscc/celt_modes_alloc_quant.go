@@ -2653,10 +2653,8 @@ func quantAllBandsSetEntropy(ctx *band_ctx, ec *OpusT_ec_ctx) { ctx.Fec = ec }
 func quantAllBandsSetMode(ctx *band_ctx, mode *OpusT_OpusCustomMode) { ctx.Fm = mode }
 
 // Legacy pointer ABI: retain Go-owned caller scratch across recursive calls.
-//
-//go:uintptrescapes
-func Opus_quant_all_bands(tls *libc.TLS, encode int32, m uintptr, start int32, end int32, X_ uintptr, Y_ uintptr, collapse_masks uintptr, bandE uintptr, pulses uintptr, shortBlocks int32, spread int32, dual_stereo int32, intensity int32, tf_res uintptr, total_bits OpusT_opus_int32, balance OpusT_opus_int32, ec uintptr, LM int32, codedBands int32, seed uintptr, complexity int32, arch int32, disable_inv int32) {
-	quant_all_bands(tls, encode, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, (*float32)(unsafe.Pointer(X_)), (*float32)(unsafe.Pointer(Y_)), (*byte)(unsafe.Pointer(collapse_masks)), (*float32)(unsafe.Pointer(bandE)), (*int32)(unsafe.Pointer(pulses)), shortBlocks, spread, dual_stereo, intensity, (*int32)(unsafe.Pointer(tf_res)), total_bits, balance, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), LM, codedBands, (*uint32)(unsafe.Pointer(seed)), complexity, arch, disable_inv)
+func Opus_quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start int32, end int32, X_, Y_ *float32, collapse_masks *byte, bandE *float32, pulses *int32, shortBlocks int32, spread int32, dual_stereo int32, intensity int32, tf_res *int32, total_bits OpusT_opus_int32, balance OpusT_opus_int32, ec *OpusT_ec_ctx, LM int32, codedBands int32, seed *uint32, complexity int32, arch int32, disable_inv int32) {
+	quant_all_bands(tls, encode, m, start, end, X_, Y_, collapse_masks, bandE, pulses, shortBlocks, spread, dual_stereo, intensity, tf_res, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
 }
 
 // Internal spectra, entropy, tables and scratch owners are typed.

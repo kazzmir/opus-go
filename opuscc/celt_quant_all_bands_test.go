@@ -817,16 +817,16 @@ func TestQuantAllBandsCReference(t *testing.T) {
 		seed[0] = seedIn
 
 		Opus_ec_enc_init(tls, &encoder[0], &buffer[0], 64)
-		var yPtr uintptr
+		var yPtr *float32
 		if stereo {
-			yPtr = uintptr(unsafe.Pointer(&Y[0]))
+			yPtr = &Y[0]
 		}
-		Opus_quant_all_bands(tls, 1, uintptr(unsafe.Pointer(&mode[0])), 0, 3,
-			uintptr(unsafe.Pointer(&X[0])), yPtr, uintptr(unsafe.Pointer(&collapse[0])),
-			uintptr(unsafe.Pointer(&bandE[0])), uintptr(unsafe.Pointer(&pulses[0])),
-			0, spread, dual, 3, uintptr(unsafe.Pointer(&tfRes[0])),
-			400, 24, uintptr(unsafe.Pointer(&encoder[0])), 0, 3,
-			uintptr(unsafe.Pointer(&seed[0])), complexity, 0, 0)
+		Opus_quant_all_bands(tls, 1, &mode[0], 0, 3,
+			&X[0], yPtr, &collapse[0],
+			&bandE[0], &pulses[0],
+			0, spread, dual, 3, &tfRes[0],
+			400, 24, &encoder[0], 0, 3,
+			&seed[0], complexity, 0, 0)
 		Opus_ec_enc_done(tls, &encoder[0])
 
 		nmasks := 3
@@ -891,12 +891,12 @@ func TestQuantAllBandsCReference(t *testing.T) {
 		pseudostack.Fglobal_stack = scratch
 
 		Opus_ec_dec_init(tls, &decoder[0], &buffer[0], 64)
-		Opus_quant_all_bands(tls, 0, uintptr(unsafe.Pointer(&mode[0])), 0, 3,
-			uintptr(unsafe.Pointer(&X[0])), uintptr(unsafe.Pointer(&Y[0])),
-			uintptr(unsafe.Pointer(&collapse[0])), uintptr(unsafe.Pointer(&bandE[0])),
-			uintptr(unsafe.Pointer(&pulses[0])), 0, SPREAD_NORMAL, 0, 3,
-			uintptr(unsafe.Pointer(&tfRes[0])), 400, 24, uintptr(unsafe.Pointer(&decoder[0])),
-			0, 3, uintptr(unsafe.Pointer(&seed[0])), 8, 0, 0)
+		Opus_quant_all_bands(tls, 0, &mode[0], 0, 3,
+			&X[0], &Y[0],
+			&collapse[0], &bandE[0],
+			&pulses[0], 0, SPREAD_NORMAL, 0, 3,
+			&tfRes[0], 400, 24, &decoder[0],
+			0, 3, &seed[0], 8, 0, 0)
 
 		if got, want := fnv1aFloats(X), uint32(0xba1de34d); got != want {
 			t.Errorf("decode: Xfnv: got %08x, want %08x", got, want)
