@@ -114,19 +114,22 @@ func opusProjectionDecoderStorageType(channels, streams, coupled int32) reflect.
 }
 
 type opusProjectionStorageViews struct {
-	Decoder      *OpusT_OpusProjectionDecoder
-	Matrix       *OpusT_MappingMatrix
-	Coefficients *int16
-	Multistream  opusMSStorageViews
+	Decoder           *OpusT_OpusProjectionDecoder
+	Matrix            *OpusT_MappingMatrix
+	Coefficients      *int16
+	Multistream       opusMSStorageViews
+	MultistreamOffset uint // actual reflection-field displacement
 }
 
 func opusProjectionDecoderOwnedStorage(channels, streams, coupled int32) opusProjectionStorageViews {
 	owner := opusDecoderAlignedStorage(opusProjectionDecoderStorageType(channels, streams, coupled))
 	matrix := owner.FieldByName("Demixing")
+	msField, _ := owner.Type().FieldByName("Multistream")
 	views := opusProjectionStorageViews{
-		Decoder:     owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusProjectionDecoder),
-		Matrix:      matrix.FieldByName("Matrix").Addr().Interface().(*OpusT_MappingMatrix),
-		Multistream: opusMSStorageViewsAt(owner.FieldByName("Multistream")),
+		Decoder:           owner.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusProjectionDecoder),
+		Matrix:            matrix.FieldByName("Matrix").Addr().Interface().(*OpusT_MappingMatrix),
+		Multistream:       opusMSStorageViewsAt(owner.FieldByName("Multistream")),
+		MultistreamOffset: uint(msField.Offset),
 	}
 	if coefficients := matrix.FieldByName("Coefficients"); coefficients.IsValid() {
 		views.Coefficients = coefficients.Index(0).Addr().Interface().(*int16)
@@ -142,6 +145,7 @@ type opusMSStorageViews struct {
 	Decoder  *OpusT_OpusMSDecoder
 	Children []*OpusT_OpusDecoder
 	Codecs   []opusDecoderStorageViews
+	Offsets  []uint // numeric offsets from actual Go fields, not pointer subtraction
 }
 
 func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
@@ -151,12 +155,15 @@ func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
 		if !array.IsValid() {
 			continue
 		}
+		arrayField, _ := owner.Type().FieldByName(name)
+		imageField, _ := array.Type().Elem().FieldByName("Image")
 		for i := 0; i < array.Len(); i++ {
 			image := array.Index(i).FieldByName("Image")
 			child := opusDecoderStorageViewsAt(image)
 			child.Clear = opusDecoderStorageClearAt(image)
 			views.Children = append(views.Children, child.Decoder)
 			views.Codecs = append(views.Codecs, child)
+			views.Offsets = append(views.Offsets, uint(arrayField.Offset)+uint(i)*uint(array.Type().Elem().Size())+uint(imageField.Offset))
 		}
 	}
 	return views

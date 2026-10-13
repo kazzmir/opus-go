@@ -2227,6 +2227,7 @@ func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels
 		Opus_opus_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
+	opusBindCodecViews(tls, owned)
 	return st, nil
 }
 
@@ -2324,8 +2325,8 @@ func opusDecodeFrame(tls *libc.TLS, st1 *OpusT_OpusDecoder, data *byte, len1 int
 	redundancy_bytes = 0
 	celt_to_silk = 0
 	redundant_rng = uint32(0)
-	silk_dec = opusFrameSilkState(decoder)
-	celt_dec = opusFrameCeltState(decoder)
+	silk_dec = opusCodecSilkState(tls, decoder)
+	celt_dec = opusCodecCeltState(tls, decoder)
 	F20 = decoder.FFs / int32(50)
 	F10 = F20 >> int32(1)
 	F5 = F10 >> int32(1)
@@ -3530,6 +3531,7 @@ func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int
 		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
 	}
+	opusBindMSCodecViews(tls, owned)
 	return st, nil
 }
 
@@ -3681,7 +3683,7 @@ func opusMSDecodeBound(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, 
 		if !(s < decoder.Flayout.Fnb_streams) {
 			break
 		}
-		dec = opusMSDecoderAt(decoder, childOffset)
+		dec = opusMSDecoderBoundAt(tls, decoder, childOffset)
 		if s < decoder.Flayout.Fnb_coupled_streams {
 			v31 = opusAlignSize8(coupled_size)
 		} else {
@@ -3896,11 +3898,16 @@ func Opus_opus_multistream_decoder_ctl(tls *libc.TLS, st uintptr, request int32,
 }
 
 func Opus_opus_multistream_decoder_destroy(tls *libc.TLS, st uintptr) {
+	if owned := libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, st); owned != nil {
+		Opus_opus_multistream_decoder_destroy_typed(tls, owned)
+		return
+	}
 	libc.Xfree(tls, st)
 }
 
 func Opus_opus_multistream_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
-	// All component decoders belong to the same allocation; free only the base.
+	// Child registry aliases are not allocations; remove their bindings first.
+	opusReleaseMSCodecViews(tls, st)
 	libc.XfreePointer(tls, unsafe.Pointer(st))
 }
 
@@ -3958,6 +3965,10 @@ func mappingMatrixData(matrix *OpusT_MappingMatrix) *int16 {
 }
 
 func Opus_mapping_matrix_get_data(tls *libc.TLS, matrix *OpusT_MappingMatrix) *int16 {
+	binding, ok := libc.GoAllocationMetadata[OpusT_MappingMatrix, opusMatrixBinding](tls, matrix)
+	if ok && binding.Matrix == matrix && binding.Coefficients != nil {
+		return binding.Coefficients
+	}
 	return mappingMatrixData(matrix)
 }
 
@@ -4205,6 +4216,10 @@ func opus_projection_copy_channel_out_int24(tls *libc.TLS, dst *int32, dstStride
 
 // The header must belong to the complete projection decoder backing allocation.
 func get_dec_demixing_matrix(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *OpusT_MappingMatrix {
+	binding, ok := libc.GoAllocationMetadata[OpusT_OpusProjectionDecoder, opusProjectionCodecBinding](tls, st)
+	if ok && binding.Views.Decoder == st && binding.Views.Matrix != nil {
+		return binding.Views.Matrix
+	}
 	return (*OpusT_MappingMatrix)(unsafe.Add(unsafe.Pointer(st), 8))
 }
 
@@ -4214,7 +4229,12 @@ func opusProjectionMSOffset(st *OpusT_OpusProjectionDecoder) uint {
 
 // st belongs to the full header/matrix/multistream backing allocation.
 func get_multistream_decoder(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) *OpusT_OpusMSDecoder {
-	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), opusProjectionMSOffset(st)))
+	offset := opusProjectionMSOffset(st)
+	binding, ok := libc.GoAllocationMetadata[OpusT_OpusProjectionDecoder, opusProjectionCodecBinding](tls, st)
+	if ok && binding.Views.Decoder == st && binding.Views.MultistreamOffset == offset {
+		return binding.Views.Multistream.Decoder
+	}
+	return (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
 }
 
 func Opus_opus_projection_decoder_get_size(tls *libc.TLS, channels, streams, coupled_streams int32) int32 {
@@ -4291,6 +4311,9 @@ func Opus_opus_projection_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int3
 	if ret := opusProjectionDecoderInitWithStorage(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes, owned); ret != OPUS_OK {
 		Opus_opus_projection_decoder_destroy_typed(tls, st)
 		return nil, opusErrorFromCode(ret)
+	}
+	if owned != nil {
+		opusBindProjectionCodecViews(tls, *owned)
 	}
 	return st, nil
 }
@@ -4371,11 +4394,16 @@ func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, 
 }
 
 func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {
+	if owned := libc.RegisteredGoAllocation[OpusT_OpusProjectionDecoder](tls, st); owned != nil {
+		Opus_opus_projection_decoder_destroy_typed(tls, owned)
+		return
+	}
 	libc.Xfree(tls, st)
 }
 
 func Opus_opus_projection_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) {
-	// Demixing coefficients and multistream decoders are interiors, not owners.
+	// Remove registered child/MS aliases, then unregister only the base owner.
+	opusReleaseProjectionCodecViews(tls, st)
 	libc.XfreePointer(tls, unsafe.Pointer(st))
 }
 

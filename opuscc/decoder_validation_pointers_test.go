@@ -942,6 +942,160 @@ func TestOpusDecoderDREDRegisteredStoragePointers(t *testing.T) {
 	Opus_opus_dred_decoder_destroy_typed(tls, nil)
 }
 
+func TestOpusDecoderBoundCodecStoragePointers(t *testing.T) {
+	tls := libc.NewTLS()
+	defer tls.Close()
+	st, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Opus_opus_decoder_destroy_typed(tls, st)
+	binding, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, st)
+	if !ok {
+		t.Fatal("factory codec views")
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if opusCodecSilkState(tls, st) != binding.Views.Silk || opusCodecCeltState(tls, st) != binding.Views.Celt {
+		t.Fatal("concrete frame/control state")
+	}
+	st.Fcelt_dec_offset += 8
+	if opusCodecCeltState(tls, st) != opusFrameCeltState(st) || opusCodecCeltState(tls, st) == binding.Views.Celt {
+		t.Fatal("live changed CELT offset fallback")
+	}
+	st.Fcelt_dec_offset = binding.CeltOffset
+	st.Fsilk_dec_offset += 8
+	if opusCodecSilkState(tls, st) != opusFrameSilkState(st) {
+		t.Fatal("live changed SILK offset fallback")
+	}
+	st.Fsilk_dec_offset = binding.SilkOffset
+	if opusCodecCeltState(nil, st) != binding.Views.Celt || opusCodecSilkState(nil, st) != binding.Views.Silk {
+		t.Fatal("unregistered/nil TLS layout compatibility")
+	}
+}
+
+func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
+	for _, raw := range []bool{false, true} {
+		tls := libc.NewTLS()
+		mapping := [3]byte{0, 1, 2}
+		st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 3, 2, 1, &mapping[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		binding, ok := libc.GoAllocationMetadata[OpusT_OpusMSDecoder, opusMSCodecBinding](tls, st)
+		if !ok || len(binding.Views.Codecs) != 2 {
+			t.Fatal("MS codec views")
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for i, codec := range binding.Views.Codecs {
+			if opusCodecSilkState(tls, codec.Decoder) != codec.Silk || opusCodecCeltState(tls, codec.Decoder) != codec.Celt || opusMSDecoderBoundAt(tls, st, binding.Views.Offsets[i]) != codec.Decoder || opusMSDecoderBoundAt(nil, st, binding.Views.Offsets[i]) != codec.Decoder {
+				t.Fatal("MS concrete child/frame/CTL views and layout fallback")
+			}
+			var returned *OpusT_OpusDecoder
+			if Opus_opus_multistream_decoder_ctl_typed(tls, st, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Value: int32(i), Decoder: &returned}) != OPUS_OK || returned != codec.Decoder {
+				t.Fatal("MS bound CTL child")
+			}
+		}
+		st.Flayout.Fnb_coupled_streams = 0
+		shifted := uint(opusAlignSize8(268)) + uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, 1)))
+		if opusMSDecoderBoundAt(tls, st, shifted) != opusMSDecoderAt(st, shifted) {
+			t.Fatal("live MS geometry fallback")
+		}
+		st.Flayout.Fnb_coupled_streams = binding.Coupled
+		// A child alias can be independently unregistered without freeing parent.
+		Opus_opus_decoder_destroy_typed(tls, binding.Views.Codecs[0].Decoder)
+		if libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, uintptr(unsafe.Pointer(st))) != st {
+			t.Fatal("child alias freed parent")
+		}
+		if raw {
+			Opus_opus_multistream_decoder_destroy(tls, uintptr(unsafe.Pointer(st)))
+		} else {
+			Opus_opus_multistream_decoder_destroy_typed(tls, st)
+		}
+		for _, codec := range binding.Views.Codecs {
+			if _, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, codec.Decoder); ok {
+				t.Fatal("MS child binding leaked")
+			}
+		}
+		Opus_opus_multistream_decoder_destroy_typed(tls, st)
+		tls.Close()
+	}
+}
+
+func TestOpusDecoderProjectionBoundCodecStoragePointers(t *testing.T) {
+	for method := 0; method < 4; method++ {
+		tls := libc.NewTLS()
+		matrix := [18]byte{}
+		st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], 18)
+		if err != nil {
+			t.Fatal(err)
+		}
+		binding, ok := libc.GoAllocationMetadata[OpusT_OpusProjectionDecoder, opusProjectionCodecBinding](tls, st)
+		if !ok || len(binding.Views.Multistream.Codecs) != 2 {
+			t.Fatal("projection codec views")
+		}
+		if get_multistream_decoder(tls, st) != binding.Views.Multistream.Decoder || get_multistream_decoder(nil, st) != binding.Views.Multistream.Decoder {
+			t.Fatal("projection concrete MS/fallback")
+		}
+		if get_dec_demixing_matrix(tls, st) != binding.Views.Matrix || get_dec_demixing_matrix(nil, st) != binding.Views.Matrix {
+			t.Fatal("projection concrete matrix/fallback")
+		}
+		if Opus_mapping_matrix_get_data(tls, binding.Views.Matrix) != binding.Views.Coefficients || Opus_mapping_matrix_get_data(nil, binding.Views.Matrix) != binding.Views.Coefficients {
+			t.Fatal("concrete coefficient view/fallback")
+		}
+		oldRows, oldCols := binding.Views.Matrix.Frows, binding.Views.Matrix.Fcols
+		binding.Views.Matrix.Frows, binding.Views.Matrix.Fcols = 1, 1
+		if Opus_mapping_matrix_get_data(tls, binding.Views.Matrix) != binding.Views.Coefficients {
+			t.Fatal("live matrix geometry does not move coefficient field")
+		}
+		binding.Views.Matrix.Frows, binding.Views.Matrix.Fcols = oldRows, oldCols
+		oldSize := st.Fdemixing_matrix_size_in_bytes
+		st.Fdemixing_matrix_size_in_bytes += 8
+		if get_multistream_decoder(tls, st) != get_multistream_decoder(nil, st) || get_multistream_decoder(tls, st) == binding.Views.Multistream.Decoder {
+			t.Fatal("live projection MS offset fallback")
+		}
+		if get_dec_demixing_matrix(tls, st) != binding.Views.Matrix {
+			t.Fatal("matrix fixed-field identity independent of MS offset")
+		}
+		st.Fdemixing_matrix_size_in_bytes = oldSize
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for _, codec := range binding.Views.Multistream.Codecs {
+			if opusCodecSilkState(tls, codec.Decoder) != codec.Silk || opusCodecCeltState(tls, codec.Decoder) != codec.Celt {
+				t.Fatal("projection concrete frame/control views")
+			}
+		}
+		// An interior MS destructor must not unregister the projection base.
+		if method == 0 {
+			Opus_opus_multistream_decoder_destroy_typed(tls, binding.Views.Multistream.Decoder)
+		}
+		switch method {
+		case 0:
+			Opus_opus_projection_decoder_destroy_typed(tls, st)
+		case 1:
+			Opus_opus_projection_decoder_destroy(tls, uintptr(unsafe.Pointer(st)))
+		case 2:
+			libc.Xfree(tls, uintptr(unsafe.Pointer(st)))
+		case 3:
+			tls.Close()
+		}
+		if _, ok := libc.GoAllocationMetadata[OpusT_OpusMSDecoder, opusMSCodecBinding](tls, binding.Views.Multistream.Decoder); ok {
+			t.Fatal("projection MS binding leaked")
+		}
+		if _, ok := libc.GoAllocationMetadata[OpusT_MappingMatrix, opusMatrixBinding](tls, binding.Views.Matrix); ok {
+			t.Fatal("projection matrix binding leaked")
+		}
+		for _, codec := range binding.Views.Multistream.Codecs {
+			if _, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, codec.Decoder); ok {
+				t.Fatal("projection child binding leaked")
+			}
+		}
+		Opus_opus_projection_decoder_destroy_typed(tls, st)
+		tls.Close()
+	}
+}
+
 func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()

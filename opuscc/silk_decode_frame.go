@@ -11,11 +11,6 @@ import (
 
 var _ reflect.Type
 
-//go:uintptrescapes
-func Opus_silk_decode_frame(tls *libc.TLS, psDec, psRangeDec, pOut, pN uintptr, lostFlag, condCoding, arch int32) int32 {
-	return silk_decode_frame(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*int16)(unsafe.Pointer(pOut)), (*int32)(unsafe.Pointer(pN)), lostFlag, condCoding, arch)
-}
-
 func silkDecodeFramePulses(length int32) []int16 {
 	return make([]int16, (length+SHELL_CODEC_FRAME_LENGTH-1)&^(SHELL_CODEC_FRAME_LENGTH-1))
 }

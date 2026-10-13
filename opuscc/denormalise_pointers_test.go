@@ -54,6 +54,48 @@ func TestNormaliseBandsPointers(t *testing.T) {
 	}
 }
 
+func TestDenormaliseOffsetPointers(t *testing.T) {
+	for _, start := range []int32{0, 1} {
+		for _, down := range []int32{1, 2} {
+			for _, energy := range []int32{7, 13} {
+				var want, got [18]float32
+				for i := range want {
+					want[i] = float32(i%7-3) / 17
+				}
+				got = want
+				// Output overlaps both spectrum and (in one case) energy.
+				Opus_denormalise_bands(nil, &denormalisePointerBands[0], 8, &want[2], &want[4], &want[energy], start, 3, 1, down, 0)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				celtDenormaliseBandsAt(nil, &denormalisePointerBands[0], 8, &got[0], 2, &got[4], &got[0], energy, start, 3, 1, down, 0)
+				for i := range got {
+					if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+						t.Fatal("offset bits/live aliases/guards", start, down, energy, i)
+					}
+				}
+			}
+		}
+	}
+	if celtDenormaliseSpan(nil, 2147483647, 0) != nil {
+		t.Fatal("unused displaced span")
+	}
+	owner := [3]float32{.25, .5, 1}
+	if span := celtDenormaliseSpan(&owner[1], -1, 2); span[0] != .25 || span[1] != .5 {
+		t.Fatal("signed history")
+	}
+	out := [4]float32{77, 1, 2, 88}
+	bands := [2]int16{0, 2}
+	celtDenormaliseBandsAt(nil, &bands[0], 2, nil, 2147483647, &out[1], nil, 2147483647, 0, 1, 1, 1, 1)
+	if out != [4]float32{77, 0, 0, 88} {
+		t.Fatal("silence skips offset formation", out)
+	}
+	zeroBand := [1]int16{0}
+	celtDenormaliseBandsAt(nil, &zeroBand[0], 2, nil, 2147483647, &out[1], nil, 2147483647, 0, 0, 1, 1, 0)
+	if out != [4]float32{77, 0, 0, 88} {
+		t.Fatal("empty spans/guards", out)
+	}
+}
+
 func TestDenormalisePointers(t *testing.T) {
 	in := [6]float32{1, 2, 3, 4, 5, 6}
 	logE := [3]float32{0, -100, 100}

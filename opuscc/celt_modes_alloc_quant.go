@@ -818,15 +818,6 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 	return codedBands
 }
 
-// Callers pass addresses of Go locals (intensity, dual_stereo, balance) as
-// uintptr. Keep those locals alive at stable addresses across nested calls:
-// otherwise stack growth can leave these output pointers referring to the old
-// stack, making decoded PCM depend on the caller's stack depth.
-//
-//go:uintptrescapes
-func Opus_clt_compute_allocation(tls *libc.TLS, m uintptr, start, end int32, offsets, cap1 uintptr, trim int32, intensity, dual uintptr, total int32, balance, pulses, ebits, priority uintptr, C, LM int32, ec uintptr, encode, prev, bandwidth int32) int32 {
-	return clt_compute_allocation(tls, (*OpusT_OpusCustomMode)(unsafe.Pointer(m)), start, end, (*int32)(unsafe.Pointer(offsets)), (*int32)(unsafe.Pointer(cap1)), trim, (*int32)(unsafe.Pointer(intensity)), (*int32)(unsafe.Pointer(dual)), total, (*int32)(unsafe.Pointer(balance)), (*int32)(unsafe.Pointer(pulses)), (*int32)(unsafe.Pointer(ebits)), (*int32)(unsafe.Pointer(priority)), C, LM, (*OpusT_ec_ctx)(unsafe.Pointer(ec)), encode, prev, bandwidth)
-}
 func allocationVector(mode *OpusT_OpusCustomMode, stride, vector, band int32) byte {
 	return unsafe.Slice(mode.FallocVectors, mode.FnbAllocVectors*stride)[vector*stride+band]
 }
@@ -1185,6 +1176,25 @@ func Opus_normalise_bands(tls *libc.TLS, bands *int16, shortMdctSize, nbEBands i
 //
 //	/* De-normalise the energy to produce the synthesis from the unit-energy bands */
 func Opus_denormalise_bands(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, freq *OpusT_celt_sig, bandLogE *OpusT_celt_glog, start, end, M, downsample, silence int32) {
+	celtDenormaliseBandsAt(tls, bands, shortMdctSize, X, 0, freq, bandLogE, 0, start, end, M, downsample, silence)
+}
+
+// Channel offsets stay numeric until their spans are needed. Silent calls
+// never form input/energy cursors; empty displaced spans need no end pointer.
+func celtDenormaliseSpan(p *float32, offset, length int32) []float32 {
+	if offset == 0 {
+		return unsafe.Slice(p, length)
+	}
+	if length == 0 {
+		return nil
+	}
+	if length < 0 {
+		return unsafe.Slice(celtNormAdd(p, offset), length)
+	}
+	return unsafe.Slice(celtNormConsumedAt(p, offset), length)
+}
+
+func celtDenormaliseBandsAt(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, xOffset int32, freq *OpusT_celt_sig, bandLogE *OpusT_celt_glog, energyOffset int32, start, end, M, downsample, silence int32) {
 	// Pass the two mode inputs explicitly so the table stays GC-visible here.
 	eBands := unsafe.Slice(bands, end+1)
 	N := M * shortMdctSize
@@ -1197,8 +1207,8 @@ func Opus_denormalise_bands(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSiz
 		clear(output)
 		return
 	}
-	input := unsafe.Slice(X, M*int32(eBands[end]))
-	logE := unsafe.Slice(bandLogE, end)
+	input := celtDenormaliseSpan(X, xOffset, M*int32(eBands[end]))
+	logE := celtDenormaliseSpan(bandLogE, energyOffset, end)
 	if start != 0 {
 		clear(output[:M*int32(eBands[start])])
 	}
@@ -1638,8 +1648,17 @@ func celtNormAdd(p *float32, offset int32) *float32 {
 	if offset == 0 {
 		return p
 	}
-	// Nonzero callers may need preceding history or an unused end pointer.
+	// Explicit compatibility boundary for preceding history and unused ends.
 	return (*float32)(unsafe.Add(unsafe.Pointer(p), int(offset)*4))
+}
+
+// Call only when the displaced sample will be consumed. Offset zero keeps
+// identity; signed caller-owned history retains the explicit legacy boundary.
+func celtNormConsumedAt(p *float32, offset int32) *float32 {
+	if offset <= 0 {
+		return celtNormAdd(p, offset)
+	}
+	return &unsafe.Slice(p, int64(offset)+1)[offset]
 }
 
 func bandContextEnergy(ctx *band_ctx, index int32) float32 {
@@ -1981,7 +2000,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 	if LM2 != -int32(1) && b > int32(modePulseByte(cache2, int32(*cache2)))+int32(12) && N > int32(2) {
 		next_lowband2 = nil
 		N = N >> int32(1)
-		Y = celtNormAdd(X, N)
+		// This split consumes both halves: N>0 and the second half is readable.
+		Y = &unsafe.Slice(X, int64(N)+1)[N]
 		LM2 = LM2 - int32(1)
 		if B == int32(1) {
 			fill = fill&int32(1) | fill<<int32(1)
@@ -2029,7 +2049,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 		sbits = b - mbits
 		ctx.Fremaining_bits -= qalloc
 		if lowband != nil {
-			next_lowband2 = celtNormAdd(lowband, N)
+			// The recursive second half consumes this interior lowband cell.
+			next_lowband2 = &unsafe.Slice(lowband, int64(N)+1)[N]
 		} /* >32-bit split case */
 		rebalance = ctx.Fremaining_bits
 		if mbits >= sbits {

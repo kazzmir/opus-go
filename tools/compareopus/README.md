@@ -534,6 +534,233 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four ACTIVE canonical accessor rounds select MS decode children, projection's
+embedded MS header, demixing matrix header, then coefficient cells (and MS typed
+CTL child consumers) from actual registered Go views. opusMSStorageViews.Offsets
+contains numeric reflection-field/array stride displacements, not pointer
+subtraction. MS decode/CTL selection requires the exact parent root, original
+live stream/coupled geometry and an exact consumed offset match; otherwise it
+uses the unchanged explicit byte-layout accessor. CTL offset increments and live
+header reloads, alias outputs, child order and validation/error order remain.
+
+Projection storage records the actual Go Multistream field offset. Its accessor
+compares the original live signed/narrowed matrix-size alignment computation to
+that numeric offset: mutated layouts still use the original boundary. Demixing
+matrix header and coefficient location are FIXED fields independent of mutable
+rows/cols/matrix-size values; registered views return the actual matrix header
+and int16 cells. Matrix registered aliases join the projection base allocation
+group, so typed/raw/raw-allocator free or TLS.Close clears matrix, MS and codec
+bindings together, including prior interior MS cleanup. External matrix/header
+images, nil/foreign TLS and unbound storage keep the original ABI accessor casts.
+No audio/control/matrix samples, modes or entropy are snapshotted or copied.
+
+Grouped fixtures compare bound/nil-TLS child and matrix/coefficient identities,
+MS GET_DECODER_STATE returned children, live coupled geometry and projection
+matrix-size mutations forcing offset fallback, matrix fixed-field identity after
+header mutations, GC/stack growth and matrix alias cleanup on every destructor
+path. Native MS/projection matrix/source aliases, caller buffer geometry, child
+strides/padding, reinitialization/errors and codec goldens/tolerances persist.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped storage/pointer checkptr,
+three-architecture typed PartA/PartB references, native comparison, GC stress,
+unchanged encode/decode references and diff checks; final ARM ordinary/scoped
+fixtures repeat twenty times. Counts remain136 unsafe.Pointer/125 uintptr:
+these are ACTIVE opaque layout-recovery bypasses for Go factories, not cast
+relocation, new pointer maps or global byte-image/EOF/raw callback safety. Registry
+metadata lookup/linear child matching costs are not benchmarked; no performance
+or direct macOS success is claimed. Logs:
+/tmp/opus-round-ms-concrete-child-accessors.log,
+/tmp/opus-round-projection-concrete-ms-accessor.log,
+/tmp/opus-round-projection-concrete-matrix-header.log,
+/tmp/opus-round-projection-concrete-coefficients-focused.log,
+/tmp/opus-round-projection-concrete-coefficients.log and
+/tmp/opus-round-canonical-decoder-accessors-arm-{checkptr,golden}-repeat.log.
+
+Four registered codec-view rounds add exact-root typed metadata APIs in libcshim,
+bind single-decoder factory SILK/CELT views for frame/control use, propagate MS
+child views, then propagate projection MS/children with alias-group cleanup.
+Normal factory-created decoders with their TLS now obtain SILK/CELT state from
+actual canonical reflection fields, not decode-time unsafe.Add layout recovery.
+Private opusCodecSilkState/opusCodecCeltState require the exact registered root,
+correct metadata type and unchanged corresponding live offset; mutated offsets,
+nil/foreign TLS, caller buffers and other unbound images retain the original
+layout accessors. Matching views do not snapshot mode, codebook, entropy or audio
+state. Public decode/control signatures, initialization/validation/error ordering,
+caller-buffer extents, codec arithmetic and ALL goldens/tolerances remain.
+
+Metadata attaches ONLY to a registered actual *T owner of the same type/identity:
+byte images and mismatched root/value types cannot be promoted. TLS registry
+integer keys (including alias group keys) are allocation identity/ABI transport;
+new typed lookup accepts *T and never reconstructs a pointer from those keys.
+Metadata contains actual Go views/closures, not opaque pointers. MS/projection
+interior aliases are associated with the actual base registry group, never
+independent allocations. Typed and raw codec destruction removes bindings;
+underlying raw Xfree or TLS.Close also removes all aliases. Removing an interior
+alias leaves the group base/siblings intact. Projection cleanup tolerates prior
+interior MS destruction; malformed projection allocation/error fallback stays.
+
+Grouped fixtures cover metadata-only weak-owner retention, type mismatch, opaque
+byte rejection, nil/idempotent cleanup, alias-group raw free, single codec views
+through GC/stack growth, live-offset mutations and nil-TLS fallback, MS/projection
+child views and typed/raw/raw-allocator/TLS cleanup. Existing reinitialization,
+foreign mode/codebook owners, child stride/padding, matrix aliases, native/error
+snapshots and codec goldens persist. The canonical scanned owner allocations
+predate these rounds: this is ACTIVE decode/control representation bypass plus
+registry lifetime bookkeeping, NOT new GC pointer maps, global opaque-image
+safety or cast relocation. Production counts stay136 unsafe.Pointer/125 uintptr;
+necessary external-layout/ABI casts stay visible. Registry locking/metadata cost
+is not benchmarked; no performance or direct macOS claim is made.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped pointer/storage/registry
+checkptr, native comparisons, GC stress, unchanged codec references and diff
+checks. The final three codec rounds also check typed PartA/PartB on all three
+architectures; final ARM scoped/ordinary fixtures repeat twenty times. Initial
+/tmp/opus-round-concrete-registry-view-metadata.log retains recurring native
+runtime failure (fatal error: s.allocCount != s.nelems && freeIndex == s.nelems);
+complete ...-retry.log passes, not a repair claim. Other logs:
+/tmp/opus-round-single-bound-decode-codec-views.log,
+/tmp/opus-round-ms-bound-decode-child-codecs.log,
+/tmp/opus-round-projection-bound-codecs-focused.log,
+/tmp/opus-round-projection-bound-decode-child-codecs.log and
+/tmp/opus-round-registered-codec-views-arm-{checkptr,golden}-repeat.log.
+
+Four ACTIVE denormalization/history rounds add celtDenormaliseBandsAt and its
+concrete float span selector, migrate stereo→mono channel spectrum/energy offsets,
+then general synthesis channel offsets, and finally migrate prefilter's per-channel
+history header. Public Opus_denormalise_bands retains its signature and zero-offset
+semantics. Synthesis passes actual *float32 bases and numeric int32 offsets instead
+of computing X+c*N/oldBandE+c*nbEBands addresses before calling a silent/no-work
+consumer. Original multiplication/wrapping, table/size/bound reads and output-span
+selection remain. Only AFTER the original silence return are input and energy
+spans selected, in their original order, before initial output clearing and live
+sample/energy loads. No values are copied/cached: output/spectrum/energy aliases
+retain sequential behavior. Nonzero-offset EMPTY spans form no unused cursor;
+zero-offset spans retain the original Go slice shape. Signed history and invalid
+negative-span compatibility remain explicit boundaries, not guessed readable views.
+
+Prefilter history headers select actual configured channel-first samples (each
+channel owns DEC_PITCH_BUF_SIZE samples even when overlap is zero). Zero offset
+still preserves pointer identity; the right-channel start is interior, not EOF.
+Existing mode/window/history-owner GC/weak retention, zero overlap/CC0 and filter
+control fixtures remain. Grouped offset fixtures compare full float bits/guards
+against zero-offset calls across start/downsample cases and output overlapping BOTH
+spectrum and energy; they check signed history, empty displaced nil spans, silent
+nil bases with large numeric offsets and no extra stores. Grouped silent synthesis
+fixtures cover upmix/downmix/general/CC0 and transient/nontransient nil spectrum/
+energy bases. Native/reference cases and ALL codec goldens/tolerances remain.
+
+All4 rounds pass full amd64/386, ARM64/QEMU, scoped denormalization/prefilter/
+synthesis and broad pointer checkptr, native comparisons, GC stress, unchanged
+codec references and diff checks. Final validation also checks typed PartA/PartB
+on all three architectures, with final ARM scoped/ordinary fixtures repeated20
+(times, unchanged scopes/counts). Counts remain136 unsafe.Pointer/125 uintptr:
+these are active deferred-offset/readable-view changes; the arithmetic cast
+remains ONLY for genuine compatibility branches, not hidden by opaque aliases.
+No global exact-allocation EOF, raw-image/GC or direct macOS safety claim follows.
+Logs: /tmp/opus-round-denormalise-offset-kernel.log,
+/tmp/opus-round-downmix-denormalise-offsets.log,
+/tmp/opus-round-general-denormalise-channel-offsets.log,
+/tmp/opus-round-prefilter-history-consumed-header.log and
+/tmp/opus-round-denormalise-history-offset-arm-{checkptr,golden}-repeat.log.
+
+Four ACTIVE prefilter/synthesis cursor rounds migrate TDAC memory/window/filtered
+sample accesses, prefilter overlap input, mono→stereo synthesis cursors, then
+stereo→mono and general synthesis block cursors. These use minimal readable Go
+prefixes rather than positive unsafe.Add-derived addresses. Every selected TDAC
+lane is consumed inside the overlap/2 loop, with its original live window/sample
+read order, two separately rounded products and sequential store. Prefilter input
+is selected only after the original overlap==0 return; signed preceding-history
+cases still use the explicit compatibility boundary and filter history owner.
+
+Synthesis copied/downmixed temporary starts and IMDCT interleaved spectrum/output
+block starts use celtSynthesisCursor: positive consumer length selects readable
+prefixes; zero/nonpositive consumer length retains the original unused-end
+identity. Offset zero remains identity (including nil). Negative offsets retain
+caller-owned history semantics. No guessed full suffix, additional scratch copy,
+source snapshot, cached controls or changes to channel-zero do-while behavior,
+left-before-right transforms, output-as-input aliases, half-product rounding,
+window/overlap order, SATURATE identity or entropy/arithmetic are introduced.
+Remaining celtNormAdd users (e.g. potentially unconsumed denormalization channel
+inputs/energy and history headers) remain honest explicit boundaries. Production
+counts stay136 unsafe.Pointer/125 uintptr: these are ACTIVE arithmetic consumer
+migrations, not dead adapter removal, cast relocation or global lifetime proofs.
+
+Grouped synthesis cursor fixtures cover nil/zero identity, last readable sample,
+negative history, live alias writes and a terminal ABI-image cursor INTERIOR to
+an actual guarded Go owner through GC/stack growth. They do not claim exact-Go-
+allocation EOF safety. Existing TDAC rounding/window-memory aliases, prefilter
+N0/zero overlap/controls/history, synthesis branches/transients/source-output
+aliases/mode reloads and native/reference fixtures/goldens/tolerances persist.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped
+prefilter/synthesis and broad pointer checkptr, native comparisons, GC stress,
+unchanged encode/decode references and diff checks. Final validation also checks
+typed PartA/PartB references, and final ARM scoped/ordinary fixtures repeat twenty
+times. No performance/global opaque-image/extension EOF/GC or macOS claim.
+Logs: /tmp/opus-round-prefilter-tdac-consumed-samples.log,
+/tmp/opus-round-prefilter-consumed-overlap-input.log,
+/tmp/opus-round-synthesis-mono-stereo-consumed-cursors.log,
+/tmp/opus-round-synthesis-general-downmix-consumed-cursors.log and
+/tmp/opus-round-synthesis-consumed-cursors-arm-{checkptr,golden}-repeat.log.
+The combined360-second final shell timed out DURING the ordinary ARM repetition
+(after full validation and the scoped20-repeat ARM run passed in176.472s).
+The interrupted ordinary log is retained; rerun the SAME ordinary scope/count
+separately to completion in
+/tmp/opus-round-synthesis-consumed-cursors-arm-golden-repeat-retry.log. No scope,
+fixtures, golden or tolerances are changed for that time-budget retry.
+
+Four partition/deemphasis/unused-adapter rounds change active positive pointer
+advances and remove unreferenced generated C-internal leaf adapters. Round1
+indexes the split partition's second spectrum through a minimal readable prefix
+and deletes the unused Opus_silk_decode_core integer wrapper; round2 does the
+same for the split lowband and unused Opus_silk_PLC wrapper. Round3 migrates
+consumed general deemphasis channel starts and removes the unused
+Opus_silk_decode_frame wrapper. Round4 migrates all four general deemphasis
+output stores (direct/downsample, replace/accumulate) and deletes the unused
+Opus_clt_compute_allocation wrapper and its obsolete uintptr-local comment.
+
+Both split pointers are formed only in the existing N>2 branch AFTER halving N;
+lowband's nil guard and pointer-formation position after theta/budget updates
+remain. No guessed full suffix, unused EOF pointer or scratch copy is introduced.
+Deemphasis preserves channel zero/nil identity, no-work/downsample guards,
+coefficient/memory reload ordering, float32 recurrence/rounding and sequential
+accumulate reads/stores. celtNormConsumedAt indexes readable positive prefixes;
+zero and negative caller-owned history explicitly retain celtNormAdd compatibility.
+The other synthesis/history/boundary consumers of celtNormAdd are NOT claimed
+migrated. New grouped consumed-norm fixtures verify nil/zero identity, last
+readable interior cell, negative history, GC/stack growth and live write aliases.
+Existing scalar/native partition, spectrum/lowband alias, deemphasis scratch/zero
+work/C0/downsample/accumulate fixtures and codec goldens remain unchanged.
+
+All four removed wrappers have no call sites in this repository's opuscc decoder,
+its fixtures or tools: active calls already use the concrete private SILK/core/PLC/
+frame and allocation kernels. Same-spelled functions in opusccenc are distinct
+and untouched. This removes generated C-internal Go exports, NOT public Opus
+codec create/init/decode/CTL/destroy APIs or used leaf compatibility adapters.
+Counts157→136 unsafe.Pointer and134→125 uintptr. The21 cast deletions are DEAD
+adapter removal, not lifetime fixes or relocated casts;8 uintptr declarations
+and1 obsolete comment disappear. Active cursor changes reduce address arithmetic
+but not lexical unsafe.Pointer counts because necessary backward/EOF boundaries
+remain. No performance, global checkptr/opaque-image/extension EOF or macOS claim.
+
+Each round passes full amd64/386, ARM64/QEMU, scoped checkptr, native comparisons,
+GC stress and unchanged encode/decode references. Final validation additionally
+checks partition/deemphasis paths and typed frame references on amd64/386/ARM;
+final ARM ordinary/scoped fixtures repeat twenty times. The initial
+/tmp/opus-round-partition-remove-obsolete-address-helper.log fails compilation:
+the attempted celtNormAdd removal inspected only partition-local references and
+missed active celt_decoder.go synthesis users. Restore the genuine remaining
+boundary helper (not just a test helper), migrate only proven consumed sites,
+then the full /tmp/opus-round-consumed-deemphasis-channel-prefix-retry.log passes.
+No fixture/golden was weakened. Other logs:
+/tmp/opus-round-partition-consumed-{spectrum,lowband}-prefix.log,
+/tmp/opus-round-deemphasis-consumed-output-prefix.log retains a native comparison
+runtime failure (fatal error: sweep increased allocation count); the complete
+/tmp/opus-round-deemphasis-consumed-output-prefix-retry.log passes. This recurring
+native/GC failure is NOT repaired by a retry or these cursor/adapter changes.
+/tmp/opus-round-consumed-norm-deemphasis-arm-{checkptr,golden}-repeat.log retain the
+successful final repeats.
+
 Four decoder diagnostic rounds finish migrating PRIVATE static-pool consumers
 from integer C-string addresses to GC-visible Go strings and numeric pool offsets:
 28 decoder/frame checks;25 MS/matrix/CELT quantization checks;20 extension checks;

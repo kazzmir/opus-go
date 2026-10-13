@@ -120,11 +120,6 @@ const silk_int16_MAX3 = 32767
 //	/* Core decoder. Performs inverse NSQ operation LTP + LPC */
 //	/**********************************************************/
 //
-//go:uintptrescapes
-func Opus_silk_decode_core(tls *libc.TLS, psDec, psDecCtrl, xq, pulses uintptr, arch int32) {
-	silk_decode_core(tls, (*OpusT_silk_decoder_state)(unsafe.Pointer(psDec)), (*OpusT_silk_decoder_control)(unsafe.Pointer(psDecCtrl)), (*int16)(unsafe.Pointer(xq)), (*int16)(unsafe.Pointer(pulses)), arch)
-}
-
 // Fully typed active core with four Go-owned scratch arrays. TLS is only passed
 // to scalar helpers/assertions; no pseudostack cursor is consumed or restored.
 func silk_decode_core(tls *libc.TLS, psDec *OpusT_silk_decoder_state, psDecCtrl *OpusT_silk_decoder_control, xq *int16, pulses *int16, arch int32) {

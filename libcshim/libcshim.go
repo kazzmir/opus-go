@@ -34,8 +34,10 @@ type TLS struct {
 }
 
 type heapAlloc struct {
-	buf   []byte
-	owner any // actual Go allocation root, including its runtime pointer bitmap
+	buf      []byte
+	owner    any     // actual Go allocation root, including its runtime pointer bitmap
+	metadata any     // optional Go-owned views; never inferred from a byte image
+	parent   uintptr // numeric registry group key; zero denotes an independent root
 }
 
 func NewTLS() *TLS {
@@ -203,6 +205,51 @@ func RegisterGoAllocation[T any](tls *TLS, p *T) *T {
 	return p
 }
 
+// RegisterGoAllocationAlias groups an actual typed view with an exact registered
+// parent. Factory callers supply genuine Go-field views, never byte-image casts.
+// Freeing the base removes all aliases, including through raw Xfree transport.
+func RegisterGoAllocationAlias[T, P any](tls *TLS, parent *P, p *T) *T {
+	if tls == nil || parent == nil || p == nil {
+		return nil
+	}
+	tls.heapMu.Lock()
+	defer tls.heapMu.Unlock()
+	parentKey := uintptr(unsafe.Pointer(parent))
+	a := tls.heap[parentKey]
+	if a == nil {
+		return nil
+	}
+	root, ok := a.owner.(*P)
+	if !ok || root != parent {
+		return nil
+	}
+	key := uintptr(unsafe.Pointer(p))
+	if key == parentKey {
+		typed, match := a.owner.(*T)
+		if match && typed == p {
+			return p
+		}
+		return nil
+	}
+	if a.parent != 0 {
+		parentKey = a.parent
+	}
+	tls.heap[key] = &heapAlloc{owner: p, parent: parentKey}
+	return p
+}
+
+func (tls *TLS) removeAllocationLocked(key uintptr) {
+	a := tls.heap[key]
+	delete(tls.heap, key)
+	if a != nil && a.parent == 0 {
+		for alias, entry := range tls.heap {
+			if entry.parent == key {
+				delete(tls.heap, alias)
+			}
+		}
+	}
+}
+
 // RegisteredGoAllocation returns the actual registered typed root, without
 // reconstructing a pointer from a handle. Byte allocations/type mismatches are
 // deliberately not promoted into scanned Go objects.
@@ -220,6 +267,65 @@ func RegisteredGoAllocation[T any](tls *TLS, handle uintptr) *T {
 	return root
 }
 
+// Typed metadata lookup uses a concrete root for registry identity. Integer
+// keys are transport only; no pointer is reconstructed or byte image promoted.
+func SetGoAllocationMetadata[T, M any](tls *TLS, p *T, metadata M) bool {
+	if tls == nil || p == nil {
+		return false
+	}
+	tls.heapMu.Lock()
+	defer tls.heapMu.Unlock()
+	a := tls.heap[uintptr(unsafe.Pointer(p))]
+	if a == nil {
+		return false
+	}
+	root, ok := a.owner.(*T)
+	if !ok || root != p {
+		return false
+	}
+	a.metadata = metadata
+	return true
+}
+
+func GoAllocationMetadata[T, M any](tls *TLS, p *T) (metadata M, ok bool) {
+	if tls == nil || p == nil {
+		return metadata, false
+	}
+	tls.heapMu.Lock()
+	defer tls.heapMu.Unlock()
+	a := tls.heap[uintptr(unsafe.Pointer(p))]
+	if a == nil {
+		return metadata, false
+	}
+	root, match := a.owner.(*T)
+	if !match || root != p {
+		return metadata, false
+	}
+	metadata, ok = a.metadata.(M)
+	return
+}
+
+// RemoveGoAllocation removes only an exact registered concrete root. It does
+// not free a parent allocation when p is an unregistered interior view.
+func RemoveGoAllocation[T any](tls *TLS, p *T) bool {
+	if tls == nil || p == nil {
+		return false
+	}
+	tls.heapMu.Lock()
+	defer tls.heapMu.Unlock()
+	key := uintptr(unsafe.Pointer(p))
+	a := tls.heap[key]
+	if a == nil {
+		return false
+	}
+	root, ok := a.owner.(*T)
+	if !ok || root != p {
+		return false
+	}
+	tls.removeAllocationLocked(key)
+	return true
+}
+
 // XfreePointer unregisters storage; callers must stop using it as with Xfree.
 func XfreePointer(tls *TLS, p unsafe.Pointer) { Xfree(tls, uintptr(p)) }
 
@@ -229,7 +335,7 @@ func Xfree(tls *TLS, p uintptr) {
 	}
 	tls.heapMu.Lock()
 	if tls.heap != nil {
-		delete(tls.heap, p)
+		tls.removeAllocationLocked(p)
 	}
 	tls.heapMu.Unlock()
 }
