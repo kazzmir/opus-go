@@ -56,7 +56,7 @@ func TestVADAnalysisAgainstC(t *testing.T) {
 			for i := range input {
 				input[i] = int16((i*137+step*997)%12000 - 6000)
 			}
-			ret := opuscc.Opus_silk_VAD_GetSA_Q8_c(tls, uintptr(unsafe.Pointer(&state)), uintptr(unsafe.Pointer(&input[0])))
+			ret := opuscc.Opus_silk_VAD_GetSA_Q8_c(tls, &state, &input[0])
 			expected, fields := nativeVADAnalysis(&reference, input)
 			got := [6]int32{state.Fspeech_activity_Q8, state.Finput_tilt_Q15, state.Finput_quality_bands_Q15[0], state.Finput_quality_bands_Q15[1], state.Finput_quality_bands_Q15[2], state.Finput_quality_bands_Q15[3]}
 			if ret != expected || state.FsVAD != reference || got != fields {
