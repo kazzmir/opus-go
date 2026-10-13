@@ -534,6 +534,51 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four SILK/quantization typed-entry/reference-owner rounds convert Opus_silk_Decode
+to *silk_decoder, *silk_DecControlStruct, *ec_dec, *float32 PCM and *int32 count,
+then give all3 SILK mono/stereo packet/PLC reference fixtures actual scanned Go
+decoder owners. The reference helper checks reported ABI size against the Go
+state extent, initializes the same zeroed image and retains the existing scanned
+pseudostack producer. The packet runner keeps control/entropy/PCM/count roots
+concrete through GC/stack growth before EACH frame. Same packets, sample counts,
+PCM bits/hashes, pitch, range, PLC state and all historical goldens remain.
+
+Opus_quant_all_bands now takes concrete mode, float spectra/energy, byte masks,
+int32 pulse/TF resolution, ec_ctx and uint32 seed pointers. The 2 scalar C-reference
+encode/decode calls use real pointers; optional mono Y remains typed nil. The
+following round replaces ALL xmallocArray byte-image fixtures for the fake mode,
+its tables, entropy contexts and arrays with actual make([]T) Go storage. The
+obsolete integer-laundering helper/comment and redundant byte clears disappear;
+make supplies the same zero contents and array extents with genuine pointer maps.
+No scratch/different buffer copy changes RDO/live source aliases or entropy state.
+Same no-intrinsics upstream C cases,4 encode payloads, masks, seeds, bit budgets,
+X/Y FNVs and decode resynthesis remain. Existing pseudostack setup/reset/zero
+scratch assertions persist; Go-owned modes/entropy buffers get GC/stack growth
+before recursive quantization. The original encode/decode loops are unchanged.
+
+Counts124→110 unsafe.Pointer/116→105 uintptr:5 SILK and9 quantizer crossing casts
+and11 uintptr parameter spellings are removed, not relocated. These generated
+C-internal leaf signatures change Go source API; callers of their old integer
+forms must pass real pointers. Public Opus codec APIs, necessary adapters, raw
+custom callbacks and independent opusccenc entries remain untouched. Typed entries
+were already the active private DSP; owner repairs here are specifically the
+LEGACY REFERENCE fixture producers, not new production lifetime fixes or global
+opaque-allocation/EOF/GC safety. No encode/decode tolerance changes or macOS claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad/scoped
+checkptr, three-architecture typed PartA/PartB, native comparison, GC stress,
+unchanged codec references and diff checks. SILK references gain scoped checkptr
+after their scanned-owner round; quant-all scalar references gain it after their
+Go-owner round. Final ARM ordinary/scoped fixtures repeat twenty times. Retained
+/tmp/opus-round-silk-concrete-decode-entry.log is a compile failure exposing an
+old int16 lost-frame output passed to the float API; change320 int16 to160 float32,
+PRESERVING the exact640-byte extent and all expectations, then the full ...-retry.log
+passes. No golden/fixture was weakened. Other logs:
+/tmp/opus-round-silk-scanned-reference-decoders.log,
+/tmp/opus-round-quant-all-concrete-entry.log,
+/tmp/opus-round-quant-scanned-reference-owners{,-focused}.log and
+/tmp/opus-round-concrete-silk-quant-entries-arm-{checkptr,golden}-repeat.log.
+
 Four generated leaf-entry rounds delete the unreferenced Opus_celt_decode_with_ec
 integer forwarding alias, then its unreferenced Opus_celt_decode_with_ec_dred
 integer adapter, and convert VAD plus delayed-NLSF quantizer leaf entry signatures
