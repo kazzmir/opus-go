@@ -244,12 +244,16 @@ func TestMDCTBackwardOffsetPointers(t *testing.T) {
 			got := make([]float32, n+62)
 			got[0], got[len(got)-1] = 77, 88
 			want := slices.Clone(got)
+			numeric := slices.Clone(got)
+			history := slices.Clone(got)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &owner[origin], &want[1], &window120[0], 120, shift, stride, 0)
 			opusMDCTBackwardAt(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], origin, &got[1], &window120[0], 120, shift, stride, 0)
+			opusMDCTBackwardOffsets(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], origin, &numeric[0], 1, &window120[0], 120, shift, stride, 0)
+			opusMDCTBackwardOffsets(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], origin, &history[2], -1, &window120[0], 120, shift, stride, 0)
 			for i := range got {
-				if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+				if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) || math.Float32bits(history[i]) != math.Float32bits(want[i]) {
 					t.Fatal("offset MDCT", shift, stride, i)
 				}
 			}

@@ -102,6 +102,10 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16
 }
 
 func opusMDCTBackwardAt(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in *float32, inputOffset int32, out, window *float32, overlap, shift, stride, arch int32) {
+	opusMDCTBackwardOffsets(tls, l, bitrev, twiddles, in, inputOffset, out, 0, window, overlap, shift, stride, arch)
+}
+
+func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in *float32, inputOffset int32, out *float32, outputOffset int32, window *float32, overlap, shift, stride, arch int32) {
 	_ = arch
 	N := l.Fn
 	offset := int32(0)
@@ -112,7 +116,12 @@ func opusMDCTBackwardAt(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twid
 	N2, N4 := N>>1, N>>2
 	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
 	input, inputBase := mdctStridedSliceAt(in, inputOffset, N2, stride)
-	output := unsafe.Slice(out, N2+(overlap>>1))
+	var output []float32
+	if outputOffset == 0 {
+		output = unsafe.Slice(out, N2+(overlap>>1))
+	} else {
+		output, _ = mdctStridedSliceAt(out, outputOffset, N2+(overlap>>1), 1)
+	}
 	win := unsafe.Slice(window, overlap)
 	rev := unsafe.Slice(bitrev, N4)
 	base := overlap >> 1
