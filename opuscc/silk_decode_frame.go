@@ -181,7 +181,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 	cb := decoder.FpsNLSF_CB
 	first := cb.FCB1_iCDF
 	residual := cb.Fec_iCDF
-	indices.FNLSFIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, silkDecodeICDFAt(first, int32(indices.FsignalType>>1)*int32(cb.FnVectors)), 8))
+	indices.FNLSFIndices[0] = int8(ecDecICDFAt(tls, dec, first, int32(indices.FsignalType>>1)*int32(cb.FnVectors), 8))
 	var ecIX [MAX_LPC_ORDER]int16
 	var pred [MAX_LPC_ORDER]byte
 	Opus_silk_NLSF_unpack(tls, &ecIX[0], &pred[0], cb, int32(indices.FNLSFIndices[0]))
