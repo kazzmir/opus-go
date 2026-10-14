@@ -1188,10 +1188,10 @@ func celtDenormaliseSpan(p *float32, offset, length int32) []float32 {
 	if length == 0 {
 		return nil
 	}
-	if length < 0 {
+	if length < 0 || offset < 0 {
 		return unsafe.Slice(celtNormAdd(p, offset), length)
 	}
-	return unsafe.Slice(celtNormConsumedAt(p, offset), length)
+	return unsafe.Slice(p, int64(offset)+int64(length))[offset:]
 }
 
 func celtDenormaliseBandsAt(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, xOffset int32, freq *OpusT_celt_sig, bandLogE *OpusT_celt_glog, energyOffset int32, start, end, M, downsample, silence int32) {
