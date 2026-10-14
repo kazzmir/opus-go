@@ -280,9 +280,13 @@ func celtSynthesisGeometry(mode *OpusT_OpusCustomMode, LM int32) (overlap, bands
 	return mode.Foverlap, mode.FnbEBands, mode.FshortMdctSize << LM
 }
 func celtSynthesisIMDCT(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq, out *float32, overlap, shift, stride, arch int32) {
+	celtSynthesisIMDCTAt(tls, mode, freq, 0, out, overlap, shift, stride, arch)
+}
+
+func celtSynthesisIMDCTAt(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *float32, inputOffset int32, out *float32, overlap, shift, stride, arch int32) {
 	lookup := &mode.Fmdct
 	st := lookup.Fkfft[shift]
-	Opus_clt_mdct_backward_c(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, out, mode.Fwindow, overlap, shift, stride, arch)
+	opusMDCTBackwardAt(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, inputOffset, out, mode.Fwindow, overlap, shift, stride, arch)
 }
 
 // A zero-length consumer may still require C's unused end identity. Only
@@ -322,10 +326,10 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 		temp := celtSynthesisContiguousCursor(outputs[1], overlap/2, N)
 		celtSynthesisOutputCopy(temp, freqHead, N)
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(temp, b, N), celtSynthesisCursor(outputs[0], NB*b, N), overlap, shift, B, arch)
+			celtSynthesisIMDCTAt(tls, mode, temp, b, celtSynthesisCursor(outputs[0], NB*b, N), overlap, shift, B, arch)
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[1], NB*b, N), overlap, shift, B, arch)
+			celtSynthesisIMDCTAt(tls, mode, freqHead, b, celtSynthesisCursor(outputs[1], NB*b, N), overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
 		temp := celtSynthesisContiguousCursor(outputs[0], overlap/2, N)
