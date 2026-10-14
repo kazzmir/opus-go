@@ -1195,6 +1195,10 @@ func celtDenormaliseSpan(p *float32, offset, length int32) []float32 {
 }
 
 func celtDenormaliseBandsAt(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, xOffset int32, freq *OpusT_celt_sig, bandLogE *OpusT_celt_glog, energyOffset int32, start, end, M, downsample, silence int32) {
+	celtDenormaliseBandsOffsets(tls, bands, shortMdctSize, X, xOffset, freq, 0, bandLogE, energyOffset, start, end, M, downsample, silence)
+}
+
+func celtDenormaliseBandsOffsets(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, xOffset int32, freq *OpusT_celt_sig, outputOffset int32, bandLogE *OpusT_celt_glog, energyOffset int32, start, end, M, downsample, silence int32) {
 	// Pass the two mode inputs explicitly so the table stays GC-visible here.
 	eBands := unsafe.Slice(bands, end+1)
 	N := M * shortMdctSize
@@ -1202,7 +1206,7 @@ func celtDenormaliseBandsAt(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSiz
 	if downsample != 1 {
 		bound = min(bound, N/downsample)
 	}
-	output := unsafe.Slice(freq, N)
+	output := celtDenormaliseSpan(freq, outputOffset, N)
 	if silence != 0 {
 		clear(output)
 		return

@@ -58,18 +58,20 @@ func TestDenormaliseOffsetPointers(t *testing.T) {
 	for _, start := range []int32{0, 1} {
 		for _, down := range []int32{1, 2} {
 			for _, energy := range []int32{7, 13} {
-				var want, got [18]float32
+				var want, got, numeric [18]float32
 				for i := range want {
 					want[i] = float32(i%7-3) / 17
 				}
 				got = want
+				numeric = want
 				// Output overlaps both spectrum and (in one case) energy.
 				Opus_denormalise_bands(nil, &denormalisePointerBands[0], 8, &want[2], &want[4], &want[energy], start, 3, 1, down, 0)
 				entropyInitGrowStack(12)
 				runtime.GC()
 				celtDenormaliseBandsAt(nil, &denormalisePointerBands[0], 8, &got[0], 2, &got[4], &got[0], energy, start, 3, 1, down, 0)
+				celtDenormaliseBandsOffsets(nil, &denormalisePointerBands[0], 8, &numeric[0], 2, &numeric[0], 4, &numeric[0], energy, start, 3, 1, down, 0)
 				for i := range got {
-					if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+					if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) {
 						t.Fatal("offset bits/live aliases/guards", start, down, energy, i)
 					}
 				}
@@ -90,6 +92,7 @@ func TestDenormaliseOffsetPointers(t *testing.T) {
 		t.Fatal("silence skips offset formation", out)
 	}
 	zeroBand := [1]int16{0}
+	celtDenormaliseBandsOffsets(nil, &zeroBand[0], 0, nil, 2147483647, nil, 2147483647, nil, 2147483647, 0, 0, 1, 1, 1)
 	celtDenormaliseBandsAt(nil, &zeroBand[0], 2, nil, 2147483647, &out[1], nil, 2147483647, 0, 0, 1, 1, 0)
 	if out != [4]float32{77, 0, 0, 88} {
 		t.Fatal("empty spans/guards", out)
