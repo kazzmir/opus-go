@@ -336,10 +336,9 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[1], NB*b, overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
-		temp := celtSynthesisContiguousCursor(outputs[0], overlap/2, N)
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
-		celtDenormaliseBandsAt(tls, bandBoundaries, mode.FshortMdctSize, X, N, temp, oldBandE, nbEBands, start, effEnd, M, downsample, silence)
-		other := unsafe.Slice(temp, N)
+		celtDenormaliseBandsOffsets(tls, bandBoundaries, mode.FshortMdctSize, X, N, outputs[0], overlap/2, oldBandE, nbEBands, start, effEnd, M, downsample, silence)
+		other := celtDenormaliseSpan(outputs[0], overlap/2, N)
 		// Round both halves independently (including on FMA-capable architectures).
 		for i := range freq {
 			freq[i] = float32(float32(.5)*freq[i]) + float32(float32(.5)*other[i])
