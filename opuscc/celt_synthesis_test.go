@@ -591,7 +591,13 @@ func TestSynthesisConsumedCursorPointers(t *testing.T) {
 	if celtSynthesisCursor(&owner.image[0], 3, 0) != &owner.guard {
 		t.Fatal("unused end identity")
 	}
-	*celtSynthesisCursor(p, 1, 1) = 2
+	if celtSynthesisContiguousCursor(nil, 0, 1) != nil || celtSynthesisContiguousCursor(p, -1, 1) != &owner.image[0] || celtSynthesisContiguousCursor(&owner.image[0], 3, 0) != &owner.guard {
+		t.Fatal("contiguous cursor fallback identity")
+	}
+	if celtSynthesisContiguousCursor(&owner.image[0], 1, 2) != p || celtSynthesisContiguousCursor(p, 1, 1) != &owner.image[2] {
+		t.Fatal("contiguous exact readable extent")
+	}
+	*celtSynthesisContiguousCursor(p, 1, 1) = 2
 	if owner.image[2] != 2 {
 		t.Fatal("live cursor alias")
 	}

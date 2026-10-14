@@ -415,9 +415,11 @@ func prefilterFoldTDAC(mode *OpusT_OpusCustomMode, memory, filtered *float32, ov
 		return
 	}
 	window := unsafe.Slice(mode.Fwindow, overlap)
+	destination := unsafe.Slice(memory, overlap/2)
+	samples := unsafe.Slice(filtered, overlap)
 	for i := int32(0); i < overlap/2; i++ {
 		// Keep the generated/C operand order and live window/sample reads.
-		*celtNormConsumedAt(memory, i) = float32(OpusT_celt_coef(window[i])**celtNormConsumedAt(filtered, overlap-1-i)) + float32(OpusT_celt_coef(window[overlap-i-1])**celtNormConsumedAt(filtered, i))
+		destination[i] = float32(OpusT_celt_coef(window[i])*samples[overlap-1-i]) + float32(OpusT_celt_coef(window[overlap-i-1])*samples[i])
 	}
 }
 func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {

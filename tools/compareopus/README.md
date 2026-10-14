@@ -534,6 +534,43 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four active CELT readable-span rounds form positive displaced denormalization
+views directly as Go prefixes of offset+length (widened numeric addition), retain
+contiguous synthesis copy/downmix scratch prefixes, then use live Go TDAC window
+views and exact destination(overlap/2)/filtered(overlap) views. No copy, snapshot
+of audio/window contents or new ownership map is introduced. Silent and displaced
+empty denormalization returns remain before views; zero-offset/negative-history
+and negative-length compatibility remain. TDAC skips all views for overlap/2<=0,
+including nil mode/data at overlap0/1; per-iteration live aliases and original
+multiply/add order, float32 rounding and sequential writes remain. Upstream
+celt_decoder.c TDAC loop consumes exactly those spans. Public signatures, factory
+layouts, raw adapters, source aliasing and codec goldens/tolerances are unchanged.
+Counts remain110 unsafe.Pointer/105 uintptr: these are ACTIVE positive span/data
+access changes, not deletions, cast hiding or new caller-byte GC pointer maps.
+
+Existing grouped denormalization zero/silent/signed/live-alias, synthesis transient
+mono/stereo/downmix and exact guarded scratch, and TDAC odd/even/nil/rounding/live
+window/filtered aliases persist. Contiguous cursor tests add exact final-readable
+spans, signed/zero/unused-end fallbacks, GC/stack growth and write-through identity.
+
+Retained /tmp/opus-round-synthesis-readable-consumed-spans.log is a FAILED scoped
+checkptr attempt: treating every celtSynthesisCursor's consumed argument as a full
+contiguous length overstates strided IMDCT frequency/output tails. No fixture or
+buffer extent was enlarged. The original minimal-prefix generic cursor remains;
+only proven contiguous copy/downmix scratch uses the new full-prefix helper.
+Full ...-retry.log passes. This distinction is a consumer contract, not lexical
+pointer safety. No opaque-image/EOF/raw callback/global GC/macOS claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr, native comparisons, GC stress, unchanged encode/decode references and
+diff checks. Final three-architecture typed PartA/PartB scoped tests and ARM
+ordinary/scoped twenty-repeat checks also pass. Other logs:
+/tmp/opus-round-denormalise-direct-rooted-span.log,
+/tmp/opus-round-tdac-readable-window-view.log,
+/tmp/opus-round-tdac-readable-sample-views.log,
+/tmp/opus-round-celt-readable-spans-typed-frames.log and
+/tmp/opus-round-celt-readable-spans-arm-{checkptr,golden}-repeat.log.
+
 Four SILK/quantization typed-entry/reference-owner rounds convert Opus_silk_Decode
 to *silk_decoder, *silk_DecControlStruct, *ec_dec, *float32 PCM and *int32 count,
 then give all3 SILK mono/stereo packet/PLC reference fixtures actual scanned Go
