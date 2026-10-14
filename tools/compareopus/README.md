@@ -534,6 +534,44 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four active numeric MDCT-input-origin rounds add mdctStridedSliceAt and a private
+opusMDCTBackwardAt entry, then move mono→stereo copy transforms, downmix transforms
+and general per-channel synthesis transforms to real float roots + numeric block
+origins. Public MDCT signatures delegate at offset0; the existing private zero-
+offset helper remains for reference fixtures. No frequency block pointer is formed
+by synthesis on these paths. Only the MDCT kernel forms the actual strided input
+view, after lookup geometry establishes the consumed endpoints. Synthesis output
+cursors/history, copy-left-before-right transform order, silence, CC0 do-while,
+mode/bitrev/twiddle/window state and denormalization offsets remain unchanged.
+
+The strided endpoint product and width retain original int32 wrap/narrowing; only
+root-relative addition is widened. Positive readable origins use a minimal Go
+prefix and subslice, including a negative stride whose history is within the Go
+root. Offset0 identity, zero stride, signed backward history and unused/invalid
+extent boundaries remain. No audio snapshot/copy or FFT/MDCT rounding/store-order
+changes occur; live input/output/window aliases continue through the same kernel.
+Counts remain110 unsafe.Pointer/105 uintptr: actual positive input origin handling
+changes, not lexical cast deletion or new maps for opaque caller images.
+
+Grouped MDCT fixtures compare ALL4 shifts at strides−2/0/1/2 bitwise against the
+unchanged public offset0 call using exact final-readable owners, seeded output,
+outer guards and GC/stack growth. Existing native MDCT and synthesis source/output
+alias, transient channel geometry, mode/header/twiddle aliases and golden bits
+remain. No arbitrary external byte-image/EOF/raw callback/global GC/macOS claim.
+
+Every round passes full amd64/386, ARM64/QEMU, relevant scoped checkptr, native
+comparisons, GC stress, unchanged codec references and diff checks; final typed
+PartA/PartB scoped tests on3 architectures and ARM ordinary/scoped twenty-repeat
+checks pass. Retained /tmp/opus-round-mono-stereo-mdct-numeric-blocks.log records a
+compile failure from changing a private helper signature used by existing alias
+fixtures. Preserve that helper as an offset0 delegate and add the At helper;
+full ...-retry.log passes without weakening fixtures. Other logs:
+/tmp/opus-round-mdct-numeric-input-origin.log,
+/tmp/opus-round-downmix-mdct-numeric-blocks.log,
+/tmp/opus-round-general-mdct-numeric-blocks.log,
+/tmp/opus-round-mdct-numeric-inputs-typed-frames.log and
+/tmp/opus-round-mdct-numeric-inputs-arm-{checkptr,golden}-repeat.log.
+
 Four active CELT readable-span rounds form positive displaced denormalization
 views directly as Go prefixes of offset+length (widened numeric addition), retain
 contiguous synthesis copy/downmix scratch prefixes, then use live Go TDAC window
