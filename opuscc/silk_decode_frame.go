@@ -242,9 +242,15 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 //	/*********************************************/
 //	/* Decode quantization indices of excitation */
 //	/*********************************************/
+func silkDecodeRateICDF(tls *libc.TLS, dec *OpusT_ec_dec, signalType int32) int32 {
+	row := signalType >> 1
+	_ = Opus_silk_rate_levels_iCDF[row]
+	return ecDecICDFAt(tls, dec, &Opus_silk_rate_levels_iCDF[0][0], row*int32(len(Opus_silk_rate_levels_iCDF[0])), 8)
+}
+
 func Opus_silk_decode_pulses(tls *libc.TLS, dec *OpusT_ec_dec, pulses *OpusT_opus_int16, signalType, quantOffsetType, frame_length int32) {
 	var shifts, sums [20]int32 // MAX_NB_SHELL_BLOCKS: 320 samples / 16.
-	rate := ec_dec_icdf(tls, dec, &Opus_silk_rate_levels_iCDF[signalType>>1][0], 8)
+	rate := silkDecodeRateICDF(tls, dec, signalType)
 	blocks := frame_length >> LOG2_SHELL_CODEC_FRAME_LENGTH
 	if blocks*SHELL_CODEC_FRAME_LENGTH < frame_length {
 		if frame_length != 120 {

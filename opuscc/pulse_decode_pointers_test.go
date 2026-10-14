@@ -1,6 +1,37 @@
 package opuscc
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
+
+func checkPulseICDFRow(t *testing.T, table *byte, symbols int32, decode func(*OpusT_ec_dec) int32) {
+	t.Helper()
+	buffer := make([]byte, 256)
+	var encoder OpusT_ec_enc
+	Opus_ec_enc_init(nil, &encoder, &buffer[0], 256)
+	for i := int32(0); i < 48; i++ {
+		Opus_ec_enc_icdf(nil, &encoder, i%symbols, table, 8)
+	}
+	Opus_ec_enc_done(nil, &encoder)
+	var expected OpusT_ec_dec
+	Opus_ec_dec_init(nil, &expected, &buffer[0], 256)
+	got := expected
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i := int32(0); i < 48; i++ {
+		want := Opus_ec_dec_icdf(nil, &expected, table, 8)
+		if symbol := decode(&got); symbol != want || symbol != i%symbols || got != expected {
+			t.Fatal("pulse ICDF row/state", i, symbol, want)
+		}
+	}
+}
+
+func TestPulseDecodeRateRowsPointers(t *testing.T) {
+	for row := int32(0); row < 2; row++ {
+		checkPulseICDFRow(t, &Opus_silk_rate_levels_iCDF[row][0], 9, func(dec *OpusT_ec_dec) int32 { return silkDecodeRateICDF(nil, dec, row*2) })
+	}
+}
 
 func TestPulseDecodePointers(t *testing.T) {
 	for _, length := range []int32{16, 80, 120, 160, 240, 320} {
