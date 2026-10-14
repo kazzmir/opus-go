@@ -117,10 +117,14 @@ func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
 	input, inputBase := mdctStridedSliceAt(in, inputOffset, N2, stride)
 	var output []float32
+	outputLength := N2 + (overlap >> 1)
 	if outputOffset == 0 {
-		output = unsafe.Slice(out, N2+(overlap>>1))
+		output = unsafe.Slice(out, outputLength)
+	} else if outputLength > 0 {
+		output, _ = mdctStridedSliceAt(out, outputOffset, outputLength, 1)
 	} else {
-		output, _ = mdctStridedSliceAt(out, outputOffset, N2+(overlap>>1), 1)
+		// Do not turn an unused end or invalid length into a readable span.
+		output = unsafe.Slice(celtNormAdd(out, outputOffset), outputLength)
 	}
 	win := unsafe.Slice(window, overlap)
 	rev := unsafe.Slice(bitrev, N4)

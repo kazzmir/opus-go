@@ -352,7 +352,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 		for c := int32(0); c < max(CC, 1); c++ {
 			celtDenormaliseBandsAt(tls, bandBoundaries, mode.FshortMdctSize, X, c*N, freqHead, oldBandE, c*nbEBands, start, effEnd, M, downsample, silence)
 			for b := int32(0); b < B; b++ {
-				celtSynthesisIMDCTAt(tls, mode, freqHead, b, celtSynthesisCursor(outputs[c], NB*b, N), overlap, shift, B, arch)
+				celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[c], NB*b, overlap, shift, B, arch)
 			}
 		}
 	}

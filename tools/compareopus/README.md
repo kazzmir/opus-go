@@ -534,6 +534,40 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four matching active numeric MDCT-OUTPUT-origin rounds add a private
+opusMDCTBackwardOffsets entry, then move mono→stereo, downmix and general-channel
+synthesis outputs from displaced block pointers to the original output root plus
+numeric NB*b origin. Public MDCT and existing private input-offset/zero-offset
+entries delegate unchanged at outputOffset0; fixture helper signatures persist.
+Input/output origins remain independent, so live aliased storage stays live rather
+than being copied/snapshotted. Within the kernel the output extent is exactly
+N2+overlap/2, not the full synthesis frame N: prefix/subslice formation uses that
+known readable span. Zero offset preserves the original direct view; nonpositive
+extents explicitly keep the unused/invalid address boundary, and signed history
+keeps its existing compatibility arithmetic. NB*b and extent remain int32 before
+root-relative widened addition. Pre-rotation store order, FFT real/imag lanes,
+post-rotation paired reloads/stores and TDAC overlaps are untouched.
+
+Existing all4-shift,−2/0/1/2 stride bit fixtures now also compare numeric positive
+output origins and signed negative origins to the same public-call results,
+including outer guards and GC/stack growth. All existing source/output/window
+alias, exact synthesis terminal extent, CC0, transient and silent fixtures remain.
+No pointer slot poisoning, enlarged buffers, new audio scratch/copies or changed
+expected counts/bits/ranges/native tolerances. Counts stay110 unsafe.Pointer/
+105 uintptr: ACTIVE output span formation replaces early pointer subviews without
+moving or hiding casts; no opaque caller-image pointer-map/lifetime/macOS claim.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr, native comparisons, GC stress, unchanged codec references and diff
+checks. Final typed PartA/PartB scoped tests on3 architectures and ARM ordinary/
+scoped twenty-repeat checks pass. Logs:
+/tmp/opus-round-mdct-numeric-output-origin.log,
+/tmp/opus-round-mono-stereo-mdct-numeric-outputs.log,
+/tmp/opus-round-downmix-mdct-numeric-outputs.log,
+/tmp/opus-round-general-mdct-numeric-outputs.log,
+/tmp/opus-round-mdct-numeric-outputs-typed-frames.log and
+/tmp/opus-round-mdct-numeric-outputs-arm-{checkptr,golden}-repeat.log.
+
 Four active numeric MDCT-input-origin rounds add mdctStridedSliceAt and a private
 opusMDCTBackwardAt entry, then move mono→stereo copy transforms, downmix transforms
 and general per-channel synthesis transforms to real float roots + numeric block
