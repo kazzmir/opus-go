@@ -14,15 +14,25 @@ var _ reflect.Type
 
 // Keep signed strides and zero-stride store order without integer addresses.
 func mdctStridedSlice(p *float32, n, stride int32) ([]float32, int32) {
+	return mdctStridedSliceAt(p, 0, n, stride)
+}
+
+// Keep the source origin numeric until the actual strided extent is known.
+func mdctStridedSliceAt(p *float32, offset, n, stride int32) ([]float32, int32) {
 	last := (n - 1) * stride
 	first := min(int32(0), last)
 	end := max(int32(0), last)
-	base := p
-	if first < 0 {
-		// Negative strides consume caller-owned samples preceding p.
-		base = (*float32)(unsafe.Add(unsafe.Pointer(p), int64(first)*4))
+	width := end - first + 1 // Retain the original int32 extent arithmetic.
+	start := int64(offset) + int64(first)
+	if start == 0 {
+		return unsafe.Slice(p, width), -first
 	}
-	return unsafe.Slice(base, end-first+1), -first
+	if start > 0 && width > 0 {
+		return unsafe.Slice(p, start+int64(width))[start:], -first
+	}
+	// Signed history and unused/invalid spans retain the address boundary.
+	base := (*float32)(unsafe.Add(unsafe.Pointer(p), start*4))
+	return unsafe.Slice(base, width), -first
 }
 
 func Opus_clt_mdct_forward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in, out, window *float32, overlap, shift, stride, arch int32) {
@@ -88,6 +98,14 @@ func Opus_clt_mdct_forward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 }
 
 func Opus_clt_mdct_backward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in, out, window *float32, overlap, shift, stride, arch int32) {
+	opusMDCTBackwardAt(tls, l, bitrev, twiddles, in, 0, out, window, overlap, shift, stride, arch)
+}
+
+func opusMDCTBackwardAt(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in *float32, inputOffset int32, out, window *float32, overlap, shift, stride, arch int32) {
+	opusMDCTBackwardOffsets(tls, l, bitrev, twiddles, in, inputOffset, out, 0, window, overlap, shift, stride, arch)
+}
+
+func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in *float32, inputOffset int32, out *float32, outputOffset int32, window *float32, overlap, shift, stride, arch int32) {
 	_ = arch
 	N := l.Fn
 	offset := int32(0)
@@ -97,8 +115,17 @@ func Opus_clt_mdct_backward_c(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16
 	}
 	N2, N4 := N>>1, N>>2
 	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
-	input, inputBase := mdctStridedSlice(in, N2, stride)
-	output := unsafe.Slice(out, N2+(overlap>>1))
+	input, inputBase := mdctStridedSliceAt(in, inputOffset, N2, stride)
+	var output []float32
+	outputLength := N2 + (overlap >> 1)
+	if outputOffset == 0 {
+		output = unsafe.Slice(out, outputLength)
+	} else if outputLength > 0 {
+		output, _ = mdctStridedSliceAt(out, outputOffset, outputLength, 1)
+	} else {
+		// Do not turn an unused end or invalid length into a readable span.
+		output = unsafe.Slice(celtNormAdd(out, outputOffset), outputLength)
+	}
 	win := unsafe.Slice(window, overlap)
 	rev := unsafe.Slice(bitrev, N4)
 	base := overlap >> 1

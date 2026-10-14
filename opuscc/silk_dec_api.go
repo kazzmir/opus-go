@@ -159,10 +159,8 @@ func Opus_silk_InitDecoder(tls *libc.TLS, decState *OpusT_silk_decoder) int32 {
 // C documentation
 //
 //	/* Decode a frame */
-//
-//go:uintptrescapes
-func Opus_silk_Decode(tls *libc.TLS, decState, decControl uintptr, lostFlag, newPacketFlag int32, psRangeDec, samplesOut, nSamplesOut uintptr, arch int32) int32 {
-	return silk_Decode(tls, (*OpusT_silk_decoder)(unsafe.Pointer(decState)), (*OpusT_silk_DecControlStruct)(unsafe.Pointer(decControl)), lostFlag, newPacketFlag, (*OpusT_ec_dec)(unsafe.Pointer(psRangeDec)), (*float32)(unsafe.Pointer(samplesOut)), (*int32)(unsafe.Pointer(nSamplesOut)), arch)
+func Opus_silk_Decode(tls *libc.TLS, decState *OpusT_silk_decoder, decControl *OpusT_silk_DecControlStruct, lostFlag, newPacketFlag int32, psRangeDec *OpusT_ec_dec, samplesOut *float32, nSamplesOut *int32, arch int32) int32 {
+	return silk_Decode(tls, decState, decControl, lostFlag, newPacketFlag, psRangeDec, samplesOut, nSamplesOut, arch)
 }
 
 func silkDecodeAPIResample(tls *libc.TLS, state *OpusT_silk_resampler_state_struct, output, channel []int16, count int32) int32 {

@@ -534,6 +534,200 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four matching active numeric MDCT-OUTPUT-origin rounds add a private
+opusMDCTBackwardOffsets entry, then move mono→stereo, downmix and general-channel
+synthesis outputs from displaced block pointers to the original output root plus
+numeric NB*b origin. Public MDCT and existing private input-offset/zero-offset
+entries delegate unchanged at outputOffset0; fixture helper signatures persist.
+Input/output origins remain independent, so live aliased storage stays live rather
+than being copied/snapshotted. Within the kernel the output extent is exactly
+N2+overlap/2, not the full synthesis frame N: prefix/subslice formation uses that
+known readable span. Zero offset preserves the original direct view; nonpositive
+extents explicitly keep the unused/invalid address boundary, and signed history
+keeps its existing compatibility arithmetic. NB*b and extent remain int32 before
+root-relative widened addition. Pre-rotation store order, FFT real/imag lanes,
+post-rotation paired reloads/stores and TDAC overlaps are untouched.
+
+Existing all4-shift,−2/0/1/2 stride bit fixtures now also compare numeric positive
+output origins and signed negative origins to the same public-call results,
+including outer guards and GC/stack growth. All existing source/output/window
+alias, exact synthesis terminal extent, CC0, transient and silent fixtures remain.
+No pointer slot poisoning, enlarged buffers, new audio scratch/copies or changed
+expected counts/bits/ranges/native tolerances. Counts stay110 unsafe.Pointer/
+105 uintptr: ACTIVE output span formation replaces early pointer subviews without
+moving or hiding casts; no opaque caller-image pointer-map/lifetime/macOS claim.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr, native comparisons, GC stress, unchanged codec references and diff
+checks. Final typed PartA/PartB scoped tests on3 architectures and ARM ordinary/
+scoped twenty-repeat checks pass. Logs:
+/tmp/opus-round-mdct-numeric-output-origin.log,
+/tmp/opus-round-mono-stereo-mdct-numeric-outputs.log,
+/tmp/opus-round-downmix-mdct-numeric-outputs.log,
+/tmp/opus-round-general-mdct-numeric-outputs.log,
+/tmp/opus-round-mdct-numeric-outputs-typed-frames.log and
+/tmp/opus-round-mdct-numeric-outputs-arm-{checkptr,golden}-repeat.log.
+
+Four active numeric MDCT-input-origin rounds add mdctStridedSliceAt and a private
+opusMDCTBackwardAt entry, then move mono→stereo copy transforms, downmix transforms
+and general per-channel synthesis transforms to real float roots + numeric block
+origins. Public MDCT signatures delegate at offset0; the existing private zero-
+offset helper remains for reference fixtures. No frequency block pointer is formed
+by synthesis on these paths. Only the MDCT kernel forms the actual strided input
+view, after lookup geometry establishes the consumed endpoints. Synthesis output
+cursors/history, copy-left-before-right transform order, silence, CC0 do-while,
+mode/bitrev/twiddle/window state and denormalization offsets remain unchanged.
+
+The strided endpoint product and width retain original int32 wrap/narrowing; only
+root-relative addition is widened. Positive readable origins use a minimal Go
+prefix and subslice, including a negative stride whose history is within the Go
+root. Offset0 identity, zero stride, signed backward history and unused/invalid
+extent boundaries remain. No audio snapshot/copy or FFT/MDCT rounding/store-order
+changes occur; live input/output/window aliases continue through the same kernel.
+Counts remain110 unsafe.Pointer/105 uintptr: actual positive input origin handling
+changes, not lexical cast deletion or new maps for opaque caller images.
+
+Grouped MDCT fixtures compare ALL4 shifts at strides−2/0/1/2 bitwise against the
+unchanged public offset0 call using exact final-readable owners, seeded output,
+outer guards and GC/stack growth. Existing native MDCT and synthesis source/output
+alias, transient channel geometry, mode/header/twiddle aliases and golden bits
+remain. No arbitrary external byte-image/EOF/raw callback/global GC/macOS claim.
+
+Every round passes full amd64/386, ARM64/QEMU, relevant scoped checkptr, native
+comparisons, GC stress, unchanged codec references and diff checks; final typed
+PartA/PartB scoped tests on3 architectures and ARM ordinary/scoped twenty-repeat
+checks pass. Retained /tmp/opus-round-mono-stereo-mdct-numeric-blocks.log records a
+compile failure from changing a private helper signature used by existing alias
+fixtures. Preserve that helper as an offset0 delegate and add the At helper;
+full ...-retry.log passes without weakening fixtures. Other logs:
+/tmp/opus-round-mdct-numeric-input-origin.log,
+/tmp/opus-round-downmix-mdct-numeric-blocks.log,
+/tmp/opus-round-general-mdct-numeric-blocks.log,
+/tmp/opus-round-mdct-numeric-inputs-typed-frames.log and
+/tmp/opus-round-mdct-numeric-inputs-arm-{checkptr,golden}-repeat.log.
+
+Four active CELT readable-span rounds form positive displaced denormalization
+views directly as Go prefixes of offset+length (widened numeric addition), retain
+contiguous synthesis copy/downmix scratch prefixes, then use live Go TDAC window
+views and exact destination(overlap/2)/filtered(overlap) views. No copy, snapshot
+of audio/window contents or new ownership map is introduced. Silent and displaced
+empty denormalization returns remain before views; zero-offset/negative-history
+and negative-length compatibility remain. TDAC skips all views for overlap/2<=0,
+including nil mode/data at overlap0/1; per-iteration live aliases and original
+multiply/add order, float32 rounding and sequential writes remain. Upstream
+celt_decoder.c TDAC loop consumes exactly those spans. Public signatures, factory
+layouts, raw adapters, source aliasing and codec goldens/tolerances are unchanged.
+Counts remain110 unsafe.Pointer/105 uintptr: these are ACTIVE positive span/data
+access changes, not deletions, cast hiding or new caller-byte GC pointer maps.
+
+Existing grouped denormalization zero/silent/signed/live-alias, synthesis transient
+mono/stereo/downmix and exact guarded scratch, and TDAC odd/even/nil/rounding/live
+window/filtered aliases persist. Contiguous cursor tests add exact final-readable
+spans, signed/zero/unused-end fallbacks, GC/stack growth and write-through identity.
+
+Retained /tmp/opus-round-synthesis-readable-consumed-spans.log is a FAILED scoped
+checkptr attempt: treating every celtSynthesisCursor's consumed argument as a full
+contiguous length overstates strided IMDCT frequency/output tails. No fixture or
+buffer extent was enlarged. The original minimal-prefix generic cursor remains;
+only proven contiguous copy/downmix scratch uses the new full-prefix helper.
+Full ...-retry.log passes. This distinction is a consumer contract, not lexical
+pointer safety. No opaque-image/EOF/raw callback/global GC/macOS claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr, native comparisons, GC stress, unchanged encode/decode references and
+diff checks. Final three-architecture typed PartA/PartB scoped tests and ARM
+ordinary/scoped twenty-repeat checks also pass. Other logs:
+/tmp/opus-round-denormalise-direct-rooted-span.log,
+/tmp/opus-round-tdac-readable-window-view.log,
+/tmp/opus-round-tdac-readable-sample-views.log,
+/tmp/opus-round-celt-readable-spans-typed-frames.log and
+/tmp/opus-round-celt-readable-spans-arm-{checkptr,golden}-repeat.log.
+
+Four SILK/quantization typed-entry/reference-owner rounds convert Opus_silk_Decode
+to *silk_decoder, *silk_DecControlStruct, *ec_dec, *float32 PCM and *int32 count,
+then give all3 SILK mono/stereo packet/PLC reference fixtures actual scanned Go
+decoder owners. The reference helper checks reported ABI size against the Go
+state extent, initializes the same zeroed image and retains the existing scanned
+pseudostack producer. The packet runner keeps control/entropy/PCM/count roots
+concrete through GC/stack growth before EACH frame. Same packets, sample counts,
+PCM bits/hashes, pitch, range, PLC state and all historical goldens remain.
+
+Opus_quant_all_bands now takes concrete mode, float spectra/energy, byte masks,
+int32 pulse/TF resolution, ec_ctx and uint32 seed pointers. The 2 scalar C-reference
+encode/decode calls use real pointers; optional mono Y remains typed nil. The
+following round replaces ALL xmallocArray byte-image fixtures for the fake mode,
+its tables, entropy contexts and arrays with actual make([]T) Go storage. The
+obsolete integer-laundering helper/comment and redundant byte clears disappear;
+make supplies the same zero contents and array extents with genuine pointer maps.
+No scratch/different buffer copy changes RDO/live source aliases or entropy state.
+Same no-intrinsics upstream C cases,4 encode payloads, masks, seeds, bit budgets,
+X/Y FNVs and decode resynthesis remain. Existing pseudostack setup/reset/zero
+scratch assertions persist; Go-owned modes/entropy buffers get GC/stack growth
+before recursive quantization. The original encode/decode loops are unchanged.
+
+Counts124→110 unsafe.Pointer/116→105 uintptr:5 SILK and9 quantizer crossing casts
+and11 uintptr parameter spellings are removed, not relocated. These generated
+C-internal leaf signatures change Go source API; callers of their old integer
+forms must pass real pointers. Public Opus codec APIs, necessary adapters, raw
+custom callbacks and independent opusccenc entries remain untouched. Typed entries
+were already the active private DSP; owner repairs here are specifically the
+LEGACY REFERENCE fixture producers, not new production lifetime fixes or global
+opaque-allocation/EOF/GC safety. No encode/decode tolerance changes or macOS claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad/scoped
+checkptr, three-architecture typed PartA/PartB, native comparison, GC stress,
+unchanged codec references and diff checks. SILK references gain scoped checkptr
+after their scanned-owner round; quant-all scalar references gain it after their
+Go-owner round. Final ARM ordinary/scoped fixtures repeat twenty times. Retained
+/tmp/opus-round-silk-concrete-decode-entry.log is a compile failure exposing an
+old int16 lost-frame output passed to the float API; change320 int16 to160 float32,
+PRESERVING the exact640-byte extent and all expectations, then the full ...-retry.log
+passes. No golden/fixture was weakened. Other logs:
+/tmp/opus-round-silk-scanned-reference-decoders.log,
+/tmp/opus-round-quant-all-concrete-entry.log,
+/tmp/opus-round-quant-scanned-reference-owners{,-focused}.log and
+/tmp/opus-round-concrete-silk-quant-entries-arm-{checkptr,golden}-repeat.log.
+
+Four generated leaf-entry rounds delete the unreferenced Opus_celt_decode_with_ec
+integer forwarding alias, then its unreferenced Opus_celt_decode_with_ec_dred
+integer adapter, and convert VAD plus delayed-NLSF quantizer leaf entry signatures
+to real Go pointers. Standard CELT frame/audio/native comparison paths already
+call the concrete private decoder, so the two deletions are DEAD adapter cleanup,
+not lifetime repairs. Repository-wide searches find no decoder/tools references;
+same-named opusccenc functions belong to the independent encoder package and stay.
+
+Opus_silk_VAD_GetSA_Q8_c now receives *silk_encoder_state and *int16 input;
+Opus_silk_NLSF_del_dec_quant receives *int8 indices, int16 sample/weight/index
+pointers and byte predictor/rate pointers. Both delegate unchanged to the existing
+concrete kernels; removed uintptrescapes annotations/integer→pointer conversions
+are not relocated. VAD Go/reference-native fixture calls and the delayed quantizer
+fixture now pass actual pointers. Existing scratch/state aliasing, rounding/
+wrapping, signed narrowing, search/tie order, error/validation conditions and
+pseudostack non-consumption semantics remain. VAD native whole-state/fields and
+quantizer RD15284434/indices are unchanged; delayed fixture adds GC/stack growth
+before the same golden call. No encoder-state embedded legacy-pointer bitmap or
+unrelated table backward-boundary safety is claimed repaired.
+
+These generated C-INTERNAL Go leaf exports are not the public Opus codec API:
+external Go users of the removed CELT leaf wrappers or old uintptr VAD/NLSF
+signatures must adapt; this is a source-level leaf API cleanup. Public Opus
+create/init/decode/CTL/destroy, required used adapters and custom callback ABI
+remain untouched. Counts136→124 unsafe.Pointer/125→116 uintptr:4 cast deletions
+are unused CELT cleanup and8 are the concrete leaf parameter crossings;9 uintptr
+parameter spellings disappear. No opaque aliases, raw casts hidden in helpers,
+full-buffer copies or changed codec goldens/tolerances.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, broad/scoped
+checkptr, typed PartA/PartB on all three architectures, native comparisons, GC
+stress, unchanged codec references and diff checks. VAD/NLSF typed entries also
+pass their specific scoped checkptr runs; final ARM ordinary/scoped fixtures
+repeat twenty times. No global opaque-image/extension EOF/GC or macOS claim.
+Logs: /tmp/opus-round-remove-unused-celt-decode-alias.log,
+/tmp/opus-round-remove-unused-celt-dred-adapter.log,
+/tmp/opus-round-vad-concrete-leaf-entry.log,
+/tmp/opus-round-nlsf-concrete-leaf-entry{,-focused}.log and
+/tmp/opus-round-concrete-celt-vad-nlsf-leaves-arm-{checkptr,golden}-repeat.log.
+
 Four ACTIVE canonical accessor rounds select MS decode children, projection's
 embedded MS header, demixing matrix header, then coefficient cells (and MS typed
 CTL child consumers) from actual registered Go views. opusMSStorageViews.Offsets

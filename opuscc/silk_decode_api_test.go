@@ -468,7 +468,7 @@ type silkDecodeCall struct {
 	first8       [8]uint32
 }
 
-func runSilkPacket(t *testing.T, tls *libc.TLS, memory uintptr, control *OpusT_silk_DecControlStruct, pcm []float32, pkt []byte) []silkDecodeCall {
+func runSilkPacket(t *testing.T, tls *libc.TLS, memory *OpusT_silk_decoder, control *OpusT_silk_DecControlStruct, pcm []float32, pkt []byte) []silkDecodeCall {
 	t.Helper()
 	payload := pkt[1:]
 	var rangeDec OpusT_ec_dec
@@ -477,7 +477,9 @@ func runSilkPacket(t *testing.T, tls *libc.TLS, memory uintptr, control *OpusT_s
 	for f := 0; f < 3; f++ {
 		var n int32
 		base := f * 960 * int(control.FnChannelsAPI)
-		ret := Opus_silk_Decode(tls, memory, uintptr(unsafe.Pointer(control)), 0, libc.BoolInt32(f == 0), uintptr(unsafe.Pointer(&rangeDec)), uintptr(unsafe.Pointer(&pcm[base])), uintptr(unsafe.Pointer(&n)), 0)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		ret := Opus_silk_Decode(tls, memory, control, 0, libc.BoolInt32(f == 0), &rangeDec, &pcm[base], &n, 0)
 		var first8 [8]uint32
 		for i := range first8 {
 			first8[i] = math.Float32bits(pcm[base+i])
@@ -503,6 +505,20 @@ func checkSilkCalls(t *testing.T, tag string, got, want []silkDecodeCall) {
 // and 1: mono NB 60 ms) through Opus_silk_Decode the way opus_decode_frame
 // does, then exercises the packet-loss path, and compares against values
 // produced by the C reference implementation.
+func newSilkDecodeReference(t *testing.T, tls *libc.TLS) *OpusT_silk_decoder {
+	t.Helper()
+	var size int32
+	Opus_silk_Get_Decoder_Size(tls, &size)
+	decoder := new(OpusT_silk_decoder)
+	if uint64(size) != uint64(unsafe.Sizeof(*decoder)) {
+		t.Fatal("SILK reference ABI extent", size, unsafe.Sizeof(*decoder))
+	}
+	if got := Opus_silk_InitDecoder(tls, decoder); got != SILK_NO_ERROR {
+		t.Fatalf("decoder initialization: got %d", got)
+	}
+	return decoder
+}
+
 func TestSilkDecodeRealPacketsMonoAndPLC(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
@@ -511,14 +527,7 @@ func TestSilkDecodeRealPacketsMonoAndPLC(t *testing.T) {
 	pkt0 := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
 	pkt1 := mustHex(t, "182312cf4040d200ea1335b36ad4d1a12853dd70b1861253119131ec38")
 
-	var size int32
-	Opus_silk_Get_Decoder_Size(tls, &size)
-	memory := libc.Xmalloc(tls, uint64(size))
-	libc.Xmemset(tls, memory, 0, uint64(size))
-	if got := Opus_silk_InitDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(memory))); got != SILK_NO_ERROR {
-		t.Fatalf("decoder initialization: got %d", got)
-	}
-	decoder := (*OpusT_silk_decoder)(unsafe.Pointer(memory))
+	decoder := newSilkDecodeReference(t, tls)
 
 	var control OpusT_silk_DecControlStruct
 	control.FnChannelsAPI = 2
@@ -529,12 +538,12 @@ func TestSilkDecodeRealPacketsMonoAndPLC(t *testing.T) {
 
 	pcm := make([]float32, 5760*2)
 
-	checkSilkCalls(t, "pkt0", runSilkPacket(t, tls, memory, &control, pcm, pkt0), []silkDecodeCall{
+	checkSilkCalls(t, "pkt0", runSilkPacket(t, tls, decoder, &control, pcm, pkt0), []silkDecodeCall{
 		{0, 960, 0, 0x8725c6f5, [8]uint32{}},
 		{0, 960, 0, 0x05a82535, [8]uint32{0xb9d00000, 0xb9d00000, 0xb9d00000, 0xb9d00000, 0xb9d00000, 0xb9d00000, 0xb9d00000, 0xb9d00000}},
 		{0, 960, 0, 0x3aec7d35, [8]uint32{0xb9d00000, 0xb9d00000, 0xb9d00000, 0xb9d00000, 0xb9c00000, 0xb9c00000, 0xb9c00000, 0xb9c00000}},
 	})
-	checkSilkCalls(t, "pkt1", runSilkPacket(t, tls, memory, &control, pcm, pkt1), []silkDecodeCall{
+	checkSilkCalls(t, "pkt1", runSilkPacket(t, tls, decoder, &control, pcm, pkt1), []silkDecodeCall{
 		{0, 960, 0, 0x08df9055, [8]uint32{0xb9900000, 0xb9900000, 0xb9900000, 0xb9900000, 0xb9900000, 0xb9900000, 0xb9900000, 0xb9900000}},
 		{0, 960, 0, 0x3946b6c5, [8]uint32{0xb9400000, 0xb9400000, 0xb9400000, 0xb9400000, 0xb9200000, 0xb9200000, 0xb9200000, 0xb9200000}},
 		{0, 960, 0, 0x0721dd61, [8]uint32{0x39400000, 0x39400000, 0x39400000, 0x39400000, 0x39400000, 0x39400000, 0x39400000, 0x39400000}},
@@ -545,7 +554,7 @@ func TestSilkDecodeRealPacketsMonoAndPLC(t *testing.T) {
 	control.FpayloadSize_ms = 20
 	var n int32
 	plc := silkDecodeCall{
-		ret: Opus_silk_Decode(tls, memory, uintptr(unsafe.Pointer(&control)), 1, 1, 0, uintptr(unsafe.Pointer(&pcm[0])), uintptr(unsafe.Pointer(&n)), 0),
+		ret: Opus_silk_Decode(tls, decoder, &control, 1, 1, nil, &pcm[0], &n, 0),
 	}
 	plc.nSamplesOut = n
 	plc.prevPitchLag = control.FprevPitchLag
@@ -667,14 +676,7 @@ func TestSilkDecodeRealPacketsStereo(t *testing.T) {
 		"1da85ba45a6826650adf772c3956fe0da296ece58954960c16025f3b8fc41dcf625ab839"+
 		"92b2823f5a71bdc37af4d69927e74d8b94344abbbbdbecb28230f0a085c0")
 
-	var size int32
-	Opus_silk_Get_Decoder_Size(tls, &size)
-	memory := libc.Xmalloc(tls, uint64(size))
-	libc.Xmemset(tls, memory, 0, uint64(size))
-	if got := Opus_silk_InitDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(memory))); got != SILK_NO_ERROR {
-		t.Fatalf("decoder initialization: got %d", got)
-	}
-	decoder := (*OpusT_silk_decoder)(unsafe.Pointer(memory))
+	decoder := newSilkDecodeReference(t, tls)
 
 	var control OpusT_silk_DecControlStruct
 	control.FnChannelsAPI = 2
@@ -685,12 +687,12 @@ func TestSilkDecodeRealPacketsStereo(t *testing.T) {
 
 	pcm := make([]float32, 5760*2)
 
-	checkSilkCalls(t, "pkt602", runSilkPacket(t, tls, memory, &control, pcm, pkt602), []silkDecodeCall{
+	checkSilkCalls(t, "pkt602", runSilkPacket(t, tls, decoder, &control, pcm, pkt602), []silkDecodeCall{
 		{0, 960, 396, 0x1aa334a4, [8]uint32{}},
 		{0, 960, 348, 0xabe77760, [8]uint32{0xbb2e0000, 0xbad40000, 0xbb300000, 0xbad40000, 0xbb300000, 0xbad40000, 0xbb300000, 0xbad40000}},
 		{0, 960, 408, 0x632dad28, [8]uint32{0xbc178000, 0xbbe50000, 0xbc088000, 0xbbbe0000, 0xbbec0000, 0xbb920000, 0xbbbf0000, 0xbb420000}},
 	})
-	checkSilkCalls(t, "pkt603", runSilkPacket(t, tls, memory, &control, pcm, pkt603), []silkDecodeCall{
+	checkSilkCalls(t, "pkt603", runSilkPacket(t, tls, decoder, &control, pcm, pkt603), []silkDecodeCall{
 		{0, 960, 0, 0xf32c7850, [8]uint32{0xbba10000, 0xbb620000, 0xbb930000, 0xbb4c0000, 0xbb830000, 0xbb3a0000, 0xbb660000, 0xbb2a0000}},
 		{0, 960, 0, 0x6747419b, [8]uint32{0xba600000, 0xba380000, 0xba500000, 0xba900000, 0xba380000, 0xbac00000, 0xba280000, 0xbae40000}},
 		{0, 960, 0, 0xab69c72f, [8]uint32{0xb8c00000, 0xb9800000, 0xb9200000, 0xb9800000, 0xb9400000, 0xb9600000, 0xb9600000, 0xb9600000}},
@@ -777,13 +779,7 @@ func TestSilkDecodeLostFrameState(t *testing.T) {
 	defer tls.Close()
 	setupResamplerPseudostack(tls)
 
-	var size int32
-	Opus_silk_Get_Decoder_Size(tls, &size)
-	memory := libc.Xmalloc(tls, uint64(size))
-	if got := Opus_silk_InitDecoder(tls, (*OpusT_silk_decoder)(unsafe.Pointer(memory))); got != OPUS_OK {
-		t.Fatalf("decoder initialization: got %d", got)
-	}
-	decoder := (*OpusT_silk_decoder)(unsafe.Pointer(memory))
+	decoder := newSilkDecodeReference(t, tls)
 	decoder.FnChannelsAPI = 1
 	decoder.FnChannelsInternal = 1
 	decoder.Fchannel_state[0].Ffs_API_hz = 8000
@@ -800,9 +796,10 @@ func TestSilkDecodeLostFrameState(t *testing.T) {
 	control.FinternalSampleRate = 8000
 	control.FnChannelsAPI = 1
 	control.FnChannelsInternal = 1
-	output := make([]int16, 320)
+	// Float API destination; retain the old fixture's exact 640-byte extent.
+	output := make([]float32, 160)
 	var samples int32
-	if got := Opus_silk_Decode(tls, memory, uintptr(unsafe.Pointer(&control)), 1, 1, 0, uintptr(unsafe.Pointer(&output[0])), uintptr(unsafe.Pointer(&samples)), 0); got != OPUS_OK {
+	if got := Opus_silk_Decode(tls, decoder, &control, 1, 1, nil, &output[0], &samples, 0); got != OPUS_OK {
 		t.Fatalf("decode result: got %d", got)
 	}
 	if got, want := samples, int32(80); got != want {

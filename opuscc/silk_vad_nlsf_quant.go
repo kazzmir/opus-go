@@ -39,10 +39,8 @@ var tiltWeights = [4]OpusT_opus_int32{
 //	/***************************************/
 //	/* Get the speech activity level in Q8 */
 //	/***************************************/
-//
-//go:uintptrescapes
-func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, encoder, input uintptr) int32 {
-	return silkVADAnalysis(tls, (*OpusT_silk_encoder_state)(unsafe.Pointer(encoder)), (*int16)(unsafe.Pointer(input)))
+func Opus_silk_VAD_GetSA_Q8_c(tls *libc.TLS, encoder *OpusT_silk_encoder_state, input *int16) int32 {
+	return silkVADAnalysis(tls, encoder, input)
 }
 
 func silkVADAnalysis(tls *libc.TLS, psEncC *OpusT_silk_encoder_state, pIn *int16) (r1 int32) {
@@ -545,10 +543,8 @@ func Opus_silk_NLSF_unpack(tls *libc.TLS, ec_ix *OpusT_opus_int16, pred_Q8 *Opus
 // C documentation
 //
 //	/* Delayed-decision quantizer for NLSF residuals */
-//
-//go:uintptrescapes
-func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices, x, w, pred, ix, rates uintptr, step int32, inv int16, mu int32, order int16) int32 {
-	return silkNLSFDelayedQuant(tls, (*int8)(unsafe.Pointer(indices)), (*int16)(unsafe.Pointer(x)), (*int16)(unsafe.Pointer(w)), (*byte)(unsafe.Pointer(pred)), (*int16)(unsafe.Pointer(ix)), (*byte)(unsafe.Pointer(rates)), step, inv, mu, order)
+func Opus_silk_NLSF_del_dec_quant(tls *libc.TLS, indices *int8, x, w *int16, pred *byte, ix *int16, rates *byte, step int32, inv int16, mu int32, order int16) int32 {
+	return silkNLSFDelayedQuant(tls, indices, x, w, pred, ix, rates, step, inv, mu, order)
 }
 
 func silkNLSFRateRow(rates *byte, offset int16) []byte {

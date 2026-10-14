@@ -24,16 +24,10 @@ import (
  * pulse-cache cap so it splits; pulses {84,80,76} frac-bits, total 400,
  * balance 24, codedBands 3, 64-byte ec buffers.
  *
- * All memory whose address crosses the transpiled API is Xmalloc'd: a
- * uintptr conversion launders escape analysis, so Go stack locals stay on
- * the goroutine stack and a mid-call stack growth (the PVQ recursion is
- * deep enough to trigger one) leaves the callee writing through a stale
- * address. This corrupted the theta_rdo scenario before the buffers were
- * pinned (encoder state ended up clobbered while the in-function view was
- * fine). */
-func xmallocArray[T any](tls *libc.TLS, n int) []T {
-	return unsafe.Slice((*T)(unsafe.Pointer(libc.Xmalloc(tls, uint64(n*int(unsafe.Sizeof(*new(T))))))), n)
-}
+ * The mode, entropy contexts and arrays are actual Go allocations with
+ * their concrete pointer maps. Typed leaf arguments keep their owners
+ * visible through recursive PVQ, GC and stack growth; no integer staging
+ * or byte-image promotion is needed. */
 
 func TestQuantAllBandsNormIdentityPointers(t *testing.T) {
 	if celtNormAdd(nil, 0) != nil {
@@ -769,19 +763,19 @@ func TestQuantAllBandsCReference(t *testing.T) {
 	*pseudostack = OpusT_opus_ccgo_pseudostack_state{Fscratch_ptr: scratch, Fglobal_stack: scratch}
 	libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(pseudostack)))
 
-	eBandsTab := xmallocArray[int16](tls, 4)
+	eBandsTab := make([]int16, 4)
 	copy(eBandsTab, []int16{0, 4, 8, 12})
-	logNTab := xmallocArray[int16](tls, 3)
+	logNTab := make([]int16, 3)
 	copy(logNTab, []int16{2, 2, 2})
-	cacheIndex := xmallocArray[int16](tls, 6)
+	cacheIndex := make([]int16, 6)
 	copy(cacheIndex, []int16{0, 0, 0, 0, 9, 16})
-	cacheBits := xmallocArray[uint8](tls, 21)
+	cacheBits := make([]uint8, 21)
 	copy(cacheBits, []uint8{
 		8, 20, 30, 40, 48, 56, 64, 72, 80,
 		6, 4, 8, 12, 16, 20, 24,
 		4, 32, 56, 76, 96,
 	})
-	mode := xmallocArray[OpusT_OpusCustomMode](tls, 1)
+	mode := make([]OpusT_OpusCustomMode, 1)
 	mode[0] = OpusT_OpusCustomMode{
 		FFs:        48000,
 		FnbEBands:  3,
@@ -792,11 +786,11 @@ func TestQuantAllBandsCReference(t *testing.T) {
 	mode[0].Fcache.Findex = &cacheIndex[0]
 	mode[0].Fcache.Fbits = &cacheBits[0]
 
-	bandE := xmallocArray[OpusT_celt_ener](tls, 6)
+	bandE := make([]OpusT_celt_ener, 6)
 	copy(bandE, []OpusT_celt_ener{1.5, 0.7, 2.2, 1.1, 0.9, 1.8})
-	pulses := xmallocArray[int32](tls, 3)
+	pulses := make([]int32, 3)
 	copy(pulses, []int32{84, 80, 76})
-	tfRes := xmallocArray[int32](tls, 3)
+	tfRes := make([]int32, 3)
 
 	type qabWant struct {
 		xfnv, yfnv uint32
@@ -806,27 +800,29 @@ func TestQuantAllBandsCReference(t *testing.T) {
 		nbits      int32
 	}
 	runEncode := func(name string, stereo bool, complexity, dual, spread int32, seedIn uint32, exp qabWant) {
-		X := xmallocArray[OpusT_celt_norm](tls, 12)
+		X := make([]OpusT_celt_norm, 12)
 		copy(X, []OpusT_celt_norm{0.5, -0.3, 0.8, 0.2, -0.6, 0.4, 0.1, 0.7, -0.2, 0.6, -0.5, 0.3})
-		Y := xmallocArray[OpusT_celt_norm](tls, 12)
+		Y := make([]OpusT_celt_norm, 12)
 		copy(Y, []OpusT_celt_norm{-0.2, 0.6, -0.4, 0.3, 0.1, -0.5, 0.8, -0.1, 0.4, -0.6, 0.2, -0.7})
-		collapse := xmallocArray[uint8](tls, 6)
-		buffer := xmallocArray[uint8](tls, 64)
-		encoder := xmallocArray[OpusT_ec_enc](tls, 1)
-		seed := xmallocArray[uint32](tls, 1)
+		collapse := make([]uint8, 6)
+		buffer := make([]uint8, 64)
+		encoder := make([]OpusT_ec_enc, 1)
+		seed := make([]uint32, 1)
 		seed[0] = seedIn
 
 		Opus_ec_enc_init(tls, &encoder[0], &buffer[0], 64)
-		var yPtr uintptr
+		var yPtr *float32
 		if stereo {
-			yPtr = uintptr(unsafe.Pointer(&Y[0]))
+			yPtr = &Y[0]
 		}
-		Opus_quant_all_bands(tls, 1, uintptr(unsafe.Pointer(&mode[0])), 0, 3,
-			uintptr(unsafe.Pointer(&X[0])), yPtr, uintptr(unsafe.Pointer(&collapse[0])),
-			uintptr(unsafe.Pointer(&bandE[0])), uintptr(unsafe.Pointer(&pulses[0])),
-			0, spread, dual, 3, uintptr(unsafe.Pointer(&tfRes[0])),
-			400, 24, uintptr(unsafe.Pointer(&encoder[0])), 0, 3,
-			uintptr(unsafe.Pointer(&seed[0])), complexity, 0, 0)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus_quant_all_bands(tls, 1, &mode[0], 0, 3,
+			&X[0], yPtr, &collapse[0],
+			&bandE[0], &pulses[0],
+			0, spread, dual, 3, &tfRes[0],
+			400, 24, &encoder[0], 0, 3,
+			&seed[0], complexity, 0, 0)
 		Opus_ec_enc_done(tls, &encoder[0])
 
 		nmasks := 3
@@ -867,13 +863,10 @@ func TestQuantAllBandsCReference(t *testing.T) {
 	/* Decode pass over the theta_rdo packet (bytes embedded from the C
 	   harness); must reproduce the encode resynth exactly. */
 	{
-		X := xmallocArray[OpusT_celt_norm](tls, 12)
-		Y := xmallocArray[OpusT_celt_norm](tls, 12)
-		libc.Xmemset(tls, uintptr(unsafe.Pointer(&X[0])), 0, 48)
-		libc.Xmemset(tls, uintptr(unsafe.Pointer(&Y[0])), 0, 48)
-		collapse := xmallocArray[uint8](tls, 6)
-		buffer := xmallocArray[uint8](tls, 64)
-		libc.Xmemset(tls, uintptr(unsafe.Pointer(&buffer[0])), 0, 64)
+		X := make([]OpusT_celt_norm, 12)
+		Y := make([]OpusT_celt_norm, 12)
+		collapse := make([]uint8, 6)
+		buffer := make([]uint8, 64)
 		/* Full E5 packet: 4 range-coded bytes at the front; the encoder's
 		   ec_enc_done ORs the 2 leftover end-window bits into the last
 		   byte (buf[63] = 0x02), and the decoder reads raw bits back from
@@ -881,8 +874,8 @@ func TestQuantAllBandsCReference(t *testing.T) {
 		   so the trailing byte is easy to miss. */
 		copy(buffer, []uint8{0xfb, 0x1c, 0x14, 0xc0})
 		buffer[63] = 0x02
-		decoder := xmallocArray[OpusT_ec_dec](tls, 1)
-		seed := xmallocArray[uint32](tls, 1)
+		decoder := make([]OpusT_ec_dec, 1)
+		seed := make([]uint32, 1)
 		seed[0] = 123456789
 		/* The C reference's ALLOC scratch lands on fresh (zeroed) stack
 		   pages; zero the pseudostack scratch the same way so uninitialized
@@ -891,12 +884,14 @@ func TestQuantAllBandsCReference(t *testing.T) {
 		pseudostack.Fglobal_stack = scratch
 
 		Opus_ec_dec_init(tls, &decoder[0], &buffer[0], 64)
-		Opus_quant_all_bands(tls, 0, uintptr(unsafe.Pointer(&mode[0])), 0, 3,
-			uintptr(unsafe.Pointer(&X[0])), uintptr(unsafe.Pointer(&Y[0])),
-			uintptr(unsafe.Pointer(&collapse[0])), uintptr(unsafe.Pointer(&bandE[0])),
-			uintptr(unsafe.Pointer(&pulses[0])), 0, SPREAD_NORMAL, 0, 3,
-			uintptr(unsafe.Pointer(&tfRes[0])), 400, 24, uintptr(unsafe.Pointer(&decoder[0])),
-			0, 3, uintptr(unsafe.Pointer(&seed[0])), 8, 0, 0)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		Opus_quant_all_bands(tls, 0, &mode[0], 0, 3,
+			&X[0], &Y[0],
+			&collapse[0], &bandE[0],
+			&pulses[0], 0, SPREAD_NORMAL, 0, 3,
+			&tfRes[0], 400, 24, &decoder[0],
+			0, 3, &seed[0], 8, 0, 0)
 
 		if got, want := fnv1aFloats(X), uint32(0xba1de34d); got != want {
 			t.Errorf("decode: Xfnv: got %08x, want %08x", got, want)

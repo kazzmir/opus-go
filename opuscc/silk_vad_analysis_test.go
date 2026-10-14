@@ -3,7 +3,6 @@ package opuscc
 import (
 	"runtime"
 	"testing"
-	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -18,7 +17,7 @@ func TestVADAnalysisTypedOwnersPointers(t *testing.T) {
 	}
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if silkVADAnalysis(nil, state, &input[0]) != 0 || state.FsVAD.Fcounter != 16 {
+	if Opus_silk_VAD_GetSA_Q8_c(nil, state, &input[0]) != 0 || state.FsVAD.Fcounter != 16 {
 		t.Fatal("typed VAD owners")
 	}
 }
@@ -80,7 +79,7 @@ func TestVADAnalysisVADStateBase(t *testing.T) {
 		input[i] = int16((i*137)%4000 - 2000)
 	}
 
-	if got := Opus_silk_VAD_GetSA_Q8_c(tls, uintptr(unsafe.Pointer(&encoder)), uintptr(unsafe.Pointer(&input[0]))); got != 0 {
+	if got := Opus_silk_VAD_GetSA_Q8_c(tls, &encoder, &input[0]); got != 0 {
 		t.Fatalf("VAD result: got %d, want 0", got)
 	}
 	if got, want := encoder.Fspeech_activity_Q8, int32(255); got != want {

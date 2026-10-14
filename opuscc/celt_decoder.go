@@ -280,9 +280,17 @@ func celtSynthesisGeometry(mode *OpusT_OpusCustomMode, LM int32) (overlap, bands
 	return mode.Foverlap, mode.FnbEBands, mode.FshortMdctSize << LM
 }
 func celtSynthesisIMDCT(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq, out *float32, overlap, shift, stride, arch int32) {
+	celtSynthesisIMDCTAt(tls, mode, freq, 0, out, overlap, shift, stride, arch)
+}
+
+func celtSynthesisIMDCTAt(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *float32, inputOffset int32, out *float32, overlap, shift, stride, arch int32) {
+	celtSynthesisIMDCTOffsets(tls, mode, freq, inputOffset, out, 0, overlap, shift, stride, arch)
+}
+
+func celtSynthesisIMDCTOffsets(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *float32, inputOffset int32, out *float32, outputOffset int32, overlap, shift, stride, arch int32) {
 	lookup := &mode.Fmdct
 	st := lookup.Fkfft[shift]
-	Opus_clt_mdct_backward_c(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, out, mode.Fwindow, overlap, shift, stride, arch)
+	opusMDCTBackwardOffsets(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, inputOffset, out, outputOffset, mode.Fwindow, overlap, shift, stride, arch)
 }
 
 // A zero-length consumer may still require C's unused end identity. Only
@@ -292,6 +300,14 @@ func celtSynthesisCursor(p *float32, offset, consumed int32) *float32 {
 		return celtNormAdd(p, offset)
 	}
 	return celtNormConsumedAt(p, offset)
+}
+
+// Copy/downmix scratch consumes a contiguous span, unlike strided MDCT cursors.
+func celtSynthesisContiguousCursor(p *float32, offset, length int32) *float32 {
+	if offset <= 0 || length <= 0 {
+		return celtSynthesisCursor(p, offset, length)
+	}
+	return &unsafe.Slice(p, int64(offset)+int64(length))[offset]
 }
 func celtSynthesisOutputCopy(destination, source *float32, N int32) {
 	copy(unsafe.Slice(destination, N), unsafe.Slice(source, N))
@@ -311,16 +327,16 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	if CC == 2 && C == 1 {
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
-		temp := celtSynthesisCursor(outputs[1], overlap/2, N)
+		temp := celtSynthesisContiguousCursor(outputs[1], overlap/2, N)
 		celtSynthesisOutputCopy(temp, freqHead, N)
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(temp, b, N), celtSynthesisCursor(outputs[0], NB*b, N), overlap, shift, B, arch)
+			celtSynthesisIMDCTOffsets(tls, mode, temp, b, outputs[0], NB*b, overlap, shift, B, arch)
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[1], NB*b, N), overlap, shift, B, arch)
+			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[1], NB*b, overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
-		temp := celtSynthesisCursor(outputs[0], overlap/2, N)
+		temp := celtSynthesisContiguousCursor(outputs[0], overlap/2, N)
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
 		celtDenormaliseBandsAt(tls, bandBoundaries, mode.FshortMdctSize, X, N, temp, oldBandE, nbEBands, start, effEnd, M, downsample, silence)
 		other := unsafe.Slice(temp, N)
@@ -329,14 +345,14 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 			freq[i] = float32(float32(.5)*freq[i]) + float32(float32(.5)*other[i])
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[0], NB*b, N), overlap, shift, B, arch)
+			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[0], NB*b, overlap, shift, B, arch)
 		}
 	} else {
 		// The C do-while visits channel zero even when CC is zero.
 		for c := int32(0); c < max(CC, 1); c++ {
 			celtDenormaliseBandsAt(tls, bandBoundaries, mode.FshortMdctSize, X, c*N, freqHead, oldBandE, c*nbEBands, start, effEnd, M, downsample, silence)
 			for b := int32(0); b < B; b++ {
-				celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[c], NB*b, N), overlap, shift, B, arch)
+				celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[c], NB*b, overlap, shift, B, arch)
 			}
 		}
 	}
@@ -403,9 +419,15 @@ func prefilterFoldHistory(st *OpusT_OpusCustomDecoder, overlap, channel int32) *
 	return celtNormConsumedAt(&st.F_decode_mem[0], channel*(DEC_PITCH_BUF_SIZE+overlap))
 }
 func prefilterFoldTDAC(mode *OpusT_OpusCustomMode, memory, filtered *float32, overlap int32) {
+	if overlap/2 <= 0 {
+		return
+	}
+	window := unsafe.Slice(mode.Fwindow, overlap)
+	destination := unsafe.Slice(memory, overlap/2)
+	samples := unsafe.Slice(filtered, overlap)
 	for i := int32(0); i < overlap/2; i++ {
 		// Keep the generated/C operand order and live window/sample reads.
-		*celtNormConsumedAt(memory, i) = float32(OpusT_celt_coef(*celtNormConsumedAt(mode.Fwindow, i))**celtNormConsumedAt(filtered, overlap-1-i)) + float32(OpusT_celt_coef(*celtNormConsumedAt(mode.Fwindow, overlap-i-1))**celtNormConsumedAt(filtered, i))
+		destination[i] = float32(OpusT_celt_coef(window[i])*samples[overlap-1-i]) + float32(OpusT_celt_coef(window[overlap-i-1])*samples[i])
 	}
 }
 func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
@@ -1267,11 +1289,6 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 	celtPLCFinish(st1, loss_duration, LM, curr_frame_type)
 }
 
-//go:uintptrescapes
-func Opus_celt_decode_with_ec_dred(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, frame_size int32, decAddress uintptr, accum int32) int32 {
-	return celt_decode_with_ec_dred(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(pcm)), frame_size, (*OpusT_ec_ctx)(unsafe.Pointer(decAddress)), accum)
-}
-
 func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data *byte, len1 int32, pcm *float32, frame_size int32, dec *OpusT_ec_ctx, accum int32) (r int32) {
 	var C, CC, LM, M, N, alloc_trim, anti_collapse_on, anti_collapse_rsv, c, codedBands, decode_buffer_size, effEnd, end, intra_ener, isTransient, nbEBands, overlap, postfilter_pitch, postfilter_tapset, shortBlocks, silence, spread_decision, start, v28 int32
 	var tf_res, cap1, offsets, fine_quant, pulses, fine_priority []int32
@@ -1388,9 +1405,4 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 		return errorCode
 	}
 	return frame_size / st1.Fdownsample
-}
-
-//go:uintptrescapes
-func Opus_celt_decode_with_ec(tls *libc.TLS, st uintptr, data uintptr, len1 int32, pcm uintptr, frame_size int32, dec uintptr, accum int32) (r int32) {
-	return Opus_celt_decode_with_ec_dred(tls, st, data, len1, pcm, frame_size, dec, accum)
 }
