@@ -345,7 +345,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 			freq[i] = float32(float32(.5)*freq[i]) + float32(float32(.5)*other[i])
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCTAt(tls, mode, freqHead, b, celtSynthesisCursor(outputs[0], NB*b, N), overlap, shift, B, arch)
+			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[0], NB*b, overlap, shift, B, arch)
 		}
 	} else {
 		// The C do-while visits channel zero even when CC is zero.
