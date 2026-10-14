@@ -310,7 +310,11 @@ func celtSynthesisContiguousCursor(p *float32, offset, length int32) *float32 {
 	return &unsafe.Slice(p, int64(offset)+int64(length))[offset]
 }
 func celtSynthesisOutputCopy(destination, source *float32, N int32) {
-	copy(unsafe.Slice(destination, N), unsafe.Slice(source, N))
+	celtSynthesisOutputCopyAt(destination, 0, source, N)
+}
+
+func celtSynthesisOutputCopyAt(destination *float32, outputOffset int32, source *float32, N int32) {
+	copy(celtDenormaliseSpan(destination, outputOffset, N), unsafe.Slice(source, N))
 }
 func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_syn **float32, oldBandE *float32, start int32, effEnd int32, C int32, CC int32, isTransient int32, LM int32, downsample int32, silence int32, arch int32) {
 	bandBoundaries := mode.FeBands
@@ -328,7 +332,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
 		temp := celtSynthesisContiguousCursor(outputs[1], overlap/2, N)
-		celtSynthesisOutputCopy(temp, freqHead, N)
+		celtSynthesisOutputCopyAt(outputs[1], overlap/2, freqHead, N)
 		for b := int32(0); b < B; b++ {
 			celtSynthesisIMDCTOffsets(tls, mode, temp, b, outputs[0], NB*b, overlap, shift, B, arch)
 		}
