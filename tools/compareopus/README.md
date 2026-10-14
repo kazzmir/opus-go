@@ -534,6 +534,45 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four remaining synthesis-scratch-origin rounds add private denormalization output
+origins, pass downmix's outputs[0]+overlap/2 as a concrete root+numeric origin,
+copy mono→stereo scratch through a rooted output-offset view, then keep its left
+MDCT source as outputs[1] + NUMERIC overlap/2/block coordinates. No synthesis
+scratch pointer is formed by these active callers. Existing public and private
+reference signatures delegate at zero offset; compatibility cursor helpers stay
+for boundary fixtures. Denormalized/copy views use the actual N samples; MDCT
+views wait for strided kernel geometry. No extra audio storage/snapshot is added.
+
+The combined scratch/block INPUT origin is int64: the original two pointer
+additions must not become a new int32(overlap/2+b) wrap. Individual overlap/2,
+b, NB*b, MDCT strided products/width and output extents retain int32 semantics.
+Signed history/unused/invalid fallback boundaries persist; displaced zero spans
+form no readable pointer. Silent input/energy skips, narrowing/rounding, live
+spectrum/energy/output/window aliases and copy-left-before-right/store order stay.
+All relevant sample/frame/range/bits/payload/hash expectations remain unchanged.
+Counts110 unsafe.Pointer/105 uintptr are unchanged: ACTIVE root-relative scratch
+access, not cast centralization, new caller-image pointer maps or lifetime proof.
+
+Grouped denormalization tests now compare numeric OUTPUT origins in live aliased
+spectrum/energy storage against the same old public results, plus nil all-displaced
+empty silence. Existing cursor tests add rooted overlapping-copy equivalence,
+outer guards and nil empty copy with large displacement. MDCT's all-shift/stride
+fixtures use the widened private input coordinate without changing buffers or
+expected results; existing synthesis transient/mono/stereo/downmix/CC0/silent and
+exact terminal aliases persist. No EOF/opaque-image/raw callback/global GC/macOS
+claim. Public Opus APIs and native tolerances are unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr, native comparisons, GC stress, unchanged codec references and diff checks.
+Final typed PartA/PartB scoped tests pass on3 architectures; ARM ordinary/scoped
+checks repeat twenty times. Logs:
+/tmp/opus-round-denormalise-numeric-output-origin.log,
+/tmp/opus-round-downmix-rooted-denormalise-output.log,
+/tmp/opus-round-synthesis-copy-numeric-output.log,
+/tmp/opus-round-mono-stereo-rooted-scratch-origin.log,
+/tmp/opus-round-synthesis-scratch-origins-typed-frames.log and
+/tmp/opus-round-synthesis-scratch-origins-arm-{checkptr,golden}-repeat.log.
+
 Four matching active numeric MDCT-OUTPUT-origin rounds add a private
 opusMDCTBackwardOffsets entry, then move mono→stereo, downmix and general-channel
 synthesis outputs from displaced block pointers to the original output root plus

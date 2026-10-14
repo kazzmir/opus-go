@@ -288,6 +288,10 @@ func celtSynthesisIMDCTAt(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *float
 }
 
 func celtSynthesisIMDCTOffsets(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *float32, inputOffset int32, out *float32, outputOffset int32, overlap, shift, stride, arch int32) {
+	celtSynthesisIMDCTOrigins(tls, mode, freq, int64(inputOffset), out, outputOffset, overlap, shift, stride, arch)
+}
+
+func celtSynthesisIMDCTOrigins(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *float32, inputOffset int64, out *float32, outputOffset int32, overlap, shift, stride, arch int32) {
 	lookup := &mode.Fmdct
 	st := lookup.Fkfft[shift]
 	opusMDCTBackwardOffsets(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, inputOffset, out, outputOffset, mode.Fwindow, overlap, shift, stride, arch)
@@ -331,10 +335,9 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	if CC == 2 && C == 1 {
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
-		temp := celtSynthesisContiguousCursor(outputs[1], overlap/2, N)
 		celtSynthesisOutputCopyAt(outputs[1], overlap/2, freqHead, N)
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCTOffsets(tls, mode, temp, b, outputs[0], NB*b, overlap, shift, B, arch)
+			celtSynthesisIMDCTOrigins(tls, mode, outputs[1], int64(overlap/2)+int64(b), outputs[0], NB*b, overlap, shift, B, arch)
 		}
 		for b := int32(0); b < B; b++ {
 			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[1], NB*b, overlap, shift, B, arch)
