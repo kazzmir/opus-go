@@ -131,13 +131,23 @@ func Opus_ec_dec_icdf(tls *libc.TLS, dec *OpusT_ec_dec, icdf *uint8, ftb uint32)
 // The zero-terminated table has no explicit length. Only form the prefix through
 // the current entry, not a guessed full table extent.
 func ec_dec_icdf(tls *libc.TLS, dec *OpusT_ec_dec, icdf *uint8, ftb uint32) int32 {
+	return ecDecICDFAt(tls, dec, icdf, 0, ftb)
+}
+
+func ecDecICDFAt(tls *libc.TLS, dec *OpusT_ec_dec, icdf *byte, offset int32, ftb uint32) int32 {
+	if offset < 0 {
+		// Preserve signed caller-owned rows before an interior table base.
+		icdf = silkDecodeICDFAt(icdf, offset)
+		offset = 0
+	}
 	s, d := dec.Frng, dec.Fval
 	r := s >> ftb
 	var previous uint32
 	var symbol int32
 	for {
 		previous = s
-		s = r * uint32(unsafe.Slice(icdf, int64(symbol)+1)[symbol])
+		entry := int64(offset) + int64(symbol)
+		s = r * uint32(unsafe.Slice(icdf, entry+1)[entry])
 		if d >= s {
 			break
 		}
