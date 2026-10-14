@@ -189,7 +189,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 		opusCeltFatal(tls, opusDiagnosticString(6108), opusDiagnosticString(6170), 82)
 	}
 	for i := int32(0); i < int32(cb.Forder); i++ {
-		ix = Opus_ec_dec_icdf(tls, dec, silkDecodeICDFAt(residual, int32(ecIX[i])), 8)
+		ix = ecDecICDFAt(tls, dec, residual, int32(ecIX[i]), 8)
 		if ix == 0 {
 			ix -= Opus_ec_dec_icdf(tls, dec, &Opus_silk_NLSF_EXT_iCDF[0], 8)
 		} else if ix == 2*NLSF_QUANT_MAX_AMPLITUDE {
