@@ -226,6 +226,40 @@ func TestFFTTablePointers(t *testing.T) {
 	}
 }
 
+func TestMDCTBackwardOffsetPointers(t *testing.T) {
+	l := &mode48000_960_120.Fmdct
+	for shift := int32(0); shift < 4; shift++ {
+		st := l.Fkfft[shift]
+		n := (l.Fn >> shift) / 2
+		for _, stride := range []int32{-2, 0, 1, 2} {
+			width := (n-1)*max(stride, -stride) + 1
+			owner := make([]float32, width+2)
+			for i := range owner {
+				owner[i] = float32(i%19-9) * .03125
+			}
+			origin := int32(2)
+			if stride < 0 {
+				origin += width - 1
+			}
+			got := make([]float32, n+62)
+			got[0], got[len(got)-1] = 77, 88
+			want := slices.Clone(got)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &owner[origin], &want[1], &window120[0], 120, shift, stride, 0)
+			opusMDCTBackwardAt(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], origin, &got[1], &window120[0], 120, shift, stride, 0)
+			for i := range got {
+				if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+					t.Fatal("offset MDCT", shift, stride, i)
+				}
+			}
+			if got[0] != 77 || got[len(got)-1] != 88 {
+				t.Fatal("offset MDCT guards")
+			}
+		}
+	}
+}
+
 func TestMDCTBackwardPointers(t *testing.T) {
 	l := &mode48000_960_120.Fmdct
 	st := l.Fkfft[3]
