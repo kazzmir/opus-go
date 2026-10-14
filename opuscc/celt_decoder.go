@@ -293,6 +293,14 @@ func celtSynthesisCursor(p *float32, offset, consumed int32) *float32 {
 	}
 	return celtNormConsumedAt(p, offset)
 }
+
+// Copy/downmix scratch consumes a contiguous span, unlike strided MDCT cursors.
+func celtSynthesisContiguousCursor(p *float32, offset, length int32) *float32 {
+	if offset <= 0 || length <= 0 {
+		return celtSynthesisCursor(p, offset, length)
+	}
+	return &unsafe.Slice(p, int64(offset)+int64(length))[offset]
+}
 func celtSynthesisOutputCopy(destination, source *float32, N int32) {
 	copy(unsafe.Slice(destination, N), unsafe.Slice(source, N))
 }
@@ -311,7 +319,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	if CC == 2 && C == 1 {
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
-		temp := celtSynthesisCursor(outputs[1], overlap/2, N)
+		temp := celtSynthesisContiguousCursor(outputs[1], overlap/2, N)
 		celtSynthesisOutputCopy(temp, freqHead, N)
 		for b := int32(0); b < B; b++ {
 			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(temp, b, N), celtSynthesisCursor(outputs[0], NB*b, N), overlap, shift, B, arch)
@@ -320,7 +328,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 			celtSynthesisIMDCT(tls, mode, celtSynthesisCursor(freqHead, b, N), celtSynthesisCursor(outputs[1], NB*b, N), overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
-		temp := celtSynthesisCursor(outputs[0], overlap/2, N)
+		temp := celtSynthesisContiguousCursor(outputs[0], overlap/2, N)
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
 		celtDenormaliseBandsAt(tls, bandBoundaries, mode.FshortMdctSize, X, N, temp, oldBandE, nbEBands, start, effEnd, M, downsample, silence)
 		other := unsafe.Slice(temp, N)
