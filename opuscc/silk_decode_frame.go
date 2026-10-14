@@ -155,6 +155,12 @@ func silkDecodeICDFAt(table *byte, offset int32) *byte {
 	return &unsafe.Slice(table, int64(offset)+1)[offset]
 }
 
+func silkDecodeGainICDF(tls *libc.TLS, dec *OpusT_ec_dec, signalType int8) int32 {
+	// Retain the original Go row-index validation before any entropy read.
+	_ = Opus_silk_gain_iCDF[signalType]
+	return ecDecICDFAt(tls, dec, &Opus_silk_gain_iCDF[0][0], int32(signalType)*int32(len(Opus_silk_gain_iCDF[0])), 8)
+}
+
 // C documentation
 //
 //	/* Decode side-information parameters from payload */
@@ -171,7 +177,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 	if cond == CODE_CONDITIONALLY {
 		indices.FGainsIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, &Opus_silk_delta_gain_iCDF[0], 8))
 	} else {
-		indices.FGainsIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, &Opus_silk_gain_iCDF[indices.FsignalType][0], 8) << 3)
+		indices.FGainsIndices[0] = int8(silkDecodeGainICDF(tls, dec, indices.FsignalType) << 3)
 		indices.FGainsIndices[0] += int8(Opus_ec_dec_icdf(tls, dec, &Opus_silk_uniform8_iCDF[0], 8))
 	}
 	for i := int32(1); i < decoder.Fnb_subfr; i++ {

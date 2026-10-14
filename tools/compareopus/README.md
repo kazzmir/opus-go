@@ -534,6 +534,44 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four active byte-ICDF numeric-row rounds add private ecDecICDFAt, move SILK NLSF
+first-stage and residual selection from displaced byte pointers to original table
+roots + numeric offsets, then move SILK gain selection to the global24-byte table
+root + numeric8-byte row origin. Public ICDF signatures still delegate at offset0.
+Negative caller-owned row origins use the existing signed table boundary before
+entropy snapshots; zero/positive rows never create a guessed full-row cursor.
+The kernel builds only the prefix through the currently consumed symbol entry.
+Offsets are widened when combined with symbol position; source row arithmetic,
+SILK signed narrowing and gain<<3 wrapping remain unchanged.
+
+Upstream entdec.c snapshots rng/val before scanning, uses IMUL32 per live table
+entry, commits val/rng then normalizes. The same sequence remains, including
+source tables aliasing entropy values. Upstream decode_indices.c CB1 row product,
+residual ec_ix order/EXT branches, fields/codebook reloads and gain decode order
+remain. Gain rows explicitly retain the original Go array bound check BEFORE
+entropy access; invalid rows panic without touching the context. No full table
+snapshot, padded suffix, extra audio scratch/copy or public codec API change.
+Counts stay110 unsafe.Pointer/105 uintptr: these are ACTIVE numeric row consumers,
+not cast relocation or repair of opaque pointer maps/EOF/raw callbacks/global GC.
+
+Grouped ICDF tests compare200 encoded symbols and EVERY full context snapshot for
+positive numeric and signed-history rows against the same public decoder; exact
+last-readable table entries, source guards and GC/stack growth persist. Gain
+fixtures cover all3 rows and24 symbols each, complete context equality, plus
+negative/out-of-range row rejection before entropy mutation. Existing codebook
+weak roots, table/entropy aliases, source guards, real SILK/frame references and
+native/golden bits remain; no fixture/golden/tolerance changes or macOS claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr including numeric ICDF/gain/index cases, three-architecture typed frame
+PartA/PartB, native comparison, GC stress, unchanged codec references and diff checks.
+Final ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-byte-icdf-numeric-origin.log,
+/tmp/opus-round-nlsf-first-icdf-numeric-row.log,
+/tmp/opus-round-nlsf-residual-icdf-numeric-row.log,
+/tmp/opus-round-gain-icdf-numeric-row{,-focused}.log and
+/tmp/opus-round-icdf-numeric-rows-arm-{checkptr,golden}-repeat.log.
+
 Four remaining synthesis-scratch-origin rounds add private denormalization output
 origins, pass downmix's outputs[0]+overlap/2 as a concrete root+numeric origin,
 copy mono→stereo scratch through a rooted output-offset view, then keep its left

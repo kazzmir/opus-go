@@ -7,6 +7,38 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestDecodeIndicesGainRowsPointers(t *testing.T) {
+	for row := int8(0); row < 3; row++ {
+		buffer := make([]byte, 128)
+		var encoder OpusT_ec_enc
+		Opus_ec_enc_init(nil, &encoder, &buffer[0], 128)
+		for i := 0; i < 24; i++ {
+			Opus_ec_enc_icdf(nil, &encoder, int32(i%8), &Opus_silk_gain_iCDF[row][0], 8)
+		}
+		Opus_ec_enc_done(nil, &encoder)
+		var expected OpusT_ec_dec
+		Opus_ec_dec_init(nil, &expected, &buffer[0], 128)
+		got := expected
+		entropyInitGrowStack(12)
+		runtime.GC()
+		for i := 0; i < 24; i++ {
+			want := Opus_ec_dec_icdf(nil, &expected, &Opus_silk_gain_iCDF[row][0], 8)
+			if symbol := silkDecodeGainICDF(nil, &got, row); symbol != want || symbol != int32(i%8) || got != expected {
+				t.Fatal("gain row/state", row, i, symbol, want)
+			}
+		}
+	}
+	for _, row := range []int8{-1, 3} {
+		state := OpusT_ec_dec{Frng: 123, Fval: 45}
+		before := state
+		panicked := false
+		func() { defer func() { panicked = recover() != nil }(); silkDecodeGainICDF(nil, &state, row) }()
+		if !panicked || state != before {
+			t.Fatal("gain row validation before entropy", row)
+		}
+	}
+}
+
 func TestDecodeIndicesTablePointers(t *testing.T) {
 	if silkDecodeICDFAt(nil, 0) != nil {
 		t.Fatal("nil zero offset identity")
