@@ -534,6 +534,42 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four active deemphasis-output-origin rounds migrate direct accumulate, direct
+replace, downsample accumulate and downsample replace stores to the actual PCM
+root + numeric channel/sample coordinates. The last round removes the now-unused
+per-channel y pointer and its early cursor formation; zero N or Nd naturally
+never invokes the output accessor. No zero/end pointer is fabricated. Channel and
+sample coordinates stay separate until the consumed scalar is needed: j*C retains
+int32 multiply/wrap, then channel addition is widened to match the original two
+pointer additions rather than introducing another int32 wrap. Zero offset keeps
+identity; positive stores use a minimal Go prefix; signed history retains the
+explicit compatibility address boundary. Counts remain110 unsafe.Pointer/
+105 uintptr: ACTIVE consumer-origin changes, not cast removal or new GC maps.
+
+Upstream celt_decoder.c direct accumulate's x+m+VERY_SMALL order differs from
+replace/downsample's x+VERY_SMALL+m, and those orders stay. Per-sample preemphasis
+state update, per-channel mem commit BEFORE downsample stores, scratch reuse,
+sequential live accumulate loads/stores and do-while C0/zero-stride behavior are
+unchanged. The common stereo early return, nil zero-work behavior, coefficient
+load/negative scratch/division errors, all input/memory/output aliases and sample
+rounding remain; no additional copies/snapshots or public API/tolerance changes.
+
+Grouped deemphasis tests add exact rooted output identity, last-readable/signed/
+zero-channel cancellation, write-through guards and GC/stack growth. Existing N0/
+Nd0/nil, all output branches/downsample factors/channel counts, scalar reference
+bits, alias, chunking and zero-work coefficient fixtures persist unchanged. No
+caller-byte layout/EOF/raw callback/global GC/macOS safety claim.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, relevant
+scoped checkptr, typed PartA/PartB on3 architectures, native comparisons, GC stress,
+unchanged codec references and diff checks. Final ARM ordinary/scoped fixtures
+repeat twenty times. Logs:
+/tmp/opus-round-deemphasis-direct-accum-numeric-output.log,
+/tmp/opus-round-deemphasis-direct-replace-numeric-output.log,
+/tmp/opus-round-deemphasis-downsample-accum-numeric-output.log,
+/tmp/opus-round-deemphasis-downsample-replace-numeric-output.log and
+/tmp/opus-round-deemphasis-numeric-origins-arm-{checkptr,golden}-repeat.log.
+
 Four active CELT pulse-cache row rounds add modePulseRow{bits *byte,offset int16},
 then migrate quant_partition split-threshold reads, initial bits→pulses/cost helpers
 and EACH remaining-budget retry to that concrete root + numeric coordinate.

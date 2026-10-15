@@ -199,7 +199,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 		deemphasis_stereo_simple(tls, channels[0], channels[1], pcm, N, coefficient, memory)
 		return
 	}
-	var x, y *float32
+	var x *float32
 	var Nd, apply_downsampling, c, j, v29 int32
 	var coef0 OpusT_opus_val16
 	var m, tmp, tmp1, tmp2 OpusT_celt_sig
@@ -212,11 +212,6 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 	for {
 		m = unsafe.Slice(mem, max(C, 1))[c]
 		x = unsafe.Slice(in, max(C, 1))[c]
-		y = nil
-		// If Nd==0, C's channel cursor is never consumed; avoid forming one-past.
-		if N > 0 && (downsample <= 1 || Nd > 0) {
-			y = celtNormConsumedAt(pcm, c)
-		}
 		if downsample > int32(1) {
 			/* Shortcut for the standard (non-custom modes) case */
 			j = 0
@@ -276,7 +271,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					if !(j < Nd) {
 						break
 					}
-					*celtNormConsumedAt(y, j*C) = float32(float32(1) / float32(32768) * scratch[j*downsample])
+					*deemphasisOutputAt(pcm, c, j*C) = float32(float32(1) / float32(32768) * scratch[j*downsample])
 					j = j + 1
 				}
 			}
