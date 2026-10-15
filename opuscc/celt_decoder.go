@@ -1016,6 +1016,15 @@ func celtPLCExtrapolate(history, exc *float32, size, period, N, overlap, pitch i
 		return 0
 	}
 	h, x := unsafe.Slice(history, size+overlap), unsafe.Slice(exc, period)
+	return celtPLCExtrapolateSpans(h, x, size, period, N, overlap, pitch, fade, decay)
+}
+
+func celtPLCExtrapolateSpans(history, exc []float32, size, period, N, overlap, pitch int32, fade, decay float32) float32 {
+	length := N + overlap
+	if length <= 0 {
+		return 0
+	}
+	h, x := history[:size+overlap], exc[:period]
 	offset := period - pitch
 	attenuation := float32(fade * decay)
 	energy := float32(0)
@@ -1312,7 +1321,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			   "pitch_index", scaling down each period by an additional factor of
 			   "decay". */
 			extrapolation_len = N + overlap
-			S1 = celtPLCExtrapolate(unsafe.SliceData(buf), unsafe.SliceData(exc), decode_buffer_size, max_period, N, overlap, pitch_index, fade, decay1)
+			S1 = celtPLCExtrapolateSpans(buf, exc, decode_buffer_size, max_period, N, overlap, pitch_index, fade, decay1)
 			/* Copy the last decoded samples (prior to the overlap region) to
 			   synthesis filter memory so we can have a continuous signal. */
 			celtPLCLPCHistory(&lpc_mem, unsafe.SliceData(buf), decode_buffer_size, N)
