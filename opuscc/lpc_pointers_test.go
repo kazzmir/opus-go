@@ -7,6 +7,57 @@ import (
 	"testing"
 )
 
+func TestIIROwnedOutputPointers(t *testing.T) {
+	for _, ord := range []int32{0, 4, 8} {
+		for _, n := range []int32{0, 1, 3, 4, 5, 8, 17} {
+			if ord == 0 && n >= 4 {
+				continue
+			} // Existing four-lane assertion.
+			for _, inplace := range []bool{false, true} {
+				start := ord + 1
+				got := make([]float32, ord+n+2)
+				for i := range got {
+					got[i] = float32(i%7-3) * .125
+				}
+				got[0], got[len(got)-1] = 77, 88
+				want := slices.Clone(got)
+				memory := make([]float32, ord+2)
+				for i := range memory {
+					memory[i] = float32(i%3-1) * .03125
+				}
+				memory[0], memory[len(memory)-1] = 77, 88
+				wantMemory := slices.Clone(memory)
+				coeff := make([]float32, ord+1)
+				for i := range coeff {
+					coeff[i] = float32(i+1) * .001
+				}
+				input := make([]float32, n+1)
+				for i := range input {
+					input[i] = float32(i%5-2) * .0625
+				}
+				gx, wx := &input[0], &input[0]
+				if inplace {
+					gx, wx = &got[start], &want[start]
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				Opus_celt_iir(nil, wx, &coeff[0], &want[start], n, ord, &wantMemory[1], 0)
+				celtIIROutputOwned(nil, gx, &coeff[0], nil, n, ord, &memory[1], 0, got, start)
+				for i := range got {
+					if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+						t.Fatal("owned IIR output", ord, n, inplace, i)
+					}
+				}
+				for i := range memory {
+					if math.Float32bits(memory[i]) != math.Float32bits(wantMemory[i]) {
+						t.Fatal("owned IIR memory", ord, n, inplace, i)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestPLCPitchSearchPointers(t *testing.T) {
 	input := [DEC_PITCH_BUF_SIZE + 2]float32{}
 	input[0] = 77
