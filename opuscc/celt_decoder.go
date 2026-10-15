@@ -380,18 +380,32 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 }
 
 func tf_decode(tls *libc.TLS, start, end, isTransient int32, tfRes *int32, LM int32, dec *OpusT_ec_dec) {
-	budget := dec.Fstorage * 8
-	tell := uint32(dec.Fnbits_total - int32(bits.Len32(dec.Frng)))
-	logp := int32(4)
+	budget, tell, logp, reserved := tfDecodeBudget(isTransient, LM, dec)
+	out := unsafe.Slice(tfRes, end)
+	tfDecodeFlagsLoop(tls, start, end, isTransient, out, LM, dec, budget, tell, logp, reserved)
+}
+
+func tfDecodeSpan(tls *libc.TLS, start, end, isTransient int32, flags []int32, LM int32, dec *OpusT_ec_dec) {
+	budget, tell, logp, reserved := tfDecodeBudget(isTransient, LM, dec)
+	out := flags[:end]
+	tfDecodeFlagsLoop(tls, start, end, isTransient, out, LM, dec, budget, tell, logp, reserved)
+}
+
+func tfDecodeBudget(isTransient, LM int32, dec *OpusT_ec_dec) (budget, tell uint32, logp, reserved int32) {
+	budget = dec.Fstorage * 8
+	tell = uint32(dec.Fnbits_total - int32(bits.Len32(dec.Frng)))
+	logp = 4
 	if isTransient != 0 {
 		logp = 2
 	}
-	reserved := int32(0)
 	if LM > 0 && tell+uint32(logp)+1 <= budget {
 		reserved = 1
 	}
 	budget -= uint32(reserved)
-	out := unsafe.Slice(tfRes, end)
+	return
+}
+
+func tfDecodeFlagsLoop(tls *libc.TLS, start, end, isTransient int32, out []int32, LM int32, dec *OpusT_ec_dec, budget, tell uint32, logp, reserved int32) {
 	curr, changed := int32(0), int32(0)
 	for i := start; i < end; i++ {
 		if tell+uint32(logp) <= budget {
@@ -923,7 +937,7 @@ func celtDecodeCapsStorage(tls *libc.TLS, mode *OpusT_OpusCustomMode, bands, LM,
 
 func celtDecodeTFStorage(tls *libc.TLS, bands, start, end, transient, LM int32, ec *OpusT_ec_ctx) []int32 {
 	flags := make([]int32, bands)
-	tf_decode(tls, start, end, transient, unsafe.SliceData(flags), LM, ec)
+	tfDecodeSpan(tls, start, end, transient, flags, LM, ec)
 	return flags
 }
 
