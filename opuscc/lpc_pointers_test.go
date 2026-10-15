@@ -42,7 +42,11 @@ func TestIIROwnedOutputPointers(t *testing.T) {
 				entropyInitGrowStack(12)
 				runtime.GC()
 				Opus_celt_iir(nil, wx, &coeff[0], &want[start], n, ord, &wantMemory[1], 0)
-				celtIIROutputOwned(nil, gx, &coeff[0], nil, n, ord, &memory[1], 0, got, start)
+				if inplace {
+					celtIIRAt(nil, &got[0], start, &coeff[0], nil, n, ord, &memory[1], 0, got, start)
+				} else {
+					celtIIROutputOwned(nil, gx, &coeff[0], nil, n, ord, &memory[1], 0, got, start)
+				}
 				for i := range got {
 					if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
 						t.Fatal("owned IIR output", ord, n, inplace, i)
