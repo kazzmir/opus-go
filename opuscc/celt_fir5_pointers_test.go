@@ -1,6 +1,9 @@
 package opuscc
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
 
 func TestCeltFIR5Pointers(t *testing.T) {
 	coefs := [5]float32{0.5, -0.25, 0.125, -0.0625, 0.03125}
@@ -14,7 +17,7 @@ func TestCeltFIR5Pointers(t *testing.T) {
 
 	input := [8]float32{1.25, -2.5, 0.75, 4, -0.125, 100.25, -70, 0.1}
 	for n := 0; n <= len(input); n++ {
-		got, want := input, input
+		got, want, numeric := input, input, input
 		// Reference convolution over ORIGINAL input, in C's MAC order.
 		for i := 0; i < n; i++ {
 			for tap, coef := range coefs {
@@ -23,25 +26,31 @@ func TestCeltFIR5Pointers(t *testing.T) {
 				}
 			}
 		}
+		entropyInitGrowStack(12)
+		runtime.GC()
 		celt_fir5(nil, &got[0], &coefs[0], int32(n))
-		if got != want {
+		celtFIR5Span(nil, numeric[:], &coefs[0], int32(n))
+		if got != want || numeric != want {
 			t.Fatalf("length %d: got %v, want %v", n, got, want)
 		}
 	}
 	celt_fir5(nil, nil, &coefs[0], 0)
+	celtFIR5Span(nil, nil, &coefs[0], 0)
+	celtFIR5Span(nil, nil, &coefs[0], -1)
 }
 
 func TestCeltFIR5AliasedCoefficients(t *testing.T) {
 	// The C implementation snapshots num[0:5] before modifying x.
 	input := [7]float32{0.5, -0.25, 0.125, -0.0625, 0.03125, 1, -2}
-	got, want := input, input
+	got, want, numeric := input, input, input
 	for i := range want {
 		for tap := 0; tap < 5 && tap < i; tap++ {
 			want[i] += float32(input[tap] * input[i-tap-1])
 		}
 	}
 	celt_fir5(nil, &got[0], &got[0], int32(len(got)))
-	if got != want {
+	celtFIR5Span(nil, numeric[:], &numeric[0], int32(len(numeric)))
+	if got != want || numeric != want {
 		t.Fatalf("aliased coefficients: got %v, want %v", got, want)
 	}
 }
