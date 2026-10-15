@@ -534,6 +534,51 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT DSP span rounds retain PLC noise output, PLC synthesis attenuation,
+downsample FIR5 samples and autocorrelation inputs as the actual existing Go
+buffers. Active PLC/downsample callers stop converting them to scalar pointers
+and rebuilding their views. Compatibility adapters retain their original source
+interfaces and extents. Counts remain110 unsafe.Pointer/105 uintptr: actual
+span-carrier changes, not cast deletion, new storage, pointer-map repair or proof
+of global lifetime safety. No performance/macOS claims or new scratch/copies.
+
+Noise retains the seed snapshot/writeback even for no bands/channels, per-channel
+band iteration, uint32 LCG wrap, signed seed shift and live arch reload for each
+normalization. Attenuation retains length<=0 before any view, ordered float32
+energy accumulation, NaN-clearing comparison and live window reads after prior
+output stores. Its PLC caller explicitly retains the old scalar argument's index
+check before passing the Go suffix. FIR5 snapshots all5 coefficients BEFORE its
+length guard/sample view; shared arithmetic retains separate MAC/store/history
+order and original input sample history. Autocorrelation asserts n>0 THEN
+nonnegative overlap before either input view, retains original-input window
+multiplications when ends overlap, existing required window scratch, unrolled
+xcorr followed by scalar tails, output-view timing and live output/input aliases.
+Original contracts inspected in celt/pitch.c, celt/celt_lpc.c and celt_decoder.c.
+
+Grouped fixtures keep their manual/native references and add full noise state/
+bit/guard comparisons for all shifts/channels/seeds; attenuation finite/NaN,
+nil zero-work and live window/output aliases; FIR5 lengths and aliased coefficient
+snapshots; autocorrelation zero/full/overlapping windows, lag choices, full-memory
+input/window/output alias comparisons and exact assertion diagnostics/order.
+Pointer slots are never poisoned. Public codec APIs, external layouts and all
+native packet/sample/range/hash, encode/decode goldens and tolerances unchanged.
+Opaque images, raw callbacks, EOF ownership and recurring native GC issues remain
+unclaimed, independent of these typed numeric-buffer interfaces.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped PLC/FIR5/autocorr/downsample checkptr, typed PartA/PartB on3 architectures,
+native comparisons, GC stress, codec references and diff checks. Final ARM ordinary
+and scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-plc-noise-go-output-span.log,
+/tmp/opus-round-plc-attenuate-go-output-span.log,
+/tmp/opus-round-downsample-fir5-go-sample-span.log,
+/tmp/opus-round-autocorr-go-input-span{-focused,-retry}.log and
+/tmp/opus-round-dsp-work-spans-arm-{checkptr,golden}-repeat.log.
+The focused autocorrelation log retains a fixture failure: expected diagnostic
+mistakenly prepended "assertion failed:" to static text ALREADY containing it.
+Only the new expected-string construction was corrected; production diagnostics
+and prior expectations were unchanged. The COMPLETE validation retry passes.
+
 Four normal CELT decode work-buffer rounds retain history movement, boost
 caps/offsets, TF flags and initialized caps as the existing actual Go slices.
 Active callers stop reducing these arrays to scalar pointers and reconstructing

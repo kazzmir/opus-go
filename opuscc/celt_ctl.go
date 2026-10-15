@@ -188,7 +188,7 @@ func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, 
 	var ac [5]float32
 	var lpc [4]float32
 	var lpc2 [5]float32
-	Opus__celt_autocorr(tls, out, &ac[0], nil, 0, 4, length, arch)
+	celtAutocorrSpan(tls, output, &ac[0], nil, 0, 4, length, arch)
 	ac[0] = float32(ac[0] * 1.0001)
 	for i := 1; i <= 4; i++ {
 		w := float32(0.008 * float32(i))

@@ -184,13 +184,25 @@ func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den *float32, coeff
 }
 
 func Opus__celt_autocorr(tls *libc.TLS, x, ac, window *float32, overlap, lag, n, arch int32) int32 {
+	celtAutocorrValidate(tls, overlap, n)
+	return celtAutocorrSamples(tls, unsafe.Slice(x, n), ac, window, overlap, lag, n, arch)
+}
+
+func celtAutocorrSpan(tls *libc.TLS, x []float32, ac, window *float32, overlap, lag, n, arch int32) int32 {
+	celtAutocorrValidate(tls, overlap, n)
+	return celtAutocorrSamples(tls, x[:n], ac, window, overlap, lag, n, arch)
+}
+
+func celtAutocorrValidate(tls *libc.TLS, overlap, n int32) {
 	if n <= 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3419), opusDiagnosticString(3330), 302)
 	}
 	if overlap < 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3441), opusDiagnosticString(3330), 303)
 	}
-	input := unsafe.Slice(x, n)
+}
+
+func celtAutocorrSamples(tls *libc.TLS, input []float32, ac, window *float32, overlap, lag, n, arch int32) int32 {
 	signal := input
 	if overlap != 0 {
 		signal = make([]float32, n)
