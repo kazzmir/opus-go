@@ -5,13 +5,24 @@ import (
 	"testing"
 )
 
-func checkPulseICDFRow(t *testing.T, table *byte, symbols int32, decode func(*OpusT_ec_dec) int32) {
+func checkPulseICDFRow(t *testing.T, table []byte, decode func(*OpusT_ec_dec) int32) {
 	t.Helper()
+	var symbols []int32
+	previous := uint16(256)
+	for i, v := range table {
+		if uint16(v) < previous {
+			symbols = append(symbols, int32(i))
+		}
+		previous = uint16(v)
+	}
+	if len(symbols) == 0 || previous != 0 {
+		t.Fatal("invalid ICDF fixture")
+	}
 	buffer := make([]byte, 256)
 	var encoder OpusT_ec_enc
 	Opus_ec_enc_init(nil, &encoder, &buffer[0], 256)
 	for i := int32(0); i < 48; i++ {
-		Opus_ec_enc_icdf(nil, &encoder, i%symbols, table, 8)
+		Opus_ec_enc_icdf(nil, &encoder, symbols[int(i)%len(symbols)], &table[0], 8)
 	}
 	Opus_ec_enc_done(nil, &encoder)
 	var expected OpusT_ec_dec
@@ -20,8 +31,8 @@ func checkPulseICDFRow(t *testing.T, table *byte, symbols int32, decode func(*Op
 	entropyInitGrowStack(12)
 	runtime.GC()
 	for i := int32(0); i < 48; i++ {
-		want := Opus_ec_dec_icdf(nil, &expected, table, 8)
-		if symbol := decode(&got); symbol != want || symbol != i%symbols || got != expected {
+		want := Opus_ec_dec_icdf(nil, &expected, &table[0], 8)
+		if symbol := decode(&got); symbol != want || symbol != symbols[int(i)%len(symbols)] || got != expected {
 			t.Fatal("pulse ICDF row/state", i, symbol, want)
 		}
 	}
@@ -29,7 +40,13 @@ func checkPulseICDFRow(t *testing.T, table *byte, symbols int32, decode func(*Op
 
 func TestPulseDecodeRateRowsPointers(t *testing.T) {
 	for row := int32(0); row < 2; row++ {
-		checkPulseICDFRow(t, &Opus_silk_rate_levels_iCDF[row][0], 9, func(dec *OpusT_ec_dec) int32 { return silkDecodeRateICDF(nil, dec, row*2) })
+		checkPulseICDFRow(t, Opus_silk_rate_levels_iCDF[row][:], func(dec *OpusT_ec_dec) int32 { return silkDecodeRateICDF(nil, dec, row*2) })
+	}
+}
+
+func TestPulseDecodeCountRowsPointers(t *testing.T) {
+	for row := int32(0); row < 10; row++ {
+		checkPulseICDFRow(t, Opus_silk_pulses_per_block_iCDF[row][:], func(dec *OpusT_ec_dec) int32 { return silkDecodePulseICDF(nil, dec, row, 0) })
 	}
 }
 

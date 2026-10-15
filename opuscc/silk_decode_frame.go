@@ -248,6 +248,11 @@ func silkDecodeRateICDF(tls *libc.TLS, dec *OpusT_ec_dec, signalType int32) int3
 	return ecDecICDFAt(tls, dec, &Opus_silk_rate_levels_iCDF[0][0], row*int32(len(Opus_silk_rate_levels_iCDF[0])), 8)
 }
 
+func silkDecodePulseICDF(tls *libc.TLS, dec *OpusT_ec_dec, row, start int32) int32 {
+	_ = Opus_silk_pulses_per_block_iCDF[row][start]
+	return ecDecICDFAt(tls, dec, &Opus_silk_pulses_per_block_iCDF[0][0], row*int32(len(Opus_silk_pulses_per_block_iCDF[0]))+start, 8)
+}
+
 func Opus_silk_decode_pulses(tls *libc.TLS, dec *OpusT_ec_dec, pulses *OpusT_opus_int16, signalType, quantOffsetType, frame_length int32) {
 	var shifts, sums [20]int32 // MAX_NB_SHELL_BLOCKS: 320 samples / 16.
 	rate := silkDecodeRateICDF(tls, dec, signalType)
@@ -260,7 +265,7 @@ func Opus_silk_decode_pulses(tls *libc.TLS, dec *OpusT_ec_dec, pulses *OpusT_opu
 	}
 	q := unsafe.Slice(pulses, blocks*SHELL_CODEC_FRAME_LENGTH)
 	for i := int32(0); i < blocks; i++ {
-		sums[i] = ec_dec_icdf(tls, dec, &Opus_silk_pulses_per_block_iCDF[rate][0], 8)
+		sums[i] = silkDecodePulseICDF(tls, dec, rate, 0)
 		for sums[i] == SILK_MAX_PULSES+1 {
 			shifts[i]++
 			start := 0
