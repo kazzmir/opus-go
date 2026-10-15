@@ -20,6 +20,42 @@ func compareImageMustPanic(t *testing.T, f func()) {
 	f()
 }
 
+func TestComparePrefilterImagePointers(t *testing.T) {
+	for _, active := range []int32{0, 1} {
+		for _, n := range []int32{0, 120, 960} {
+			size := opus_custom_decoder_get_size(nil, &mode48000_960_120, 1)
+			data := make([]byte, size+16)
+			st, initial := compareCustomDecoderImage(data)
+			if r := opus_custom_decoder_init(nil, st, &mode48000_960_120, 1); r != 0 {
+				t.Fatal("custom fixture init", r)
+			}
+			st.Fprefilter_and_fold = active
+			st.Fpostfilter_period_old, st.Fpostfilter_period = 20, 40
+			st.Fpostfilter_gain_old, st.Fpostfilter_gain = .25, .5
+			history, _ := celtDecodeHistoryViews(st, st.Foverlap, 1, n)
+			for i := range history[0] {
+				history[0][i] = float32(i%29-14) / 37
+			}
+			st.Fmode = nil
+			initial.save(data)
+			want := slices.Clone(data)
+			reference, expected := compareCustomDecoderImage(want)
+			reference.Fmode = &mode48000_960_120
+			if active != 0 {
+				prefilter_and_fold(nil, reference, n)
+			}
+			reference.Fmode = nil
+			expected.save(want)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			CompareCeltDecodePrefilterImage(data, n)
+			if !slices.Equal(data, want) {
+				t.Fatal("prefilter dispatch/entire image/guards", active, n)
+			}
+		}
+	}
+}
+
 func TestCompareCustomCtlImagePointers(t *testing.T) {
 	data := make([]byte, int(reflect.TypeFor[OpusT_OpusCustomDecoder]().Size())+64)
 	st, initial := compareCustomDecoderImage(data)

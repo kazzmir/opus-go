@@ -142,10 +142,11 @@ func CompareCeltDecodeDeemphasis(state *OpusT_OpusCustomDecoder, mode *OpusT_Opu
 	celtDecodeDeemphasis(nil, state, mode, outputs, pcm, N, channels, accum)
 }
 func CompareCeltDecodePrefilterImage(data []byte, N int32) {
-	state := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+	state, image := compareCustomDecoderImage(data)
 	state.Fmode = &mode48000_960_120
 	celtDecodePrefilter(nil, state, N)
 	state.Fmode = nil
+	image.save(data)
 }
 func CompareCeltDecodeEnergyMergeMono(e *float32, bands int32) { celtDecodeEnergyMergeMono(e, bands) }
 func CompareCeltDecodePostfilter(state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, channels, N, LM, period int32, gain float32, tapset, overlap int32) {
