@@ -1114,7 +1114,14 @@ func celtPLCSynthesisAttenuate(output, window *float32, length, overlap int32, s
 	if length <= 0 {
 		return
 	}
-	x := unsafe.Slice(output, length)
+	celtPLCSynthesisAttenuateSpan(unsafe.Slice(output, length), window, length, overlap, s1)
+}
+
+func celtPLCSynthesisAttenuateSpan(output []float32, window *float32, length, overlap int32, s1 float32) {
+	if length <= 0 {
+		return
+	}
+	x := output[:length]
 	s2 := float32(0)
 	for _, sample := range x {
 		s2 += float32(sample * sample)
@@ -1387,7 +1394,8 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			/* Check if the synthesis energy is higher than expected, which can
 			   happen with the signal changes during our window. If so,
 			   attenuate. */
-			celtPLCSynthesisAttenuate(&buf[decode_buffer_size-N], window, extrapolation_len, overlap, S1)
+			_ = buf[decode_buffer_size-N] // Retain the original scalar argument's index check.
+			celtPLCSynthesisAttenuateSpan(buf[decode_buffer_size-N:], window, extrapolation_len, overlap, S1)
 			c = c + 1
 			v5 = c
 			if !(v5 < C) {

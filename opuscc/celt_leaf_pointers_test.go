@@ -2372,9 +2372,11 @@ func TestCeltPLCSynthesisAttenuatePointers(t *testing.T) {
 				}
 				entropyInitGrowStack(12)
 				runtime.GC()
+				numeric := append([]float32(nil), a...)
 				celtPLCSynthesisAttenuate(&a[1], unsafe.SliceData(w), length, overlap, s1)
+				celtPLCSynthesisAttenuateSpan(numeric[1:], unsafe.SliceData(w), length, overlap, s1)
 				for i := range a {
-					if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+					if math.Float32bits(a[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) {
 						t.Fatal("synthesis attenuation", length, overlap, factor, i)
 					}
 				}
@@ -2385,6 +2387,7 @@ func TestCeltPLCSynthesisAttenuatePointers(t *testing.T) {
 	// output stores rather than snapshotting the window.
 	aAlias := []float32{.5, .75, 1, 1.25, 1.5}
 	wantAlias := append([]float32(nil), aAlias...)
+	numericAlias := append([]float32(nil), aAlias...)
 	s2Alias := float32(0)
 	for _, v := range aAlias[1:] {
 		s2Alias += float32(v * v)
@@ -2396,15 +2399,19 @@ func TestCeltPLCSynthesisAttenuatePointers(t *testing.T) {
 		wantAlias[i+1] = float32(g * wantAlias[i+1])
 	}
 	celtPLCSynthesisAttenuate(&aAlias[1], &aAlias[0], 4, 4, s1Alias)
+	celtPLCSynthesisAttenuateSpan(numericAlias[1:], &numericAlias[0], 4, 4, s1Alias)
 	for i := range aAlias {
-		if math.Float32bits(aAlias[i]) != math.Float32bits(wantAlias[i]) {
+		if math.Float32bits(aAlias[i]) != math.Float32bits(wantAlias[i]) || math.Float32bits(numericAlias[i]) != math.Float32bits(wantAlias[i]) {
 			t.Fatal("live attenuation window alias")
 		}
 	}
 	celtPLCSynthesisAttenuate(nil, nil, 0, 0, 0)
+	celtPLCSynthesisAttenuateSpan(nil, nil, 0, 2147483647, 0)
 	a := []float32{float32(math.NaN()), 1}
+	numeric := append([]float32(nil), a...)
 	celtPLCSynthesisAttenuate(&a[0], nil, 2, 0, 100)
-	if a[0] != 0 || a[1] != 0 {
+	celtPLCSynthesisAttenuateSpan(numeric, nil, 2, 0, 100)
+	if a[0] != 0 || a[1] != 0 || numeric[0] != 0 || numeric[1] != 0 {
 		t.Fatal("NaN explosion not cleared")
 	}
 }
