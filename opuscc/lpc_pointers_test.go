@@ -28,6 +28,7 @@ func TestIIROwnedOutputPointers(t *testing.T) {
 				memory[0], memory[len(memory)-1] = 77, 88
 				wantMemory := slices.Clone(memory)
 				spanOutput, spanMemory := slices.Clone(got), slices.Clone(memory)
+				ownedOutput, ownedMemory := slices.Clone(got), slices.Clone(memory)
 				coeff := make([]float32, ord+1)
 				for i := range coeff {
 					coeff[i] = float32(i+1) * .001
@@ -53,24 +54,41 @@ func TestIIROwnedOutputPointers(t *testing.T) {
 				for i := int32(0); i < ord; i++ {
 					spanMemory[1+i] = spanOutput[start+n-1-i]
 				}
+				ownedInput, inputOffset := input, int32(0)
+				if inplace {
+					ownedInput, inputOffset = ownedOutput, start
+				}
+				celtIIRInputOwned(nil, ownedInput, inputOffset, gotDen, coefficientOffset, n, ord, &ownedMemory[1], 0, ownedOutput, start)
 				if inplace {
 					celtIIRAt(nil, &got[0], start, gotDen, coefficientOffset, nil, n, ord, &memory[1], 0, got, start)
 				} else {
 					celtIIROutputOwned(nil, gx, &coeff[0], nil, n, ord, &memory[1], 0, got, start)
 				}
 				for i := range got {
-					if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(spanOutput[i]) != math.Float32bits(want[i]) {
+					if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(spanOutput[i]) != math.Float32bits(want[i]) || math.Float32bits(ownedOutput[i]) != math.Float32bits(want[i]) {
 						t.Fatal("owned IIR output", ord, n, inplace, i)
 					}
 				}
 				for i := range memory {
-					if math.Float32bits(memory[i]) != math.Float32bits(wantMemory[i]) || math.Float32bits(spanMemory[i]) != math.Float32bits(wantMemory[i]) {
+					if math.Float32bits(memory[i]) != math.Float32bits(wantMemory[i]) || math.Float32bits(spanMemory[i]) != math.Float32bits(wantMemory[i]) || math.Float32bits(ownedMemory[i]) != math.Float32bits(wantMemory[i]) {
 						t.Fatal("owned IIR memory", ord, n, inplace, i)
 					}
 				}
 			}
 		}
 	}
+}
+
+func TestIIROwnedEmptyInputPointers(t *testing.T) {
+	output := []float32{77, 1, 2, 3, 4, 88}
+	memory := []float32{77, 0, 0, 0, 0, 88}
+	coeff := [4]float32{}
+	celtIIRInputOwned(nil, nil, math.MaxInt32, &coeff[0], 0, 0, 4, &memory[1], 0, output, 5)
+	if !slices.Equal(memory, []float32{77, 4, 3, 2, 1, 88}) || !slices.Equal(output, []float32{77, 1, 2, 3, 4, 88}) {
+		t.Fatal("unused input keeps numeric output history/guards")
+	}
+	want := "Fatal (internal) error in " + opusDiagnosticString(3330) + ", line 225: " + opusDiagnosticString(3390) + "\n"
+	checkDiagnosticFatal(t, func() { celtIIRInputOwned(nil, nil, math.MaxInt32, nil, 0, 1, 3, nil, 0, nil, 0) }, want)
 }
 
 func TestIIROwnedCoefficientAliasPointers(t *testing.T) {
@@ -83,12 +101,14 @@ func TestIIROwnedCoefficientAliasPointers(t *testing.T) {
 			}
 			got[0], got[len(got)-1] = 77, 88
 			want := slices.Clone(got)
+			owned := slices.Clone(got)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			Opus_celt_iir(nil, &want[start], &want[start], &want[start], n, ord, &want[1], 0)
 			celtIIRAt(nil, &got[0], start, &got[0], start, nil, n, ord, &got[1], 0, got, start)
+			celtIIRInputOwned(nil, owned, start, &owned[0], start, n, ord, &owned[1], 0, owned, start)
 			for i := range got {
-				if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+				if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(owned[i]) != math.Float32bits(want[i]) {
 					t.Fatal("IIR coefficient/input/output/memory aliases", ord, n, i)
 				}
 			}
