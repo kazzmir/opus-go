@@ -2014,7 +2014,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 	var Y, next_lowband2 *float32
 	var ec *OpusT_ec_ctx
 	var m2 *OpusT_OpusCustomMode
-	var cache, cache1, cache2 *byte
+	var cache, cache1 *byte
+	var cache2 modePulseRow
 	var cm, cm_mask uint32
 	var mid1, side OpusT_opus_val32
 	var rebalance OpusT_opus_int32
@@ -2033,8 +2034,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 	spread = ctx.Fspread
 	ec = ctx.Fec
 	/* If we need 1.5 more bit than we can produce, split the band in two. */
-	cache2 = modePulseCache(m2, (LM2+int32(1))*m2.FnbEBands+i2)
-	if LM2 != -int32(1) && b > int32(modePulseByte(cache2, int32(*cache2)))+int32(12) && N > int32(2) {
+	cache2 = modePulseCacheRow(m2, (LM2+int32(1))*m2.FnbEBands+i2)
+	if LM2 != -int32(1) && b > int32(cache2.at(int32(cache2.at(0))))+int32(12) && N > int32(2) {
 		next_lowband2 = nil
 		N = N >> int32(1)
 		// This split consumes both halves: N>0 and the second half is readable.
