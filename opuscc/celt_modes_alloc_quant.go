@@ -2014,8 +2014,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 	var Y, next_lowband2 *float32
 	var ec *OpusT_ec_ctx
 	var m2 *OpusT_OpusCustomMode
-	var cache, cache1 *byte
-	var cache2 modePulseRow
+	var cache, cache1, cache2 modePulseRow
 	var cm, cm_mask uint32
 	var mid1, side OpusT_opus_val32
 	var rebalance OpusT_opus_int32
@@ -2108,17 +2107,17 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 		}
 	} else {
 		/* This is the basic no-split case. Reload the cache for each C helper. */
-		cache = modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)
-		q = modeBits2Pulses(cache, b)
-		cache1 = modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)
-		curr_bits = modePulses2Bits(cache1, q)
+		cache = modePulseCacheRow(m2, (LM2+1)*m2.FnbEBands+i2)
+		q = cache.bits2Pulses(b)
+		cache1 = modePulseCacheRow(m2, (LM2+1)*m2.FnbEBands+i2)
+		curr_bits = cache1.pulses2Bits(q)
 		ctx.Fremaining_bits -= curr_bits
 		/* Ensures we can never bust the budget */
 		for ctx.Fremaining_bits < 0 && q > 0 {
 			ctx.Fremaining_bits += curr_bits
 			q = q - 1
-			cache1 = modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)
-			curr_bits = modePulses2Bits(cache1, q)
+			cache1 = modePulseRow{bits: modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)}
+			curr_bits = cache1.pulses2Bits(q)
 			ctx.Fremaining_bits -= curr_bits
 		}
 		if q != 0 {
