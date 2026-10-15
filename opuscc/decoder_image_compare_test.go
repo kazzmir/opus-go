@@ -20,6 +20,60 @@ func compareImageMustPanic(t *testing.T, f func()) {
 	f()
 }
 
+func compareInitializedMSImage(t *testing.T, streams, coupled int32) []byte {
+	t.Helper()
+	channels := streams + coupled
+	data := make([]byte, Opus_opus_multistream_decoder_get_size(nil, streams, coupled)+16)
+	image := compareDecoderImageStorage(opusMSDecoderStorageType(streams, coupled), data)
+	views := opusMSStorageViewsAt(image.owner.Field(0))
+	mapping := make([]byte, channels)
+	for i := range mapping {
+		mapping[i] = byte(i)
+	}
+	if r := Opus_opus_multistream_decoder_init(nil, views.Decoder, 48000, channels, streams, coupled, &mapping[0]); r != 0 {
+		t.Fatal("MS image init", r)
+	}
+	for i, codec := range views.Codecs {
+		codec.Celt.Fmode = nil
+		codec.Decoder.FrangeFinal = uint32(1) << i
+	}
+	image.save(data)
+	return data
+}
+
+func TestCompareMSImageOwnerPointers(t *testing.T) {
+	for _, coupled := range []int32{0, 1} {
+		data := compareInitializedMSImage(t, 2, coupled)
+		st, image := compareMSDecoderImage(data)
+		views := opusMSStorageViewsAt(image.owner.Field(0))
+		mode := new(OpusT_OpusCustomMode)
+		root := weak.Make(mode)
+		views.Codecs[1].Celt.Fmode = mode
+		st, mode = nil, nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if root.Value() == nil {
+			t.Fatal("MS scanned child mode")
+		}
+		compareImageMustPanic(t, func() { image.save(data) })
+		views.Codecs[1].Celt.Fmode = nil
+		image.save(data)
+		r, out := CompareMSCtl(data, OPUS_GET_FINAL_RANGE_REQUEST, 0, -1)
+		if r != 0 || out != 3 {
+			t.Fatal("MS range XOR", r, out)
+		}
+		r, out = CompareMSCtl(data, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, 1, -1)
+		if r != 0 || out != uint32(views.Offsets[1]) {
+			t.Fatal("MS child identity", r, out)
+		}
+		st, _ = compareMSDecoderImage(data)
+		if st.Flayout.Fnb_streams != 2 {
+			t.Fatal("MS layout round trip")
+		}
+		runtime.KeepAlive(image)
+	}
+}
+
 func compareInitializedOpusImage(t *testing.T, channels int32) []byte {
 	t.Helper()
 	data := make([]byte, Opus_opus_decoder_get_size(nil, channels)+16)

@@ -95,7 +95,7 @@ func CompareProjectionCtl(data []byte, request, value, alias int32) (int32, uint
 	if alias >= 0 {
 		alias -= int32(offset)
 	}
-	r, out := compareMSCtl(data[offset:], request, value, alias, func(_ *OpusT_OpusMSDecoder, request int32, a OpusDecoderCtlArgs) int32 {
+	r, out := compareMSCtlState(get_multistream_decoder(nil, st), request, value, alias, func(_ *OpusT_OpusMSDecoder, request int32, a OpusDecoderCtlArgs) int32 {
 		return Opus_opus_projection_decoder_ctl_typed(nil, st, request, a)
 	})
 	if r == 0 && request == OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST {
@@ -105,12 +105,14 @@ func CompareProjectionCtl(data []byte, request, value, alias int32) (int32, uint
 }
 
 func CompareMSCtl(data []byte, request, value, alias int32) (int32, uint32) {
-	return compareMSCtl(data, request, value, alias, func(st *OpusT_OpusMSDecoder, request int32, a OpusDecoderCtlArgs) int32 {
+	st, image := compareMSDecoderImage(data)
+	r, out := compareMSCtlState(st, request, value, alias, func(st *OpusT_OpusMSDecoder, request int32, a OpusDecoderCtlArgs) int32 {
 		return Opus_opus_multistream_decoder_ctl_typed(nil, st, request, a)
 	})
+	image.save(data)
+	return r, out
 }
-func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_OpusMSDecoder, int32, OpusDecoderCtlArgs) int32) (int32, uint32) {
-	st := (*OpusT_OpusMSDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+func compareMSCtlState(st *OpusT_OpusMSDecoder, request, value, alias int32, ctl func(*OpusT_OpusMSDecoder, int32, OpusDecoderCtlArgs) int32) (int32, uint32) {
 	streams, coupled := st.Flayout.Fnb_streams, st.Flayout.Fnb_coupled_streams
 	childOffsets := make(map[*OpusT_OpusDecoder]uint32)
 	visit := func(mode *OpusT_OpusCustomMode) {

@@ -78,6 +78,45 @@ func (image compareDecoderImage) save(data []byte) {
 	runtime.KeepAlive(image.owner)
 }
 
+func compareMSDecoderGeometry(data []byte) (channels, streams, coupled int32) {
+	header := reflect.TypeFor[OpusT_OpusMSDecoder]()
+	layout, _ := header.FieldByName("Flayout")
+	t := reflect.TypeFor[OpusT_ChannelLayout]()
+	read := func(name string) int32 {
+		field, _ := t.FieldByName(name)
+		offset := int(layout.Offset + field.Offset)
+		return int32(binary.NativeEndian.Uint32(data[offset : offset+4]))
+	}
+	channels, streams, coupled = read("Fnb_channels"), read("Fnb_streams"), read("Fnb_coupled_streams")
+	if channels < 1 || channels > 255 || streams < 1 || streams > 255 || coupled < 0 || coupled > streams || streams+coupled > 255 {
+		panic("noncanonical serialized multistream geometry")
+	}
+	return
+}
+
+func compareMSDecoderImage(data []byte) (*OpusT_OpusMSDecoder, compareDecoderImage) {
+	_, streams, coupled := compareMSDecoderGeometry(data)
+	image := compareDecoderImageStorage(opusMSDecoderStorageType(streams, coupled), data)
+	views := opusMSStorageViewsAt(image.owner.Field(0))
+	compareCheckMSImage(views, coupled)
+	return views.Decoder, image
+}
+
+func compareCheckMSImage(views opusMSStorageViews, coupled int32) {
+	for i, codec := range views.Codecs {
+		channels := int32(1)
+		if int32(i) < coupled {
+			channels = 2
+		}
+		layout := opusDecoderStorageType(channels)
+		silk, _ := layout.FieldByName("Silk")
+		celt, _ := layout.FieldByName("Celt")
+		if codec.Decoder.Fchannels != channels || int64(codec.Decoder.Fsilk_dec_offset) != int64(silk.Offset) || int64(codec.Decoder.Fcelt_dec_offset) != int64(celt.Offset) {
+			panic("noncanonical serialized multistream child")
+		}
+	}
+}
+
 func compareOpusDecoderImage(data []byte) (*OpusT_OpusDecoder, compareDecoderImage) {
 	header := reflect.TypeFor[OpusT_OpusDecoder]()
 	channel, _ := header.FieldByName("Fchannels")
