@@ -1216,10 +1216,18 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 				v5 = int32(COMBFILTER_MINPERIOD)
 			}
 			st1.Fpostfilter_period_old = v5
-			combFilterWithHistory(tls, out_syn[c], out_syn[c], st1.Fpostfilter_period_old, st1.Fpostfilter_period, mode.FshortMdctSize, st1.Fpostfilter_gain_old, st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, mode.Fwindow, overlap, st1.Farch, decode_mem[c], decode_buffer_size-N)
+			if combFilterOwnerMatches(decode_mem[c], decode_buffer_size-N, out_syn[c]) {
+				combFilterOwned(tls, out_syn[c], decode_mem[c], decode_buffer_size-N, st1.Fpostfilter_period_old, st1.Fpostfilter_period, mode.FshortMdctSize, st1.Fpostfilter_gain_old, st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, mode.Fwindow, overlap, st1.Farch)
+			} else {
+				combFilterWithHistory(tls, out_syn[c], out_syn[c], st1.Fpostfilter_period_old, st1.Fpostfilter_period, mode.FshortMdctSize, st1.Fpostfilter_gain_old, st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, mode.Fwindow, overlap, st1.Farch, decode_mem[c], decode_buffer_size-N)
+			}
 			if LM != 0 {
 				tail := &decode_mem[c][decode_buffer_size-N+mode.FshortMdctSize]
-				combFilterWithHistory(tls, tail, tail, st1.Fpostfilter_period, st1.Fpostfilter_period, N-mode.FshortMdctSize, st1.Fpostfilter_gain, st1.Fpostfilter_gain, st1.Fpostfilter_tapset, st1.Fpostfilter_tapset, mode.Fwindow, overlap, st1.Farch, decode_mem[c], decode_buffer_size-N+mode.FshortMdctSize)
+				if combFilterOwnerMatches(decode_mem[c], decode_buffer_size-N+mode.FshortMdctSize, tail) {
+					combFilterOwned(tls, tail, decode_mem[c], decode_buffer_size-N+mode.FshortMdctSize, st1.Fpostfilter_period, st1.Fpostfilter_period, N-mode.FshortMdctSize, st1.Fpostfilter_gain, st1.Fpostfilter_gain, st1.Fpostfilter_tapset, st1.Fpostfilter_tapset, mode.Fwindow, overlap, st1.Farch)
+				} else {
+					combFilterWithHistory(tls, tail, tail, st1.Fpostfilter_period, st1.Fpostfilter_period, N-mode.FshortMdctSize, st1.Fpostfilter_gain, st1.Fpostfilter_gain, st1.Fpostfilter_tapset, st1.Fpostfilter_tapset, mode.Fwindow, overlap, st1.Farch, decode_mem[c], decode_buffer_size-N+mode.FshortMdctSize)
+				}
 			}
 			c = c + 1
 			v5 = c

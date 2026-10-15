@@ -534,6 +534,46 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four comb-source rounds add combFilterSource with real *float32 legacy input,
+actual []float32 owner, numeric int32 origin and an explicit owned-path flag; then
+migrate prefilter, normal postfilter and PLC postfilter source consumption. Owned
+paths read copy/history samples through Go slices, not an input scalar pointer.
+Source/destination address comparison is used only for the original copy/skip
+identity rules. The compatibility path keeps explicit x for both zero-gain copy
+and identity EVEN if a separate history owner was supplied, preserving legacy
+mixed-argument behavior. Owned/source history is never inferred by pointer math.
+
+Normal/PLC postfilters choose owned source only for an exact readable owner/index
+match with the existing output address. Nil, displaced-end and nonmatching history
+keep the old private path; this preserves zero-gain in-place skip and opaque or
+foreign caller layouts. Target pointers remain because they are writable outputs;
+prefilter's TDAC target is unchanged. Source-history slices retain old int32 extent
+arithmetic; direct owned copy root additions widen. Required signed/backward and
+unused identity boundaries remain explicit. Counts stay110 unsafe.Pointer/
+105 uintptr: ACTIVE source carriers, not cast deletion, pointer-map creation,
+lifetime proof or performance improvement (extra matching is unbenchmarked).
+
+Upstream celt.c zero gains skip period/tapset/window/history work; period clamps,
+tap products, equal-filter overlap suppression, live delay reloads, x4→x1 shifts,
+g1==0 suffix-copy/skip and constant-filter order remain. Go in-place/overlapping
+source/output/window aliases and state reload/store order are unchanged. New
+grouped tests extend gain/overlap/length cases with the concrete source path, plus
+overlapping zero-gain copy, nil zero identity, explicit-x legacy copy despite a
+foreign owner, exact owner matching and normal-postfilter foreign-history skip.
+All prior prefilter/normal/PLC native frame/sample/range/hash goldens and guards
+remain; no snapshots/copies beyond the existing required copy, scratch additions,
+changed tolerances or caller-image/EOF/raw callback/global GC/macOS claims.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped comb/
+prefilter/postfilter and broad relevant checkptr, typed PartA/PartB on3 architectures,
+native comparisons, GC stress, unchanged codec references and diff checks. Final
+ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-comb-concrete-source-view.log,
+/tmp/opus-round-prefilter-owned-comb-source.log,
+/tmp/opus-round-postfilter-owned-comb-source.log,
+/tmp/opus-round-plc-postfilter-owned-comb-source{,-focused}.log and
+/tmp/opus-round-comb-owned-sources-arm-{checkptr,golden}-repeat.log.
+
 Four matching CELT FIR/PLC rounds separate unchanged FIR arithmetic into a live
 span kernel, pass PLC excitation as its real Go owner + numeric source origin,
 carry LPC coefficient origin numerically, then pass FIR scratch as an actual Go
