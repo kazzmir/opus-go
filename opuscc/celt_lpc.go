@@ -151,7 +151,7 @@ func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den *float32, coeff
 	}
 }
 
-func celtIIRInputOwned(tls *libc.TLS, inputOwner []float32, inputOffset int32, den *float32, coefficientOffset int32, N, ord int32, mem *float32, arch int32, outputOwner []float32, outputOffset int32) {
+func celtIIROwned(tls *libc.TLS, inputOwner []float32, inputOffset int32, coefficientOwner []float32, coefficientOffset int32, N, ord int32, mem *float32, arch int32, outputOwner []float32, outputOffset int32) {
 	if ord&3 != 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3390), opusDiagnosticString(3330), 225)
 	}
@@ -159,7 +159,10 @@ func celtIIRInputOwned(tls *libc.TLS, inputOwner []float32, inputOffset int32, d
 	if N != 0 {
 		input = inputOwner[int64(inputOffset) : int64(inputOffset)+int64(N)]
 	}
-	coeff := celtDenormaliseSpan(den, coefficientOffset, ord)
+	var coeff []float32
+	if ord != 0 {
+		coeff = coefficientOwner[int64(coefficientOffset) : int64(coefficientOffset)+int64(ord)]
+	}
 	output := outputOwner[int64(outputOffset) : int64(outputOffset)+int64(N)]
 	memory := unsafe.Slice(mem, ord)
 	celtIIRSpans(tls, input, coeff, output, memory, N, ord)
