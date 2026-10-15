@@ -72,10 +72,11 @@ func CompareAllocationInterpAlias(mode *OpusT_OpusCustomMode, a *[7][23]int32, s
 }
 
 func ComparePrefilterFold(tls *libc.TLS, data []byte, N int32) {
-	st := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+	st, image := compareCustomDecoderImage(data)
 	st.Fmode = &mode48000_960_120
 	prefilter_and_fold(tls, st, N)
 	st.Fmode = nil
+	image.save(data)
 }
 
 func CompareCeltSynthesis(tls *libc.TLS, X, energy, left, right *float32, start, end, C, CC, transient, LM, downsample, silence int32) {
