@@ -1261,9 +1261,20 @@ func TestCeltDecodeBoostsPointers(t *testing.T) {
 					var ec OpusT_ec_ctx
 					Opus_ec_dec_init(nil, &ec, &data[0], 128)
 					before := ec
+					ownedEC := before
+					numeric := append([]int32(nil), out...)
 					entropyInitGrowStack(12)
 					runtime.GC()
 					remaining, tell := celtDecodeBoosts(nil, &bands[0], &caps[0], &out[1], start, 5, C, LM, budget, &ec)
+					ownedRemaining, ownedTell := celtDecodeBoostsSpans(nil, &bands[0], caps, numeric[1:], start, 5, C, LM, budget, &ownedEC)
+					if remaining != ownedRemaining || tell != ownedTell || ec != ownedEC {
+						t.Fatal("owned boost context/scalars")
+					}
+					for i := range out {
+						if out[i] != numeric[i] {
+							t.Fatal("owned boost outputs/guards", i)
+						}
+					}
 					if out[0] != 901 || out[6] != 902 || remaining > budget<<BITRES || tell != int32(Opus_ec_tell_frac(nil, &ec)) {
 						t.Fatal("boost scalar/guards", LM, C, budget, start)
 					}
@@ -1285,6 +1296,24 @@ func TestCeltDecodeBoostsPointers(t *testing.T) {
 	remaining, _ := celtDecodeBoosts(nil, nil, nil, nil, 0, 0, 1, 0, 0x20000000, &ec)
 	if remaining != 0 {
 		t.Fatal("Go-only total shift wrapping")
+	}
+	remaining, _ = celtDecodeBoostsSpans(nil, nil, nil, nil, 0, 0, 1, 0, 0x20000000, &ec)
+	if remaining != 0 {
+		t.Fatal("owned total shift wrapping")
+	}
+	bands := []int16{0, 1, 3, 6, 10}
+	a := []int32{8, 40, 128, 500, 901}
+	b := append([]int32(nil), a...)
+	other := ec
+	r, tell := celtDecodeBoosts(nil, &bands[0], &a[0], &a[1], 0, 4, 1, 0, 500, &ec)
+	r2, tell2 := celtDecodeBoostsSpans(nil, &bands[0], b[:4], b[1:], 0, 4, 1, 0, 500, &other)
+	if r != r2 || tell != tell2 || ec != other {
+		t.Fatal("aliased boost context/scalars")
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			t.Fatal("live cap/output aliases", i)
+		}
 	}
 }
 func TestCeltDecodeSilenceEnergyPointers(t *testing.T) {

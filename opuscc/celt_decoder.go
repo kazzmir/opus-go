@@ -828,6 +828,21 @@ func celtDecodeBoosts(tls *libc.TLS, bands *int16, cap, offsets *int32, start, e
 	e := unsafe.Slice(bands, end+1)
 	caps := unsafe.Slice(cap, end)
 	out := unsafe.Slice(offsets, end)
+	return celtDecodeBoostsLoop(tls, e, caps, out, start, end, C, LM, remaining, tell, ec)
+}
+
+func celtDecodeBoostsSpans(tls *libc.TLS, bands *int16, cap, offsets []int32, start, end, C, LM, total int32, ec *OpusT_ec_ctx) (remaining, tell int32) {
+	remaining = total << BITRES
+	tell = int32(Opus_ec_tell_frac(tls, ec))
+	if start >= end {
+		return
+	}
+	e := unsafe.Slice(bands, end+1)
+	caps, out := cap[:end], offsets[:end]
+	return celtDecodeBoostsLoop(tls, e, caps, out, start, end, C, LM, remaining, tell, ec)
+}
+
+func celtDecodeBoostsLoop(tls *libc.TLS, e []int16, caps, out []int32, start, end, C, LM, remaining, tell int32, ec *OpusT_ec_ctx) (int32, int32) {
 	logp := int32(6)
 	for i := start; i < end; i++ {
 		width := C * (int32(e[i+1]) - int32(e[i])) << LM
@@ -849,7 +864,7 @@ func celtDecodeBoosts(tls *libc.TLS, bands *int16, cap, offsets *int32, start, e
 			logp = max(int32(2), logp-1)
 		}
 	}
-	return
+	return remaining, tell
 }
 
 func celtDecodeSilenceEnergy(energy *float32, bands, channels int32) {
@@ -1423,7 +1438,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	spread_decision, tell = celtDecodeSpread(tls, dec, total_bits)
 	cap1 = celtDecodeCapsStorage(tls, mode, nbEBands, LM, C)
 	offsets = celtDecodeOffsetsStorage(nbEBands)
-	total_bits, tell = celtDecodeBoosts(tls, eBands, unsafe.SliceData(cap1), unsafe.SliceData(offsets), start, end, C, LM, total_bits, dec)
+	total_bits, tell = celtDecodeBoostsSpans(tls, eBands, cap1, offsets, start, end, C, LM, total_bits, dec)
 	fine_quant = celtDecodeFineStorage(nbEBands)
 	alloc_trim = celtDecodeTrim(tls, dec, tell, total_bits)
 	bits, anti_collapse_rsv = celtDecodeAllocationBudget(tls, dec, len1, isTransient, LM)
