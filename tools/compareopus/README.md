@@ -534,6 +534,50 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four active PLC IIR rounds separate unchanged arithmetic into celtIIRSpans,
+then migrate the private PLC input, coefficient and filter-memory carriers to
+actual Go slices. Final celtIIROwned takes real input/coefficient/output owners,
+numeric origins and the actual lpc_mem slice; no scalar-pointer reduction or
+unsafe.Slice reconstruction for those private buffers. Existing public IIR,
+explicit-history and numeric-pointer entries retain signed caller-owned history
+and their source interfaces. Counts remain101 unsafe.Pointer/105 uintptr because
+the necessary external compatibility fallbacks stay. This is active DSP carrier
+work, not another fixture-ownership repair, cast deletion, new GC map or global
+lifetime proof; no performance or direct macOS claim.
+
+The order assertion precedes all views. N==0 ignores even a nil input owner with
+large unused origin; ord==0 ignores nil coefficients with large unused origin.
+Output/memory views retain original setup order and geometry. Coefficients reverse
+before memory-history initialization; the original zeroed N+ord history and
+reversed-coefficient scratch remain, with no extra snapshots/storage. Each lane
+keeps explicit float32 products, live coefficient patch reloads and sequential
+history/output stores, including the original positive scalar-tail history vs
+negative four-lane history distinction. Memory tail view is formed AFTER all
+output stores, then memory updates in forward order from live reverse output
+indices, even N==0/N<ord and overlapping memory/history. No deferred/snapshot
+memory writeback. PLC's original coefficient index check stays before the call.
+Origins combine as before (int64 span coordinates, original int32 N-ord and N+ord
+arithmetic). Upstream celt_lpc.c IIR and PLC call contracts inspected.
+
+Existing grouped fixtures retain public/manual expectations and add bitwise full
+output/memory/guard comparisons for raw span and owned paths, orders0/4/8,
+lengths0/1/3/4/5/8/17, separate/in-place input, shifted coefficient roots,
+coefficient/input/output/memory overlaps, nil unused owners and exact assertion
+ordering/diagnostics. New short-output/history/memory alias cases explicitly retain
+sequential stores for N<ord instead of reverse-copy snapshots. Physical extents,
+all native packet/sample/range/hash and codec goldens/tolerances remain unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped IIR/LPC/PLC checkptr, tagged owner/cell checks on3 architectures, typed
+PartA/PartB, native comparisons, GC stress, codec references and diff checks.
+Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-iir-live-span-kernel.log,
+/tmp/opus-round-plc-iir-go-input-owner.log,
+/tmp/opus-round-plc-iir-go-coefficient-owner.log,
+/tmp/opus-round-plc-iir-go-memory-owner.log and
+/tmp/opus-round-plc-iir-full-owners-arm-{checkptr,golden}-repeat.log.
+No opaque caller-image, raw callback, EOF or recurring native GC safety claims.
+
 Four CTL owner/cell rounds remove FIVE more unsafe.Pointer sites (106→101;
 uintptr105 unchanged, source totals include compareopus bridges). First, MS and
 projection comparison images use canonical scanned Go children, with decoded
