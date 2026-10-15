@@ -352,7 +352,14 @@ func TestCapsPointers(t *testing.T) {
 	for lm := int32(0); lm < 4; lm++ {
 		for channels := int32(1); channels <= 2; channels++ {
 			out := [5]int32{123, 0, 0, 0, 456}
+			numeric := out
+			entropyInitGrowStack(12)
+			runtime.GC()
 			Opus_init_caps(nil, &bands[0], &cache[0], &out[1], 3, lm, channels)
+			celtInitCapsSpan(nil, &bands[0], &cache[0], numeric[1:4], 3, lm, channels)
+			if numeric != out {
+				t.Fatal("caps span/guards", lm, channels)
+			}
 			for i := int32(0); i < 3; i++ {
 				want := (int32(cache[3*(2*lm+channels-1)+i]) + 64) * channels * (int32(bands[i+1]-bands[i]) << lm) / 4
 				if out[i+1] != want {
@@ -363,5 +370,21 @@ func TestCapsPointers(t *testing.T) {
 				t.Fatal("guard changed")
 			}
 		}
+	}
+	for _, n := range []int32{0, -1} {
+		Opus_init_caps(nil, nil, nil, nil, n, 3, 2)
+		celtInitCapsSpan(nil, nil, nil, nil, n, 3, 2)
+	}
+	// Go-only byte-cache/output alias: each row reads the just-mutated bytes.
+	a := [5]int32{123, 0x01020304, 0x05060708, 0x090a0b0c, 456}
+	b, want := a, a
+	bytes := unsafe.Slice((*byte)(unsafe.Pointer(&want[1])), 12)
+	for i := int32(0); i < 3; i++ {
+		want[i+1] = (int32(bytes[i]) + 64) * (int32(bands[i+1]) - int32(bands[i])) >> 2
+	}
+	Opus_init_caps(nil, &bands[0], (*byte)(unsafe.Pointer(&a[1])), &a[1], 3, 0, 1)
+	celtInitCapsSpan(nil, &bands[0], (*byte)(unsafe.Pointer(&b[1])), b[1:4], 3, 0, 1)
+	if a != want || b != want {
+		t.Fatal("live caps byte-cache/output alias")
 	}
 }

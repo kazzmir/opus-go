@@ -931,7 +931,7 @@ func celtDecodeOffsetsStorage(bands int32) []int32 { return make([]int32, bands)
 
 func celtDecodeCapsStorage(tls *libc.TLS, mode *OpusT_OpusCustomMode, bands, LM, channels int32) []int32 {
 	caps := make([]int32, bands)
-	Opus_init_caps(tls, mode.FeBands, mode.Fcache.Fcaps, unsafe.SliceData(caps), mode.FnbEBands, LM, channels)
+	celtInitCapsSpan(tls, mode.FeBands, mode.Fcache.Fcaps, caps, mode.FnbEBands, LM, channels)
 	return caps
 }
 

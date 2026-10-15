@@ -534,6 +534,45 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four normal CELT decode work-buffer rounds retain history movement, boost
+caps/offsets, TF flags and initialized caps as the existing actual Go slices.
+Active callers stop reducing these arrays to scalar pointers and reconstructing
+views. Scalar compatibility adapters remain; shared arithmetic loops consume the
+same extents and live samples. No new scratch/allocations or input snapshots,
+layout/ABI changes or pointer-map/lifetime/performance claims. Counts remain110
+unsafe.Pointer/105 uintptr: this is a real span-carrier/interface change, not
+cast deletion or a fix for opaque images, callbacks or EOF ownership.
+
+History movement remains overlapping memmove, with length==0 before extent math.
+Boost total-shift wrapping and entropy tell precede the empty-band guard/views;
+remaining/tell are passed to a common loop exactly once. Width/quanta wrapping,
+strict budget comparison, cap reloads, probability resets, sequential offset
+stores and final entropy context remain. TF budget/storage/tell/logp/reservation
+capture precedes output view construction; the shared loop retains live entropy
+reloads and the separate selected-table mapping pass. Empty TF bands MUST NOT
+skip the reservation/table-selection behavior. Caps retain band/cache/output
+view order, empty guard, signed width narrowing/shifts and live byte-table reads
+before each int32 output store. Original C contracts inspected in celt.c and
+celt_decoder.c; public init_caps and existing tf_decode source entries unchanged.
+
+Grouped tests retain prior manual/native expectations and add bitwise history
+span/guard comparisons, full boost context/scalars/output comparisons and live
+cap/offset overlap. TF tests cover all4 shifts, transient choices,0/1/32-byte
+budgets, empty/nonempty bands, exact guards, nil zero extent and a single numeric
+entropy-field alias (no pointer slots). Caps compare direct span output/guards,
+empty/nonpositive bands and sequential byte-cache/output alias reads. Existing
+native packet/range/sample/hash and encode/decode goldens/tolerances unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped history/boost/TF/caps checkptr, typed PartA/PartB on3 architectures,
+native comparisons, GC stress, codec references and diff checks. Final ARM ordinary
+and scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-decode-history-move-go-span.log,
+/tmp/opus-round-decode-boost-work-go-spans.log,
+/tmp/opus-round-decode-tf-flags-go-span.log,
+/tmp/opus-round-decode-caps-go-output-span{,-focused}.log and
+/tmp/opus-round-decode-work-spans-arm-{checkptr,golden}-repeat.log.
+
 Four PLC-buffer-span rounds move active excitation-history copying, excitation
 decay, periodic extrapolation and LPC-memory history preparation to the actual
 existing Go slices. Pointer-based private fixture adapters remain and form exactly

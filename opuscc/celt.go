@@ -282,6 +282,20 @@ func Opus_init_caps(tls *libc.TLS, bands *OpusT_opus_int16, cacheCaps *uint8, ca
 	eBands := unsafe.Slice(bands, nbBands+1)
 	cache := unsafe.Slice(cacheCaps, nbBands*(2*LM+C))
 	caps := unsafe.Slice(cap1, nbBands)
+	celtInitCapsLoop(eBands, cache, caps, nbBands, LM, C)
+}
+
+func celtInitCapsSpan(tls *libc.TLS, bands *int16, cacheCaps *byte, output []int32, nbBands, LM, C int32) {
+	if nbBands <= 0 {
+		return
+	}
+	eBands := unsafe.Slice(bands, nbBands+1)
+	cache := unsafe.Slice(cacheCaps, nbBands*(2*LM+C))
+	caps := output[:nbBands]
+	celtInitCapsLoop(eBands, cache, caps, nbBands, LM, C)
+}
+
+func celtInitCapsLoop(eBands []int16, cache []byte, caps []int32, nbBands, LM, C int32) {
 	for i := int32(0); i < nbBands; i++ {
 		N := (int32(eBands[i+1]) - int32(eBands[i])) << LM
 		caps[i] = (int32(cache[nbBands*(2*LM+C-1)+i]) + 64) * C * N >> 2
