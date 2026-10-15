@@ -867,7 +867,14 @@ func celtDecodeHistoryMove(history *float32, N, length int32) {
 	if length == 0 {
 		return
 	}
-	h := unsafe.Slice(history, N+length)
+	celtDecodeHistoryMoveSpan(unsafe.Slice(history, N+length), N, length)
+}
+
+func celtDecodeHistoryMoveSpan(history []float32, N, length int32) {
+	if length == 0 {
+		return
+	}
+	h := history[:N+length]
 	copy(h[:length], h[N:])
 }
 
@@ -1427,7 +1434,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	X = celtDecodeSpectrumStorage(N, C) // Contiguous per-channel normalized MDCT spectra.
 	c = 0
 	for {
-		celtDecodeHistoryMove(unsafe.SliceData(decode_mem[c]), N, decode_buffer_size-N+overlap)
+		celtDecodeHistoryMoveSpan(decode_mem[c], N, decode_buffer_size-N+overlap)
 		c = c + 1
 		v28 = c
 		if !(v28 < CC) {

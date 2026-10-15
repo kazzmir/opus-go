@@ -1316,6 +1316,7 @@ func TestCeltDecodeSilenceEnergyPointers(t *testing.T) {
 }
 func TestCeltDecodeHistoryMovePointers(t *testing.T) {
 	celtDecodeHistoryMove(nil, 960, 0)
+	celtDecodeHistoryMoveSpan(nil, 2147483647, 0)
 	for _, N := range []int32{0, 1, 120, 240, 960} {
 		for _, length := range []int32{0, 1, 128, 2048} {
 			h := make([]float32, N+length+2)
@@ -1324,11 +1325,13 @@ func TestCeltDecodeHistoryMovePointers(t *testing.T) {
 			}
 			want := append([]float32(nil), h...)
 			copy(want[1:1+length], want[1+N:1+N+length])
+			numeric := append([]float32(nil), h...)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			celtDecodeHistoryMove(&h[1], N, length)
+			celtDecodeHistoryMoveSpan(numeric[1:], N, length)
 			for i := range h {
-				if math.Float32bits(h[i]) != math.Float32bits(want[i]) {
+				if math.Float32bits(h[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) {
 					t.Fatal("history memmove", N, length, i)
 				}
 			}
