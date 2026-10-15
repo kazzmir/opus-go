@@ -25,6 +25,10 @@ func modePulseIndex(m *OpusT_OpusCustomMode, index int32) int16 {
 func modePulseCache(m *OpusT_OpusCustomMode, index int32) *byte {
 	bits := m.Fcache.Fbits
 	offset := modePulseIndex(m, index)
+	return modePulseCachePointer(bits, offset)
+}
+
+func modePulseCachePointer(bits *byte, offset int16) *byte {
 	if offset == 0 {
 		return bits
 	}
@@ -39,13 +43,38 @@ func modePulseByte(cache *byte, index int32) byte {
 	return unsafe.Slice(cache, int64(index)+1)[index]
 }
 
+// The row keeps the real byte root and signed numeric table coordinate.
+// Only backwards compatibility rows need a displaced pointer at construction.
+type modePulseRow struct {
+	bits   *byte
+	offset int16
+}
+
+func modePulseCacheRow(m *OpusT_OpusCustomMode, index int32) modePulseRow {
+	bits := m.Fcache.Fbits
+	offset := modePulseIndex(m, index)
+	if offset < 0 {
+		return modePulseRow{bits: modePulseCachePointer(bits, offset)}
+	}
+	return modePulseRow{bits: bits, offset: offset}
+}
+
+func (row modePulseRow) at(index int32) byte {
+	entry := int64(row.offset) + int64(index)
+	return unsafe.Slice(row.bits, entry+1)[entry]
+}
+
 // These are the scalar rate.h searches, with C int32 wrapping and tie order.
 func modeBits2Pulses(cache *byte, bits int32) int32 {
-	lo, hi := int32(0), int32(*cache)
+	return (modePulseRow{bits: cache}).bits2Pulses(bits)
+}
+
+func (row modePulseRow) bits2Pulses(bits int32) int32 {
+	lo, hi := int32(0), int32(row.at(0))
 	bits--
 	for i := 0; i < LOG_MAX_PSEUDO; i++ {
 		mid := (lo + hi + 1) >> 1
-		if int32(modePulseByte(cache, mid)) >= bits {
+		if int32(row.at(mid)) >= bits {
 			hi = mid
 		} else {
 			lo = mid
@@ -53,19 +82,23 @@ func modeBits2Pulses(cache *byte, bits int32) int32 {
 	}
 	lowBits := int32(-1)
 	if lo != 0 {
-		lowBits = int32(modePulseByte(cache, lo))
+		lowBits = int32(row.at(lo))
 	}
-	if bits-lowBits <= int32(modePulseByte(cache, hi))-bits {
+	if bits-lowBits <= int32(row.at(hi))-bits {
 		return lo
 	}
 	return hi
 }
 
 func modePulses2Bits(cache *byte, pulses int32) int32 {
+	return (modePulseRow{bits: cache}).pulses2Bits(pulses)
+}
+
+func (row modePulseRow) pulses2Bits(pulses int32) int32 {
 	if pulses == 0 {
 		return 0
 	}
-	return int32(modePulseByte(cache, pulses)) + 1
+	return int32(row.at(pulses)) + 1
 }
 
 func modeBand(m *OpusT_OpusCustomMode, band int32) int16 {

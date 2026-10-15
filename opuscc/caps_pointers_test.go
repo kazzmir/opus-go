@@ -139,22 +139,29 @@ func TestModePulseBitsPointers(t *testing.T) {
 			continue
 		}
 		cache := modePulseCache(m, int32(i))
+		row := modePulseCacheRow(m, int32(i))
 		max := int32(*cache)
+		if row.bits != m.Fcache.Fbits || row.offset != offset || row.at(0) != byte(max) {
+			t.Fatal("rooted numeric pulse row", i)
+		}
 		for pulse := int32(0); pulse <= max; pulse++ {
 			want := int32(0)
 			if pulse != 0 {
 				want = int32(cache_bits50[int(offset)+int(pulse)]) + 1
 			}
-			if modePulses2Bits(cache, pulse) != want {
+			if modePulses2Bits(cache, pulse) != want || row.pulses2Bits(pulse) != want {
 				t.Fatal(i, pulse)
 			}
 		}
 		for bits := int32(-2); bits <= 260; bits++ {
 			q := modeBits2Pulses(cache, bits)
-			if q < 0 || q > max {
+			if q < 0 || q > max || row.bits2Pulses(bits) != q {
 				t.Fatal(i, bits, q)
 			}
 		}
+	}
+	if (modePulseRow{}).pulses2Bits(0) != 0 {
+		t.Fatal("unused nil row")
 	}
 	// Signed index -1 must remain a backwards interior offset, not an unsigned load.
 	guarded := []byte{0, 77}
@@ -163,6 +170,11 @@ func TestModePulseBitsPointers(t *testing.T) {
 	m.Fcache.Findex = &index[0]
 	if cache := modePulseCache(m, 0); cache != &guarded[0] || modeBits2Pulses(cache, 1) != 0 || modePulses2Bits(cache, 0) != 0 {
 		t.Fatal("signed cache offset / zero pulses")
+	}
+	row := modePulseCacheRow(m, 0)
+	guarded[0] = 1
+	if row.bits != &guarded[0] || row.offset != 0 || row.at(0) != 1 || row.pulses2Bits(1) != 78 {
+		t.Fatal("signed live row")
 	}
 	runtime.KeepAlive(m)
 }
