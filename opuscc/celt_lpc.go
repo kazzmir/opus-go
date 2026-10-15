@@ -136,6 +136,22 @@ func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den *float32, coeff
 		output = outputOwner[int64(outputOffset) : int64(outputOffset)+int64(N)]
 	}
 	memory := unsafe.Slice(mem, ord)
+	celtIIRSpans(tls, input, coeff, output, memory, N, ord)
+	var tail []float32
+	if outputOwner != nil {
+		tail = outputOwner[int64(outputOffset)+int64(N-ord) : int64(outputOffset)+int64(N-ord)+int64(ord)]
+	} else if N >= ord {
+		tail = output[N-ord:]
+	} else {
+		// For N<ord, C reads caller-owned samples preceding out as well.
+		tail = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(out), int(N-ord)*4)), ord)
+	}
+	for i := int32(0); i < ord; i++ {
+		memory[i] = tail[ord-i-1]
+	}
+}
+
+func celtIIRSpans(tls *libc.TLS, input, coeff, output, memory []float32, N, ord int32) {
 	reversed := make([]float32, ord)
 	history := make([]float32, N+ord)
 	for i := int32(0); i < ord; i++ {
@@ -168,18 +184,6 @@ func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den *float32, coeff
 		// The C tail stores the positive sum, unlike the four-sample block.
 		history[i+ord] = sum
 		output[i] = sum
-	}
-	var tail []float32
-	if outputOwner != nil {
-		tail = outputOwner[int64(outputOffset)+int64(N-ord) : int64(outputOffset)+int64(N-ord)+int64(ord)]
-	} else if N >= ord {
-		tail = output[N-ord:]
-	} else {
-		// For N<ord, C reads caller-owned samples preceding out as well.
-		tail = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(out), int(N-ord)*4)), ord)
-	}
-	for i := int32(0); i < ord; i++ {
-		memory[i] = tail[ord-i-1]
 	}
 }
 
