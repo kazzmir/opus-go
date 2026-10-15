@@ -180,7 +180,7 @@ func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
 }
 
 func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) {
-	st := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+	st, image := compareCustomDecoderImage(data)
 	st.Fmode = &mode48000_960_120
 	out := uint32(77)
 	signedOut := int32(77)
@@ -209,6 +209,7 @@ func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) 
 		}
 	}
 	st.Fmode = nil
+	image.save(data)
 	return r, out
 }
 

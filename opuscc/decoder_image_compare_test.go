@@ -20,6 +20,33 @@ func compareImageMustPanic(t *testing.T, f func()) {
 	f()
 }
 
+func TestCompareCustomCtlImagePointers(t *testing.T) {
+	data := make([]byte, int(reflect.TypeFor[OpusT_OpusCustomDecoder]().Size())+64)
+	st, initial := compareCustomDecoderImage(data)
+	st.Ferror1, st.Fcomplexity, st.Frng = -123, 5, 0x89abcdef
+	initial.save(data)
+	field, _ := reflect.TypeFor[OpusT_OpusCustomDecoder]().FieldByName("Fcomplexity")
+	entropyInitGrowStack(12)
+	runtime.GC()
+	r, out := CompareCustomCtl(data, CELT_GET_AND_CLEAR_ERROR_REQUEST, 0, int32(field.Offset))
+	if r != 0 || out != 77 {
+		t.Fatal("custom CTL alias result", r, out)
+	}
+	st, result := compareCustomDecoderImage(data)
+	if st.Ferror1 != 0 || st.Fcomplexity != -123 || st.Fmode != nil {
+		t.Fatal("custom CTL live scalar alias/cleared mode")
+	}
+	result.save(data)
+	r, out = CompareCustomCtl(data, OPUS_GET_FINAL_RANGE_REQUEST, 0, -1)
+	if r != 0 || out != 0x89abcdef {
+		t.Fatal("custom range bits")
+	}
+	r, out = CompareCustomCtl(data, CELT_GET_MODE_REQUEST, 0, -1)
+	if r != 0 || out != 1 {
+		t.Fatal("custom mode identity")
+	}
+}
+
 func TestCompareCustomDecoderImageOwnerPointers(t *testing.T) {
 	size := int(reflect.TypeFor[OpusT_OpusCustomDecoder]().Size()) + 64
 	data := make([]byte, size)
