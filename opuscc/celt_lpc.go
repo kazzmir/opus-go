@@ -63,6 +63,10 @@ func celtFIRWithHistory(tls *libc.TLS, x, num, y *float32, N, ord, arch int32, h
 		input = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(x), -int(ord)*4)), N+ord)
 	}
 	output := unsafe.Slice(y, N)
+	celtFIRSpans(tls, input, reversed, output, N, ord)
+}
+
+func celtFIRSpans(tls *libc.TLS, input, reversed, output []float32, N, ord int32) {
 	i := int32(0)
 	for ; i < N-3; i += 4 {
 		if ord < 3 {
