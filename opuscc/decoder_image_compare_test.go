@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"encoding/binary"
 	"reflect"
 	"runtime"
 	"slices"
@@ -20,7 +21,7 @@ func compareImageMustPanic(t *testing.T, f func()) {
 	f()
 }
 
-func TestCompareProjectionImageOwnerPointers(t *testing.T) {
+func compareInitializedProjectionImage(t *testing.T) []byte {
 	const channels, streams, coupled = int32(3), int32(2), int32(1)
 	layout := opusProjectionDecoderStorageType(channels, streams, coupled)
 	data := make([]byte, int(layout.Size())+16)
@@ -36,12 +37,18 @@ func TestCompareProjectionImageOwnerPointers(t *testing.T) {
 		codec.Decoder.FrangeFinal = uint32(1) << i
 	}
 	initial.save(data)
-	st, image := compareProjectionDecoderImage(data)
-	views = opusMSStorageViewsAt(image.owner.Field(0).FieldByName("Multistream"))
+	return data
+}
+
+func TestCompareProjectionImageOwnerPointers(t *testing.T) {
+	data := compareInitializedProjectionImage(t)
+	_, image := compareProjectionDecoderImage(data)
+	layout := image.owner.Field(0).Type()
+	views := opusMSStorageViewsAt(image.owner.Field(0).FieldByName("Multistream"))
 	mode := new(OpusT_OpusCustomMode)
 	root := weak.Make(mode)
 	views.Codecs[0].Celt.Fmode = mode
-	st, mode = nil, nil
+	mode = nil
 	entropyInitGrowStack(12)
 	runtime.GC()
 	if root.Value() == nil {
@@ -60,6 +67,53 @@ func TestCompareProjectionImageOwnerPointers(t *testing.T) {
 		t.Fatal("projection child identity", r, out)
 	}
 	runtime.KeepAlive(image)
+}
+
+func TestCompareMSScalarAliasImagePointers(t *testing.T) {
+	rangeField, _ := reflect.TypeFor[OpusT_OpusDecoder]().FieldByName("FrangeFinal")
+	for _, child := range []int{0, 1} {
+		data := compareInitializedMSImage(t, 2, 1)
+		_, image := compareMSDecoderImage(data)
+		views := opusMSStorageViewsAt(image.owner.Field(0))
+		alias := int32(views.Offsets[child]) + int32(rangeField.Offset)
+		entropyInitGrowStack(12)
+		runtime.GC()
+		r, out := CompareMSCtl(data, OPUS_GET_FINAL_RANGE_REQUEST, 0, alias)
+		if r != 0 || out != 77 {
+			t.Fatal("MS typed alias scalar result")
+		}
+		_, result := compareMSDecoderImage(data)
+		after := opusMSStorageViewsAt(result.owner.Field(0))
+		want := uint32(2)
+		if child == 1 {
+			want = 0
+		}
+		if after.Codecs[child].Decoder.FrangeFinal != want {
+			t.Fatal("MS range sequential reset/read/XOR alias", child)
+		}
+	}
+	layoutField, _ := reflect.TypeFor[OpusT_OpusMSDecoder]().FieldByName("Flayout")
+	streamsField, _ := reflect.TypeFor[OpusT_ChannelLayout]().FieldByName("Fnb_streams")
+	for _, projection := range []bool{false, true} {
+		data := compareInitializedMSImage(t, 2, 1)
+		base := 0
+		if projection {
+			data = compareInitializedProjectionImage(t)
+			_, image := compareProjectionDecoderImage(data)
+			field, _ := image.owner.Field(0).Type().FieldByName("Multistream")
+			base = int(field.Offset)
+		}
+		alias := base + int(layoutField.Offset) + int(streamsField.Offset)
+		var r int32
+		if projection {
+			r, _ = CompareProjectionCtl(data, OPUS_GET_FINAL_RANGE_REQUEST, 0, int32(alias))
+		} else {
+			r, _ = CompareMSCtl(data, OPUS_GET_FINAL_RANGE_REQUEST, 0, int32(alias))
+		}
+		if r != 0 || binary.NativeEndian.Uint32(data[alias:alias+4]) != 0 {
+			t.Fatal("live zeroed stream count terminates XOR", projection)
+		}
+	}
 }
 
 func compareInitializedMSImage(t *testing.T, streams, coupled int32) []byte {

@@ -14,7 +14,6 @@ type OpusDecoderCtlArgs struct {
 	U32     *uint32
 	Mode    **OpusT_OpusCustomMode
 	Decoder **OpusT_OpusDecoder
-	scalar  *opusCtlScalar
 }
 
 func Opus_opus_projection_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, request int32, a OpusDecoderCtlArgs) int32 {
@@ -36,6 +35,10 @@ func msCtlLegacyArgs(st *OpusT_OpusMSDecoder, request int32, ap uintptr) (a Opus
 }
 
 func Opus_opus_multistream_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32, a OpusDecoderCtlArgs) int32 {
+	return opusMSDecoderCtlArgs(tls, st, request, opusCtlArgs{OpusDecoderCtlArgs: a})
+}
+
+func opusMSDecoderCtlArgs(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32, a opusCtlArgs) int32 {
 	coupled := uint((uint32(Opus_opus_decoder_get_size(tls, 2)) + 7) &^ uint32(7))
 	mono := uint((uint32(Opus_opus_decoder_get_size(tls, 1)) + 7) &^ uint32(7))
 	offset := (uint(unsafe.Sizeof(*st)) + 7) &^ uint(7)
@@ -48,7 +51,7 @@ func Opus_opus_multistream_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusMSDeco
 	}
 	switch request {
 	case OPUS_GET_BANDWIDTH_REQUEST, OPUS_GET_SAMPLE_RATE_REQUEST, OPUS_GET_GAIN_REQUEST, OPUS_GET_LAST_PACKET_DURATION_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_GET_COMPLEXITY_REQUEST:
-		return Opus_opus_decoder_ctl_typed(tls, opusMSDecoderBoundAt(tls, st, offset), request, a)
+		return opusDecoderCtlArgs(tls, opusMSDecoderBoundAt(tls, st, offset), request, a)
 	case OPUS_GET_FINAL_RANGE_REQUEST:
 		if !a.hasU32() {
 			return -1
@@ -67,7 +70,7 @@ func Opus_opus_multistream_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusMSDeco
 		for s := int32(0); s < st.Flayout.Fnb_streams; s++ {
 			dec := opusMSDecoderBoundAt(tls, st, offset)
 			next(s)
-			if ret := Opus_opus_decoder_ctl_typed(tls, dec, request, a); ret != OPUS_OK {
+			if ret := opusDecoderCtlArgs(tls, dec, request, a); ret != OPUS_OK {
 				return ret
 			}
 		}
@@ -116,6 +119,10 @@ func opusDecoderResetTail(st *OpusT_OpusDecoder) {
 }
 
 func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, a OpusDecoderCtlArgs) int32 {
+	return opusDecoderCtlArgs(tls, st, request, opusCtlArgs{OpusDecoderCtlArgs: a})
+}
+
+func opusDecoderCtlArgs(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, a opusCtlArgs) int32 {
 	// C derives these interiors before dispatch, even for an unknown request.
 	silk := opusCodecSilkState(tls, st)
 	celt := opusCodecCeltState(tls, st)
@@ -131,7 +138,7 @@ func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request i
 		}
 		st.Fcomplexity = a.Value
 		// The C caller intentionally ignores the child return value here.
-		Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+		opusCustomDecoderCtlArgs(tls, celt, request, a)
 	case OPUS_GET_COMPLEXITY_REQUEST:
 		if !a.hasI32() {
 			return -1
@@ -144,7 +151,7 @@ func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request i
 		a.storeU32(st.FrangeFinal)
 	case OPUS_RESET_STATE:
 		opusDecoderResetTail(st)
-		Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+		opusCustomDecoderCtlArgs(tls, celt, request, a)
 		Opus_silk_ResetDecoder(tls, silk)
 		st.Fstream_channels = st.Fchannels
 		st.Fframe_size = st.FFs / 400
@@ -158,7 +165,7 @@ func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request i
 			return -1
 		}
 		if st.Fprev_mode == MODE_CELT_ONLY {
-			return Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+			return opusCustomDecoderCtlArgs(tls, celt, request, a)
 		}
 		a.storeI32(st.FDecControl.FprevPitchLag)
 	case OPUS_GET_GAIN_REQUEST:
@@ -180,12 +187,12 @@ func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request i
 		if a.Value < 0 || a.Value > 1 {
 			return -1
 		}
-		return Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+		return opusCustomDecoderCtlArgs(tls, celt, request, a)
 	case OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST:
 		if !a.hasI32() {
 			return -1
 		}
-		return Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
+		return opusCustomDecoderCtlArgs(tls, celt, request, a)
 	case OPUS_SET_IGNORE_EXTENSIONS_REQUEST:
 		if a.Value < 0 || a.Value > 1 {
 			return -1
@@ -217,6 +224,10 @@ func customCtlLegacyArgs(request int32, ap uintptr) (a OpusDecoderCtlArgs) {
 }
 
 func Opus_opus_custom_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusCustomDecoder, request int32, a OpusDecoderCtlArgs) int32 {
+	return opusCustomDecoderCtlArgs(tls, st, request, opusCtlArgs{OpusDecoderCtlArgs: a})
+}
+
+func opusCustomDecoderCtlArgs(tls *libc.TLS, st *OpusT_OpusCustomDecoder, request int32, a opusCtlArgs) int32 {
 	switch request {
 	case OPUS_SET_COMPLEXITY_REQUEST:
 		if a.Value < 0 || a.Value > 10 {

@@ -1232,11 +1232,15 @@ func TestCeltDecoderInitPointers(t *testing.T) {
 }
 
 func TestCtlScalarOutputPointers(t *testing.T) {
+	_ = OpusDecoderCtlArgs{0, nil, nil, nil, nil} // Original positional source shape.
+	if reflect.TypeFor[OpusDecoderCtlArgs]().NumField() != 5 {
+		t.Fatal("public CTL argument fields changed")
+	}
 	for _, bits := range []uint32{0, 1, 0x7fffffff, 0x80000000, 0xffffffff} {
 		var signed int32
 		var unsigned uint32
 		for _, cell := range []*opusCtlScalar{{signed: &signed}, {unsigned: &unsigned}} {
-			a := OpusDecoderCtlArgs{scalar: cell}
+			a := opusCtlArgs{scalar: cell}
 			entropyInitGrowStack(12)
 			runtime.GC()
 			if !a.hasI32() || !a.hasU32() {
@@ -1253,14 +1257,14 @@ func TestCtlScalarOutputPointers(t *testing.T) {
 		}
 	}
 	state := OpusT_OpusCustomDecoder{Ferror1: -123, Frng: 7}
-	if r := Opus_opus_custom_decoder_ctl_typed(nil, &state, CELT_GET_AND_CLEAR_ERROR_REQUEST, OpusDecoderCtlArgs{scalar: &opusCtlScalar{unsigned: &state.Frng}}); r != 0 || state.Frng != uint32(0xffffff85) || state.Ferror1 != 0 {
+	if r := opusCustomDecoderCtlArgs(nil, &state, CELT_GET_AND_CLEAR_ERROR_REQUEST, opusCtlArgs{scalar: &opusCtlScalar{unsigned: &state.Frng}}); r != 0 || state.Frng != uint32(0xffffff85) || state.Ferror1 != 0 {
 		t.Fatal("typed unsigned cell/store-before-clear")
 	}
 	state.Frng = 0xffffffff
-	if r := Opus_opus_custom_decoder_ctl_typed(nil, &state, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{scalar: &opusCtlScalar{signed: &state.Ferror1}}); r != 0 || state.Ferror1 != -1 {
+	if r := opusCustomDecoderCtlArgs(nil, &state, OPUS_GET_FINAL_RANGE_REQUEST, opusCtlArgs{scalar: &opusCtlScalar{signed: &state.Ferror1}}); r != 0 || state.Ferror1 != -1 {
 		t.Fatal("typed signed cell range bits")
 	}
-	if r := Opus_opus_custom_decoder_ctl_typed(nil, &state, CELT_GET_AND_CLEAR_ERROR_REQUEST, OpusDecoderCtlArgs{scalar: &opusCtlScalar{signed: &state.Ferror1}}); r != 0 || state.Ferror1 != 0 {
+	if r := opusCustomDecoderCtlArgs(nil, &state, CELT_GET_AND_CLEAR_ERROR_REQUEST, opusCtlArgs{scalar: &opusCtlScalar{signed: &state.Ferror1}}); r != 0 || state.Ferror1 != 0 {
 		t.Fatal("error self-alias sequential clear")
 	}
 	var i int32
@@ -1271,10 +1275,10 @@ func TestCtlScalarOutputPointers(t *testing.T) {
 	if r := Opus_opus_custom_decoder_ctl_typed(nil, &state, OPUS_GET_COMPLEXITY_REQUEST, OpusDecoderCtlArgs{U32: &u}); r != -1 {
 		t.Fatal("old wrong-slot validation changed")
 	}
-	if r := Opus_opus_custom_decoder_ctl_typed(nil, &state, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{scalar: &opusCtlScalar{}}); r != -1 {
+	if r := opusCustomDecoderCtlArgs(nil, &state, OPUS_GET_FINAL_RANGE_REQUEST, opusCtlArgs{scalar: &opusCtlScalar{}}); r != -1 {
 		t.Fatal("empty scalar cell validation")
 	}
-	a := OpusDecoderCtlArgs{I32: &i, U32: &u, scalar: &opusCtlScalar{signed: &state.Ferror1}}
+	a := opusCtlArgs{OpusDecoderCtlArgs: OpusDecoderCtlArgs{I32: &i, U32: &u}, scalar: &opusCtlScalar{signed: &state.Ferror1}}
 	a.storeI32(77)
 	a.storeU32(88)
 	if i != 77 || u != 88 || state.Ferror1 != 0 {

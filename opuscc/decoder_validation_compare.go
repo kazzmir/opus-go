@@ -95,8 +95,8 @@ func CompareProjectionCtl(data []byte, request, value, alias int32) (int32, uint
 	if alias >= 0 {
 		alias -= int32(offset)
 	}
-	r, out := compareMSCtlState(get_multistream_decoder(nil, st), request, value, alias, func(_ *OpusT_OpusMSDecoder, request int32, a OpusDecoderCtlArgs) int32 {
-		return Opus_opus_projection_decoder_ctl_typed(nil, st, request, a)
+	r, out := compareMSCtlState(get_multistream_decoder(nil, st), image, offset, request, value, alias, func(_ *OpusT_OpusMSDecoder, request int32, a opusCtlArgs) int32 {
+		return opusMSDecoderCtlArgs(nil, get_multistream_decoder(nil, st), request, a)
 	})
 	if r == 0 && request == OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST {
 		out += uint32(offset)
@@ -107,13 +107,13 @@ func CompareProjectionCtl(data []byte, request, value, alias int32) (int32, uint
 
 func CompareMSCtl(data []byte, request, value, alias int32) (int32, uint32) {
 	st, image := compareMSDecoderImage(data)
-	r, out := compareMSCtlState(st, request, value, alias, func(st *OpusT_OpusMSDecoder, request int32, a OpusDecoderCtlArgs) int32 {
-		return Opus_opus_multistream_decoder_ctl_typed(nil, st, request, a)
+	r, out := compareMSCtlState(st, image, 0, request, value, alias, func(st *OpusT_OpusMSDecoder, request int32, a opusCtlArgs) int32 {
+		return opusMSDecoderCtlArgs(nil, st, request, a)
 	})
 	image.save(data)
 	return r, out
 }
-func compareMSCtlState(st *OpusT_OpusMSDecoder, request, value, alias int32, ctl func(*OpusT_OpusMSDecoder, int32, OpusDecoderCtlArgs) int32) (int32, uint32) {
+func compareMSCtlState(st *OpusT_OpusMSDecoder, image compareDecoderImage, base int, request, value, alias int32, ctl func(*OpusT_OpusMSDecoder, int32, opusCtlArgs) int32) (int32, uint32) {
 	streams, coupled := st.Flayout.Fnb_streams, st.Flayout.Fnb_coupled_streams
 	childOffsets := make(map[*OpusT_OpusDecoder]uint32)
 	visit := func(mode *OpusT_OpusCustomMode) {
@@ -134,13 +134,11 @@ func compareMSCtlState(st *OpusT_OpusMSDecoder, request, value, alias int32, ctl
 	out := uint32(77)
 	signedOut := int32(77)
 	var decoder *OpusT_OpusDecoder
-	a := OpusDecoderCtlArgs{Value: value}
+	a := opusCtlArgs{OpusDecoderCtlArgs: OpusDecoderCtlArgs{Value: value}}
 	if alias != -2 {
 		a.Decoder = &decoder
 		if alias >= 0 {
-			p := unsafe.Add(unsafe.Pointer(st), alias)
-			a.I32 = (*int32)(p)
-			a.U32 = (*uint32)(p)
+			image.ctlAlias(&a, base+int(alias))
 		} else {
 			a.I32 = &signedOut
 			a.U32 = &out
@@ -163,7 +161,7 @@ func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
 	celt.Fmode = &mode48000_960_120
 	out := uint32(77)
 	signedOut := int32(77)
-	a := OpusDecoderCtlArgs{Value: value}
+	a := opusCtlArgs{OpusDecoderCtlArgs: OpusDecoderCtlArgs{Value: value}}
 	if alias != -2 {
 		if alias >= 0 {
 			image.ctlAlias(&a, int(alias))
@@ -172,7 +170,7 @@ func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
 			a.U32 = &out
 		}
 	}
-	r := Opus_opus_decoder_ctl_typed(nil, st, request, a)
+	r := opusDecoderCtlArgs(nil, st, request, a)
 	if alias < 0 && request != OPUS_GET_FINAL_RANGE_REQUEST {
 		out = uint32(signedOut)
 	}
@@ -187,7 +185,7 @@ func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) 
 	out := uint32(77)
 	signedOut := int32(77)
 	var mode *OpusT_OpusCustomMode
-	a := OpusDecoderCtlArgs{Value: value}
+	a := opusCtlArgs{OpusDecoderCtlArgs: OpusDecoderCtlArgs{Value: value}}
 	if alias != -2 {
 		if alias >= 0 {
 			image.ctlAlias(&a, int(alias))
@@ -197,7 +195,7 @@ func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) 
 			a.Mode = &mode
 		}
 	}
-	r := Opus_opus_custom_decoder_ctl_typed(nil, st, request, a)
+	r := opusCustomDecoderCtlArgs(nil, st, request, a)
 	if alias < 0 && request != OPUS_GET_FINAL_RANGE_REQUEST {
 		out = uint32(signedOut)
 	}

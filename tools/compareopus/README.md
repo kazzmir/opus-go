@@ -534,6 +534,57 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CTL owner/cell rounds remove FIVE more unsafe.Pointer sites (106→101;
+uintptr105 unchanged, source totals include compareopus bridges). First, MS and
+projection comparison images use canonical scanned Go children, with decoded
+geometry validated before temporary mode installation; no caller-byte→state
+casts. Then single/custom scalar aliases and MS/projection aliases resolve real
+Go int32/uint32/mode fields, not unsafe.Add addresses into serialized bytes.
+All five such casts are gone from decoder_validation_compare.go. Necessary raw
+public integer adapters, callbacks, signed history and production layout fallbacks
+remain. This combines fixture ownership repair and a real private typed-output
+capability, NOT five production pointer-map fixes or removal of uintptr ABIs.
+
+Private opusCtlScalar holds a genuine *int32 OR *uint32 cell. Explicit numeric
+conversions preserve word bits without pointer-type punning. Getter stores occur
+at their old points; the error getter stores BEFORE clearing state; MS final-range
+resets output BEFORE reading live stream count and reloads the actual destination
+AFTER every child call before XOR/store. No scratch-output/deferred commit or
+snapshots, changes to clamps/wrapping/validation/error ordering, entropy or goldens.
+The existing I32/U32 output slots keep precedence and wrong-slot nil behavior.
+Internal opusCtlArgs carries the optional cell; final public OpusDecoderCtlArgs
+retains its original FIVE fields/positional source shape, enforced by a compile
+fixture. The third commit initially put the extension in the public record; the
+fourth isolates it in private dispatch to preserve final source/layout compatibility.
+No external codec API or raw vararg format is changed.
+
+Canonical comparison storage includes actual projection/MS/child Decoder/Silk/Celt
+fields; tests retain weak nested modes under GC/stack growth and check child
+identities, XOR and exact serialized guards. Scalar tests cover sign-bit/all-ones
+bits, error self-alias clearing, opposite-signed real cells, nil validation and
+existing slot precedence. MS range aliases to first/second child words prove live
+reset/read/XOR behavior (expected2/0, NOT copied input3). Aliasing the live stream
+count to the zeroed range output must terminate immediately, also through the
+projection-relative base. Native existing live-layout alias matrices are unchanged.
+Typed fixture aliases require actual supported field cells (no pointer-slot
+poisoning, padding or arbitrary byte-address promotion); ordinary public raw ABI
+fallbacks are unchanged. Source/layout/runtime GC limitations outside these paths
+remain unclaimed. Extra dispatch/reflection cost is unbenchmarked.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and typed cell/tagged-owner checkptr on3 architectures, typed PartA/PartB, native
+comparisons, GC stress, unchanged codec references and diff checks. Final tagged
+ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-ms-ctl-comparison-scanned-owner.log,
+/tmp/opus-round-projection-ctl-comparison-scanned-owner.log,
+/tmp/opus-round-ctl-concrete-scalar-cells.log,
+/tmp/opus-round-ms-ctl-typed-alias-cells{-focused,-retry}.log and
+/tmp/opus-round-ctl-owner-cells-arm-{checkptr,golden}-repeat.log.
+The focused fourth-round log retains an unused local st build error after a
+fixture initializer extraction; only that unused binding was removed. COMPLETE
+validation retry passes. No fixture/expectation/golden weakened, no performance,
+direct macOS or global opaque-image/EOF/raw callback/native GC safety claims.
+
 Four decoder comparison-owner rounds REMOVE four byte-image→decoder
 unsafe.Pointer sites: ComparePrefilterFold, CompareCustomCtl,
 CompareCeltDecodePrefilterImage and CompareOpusCtl. Decoder source counts (including

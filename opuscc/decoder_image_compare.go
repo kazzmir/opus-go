@@ -80,7 +80,7 @@ func (image compareDecoderImage) save(data []byte) {
 
 // Resolve actual scalar fields, not an untyped address into the byte view.
 // Signed/unsigned output conventions share a typed bit-preserving cell.
-func (image compareDecoderImage) ctlAlias(a *OpusDecoderCtlArgs, offset int) {
+func (image compareDecoderImage) ctlAlias(a *opusCtlArgs, offset int) {
 	field, ok := compareDecoderFieldAt(image.owner.Field(0), offset)
 	if !ok {
 		panic("comparison CTL alias is not a typed field")
