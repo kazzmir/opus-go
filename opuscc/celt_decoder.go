@@ -266,7 +266,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					if !(j < Nd) {
 						break
 					}
-					dst := celtNormConsumedAt(y, j*C)
+					dst := deemphasisOutputAt(pcm, c, j*C)
 					*dst = *dst + float32(float32(1)/float32(32768)*scratch[j*downsample])
 					j = j + 1
 				}
