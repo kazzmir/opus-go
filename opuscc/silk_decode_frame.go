@@ -272,7 +272,7 @@ func Opus_silk_decode_pulses(tls *libc.TLS, dec *OpusT_ec_dec, pulses *OpusT_opu
 			if shifts[i] == 10 {
 				start = 1
 			} // Disallow another escape after ten LSBs.
-			sums[i] = ec_dec_icdf(tls, dec, &Opus_silk_pulses_per_block_iCDF[N_RATE_LEVELS-1][start], 8)
+			sums[i] = silkDecodePulseICDF(tls, dec, N_RATE_LEVELS-1, int32(start))
 		}
 	}
 	for i := int32(0); i < blocks; i++ {
