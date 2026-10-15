@@ -1261,9 +1261,20 @@ func TestCeltDecodeBoostsPointers(t *testing.T) {
 					var ec OpusT_ec_ctx
 					Opus_ec_dec_init(nil, &ec, &data[0], 128)
 					before := ec
+					ownedEC := before
+					numeric := append([]int32(nil), out...)
 					entropyInitGrowStack(12)
 					runtime.GC()
 					remaining, tell := celtDecodeBoosts(nil, &bands[0], &caps[0], &out[1], start, 5, C, LM, budget, &ec)
+					ownedRemaining, ownedTell := celtDecodeBoostsSpans(nil, &bands[0], caps, numeric[1:], start, 5, C, LM, budget, &ownedEC)
+					if remaining != ownedRemaining || tell != ownedTell || ec != ownedEC {
+						t.Fatal("owned boost context/scalars")
+					}
+					for i := range out {
+						if out[i] != numeric[i] {
+							t.Fatal("owned boost outputs/guards", i)
+						}
+					}
 					if out[0] != 901 || out[6] != 902 || remaining > budget<<BITRES || tell != int32(Opus_ec_tell_frac(nil, &ec)) {
 						t.Fatal("boost scalar/guards", LM, C, budget, start)
 					}
@@ -1285,6 +1296,24 @@ func TestCeltDecodeBoostsPointers(t *testing.T) {
 	remaining, _ := celtDecodeBoosts(nil, nil, nil, nil, 0, 0, 1, 0, 0x20000000, &ec)
 	if remaining != 0 {
 		t.Fatal("Go-only total shift wrapping")
+	}
+	remaining, _ = celtDecodeBoostsSpans(nil, nil, nil, nil, 0, 0, 1, 0, 0x20000000, &ec)
+	if remaining != 0 {
+		t.Fatal("owned total shift wrapping")
+	}
+	bands := []int16{0, 1, 3, 6, 10}
+	a := []int32{8, 40, 128, 500, 901}
+	b := append([]int32(nil), a...)
+	other := ec
+	r, tell := celtDecodeBoosts(nil, &bands[0], &a[0], &a[1], 0, 4, 1, 0, 500, &ec)
+	r2, tell2 := celtDecodeBoostsSpans(nil, &bands[0], b[:4], b[1:], 0, 4, 1, 0, 500, &other)
+	if r != r2 || tell != tell2 || ec != other {
+		t.Fatal("aliased boost context/scalars")
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			t.Fatal("live cap/output aliases", i)
+		}
 	}
 }
 func TestCeltDecodeSilenceEnergyPointers(t *testing.T) {
@@ -1316,6 +1345,7 @@ func TestCeltDecodeSilenceEnergyPointers(t *testing.T) {
 }
 func TestCeltDecodeHistoryMovePointers(t *testing.T) {
 	celtDecodeHistoryMove(nil, 960, 0)
+	celtDecodeHistoryMoveSpan(nil, 2147483647, 0)
 	for _, N := range []int32{0, 1, 120, 240, 960} {
 		for _, length := range []int32{0, 1, 128, 2048} {
 			h := make([]float32, N+length+2)
@@ -1324,11 +1354,13 @@ func TestCeltDecodeHistoryMovePointers(t *testing.T) {
 			}
 			want := append([]float32(nil), h...)
 			copy(want[1:1+length], want[1+N:1+N+length])
+			numeric := append([]float32(nil), h...)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			celtDecodeHistoryMove(&h[1], N, length)
+			celtDecodeHistoryMoveSpan(numeric[1:], N, length)
 			for i := range h {
-				if math.Float32bits(h[i]) != math.Float32bits(want[i]) {
+				if math.Float32bits(h[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) {
 					t.Fatal("history memmove", N, length, i)
 				}
 			}
@@ -2067,6 +2099,8 @@ func TestCeltPLCNoisePointers(t *testing.T) {
 				a[0], a[len(a)-1] = 77, 88
 				want := append([]float32(nil), a...)
 				state := &OpusT_OpusCustomDecoder{Frng: seed, Fmode: newSynthesisTestMode()}
+				ownedState := *state
+				numeric := append([]float32(nil), a...)
 				s := seed
 				for c := int32(0); c < channels; c++ {
 					for i := int32(1); i < 5; i++ {
@@ -2082,11 +2116,12 @@ func TestCeltPLCNoisePointers(t *testing.T) {
 				entropyInitGrowStack(12)
 				runtime.GC()
 				celtPLCNoise(nil, state, &bands[0], &a[1], N, 1, 5, LM, channels)
-				if state.Frng != s {
+				celtPLCNoiseSpan(nil, &ownedState, &bands[0], numeric[1:], N, 1, 5, LM, channels)
+				if state.Frng != s || *state != ownedState {
 					t.Fatal("noise RNG", channels, LM, seed)
 				}
 				for i := range a {
-					if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+					if math.Float32bits(a[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) {
 						t.Fatal("noise spectrum", channels, LM, seed, i)
 					}
 				}
@@ -2096,6 +2131,8 @@ func TestCeltPLCNoisePointers(t *testing.T) {
 	state := &OpusT_OpusCustomDecoder{Frng: 123}
 	celtPLCNoise(nil, state, nil, nil, 0, 0, 0, 0, 2)
 	celtPLCNoise(nil, state, nil, nil, 0, 0, 1, 0, 0)
+	celtPLCNoiseSpan(nil, state, nil, nil, 2147483647, 0, 0, 0, 2)
+	celtPLCNoiseSpan(nil, state, nil, nil, 2147483647, 0, 1, 0, 0)
 	if state.Frng != 123 {
 		t.Fatal("unused noise")
 	}
@@ -2142,14 +2179,18 @@ func TestCeltPLCLPCHistoryPointers(t *testing.T) {
 		storage := new([26]float32)
 		storage[0], storage[25] = 77, 88
 		memory := (*[24]float32)(unsafe.Pointer(&storage[1]))
+		numeric := new([26]float32)
+		numeric[0], numeric[25] = 77, 88
+		numericMemory := (*[24]float32)(numeric[1:25])
 		entropyInitGrowStack(12)
 		runtime.GC()
 		celtPLCLPCHistory(memory, &h[0], 2048, N)
-		if storage[0] != 77 || storage[25] != 88 {
+		celtPLCLPCHistorySpan(numericMemory, h, 2048, N)
+		if storage[0] != 77 || storage[25] != 88 || numeric[0] != 77 || numeric[25] != 88 {
 			t.Fatal("LPC history guards")
 		}
 		for i := range memory {
-			if math.Float32bits(memory[i]) != math.Float32bits(h[2048-int(N)-1-i]) {
+			if math.Float32bits(memory[i]) != math.Float32bits(h[2048-int(N)-1-i]) || math.Float32bits(numericMemory[i]) != math.Float32bits(h[2048-int(N)-1-i]) {
 				t.Fatal("reverse LPC history", N, i)
 			}
 		}
@@ -2160,13 +2201,15 @@ func TestCeltPLCLPCHistoryPointers(t *testing.T) {
 		a[i] = float32(i + 1)
 	}
 	want := append([]float32(nil), a...)
+	numeric := append([]float32(nil), a...)
 	for i := 0; i < 24; i++ {
 		want[8+i] = want[31-i]
 	}
 	memory := (*[24]float32)(unsafe.Pointer(&a[8]))
 	celtPLCLPCHistory(memory, &a[0], 32, 0)
+	celtPLCLPCHistorySpan((*[24]float32)(numeric[8:32]), numeric, 32, 0)
 	for i := range a {
-		if a[i] != want[i] {
+		if a[i] != want[i] || numeric[i] != want[i] {
 			t.Fatal("reverse LPC live alias", i)
 		}
 	}
@@ -2184,6 +2227,7 @@ func TestCeltPLCExtrapolatePointers(t *testing.T) {
 				x[i] = float32((i*43)%89-44) / 17
 			}
 			want := append([]float32(nil), a...)
+			numeric := append([]float32(nil), a...)
 			attenuation := float32(float32(.8) * float32(.923))
 			energy := float32(0)
 			j := int32(0)
@@ -2200,23 +2244,26 @@ func TestCeltPLCExtrapolatePointers(t *testing.T) {
 			entropyInitGrowStack(12)
 			runtime.GC()
 			got := celtPLCExtrapolate(&a[1], &x[0], 2048, 1024, N, 120, pitch, .8, .923)
-			if math.Float32bits(got) != math.Float32bits(energy) {
+			ownedEnergy := celtPLCExtrapolateSpans(numeric[1:], x, 2048, 1024, N, 120, pitch, .8, .923)
+			if math.Float32bits(got) != math.Float32bits(energy) || math.Float32bits(ownedEnergy) != math.Float32bits(energy) {
 				t.Fatal("extrapolation energy", pitch, N, got, energy)
 			}
 			for i := range a {
-				if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+				if math.Float32bits(a[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) {
 					t.Fatal("extrapolation samples", pitch, N, i)
 				}
 			}
 		}
 	}
-	if celtPLCExtrapolate(nil, nil, 0, 0, 0, 0, 0, 1, 1) != 0 {
+	if celtPLCExtrapolate(nil, nil, 0, 0, 0, 0, 0, 1, 1) != 0 || celtPLCExtrapolateSpans(nil, nil, 2147483647, 2147483647, 0, 0, 0, 1, 1) != 0 {
 		t.Fatal("unused extrapolation")
 	}
 	// Go-only scratch/history alias: excitation reads remain live after stores.
 	a := []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
 	want := append([]float32(nil), a...)
+	numeric := append([]float32(nil), a...)
 	got := celtPLCExtrapolate(&a[0], &a[5], 10, 3, 4, 2, 3, 1, .5)
+	ownedEnergy := celtPLCExtrapolateSpans(numeric, numeric[5:], 10, 3, 4, 2, 3, 1, .5)
 	// Build the exact sequential reference, including period attenuation.
 	energy := float32(0)
 	atten := float32(.5)
@@ -2229,11 +2276,11 @@ func TestCeltPLCExtrapolatePointers(t *testing.T) {
 		sample := want[3+j]
 		energy += float32(sample * sample)
 	}
-	if got != energy {
+	if got != energy || ownedEnergy != energy {
 		t.Fatal("aliased energy")
 	}
 	for i := range a {
-		if a[i] != want[i] {
+		if a[i] != want[i] || numeric[i] != want[i] {
 			t.Fatal("live excitation alias", i)
 		}
 	}
@@ -2247,9 +2294,16 @@ func TestCeltPLCExcitationHistoryPointers(t *testing.T) {
 			h[i] = math.Float32frombits(uint32(i) * 7919)
 		}
 		before := append([]float32(nil), h...)
+		numeric := append([]float32(nil), x...)
 		entropyInitGrowStack(12)
 		runtime.GC()
 		celtPLCExcitationHistory(&x[1], &h[1], 2048, period)
+		celtPLCExcitationHistorySpans(numeric[1:], h[1:], 2048, period)
+		for i := range numeric {
+			if math.Float32bits(numeric[i]) != math.Float32bits(x[i]) {
+				t.Fatal("owned excitation history", period, i)
+			}
+		}
 		if x[0] != 99 || x[len(x)-1] != 66 {
 			t.Fatal("history destination guards")
 		}
@@ -2272,12 +2326,14 @@ func TestCeltPLCExcitationHistoryPointers(t *testing.T) {
 			a[i] = float32(i + 1)
 		}
 		want := append([]float32(nil), a...)
+		numeric := append([]float32(nil), a...)
 		for i := 0; i < 24; i++ {
 			want[offset+i] = want[1+i]
 		}
 		celtPLCExcitationHistory(&a[offset], &a[0], 25, 0)
+		celtPLCExcitationHistorySpans(numeric[offset:], numeric, 25, 0)
 		for i := range a {
-			if a[i] != want[i] {
+			if a[i] != want[i] || numeric[i] != want[i] {
 				t.Fatal("forward history alias", offset, i)
 			}
 		}
@@ -2316,9 +2372,11 @@ func TestCeltPLCSynthesisAttenuatePointers(t *testing.T) {
 				}
 				entropyInitGrowStack(12)
 				runtime.GC()
+				numeric := append([]float32(nil), a...)
 				celtPLCSynthesisAttenuate(&a[1], unsafe.SliceData(w), length, overlap, s1)
+				celtPLCSynthesisAttenuateSpan(numeric[1:], unsafe.SliceData(w), length, overlap, s1)
 				for i := range a {
-					if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+					if math.Float32bits(a[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) {
 						t.Fatal("synthesis attenuation", length, overlap, factor, i)
 					}
 				}
@@ -2329,6 +2387,7 @@ func TestCeltPLCSynthesisAttenuatePointers(t *testing.T) {
 	// output stores rather than snapshotting the window.
 	aAlias := []float32{.5, .75, 1, 1.25, 1.5}
 	wantAlias := append([]float32(nil), aAlias...)
+	numericAlias := append([]float32(nil), aAlias...)
 	s2Alias := float32(0)
 	for _, v := range aAlias[1:] {
 		s2Alias += float32(v * v)
@@ -2340,15 +2399,19 @@ func TestCeltPLCSynthesisAttenuatePointers(t *testing.T) {
 		wantAlias[i+1] = float32(g * wantAlias[i+1])
 	}
 	celtPLCSynthesisAttenuate(&aAlias[1], &aAlias[0], 4, 4, s1Alias)
+	celtPLCSynthesisAttenuateSpan(numericAlias[1:], &numericAlias[0], 4, 4, s1Alias)
 	for i := range aAlias {
-		if math.Float32bits(aAlias[i]) != math.Float32bits(wantAlias[i]) {
+		if math.Float32bits(aAlias[i]) != math.Float32bits(wantAlias[i]) || math.Float32bits(numericAlias[i]) != math.Float32bits(wantAlias[i]) {
 			t.Fatal("live attenuation window alias")
 		}
 	}
 	celtPLCSynthesisAttenuate(nil, nil, 0, 0, 0)
+	celtPLCSynthesisAttenuateSpan(nil, nil, 0, 2147483647, 0)
 	a := []float32{float32(math.NaN()), 1}
+	numeric := append([]float32(nil), a...)
 	celtPLCSynthesisAttenuate(&a[0], nil, 2, 0, 100)
-	if a[0] != 0 || a[1] != 0 {
+	celtPLCSynthesisAttenuateSpan(numeric, nil, 2, 0, 100)
+	if a[0] != 0 || a[1] != 0 || numeric[0] != 0 || numeric[1] != 0 {
 		t.Fatal("NaN explosion not cleared")
 	}
 }
@@ -2375,7 +2438,7 @@ func TestCeltPLCExcitationDecayPointers(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		got := celtPLCExcitationDecay(&a[1], 1024, length)
-		if math.Float32bits(got) != math.Float32bits(want) {
+		if math.Float32bits(got) != math.Float32bits(want) || math.Float32bits(celtPLCExcitationDecaySpan(a[1:], 1024, length)) != math.Float32bits(want) {
 			t.Fatal("excitation decay", length, got, want)
 		}
 		for i := range a {
@@ -2385,14 +2448,14 @@ func TestCeltPLCExcitationDecayPointers(t *testing.T) {
 		}
 	}
 	recentNaN := []float32{1, 1, float32(math.NaN()), 1}
-	if celtPLCExcitationDecay(&recentNaN[0], 4, 4) != 1 {
+	if celtPLCExcitationDecay(&recentNaN[0], 4, 4) != 1 || celtPLCExcitationDecaySpan(recentNaN, 4, 4) != 1 {
 		t.Fatal("MIN32 recent NaN selection")
 	}
 	olderNaN := []float32{float32(math.NaN()), 1, 1, 1}
-	if !math.IsNaN(float64(celtPLCExcitationDecay(&olderNaN[0], 4, 4))) {
+	if !math.IsNaN(float64(celtPLCExcitationDecay(&olderNaN[0], 4, 4))) || !math.IsNaN(float64(celtPLCExcitationDecaySpan(olderNaN, 4, 4))) {
 		t.Fatal("MIN32 older NaN selection")
 	}
-	if celtPLCExcitationDecay(nil, 0, 0) != 1 {
+	if celtPLCExcitationDecay(nil, 0, 0) != 1 || celtPLCExcitationDecaySpan(nil, 2147483647, 0) != 1 {
 		t.Fatal("unused excitation")
 	}
 	a := []float32{100, 100, 1, 1}

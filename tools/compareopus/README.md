@@ -534,6 +534,257 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder comparison-owner rounds REMOVE four byte-image→decoder
+unsafe.Pointer sites: ComparePrefilterFold, CompareCustomCtl,
+CompareCeltDecodePrefilterImage and CompareOpusCtl. Decoder source counts (including
+compareopus-tagged bridges) fall110→106 unsafe.Pointer; uintptr remains105.
+Ordinary production decoder representation/API code is unchanged. Necessary public
+integer ABI adapters, raw callbacks, signed history, mutated-layout production
+fallbacks and external layouts remain. This is specifically fixture-ownership
+repair, not four active DSP migrations or a claim to have removed uintptr ABIs.
+
+Comparison byte images are now serialized scalar transport, NOT Go decoder
+allocations. A real reflected Go allocation contains a concrete custom header or
+canonical Decoder/Silk/Celt fields, scalar tail and original guard bytes. Header
+pointers come from actual Go fields through Interface/type assertions, never casts
+from caller bytes. Pointer slots must be null before import and export. Modes or
+codebooks are attached only to the scanned owners; after processing they are
+cleared before exact byte serialization. Positive scalar CTL aliases target the
+new actual state at the original numeric offsets. Opus comparison images require
+canonical channels/offsets; production noncanonical/opaque fallback behavior is
+untouched. There is STILL one shared unsafe reflection→byte view boundary for
+serialization of the genuine typed owner: not a zero-unsafe or mere cast-count
+safety claim, nor a promotion of arbitrary bytes into a pointer-bearing object.
+
+The transport view's length AND capacity remain exactly the supplied fixture
+extent. No input, guard or golden is enlarged. Pointer-aligned Go structs may have
+unexposed trailing alignment padding for four-byte-aligned variable C tails;
+that padding is never added to the transport view or DSP consumed lengths. All
+numeric bits/guards are copied exactly; only already-null pointer slots cross the
+byte transport. A grouped compareopus-tagged owner test file was necessary because
+ordinary opuscc tests cannot refer to tagged-only bridges. It tests weak heap
+mode/window and nested SILK codebook retention under GC/stack growth, pointer-free
+round trips, non-null/short/misaligned transport rejection, exact views including
+Go alignment padding, scalar alias/store/range bits and prefilter dispatch images.
+Existing native fixture matrices, byte comparisons, layouts, assertions, entropy
+states and sample/range/hash/encode/decode goldens/tolerances remain unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+checkptr, tagged owner checkptr on3 architectures, typed PartA/PartB, native
+comparisons, GC stress, codec references and diff checks. Final tagged ARM ordinary
+and scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-prefilter-comparison-scanned-owner{,-retry}.log,
+/tmp/opus-round-custom-ctl-comparison-scanned-owner.log,
+/tmp/opus-round-prefilter-dispatch-comparison-scanned-owner.log,
+/tmp/opus-round-opus-ctl-comparison-scanned-owner{,-focused}.log and
+/tmp/opus-round-decoder-comparison-owners-arm-{checkptr,golden}-repeat.log.
+The first full prefilter log retains a new constructor's overstrict assertion that
+Go struct size equal logical C fixture extent. Corrected to allow mandatory,
+unexposed Go trailing alignment padding, with original view extents unchanged;
+COMPLETE retry passes. No fixture or expectation weakened, and no global native
+GC/opaque-image/EOF/raw callback safety, performance or macOS claims.
+
+Four CELT DSP span rounds retain PLC noise output, PLC synthesis attenuation,
+downsample FIR5 samples and autocorrelation inputs as the actual existing Go
+buffers. Active PLC/downsample callers stop converting them to scalar pointers
+and rebuilding their views. Compatibility adapters retain their original source
+interfaces and extents. Counts remain110 unsafe.Pointer/105 uintptr: actual
+span-carrier changes, not cast deletion, new storage, pointer-map repair or proof
+of global lifetime safety. No performance/macOS claims or new scratch/copies.
+
+Noise retains the seed snapshot/writeback even for no bands/channels, per-channel
+band iteration, uint32 LCG wrap, signed seed shift and live arch reload for each
+normalization. Attenuation retains length<=0 before any view, ordered float32
+energy accumulation, NaN-clearing comparison and live window reads after prior
+output stores. Its PLC caller explicitly retains the old scalar argument's index
+check before passing the Go suffix. FIR5 snapshots all5 coefficients BEFORE its
+length guard/sample view; shared arithmetic retains separate MAC/store/history
+order and original input sample history. Autocorrelation asserts n>0 THEN
+nonnegative overlap before either input view, retains original-input window
+multiplications when ends overlap, existing required window scratch, unrolled
+xcorr followed by scalar tails, output-view timing and live output/input aliases.
+Original contracts inspected in celt/pitch.c, celt/celt_lpc.c and celt_decoder.c.
+
+Grouped fixtures keep their manual/native references and add full noise state/
+bit/guard comparisons for all shifts/channels/seeds; attenuation finite/NaN,
+nil zero-work and live window/output aliases; FIR5 lengths and aliased coefficient
+snapshots; autocorrelation zero/full/overlapping windows, lag choices, full-memory
+input/window/output alias comparisons and exact assertion diagnostics/order.
+Pointer slots are never poisoned. Public codec APIs, external layouts and all
+native packet/sample/range/hash, encode/decode goldens and tolerances unchanged.
+Opaque images, raw callbacks, EOF ownership and recurring native GC issues remain
+unclaimed, independent of these typed numeric-buffer interfaces.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped PLC/FIR5/autocorr/downsample checkptr, typed PartA/PartB on3 architectures,
+native comparisons, GC stress, codec references and diff checks. Final ARM ordinary
+and scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-plc-noise-go-output-span.log,
+/tmp/opus-round-plc-attenuate-go-output-span.log,
+/tmp/opus-round-downsample-fir5-go-sample-span.log,
+/tmp/opus-round-autocorr-go-input-span{-focused,-retry}.log and
+/tmp/opus-round-dsp-work-spans-arm-{checkptr,golden}-repeat.log.
+The focused autocorrelation log retains a fixture failure: expected diagnostic
+mistakenly prepended "assertion failed:" to static text ALREADY containing it.
+Only the new expected-string construction was corrected; production diagnostics
+and prior expectations were unchanged. The COMPLETE validation retry passes.
+
+Four normal CELT decode work-buffer rounds retain history movement, boost
+caps/offsets, TF flags and initialized caps as the existing actual Go slices.
+Active callers stop reducing these arrays to scalar pointers and reconstructing
+views. Scalar compatibility adapters remain; shared arithmetic loops consume the
+same extents and live samples. No new scratch/allocations or input snapshots,
+layout/ABI changes or pointer-map/lifetime/performance claims. Counts remain110
+unsafe.Pointer/105 uintptr: this is a real span-carrier/interface change, not
+cast deletion or a fix for opaque images, callbacks or EOF ownership.
+
+History movement remains overlapping memmove, with length==0 before extent math.
+Boost total-shift wrapping and entropy tell precede the empty-band guard/views;
+remaining/tell are passed to a common loop exactly once. Width/quanta wrapping,
+strict budget comparison, cap reloads, probability resets, sequential offset
+stores and final entropy context remain. TF budget/storage/tell/logp/reservation
+capture precedes output view construction; the shared loop retains live entropy
+reloads and the separate selected-table mapping pass. Empty TF bands MUST NOT
+skip the reservation/table-selection behavior. Caps retain band/cache/output
+view order, empty guard, signed width narrowing/shifts and live byte-table reads
+before each int32 output store. Original C contracts inspected in celt.c and
+celt_decoder.c; public init_caps and existing tf_decode source entries unchanged.
+
+Grouped tests retain prior manual/native expectations and add bitwise history
+span/guard comparisons, full boost context/scalars/output comparisons and live
+cap/offset overlap. TF tests cover all4 shifts, transient choices,0/1/32-byte
+budgets, empty/nonempty bands, exact guards, nil zero extent and a single numeric
+entropy-field alias (no pointer slots). Caps compare direct span output/guards,
+empty/nonpositive bands and sequential byte-cache/output alias reads. Existing
+native packet/range/sample/hash and encode/decode goldens/tolerances unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped history/boost/TF/caps checkptr, typed PartA/PartB on3 architectures,
+native comparisons, GC stress, codec references and diff checks. Final ARM ordinary
+and scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-decode-history-move-go-span.log,
+/tmp/opus-round-decode-boost-work-go-spans.log,
+/tmp/opus-round-decode-tf-flags-go-span.log,
+/tmp/opus-round-decode-caps-go-output-span{,-focused}.log and
+/tmp/opus-round-decode-work-spans-arm-{checkptr,golden}-repeat.log.
+
+Four PLC-buffer-span rounds move active excitation-history copying, excitation
+decay, periodic extrapolation and LPC-memory history preparation to the actual
+existing Go slices. Pointer-based private fixture adapters remain and form exactly
+the old consumed extents, then delegate to the same arithmetic. Active PLC no
+longer converts these Go buffers to scalar pointers and reconstructs their views.
+This is an interface/span-carrier change, NOT new storage, a repaired byte-image
+pointer map or a cast deletion; counts remain110 unsafe.Pointer/105 uintptr.
+
+Excitation history still performs forward loads/stores, not memmove; LPC memory
+still reads descending source indices while writing ascending destinations. Decay's
+half<=0 guard and extrapolation's int32 N+overlap<=0 guard precede all source views,
+including nil with large unused geometry. The per-sample wrap/subtract, pitch
+attenuation updates, live excitation/history aliases and energy load AFTER each
+history store retain order. Decay E1/E2 accumulation, MIN32-style NaN selection and
+float32 products/Sqrt narrowing remain; no added snapshots, scratch or copies.
+The public codec APIs, legacy pointer boundary extents and field layouts stay.
+
+Grouped fixtures retain their old scalar/manual references and add all-bit span
+comparisons, exact guarded storage and source immutability. Forward copy overlap,
+reverse LPC-memory overlap and history/excitation extrapolation overlap explicitly
+check sequential live reads/writes, not copied inputs. Nil zero-work geometry,
+recent/older NaNs, pitch lengths, decay bounds and GC/stack growth remain. Existing
+PLC/native packet/sample/range/hash goldens and tolerances are untouched. No weakened
+fixtures or opaque-layout/EOF/raw callback/global GC/macOS safety claims.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped PLC and
+broad relevant checkptr, typed PartA/PartB on3 architectures, native comparisons,
+GC stress, unchanged codec references and diff checks. Final ARM ordinary/scoped
+fixtures repeat twenty times. Logs:
+/tmp/opus-round-plc-excitation-history-go-spans.log,
+/tmp/opus-round-plc-excitation-decay-go-span.log,
+/tmp/opus-round-plc-extrapolate-go-spans.log,
+/tmp/opus-round-plc-lpc-history-go-span{,-focused,-retry}.log and
+/tmp/opus-round-plc-buffer-spans-arm-{checkptr,golden}-repeat.log.
+The first full LPC-history log retains the recurring native comparison fatal
+"found pointer to free object"; the COMPLETE validation retry passes. This GC
+failure is not claimed repaired by these scalar-span interface changes.
+
+Four comb-source rounds add combFilterSource with real *float32 legacy input,
+actual []float32 owner, numeric int32 origin and an explicit owned-path flag; then
+migrate prefilter, normal postfilter and PLC postfilter source consumption. Owned
+paths read copy/history samples through Go slices, not an input scalar pointer.
+Source/destination address comparison is used only for the original copy/skip
+identity rules. The compatibility path keeps explicit x for both zero-gain copy
+and identity EVEN if a separate history owner was supplied, preserving legacy
+mixed-argument behavior. Owned/source history is never inferred by pointer math.
+
+Normal/PLC postfilters choose owned source only for an exact readable owner/index
+match with the existing output address. Nil, displaced-end and nonmatching history
+keep the old private path; this preserves zero-gain in-place skip and opaque or
+foreign caller layouts. Target pointers remain because they are writable outputs;
+prefilter's TDAC target is unchanged. Source-history slices retain old int32 extent
+arithmetic; direct owned copy root additions widen. Required signed/backward and
+unused identity boundaries remain explicit. Counts stay110 unsafe.Pointer/
+105 uintptr: ACTIVE source carriers, not cast deletion, pointer-map creation,
+lifetime proof or performance improvement (extra matching is unbenchmarked).
+
+Upstream celt.c zero gains skip period/tapset/window/history work; period clamps,
+tap products, equal-filter overlap suppression, live delay reloads, x4→x1 shifts,
+g1==0 suffix-copy/skip and constant-filter order remain. Go in-place/overlapping
+source/output/window aliases and state reload/store order are unchanged. New
+grouped tests extend gain/overlap/length cases with the concrete source path, plus
+overlapping zero-gain copy, nil zero identity, explicit-x legacy copy despite a
+foreign owner, exact owner matching and normal-postfilter foreign-history skip.
+All prior prefilter/normal/PLC native frame/sample/range/hash goldens and guards
+remain; no snapshots/copies beyond the existing required copy, scratch additions,
+changed tolerances or caller-image/EOF/raw callback/global GC/macOS claims.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped comb/
+prefilter/postfilter and broad relevant checkptr, typed PartA/PartB on3 architectures,
+native comparisons, GC stress, unchanged codec references and diff checks. Final
+ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-comb-concrete-source-view.log,
+/tmp/opus-round-prefilter-owned-comb-source.log,
+/tmp/opus-round-postfilter-owned-comb-source.log,
+/tmp/opus-round-plc-postfilter-owned-comb-source{,-focused}.log and
+/tmp/opus-round-comb-owned-sources-arm-{checkptr,golden}-repeat.log.
+
+Four matching CELT FIR/PLC rounds separate unchanged FIR arithmetic into a live
+span kernel, pass PLC excitation as its real Go owner + numeric source origin,
+carry LPC coefficient origin numerically, then pass FIR scratch as an actual Go
+output slice rather than a scalar pointer. Public celt_fir and existing explicit
+history signatures keep their assertions, reverse coefficient preparation and
+signed backward-history fallback. The extraction round alone is arithmetic
+organization; the following rounds change actual private PLC owner/span carriers.
+Counts remain110 unsafe.Pointer/105 uintptr, not cast deletion or new pointer maps.
+
+The owned entry uses source identity only for the original x!=y assertion (and
+retains an explicit unused-source/end compatibility boundary). Filtering reads the
+Go history span directly. Original source, coefficient and history argument bounds
+checks remain at the PLC call, before the callee; coefficient reversal still
+precedes input/output views. Complete four-lane RHS/correlation sums precede output
+stores; scalar tails, float32 products and sequential overlap reads/writes are
+unchanged. Source/root-relative span additions widen where needed; PLC's bounded
+source index/channel*order and all DSP loop arithmetic retain their original types.
+No new signal snapshot/copy, history padding or public ABI/tolerance changes.
+
+Grouped FIR fixtures retain old public/explicit-history cases and add span/owned
+comparisons for orders0/4/8, N0/1/4/12, output guards, numeric coefficient roots and
+GC/stack growth. Existing unsupported ord0 unrolled assertion remains. Added partial
+source/output overlap tests compare all bits and surrounding storage to the same
+public implementation, preserving its live Go semantics rather than claiming new
+upstream restrict guarantees. PLC excitation/FIR packet/range/float/hash and native
+references remain unchanged; no fixture weakening, pointer-slot poisoning,
+opaque-image/EOF/raw callback/global GC/macOS claim. Unused end and external
+negative-history boundaries intentionally stay explicit.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped FIR/LPC/
+IIR and broad relevant checkptr, typed PartA/PartB on3 architectures, native
+comparisons, GC stress, unchanged codec references and diff checks. Final ARM
+ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-fir-live-span-kernel.log,
+/tmp/opus-round-plc-fir-owned-excitation-origin.log,
+/tmp/opus-round-plc-fir-numeric-coefficient-origin.log,
+/tmp/opus-round-plc-fir-go-output-owner{,-focused}.log and
+/tmp/opus-round-plc-fir-owned-spans-arm-{checkptr,golden}-repeat.log.
+
 Four CELT IIR owned-history/origin rounds add an optional concrete output/history
 slice, migrate PLC's IIR output to its actual decode-buffer owner + numeric origin,
 then defer PLC input and LPC coefficient origins numerically until readable Go

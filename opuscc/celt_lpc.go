@@ -63,6 +63,32 @@ func celtFIRWithHistory(tls *libc.TLS, x, num, y *float32, N, ord, arch int32, h
 		input = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(x), -int(ord)*4)), N+ord)
 	}
 	output := unsafe.Slice(y, N)
+	celtFIRSpans(tls, input, reversed, output, N, ord)
+}
+
+func celtFIROwned(tls *libc.TLS, owner []float32, sourceOffset int32, num *float32, coefficientOffset int32, outputOwner []float32, N, ord, arch int32) {
+	y := unsafe.SliceData(outputOwner)
+	var x *float32
+	if N > 0 {
+		x = &owner[sourceOffset]
+	} else {
+		// Only identity is needed for an unused source, including an end cursor.
+		x = celtNormAdd(unsafe.SliceData(owner), sourceOffset)
+	}
+	if x == y {
+		opusCeltFatal(tls, opusDiagnosticString(3305), opusDiagnosticString(3330), 157)
+	}
+	coeff := celtDenormaliseSpan(num, coefficientOffset, ord)
+	reversed := make([]float32, ord)
+	for i := range reversed {
+		reversed[i] = coeff[len(coeff)-1-i]
+	}
+	input := owner[int64(sourceOffset)-int64(ord) : int64(sourceOffset)+int64(N)]
+	output := outputOwner[:N]
+	celtFIRSpans(tls, input, reversed, output, N, ord)
+}
+
+func celtFIRSpans(tls *libc.TLS, input, reversed, output []float32, N, ord int32) {
 	i := int32(0)
 	for ; i < N-3; i += 4 {
 		if ord < 3 {
@@ -158,13 +184,25 @@ func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den *float32, coeff
 }
 
 func Opus__celt_autocorr(tls *libc.TLS, x, ac, window *float32, overlap, lag, n, arch int32) int32 {
+	celtAutocorrValidate(tls, overlap, n)
+	return celtAutocorrSamples(tls, unsafe.Slice(x, n), ac, window, overlap, lag, n, arch)
+}
+
+func celtAutocorrSpan(tls *libc.TLS, x []float32, ac, window *float32, overlap, lag, n, arch int32) int32 {
+	celtAutocorrValidate(tls, overlap, n)
+	return celtAutocorrSamples(tls, x[:n], ac, window, overlap, lag, n, arch)
+}
+
+func celtAutocorrValidate(tls *libc.TLS, overlap, n int32) {
 	if n <= 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3419), opusDiagnosticString(3330), 302)
 	}
 	if overlap < 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3441), opusDiagnosticString(3330), 303)
 	}
-	input := unsafe.Slice(x, n)
+}
+
+func celtAutocorrSamples(tls *libc.TLS, input []float32, ac, window *float32, overlap, lag, n, arch int32) int32 {
 	signal := input
 	if overlap != 0 {
 		signal = make([]float32, n)
