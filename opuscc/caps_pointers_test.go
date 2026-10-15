@@ -109,6 +109,31 @@ func TestModePulseIndexPointers(t *testing.T) {
 	runtime.KeepAlive(m)
 }
 
+func TestModePulseRowReloadPointers(t *testing.T) {
+	index := int16(1)
+	bits := [6]byte{99, 2, 7, 11, 1, 29}
+	m := OpusT_OpusCustomMode{}
+	m.Fcache.Findex, m.Fcache.Fbits = &index, &bits[0]
+	first := modePulseCacheRow(&m, 0)
+	index = 4
+	second := modePulseCacheRow(&m, 0)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if first.offset != 1 || second.offset != 4 || first.at(0) != 2 || second.at(0) != 1 || first.pulses2Bits(2) != 12 || second.pulses2Bits(1) != 30 {
+		t.Fatal("row metadata reload")
+	}
+	bits[3] = 17
+	if first.pulses2Bits(2) != 18 {
+		t.Fatal("row content must stay live")
+	}
+	other := [2]byte{1, 41}
+	m.Fcache.Fbits, index = &other[0], 0
+	third := modePulseCacheRow(&m, 0)
+	if third.pulses2Bits(1) != 42 || second.pulses2Bits(1) != 30 {
+		t.Fatal("byte root reload/old row identity")
+	}
+}
+
 func TestModePulseBitsPointers(t *testing.T) {
 	zeroIndex := int16(0)
 	zeroMode := OpusT_OpusCustomMode{}
@@ -139,22 +164,29 @@ func TestModePulseBitsPointers(t *testing.T) {
 			continue
 		}
 		cache := modePulseCache(m, int32(i))
+		row := modePulseCacheRow(m, int32(i))
 		max := int32(*cache)
+		if row.bits != m.Fcache.Fbits || row.offset != offset || row.at(0) != byte(max) {
+			t.Fatal("rooted numeric pulse row", i)
+		}
 		for pulse := int32(0); pulse <= max; pulse++ {
 			want := int32(0)
 			if pulse != 0 {
 				want = int32(cache_bits50[int(offset)+int(pulse)]) + 1
 			}
-			if modePulses2Bits(cache, pulse) != want {
+			if modePulses2Bits(cache, pulse) != want || row.pulses2Bits(pulse) != want {
 				t.Fatal(i, pulse)
 			}
 		}
 		for bits := int32(-2); bits <= 260; bits++ {
 			q := modeBits2Pulses(cache, bits)
-			if q < 0 || q > max {
+			if q < 0 || q > max || row.bits2Pulses(bits) != q {
 				t.Fatal(i, bits, q)
 			}
 		}
+	}
+	if (modePulseRow{}).pulses2Bits(0) != 0 {
+		t.Fatal("unused nil row")
 	}
 	// Signed index -1 must remain a backwards interior offset, not an unsigned load.
 	guarded := []byte{0, 77}
@@ -163,6 +195,11 @@ func TestModePulseBitsPointers(t *testing.T) {
 	m.Fcache.Findex = &index[0]
 	if cache := modePulseCache(m, 0); cache != &guarded[0] || modeBits2Pulses(cache, 1) != 0 || modePulses2Bits(cache, 0) != 0 {
 		t.Fatal("signed cache offset / zero pulses")
+	}
+	row := modePulseCacheRow(m, 0)
+	guarded[0] = 1
+	if row.bits != &guarded[0] || row.offset != 0 || row.at(0) != 1 || row.pulses2Bits(1) != 78 {
+		t.Fatal("signed live row")
 	}
 	runtime.KeepAlive(m)
 }

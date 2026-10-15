@@ -597,6 +597,14 @@ func TestSynthesisConsumedCursorPointers(t *testing.T) {
 	if celtSynthesisContiguousCursor(&owner.image[0], 1, 2) != p || celtSynthesisContiguousCursor(p, 1, 1) != &owner.image[2] {
 		t.Fatal("contiguous exact readable extent")
 	}
+	block := [7]float32{77, .25, .5, 1, 2, 4, 88}
+	reference := block
+	celtSynthesisOutputCopy(&reference[2], &reference[1], 4)
+	celtSynthesisOutputCopyAt(&block[0], 2, &block[1], 4)
+	if block != reference {
+		t.Fatal("numeric output copy live overlap/guards")
+	}
+	celtSynthesisOutputCopyAt(nil, 2147483647, nil, 0)
 	*celtSynthesisContiguousCursor(p, 1, 1) = 2
 	if owner.image[2] != 2 {
 		t.Fatal("live cursor alias")

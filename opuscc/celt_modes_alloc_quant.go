@@ -25,6 +25,10 @@ func modePulseIndex(m *OpusT_OpusCustomMode, index int32) int16 {
 func modePulseCache(m *OpusT_OpusCustomMode, index int32) *byte {
 	bits := m.Fcache.Fbits
 	offset := modePulseIndex(m, index)
+	return modePulseCachePointer(bits, offset)
+}
+
+func modePulseCachePointer(bits *byte, offset int16) *byte {
 	if offset == 0 {
 		return bits
 	}
@@ -39,13 +43,38 @@ func modePulseByte(cache *byte, index int32) byte {
 	return unsafe.Slice(cache, int64(index)+1)[index]
 }
 
+// The row keeps the real byte root and signed numeric table coordinate.
+// Only backwards compatibility rows need a displaced pointer at construction.
+type modePulseRow struct {
+	bits   *byte
+	offset int16
+}
+
+func modePulseCacheRow(m *OpusT_OpusCustomMode, index int32) modePulseRow {
+	bits := m.Fcache.Fbits
+	offset := modePulseIndex(m, index)
+	if offset < 0 {
+		return modePulseRow{bits: modePulseCachePointer(bits, offset)}
+	}
+	return modePulseRow{bits: bits, offset: offset}
+}
+
+func (row modePulseRow) at(index int32) byte {
+	entry := int64(row.offset) + int64(index)
+	return unsafe.Slice(row.bits, entry+1)[entry]
+}
+
 // These are the scalar rate.h searches, with C int32 wrapping and tie order.
 func modeBits2Pulses(cache *byte, bits int32) int32 {
-	lo, hi := int32(0), int32(*cache)
+	return (modePulseRow{bits: cache}).bits2Pulses(bits)
+}
+
+func (row modePulseRow) bits2Pulses(bits int32) int32 {
+	lo, hi := int32(0), int32(row.at(0))
 	bits--
 	for i := 0; i < LOG_MAX_PSEUDO; i++ {
 		mid := (lo + hi + 1) >> 1
-		if int32(modePulseByte(cache, mid)) >= bits {
+		if int32(row.at(mid)) >= bits {
 			hi = mid
 		} else {
 			lo = mid
@@ -53,19 +82,23 @@ func modeBits2Pulses(cache *byte, bits int32) int32 {
 	}
 	lowBits := int32(-1)
 	if lo != 0 {
-		lowBits = int32(modePulseByte(cache, lo))
+		lowBits = int32(row.at(lo))
 	}
-	if bits-lowBits <= int32(modePulseByte(cache, hi))-bits {
+	if bits-lowBits <= int32(row.at(hi))-bits {
 		return lo
 	}
 	return hi
 }
 
 func modePulses2Bits(cache *byte, pulses int32) int32 {
+	return (modePulseRow{bits: cache}).pulses2Bits(pulses)
+}
+
+func (row modePulseRow) pulses2Bits(pulses int32) int32 {
 	if pulses == 0 {
 		return 0
 	}
-	return int32(modePulseByte(cache, pulses)) + 1
+	return int32(row.at(pulses)) + 1
 }
 
 func modeBand(m *OpusT_OpusCustomMode, band int32) int16 {
@@ -1195,6 +1228,10 @@ func celtDenormaliseSpan(p *float32, offset, length int32) []float32 {
 }
 
 func celtDenormaliseBandsAt(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, xOffset int32, freq *OpusT_celt_sig, bandLogE *OpusT_celt_glog, energyOffset int32, start, end, M, downsample, silence int32) {
+	celtDenormaliseBandsOffsets(tls, bands, shortMdctSize, X, xOffset, freq, 0, bandLogE, energyOffset, start, end, M, downsample, silence)
+}
+
+func celtDenormaliseBandsOffsets(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, xOffset int32, freq *OpusT_celt_sig, outputOffset int32, bandLogE *OpusT_celt_glog, energyOffset int32, start, end, M, downsample, silence int32) {
 	// Pass the two mode inputs explicitly so the table stays GC-visible here.
 	eBands := unsafe.Slice(bands, end+1)
 	N := M * shortMdctSize
@@ -1202,7 +1239,7 @@ func celtDenormaliseBandsAt(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSiz
 	if downsample != 1 {
 		bound = min(bound, N/downsample)
 	}
-	output := unsafe.Slice(freq, N)
+	output := celtDenormaliseSpan(freq, outputOffset, N)
 	if silence != 0 {
 		clear(output)
 		return
@@ -1977,7 +2014,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 	var Y, next_lowband2 *float32
 	var ec *OpusT_ec_ctx
 	var m2 *OpusT_OpusCustomMode
-	var cache, cache1, cache2 *byte
+	var cache, cache1, cache2 modePulseRow
 	var cm, cm_mask uint32
 	var mid1, side OpusT_opus_val32
 	var rebalance OpusT_opus_int32
@@ -1996,8 +2033,8 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 	spread = ctx.Fspread
 	ec = ctx.Fec
 	/* If we need 1.5 more bit than we can produce, split the band in two. */
-	cache2 = modePulseCache(m2, (LM2+int32(1))*m2.FnbEBands+i2)
-	if LM2 != -int32(1) && b > int32(modePulseByte(cache2, int32(*cache2)))+int32(12) && N > int32(2) {
+	cache2 = modePulseCacheRow(m2, (LM2+int32(1))*m2.FnbEBands+i2)
+	if LM2 != -int32(1) && b > int32(cache2.at(int32(cache2.at(0))))+int32(12) && N > int32(2) {
 		next_lowband2 = nil
 		N = N >> int32(1)
 		// This split consumes both halves: N>0 and the second half is readable.
@@ -2070,17 +2107,17 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 		}
 	} else {
 		/* This is the basic no-split case. Reload the cache for each C helper. */
-		cache = modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)
-		q = modeBits2Pulses(cache, b)
-		cache1 = modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)
-		curr_bits = modePulses2Bits(cache1, q)
+		cache = modePulseCacheRow(m2, (LM2+1)*m2.FnbEBands+i2)
+		q = cache.bits2Pulses(b)
+		cache1 = modePulseCacheRow(m2, (LM2+1)*m2.FnbEBands+i2)
+		curr_bits = cache1.pulses2Bits(q)
 		ctx.Fremaining_bits -= curr_bits
 		/* Ensures we can never bust the budget */
 		for ctx.Fremaining_bits < 0 && q > 0 {
 			ctx.Fremaining_bits += curr_bits
 			q = q - 1
-			cache1 = modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)
-			curr_bits = modePulses2Bits(cache1, q)
+			cache1 = modePulseCacheRow(m2, (LM2+1)*m2.FnbEBands+i2)
+			curr_bits = cache1.pulses2Bits(q)
 			ctx.Fremaining_bits -= curr_bits
 		}
 		if q != 0 {

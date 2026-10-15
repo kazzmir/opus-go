@@ -91,10 +91,25 @@ func celtCorrelation4(coeff, input []float32, sum *[4]float32) {
 }
 
 func Opus_celt_iir(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float32, arch int32) {
+	celtIIROutputOwned(tls, x, den, out, N, ord, mem, arch, nil, 0)
+}
+
+func celtIIROutputOwned(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float32, arch int32, outputOwner []float32, outputOffset int32) {
+	celtIIRAt(tls, x, 0, den, 0, out, N, ord, mem, arch, outputOwner, outputOffset)
+}
+
+func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den *float32, coefficientOffset int32, out *float32, N, ord int32, mem *float32, arch int32, outputOwner []float32, outputOffset int32) {
 	if ord&3 != 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3390), opusDiagnosticString(3330), 225)
 	}
-	input, coeff, output, memory := unsafe.Slice(x, N), unsafe.Slice(den, ord), unsafe.Slice(out, N), unsafe.Slice(mem, ord)
+	input, coeff := celtDenormaliseSpan(x, inputOffset, N), celtDenormaliseSpan(den, coefficientOffset, ord)
+	var output []float32
+	if outputOwner == nil {
+		output = unsafe.Slice(out, N)
+	} else {
+		output = outputOwner[int64(outputOffset) : int64(outputOffset)+int64(N)]
+	}
+	memory := unsafe.Slice(mem, ord)
 	reversed := make([]float32, ord)
 	history := make([]float32, N+ord)
 	for i := int32(0); i < ord; i++ {
@@ -129,7 +144,9 @@ func Opus_celt_iir(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float
 		output[i] = sum
 	}
 	var tail []float32
-	if N >= ord {
+	if outputOwner != nil {
+		tail = outputOwner[int64(outputOffset)+int64(N-ord) : int64(outputOffset)+int64(N-ord)+int64(ord)]
+	} else if N >= ord {
 		tail = output[N-ord:]
 	} else {
 		// For N<ord, C reads caller-owned samples preceding out as well.

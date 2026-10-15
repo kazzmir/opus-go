@@ -534,6 +534,236 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT IIR owned-history/origin rounds add an optional concrete output/history
+slice, migrate PLC's IIR output to its actual decode-buffer owner + numeric origin,
+then defer PLC input and LPC coefficient origins numerically until readable Go
+views are needed. The public celt_iir entry delegates with zero origins/no output
+owner, retaining the original external signed-history fallback. Owned N<ord tails
+read the real preceding samples through the Go owner, not by subtracting from an
+output scalar pointer. The active PLC call no longer forms input/output/coefficient
+sub-pointers. The original coefficient index bounds check remains before the call.
+This is private concrete-owner/span handling, not a new allocation or pointer map
+for unbound caller byte images. Counts remain110 unsafe.Pointer/105 uintptr.
+
+ord&3 assertion still precedes views; input, coefficient, output and memory view
+order stays. Span root-relative additions widen, while N+ord, N-ord, channel*order,
+loops and all DSP int32 operations retain their old semantics. Upstream celt_lpc.c
+reverse-coefficient snapshot, initial negative memory, explicit four-lane products,
+live coefficient patch reloads, sequential stores, positive scalar-tail history
+and reversed output→memory commit persist. No full input/output/coefficient snapshot,
+new scratch/copy, ABI field extent or encode/decode tolerance change.
+
+Grouped IIR fixtures cover orders0/4/8 and N0/1/3/4/5/8/17, separate/in-place inputs,
+exact guarded output/history/memory owners, numeric input/coefficient origins and
+bitwise/full-memory equivalence to the same public entry across GC/stack growth.
+The pre-existing unsupported ord0 four-lane assertion remains. Added coefficient/
+input/output alias cases also share memory with the same scalar owner to verify
+live patch and final-store semantics. Earlier signed-history/nil/order/native
+fixtures and PLC/frame goldens remain unchanged. No fixture weakening, pointer-slot
+poisoning, caller-image/EOF/raw callback/global GC/macOS safety claim.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped IIR/PLC
+and broad relevant checkptr, typed PartA/PartB on3 architectures, native comparisons,
+GC stress, unchanged codec references and diff checks. Final ARM ordinary/scoped
+fixtures repeat twenty times. Logs:
+/tmp/opus-round-iir-owned-output-history.log,
+/tmp/opus-round-plc-iir-owned-output.log,
+/tmp/opus-round-plc-iir-numeric-input-origin.log,
+/tmp/opus-round-plc-iir-numeric-coefficient-origin{,-focused}.log and
+/tmp/opus-round-plc-iir-owned-origins-arm-{checkptr,golden}-repeat.log.
+
+Four active deemphasis-output-origin rounds migrate direct accumulate, direct
+replace, downsample accumulate and downsample replace stores to the actual PCM
+root + numeric channel/sample coordinates. The last round removes the now-unused
+per-channel y pointer and its early cursor formation; zero N or Nd naturally
+never invokes the output accessor. No zero/end pointer is fabricated. Channel and
+sample coordinates stay separate until the consumed scalar is needed: j*C retains
+int32 multiply/wrap, then channel addition is widened to match the original two
+pointer additions rather than introducing another int32 wrap. Zero offset keeps
+identity; positive stores use a minimal Go prefix; signed history retains the
+explicit compatibility address boundary. Counts remain110 unsafe.Pointer/
+105 uintptr: ACTIVE consumer-origin changes, not cast removal or new GC maps.
+
+Upstream celt_decoder.c direct accumulate's x+m+VERY_SMALL order differs from
+replace/downsample's x+VERY_SMALL+m, and those orders stay. Per-sample preemphasis
+state update, per-channel mem commit BEFORE downsample stores, scratch reuse,
+sequential live accumulate loads/stores and do-while C0/zero-stride behavior are
+unchanged. The common stereo early return, nil zero-work behavior, coefficient
+load/negative scratch/division errors, all input/memory/output aliases and sample
+rounding remain; no additional copies/snapshots or public API/tolerance changes.
+
+Grouped deemphasis tests add exact rooted output identity, last-readable/signed/
+zero-channel cancellation, write-through guards and GC/stack growth. Existing N0/
+Nd0/nil, all output branches/downsample factors/channel counts, scalar reference
+bits, alias, chunking and zero-work coefficient fixtures persist unchanged. No
+caller-byte layout/EOF/raw callback/global GC/macOS safety claim.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, relevant
+scoped checkptr, typed PartA/PartB on3 architectures, native comparisons, GC stress,
+unchanged codec references and diff checks. Final ARM ordinary/scoped fixtures
+repeat twenty times. Logs:
+/tmp/opus-round-deemphasis-direct-accum-numeric-output.log,
+/tmp/opus-round-deemphasis-direct-replace-numeric-output.log,
+/tmp/opus-round-deemphasis-downsample-accum-numeric-output.log,
+/tmp/opus-round-deemphasis-downsample-replace-numeric-output.log and
+/tmp/opus-round-deemphasis-numeric-origins-arm-{checkptr,golden}-repeat.log.
+
+Four active CELT pulse-cache row rounds add modePulseRow{bits *byte,offset int16},
+then migrate quant_partition split-threshold reads, initial bits→pulses/cost helpers
+and EACH remaining-budget retry to that concrete root + numeric coordinate.
+modePulseCacheRow captures Fbits before the signed index load, matching the old
+pointer constructor, but positive rows do not form a displaced cache pointer.
+Only the current byte's minimal root prefix is formed. Negative row offsets keep
+the explicit signed-history/unused-boundary compatibility constructor. Legacy
+pointer/cache helpers remain for fixtures; factoring their boundary is not cast
+removal. Counts stay110 unsafe.Pointer/105 uintptr: ACTIVE positive row consumers,
+not hidden pointer integers or new pointer maps/lifetime guarantees.
+
+The scalar rate.h bit search retains all int32 operations, bits--, low=-1, midpoint
+loop count and <= tie order; zero pulses still costs0 without byte access. bands.c
+split short-circuit order and lookup index arithmetic stay, including LM−1 cache
+selection before the condition. The original Go per-helper reload points persist:
+threshold, bits search, initial price and EVERY retry after refund/decrement.
+Mode pointer/band cached at entry remain as before; no whole-mode/index/table
+snapshot or source copy is introduced. Existing live source/entropy/budget aliases,
+remaining-bit wrap/store order, pulse conversion, FFT/MDCT/golden bits remain.
+
+Grouped mode-pulse tests cover every valid static cache row/pulse, bits−2..260,
+nil zero pulse, signed backwards rows, exact consumed bytes, GC/stack growth and
+live data mutation. New reload fixtures independently change signed row index,
+byte-root field and earlier row contents to check metadata capture versus live
+reads. Native rate/partition/quant-all comparisons and existing scalar C packet/
+mask/seed/bit/FNV goldens remain. No buffer enlargement, pointer-slot poisoning,
+new audio scratch or tolerance changes; no opaque-image/EOF/raw callback/global
+GC/macOS claim. Negative/unused cache boundaries intentionally remain unresolved.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr (mode pulse, partition/quant-all, SILK rows), typed PartA/PartB on3
+architectures, native comparisons, GC stress, unchanged codec references and diff
+checks. Final ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-celt-pulse-rooted-row-view.log,
+/tmp/opus-round-partition-rooted-split-threshold.log,
+/tmp/opus-round-partition-rooted-initial-pulse-cost.log,
+/tmp/opus-round-partition-rooted-retry-pulse-cost.log and
+/tmp/opus-round-celt-rooted-pulse-rows-arm-{checkptr,golden}-repeat.log.
+
+Four active SILK pulse/shell numeric-row rounds select rate-level ICDFs from the
+original2x9 byte table root + numeric row, pulse-count ICDFs from the10x18 table
+root + numeric row, escape rows from that same root + numeric start, and shell
+split rows from the actual shell slice root + numeric table offset. The decoder
+no longer forms those selected row pointers before entropy decoding. Row/start
+and shell offset/slice bounds checks remain BEFORE entropy or output mutation;
+only live symbol entries are consumed by ecDecICDFAt. No table snapshots/copies,
+extra PCM scratch or public codec APIs change; counts remain110 unsafe.Pointer/
+105 uintptr. This is ACTIVE row-origin handling, not cast deletion or a new map
+for opaque images; signed/narrowing/range normalization semantics persist.
+
+Upstream decode_pulses.c and shell_coder.c order remains: rate decode precedes
+frame/block validation, sums precede shell decoding, shift10 suppresses another
+escape via start1, LSBs/signs follow, and split child1 is committed before reloading
+it for child2 (even when outputs alias). The helpers retain original fixed-array
+row and slice bounds validation; zero/negative split totals skip table/entropy
+and write both zeros. No changed codec packets/samples/ranges/tolerances.
+
+Grouped pulse fixtures compare all2 rate rows and10 count rows (48 encoded symbols
+and EVERY context snapshot per row) against the same old pointer-based reference.
+Fixture symbol enumeration uses ONLY positive-probability ICDF entries, preserving
+the earlier rate-row sequence. Both escape starts are covered; a crafted10-shift
+pulse stream exercises the forbidden-eleventh-escape boundary,160 zero LSBs, exact
+zero output/guards and full entropy equality against the original row decoder.
+Shell fixtures cover all4 tables/totals1..16, complete entropy equality, sequential
+and aliased child stores, guards and invalid table/offset rejection before mutation.
+Existing120-sample padded shell, pulse scratch, real SILK/frame/native goldens and
+GC/stack-growth coverage persist. No pointer poisoning or weakened fixtures; no
+EOF/caller-image/raw callback/global GC/macOS claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr (including pulse/shell/ICDF/index cases), typed PartA/PartB on3 architectures,
+native comparisons, GC stress, unchanged codec references and diff checks. Final
+ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-pulse-rate-numeric-row.log,
+/tmp/opus-round-pulse-count-numeric-row.log,
+/tmp/opus-round-pulse-escape-numeric-row{,-focused}.log,
+/tmp/opus-round-shell-split-numeric-row{,-focused}.log and
+/tmp/opus-round-pulse-shell-numeric-rows-arm-{checkptr,golden}-repeat.log.
+
+Four active byte-ICDF numeric-row rounds add private ecDecICDFAt, move SILK NLSF
+first-stage and residual selection from displaced byte pointers to original table
+roots + numeric offsets, then move SILK gain selection to the global24-byte table
+root + numeric8-byte row origin. Public ICDF signatures still delegate at offset0.
+Negative caller-owned row origins use the existing signed table boundary before
+entropy snapshots; zero/positive rows never create a guessed full-row cursor.
+The kernel builds only the prefix through the currently consumed symbol entry.
+Offsets are widened when combined with symbol position; source row arithmetic,
+SILK signed narrowing and gain<<3 wrapping remain unchanged.
+
+Upstream entdec.c snapshots rng/val before scanning, uses IMUL32 per live table
+entry, commits val/rng then normalizes. The same sequence remains, including
+source tables aliasing entropy values. Upstream decode_indices.c CB1 row product,
+residual ec_ix order/EXT branches, fields/codebook reloads and gain decode order
+remain. Gain rows explicitly retain the original Go array bound check BEFORE
+entropy access; invalid rows panic without touching the context. No full table
+snapshot, padded suffix, extra audio scratch/copy or public codec API change.
+Counts stay110 unsafe.Pointer/105 uintptr: these are ACTIVE numeric row consumers,
+not cast relocation or repair of opaque pointer maps/EOF/raw callbacks/global GC.
+
+Grouped ICDF tests compare200 encoded symbols and EVERY full context snapshot for
+positive numeric and signed-history rows against the same public decoder; exact
+last-readable table entries, source guards and GC/stack growth persist. Gain
+fixtures cover all3 rows and24 symbols each, complete context equality, plus
+negative/out-of-range row rejection before entropy mutation. Existing codebook
+weak roots, table/entropy aliases, source guards, real SILK/frame references and
+native/golden bits remain; no fixture/golden/tolerance changes or macOS claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr including numeric ICDF/gain/index cases, three-architecture typed frame
+PartA/PartB, native comparison, GC stress, unchanged codec references and diff checks.
+Final ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-byte-icdf-numeric-origin.log,
+/tmp/opus-round-nlsf-first-icdf-numeric-row.log,
+/tmp/opus-round-nlsf-residual-icdf-numeric-row.log,
+/tmp/opus-round-gain-icdf-numeric-row{,-focused}.log and
+/tmp/opus-round-icdf-numeric-rows-arm-{checkptr,golden}-repeat.log.
+
+Four remaining synthesis-scratch-origin rounds add private denormalization output
+origins, pass downmix's outputs[0]+overlap/2 as a concrete root+numeric origin,
+copy mono→stereo scratch through a rooted output-offset view, then keep its left
+MDCT source as outputs[1] + NUMERIC overlap/2/block coordinates. No synthesis
+scratch pointer is formed by these active callers. Existing public and private
+reference signatures delegate at zero offset; compatibility cursor helpers stay
+for boundary fixtures. Denormalized/copy views use the actual N samples; MDCT
+views wait for strided kernel geometry. No extra audio storage/snapshot is added.
+
+The combined scratch/block INPUT origin is int64: the original two pointer
+additions must not become a new int32(overlap/2+b) wrap. Individual overlap/2,
+b, NB*b, MDCT strided products/width and output extents retain int32 semantics.
+Signed history/unused/invalid fallback boundaries persist; displaced zero spans
+form no readable pointer. Silent input/energy skips, narrowing/rounding, live
+spectrum/energy/output/window aliases and copy-left-before-right/store order stay.
+All relevant sample/frame/range/bits/payload/hash expectations remain unchanged.
+Counts110 unsafe.Pointer/105 uintptr are unchanged: ACTIVE root-relative scratch
+access, not cast centralization, new caller-image pointer maps or lifetime proof.
+
+Grouped denormalization tests now compare numeric OUTPUT origins in live aliased
+spectrum/energy storage against the same old public results, plus nil all-displaced
+empty silence. Existing cursor tests add rooted overlapping-copy equivalence,
+outer guards and nil empty copy with large displacement. MDCT's all-shift/stride
+fixtures use the widened private input coordinate without changing buffers or
+expected results; existing synthesis transient/mono/stereo/downmix/CC0/silent and
+exact terminal aliases persist. No EOF/opaque-image/raw callback/global GC/macOS
+claim. Public Opus APIs and native tolerances are unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr, native comparisons, GC stress, unchanged codec references and diff checks.
+Final typed PartA/PartB scoped tests pass on3 architectures; ARM ordinary/scoped
+checks repeat twenty times. Logs:
+/tmp/opus-round-denormalise-numeric-output-origin.log,
+/tmp/opus-round-downmix-rooted-denormalise-output.log,
+/tmp/opus-round-synthesis-copy-numeric-output.log,
+/tmp/opus-round-mono-stereo-rooted-scratch-origin.log,
+/tmp/opus-round-synthesis-scratch-origins-typed-frames.log and
+/tmp/opus-round-synthesis-scratch-origins-arm-{checkptr,golden}-repeat.log.
+
 Four matching active numeric MDCT-OUTPUT-origin rounds add a private
 opusMDCTBackwardOffsets entry, then move mono→stereo, downmix and general-channel
 synthesis outputs from displaced block pointers to the original output root plus

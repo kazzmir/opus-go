@@ -9,6 +9,27 @@ import (
 	"unsafe"
 )
 
+func TestDeemphasisOutputOriginPointers(t *testing.T) {
+	if deemphasisOutputAt(nil, 0, 0) != nil {
+		t.Fatal("zero output identity")
+	}
+	owner := [6]float32{77, .25, .5, 1, 2, 88}
+	root := &owner[1]
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for _, coordinates := range [][2]int32{{0, 0}, {1, 2}, {2, 1}, {3, 0}, {2, -2}, {0, -1}} {
+		channel, sample := coordinates[0], coordinates[1]
+		old := celtNormConsumedAt(celtNormConsumedAt(root, channel), sample)
+		if deemphasisOutputAt(root, channel, sample) != old {
+			t.Fatal("output origin identity", coordinates)
+		}
+	}
+	*deemphasisOutputAt(root, 1, 2) = 4
+	if owner != [6]float32{77, .25, .5, 1, 4, 88} {
+		t.Fatal("live output/guards", owner)
+	}
+}
+
 func TestDeemphasisDriverPointers(t *testing.T) {
 	channels := func() []*float32 {
 		l, r := make([]float32, 8), make([]float32, 8)

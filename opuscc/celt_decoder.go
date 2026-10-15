@@ -174,6 +174,19 @@ func deemphasis_stereo_simple(tls *libc.TLS, left *OpusT_celt_sig, right *OpusT_
 	mem[0], mem[1] = m0, m1
 }
 
+// The stride product is already narrowed by the caller; channel addition
+// represents two original pointer additions and must not introduce int32 wrap.
+func deemphasisOutputAt(pcm *float32, channel, sampleOffset int32) *float32 {
+	offset := int64(channel) + int64(sampleOffset)
+	if offset == 0 {
+		return pcm
+	}
+	if offset > 0 {
+		return &unsafe.Slice(pcm, offset+1)[offset]
+	}
+	return celtNormAdd(celtNormConsumedAt(pcm, channel), sampleOffset)
+}
+
 func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, downsample int32, coef *float32, mem *float32, accum int32) {
 	// Common stereo dispatch needs no TLS scratch, just as the C early return.
 	if downsample == 1 && C == 2 && accum == 0 {
@@ -186,7 +199,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 		deemphasis_stereo_simple(tls, channels[0], channels[1], pcm, N, coefficient, memory)
 		return
 	}
-	var x, y *float32
+	var x *float32
 	var Nd, apply_downsampling, c, j, v29 int32
 	var coef0 OpusT_opus_val16
 	var m, tmp, tmp1, tmp2 OpusT_celt_sig
@@ -199,11 +212,6 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 	for {
 		m = unsafe.Slice(mem, max(C, 1))[c]
 		x = unsafe.Slice(in, max(C, 1))[c]
-		y = nil
-		// If Nd==0, C's channel cursor is never consumed; avoid forming one-past.
-		if N > 0 && (downsample <= 1 || Nd > 0) {
-			y = celtNormConsumedAt(pcm, c)
-		}
 		if downsample > int32(1) {
 			/* Shortcut for the standard (non-custom modes) case */
 			j = 0
@@ -227,7 +235,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					}
 					tmp1 = unsafe.Slice(x, N)[j] + m + float32(1e-30)
 					m = OpusT_opus_val16(coef0 * tmp1)
-					dst := celtNormConsumedAt(y, j*C)
+					dst := deemphasisOutputAt(pcm, c, j*C)
 					*dst = *dst + float32(float32(1)/float32(32768)*tmp1)
 					j = j + 1
 				}
@@ -239,7 +247,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					}
 					tmp2 = unsafe.Slice(x, N)[j] + float32(1e-30) + m
 					m = OpusT_opus_val16(coef0 * tmp2)
-					*celtNormConsumedAt(y, j*C) = float32(float32(1) / float32(32768) * tmp2)
+					*deemphasisOutputAt(pcm, c, j*C) = float32(float32(1) / float32(32768) * tmp2)
 					j = j + 1
 				}
 			}
@@ -253,7 +261,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					if !(j < Nd) {
 						break
 					}
-					dst := celtNormConsumedAt(y, j*C)
+					dst := deemphasisOutputAt(pcm, c, j*C)
 					*dst = *dst + float32(float32(1)/float32(32768)*scratch[j*downsample])
 					j = j + 1
 				}
@@ -263,7 +271,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					if !(j < Nd) {
 						break
 					}
-					*celtNormConsumedAt(y, j*C) = float32(float32(1) / float32(32768) * scratch[j*downsample])
+					*deemphasisOutputAt(pcm, c, j*C) = float32(float32(1) / float32(32768) * scratch[j*downsample])
 					j = j + 1
 				}
 			}
@@ -288,6 +296,10 @@ func celtSynthesisIMDCTAt(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *float
 }
 
 func celtSynthesisIMDCTOffsets(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *float32, inputOffset int32, out *float32, outputOffset int32, overlap, shift, stride, arch int32) {
+	celtSynthesisIMDCTOrigins(tls, mode, freq, int64(inputOffset), out, outputOffset, overlap, shift, stride, arch)
+}
+
+func celtSynthesisIMDCTOrigins(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *float32, inputOffset int64, out *float32, outputOffset int32, overlap, shift, stride, arch int32) {
 	lookup := &mode.Fmdct
 	st := lookup.Fkfft[shift]
 	opusMDCTBackwardOffsets(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, inputOffset, out, outputOffset, mode.Fwindow, overlap, shift, stride, arch)
@@ -310,7 +322,11 @@ func celtSynthesisContiguousCursor(p *float32, offset, length int32) *float32 {
 	return &unsafe.Slice(p, int64(offset)+int64(length))[offset]
 }
 func celtSynthesisOutputCopy(destination, source *float32, N int32) {
-	copy(unsafe.Slice(destination, N), unsafe.Slice(source, N))
+	celtSynthesisOutputCopyAt(destination, 0, source, N)
+}
+
+func celtSynthesisOutputCopyAt(destination *float32, outputOffset int32, source *float32, N int32) {
+	copy(celtDenormaliseSpan(destination, outputOffset, N), unsafe.Slice(source, N))
 }
 func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_syn **float32, oldBandE *float32, start int32, effEnd int32, C int32, CC int32, isTransient int32, LM int32, downsample int32, silence int32, arch int32) {
 	bandBoundaries := mode.FeBands
@@ -327,19 +343,17 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	if CC == 2 && C == 1 {
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
-		temp := celtSynthesisContiguousCursor(outputs[1], overlap/2, N)
-		celtSynthesisOutputCopy(temp, freqHead, N)
+		celtSynthesisOutputCopyAt(outputs[1], overlap/2, freqHead, N)
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCTOffsets(tls, mode, temp, b, outputs[0], NB*b, overlap, shift, B, arch)
+			celtSynthesisIMDCTOrigins(tls, mode, outputs[1], int64(overlap/2)+int64(b), outputs[0], NB*b, overlap, shift, B, arch)
 		}
 		for b := int32(0); b < B; b++ {
 			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[1], NB*b, overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
-		temp := celtSynthesisContiguousCursor(outputs[0], overlap/2, N)
 		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
-		celtDenormaliseBandsAt(tls, bandBoundaries, mode.FshortMdctSize, X, N, temp, oldBandE, nbEBands, start, effEnd, M, downsample, silence)
-		other := unsafe.Slice(temp, N)
+		celtDenormaliseBandsOffsets(tls, bandBoundaries, mode.FshortMdctSize, X, N, outputs[0], overlap/2, oldBandE, nbEBands, start, effEnd, M, downsample, silence)
+		other := celtDenormaliseSpan(outputs[0], overlap/2, N)
 		// Round both halves independently (including on FMA-capable architectures).
 		for i := range freq {
 			freq[i] = float32(float32(.5)*freq[i]) + float32(float32(.5)*other[i])
@@ -1272,7 +1286,8 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			celtPLCLPCHistory(&lpc_mem, unsafe.SliceData(buf), decode_buffer_size, N)
 			/* Apply the synthesis filter to convert the excitation back into
 			   the signal domain. */
-			Opus_celt_iir(tls, &buf[decode_buffer_size-N], &lpc[c*CELT_LPC_ORDER], &buf[decode_buffer_size-N], extrapolation_len, CELT_LPC_ORDER, &lpc_mem[0], st1.Farch)
+			_ = lpc[c*CELT_LPC_ORDER] // Retain the original coefficient index validation.
+			celtIIRAt(tls, unsafe.SliceData(buf), decode_buffer_size-N, unsafe.SliceData(lpc), c*CELT_LPC_ORDER, nil, extrapolation_len, CELT_LPC_ORDER, &lpc_mem[0], st1.Farch, buf, decode_buffer_size-N)
 			/* Check if the synthesis energy is higher than expected, which can
 			   happen with the signal changes during our window. If so,
 			   attenuate. */

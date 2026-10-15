@@ -155,6 +155,12 @@ func silkDecodeICDFAt(table *byte, offset int32) *byte {
 	return &unsafe.Slice(table, int64(offset)+1)[offset]
 }
 
+func silkDecodeGainICDF(tls *libc.TLS, dec *OpusT_ec_dec, signalType int8) int32 {
+	// Retain the original Go row-index validation before any entropy read.
+	_ = Opus_silk_gain_iCDF[signalType]
+	return ecDecICDFAt(tls, dec, &Opus_silk_gain_iCDF[0][0], int32(signalType)*int32(len(Opus_silk_gain_iCDF[0])), 8)
+}
+
 // C documentation
 //
 //	/* Decode side-information parameters from payload */
@@ -171,7 +177,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 	if cond == CODE_CONDITIONALLY {
 		indices.FGainsIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, &Opus_silk_delta_gain_iCDF[0], 8))
 	} else {
-		indices.FGainsIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, &Opus_silk_gain_iCDF[indices.FsignalType][0], 8) << 3)
+		indices.FGainsIndices[0] = int8(silkDecodeGainICDF(tls, dec, indices.FsignalType) << 3)
 		indices.FGainsIndices[0] += int8(Opus_ec_dec_icdf(tls, dec, &Opus_silk_uniform8_iCDF[0], 8))
 	}
 	for i := int32(1); i < decoder.Fnb_subfr; i++ {
@@ -181,7 +187,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 	cb := decoder.FpsNLSF_CB
 	first := cb.FCB1_iCDF
 	residual := cb.Fec_iCDF
-	indices.FNLSFIndices[0] = int8(Opus_ec_dec_icdf(tls, dec, silkDecodeICDFAt(first, int32(indices.FsignalType>>1)*int32(cb.FnVectors)), 8))
+	indices.FNLSFIndices[0] = int8(ecDecICDFAt(tls, dec, first, int32(indices.FsignalType>>1)*int32(cb.FnVectors), 8))
 	var ecIX [MAX_LPC_ORDER]int16
 	var pred [MAX_LPC_ORDER]byte
 	Opus_silk_NLSF_unpack(tls, &ecIX[0], &pred[0], cb, int32(indices.FNLSFIndices[0]))
@@ -189,7 +195,7 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 		opusCeltFatal(tls, opusDiagnosticString(6108), opusDiagnosticString(6170), 82)
 	}
 	for i := int32(0); i < int32(cb.Forder); i++ {
-		ix = Opus_ec_dec_icdf(tls, dec, silkDecodeICDFAt(residual, int32(ecIX[i])), 8)
+		ix = ecDecICDFAt(tls, dec, residual, int32(ecIX[i]), 8)
 		if ix == 0 {
 			ix -= Opus_ec_dec_icdf(tls, dec, &Opus_silk_NLSF_EXT_iCDF[0], 8)
 		} else if ix == 2*NLSF_QUANT_MAX_AMPLITUDE {
@@ -236,9 +242,20 @@ func Opus_silk_decode_indices(tls *libc.TLS, decoder *OpusT_silk_decoder_state, 
 //	/*********************************************/
 //	/* Decode quantization indices of excitation */
 //	/*********************************************/
+func silkDecodeRateICDF(tls *libc.TLS, dec *OpusT_ec_dec, signalType int32) int32 {
+	row := signalType >> 1
+	_ = Opus_silk_rate_levels_iCDF[row]
+	return ecDecICDFAt(tls, dec, &Opus_silk_rate_levels_iCDF[0][0], row*int32(len(Opus_silk_rate_levels_iCDF[0])), 8)
+}
+
+func silkDecodePulseICDF(tls *libc.TLS, dec *OpusT_ec_dec, row, start int32) int32 {
+	_ = Opus_silk_pulses_per_block_iCDF[row][start]
+	return ecDecICDFAt(tls, dec, &Opus_silk_pulses_per_block_iCDF[0][0], row*int32(len(Opus_silk_pulses_per_block_iCDF[0]))+start, 8)
+}
+
 func Opus_silk_decode_pulses(tls *libc.TLS, dec *OpusT_ec_dec, pulses *OpusT_opus_int16, signalType, quantOffsetType, frame_length int32) {
 	var shifts, sums [20]int32 // MAX_NB_SHELL_BLOCKS: 320 samples / 16.
-	rate := ec_dec_icdf(tls, dec, &Opus_silk_rate_levels_iCDF[signalType>>1][0], 8)
+	rate := silkDecodeRateICDF(tls, dec, signalType)
 	blocks := frame_length >> LOG2_SHELL_CODEC_FRAME_LENGTH
 	if blocks*SHELL_CODEC_FRAME_LENGTH < frame_length {
 		if frame_length != 120 {
@@ -248,14 +265,14 @@ func Opus_silk_decode_pulses(tls *libc.TLS, dec *OpusT_ec_dec, pulses *OpusT_opu
 	}
 	q := unsafe.Slice(pulses, blocks*SHELL_CODEC_FRAME_LENGTH)
 	for i := int32(0); i < blocks; i++ {
-		sums[i] = ec_dec_icdf(tls, dec, &Opus_silk_pulses_per_block_iCDF[rate][0], 8)
+		sums[i] = silkDecodePulseICDF(tls, dec, rate, 0)
 		for sums[i] == SILK_MAX_PULSES+1 {
 			shifts[i]++
 			start := 0
 			if shifts[i] == 10 {
 				start = 1
 			} // Disallow another escape after ten LSBs.
-			sums[i] = ec_dec_icdf(tls, dec, &Opus_silk_pulses_per_block_iCDF[N_RATE_LEVELS-1][start], 8)
+			sums[i] = silkDecodePulseICDF(tls, dec, N_RATE_LEVELS-1, int32(start))
 		}
 	}
 	for i := int32(0); i < blocks; i++ {
