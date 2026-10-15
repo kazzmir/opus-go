@@ -175,11 +175,44 @@ func Opus_comb_filter(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1 floa
 	combFilterWithHistory(tls, y, x, T0, T1, N, g0, g1, tapset0, tapset1, window, overlap, arch, nil, 0)
 }
 
+type combFilterSource struct {
+	legacy *float32
+	owner  []float32
+	offset int32
+	owned  bool
+}
+
+func (source combFilterSource) same(y *float32) bool {
+	if !source.owned {
+		return source.legacy == y
+	}
+	if source.offset >= 0 && int64(source.offset) < int64(len(source.owner)) {
+		return &source.owner[source.offset] == y
+	}
+	// Unused ends/signed compatibility require identity, not a readable view.
+	return celtNormAdd(unsafe.SliceData(source.owner), source.offset) == y
+}
+
+func (source combFilterSource) samples(N int32) []float32 {
+	if !source.owned {
+		return unsafe.Slice(source.legacy, N)
+	}
+	return source.owner[int64(source.offset) : int64(source.offset)+int64(N)]
+}
+
 // owner contains x's history/current samples; offset names x within that owner.
 func combFilterWithHistory(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32, owner []float32, offset int32) {
+	combFilterFromSource(tls, y, combFilterSource{legacy: x, owner: owner, offset: offset}, T0, T1, N, g0, g1, tapset0, tapset1, window, overlap, arch)
+}
+
+func combFilterOwned(tls *libc.TLS, y *float32, owner []float32, offset int32, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32) {
+	combFilterFromSource(tls, y, combFilterSource{owner: owner, offset: offset, owned: true}, T0, T1, N, g0, g1, tapset0, tapset1, window, overlap, arch)
+}
+
+func combFilterFromSource(tls *libc.TLS, y *float32, source combFilterSource, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32) {
 	if g0 == 0 && g1 == 0 {
-		if x != y {
-			copy(unsafe.Slice(y, N), unsafe.Slice(x, N))
+		if !source.same(y) {
+			copy(unsafe.Slice(y, N), source.samples(N))
 		}
 		return
 	}
@@ -196,10 +229,10 @@ func combFilterWithHistory(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1
 	}
 	// The preceding history and current samples belong to the same allocation.
 	var src []float32
-	if owner != nil {
-		src = owner[offset-history : offset+N]
+	if source.owner != nil || source.owned {
+		src = source.owner[source.offset-history : source.offset+N]
 	} else {
-		src = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(x), -int(history)*4)), history+N)
+		src = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(source.legacy), -int(history)*4)), history+N)
 	}
 	dst := unsafe.Slice(y, N)
 	x1, x2, x3, x4 := src[history-T1+1], src[history-T1], src[history-T1-1], src[history-T1-2]
@@ -211,7 +244,7 @@ func combFilterWithHistory(tls *libc.TLS, y, x *float32, T0, T1, N int32, g0, g1
 		x4, x3, x2, x1 = x3, x2, x1, x0
 	}
 	if g1 == 0 {
-		if x != y {
+		if !source.same(y) {
 			copy(dst[overlap:], src[history+overlap:])
 		}
 		return

@@ -234,17 +234,36 @@ func TestCombHistoryOwnerPointers(t *testing.T) {
 					left[i] = float32(i-99) / 113
 				}
 				right := left
+				numeric := left
 				window := [4]float32{0.1, 0.3, 0.6, 0.9}
 				Opus_comb_filter(nil, &left[128], &left[128], 20, 31, n, gains[0], gains[1], 0, 1, &window[0], overlap, 0)
 				entropyInitGrowStack(12)
 				runtime.GC()
 				combFilterWithHistory(nil, &right[128], &right[128], 20, 31, n, gains[0], gains[1], 0, 1, &window[0], overlap, 0, right[:], 128)
-				if left != right {
+				combFilterOwned(nil, &numeric[128], numeric[:], 128, 20, 31, n, gains[0], gains[1], 0, 1, &window[0], overlap, 0)
+				if left != right || left != numeric {
 					t.Fatal("owned comb live alias/guards", n, overlap, gains)
 				}
 			}
 		}
 	}
+}
+
+func TestCombSourceCopyPointers(t *testing.T) {
+	owner := [6]float32{77, .25, .5, 1, 2, 88}
+	reference := owner
+	Opus_comb_filter(nil, &reference[2], &reference[1], 0, 0, 3, 0, 0, -1, -1, nil, 0, 0)
+	combFilterOwned(nil, &owner[2], owner[:], 1, 0, 0, 3, 0, 0, -1, -1, nil, 0, 0)
+	if owner != reference {
+		t.Fatal("owned comb overlapping copy/guards")
+	}
+	legacy := [2]float32{.75, -.25}
+	var output [2]float32
+	combFilterWithHistory(nil, &output[0], &legacy[0], 0, 0, 2, 0, 0, -1, -1, nil, 0, 0, owner[:], 1)
+	if output != legacy {
+		t.Fatal("legacy zero-gain copy must still use explicit x")
+	}
+	combFilterOwned(nil, nil, nil, 0, 0, 0, 0, 0, 0, -1, -1, nil, 0, 0)
 }
 
 func TestFIRHistoryOwnerPointers(t *testing.T) {
