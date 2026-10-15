@@ -252,7 +252,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					}
 					tmp2 = unsafe.Slice(x, N)[j] + float32(1e-30) + m
 					m = OpusT_opus_val16(coef0 * tmp2)
-					*celtNormConsumedAt(y, j*C) = float32(float32(1) / float32(32768) * tmp2)
+					*deemphasisOutputAt(pcm, c, j*C) = float32(float32(1) / float32(32768) * tmp2)
 					j = j + 1
 				}
 			}
