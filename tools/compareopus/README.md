@@ -534,6 +534,45 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four matching CELT FIR/PLC rounds separate unchanged FIR arithmetic into a live
+span kernel, pass PLC excitation as its real Go owner + numeric source origin,
+carry LPC coefficient origin numerically, then pass FIR scratch as an actual Go
+output slice rather than a scalar pointer. Public celt_fir and existing explicit
+history signatures keep their assertions, reverse coefficient preparation and
+signed backward-history fallback. The extraction round alone is arithmetic
+organization; the following rounds change actual private PLC owner/span carriers.
+Counts remain110 unsafe.Pointer/105 uintptr, not cast deletion or new pointer maps.
+
+The owned entry uses source identity only for the original x!=y assertion (and
+retains an explicit unused-source/end compatibility boundary). Filtering reads the
+Go history span directly. Original source, coefficient and history argument bounds
+checks remain at the PLC call, before the callee; coefficient reversal still
+precedes input/output views. Complete four-lane RHS/correlation sums precede output
+stores; scalar tails, float32 products and sequential overlap reads/writes are
+unchanged. Source/root-relative span additions widen where needed; PLC's bounded
+source index/channel*order and all DSP loop arithmetic retain their original types.
+No new signal snapshot/copy, history padding or public ABI/tolerance changes.
+
+Grouped FIR fixtures retain old public/explicit-history cases and add span/owned
+comparisons for orders0/4/8, N0/1/4/12, output guards, numeric coefficient roots and
+GC/stack growth. Existing unsupported ord0 unrolled assertion remains. Added partial
+source/output overlap tests compare all bits and surrounding storage to the same
+public implementation, preserving its live Go semantics rather than claiming new
+upstream restrict guarantees. PLC excitation/FIR packet/range/float/hash and native
+references remain unchanged; no fixture weakening, pointer-slot poisoning,
+opaque-image/EOF/raw callback/global GC/macOS claim. Unused end and external
+negative-history boundaries intentionally stay explicit.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped FIR/LPC/
+IIR and broad relevant checkptr, typed PartA/PartB on3 architectures, native
+comparisons, GC stress, unchanged codec references and diff checks. Final ARM
+ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-fir-live-span-kernel.log,
+/tmp/opus-round-plc-fir-owned-excitation-origin.log,
+/tmp/opus-round-plc-fir-numeric-coefficient-origin.log,
+/tmp/opus-round-plc-fir-go-output-owner{,-focused}.log and
+/tmp/opus-round-plc-fir-owned-spans-arm-{checkptr,golden}-repeat.log.
+
 Four CELT IIR owned-history/origin rounds add an optional concrete output/history
 slice, migrate PLC's IIR output to its actual decode-buffer owner + numeric origin,
 then defer PLC input and LPC coefficient origins numerically until readable Go

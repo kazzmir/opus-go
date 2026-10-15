@@ -275,9 +275,38 @@ func TestFIRHistoryOwnerPointers(t *testing.T) {
 			runtime.GC()
 			celtFIRWithHistory(nil, &input[ord], &coeff[0], &got[1], n, ord, 0, input[:ord+n])
 			celtFIRSpans(nil, input[:ord+n], reversed, span[1:n+1], n, ord)
-			celtFIROwned(nil, input, ord, &coefficientOwner[0], 1, &owned[1], n, ord, 0)
+			celtFIROwned(nil, input, ord, &coefficientOwner[0], 1, owned[1:], n, ord, 0)
 			if !slices.Equal(got, want) || !slices.Equal(span, want) || !slices.Equal(owned, want) {
 				t.Fatal("typed FIR history/guards", ord, n)
+			}
+		}
+	}
+}
+
+func TestFIROwnedOverlapPointers(t *testing.T) {
+	for _, ord := range []int32{4, 8} {
+		for _, n := range []int32{1, 4, 8, 12} {
+			owned := make([]float32, ord+n+4)
+			for i := range owned {
+				owned[i] = float32(i%9-4) * .0625
+			}
+			owned[0], owned[len(owned)-1] = 77, 88
+			want := slices.Clone(owned)
+			coeff := make([]float32, ord+2)
+			for i := range coeff {
+				coeff[i] = float32(i) * .00390625
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_celt_fir_c(nil, &want[ord+1], &coeff[1], &want[2], n, ord, 0)
+			celtFIROwned(nil, owned, ord+1, &coeff[0], 1, owned[2:], n, ord, 0)
+			for i := range owned {
+				if math.Float32bits(owned[i]) != math.Float32bits(want[i]) {
+					t.Fatal("owned FIR live overlap", ord, n, i)
+				}
+			}
+			if owned[0] != 77 || owned[len(owned)-1] != 88 {
+				t.Fatal("owned FIR overlap guards")
 			}
 		}
 	}
