@@ -1269,7 +1269,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			_ = exc[max_period-exc_length:] // Preserve original argument bounds checks.
 			_ = lpc[c*CELT_LPC_ORDER]
 			_ = _exc[max_period-exc_length : CELT_LPC_ORDER+max_period]
-			celtFIROwned(tls, _exc, CELT_LPC_ORDER+max_period-exc_length, &lpc[c*CELT_LPC_ORDER], unsafe.SliceData(fir_tmp), exc_length, CELT_LPC_ORDER, st1.Farch)
+			celtFIROwned(tls, _exc, CELT_LPC_ORDER+max_period-exc_length, unsafe.SliceData(lpc), c*CELT_LPC_ORDER, unsafe.SliceData(fir_tmp), exc_length, CELT_LPC_ORDER, st1.Farch)
 			copy(exc[max_period-exc_length:], fir_tmp)
 			/* Check if the waveform is decaying, and if so how fast.
 			   We do this to avoid adding energy when concealing in a segment
