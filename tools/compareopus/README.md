@@ -534,6 +534,46 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four active SILK pulse/shell numeric-row rounds select rate-level ICDFs from the
+original2x9 byte table root + numeric row, pulse-count ICDFs from the10x18 table
+root + numeric row, escape rows from that same root + numeric start, and shell
+split rows from the actual shell slice root + numeric table offset. The decoder
+no longer forms those selected row pointers before entropy decoding. Row/start
+and shell offset/slice bounds checks remain BEFORE entropy or output mutation;
+only live symbol entries are consumed by ecDecICDFAt. No table snapshots/copies,
+extra PCM scratch or public codec APIs change; counts remain110 unsafe.Pointer/
+105 uintptr. This is ACTIVE row-origin handling, not cast deletion or a new map
+for opaque images; signed/narrowing/range normalization semantics persist.
+
+Upstream decode_pulses.c and shell_coder.c order remains: rate decode precedes
+frame/block validation, sums precede shell decoding, shift10 suppresses another
+escape via start1, LSBs/signs follow, and split child1 is committed before reloading
+it for child2 (even when outputs alias). The helpers retain original fixed-array
+row and slice bounds validation; zero/negative split totals skip table/entropy
+and write both zeros. No changed codec packets/samples/ranges/tolerances.
+
+Grouped pulse fixtures compare all2 rate rows and10 count rows (48 encoded symbols
+and EVERY context snapshot per row) against the same old pointer-based reference.
+Fixture symbol enumeration uses ONLY positive-probability ICDF entries, preserving
+the earlier rate-row sequence. Both escape starts are covered; a crafted10-shift
+pulse stream exercises the forbidden-eleventh-escape boundary,160 zero LSBs, exact
+zero output/guards and full entropy equality against the original row decoder.
+Shell fixtures cover all4 tables/totals1..16, complete entropy equality, sequential
+and aliased child stores, guards and invalid table/offset rejection before mutation.
+Existing120-sample padded shell, pulse scratch, real SILK/frame/native goldens and
+GC/stack-growth coverage persist. No pointer poisoning or weakened fixtures; no
+EOF/caller-image/raw callback/global GC/macOS claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr (including pulse/shell/ICDF/index cases), typed PartA/PartB on3 architectures,
+native comparisons, GC stress, unchanged codec references and diff checks. Final
+ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-pulse-rate-numeric-row.log,
+/tmp/opus-round-pulse-count-numeric-row.log,
+/tmp/opus-round-pulse-escape-numeric-row{,-focused}.log,
+/tmp/opus-round-shell-split-numeric-row{,-focused}.log and
+/tmp/opus-round-pulse-shell-numeric-rows-arm-{checkptr,golden}-repeat.log.
+
 Four active byte-ICDF numeric-row rounds add private ecDecICDFAt, move SILK NLSF
 first-stage and residual selection from displaced byte pointers to original table
 roots + numeric offsets, then move SILK gain selection to the global24-byte table

@@ -2,6 +2,43 @@ package opuscc
 
 import "testing"
 
+func TestShellDecodeSplitRowsPointers(t *testing.T) {
+	for _, table := range [][]byte{Opus_silk_shell_code_table0[:], Opus_silk_shell_code_table1[:], Opus_silk_shell_code_table2[:], Opus_silk_shell_code_table3[:]} {
+		for p := int32(1); p <= 16; p++ {
+			offset := int32(Opus_silk_shell_code_table_offsets[p])
+			checkPulseICDFRow(t, table[offset:offset+p+1], func(dec *OpusT_ec_dec) int32 {
+				out := [4]int16{77, -1, -1, 88}
+				decode_split(nil, &out[1], &out[2], dec, p, table)
+				if out[0] != 77 || out[3] != 88 || int32(out[2]) != p-int32(out[1]) {
+					t.Fatal("split sequential stores/guards", p, out)
+				}
+				return int32(out[1])
+			})
+			state := OpusT_ec_dec{Frng: 1 << 31, Fval: uint32(table[offset]) * (1 << 23), Fnbits_total: 33}
+			expected := state
+			left := ec_dec_icdf(nil, &expected, &table[offset], 8)
+			shared := int16(-1)
+			decode_split(nil, &shared, &shared, &state, p, table)
+			if shared != int16(p-left) || state != expected {
+				t.Fatal("aliased positive split stores", p)
+			}
+		}
+	}
+	for _, p := range []int32{1, 17} {
+		state := OpusT_ec_dec{Frng: 123, Fval: 45}
+		before := state
+		out := [2]int16{77, 88}
+		panicked := false
+		func() {
+			defer func() { panicked = recover() != nil }()
+			decode_split(nil, &out[0], &out[1], &state, p, nil)
+		}()
+		if !panicked || state != before || out != [2]int16{77, 88} {
+			t.Fatal("split validation before mutation", p)
+		}
+	}
+}
+
 func TestShellDecodePointers(t *testing.T) {
 	for total := int32(0); total <= 16; total++ {
 		state := OpusT_ec_dec{Frng: 1 << 31, Fval: (1 << 31) - 1, Fnbits_total: 33}

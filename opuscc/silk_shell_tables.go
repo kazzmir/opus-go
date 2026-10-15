@@ -30,7 +30,9 @@ func encode_split(tls *libc.TLS, enc *OpusT_ec_enc, child, p int32, table []uint
 
 func decode_split(tls *libc.TLS, p_child1 *OpusT_opus_int16, p_child2 *OpusT_opus_int16, psRangeDec *OpusT_ec_dec, p int32, shell_table []uint8) {
 	if p > 0 {
-		*p_child1 = int16(ec_dec_icdf(tls, psRangeDec, &shell_table[Opus_silk_shell_code_table_offsets[p]], 8))
+		offset := Opus_silk_shell_code_table_offsets[p]
+		_ = shell_table[offset] // Preserve slice bounds validation before entropy.
+		*p_child1 = int16(ecDecICDFAt(tls, psRangeDec, &shell_table[0], int32(offset), 8))
 		*p_child2 = int16(p - int32(*p_child1))
 	} else {
 		*p_child1 = 0
