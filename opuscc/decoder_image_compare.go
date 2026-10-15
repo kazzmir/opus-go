@@ -3,6 +3,7 @@
 package opuscc
 
 import (
+	"encoding/binary"
 	"reflect"
 	"runtime"
 	"unsafe"
@@ -75,6 +76,24 @@ func (image compareDecoderImage) save(data []byte) {
 	image.checkNullPointers(image.bytes)
 	copy(data, image.bytes)
 	runtime.KeepAlive(image.owner)
+}
+
+func compareOpusDecoderImage(data []byte) (*OpusT_OpusDecoder, compareDecoderImage) {
+	header := reflect.TypeFor[OpusT_OpusDecoder]()
+	channel, _ := header.FieldByName("Fchannels")
+	channels := int32(binary.NativeEndian.Uint32(data[int(channel.Offset) : int(channel.Offset)+4]))
+	if channels != 1 && channels != 2 {
+		panic("noncanonical serialized decoder channels")
+	}
+	layout := opusDecoderStorageType(channels)
+	image := compareDecoderImageStorage(layout, data)
+	state := image.owner.Field(0).FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder)
+	silk, _ := layout.FieldByName("Silk")
+	celt, _ := layout.FieldByName("Celt")
+	if int64(state.Fsilk_dec_offset) != int64(silk.Offset) || int64(state.Fcelt_dec_offset) != int64(celt.Offset) {
+		panic("noncanonical serialized decoder offsets")
+	}
+	return state, image
 }
 
 func compareCustomDecoderImage(data []byte) (*OpusT_OpusCustomDecoder, compareDecoderImage) {

@@ -155,7 +155,7 @@ func compareMSCtl(data []byte, request, value, alias int32, ctl func(*OpusT_Opus
 }
 
 func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
-	st := (*OpusT_OpusDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+	st, image := compareOpusDecoderImage(data)
 	celt := opusFrameCeltState(st)
 	celt.Fmode = &mode48000_960_120
 	out := uint32(77)
@@ -176,6 +176,7 @@ func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
 		out = uint32(signedOut)
 	}
 	celt.Fmode = nil
+	image.save(data)
 	return r, out
 }
 

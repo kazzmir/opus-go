@@ -534,6 +534,56 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four decoder comparison-owner rounds REMOVE four byte-image→decoder
+unsafe.Pointer sites: ComparePrefilterFold, CompareCustomCtl,
+CompareCeltDecodePrefilterImage and CompareOpusCtl. Decoder source counts (including
+compareopus-tagged bridges) fall110→106 unsafe.Pointer; uintptr remains105.
+Ordinary production decoder representation/API code is unchanged. Necessary public
+integer ABI adapters, raw callbacks, signed history, mutated-layout production
+fallbacks and external layouts remain. This is specifically fixture-ownership
+repair, not four active DSP migrations or a claim to have removed uintptr ABIs.
+
+Comparison byte images are now serialized scalar transport, NOT Go decoder
+allocations. A real reflected Go allocation contains a concrete custom header or
+canonical Decoder/Silk/Celt fields, scalar tail and original guard bytes. Header
+pointers come from actual Go fields through Interface/type assertions, never casts
+from caller bytes. Pointer slots must be null before import and export. Modes or
+codebooks are attached only to the scanned owners; after processing they are
+cleared before exact byte serialization. Positive scalar CTL aliases target the
+new actual state at the original numeric offsets. Opus comparison images require
+canonical channels/offsets; production noncanonical/opaque fallback behavior is
+untouched. There is STILL one shared unsafe reflection→byte view boundary for
+serialization of the genuine typed owner: not a zero-unsafe or mere cast-count
+safety claim, nor a promotion of arbitrary bytes into a pointer-bearing object.
+
+The transport view's length AND capacity remain exactly the supplied fixture
+extent. No input, guard or golden is enlarged. Pointer-aligned Go structs may have
+unexposed trailing alignment padding for four-byte-aligned variable C tails;
+that padding is never added to the transport view or DSP consumed lengths. All
+numeric bits/guards are copied exactly; only already-null pointer slots cross the
+byte transport. A grouped compareopus-tagged owner test file was necessary because
+ordinary opuscc tests cannot refer to tagged-only bridges. It tests weak heap
+mode/window and nested SILK codebook retention under GC/stack growth, pointer-free
+round trips, non-null/short/misaligned transport rejection, exact views including
+Go alignment padding, scalar alias/store/range bits and prefilter dispatch images.
+Existing native fixture matrices, byte comparisons, layouts, assertions, entropy
+states and sample/range/hash/encode/decode goldens/tolerances remain unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+checkptr, tagged owner checkptr on3 architectures, typed PartA/PartB, native
+comparisons, GC stress, codec references and diff checks. Final tagged ARM ordinary
+and scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-prefilter-comparison-scanned-owner{,-retry}.log,
+/tmp/opus-round-custom-ctl-comparison-scanned-owner.log,
+/tmp/opus-round-prefilter-dispatch-comparison-scanned-owner.log,
+/tmp/opus-round-opus-ctl-comparison-scanned-owner{,-focused}.log and
+/tmp/opus-round-decoder-comparison-owners-arm-{checkptr,golden}-repeat.log.
+The first full prefilter log retains a new constructor's overstrict assertion that
+Go struct size equal logical C fixture extent. Corrected to allow mandatory,
+unexposed Go trailing alignment padding, with original view extents unchanged;
+COMPLETE retry passes. No fixture or expectation weakened, and no global native
+GC/opaque-image/EOF/raw callback safety, performance or macOS claims.
+
 Four CELT DSP span rounds retain PLC noise output, PLC synthesis attenuation,
 downsample FIR5 samples and autocorrelation inputs as the actual existing Go
 buffers. Active PLC/downsample callers stop converting them to scalar pointers

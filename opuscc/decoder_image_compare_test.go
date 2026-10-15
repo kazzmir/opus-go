@@ -20,6 +20,62 @@ func compareImageMustPanic(t *testing.T, f func()) {
 	f()
 }
 
+func compareInitializedOpusImage(t *testing.T, channels int32) []byte {
+	t.Helper()
+	data := make([]byte, Opus_opus_decoder_get_size(nil, channels)+16)
+	image := compareDecoderImageStorage(opusDecoderStorageType(channels), data)
+	state := image.owner.Field(0).FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder)
+	if r := Opus_opus_decoder_init(nil, state, 48000, channels); r != 0 {
+		t.Fatal("Opus image init", r)
+	}
+	celt := image.owner.Field(0).FieldByName("Celt").Addr().Interface().(*OpusT_OpusCustomDecoder)
+	celt.Fmode = nil
+	state.Fdecode_gain = -99
+	image.save(data)
+	return data
+}
+
+func TestCompareOpusCtlImagePointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		data := compareInitializedOpusImage(t, channels)
+		field, _ := reflect.TypeFor[OpusT_OpusDecoder]().FieldByName("Fdecode_gain")
+		r, out := CompareOpusCtl(data, OPUS_GET_SAMPLE_RATE_REQUEST, 0, int32(field.Offset))
+		if r != 0 || out != 77 {
+			t.Fatal("Opus scalar alias result", r, out)
+		}
+		st, image := compareOpusDecoderImage(data)
+		if st.Fdecode_gain != 48000 {
+			t.Fatal("live sample-rate/gain alias")
+		}
+		celt := image.owner.Field(0).FieldByName("Celt").Addr().Interface().(*OpusT_OpusCustomDecoder)
+		silk := image.owner.Field(0).FieldByName("Silk").Addr().Interface().(*OpusT_silk_decoder)
+		mode := new(OpusT_OpusCustomMode)
+		book := new(OpusT_silk_NLSF_CB_struct)
+		book.FCB1_NLSF_Q8 = new(byte)
+		*book.FCB1_NLSF_Q8 = 77
+		modeRoot, bookRoot := weak.Make(mode), weak.Make(book)
+		celt.Fmode = mode
+		silk.Fchannel_state[0].FpsNLSF_CB = book
+		st, celt, silk, mode, book = nil, nil, nil, nil, nil
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if modeRoot.Value() == nil || bookRoot.Value() == nil || *bookRoot.Value().FCB1_NLSF_Q8 != 77 {
+			t.Fatal("composite scanned CELT/SILK owners")
+		}
+		compareImageMustPanic(t, func() { image.save(data) })
+		celt = image.owner.Field(0).FieldByName("Celt").Addr().Interface().(*OpusT_OpusCustomDecoder)
+		silk = image.owner.Field(0).FieldByName("Silk").Addr().Interface().(*OpusT_silk_decoder)
+		celt.Fmode = nil
+		silk.Fchannel_state[0].FpsNLSF_CB = nil
+		image.save(data)
+		r, out = CompareOpusCtl(data, OPUS_GET_GAIN_REQUEST, 0, -1)
+		if r != 0 || out != 48000 {
+			t.Fatal("Opus scalar alias serialized bits")
+		}
+		runtime.KeepAlive(image)
+	}
+}
+
 func TestComparePrefilterImagePointers(t *testing.T) {
 	for _, active := range []int32{0, 1} {
 		for _, n := range []int32{0, 120, 960} {
