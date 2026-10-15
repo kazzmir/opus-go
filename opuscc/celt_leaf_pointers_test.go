@@ -2384,7 +2384,7 @@ func TestCeltPLCExcitationDecayPointers(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		got := celtPLCExcitationDecay(&a[1], 1024, length)
-		if math.Float32bits(got) != math.Float32bits(want) {
+		if math.Float32bits(got) != math.Float32bits(want) || math.Float32bits(celtPLCExcitationDecaySpan(a[1:], 1024, length)) != math.Float32bits(want) {
 			t.Fatal("excitation decay", length, got, want)
 		}
 		for i := range a {
@@ -2394,14 +2394,14 @@ func TestCeltPLCExcitationDecayPointers(t *testing.T) {
 		}
 	}
 	recentNaN := []float32{1, 1, float32(math.NaN()), 1}
-	if celtPLCExcitationDecay(&recentNaN[0], 4, 4) != 1 {
+	if celtPLCExcitationDecay(&recentNaN[0], 4, 4) != 1 || celtPLCExcitationDecaySpan(recentNaN, 4, 4) != 1 {
 		t.Fatal("MIN32 recent NaN selection")
 	}
 	olderNaN := []float32{float32(math.NaN()), 1, 1, 1}
-	if !math.IsNaN(float64(celtPLCExcitationDecay(&olderNaN[0], 4, 4))) {
+	if !math.IsNaN(float64(celtPLCExcitationDecay(&olderNaN[0], 4, 4))) || !math.IsNaN(float64(celtPLCExcitationDecaySpan(olderNaN, 4, 4))) {
 		t.Fatal("MIN32 older NaN selection")
 	}
-	if celtPLCExcitationDecay(nil, 0, 0) != 1 {
+	if celtPLCExcitationDecay(nil, 0, 0) != 1 || celtPLCExcitationDecaySpan(nil, 2147483647, 0) != 1 {
 		t.Fatal("unused excitation")
 	}
 	a := []float32{100, 100, 1, 1}

@@ -1075,7 +1075,15 @@ func celtPLCExcitationDecay(exc *float32, period, length int32) float32 {
 	if half <= 0 {
 		return 1
 	}
-	x := unsafe.Slice(exc, period)
+	return celtPLCExcitationDecaySpan(unsafe.Slice(exc, period), period, length)
+}
+
+func celtPLCExcitationDecaySpan(exc []float32, period, length int32) float32 {
+	half := length >> 1
+	if half <= 0 {
+		return 1
+	}
+	x := exc[:period]
 	e1, e2 := float32(1), float32(1)
 	for i := int32(0); i < half; i++ {
 		e := x[period-half+i]
@@ -1295,7 +1303,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			/* Check if the waveform is decaying, and if so how fast.
 			   We do this to avoid adding energy when concealing in a segment
 			   with decaying energy. */
-			decay1 = celtPLCExcitationDecay(unsafe.SliceData(exc), max_period, exc_length)
+			decay1 = celtPLCExcitationDecaySpan(exc, max_period, exc_length)
 			/* Move the decoder memory one frame to the left to give us room to
 			   add the data for the new frame. We ignore the overlap that extends
 			   past the end of the buffer, because we aren't going to use it. */
