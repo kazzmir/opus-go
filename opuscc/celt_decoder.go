@@ -174,6 +174,19 @@ func deemphasis_stereo_simple(tls *libc.TLS, left *OpusT_celt_sig, right *OpusT_
 	mem[0], mem[1] = m0, m1
 }
 
+// The stride product is already narrowed by the caller; channel addition
+// represents two original pointer additions and must not introduce int32 wrap.
+func deemphasisOutputAt(pcm *float32, channel, sampleOffset int32) *float32 {
+	offset := int64(channel) + int64(sampleOffset)
+	if offset == 0 {
+		return pcm
+	}
+	if offset > 0 {
+		return &unsafe.Slice(pcm, offset+1)[offset]
+	}
+	return celtNormAdd(celtNormConsumedAt(pcm, channel), sampleOffset)
+}
+
 func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, downsample int32, coef *float32, mem *float32, accum int32) {
 	// Common stereo dispatch needs no TLS scratch, just as the C early return.
 	if downsample == 1 && C == 2 && accum == 0 {
@@ -227,7 +240,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 					}
 					tmp1 = unsafe.Slice(x, N)[j] + m + float32(1e-30)
 					m = OpusT_opus_val16(coef0 * tmp1)
-					dst := celtNormConsumedAt(y, j*C)
+					dst := deemphasisOutputAt(pcm, c, j*C)
 					*dst = *dst + float32(float32(1)/float32(32768)*tmp1)
 					j = j + 1
 				}
