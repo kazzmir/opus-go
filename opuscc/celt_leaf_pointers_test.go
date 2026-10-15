@@ -2142,14 +2142,18 @@ func TestCeltPLCLPCHistoryPointers(t *testing.T) {
 		storage := new([26]float32)
 		storage[0], storage[25] = 77, 88
 		memory := (*[24]float32)(unsafe.Pointer(&storage[1]))
+		numeric := new([26]float32)
+		numeric[0], numeric[25] = 77, 88
+		numericMemory := (*[24]float32)(numeric[1:25])
 		entropyInitGrowStack(12)
 		runtime.GC()
 		celtPLCLPCHistory(memory, &h[0], 2048, N)
-		if storage[0] != 77 || storage[25] != 88 {
+		celtPLCLPCHistorySpan(numericMemory, h, 2048, N)
+		if storage[0] != 77 || storage[25] != 88 || numeric[0] != 77 || numeric[25] != 88 {
 			t.Fatal("LPC history guards")
 		}
 		for i := range memory {
-			if math.Float32bits(memory[i]) != math.Float32bits(h[2048-int(N)-1-i]) {
+			if math.Float32bits(memory[i]) != math.Float32bits(h[2048-int(N)-1-i]) || math.Float32bits(numericMemory[i]) != math.Float32bits(h[2048-int(N)-1-i]) {
 				t.Fatal("reverse LPC history", N, i)
 			}
 		}
@@ -2160,13 +2164,15 @@ func TestCeltPLCLPCHistoryPointers(t *testing.T) {
 		a[i] = float32(i + 1)
 	}
 	want := append([]float32(nil), a...)
+	numeric := append([]float32(nil), a...)
 	for i := 0; i < 24; i++ {
 		want[8+i] = want[31-i]
 	}
 	memory := (*[24]float32)(unsafe.Pointer(&a[8]))
 	celtPLCLPCHistory(memory, &a[0], 32, 0)
+	celtPLCLPCHistorySpan((*[24]float32)(numeric[8:32]), numeric, 32, 0)
 	for i := range a {
-		if a[i] != want[i] {
+		if a[i] != want[i] || numeric[i] != want[i] {
 			t.Fatal("reverse LPC live alias", i)
 		}
 	}

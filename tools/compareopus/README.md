@@ -534,6 +534,44 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four PLC-buffer-span rounds move active excitation-history copying, excitation
+decay, periodic extrapolation and LPC-memory history preparation to the actual
+existing Go slices. Pointer-based private fixture adapters remain and form exactly
+the old consumed extents, then delegate to the same arithmetic. Active PLC no
+longer converts these Go buffers to scalar pointers and reconstructs their views.
+This is an interface/span-carrier change, NOT new storage, a repaired byte-image
+pointer map or a cast deletion; counts remain110 unsafe.Pointer/105 uintptr.
+
+Excitation history still performs forward loads/stores, not memmove; LPC memory
+still reads descending source indices while writing ascending destinations. Decay's
+half<=0 guard and extrapolation's int32 N+overlap<=0 guard precede all source views,
+including nil with large unused geometry. The per-sample wrap/subtract, pitch
+attenuation updates, live excitation/history aliases and energy load AFTER each
+history store retain order. Decay E1/E2 accumulation, MIN32-style NaN selection and
+float32 products/Sqrt narrowing remain; no added snapshots, scratch or copies.
+The public codec APIs, legacy pointer boundary extents and field layouts stay.
+
+Grouped fixtures retain their old scalar/manual references and add all-bit span
+comparisons, exact guarded storage and source immutability. Forward copy overlap,
+reverse LPC-memory overlap and history/excitation extrapolation overlap explicitly
+check sequential live reads/writes, not copied inputs. Nil zero-work geometry,
+recent/older NaNs, pitch lengths, decay bounds and GC/stack growth remain. Existing
+PLC/native packet/sample/range/hash goldens and tolerances are untouched. No weakened
+fixtures or opaque-layout/EOF/raw callback/global GC/macOS safety claims.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, scoped PLC and
+broad relevant checkptr, typed PartA/PartB on3 architectures, native comparisons,
+GC stress, unchanged codec references and diff checks. Final ARM ordinary/scoped
+fixtures repeat twenty times. Logs:
+/tmp/opus-round-plc-excitation-history-go-spans.log,
+/tmp/opus-round-plc-excitation-decay-go-span.log,
+/tmp/opus-round-plc-extrapolate-go-spans.log,
+/tmp/opus-round-plc-lpc-history-go-span{,-focused,-retry}.log and
+/tmp/opus-round-plc-buffer-spans-arm-{checkptr,golden}-repeat.log.
+The first full LPC-history log retains the recurring native comparison fatal
+"found pointer to free object"; the COMPLETE validation retry passes. This GC
+failure is not claimed repaired by these scalar-span interface changes.
+
 Four comb-source rounds add combFilterSource with real *float32 legacy input,
 actual []float32 owner, numeric int32 origin and an explicit owned-path flag; then
 migrate prefilter, normal postfilter and PLC postfilter source consumption. Owned

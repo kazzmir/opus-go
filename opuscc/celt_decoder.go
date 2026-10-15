@@ -1004,7 +1004,11 @@ func celtPLCFinish(state *OpusT_OpusCustomDecoder, loss, LM, frameType int32) {
 }
 
 func celtPLCLPCHistory(memory *[CELT_LPC_ORDER]float32, history *float32, size, N int32) {
-	h := unsafe.Slice(history, size)
+	celtPLCLPCHistorySpan(memory, unsafe.Slice(history, size), size, N)
+}
+
+func celtPLCLPCHistorySpan(memory *[CELT_LPC_ORDER]float32, history []float32, size, N int32) {
+	h := history[:size]
 	for i := int32(0); i < CELT_LPC_ORDER; i++ {
 		memory[i] = h[size-N-1-i]
 	}
@@ -1324,7 +1328,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			S1 = celtPLCExtrapolateSpans(buf, exc, decode_buffer_size, max_period, N, overlap, pitch_index, fade, decay1)
 			/* Copy the last decoded samples (prior to the overlap region) to
 			   synthesis filter memory so we can have a continuous signal. */
-			celtPLCLPCHistory(&lpc_mem, unsafe.SliceData(buf), decode_buffer_size, N)
+			celtPLCLPCHistorySpan(&lpc_mem, buf, decode_buffer_size, N)
 			/* Apply the synthesis filter to convert the excitation back into
 			   the signal domain. */
 			_ = lpc[c*CELT_LPC_ORDER] // Retain the original coefficient index validation.
