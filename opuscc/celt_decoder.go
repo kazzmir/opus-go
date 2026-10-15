@@ -1016,21 +1016,36 @@ func celtPLCNoise(tls *libc.TLS, state *OpusT_OpusCustomDecoder, eBands *int16, 
 	if channels > 0 && start < end {
 		bands := unsafe.Slice(eBands, end+1)
 		x := unsafe.Slice(spectrum, N*channels)
-		for c := int32(0); c < channels; c++ {
-			for i := start; i < end; i++ {
-				offset := N*c + int32(bands[i])<<LM
-				length := (int32(bands[i+1]) - int32(bands[i])) << LM
-				for j := int32(0); j < length; j++ {
-					seed = Opus_celt_lcg_rand(tls, seed)
-					x[offset+j] = float32(int32(seed) >> 20)
-				}
-				if length > 0 {
-					Opus_renormalise_vector(tls, &x[offset], length, 1, state.Farch)
-				}
+		seed = celtPLCNoiseBands(tls, state, bands, x, seed, N, start, end, LM, channels)
+	}
+	state.Frng = seed
+}
+
+func celtPLCNoiseSpan(tls *libc.TLS, state *OpusT_OpusCustomDecoder, eBands *int16, spectrum []float32, N, start, end, LM, channels int32) {
+	seed := state.Frng
+	if channels > 0 && start < end {
+		bands := unsafe.Slice(eBands, end+1)
+		x := spectrum[:N*channels]
+		seed = celtPLCNoiseBands(tls, state, bands, x, seed, N, start, end, LM, channels)
+	}
+	state.Frng = seed
+}
+
+func celtPLCNoiseBands(tls *libc.TLS, state *OpusT_OpusCustomDecoder, bands []int16, x []float32, seed uint32, N, start, end, LM, channels int32) uint32 {
+	for c := int32(0); c < channels; c++ {
+		for i := start; i < end; i++ {
+			offset := N*c + int32(bands[i])<<LM
+			length := (int32(bands[i+1]) - int32(bands[i])) << LM
+			for j := int32(0); j < length; j++ {
+				seed = Opus_celt_lcg_rand(tls, seed)
+				x[offset+j] = float32(int32(seed) >> 20)
+			}
+			if length > 0 {
+				Opus_renormalise_vector(tls, &x[offset], length, 1, state.Farch)
 			}
 		}
 	}
-	state.Frng = seed
+	return seed
 }
 
 func celtPLCFinish(state *OpusT_OpusCustomDecoder, loss, LM, frameType int32) {
@@ -1261,7 +1276,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			prefilter_and_fold(tls, st1, N)
 		}
 		celtPLCDecay(oldBandE, backgroundLogE, nbEBands, start, end, C, loss_duration)
-		celtPLCNoise(tls, st1, eBands, unsafe.SliceData(X), N, start, effEnd, LM, C)
+		celtPLCNoiseSpan(tls, st1, eBands, X, N, start, effEnd, LM, C)
 		celt_synthesis(tls, mode, unsafe.SliceData(X), &out_syn[0], oldBandE, start, effEnd, C, C, 0, LM, st1.Fdownsample, 0, st1.Farch)
 		/* Run the postfilter with the last parameters. */
 		c = 0

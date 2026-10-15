@@ -2099,6 +2099,8 @@ func TestCeltPLCNoisePointers(t *testing.T) {
 				a[0], a[len(a)-1] = 77, 88
 				want := append([]float32(nil), a...)
 				state := &OpusT_OpusCustomDecoder{Frng: seed, Fmode: newSynthesisTestMode()}
+				ownedState := *state
+				numeric := append([]float32(nil), a...)
 				s := seed
 				for c := int32(0); c < channels; c++ {
 					for i := int32(1); i < 5; i++ {
@@ -2114,11 +2116,12 @@ func TestCeltPLCNoisePointers(t *testing.T) {
 				entropyInitGrowStack(12)
 				runtime.GC()
 				celtPLCNoise(nil, state, &bands[0], &a[1], N, 1, 5, LM, channels)
-				if state.Frng != s {
+				celtPLCNoiseSpan(nil, &ownedState, &bands[0], numeric[1:], N, 1, 5, LM, channels)
+				if state.Frng != s || *state != ownedState {
 					t.Fatal("noise RNG", channels, LM, seed)
 				}
 				for i := range a {
-					if math.Float32bits(a[i]) != math.Float32bits(want[i]) {
+					if math.Float32bits(a[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) {
 						t.Fatal("noise spectrum", channels, LM, seed, i)
 					}
 				}
@@ -2128,6 +2131,8 @@ func TestCeltPLCNoisePointers(t *testing.T) {
 	state := &OpusT_OpusCustomDecoder{Frng: 123}
 	celtPLCNoise(nil, state, nil, nil, 0, 0, 0, 0, 2)
 	celtPLCNoise(nil, state, nil, nil, 0, 0, 1, 0, 0)
+	celtPLCNoiseSpan(nil, state, nil, nil, 2147483647, 0, 0, 0, 2)
+	celtPLCNoiseSpan(nil, state, nil, nil, 2147483647, 0, 1, 0, 0)
 	if state.Frng != 123 {
 		t.Fatal("unused noise")
 	}
