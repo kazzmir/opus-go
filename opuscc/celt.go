@@ -182,6 +182,10 @@ type combFilterSource struct {
 	owned  bool
 }
 
+func combFilterOwnerMatches(owner []float32, offset int32, x *float32) bool {
+	return offset >= 0 && int64(offset) < int64(len(owner)) && &owner[offset] == x
+}
+
 func (source combFilterSource) same(y *float32) bool {
 	if !source.owned {
 		return source.legacy == y

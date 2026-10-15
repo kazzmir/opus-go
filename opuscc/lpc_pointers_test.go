@@ -264,6 +264,17 @@ func TestCombSourceCopyPointers(t *testing.T) {
 		t.Fatal("legacy zero-gain copy must still use explicit x")
 	}
 	combFilterOwned(nil, nil, nil, 0, 0, 0, 0, 0, 0, -1, -1, nil, 0, 0)
+	if !combFilterOwnerMatches(owner[:], 1, &owner[1]) || combFilterOwnerMatches(owner[:], 1, &legacy[0]) || combFilterOwnerMatches(owner[:], int32(len(owner)), nil) || combFilterOwnerMatches(nil, 0, nil) {
+		t.Fatal("readable exact owner matching")
+	}
+	mode := OpusT_OpusCustomMode{FshortMdctSize: 1}
+	state := OpusT_OpusCustomDecoder{Fpostfilter_tapset_old: -1, Fpostfilter_tapset: -1}
+	before := output
+	celtDecodePostfilterFirstWithHistory(nil, &state, &mode, &output[0], 0, owner[:], 1)
+	celtDecodePostfilterTailWithHistory(nil, &state, &mode, &output[0], 2, 0, 0, -1, 0, owner[:], 1)
+	if output != before {
+		t.Fatal("foreign history retains legacy in-place zero-gain skip")
+	}
 }
 
 func TestFIRHistoryOwnerPointers(t *testing.T) {
