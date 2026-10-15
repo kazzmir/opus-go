@@ -1036,6 +1036,11 @@ func celtPLCExtrapolate(history, exc *float32, size, period, N, overlap, pitch i
 // Forward loads/stores deliberately preserve the original loop's alias order.
 func celtPLCExcitationHistory(exc, history *float32, size, period int32) {
 	x, h := unsafe.Slice(exc, period+CELT_LPC_ORDER), unsafe.Slice(history, size)
+	celtPLCExcitationHistorySpans(x, h, size, period)
+}
+
+func celtPLCExcitationHistorySpans(exc, history []float32, size, period int32) {
+	x, h := exc[:period+CELT_LPC_ORDER], history[:size]
 	for i := int32(0); i < period+CELT_LPC_ORDER; i++ {
 		x[i] = h[size-period-CELT_LPC_ORDER+i]
 	}
@@ -1269,7 +1274,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 		for {
 			S1 = float32(0)
 			buf = decode_mem[c]
-			celtPLCExcitationHistory(unsafe.SliceData(_exc), unsafe.SliceData(buf), decode_buffer_size, max_period)
+			celtPLCExcitationHistorySpans(_exc, buf, decode_buffer_size, max_period)
 			if st1.Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
 				/* Compute LPC coefficients for the last MAX_PERIOD samples before
 				   the first loss so we can work in the excitation-filter domain. */

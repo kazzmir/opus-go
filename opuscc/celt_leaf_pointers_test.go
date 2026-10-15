@@ -2247,9 +2247,16 @@ func TestCeltPLCExcitationHistoryPointers(t *testing.T) {
 			h[i] = math.Float32frombits(uint32(i) * 7919)
 		}
 		before := append([]float32(nil), h...)
+		numeric := append([]float32(nil), x...)
 		entropyInitGrowStack(12)
 		runtime.GC()
 		celtPLCExcitationHistory(&x[1], &h[1], 2048, period)
+		celtPLCExcitationHistorySpans(numeric[1:], h[1:], 2048, period)
+		for i := range numeric {
+			if math.Float32bits(numeric[i]) != math.Float32bits(x[i]) {
+				t.Fatal("owned excitation history", period, i)
+			}
+		}
 		if x[0] != 99 || x[len(x)-1] != 66 {
 			t.Fatal("history destination guards")
 		}
@@ -2272,12 +2279,14 @@ func TestCeltPLCExcitationHistoryPointers(t *testing.T) {
 			a[i] = float32(i + 1)
 		}
 		want := append([]float32(nil), a...)
+		numeric := append([]float32(nil), a...)
 		for i := 0; i < 24; i++ {
 			want[offset+i] = want[1+i]
 		}
 		celtPLCExcitationHistory(&a[offset], &a[0], 25, 0)
+		celtPLCExcitationHistorySpans(numeric[offset:], numeric, 25, 0)
 		for i := range a {
-			if a[i] != want[i] {
+			if a[i] != want[i] || numeric[i] != want[i] {
 				t.Fatal("forward history alias", offset, i)
 			}
 		}
