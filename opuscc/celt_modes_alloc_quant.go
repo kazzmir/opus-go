@@ -2116,7 +2116,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 		for ctx.Fremaining_bits < 0 && q > 0 {
 			ctx.Fremaining_bits += curr_bits
 			q = q - 1
-			cache1 = modePulseRow{bits: modePulseCache(m2, (LM2+1)*m2.FnbEBands+i2)}
+			cache1 = modePulseCacheRow(m2, (LM2+1)*m2.FnbEBands+i2)
 			curr_bits = cache1.pulses2Bits(q)
 			ctx.Fremaining_bits -= curr_bits
 		}

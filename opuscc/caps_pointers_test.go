@@ -109,6 +109,31 @@ func TestModePulseIndexPointers(t *testing.T) {
 	runtime.KeepAlive(m)
 }
 
+func TestModePulseRowReloadPointers(t *testing.T) {
+	index := int16(1)
+	bits := [6]byte{99, 2, 7, 11, 1, 29}
+	m := OpusT_OpusCustomMode{}
+	m.Fcache.Findex, m.Fcache.Fbits = &index, &bits[0]
+	first := modePulseCacheRow(&m, 0)
+	index = 4
+	second := modePulseCacheRow(&m, 0)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if first.offset != 1 || second.offset != 4 || first.at(0) != 2 || second.at(0) != 1 || first.pulses2Bits(2) != 12 || second.pulses2Bits(1) != 30 {
+		t.Fatal("row metadata reload")
+	}
+	bits[3] = 17
+	if first.pulses2Bits(2) != 18 {
+		t.Fatal("row content must stay live")
+	}
+	other := [2]byte{1, 41}
+	m.Fcache.Fbits, index = &other[0], 0
+	third := modePulseCacheRow(&m, 0)
+	if third.pulses2Bits(1) != 42 || second.pulses2Bits(1) != 30 {
+		t.Fatal("byte root reload/old row identity")
+	}
+}
+
 func TestModePulseBitsPointers(t *testing.T) {
 	zeroIndex := int16(0)
 	zeroMode := OpusT_OpusCustomMode{}

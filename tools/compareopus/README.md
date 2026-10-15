@@ -534,6 +534,45 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four active CELT pulse-cache row rounds add modePulseRow{bits *byte,offset int16},
+then migrate quant_partition split-threshold reads, initial bits→pulses/cost helpers
+and EACH remaining-budget retry to that concrete root + numeric coordinate.
+modePulseCacheRow captures Fbits before the signed index load, matching the old
+pointer constructor, but positive rows do not form a displaced cache pointer.
+Only the current byte's minimal root prefix is formed. Negative row offsets keep
+the explicit signed-history/unused-boundary compatibility constructor. Legacy
+pointer/cache helpers remain for fixtures; factoring their boundary is not cast
+removal. Counts stay110 unsafe.Pointer/105 uintptr: ACTIVE positive row consumers,
+not hidden pointer integers or new pointer maps/lifetime guarantees.
+
+The scalar rate.h bit search retains all int32 operations, bits--, low=-1, midpoint
+loop count and <= tie order; zero pulses still costs0 without byte access. bands.c
+split short-circuit order and lookup index arithmetic stay, including LM−1 cache
+selection before the condition. The original Go per-helper reload points persist:
+threshold, bits search, initial price and EVERY retry after refund/decrement.
+Mode pointer/band cached at entry remain as before; no whole-mode/index/table
+snapshot or source copy is introduced. Existing live source/entropy/budget aliases,
+remaining-bit wrap/store order, pulse conversion, FFT/MDCT/golden bits remain.
+
+Grouped mode-pulse tests cover every valid static cache row/pulse, bits−2..260,
+nil zero pulse, signed backwards rows, exact consumed bytes, GC/stack growth and
+live data mutation. New reload fixtures independently change signed row index,
+byte-root field and earlier row contents to check metadata capture versus live
+reads. Native rate/partition/quant-all comparisons and existing scalar C packet/
+mask/seed/bit/FNV goldens remain. No buffer enlargement, pointer-slot poisoning,
+new audio scratch or tolerance changes; no opaque-image/EOF/raw callback/global
+GC/macOS claim. Negative/unused cache boundaries intentionally remain unresolved.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, relevant scoped
+checkptr (mode pulse, partition/quant-all, SILK rows), typed PartA/PartB on3
+architectures, native comparisons, GC stress, unchanged codec references and diff
+checks. Final ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-celt-pulse-rooted-row-view.log,
+/tmp/opus-round-partition-rooted-split-threshold.log,
+/tmp/opus-round-partition-rooted-initial-pulse-cost.log,
+/tmp/opus-round-partition-rooted-retry-pulse-cost.log and
+/tmp/opus-round-celt-rooted-pulse-rows-arm-{checkptr,golden}-repeat.log.
+
 Four active SILK pulse/shell numeric-row rounds select rate-level ICDFs from the
 original2x9 byte table root + numeric row, pulse-count ICDFs from the10x18 table
 root + numeric row, escape rows from that same root + numeric start, and shell
