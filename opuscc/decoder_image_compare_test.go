@@ -20,6 +20,48 @@ func compareImageMustPanic(t *testing.T, f func()) {
 	f()
 }
 
+func TestCompareProjectionImageOwnerPointers(t *testing.T) {
+	const channels, streams, coupled = int32(3), int32(2), int32(1)
+	layout := opusProjectionDecoderStorageType(channels, streams, coupled)
+	data := make([]byte, int(layout.Size())+16)
+	initial := compareDecoderImageStorage(layout, data)
+	st := initial.owner.Field(0).FieldByName("Decoder").Addr().Interface().(*OpusT_OpusProjectionDecoder)
+	matrix := make([]byte, channels*(streams+coupled)*2)
+	if r := Opus_opus_projection_decoder_init(nil, st, 48000, channels, streams, coupled, &matrix[0], int32(len(matrix))); r != 0 {
+		t.Fatal("projection image init", r)
+	}
+	views := opusMSStorageViewsAt(initial.owner.Field(0).FieldByName("Multistream"))
+	for i, codec := range views.Codecs {
+		codec.Celt.Fmode = nil
+		codec.Decoder.FrangeFinal = uint32(1) << i
+	}
+	initial.save(data)
+	st, image := compareProjectionDecoderImage(data)
+	views = opusMSStorageViewsAt(image.owner.Field(0).FieldByName("Multistream"))
+	mode := new(OpusT_OpusCustomMode)
+	root := weak.Make(mode)
+	views.Codecs[0].Celt.Fmode = mode
+	st, mode = nil, nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if root.Value() == nil {
+		t.Fatal("projection nested scanned mode")
+	}
+	compareImageMustPanic(t, func() { image.save(data) })
+	views.Codecs[0].Celt.Fmode = nil
+	image.save(data)
+	r, out := CompareProjectionCtl(data, OPUS_GET_FINAL_RANGE_REQUEST, 0, -1)
+	if r != 0 || out != 3 {
+		t.Fatal("projection range XOR", r, out)
+	}
+	ms, _ := layout.FieldByName("Multistream")
+	r, out = CompareProjectionCtl(data, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, 1, -1)
+	if r != 0 || out != uint32(ms.Offset)+uint32(views.Offsets[1]) {
+		t.Fatal("projection child identity", r, out)
+	}
+	runtime.KeepAlive(image)
+}
+
 func compareInitializedMSImage(t *testing.T, streams, coupled int32) []byte {
 	t.Helper()
 	channels := streams + coupled

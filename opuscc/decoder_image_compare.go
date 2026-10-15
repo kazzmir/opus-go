@@ -78,6 +78,29 @@ func (image compareDecoderImage) save(data []byte) {
 	runtime.KeepAlive(image.owner)
 }
 
+func compareProjectionDecoderImage(data []byte) (*OpusT_OpusProjectionDecoder, compareDecoderImage) {
+	field, _ := reflect.TypeFor[OpusT_OpusProjectionDecoder]().FieldByName("Fdemixing_matrix_size_in_bytes")
+	offset := int(field.Offset)
+	matrixSize := int32(binary.NativeEndian.Uint32(data[offset : offset+4]))
+	if matrixSize < 16 {
+		panic("noncanonical serialized projection matrix")
+	}
+	msOffset := int64(8) + int64(matrixSize)
+	if msOffset > int64(len(data)) {
+		panic("short serialized projection image")
+	}
+	channels, streams, coupled := compareMSDecoderGeometry(data[msOffset:])
+	layout := opusProjectionDecoderStorageType(channels, streams, coupled)
+	msField, _ := layout.FieldByName("Multistream")
+	if int64(msField.Offset) != msOffset {
+		panic("noncanonical serialized projection offset")
+	}
+	image := compareDecoderImageStorage(layout, data)
+	root := image.owner.Field(0)
+	compareCheckMSImage(opusMSStorageViewsAt(root.FieldByName("Multistream")), coupled)
+	return root.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusProjectionDecoder), image
+}
+
 func compareMSDecoderGeometry(data []byte) (channels, streams, coupled int32) {
 	header := reflect.TypeFor[OpusT_OpusMSDecoder]()
 	layout, _ := header.FieldByName("Flayout")

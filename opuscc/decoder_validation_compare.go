@@ -90,7 +90,7 @@ func CompareDeemphasis(tls *libc.TLS, left, right, pcm *float32, N, C, downsampl
 }
 
 func CompareProjectionCtl(data []byte, request, value, alias int32) (int32, uint32) {
-	st := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(unsafe.SliceData(data)))
+	st, image := compareProjectionDecoderImage(data)
 	offset := int(opusProjectionMSOffset(st))
 	if alias >= 0 {
 		alias -= int32(offset)
@@ -101,6 +101,7 @@ func CompareProjectionCtl(data []byte, request, value, alias int32) (int32, uint
 	if r == 0 && request == OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST {
 		out += uint32(offset)
 	}
+	image.save(data)
 	return r, out
 }
 
