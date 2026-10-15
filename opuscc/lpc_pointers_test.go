@@ -264,6 +264,7 @@ func TestFIRHistoryOwnerPointers(t *testing.T) {
 			want, got := make([]float32, n+2), make([]float32, n+2)
 			want[0], want[n+1], got[0], got[n+1] = 77, 88, 77, 88
 			span := slices.Clone(got)
+			owned := slices.Clone(got)
 			reversed := make([]float32, ord)
 			for i := int32(0); i < ord; i++ {
 				reversed[i] = coeff[ord-i-1]
@@ -273,7 +274,8 @@ func TestFIRHistoryOwnerPointers(t *testing.T) {
 			runtime.GC()
 			celtFIRWithHistory(nil, &input[ord], &coeff[0], &got[1], n, ord, 0, input[:ord+n])
 			celtFIRSpans(nil, input[:ord+n], reversed, span[1:n+1], n, ord)
-			if !slices.Equal(got, want) || !slices.Equal(span, want) {
+			celtFIROwned(nil, input, ord, &coeff[0], &owned[1], n, ord, 0)
+			if !slices.Equal(got, want) || !slices.Equal(span, want) || !slices.Equal(owned, want) {
 				t.Fatal("typed FIR history/guards", ord, n)
 			}
 		}
