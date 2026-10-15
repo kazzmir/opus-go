@@ -166,9 +166,7 @@ func CompareOpusCtl(data []byte, request, value, alias int32) (int32, uint32) {
 	a := OpusDecoderCtlArgs{Value: value}
 	if alias != -2 {
 		if alias >= 0 {
-			p := unsafe.Add(unsafe.Pointer(st), alias)
-			a.I32 = (*int32)(p)
-			a.U32 = (*uint32)(p)
+			image.ctlAlias(&a, int(alias))
 		} else {
 			a.I32 = &signedOut
 			a.U32 = &out
@@ -192,10 +190,7 @@ func CompareCustomCtl(data []byte, request, value, alias int32) (int32, uint32) 
 	a := OpusDecoderCtlArgs{Value: value}
 	if alias != -2 {
 		if alias >= 0 {
-			p := unsafe.Add(unsafe.Pointer(st), alias)
-			a.I32 = (*int32)(p)
-			a.U32 = (*uint32)(p)
-			a.Mode = (**OpusT_OpusCustomMode)(p)
+			image.ctlAlias(&a, int(alias))
 		} else {
 			a.I32 = &signedOut
 			a.U32 = &out

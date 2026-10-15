@@ -14,6 +14,7 @@ type OpusDecoderCtlArgs struct {
 	U32     *uint32
 	Mode    **OpusT_OpusCustomMode
 	Decoder **OpusT_OpusDecoder
+	scalar  *opusCtlScalar
 }
 
 func Opus_opus_projection_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, request int32, a OpusDecoderCtlArgs) int32 {
@@ -49,10 +50,10 @@ func Opus_opus_multistream_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusMSDeco
 	case OPUS_GET_BANDWIDTH_REQUEST, OPUS_GET_SAMPLE_RATE_REQUEST, OPUS_GET_GAIN_REQUEST, OPUS_GET_LAST_PACKET_DURATION_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_GET_COMPLEXITY_REQUEST:
 		return Opus_opus_decoder_ctl_typed(tls, opusMSDecoderBoundAt(tls, st, offset), request, a)
 	case OPUS_GET_FINAL_RANGE_REQUEST:
-		if a.U32 == nil {
+		if !a.hasU32() {
 			return -1
 		}
-		*a.U32 = 0
+		a.storeU32(0)
 		for s := int32(0); s < st.Flayout.Fnb_streams; s++ {
 			dec := opusMSDecoderBoundAt(tls, st, offset)
 			next(s)
@@ -60,7 +61,7 @@ func Opus_opus_multistream_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusMSDeco
 			if ret := Opus_opus_decoder_ctl_typed(tls, dec, request, OpusDecoderCtlArgs{U32: &tmp}); ret != OPUS_OK {
 				return ret
 			}
-			*a.U32 ^= tmp
+			a.storeU32(a.loadU32() ^ tmp)
 		}
 	case OPUS_RESET_STATE, OPUS_SET_GAIN_REQUEST, OPUS_SET_COMPLEXITY_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
 		for s := int32(0); s < st.Flayout.Fnb_streams; s++ {
@@ -120,10 +121,10 @@ func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request i
 	celt := opusCodecCeltState(tls, st)
 	switch request {
 	case OPUS_GET_BANDWIDTH_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Fbandwidth
+		a.storeI32(st.Fbandwidth)
 	case OPUS_SET_COMPLEXITY_REQUEST:
 		if a.Value < 0 || a.Value > 10 {
 			return -1
@@ -132,15 +133,15 @@ func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request i
 		// The C caller intentionally ignores the child return value here.
 		Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
 	case OPUS_GET_COMPLEXITY_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Fcomplexity
+		a.storeI32(st.Fcomplexity)
 	case OPUS_GET_FINAL_RANGE_REQUEST:
-		if a.U32 == nil {
+		if !a.hasU32() {
 			return -1
 		}
-		*a.U32 = st.FrangeFinal
+		a.storeU32(st.FrangeFinal)
 	case OPUS_RESET_STATE:
 		opusDecoderResetTail(st)
 		Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
@@ -148,40 +149,40 @@ func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request i
 		st.Fstream_channels = st.Fchannels
 		st.Fframe_size = st.FFs / 400
 	case OPUS_GET_SAMPLE_RATE_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.FFs
+		a.storeI32(st.FFs)
 	case OPUS_GET_PITCH_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
 		if st.Fprev_mode == MODE_CELT_ONLY {
 			return Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
 		}
-		*a.I32 = st.FDecControl.FprevPitchLag
+		a.storeI32(st.FDecControl.FprevPitchLag)
 	case OPUS_GET_GAIN_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Fdecode_gain
+		a.storeI32(st.Fdecode_gain)
 	case OPUS_SET_GAIN_REQUEST:
 		if a.Value < -32768 || a.Value > 32767 {
 			return -1
 		}
 		st.Fdecode_gain = a.Value
 	case OPUS_GET_LAST_PACKET_DURATION_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Flast_packet_duration
+		a.storeI32(st.Flast_packet_duration)
 	case OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
 		if a.Value < 0 || a.Value > 1 {
 			return -1
 		}
 		return Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
 	case OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
 		return Opus_opus_custom_decoder_ctl_typed(tls, celt, request, a)
@@ -191,10 +192,10 @@ func Opus_opus_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusDecoder, request i
 		}
 		st.Fignore_extensions = a.Value
 	case OPUS_GET_IGNORE_EXTENSIONS_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Fignore_extensions
+		a.storeI32(st.Fignore_extensions)
 	default:
 		return -5
 	}
@@ -223,10 +224,10 @@ func Opus_opus_custom_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusCustomDecod
 		}
 		st.Fcomplexity = a.Value
 	case OPUS_GET_COMPLEXITY_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Fcomplexity
+		a.storeI32(st.Fcomplexity)
 	case CELT_SET_START_BAND_REQUEST:
 		if a.Value < 0 || a.Value >= st.Fmode.FnbEBands {
 			return -1
@@ -243,23 +244,23 @@ func Opus_opus_custom_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusCustomDecod
 		}
 		st.Fstream_channels = a.Value
 	case CELT_GET_AND_CLEAR_ERROR_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Ferror1
+		a.storeI32(st.Ferror1)
 		st.Ferror1 = 0
 	case OPUS_GET_LOOKAHEAD_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Foverlap / st.Fdownsample
+		a.storeI32(st.Foverlap / st.Fdownsample)
 	case OPUS_RESET_STATE:
 		celt_decoder_reset(tls, st)
 	case OPUS_GET_PITCH_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Fpostfilter_period
+		a.storeI32(st.Fpostfilter_period)
 	case CELT_GET_MODE_REQUEST:
 		if a.Mode == nil {
 			return -1
@@ -268,20 +269,20 @@ func Opus_opus_custom_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusCustomDecod
 	case CELT_SET_SIGNALLING_REQUEST:
 		st.Fsignalling = a.Value
 	case OPUS_GET_FINAL_RANGE_REQUEST:
-		if a.U32 == nil {
+		if !a.hasU32() {
 			return -1
 		}
-		*a.U32 = st.Frng
+		a.storeU32(st.Frng)
 	case OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
 		if a.Value < 0 || a.Value > 1 {
 			return -1
 		}
 		st.Fdisable_inv = a.Value
 	case OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST:
-		if a.I32 == nil {
+		if !a.hasI32() {
 			return -1
 		}
-		*a.I32 = st.Fdisable_inv
+		a.storeI32(st.Fdisable_inv)
 	default:
 		return -5
 	}

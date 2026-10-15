@@ -78,6 +78,48 @@ func (image compareDecoderImage) save(data []byte) {
 	runtime.KeepAlive(image.owner)
 }
 
+// Resolve actual scalar fields, not an untyped address into the byte view.
+// Signed/unsigned output conventions share a typed bit-preserving cell.
+func (image compareDecoderImage) ctlAlias(a *OpusDecoderCtlArgs, offset int) {
+	field, ok := compareDecoderFieldAt(image.owner.Field(0), offset)
+	if !ok {
+		panic("comparison CTL alias is not a typed field")
+	}
+	switch field.Type() {
+	case reflect.TypeFor[int32]():
+		a.scalar = &opusCtlScalar{signed: field.Addr().Interface().(*int32)}
+	case reflect.TypeFor[uint32]():
+		a.scalar = &opusCtlScalar{unsigned: field.Addr().Interface().(*uint32)}
+	case reflect.TypeFor[*OpusT_OpusCustomMode]():
+		a.Mode = field.Addr().Interface().(**OpusT_OpusCustomMode)
+	default:
+		panic("comparison CTL alias has unsupported field type")
+	}
+}
+
+func compareDecoderFieldAt(value reflect.Value, offset int) (reflect.Value, bool) {
+	if offset < 0 || offset >= int(value.Type().Size()) {
+		return reflect.Value{}, false
+	}
+	switch value.Kind() {
+	case reflect.Struct:
+		for i := 0; i < value.NumField(); i++ {
+			field := value.Type().Field(i)
+			if offset >= int(field.Offset) && offset < int(field.Offset+field.Type.Size()) {
+				return compareDecoderFieldAt(value.Field(i), offset-int(field.Offset))
+			}
+		}
+	case reflect.Array:
+		stride := int(value.Type().Elem().Size())
+		if stride != 0 {
+			return compareDecoderFieldAt(value.Index(offset/stride), offset%stride)
+		}
+	default:
+		return value, offset == 0
+	}
+	return reflect.Value{}, false
+}
+
 func compareProjectionDecoderImage(data []byte) (*OpusT_OpusProjectionDecoder, compareDecoderImage) {
 	field, _ := reflect.TypeFor[OpusT_OpusProjectionDecoder]().FieldByName("Fdemixing_matrix_size_in_bytes")
 	offset := int(field.Offset)
