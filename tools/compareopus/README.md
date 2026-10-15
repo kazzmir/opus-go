@@ -534,6 +534,44 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT IIR owned-history/origin rounds add an optional concrete output/history
+slice, migrate PLC's IIR output to its actual decode-buffer owner + numeric origin,
+then defer PLC input and LPC coefficient origins numerically until readable Go
+views are needed. The public celt_iir entry delegates with zero origins/no output
+owner, retaining the original external signed-history fallback. Owned N<ord tails
+read the real preceding samples through the Go owner, not by subtracting from an
+output scalar pointer. The active PLC call no longer forms input/output/coefficient
+sub-pointers. The original coefficient index bounds check remains before the call.
+This is private concrete-owner/span handling, not a new allocation or pointer map
+for unbound caller byte images. Counts remain110 unsafe.Pointer/105 uintptr.
+
+ord&3 assertion still precedes views; input, coefficient, output and memory view
+order stays. Span root-relative additions widen, while N+ord, N-ord, channel*order,
+loops and all DSP int32 operations retain their old semantics. Upstream celt_lpc.c
+reverse-coefficient snapshot, initial negative memory, explicit four-lane products,
+live coefficient patch reloads, sequential stores, positive scalar-tail history
+and reversed output→memory commit persist. No full input/output/coefficient snapshot,
+new scratch/copy, ABI field extent or encode/decode tolerance change.
+
+Grouped IIR fixtures cover orders0/4/8 and N0/1/3/4/5/8/17, separate/in-place inputs,
+exact guarded output/history/memory owners, numeric input/coefficient origins and
+bitwise/full-memory equivalence to the same public entry across GC/stack growth.
+The pre-existing unsupported ord0 four-lane assertion remains. Added coefficient/
+input/output alias cases also share memory with the same scalar owner to verify
+live patch and final-store semantics. Earlier signed-history/nil/order/native
+fixtures and PLC/frame goldens remain unchanged. No fixture weakening, pointer-slot
+poisoning, caller-image/EOF/raw callback/global GC/macOS safety claim.
+
+Every separately committed round passes full amd64/386, ARM64/QEMU, scoped IIR/PLC
+and broad relevant checkptr, typed PartA/PartB on3 architectures, native comparisons,
+GC stress, unchanged codec references and diff checks. Final ARM ordinary/scoped
+fixtures repeat twenty times. Logs:
+/tmp/opus-round-iir-owned-output-history.log,
+/tmp/opus-round-plc-iir-owned-output.log,
+/tmp/opus-round-plc-iir-numeric-input-origin.log,
+/tmp/opus-round-plc-iir-numeric-coefficient-origin{,-focused}.log and
+/tmp/opus-round-plc-iir-owned-origins-arm-{checkptr,golden}-repeat.log.
+
 Four active deemphasis-output-origin rounds migrate direct accumulate, direct
 replace, downsample accumulate and downsample replace stores to the actual PCM
 root + numeric channel/sample coordinates. The last round removes the now-unused

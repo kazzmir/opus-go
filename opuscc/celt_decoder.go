@@ -1286,7 +1286,8 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			celtPLCLPCHistory(&lpc_mem, unsafe.SliceData(buf), decode_buffer_size, N)
 			/* Apply the synthesis filter to convert the excitation back into
 			   the signal domain. */
-			celtIIRAt(tls, unsafe.SliceData(buf), decode_buffer_size-N, &lpc[c*CELT_LPC_ORDER], nil, extrapolation_len, CELT_LPC_ORDER, &lpc_mem[0], st1.Farch, buf, decode_buffer_size-N)
+			_ = lpc[c*CELT_LPC_ORDER] // Retain the original coefficient index validation.
+			celtIIRAt(tls, unsafe.SliceData(buf), decode_buffer_size-N, unsafe.SliceData(lpc), c*CELT_LPC_ORDER, nil, extrapolation_len, CELT_LPC_ORDER, &lpc_mem[0], st1.Farch, buf, decode_buffer_size-N)
 			/* Check if the synthesis energy is higher than expected, which can
 			   happen with the signal changes during our window. If so,
 			   attenuate. */

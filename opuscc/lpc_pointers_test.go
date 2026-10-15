@@ -39,11 +39,13 @@ func TestIIROwnedOutputPointers(t *testing.T) {
 				if inplace {
 					gx, wx = &got[start], &want[start]
 				}
+				coefficientOwner := append([]float32{77}, coeff...)
+				wantDen, gotDen, coefficientOffset := &coeff[0], &coefficientOwner[0], int32(1)
 				entropyInitGrowStack(12)
 				runtime.GC()
-				Opus_celt_iir(nil, wx, &coeff[0], &want[start], n, ord, &wantMemory[1], 0)
+				Opus_celt_iir(nil, wx, wantDen, &want[start], n, ord, &wantMemory[1], 0)
 				if inplace {
-					celtIIRAt(nil, &got[0], start, &coeff[0], nil, n, ord, &memory[1], 0, got, start)
+					celtIIRAt(nil, &got[0], start, gotDen, coefficientOffset, nil, n, ord, &memory[1], 0, got, start)
 				} else {
 					celtIIROutputOwned(nil, gx, &coeff[0], nil, n, ord, &memory[1], 0, got, start)
 				}
@@ -57,6 +59,32 @@ func TestIIROwnedOutputPointers(t *testing.T) {
 						t.Fatal("owned IIR memory", ord, n, inplace, i)
 					}
 				}
+			}
+		}
+	}
+}
+
+func TestIIROwnedCoefficientAliasPointers(t *testing.T) {
+	for _, ord := range []int32{4, 8} {
+		for _, n := range []int32{8, 17} {
+			start := ord + 1
+			got := make([]float32, ord+n+2)
+			for i := range got {
+				got[i] = float32(i%5-2) * .0625
+			}
+			got[0], got[len(got)-1] = 77, 88
+			want := slices.Clone(got)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_celt_iir(nil, &want[start], &want[start], &want[start], n, ord, &want[1], 0)
+			celtIIRAt(nil, &got[0], start, &got[0], start, nil, n, ord, &got[1], 0, got, start)
+			for i := range got {
+				if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+					t.Fatal("IIR coefficient/input/output/memory aliases", ord, n, i)
+				}
+			}
+			if got[0] != 77 || got[len(got)-1] != 88 {
+				t.Fatal("aliased IIR guards")
 			}
 		}
 	}

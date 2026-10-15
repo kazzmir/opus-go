@@ -95,14 +95,14 @@ func Opus_celt_iir(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float
 }
 
 func celtIIROutputOwned(tls *libc.TLS, x, den, out *float32, N, ord int32, mem *float32, arch int32, outputOwner []float32, outputOffset int32) {
-	celtIIRAt(tls, x, 0, den, out, N, ord, mem, arch, outputOwner, outputOffset)
+	celtIIRAt(tls, x, 0, den, 0, out, N, ord, mem, arch, outputOwner, outputOffset)
 }
 
-func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den, out *float32, N, ord int32, mem *float32, arch int32, outputOwner []float32, outputOffset int32) {
+func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den *float32, coefficientOffset int32, out *float32, N, ord int32, mem *float32, arch int32, outputOwner []float32, outputOffset int32) {
 	if ord&3 != 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3390), opusDiagnosticString(3330), 225)
 	}
-	input, coeff := celtDenormaliseSpan(x, inputOffset, N), unsafe.Slice(den, ord)
+	input, coeff := celtDenormaliseSpan(x, inputOffset, N), celtDenormaliseSpan(den, coefficientOffset, ord)
 	var output []float32
 	if outputOwner == nil {
 		output = unsafe.Slice(out, N)
