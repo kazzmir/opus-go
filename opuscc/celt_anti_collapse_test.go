@@ -10,6 +10,7 @@ import (
 func TestAntiCollapsePointers(t *testing.T) {
 	bands := [2]int16{0, 2}
 	x := [4]float32{77, 0, 0, 88}
+	span := x
 	mask := byte(0)
 	energy := float32(2.5)
 	p1, p2 := [2]float32{.25, 0}, [2]float32{.75, 0}
@@ -17,6 +18,10 @@ func TestAntiCollapsePointers(t *testing.T) {
 	entropyInitGrowStack(12)
 	runtime.GC()
 	Opus_anti_collapse(nil, &bands[0], 1, &x[1], &mask, 0, 1, 2, 0, 1, &energy, &p1[0], &p2[0], &pulse, 123456, 0, 0)
+	antiCollapseSpans(nil, bands[:], 1, span[1:3], []byte{mask}, []int32{pulse}, []float32{energy}, p1[:], p2[:], 0, 1, 2, 0, 1, 123456, 0, 0)
+	if span != x {
+		t.Fatal("anti-collapse slice kernel/guards")
+	}
 	if x != [4]float32{77, .7071068, .7071068, 88} {
 		t.Fatal(x)
 	}
