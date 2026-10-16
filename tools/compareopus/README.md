@@ -534,6 +534,48 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four CELT energy rounds separate fine-energy arithmetic into a live slice
+kernel, migrate active fine quantizers to actual Go storage, separate final-energy
+refinement, then migrate active final quantizer/priority storage. Normal decode
+passes fine_quant/fine_priority slices directly, rather than reducing them to
+scalar pointers and reconstructing views. Existing pointer/source APIs and energy
+history roots stay. Counts remain101 unsafe.Pointer/105 uintptr: active private
+carrier work, not cast deletion, public ABI removal, new scratch/storage, pointer
+map repair or a global lifetime/performance/macOS safety claim.
+
+Fine setup still forms energy, extra and optional previous views in that order.
+The shared loop captures int16 extra BEFORE its full-int eligibility/budget reads,
+then snapshots int16 previous at its original point. It retains per-band entropy
+tell, full-width budget arithmetic, per-channel bit consumption, float32 shift/
+product boundaries and live energy/mode accesses. Final setup still forms quant,
+priority and optional energy views in order; priority passes, MAX_FINE_BITS checks,
+remaining-budget checks and bit decrements stay ordered. Quant values are reloaded
+AFTER each entropy bit for offset calculation, not snapshotted. Nil final output
+still consumes exactly the same bits. Decode's tell capture and int32 length*8
+wrapping precede view setup as before. No early empty-band shortcuts were added.
+Upstream quant_bands.c contracts inspected; existing Go loop behavior preserved.
+
+Grouped existing fine/final fixtures keep their manual expected samples and
+contexts. Added full-context/bit/guard comparisons cover channels1/2, previous
+quantizer present/absent, storage and refinement budgets, skips, MAX_FINE_BITS,
+nil final output and int32 budget wrapping. Go-only aliases use ONE ACTUAL int32
+entropy field, never pointer slots: fine captures extra before the aliased entropy
+counter changes; final reloads quant after each bit (expected stereo offsets
+.125/.0625, not a snapshotted .25). Existing frame/native packet/sample/range/hash
+and encode/decode goldens/tolerances, exact fixture extents and assertions stay.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped fine/final energy checkptr, typed PartA/PartB and tagged owner/cell
+checks on3 architectures, native comparisons, GC stress, codec references and diff
+checks. Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-fine-energy-live-span-kernel.log,
+/tmp/opus-round-fine-energy-go-quantizer-owners.log,
+/tmp/opus-round-final-energy-live-span-kernel.log,
+/tmp/opus-round-final-energy-go-quantizer-owners.log and
+/tmp/opus-round-energy-quantizer-owners-arm-{checkptr,golden}-repeat.log.
+Opaque caller images, EOF, raw callbacks and recurring native GC failures remain
+unclaimed and independent of these typed numeric buffer interfaces.
+
 Four LPC/FIR owner rounds extract the unchanged LPC slice kernel, migrate
 PLC/downsample LPC outputs and autocorrelations to actual Go owners, then retain
 PLC FIR and downsample FIR5 coefficient owners rather than scalar pointers.

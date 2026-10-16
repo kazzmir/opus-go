@@ -588,6 +588,11 @@ func celtDecodeFinalEnergy(tls *libc.TLS, mode *OpusT_OpusCustomMode, energy *fl
 	Opus_unquant_energy_finalise(tls, mode, start, end, energy, fine, priority, length*8-tell, ec, channels)
 }
 
+func celtDecodeFinalEnergyOwned(tls *libc.TLS, mode *OpusT_OpusCustomMode, energy *float32, fine, priority []int32, start, end, length, channels int32, ec *OpusT_ec_ctx) {
+	tell := ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	unquantFinalEnergyOwned(tls, mode, start, end, energy, fine, priority, length*8-tell, ec, channels)
+}
+
 func celtDecodeAllocationBudget(tls *libc.TLS, ec *OpusT_ec_ctx, length, transient, LM int32) (budget, reserved int32) {
 	budget = (length * 8) << BITRES
 	budget -= int32(Opus_ec_tell_frac(tls, ec))
@@ -1499,7 +1504,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	spectralX, spectralY := celtDecodeSpectrumChannels(X, N, C)
 	quant_all_bands(tls, 0, mode, start, end, spectralX, spectralY, unsafe.SliceData(collapse_masks), nil, unsafe.SliceData(pulses), shortBlocks, spread_decision, dual_stereo, intensity, unsafe.SliceData(tf_res), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, &st1.Frng, 0, st1.Farch, st1.Fdisable_inv)
 	anti_collapse_on = celtDecodeAntiCollapseBit(tls, dec, anti_collapse_rsv)
-	celtDecodeFinalEnergy(tls, mode, oldBandE, unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), start, end, len1, C, dec)
+	celtDecodeFinalEnergyOwned(tls, mode, oldBandE, fine_quant, fine_priority, start, end, len1, C, dec)
 	celtDecodeAntiCollapse(tls, st1, mode, unsafe.SliceData(X), unsafe.SliceData(collapse_masks), unsafe.SliceData(pulses), oldBandE, oldLogE, oldLogE2, N, LM, C, start, end, anti_collapse_on)
 	if silence != 0 {
 		celtDecodeSilenceEnergy(oldBandE, nbEBands, C)
