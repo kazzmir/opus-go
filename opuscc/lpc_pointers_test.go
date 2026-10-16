@@ -272,9 +272,10 @@ func TestPitchDownsampleOwnedPointers(t *testing.T) {
 					case 4:
 						r, o = l, l
 					}
-					var oldRight, ownedRight *float32
+					var oldRight *float32
+					var ownedRight []float32
 					if C == 2 {
-						oldRight, ownedRight = &a[r], &b[r]
+						oldRight, ownedRight = &a[r], b[r:r+n*factor]
 					}
 					entropyInitGrowStack(12)
 					runtime.GC()
@@ -287,6 +288,29 @@ func TestPitchDownsampleOwnedPointers(t *testing.T) {
 					}
 				}
 			}
+		}
+	}
+}
+
+func TestPitchDownsampleRightOrderPointers(t *testing.T) {
+	left := [16]float32{}
+	for i := range left {
+		left[i] = float32(i+1) / 17
+	}
+	a, b := [10]float32{77, 0, 0, 0, 0, 0, 0, 0, 0, 88}, [10]float32{77, 0, 0, 0, 0, 0, 0, 0, 0, 88}
+	pitchDownsampleLeft(left[:], a[1:9], 8, 2)
+	if !validationPanics(func() { pitchDownsampleOwned(nil, left[:], nil, b[1:9], 8, 2, 2, 0) }) {
+		t.Fatal("missing stereo history must fail")
+	}
+	if a != b {
+		t.Fatal("all left stores precede right view and whitening", a, b)
+	}
+	for _, C := range []int32{0, 1, -1, 3} {
+		a, b = [10]float32{77, 0, 0, 0, 0, 0, 0, 0, 0, 88}, [10]float32{77, 0, 0, 0, 0, 0, 0, 0, 0, 88}
+		Opus_pitch_downsample(nil, &left[0], nil, &a[1], 8, C, 2, 0)
+		pitchDownsampleOwned(nil, left[:], nil, b[1:9], 8, C, 2, 0)
+		if a != b {
+			t.Fatal("nonstereo ignores absent right history", C)
 		}
 	}
 }

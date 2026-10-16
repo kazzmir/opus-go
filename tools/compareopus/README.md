@@ -534,6 +534,50 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four PLC pitch-downsample rounds separate left sampling, stereo addition and
+whitening into shared live slice kernels, then retain actual lowpass output,
+left history and right history owners. Active PLC receives decode_mem as a concrete
+[2][]float32 and passes both history slices and lowpass[:] directly. The final
+private downsample entry has only Go slice audio arguments; original raw pitch/
+downsample adapters stay for compatibility. Counts remain101 unsafe.Pointer/
+105 uintptr: active carrier work, not cast deletion, new allocation/scratch,
+fixture ownership repair or a global lifetime/performance/macOS safety claim.
+
+Setup remains left view, output view, ALL left stores (indices1..length-1 THEN0),
+then, ONLY for C==2, right view and its same-order additions. No eager right
+geometry validation or audio snapshot; all other channel counts ignore right.
+Whitening then retains autocorrelation,1.0001 noise floor, ordered float32 lag
+window products, LPC, sequential .9 chirp, .8 zero and FIR5 coefficient snapshots
+and MAC/history/store order. The original unsupported zero-length behavior is
+not replaced by a shortcut. PLC lag-search input/index extents, local lowpass
+array, seed/state non-use and final lag subtraction are unchanged. Upstream
+pitch.c and celt_decoder.c inspected; public validation/error order and native
+rounding/tolerances remain. Existing raw adapters use the original pointer entry,
+not eager reconstruction of an optional right history.
+
+Grouped existing LPC/pitch fixtures retain manual silence/periodic/whitening and
+native expected values. Added full-bit WHOLE-buffer comparisons cover lengths8/16,
+factors2/4, channel counts0/1/2, separate buffers, output overlapping either input,
+shifted overlap and all buffers shared, with unchanged pairwise extents/guards.
+Owned PLC silence/shared/periodic tests retain actual history roots under GC and
+stack growth, and do not mutate inputs. Private bounded missing-right tests
+confirm all left stores precede right-view failure AND whitening; nonstereo
+counts0/1/-1/3 ignore absent right. These invalid/private and alias cases are
+Go compatibility tests, not new upstream C valid-domain claims. Existing native
+packet/sample/range/hash, encode/decode goldens and tolerances remain unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped downsample/PLC pitch checkptr, typed PartA/PartB and tagged owner/cell
+checks on3 architectures, native comparisons, GC stress, codec references and diff
+checks. Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-pitch-downsample-live-kernels.log,
+/tmp/opus-round-plc-downsample-go-lowpass-owner.log,
+/tmp/opus-round-plc-downsample-go-left-history-owner.log,
+/tmp/opus-round-plc-downsample-go-right-history-owner.log and
+/tmp/opus-round-pitch-downsample-owners-arm-{checkptr,golden}-repeat.log.
+Opaque caller images, EOF, raw callbacks, global native GC failures, and direct
+platform/performance guarantees remain outside these private slice interfaces.
+
 Four anti-collapse rounds extract the unchanged slice kernel, then retain active
 spectrum, collapse-mask and pulse-budget owners. Normal decode now passes X,
 collapse_masks and pulses directly as concrete Go slices; no scalar-pointer
