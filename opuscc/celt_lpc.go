@@ -79,7 +79,7 @@ func celtFIRWithHistory(tls *libc.TLS, x, num, y *float32, N, ord, arch int32, h
 	celtFIRSpans(tls, input, reversed, output, N, ord)
 }
 
-func celtFIROwned(tls *libc.TLS, owner []float32, sourceOffset int32, num *float32, coefficientOffset int32, outputOwner []float32, N, ord, arch int32) {
+func celtFIROwned(tls *libc.TLS, owner []float32, sourceOffset int32, coefficientOwner []float32, coefficientOffset int32, outputOwner []float32, N, ord, arch int32) {
 	y := unsafe.SliceData(outputOwner)
 	var x *float32
 	if N > 0 {
@@ -91,7 +91,10 @@ func celtFIROwned(tls *libc.TLS, owner []float32, sourceOffset int32, num *float
 	if x == y {
 		opusCeltFatal(tls, opusDiagnosticString(3305), opusDiagnosticString(3330), 157)
 	}
-	coeff := celtDenormaliseSpan(num, coefficientOffset, ord)
+	var coeff []float32
+	if ord != 0 {
+		coeff = coefficientOwner[int64(coefficientOffset) : int64(coefficientOffset)+int64(ord)]
+	}
 	reversed := make([]float32, ord)
 	for i := range reversed {
 		reversed[i] = coeff[len(coeff)-1-i]
