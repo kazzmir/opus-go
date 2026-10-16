@@ -1679,6 +1679,10 @@ func Opus_unquant_energy_finalise(tls *libc.TLS, m *OpusT_OpusCustomMode, start,
 	if oldEBands != nil {
 		energy = unsafe.Slice(oldEBands, C*m.FnbEBands)
 	}
+	unquantFinalEnergySpans(tls, m, start, end, energy, quant, priority, bits_left, dec, C)
+}
+
+func unquantFinalEnergySpans(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, energy []float32, quant, priority []int32, bits_left int32, dec *OpusT_ec_dec, C int32) {
 	for prio := int32(0); prio < 2; prio++ {
 		for i := start; i < end && bits_left >= C; i++ {
 			if quant[i] >= MAX_FINE_BITS || priority[i] != prio {

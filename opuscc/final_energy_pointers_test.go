@@ -10,8 +10,14 @@ func TestFinalEnergyPointers(t *testing.T) {
 		out := [8]float32{123, 0, 0, 0, 0, 0, 0, 456}
 		dec := OpusT_ec_dec{Frng: 1 << 31, Fnbits_total: 33, Fend_window: 15, Fnend_bits: 32}
 		skip := dec
+		span, spanDec, nilSpanDec := out, dec, dec
 		Opus_unquant_energy_finalise(nil, &mode, 0, 3, &out[1], &quant[0], &priority[0], budget, &dec, 2)
 		Opus_unquant_energy_finalise(nil, &mode, 0, 3, nil, &quant[0], &priority[0], budget, &skip, 2)
+		unquantFinalEnergySpans(nil, &mode, 0, 3, span[1:7], quant[:], priority[:], budget, &spanDec, 2)
+		unquantFinalEnergySpans(nil, &mode, 0, 3, nil, quant[:], priority[:], budget, &nilSpanDec, 2)
+		if span != out || spanDec != dec || nilSpanDec != dec {
+			t.Fatal("final energy span/context/nil-output consumption")
+		}
 		want := [8]float32{123, 0, 0, 0, 0, 0, 0, 456}
 		if budget >= 2 {
 			want[2] = 0.25
