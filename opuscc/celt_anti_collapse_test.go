@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+	"unsafe"
 
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
@@ -41,7 +42,7 @@ func TestAntiCollapseOwnedPointers(t *testing.T) {
 							entropyInitGrowStack(12)
 							runtime.GC()
 							Opus_anti_collapse(nil, &bands[0], 2, &a[1], &masks[0], LM, C, size, 0, 2, &energy[0], oldHistory, &h2[0], &pulse[0], seed, encode, 0)
-							antiCollapseOwned(nil, &bands[0], 2, b[1:len(b)-1], &masks[0], LM, C, size, 0, 2, &energy[0], ownedHistory, &h2[0], &pulse[0], seed, encode, 0)
+							antiCollapseOwned(nil, &bands[0], 2, b[1:len(b)-1], masks, LM, C, size, 0, 2, &energy[0], ownedHistory, &h2[0], &pulse[0], seed, encode, 0)
 							for i := range a {
 								if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
 									t.Fatal("owned anti-collapse bits/history aliases/guards", LM, C, encode, full, aliasHistory, seed, i)
@@ -59,12 +60,30 @@ func TestAntiCollapseOwnedPointers(t *testing.T) {
 	masks, pulse := [2]byte{}, [2]int32{0, 16}
 	energy, history := [2]float32{.5, 1}, [4]float32{-6, -5, -4, -3}
 	celtDecodeAntiCollapse(nil, &state, &mode, &a[1], &masks[0], &pulse[0], &energy[0], &history[0], &history[0], 3, 0, 1, 0, 2, 1)
-	celtDecodeAntiCollapseOwned(nil, &state, &mode, b[1:4], &masks[0], &pulse[0], &energy[0], &history[0], &history[0], 3, 0, 1, 0, 2, 1)
+	celtDecodeAntiCollapseOwned(nil, &state, &mode, b[1:4], masks[:], &pulse[0], &energy[0], &history[0], &history[0], 3, 0, 1, 0, 2, 1)
 	if a != b || state != before {
 		t.Fatal("decode anti-collapse spectrum and unchanged seed/state")
 	}
 	antiCollapseOwned(nil, nil, 0, nil, nil, 0, 1, 0, 0, 0, nil, nil, nil, nil, 0, 0, 0)
 	celtDecodeAntiCollapseOwned(nil, nil, nil, nil, nil, nil, nil, nil, nil, 120, 0, 1, 0, 21, 0)
+}
+
+func TestAntiCollapseMaskAliasPointers(t *testing.T) {
+	bands := [3]int16{0, 1, 3}
+	a, b := [5]float32{77, 0, 0, 0, 88}, [5]float32{77, 0, 0, 0, 88}
+	// The first repaired float changes bytes used by the next band's mask.
+	oldMask := unsafe.Slice((*byte)(unsafe.Pointer(&a[1])), 4)[2:4]
+	ownedMask := unsafe.Slice((*byte)(unsafe.Pointer(&b[1])), 4)[2:4]
+	pulse, energy, history := [2]int32{0, 16}, [2]float32{.5, 1}, [4]float32{-6, -5, -4, -3}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	Opus_anti_collapse(nil, &bands[0], 2, &a[1], &oldMask[0], 0, 1, 3, 0, 2, &energy[0], &history[0], &history[0], &pulse[0], 0, 0, 0)
+	antiCollapseOwned(nil, &bands[0], 2, b[1:4], ownedMask, 0, 1, 3, 0, 2, &energy[0], &history[0], &history[0], &pulse[0], 0, 0, 0)
+	for i := range a {
+		if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+			t.Fatal("live mask/spectrum alias", i)
+		}
+	}
 }
 
 func TestAntiCollapsePointers(t *testing.T) {
