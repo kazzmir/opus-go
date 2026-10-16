@@ -1307,14 +1307,14 @@ func Opus_anti_collapse(tls *libc.TLS, bands *int16, nbBands int32, X *float32, 
 	antiCollapseSpans(tls, b, nbBands, x, mask, pulse, energy, p1, p2, LM, C, size, start, end, seed, encode, arch)
 }
 
-func antiCollapseOwned(tls *libc.TLS, bands *int16, nbBands int32, spectrum []float32, maskOwner []byte, LM, C, size, start, end int32, logE, prev1logE, prev2logE *float32, pulses *int32, seed uint32, encode, arch int32) {
+func antiCollapseOwned(tls *libc.TLS, bands *int16, nbBands int32, spectrum []float32, maskOwner []byte, LM, C, size, start, end int32, logE, prev1logE, prev2logE *float32, pulseOwner []int32, seed uint32, encode, arch int32) {
 	if start >= end {
 		return
 	}
 	b := unsafe.Slice(bands, end+1)
 	x := spectrum[:max(C, 1)*size]
 	mask := maskOwner[:max(end*C, 1)]
-	pulse := unsafe.Slice(pulses, end)
+	pulse := pulseOwner[:end]
 	energy := unsafe.Slice(logE, max(C, 1)*nbBands)
 	historyChannels := max(C, 1)
 	if encode == 0 && C == 1 {

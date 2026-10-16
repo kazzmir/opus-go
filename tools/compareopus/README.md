@@ -534,6 +534,47 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four anti-collapse rounds extract the unchanged slice kernel, then retain active
+spectrum, collapse-mask and pulse-budget owners. Normal decode now passes X,
+collapse_masks and pulses directly as concrete Go slices; no scalar-pointer
+round trip for those three buffers. Existing public/raw entries and band/energy/
+history roots stay. Counts remain101 unsafe.Pointer/105 uintptr: active private
+representation changes, not adapter deletion, fixture ownership repair, new
+scratch/storage or cast-count proof of global lifetime safety/performance.
+
+The early start>=end return precedes every view; disabled decode avoids state/
+mode/owner access. Otherwise setup remains bands, spectrum, masks, pulses, energy,
+then both histories, with the original max(C,1), max(end*C,1), end and mono-decode
+TWO-channel history extents. Kernel depth addition/division/shifts, float32 exp2/
+sqrt/product/LM3 adjustment, ordered min/max comparisons, live history reads and
+numeric channel/band positions are unchanged. Masks are read for each block;
+pulses for each band. Noise stores, per-sample RNG progression, per-channel
+renormalization and band/channel/block order stay. Seed is local, not committed
+to decoder state. Upstream bands.c inspected; existing Go behavior and public
+assertion/validation behavior remain, with no new valid-domain claims for aliases.
+
+Grouped existing anti-collapse fixtures preserve manual spectral goldens and exact
+extents. Added full-bit/guard comparisons cover LM0..3, channels1/2, encode/decode,
+zero/full masks, two seeds and spectrum/history overlap. Last round additionally
+covers mixed0x55/0xaa masks. Go-only numeric alias fixtures exercise mask bytes and
+pulse words changed by earlier spectrum stores; no pointer slots are reinterpreted
+or poisoned. Pulse aliases can leave the upstream valid pulse domain and are NOT
+new C-oracle claims. Disabled/empty nil owners and unchanged decoder seed/state
+are checked. Native comparisons, packet/sample/range/hash and codec goldens/
+tolerances are unchanged. No direct macOS, opaque-image, raw callback, EOF or
+global native-GC repair claims.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped anti-collapse checkptr, typed PartA/PartB and tagged owner/cell checks
+on3 architectures, native comparisons, GC stress, codec references and diff checks.
+Last round's expanded mixed-mask fixture set also passes the COMPLETE sequence.
+Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-anti-collapse-live-span-kernel.log,
+/tmp/opus-round-anti-collapse-go-spectrum-owner.log,
+/tmp/opus-round-anti-collapse-go-mask-owner.log,
+/tmp/opus-round-anti-collapse-go-pulse-owner{,-mixed-masks}.log and
+/tmp/opus-round-anti-collapse-owners-arm-{checkptr,golden}-repeat.log.
+
 Four CELT energy rounds separate fine-energy arithmetic into a live slice
 kernel, migrate active fine quantizers to actual Go storage, separate final-energy
 refinement, then migrate active final quantizer/priority storage. Normal decode
