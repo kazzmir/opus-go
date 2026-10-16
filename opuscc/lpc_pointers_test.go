@@ -160,12 +160,32 @@ func TestPLCPitchSearchPointers(t *testing.T) {
 	entropyInitGrowStack(12)
 	runtime.GC()
 	got := celt_plc_pitch_search(nil, nil, &input[1], nil, 1, 0)
-	if got != PLC_PITCH_LAG_MAX || input != before {
-		t.Fatal("silence/guards", got)
+	owned := celtPLCPitchSearchOwned(nil, nil, [2][]float32{input[1 : len(input)-1], nil}, 1, 0)
+	if got != PLC_PITCH_LAG_MAX || owned != got || input != before {
+		t.Fatal("silence/guards", got, owned)
 	}
 	got = celt_plc_pitch_search(nil, nil, &input[1], &input[1], 2, 0)
-	if got != PLC_PITCH_LAG_MAX || input != before {
-		t.Fatal("shared channels", got)
+	owned = celtPLCPitchSearchOwned(nil, nil, [2][]float32{input[1 : len(input)-1], input[1 : len(input)-1]}, 2, 0)
+	if got != PLC_PITCH_LAG_MAX || owned != got || input != before {
+		t.Fatal("shared channels", got, owned)
+	}
+	for i := 1; i < len(input)-1; i++ {
+		input[i] = float32(math.Sin(float64(i) * .17))
+	}
+	before = input
+	for _, C := range []int32{0, 1, 2} {
+		var right *float32
+		var rightOwner []float32
+		if C == 2 {
+			right, rightOwner = &input[1], input[1:len(input)-1]
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got = celt_plc_pitch_search(nil, nil, &input[1], right, C, 0)
+		owned = celtPLCPitchSearchOwned(nil, nil, [2][]float32{input[1 : len(input)-1], rightOwner}, C, 0)
+		if got != owned || input != before {
+			t.Fatal("periodic PLC pitch histories/guards", C, got, owned)
+		}
 	}
 }
 
@@ -259,7 +279,7 @@ func TestPitchDownsampleOwnedPointers(t *testing.T) {
 					entropyInitGrowStack(12)
 					runtime.GC()
 					Opus_pitch_downsample(nil, &a[l], oldRight, &a[o], n, C, factor, 0)
-					pitchDownsampleOwned(nil, &b[l], ownedRight, b[o:o+n], n, C, factor, 0)
+					pitchDownsampleOwned(nil, b[l:l+n*factor], ownedRight, b[o:o+n], n, C, factor, 0)
 					for i := range a {
 						if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
 							t.Fatal("owned downsample full buffer/aliases/guards", n, factor, C, alias, i)

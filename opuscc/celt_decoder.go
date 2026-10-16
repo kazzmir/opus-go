@@ -433,7 +433,16 @@ func celt_plc_pitch_search(tls *libc.TLS, st *OpusT_OpusCustomDecoder, left, rig
 	// st is unused in the non-QEXT C implementation.
 	var lowpass [DEC_PITCH_BUF_SIZE / 2]float32
 	var pitch int32
-	pitchDownsampleOwned(tls, left, right, lowpass[:], DEC_PITCH_BUF_SIZE/2, C, 2, arch)
+	pitchDownsampleOwned(tls, unsafe.Slice(left, DEC_PITCH_BUF_SIZE), right, lowpass[:], DEC_PITCH_BUF_SIZE/2, C, 2, arch)
+	Opus_pitch_search(tls, &lowpass[PLC_PITCH_LAG_MAX/2], &lowpass[0], DEC_PITCH_BUF_SIZE-PLC_PITCH_LAG_MAX, PLC_PITCH_LAG_MAX-PLC_PITCH_LAG_MIN, &pitch, arch)
+	return PLC_PITCH_LAG_MAX - pitch
+}
+
+func celtPLCPitchSearchOwned(tls *libc.TLS, st *OpusT_OpusCustomDecoder, history [2][]float32, C, arch int32) int32 {
+	// st is unused in the non-QEXT C implementation.
+	var lowpass [DEC_PITCH_BUF_SIZE / 2]float32
+	var pitch int32
+	pitchDownsampleOwned(tls, history[0], unsafe.SliceData(history[1]), lowpass[:], DEC_PITCH_BUF_SIZE/2, C, 2, arch)
 	Opus_pitch_search(tls, &lowpass[PLC_PITCH_LAG_MAX/2], &lowpass[0], DEC_PITCH_BUF_SIZE-PLC_PITCH_LAG_MAX, PLC_PITCH_LAG_MAX-PLC_PITCH_LAG_MIN, &pitch, arch)
 	return PLC_PITCH_LAG_MAX - pitch
 }
@@ -1341,7 +1350,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 		curr_neural = libc.BoolInt32(curr_frame_type == int32(FRAME_PLC_NEURAL) || curr_frame_type == int32(FRAME_DRED))
 		last_neural = libc.BoolInt32(st1.Flast_frame_type == int32(FRAME_PLC_NEURAL) || st1.Flast_frame_type == int32(FRAME_DRED))
 		if st1.Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
-			v5 = celt_plc_pitch_search(tls, st1, unsafe.SliceData(decode_mem[0]), unsafe.SliceData(decode_mem[1]), C, st1.Farch)
+			v5 = celtPLCPitchSearchOwned(tls, st1, decode_mem, C, st1.Farch)
 			pitch_index = v5
 			st1.Flast_pitch_index = v5
 		} else {
