@@ -534,6 +534,50 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four LPC/FIR owner rounds extract the unchanged LPC slice kernel, migrate
+PLC/downsample LPC outputs and autocorrelations to actual Go owners, then retain
+PLC FIR and downsample FIR5 coefficient owners rather than scalar pointers.
+Final active calls pass lpc/ac/lpc2 slices and numeric channel origins; existing
+public/raw LPC/FIR/FIR5 interfaces and signed-history/unused-source identity
+boundaries remain. Counts remain101 unsafe.Pointer/105 uintptr: active DSP
+carrier changes, not removal of necessary public adapters, cast-count safety,
+new allocation/GC-map repair or performance/macOS claims.
+
+LPC reads error from ac[0] BEFORE clearing output, then rereads LIVE ac[0] for
+threshold and bailout, preserving alias effects. All float32 reflection products,
+paired symmetric updates, early30dB bailout and remaining-zero taps stay ordered.
+Owned output view precedes correlation view, with no ac snapshot; p==0 can ignore
+nil output/large unused origin but still requires ac[0]. PLC retains the original
+lpc channel index check before the call. FIR keeps x!=y identity assertion BEFORE
+coefficient views, reverses all coefficients before input/output work and retains
+original scalar/four-lane store order; ord==0 ignores nil/unused coefficient root.
+FIR5 snapshots exactly5 coefficients BEFORE length<=0 guard or sample view, then
+uses existing MAC/history/store order. No added scratch or copies beyond original
+required reversal/snapshots. Upstream celt_lpc.c and pitch.c contracts inspected.
+
+Grouped existing fixtures preserve their manual/native expectations and add span
+output/guard comparisons; LPC orders0/1/2/4/8/24, thresholds/NaNs and full-memory
+live output/correlation aliases; FIR zero-order unused coefficient and exact
+identity assertion ordering, plus coefficients overlapping source/output on the
+same unchanged extents; FIR5 aliased coefficient snapshots, empty/negative sample
+lengths and5-cell validation before zero-work guard. Existing goldens, float
+narrowing/tolerances, byte layouts, packet/sample/range/hash and GC-stress settings
+remain. No opaque-image/EOF/raw callback/global native GC safety claims.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped LPC/FIR/FIR5/PLC checkptr, typed PartA/PartB and tagged owner/cell checks
+on3 architectures, native comparisons, GC stress, codec references and diff checks.
+Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-lpc-live-span-kernel.log,
+/tmp/opus-round-plc-downsample-lpc-go-owners.log,
+/tmp/opus-round-plc-fir-go-coefficient-owner.log,
+/tmp/opus-round-downsample-fir5-go-coefficient-owner{,-retry,-retry2}.log and
+/tmp/opus-round-lpc-fir-coefficient-owners-arm-{checkptr,golden}-repeat.log.
+The first TWO full FIR5 validation attempts retain recurring native comparison
+"found pointer to free object" failures; the first retry reports it during
+TestExtensionNextAgainstC. The SECOND COMPLETE retry passes, with unchanged scope
+and fixtures. These extension/global GC issues are not claimed repaired.
+
 Four active PLC IIR rounds separate unchanged arithmetic into celtIIRSpans,
 then migrate the private PLC input, coefficient and filter-memory carriers to
 actual Go slices. Final celtIIROwned takes real input/coefficient/output owners,

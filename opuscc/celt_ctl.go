@@ -138,8 +138,8 @@ func celt_fir5(tls *libc.TLS, x *OpusT_opus_val16, num *OpusT_opus_val16, N int3
 	celtFIR5Samples(unsafe.Slice(x, int(N)), num0, num1, num2, num3, num4)
 }
 
-func celtFIR5Span(tls *libc.TLS, x []float32, num *float32, N int32) {
-	num0, num1, num2, num3, num4 := celtFIR5Coefficients(num)
+func celtFIR5Span(tls *libc.TLS, x, coefficientOwner []float32, N int32) {
+	num0, num1, num2, num3, num4 := celtFIR5CoefficientsSpan(coefficientOwner)
 	if N <= 0 {
 		return
 	}
@@ -147,7 +147,11 @@ func celtFIR5Span(tls *libc.TLS, x []float32, num *float32, N int32) {
 }
 
 func celtFIR5Coefficients(num *float32) (float32, float32, float32, float32, float32) {
-	coefs := unsafe.Slice(num, 5)
+	return celtFIR5CoefficientsSpan(unsafe.Slice(num, 5))
+}
+
+func celtFIR5CoefficientsSpan(owner []float32) (float32, float32, float32, float32, float32) {
+	coefs := owner[:5]
 	// Like celt/pitch.c, snapshot all five coefficients before the length guard/writes.
 	return coefs[0], coefs[1], coefs[2], coefs[3], coefs[4]
 }
@@ -205,7 +209,7 @@ func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, 
 		lpc2[i] = lpc[i] + float32(0.8*lpc[i-1])
 	}
 	lpc2[4] = float32(0.8 * lpc[3])
-	celtFIR5Span(tls, output, &lpc2[0], length)
+	celtFIR5Span(tls, output, lpc2[:], length)
 }
 
 // C documentation
