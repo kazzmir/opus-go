@@ -1639,6 +1639,16 @@ func Opus_unquant_fine_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end
 	unquantFineEnergySpans(tls, m, start, end, energy, prevQuant, extraQuant, dec, C)
 }
 
+func unquantFineEnergyOwned(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, oldEBands *float32, prevOwner, extraOwner []int32, dec *OpusT_ec_dec, C int32) {
+	energy := unsafe.Slice(oldEBands, C*m.FnbEBands)
+	extraQuant := extraOwner[:m.FnbEBands]
+	var prevQuant []int32
+	if prevOwner != nil {
+		prevQuant = prevOwner[:m.FnbEBands]
+	}
+	unquantFineEnergySpans(tls, m, start, end, energy, prevQuant, extraQuant, dec, C)
+}
+
 func unquantFineEnergySpans(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, energy []float32, prevQuant, extraQuant []int32, dec *OpusT_ec_dec, C int32) {
 	for i := start; i < end; i++ {
 		extra := int16(extraQuant[i])
