@@ -194,7 +194,7 @@ func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, 
 		w := float32(0.008 * float32(i))
 		ac[i] -= float32(float32(ac[i]*w) * w)
 	}
-	Opus__celt_lpc(tls, &lpc[0], &ac[0], 4)
+	celtLPCOwned(tls, lpc[:], 0, ac[:], 4)
 	tmp := float32(1)
 	for i := range lpc {
 		tmp = float32(0.9 * tmp)

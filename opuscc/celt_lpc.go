@@ -17,6 +17,15 @@ func Opus__celt_lpc(tls *libc.TLS, _lpc *OpusT_opus_val16, ac *OpusT_opus_val32,
 	celtLPCSpans(tls, lpc, correlation)
 }
 
+func celtLPCOwned(tls *libc.TLS, owner []float32, coefficientOffset int32, correlationOwner []float32, p int32) {
+	var lpc []float32
+	if p != 0 {
+		lpc = owner[int64(coefficientOffset) : int64(coefficientOffset)+int64(p)]
+	}
+	correlation := correlationOwner[:int(p)+1]
+	celtLPCSpans(tls, lpc, correlation)
+}
+
 func celtLPCSpans(tls *libc.TLS, lpc, correlation []float32) {
 	error1 := correlation[0]
 	clear(lpc)

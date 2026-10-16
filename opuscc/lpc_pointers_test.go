@@ -471,6 +471,34 @@ func TestFIRPointers(t *testing.T) {
 	}
 }
 
+func TestLPCOwnedPointers(t *testing.T) {
+	for _, p := range []int32{0, 1, 2, 4, 8, 24} {
+		for _, origin := range []int32{1, 2, p + 3} {
+			for _, energy := range []float32{0, 1e-10, float32(math.NaN()), 1} {
+				a := make([]float32, 2*p+5)
+				for i := range a {
+					a[i] = 77
+				}
+				a[1] = energy
+				for i := int32(1); i <= p; i++ {
+					a[1+i] = float32(math.Ldexp(1, -int(i)))
+				}
+				b := slices.Clone(a)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				Opus__celt_lpc(nil, &a[origin], &a[1], p)
+				celtLPCOwned(nil, b, origin, b[1:], p)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("LPC live correlation/output alias and guards", p, origin, energy, i)
+					}
+				}
+			}
+		}
+	}
+	celtLPCOwned(nil, nil, math.MaxInt32, []float32{1}, 0)
+}
+
 func TestLPCPointers(t *testing.T) {
 	for _, tc := range []struct{ ac, want []float32 }{
 		{[]float32{0, 1, 2}, []float32{0, 0}},
