@@ -203,6 +203,33 @@ func TestPitchSearchPointers(t *testing.T) {
 	}
 }
 
+func TestPitchDownsampleKernelsPointers(t *testing.T) {
+	for _, n := range []int32{8, 16} {
+		for _, factor := range []int32{2, 4} {
+			for _, C := range []int32{0, 1, 2} {
+				left, right := make([]float32, n*factor), make([]float32, n*factor)
+				for i := range left {
+					left[i], right[i] = float32(i%13-6)/37, float32(i%7-3)/19
+				}
+				a := make([]float32, n+2)
+				a[0], a[len(a)-1] = 77, 88
+				b := slices.Clone(a)
+				Opus_pitch_downsample(nil, &left[0], &right[0], &a[1], n, C, factor, 0)
+				pitchDownsampleLeft(left, b[1:len(b)-1], n, factor)
+				if C == 2 {
+					pitchDownsampleRight(right, b[1:len(b)-1], n, factor)
+				}
+				pitchDownsampleFilter(nil, b[1:len(b)-1], n, 0)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("downsample kernels/guards", n, factor, C, i)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestPitchDownsamplePointers(t *testing.T) {
 	left := [16]float32{}
 	right := [16]float32{}

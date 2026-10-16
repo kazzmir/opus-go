@@ -177,18 +177,31 @@ func celtFIR5Samples(samples []float32, num0, num1, num2, num3, num4 float32) {
 func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, factor, arch int32) {
 	x := unsafe.Slice(left, length*factor)
 	output := unsafe.Slice(out, length)
+	pitchDownsampleLeft(x, output, length, factor)
+	if C == 2 {
+		x = unsafe.Slice(right, length*factor)
+		pitchDownsampleRight(x, output, length, factor)
+	}
+	pitchDownsampleFilter(tls, output, length, arch)
+}
+
+func pitchDownsampleLeft(x, output []float32, length, factor int32) {
 	offset := factor / 2
 	for i := int32(1); i < length; i++ {
 		output[i] = float32(0.25*x[factor*i-offset]) + float32(0.25*x[factor*i+offset]) + float32(0.5*x[factor*i])
 	}
 	output[0] = float32(0.25*x[offset]) + float32(0.5*x[0])
-	if C == 2 {
-		x = unsafe.Slice(right, length*factor)
-		for i := int32(1); i < length; i++ {
-			output[i] += float32(0.25*x[factor*i-offset]) + float32(0.25*x[factor*i+offset]) + float32(0.5*x[factor*i])
-		}
-		output[0] += float32(0.25*x[offset]) + float32(0.5*x[0])
+}
+
+func pitchDownsampleRight(x, output []float32, length, factor int32) {
+	offset := factor / 2
+	for i := int32(1); i < length; i++ {
+		output[i] += float32(0.25*x[factor*i-offset]) + float32(0.25*x[factor*i+offset]) + float32(0.5*x[factor*i])
 	}
+	output[0] += float32(0.25*x[offset]) + float32(0.5*x[0])
+}
+
+func pitchDownsampleFilter(tls *libc.TLS, output []float32, length, arch int32) {
 	var ac [5]float32
 	var lpc [4]float32
 	var lpc2 [5]float32
