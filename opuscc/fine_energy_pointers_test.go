@@ -8,9 +8,19 @@ func TestFineEnergyPointers(t *testing.T) {
 	prev := [3]int32{0, 1, 0}
 	for _, previous := range []*int32{nil, &prev[0]} {
 		energy := [8]float32{123, 1, 2, 3, 4, 5, 6, 456}
+		span := energy
 		// Four available bits permit only the middle band's stereo refinement.
 		dec := OpusT_ec_dec{Fstorage: 1, Frng: 1 << 31, Fnbits_total: 36, Fend_window: 15, Fnend_bits: 32}
+		spanDec := dec
 		Opus_unquant_fine_energy(nil, &mode, 0, 3, &energy[1], previous, &extra[0], &dec, 2)
+		var prevSpan []int32
+		if previous != nil {
+			prevSpan = prev[:]
+		}
+		unquantFineEnergySpans(nil, &mode, 0, 3, span[1:7], prevSpan, extra[:], &spanDec, 2)
+		if span != energy || spanDec != dec {
+			t.Fatal("fine energy span/context/guards")
+		}
 		delta := float32(0.375)
 		if previous != nil {
 			delta /= 2
