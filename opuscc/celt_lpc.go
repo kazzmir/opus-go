@@ -14,6 +14,10 @@ var _ reflect.Type
 func Opus__celt_lpc(tls *libc.TLS, _lpc *OpusT_opus_val16, ac *OpusT_opus_val32, p int32) {
 	lpc := unsafe.Slice(_lpc, int(p))
 	correlation := unsafe.Slice(ac, int(p)+1)
+	celtLPCSpans(tls, lpc, correlation)
+}
+
+func celtLPCSpans(tls *libc.TLS, lpc, correlation []float32) {
 	error1 := correlation[0]
 	clear(lpc)
 	if correlation[0] > float32(1e-10) {

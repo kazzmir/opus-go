@@ -484,11 +484,17 @@ func TestLPCPointers(t *testing.T) {
 		for i := range out {
 			out[i] = 123
 		}
+		span := slices.Clone(out)
 		Opus__celt_lpc(nil, &out[1], &tc.ac[0], int32(len(tc.want)))
+		celtLPCSpans(nil, span[1:len(span)-1], tc.ac)
+		if !slices.Equal(span, out) {
+			t.Fatal("LPC span full output/guards")
+		}
 		if !slices.Equal(out[1:len(out)-1], tc.want) || out[0] != 123 || out[len(out)-1] != 123 {
 			t.Fatalf("ac=%v got=%v want=%v", tc.ac, out, tc.want)
 		}
 	}
 	ac := float32(1)
 	Opus__celt_lpc(nil, nil, &ac, 0)
+	celtLPCSpans(nil, nil, []float32{ac})
 }
