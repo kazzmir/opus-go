@@ -433,7 +433,7 @@ func celt_plc_pitch_search(tls *libc.TLS, st *OpusT_OpusCustomDecoder, left, rig
 	// st is unused in the non-QEXT C implementation.
 	var lowpass [DEC_PITCH_BUF_SIZE / 2]float32
 	var pitch int32
-	Opus_pitch_downsample(tls, left, right, &lowpass[0], DEC_PITCH_BUF_SIZE/2, C, 2, arch)
+	pitchDownsampleOwned(tls, left, right, lowpass[:], DEC_PITCH_BUF_SIZE/2, C, 2, arch)
 	Opus_pitch_search(tls, &lowpass[PLC_PITCH_LAG_MAX/2], &lowpass[0], DEC_PITCH_BUF_SIZE-PLC_PITCH_LAG_MAX, PLC_PITCH_LAG_MAX-PLC_PITCH_LAG_MIN, &pitch, arch)
 	return PLC_PITCH_LAG_MAX - pitch
 }

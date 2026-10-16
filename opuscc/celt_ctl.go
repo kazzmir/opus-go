@@ -185,6 +185,17 @@ func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, 
 	pitchDownsampleFilter(tls, output, length, arch)
 }
 
+func pitchDownsampleOwned(tls *libc.TLS, left, right *float32, outputOwner []float32, length, C, factor, arch int32) {
+	x := unsafe.Slice(left, length*factor)
+	output := outputOwner[:length]
+	pitchDownsampleLeft(x, output, length, factor)
+	if C == 2 {
+		x = unsafe.Slice(right, length*factor)
+		pitchDownsampleRight(x, output, length, factor)
+	}
+	pitchDownsampleFilter(tls, output, length, arch)
+}
+
 func pitchDownsampleLeft(x, output []float32, length, factor int32) {
 	offset := factor / 2
 	for i := int32(1); i < length; i++ {

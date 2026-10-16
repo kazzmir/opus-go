@@ -230,6 +230,47 @@ func TestPitchDownsampleKernelsPointers(t *testing.T) {
 	}
 }
 
+func TestPitchDownsampleOwnedPointers(t *testing.T) {
+	for _, n := range []int32{8, 16} {
+		for _, factor := range []int32{2, 4} {
+			for _, C := range []int32{0, 1, 2} {
+				for alias := 0; alias < 5; alias++ {
+					a := make([]float32, 3*n*factor+n+4)
+					for i := range a {
+						a[i] = float32(i%13-6) / 37
+					}
+					a[0], a[len(a)-1] = 77, 88
+					b := slices.Clone(a)
+					l, r, o := int32(1), 1+n*factor+1, 1+2*n*factor+2
+					switch alias {
+					case 1:
+						o = l
+					case 2:
+						o = r
+					case 3:
+						r, o = l+1, l+2
+					case 4:
+						r, o = l, l
+					}
+					var oldRight, ownedRight *float32
+					if C == 2 {
+						oldRight, ownedRight = &a[r], &b[r]
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					Opus_pitch_downsample(nil, &a[l], oldRight, &a[o], n, C, factor, 0)
+					pitchDownsampleOwned(nil, &b[l], ownedRight, b[o:o+n], n, C, factor, 0)
+					for i := range a {
+						if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+							t.Fatal("owned downsample full buffer/aliases/guards", n, factor, C, alias, i)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestPitchDownsamplePointers(t *testing.T) {
 	left := [16]float32{}
 	right := [16]float32{}
