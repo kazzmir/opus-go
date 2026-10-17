@@ -438,6 +438,15 @@ func celt_plc_pitch_search(tls *libc.TLS, st *OpusT_OpusCustomDecoder, left, rig
 	return PLC_PITCH_LAG_MAX - pitch
 }
 
+func celtPLCPitchSearchOwned(tls *libc.TLS, st *OpusT_OpusCustomDecoder, history [2][]float32, C, arch int32) int32 {
+	// st is unused in the non-QEXT C implementation.
+	var lowpass [DEC_PITCH_BUF_SIZE / 2]float32
+	var pitch int32
+	pitchDownsampleOwned(tls, history[0], history[1], lowpass[:], DEC_PITCH_BUF_SIZE/2, C, 2, arch)
+	Opus_pitch_search(tls, &lowpass[PLC_PITCH_LAG_MAX/2], &lowpass[0], DEC_PITCH_BUF_SIZE-PLC_PITCH_LAG_MAX, PLC_PITCH_LAG_MAX-PLC_PITCH_LAG_MIN, &pitch, arch)
+	return PLC_PITCH_LAG_MAX - pitch
+}
+
 func prefilterFoldState(st *OpusT_OpusCustomDecoder) (mode *OpusT_OpusCustomMode, overlap, channels int32) {
 	return st.Fmode, st.Foverlap, st.Fchannels
 }
@@ -583,9 +592,20 @@ func celtDecodeAntiCollapse(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode 
 	}
 }
 
+func celtDecodeAntiCollapseOwned(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, spectrum []float32, masks []byte, pulses []int32, energy, log, previous *float32, N, LM, channels, start, end, on int32) {
+	if on != 0 {
+		antiCollapseOwned(tls, mode.FeBands, mode.FnbEBands, spectrum, masks, LM, channels, N, start, end, energy, log, previous, pulses, state.Frng, 0, state.Farch)
+	}
+}
+
 func celtDecodeFinalEnergy(tls *libc.TLS, mode *OpusT_OpusCustomMode, energy *float32, fine, priority *int32, start, end, length, channels int32, ec *OpusT_ec_ctx) {
 	tell := ec.Fnbits_total - int32(bits.Len32(ec.Frng))
 	Opus_unquant_energy_finalise(tls, mode, start, end, energy, fine, priority, length*8-tell, ec, channels)
+}
+
+func celtDecodeFinalEnergyOwned(tls *libc.TLS, mode *OpusT_OpusCustomMode, energy *float32, fine, priority []int32, start, end, length, channels int32, ec *OpusT_ec_ctx) {
+	tell := ec.Fnbits_total - int32(bits.Len32(ec.Frng))
+	unquantFinalEnergyOwned(tls, mode, start, end, energy, fine, priority, length*8-tell, ec, channels)
 }
 
 func celtDecodeAllocationBudget(tls *libc.TLS, ec *OpusT_ec_ctx, length, transient, LM int32) (budget, reserved int32) {
@@ -1330,7 +1350,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 		curr_neural = libc.BoolInt32(curr_frame_type == int32(FRAME_PLC_NEURAL) || curr_frame_type == int32(FRAME_DRED))
 		last_neural = libc.BoolInt32(st1.Flast_frame_type == int32(FRAME_PLC_NEURAL) || st1.Flast_frame_type == int32(FRAME_DRED))
 		if st1.Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
-			v5 = celt_plc_pitch_search(tls, st1, unsafe.SliceData(decode_mem[0]), unsafe.SliceData(decode_mem[1]), C, st1.Farch)
+			v5 = celtPLCPitchSearchOwned(tls, st1, decode_mem, C, st1.Farch)
 			pitch_index = v5
 			st1.Flast_pitch_index = v5
 		} else {
@@ -1360,7 +1380,8 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 				celtAutocorrSpan(tls, exc, &ac[0], window, overlap, CELT_LPC_ORDER, max_period, st1.Farch)
 				// Noise floor followed by rounded lag-window products.
 				celtPLCLagWindow(&ac)
-				Opus__celt_lpc(tls, &lpc[c*CELT_LPC_ORDER], &ac[0], CELT_LPC_ORDER)
+				_ = lpc[c*CELT_LPC_ORDER] // Retain the original output argument's index check.
+				celtLPCOwned(tls, lpc, c*CELT_LPC_ORDER, ac[:], CELT_LPC_ORDER)
 			}
 			/* Initialize the LPC history with the samples just before the start
 			   of the region for which we're computing the excitation. */
@@ -1369,7 +1390,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			_ = exc[max_period-exc_length:] // Preserve original argument bounds checks.
 			_ = lpc[c*CELT_LPC_ORDER]
 			_ = _exc[max_period-exc_length : CELT_LPC_ORDER+max_period]
-			celtFIROwned(tls, _exc, CELT_LPC_ORDER+max_period-exc_length, unsafe.SliceData(lpc), c*CELT_LPC_ORDER, fir_tmp, exc_length, CELT_LPC_ORDER, st1.Farch)
+			celtFIROwned(tls, _exc, CELT_LPC_ORDER+max_period-exc_length, lpc, c*CELT_LPC_ORDER, fir_tmp, exc_length, CELT_LPC_ORDER, st1.Farch)
 			copy(exc[max_period-exc_length:], fir_tmp)
 			/* Check if the waveform is decaying, and if so how fast.
 			   We do this to avoid adding energy when concealing in a segment
@@ -1390,7 +1411,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			/* Apply the synthesis filter to convert the excitation back into
 			   the signal domain. */
 			_ = lpc[c*CELT_LPC_ORDER] // Retain the original coefficient index validation.
-			celtIIRAt(tls, unsafe.SliceData(buf), decode_buffer_size-N, unsafe.SliceData(lpc), c*CELT_LPC_ORDER, nil, extrapolation_len, CELT_LPC_ORDER, &lpc_mem[0], st1.Farch, buf, decode_buffer_size-N)
+			celtIIROwned(tls, buf, decode_buffer_size-N, lpc, c*CELT_LPC_ORDER, extrapolation_len, CELT_LPC_ORDER, lpc_mem[:], st1.Farch, buf, decode_buffer_size-N)
 			/* Check if the synthesis energy is higher than expected, which can
 			   happen with the signal changes during our window. If so,
 			   attenuate. */
@@ -1482,7 +1503,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	pulses = celtDecodePulseStorage(nbEBands)
 	fine_priority = celtDecodePriorityStorage(nbEBands)
 	codedBands = clt_compute_allocation(tls, mode, start, end, unsafe.SliceData(offsets), unsafe.SliceData(cap1), alloc_trim, &intensity, &dual_stereo, bits, &balance, unsafe.SliceData(pulses), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), C, LM, dec, 0, 0, 0)
-	Opus_unquant_fine_energy(tls, mode, start, end, oldBandE, nil, unsafe.SliceData(fine_quant), dec, C)
+	unquantFineEnergyOwned(tls, mode, start, end, oldBandE, nil, fine_quant, dec, C)
 	X = celtDecodeSpectrumStorage(N, C) // Contiguous per-channel normalized MDCT spectra.
 	c = 0
 	for {
@@ -1498,8 +1519,8 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	spectralX, spectralY := celtDecodeSpectrumChannels(X, N, C)
 	quant_all_bands(tls, 0, mode, start, end, spectralX, spectralY, unsafe.SliceData(collapse_masks), nil, unsafe.SliceData(pulses), shortBlocks, spread_decision, dual_stereo, intensity, unsafe.SliceData(tf_res), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, &st1.Frng, 0, st1.Farch, st1.Fdisable_inv)
 	anti_collapse_on = celtDecodeAntiCollapseBit(tls, dec, anti_collapse_rsv)
-	celtDecodeFinalEnergy(tls, mode, oldBandE, unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), start, end, len1, C, dec)
-	celtDecodeAntiCollapse(tls, st1, mode, unsafe.SliceData(X), unsafe.SliceData(collapse_masks), unsafe.SliceData(pulses), oldBandE, oldLogE, oldLogE2, N, LM, C, start, end, anti_collapse_on)
+	celtDecodeFinalEnergyOwned(tls, mode, oldBandE, fine_quant, fine_priority, start, end, len1, C, dec)
+	celtDecodeAntiCollapseOwned(tls, st1, mode, X, collapse_masks, pulses, oldBandE, oldLogE, oldLogE2, N, LM, C, start, end, anti_collapse_on)
 	if silence != 0 {
 		celtDecodeSilenceEnergy(oldBandE, nbEBands, C)
 	}

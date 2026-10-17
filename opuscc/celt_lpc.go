@@ -14,6 +14,19 @@ var _ reflect.Type
 func Opus__celt_lpc(tls *libc.TLS, _lpc *OpusT_opus_val16, ac *OpusT_opus_val32, p int32) {
 	lpc := unsafe.Slice(_lpc, int(p))
 	correlation := unsafe.Slice(ac, int(p)+1)
+	celtLPCSpans(tls, lpc, correlation)
+}
+
+func celtLPCOwned(tls *libc.TLS, owner []float32, coefficientOffset int32, correlationOwner []float32, p int32) {
+	var lpc []float32
+	if p != 0 {
+		lpc = owner[int64(coefficientOffset) : int64(coefficientOffset)+int64(p)]
+	}
+	correlation := correlationOwner[:int(p)+1]
+	celtLPCSpans(tls, lpc, correlation)
+}
+
+func celtLPCSpans(tls *libc.TLS, lpc, correlation []float32) {
 	error1 := correlation[0]
 	clear(lpc)
 	if correlation[0] > float32(1e-10) {
@@ -66,7 +79,7 @@ func celtFIRWithHistory(tls *libc.TLS, x, num, y *float32, N, ord, arch int32, h
 	celtFIRSpans(tls, input, reversed, output, N, ord)
 }
 
-func celtFIROwned(tls *libc.TLS, owner []float32, sourceOffset int32, num *float32, coefficientOffset int32, outputOwner []float32, N, ord, arch int32) {
+func celtFIROwned(tls *libc.TLS, owner []float32, sourceOffset int32, coefficientOwner []float32, coefficientOffset int32, outputOwner []float32, N, ord, arch int32) {
 	y := unsafe.SliceData(outputOwner)
 	var x *float32
 	if N > 0 {
@@ -78,7 +91,10 @@ func celtFIROwned(tls *libc.TLS, owner []float32, sourceOffset int32, num *float
 	if x == y {
 		opusCeltFatal(tls, opusDiagnosticString(3305), opusDiagnosticString(3330), 157)
 	}
-	coeff := celtDenormaliseSpan(num, coefficientOffset, ord)
+	var coeff []float32
+	if ord != 0 {
+		coeff = coefficientOwner[int64(coefficientOffset) : int64(coefficientOffset)+int64(ord)]
+	}
 	reversed := make([]float32, ord)
 	for i := range reversed {
 		reversed[i] = coeff[len(coeff)-1-i]
@@ -136,6 +152,43 @@ func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den *float32, coeff
 		output = outputOwner[int64(outputOffset) : int64(outputOffset)+int64(N)]
 	}
 	memory := unsafe.Slice(mem, ord)
+	celtIIRSpans(tls, input, coeff, output, memory, N, ord)
+	var tail []float32
+	if outputOwner != nil {
+		tail = outputOwner[int64(outputOffset)+int64(N-ord) : int64(outputOffset)+int64(N-ord)+int64(ord)]
+	} else if N >= ord {
+		tail = output[N-ord:]
+	} else {
+		// For N<ord, C reads caller-owned samples preceding out as well.
+		tail = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(out), int(N-ord)*4)), ord)
+	}
+	for i := int32(0); i < ord; i++ {
+		memory[i] = tail[ord-i-1]
+	}
+}
+
+func celtIIROwned(tls *libc.TLS, inputOwner []float32, inputOffset int32, coefficientOwner []float32, coefficientOffset int32, N, ord int32, memoryOwner []float32, arch int32, outputOwner []float32, outputOffset int32) {
+	if ord&3 != 0 {
+		opusCeltFatal(tls, opusDiagnosticString(3390), opusDiagnosticString(3330), 225)
+	}
+	var input []float32
+	if N != 0 {
+		input = inputOwner[int64(inputOffset) : int64(inputOffset)+int64(N)]
+	}
+	var coeff []float32
+	if ord != 0 {
+		coeff = coefficientOwner[int64(coefficientOffset) : int64(coefficientOffset)+int64(ord)]
+	}
+	output := outputOwner[int64(outputOffset) : int64(outputOffset)+int64(N)]
+	memory := memoryOwner[:ord]
+	celtIIRSpans(tls, input, coeff, output, memory, N, ord)
+	tail := outputOwner[int64(outputOffset)+int64(N-ord) : int64(outputOffset)+int64(N-ord)+int64(ord)]
+	for i := int32(0); i < ord; i++ {
+		memory[i] = tail[ord-i-1]
+	}
+}
+
+func celtIIRSpans(tls *libc.TLS, input, coeff, output, memory []float32, N, ord int32) {
 	reversed := make([]float32, ord)
 	history := make([]float32, N+ord)
 	for i := int32(0); i < ord; i++ {
@@ -168,18 +221,6 @@ func celtIIRAt(tls *libc.TLS, x *float32, inputOffset int32, den *float32, coeff
 		// The C tail stores the positive sum, unlike the four-sample block.
 		history[i+ord] = sum
 		output[i] = sum
-	}
-	var tail []float32
-	if outputOwner != nil {
-		tail = outputOwner[int64(outputOffset)+int64(N-ord) : int64(outputOffset)+int64(N-ord)+int64(ord)]
-	} else if N >= ord {
-		tail = output[N-ord:]
-	} else {
-		// For N<ord, C reads caller-owned samples preceding out as well.
-		tail = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(out), int(N-ord)*4)), ord)
-	}
-	for i := int32(0); i < ord; i++ {
-		memory[i] = tail[ord-i-1]
 	}
 }
 

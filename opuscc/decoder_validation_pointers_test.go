@@ -1231,6 +1231,61 @@ func TestCeltDecoderInitPointers(t *testing.T) {
 	}
 }
 
+func TestCtlScalarOutputPointers(t *testing.T) {
+	_ = OpusDecoderCtlArgs{0, nil, nil, nil, nil} // Original positional source shape.
+	if reflect.TypeFor[OpusDecoderCtlArgs]().NumField() != 5 {
+		t.Fatal("public CTL argument fields changed")
+	}
+	for _, bits := range []uint32{0, 1, 0x7fffffff, 0x80000000, 0xffffffff} {
+		var signed int32
+		var unsigned uint32
+		for _, cell := range []*opusCtlScalar{{signed: &signed}, {unsigned: &unsigned}} {
+			a := opusCtlArgs{scalar: cell}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			if !a.hasI32() || !a.hasU32() {
+				t.Fatal("typed scalar cell unavailable")
+			}
+			a.storeI32(int32(bits))
+			if a.loadU32() != bits {
+				t.Fatal("signed output word bits")
+			}
+			a.storeU32(^bits)
+			if a.loadU32() != ^bits {
+				t.Fatal("unsigned output word bits")
+			}
+		}
+	}
+	state := OpusT_OpusCustomDecoder{Ferror1: -123, Frng: 7}
+	if r := opusCustomDecoderCtlArgs(nil, &state, CELT_GET_AND_CLEAR_ERROR_REQUEST, opusCtlArgs{scalar: &opusCtlScalar{unsigned: &state.Frng}}); r != 0 || state.Frng != uint32(0xffffff85) || state.Ferror1 != 0 {
+		t.Fatal("typed unsigned cell/store-before-clear")
+	}
+	state.Frng = 0xffffffff
+	if r := opusCustomDecoderCtlArgs(nil, &state, OPUS_GET_FINAL_RANGE_REQUEST, opusCtlArgs{scalar: &opusCtlScalar{signed: &state.Ferror1}}); r != 0 || state.Ferror1 != -1 {
+		t.Fatal("typed signed cell range bits")
+	}
+	if r := opusCustomDecoderCtlArgs(nil, &state, CELT_GET_AND_CLEAR_ERROR_REQUEST, opusCtlArgs{scalar: &opusCtlScalar{signed: &state.Ferror1}}); r != 0 || state.Ferror1 != 0 {
+		t.Fatal("error self-alias sequential clear")
+	}
+	var i int32
+	var u uint32
+	if r := Opus_opus_custom_decoder_ctl_typed(nil, &state, OPUS_GET_FINAL_RANGE_REQUEST, OpusDecoderCtlArgs{I32: &i}); r != -1 {
+		t.Fatal("old wrong-slot validation changed")
+	}
+	if r := Opus_opus_custom_decoder_ctl_typed(nil, &state, OPUS_GET_COMPLEXITY_REQUEST, OpusDecoderCtlArgs{U32: &u}); r != -1 {
+		t.Fatal("old wrong-slot validation changed")
+	}
+	if r := opusCustomDecoderCtlArgs(nil, &state, OPUS_GET_FINAL_RANGE_REQUEST, opusCtlArgs{scalar: &opusCtlScalar{}}); r != -1 {
+		t.Fatal("empty scalar cell validation")
+	}
+	a := opusCtlArgs{OpusDecoderCtlArgs: OpusDecoderCtlArgs{I32: &i, U32: &u}, scalar: &opusCtlScalar{signed: &state.Ferror1}}
+	a.storeI32(77)
+	a.storeU32(88)
+	if i != 77 || u != 88 || state.Ferror1 != 0 {
+		t.Fatal("existing output slot precedence")
+	}
+}
+
 func checkDiagnosticFatal(t *testing.T, f func(), want string) {
 	t.Helper()
 	file, err := os.CreateTemp(t.TempDir(), "fatal")

@@ -78,6 +78,110 @@ func (image compareDecoderImage) save(data []byte) {
 	runtime.KeepAlive(image.owner)
 }
 
+// Resolve actual scalar fields, not an untyped address into the byte view.
+// Signed/unsigned output conventions share a typed bit-preserving cell.
+func (image compareDecoderImage) ctlAlias(a *opusCtlArgs, offset int) {
+	field, ok := compareDecoderFieldAt(image.owner.Field(0), offset)
+	if !ok {
+		panic("comparison CTL alias is not a typed field")
+	}
+	switch field.Type() {
+	case reflect.TypeFor[int32]():
+		a.scalar = &opusCtlScalar{signed: field.Addr().Interface().(*int32)}
+	case reflect.TypeFor[uint32]():
+		a.scalar = &opusCtlScalar{unsigned: field.Addr().Interface().(*uint32)}
+	case reflect.TypeFor[*OpusT_OpusCustomMode]():
+		a.Mode = field.Addr().Interface().(**OpusT_OpusCustomMode)
+	default:
+		panic("comparison CTL alias has unsupported field type")
+	}
+}
+
+func compareDecoderFieldAt(value reflect.Value, offset int) (reflect.Value, bool) {
+	if offset < 0 || offset >= int(value.Type().Size()) {
+		return reflect.Value{}, false
+	}
+	switch value.Kind() {
+	case reflect.Struct:
+		for i := 0; i < value.NumField(); i++ {
+			field := value.Type().Field(i)
+			if offset >= int(field.Offset) && offset < int(field.Offset+field.Type.Size()) {
+				return compareDecoderFieldAt(value.Field(i), offset-int(field.Offset))
+			}
+		}
+	case reflect.Array:
+		stride := int(value.Type().Elem().Size())
+		if stride != 0 {
+			return compareDecoderFieldAt(value.Index(offset/stride), offset%stride)
+		}
+	default:
+		return value, offset == 0
+	}
+	return reflect.Value{}, false
+}
+
+func compareProjectionDecoderImage(data []byte) (*OpusT_OpusProjectionDecoder, compareDecoderImage) {
+	field, _ := reflect.TypeFor[OpusT_OpusProjectionDecoder]().FieldByName("Fdemixing_matrix_size_in_bytes")
+	offset := int(field.Offset)
+	matrixSize := int32(binary.NativeEndian.Uint32(data[offset : offset+4]))
+	if matrixSize < 16 {
+		panic("noncanonical serialized projection matrix")
+	}
+	msOffset := int64(8) + int64(matrixSize)
+	if msOffset > int64(len(data)) {
+		panic("short serialized projection image")
+	}
+	channels, streams, coupled := compareMSDecoderGeometry(data[msOffset:])
+	layout := opusProjectionDecoderStorageType(channels, streams, coupled)
+	msField, _ := layout.FieldByName("Multistream")
+	if int64(msField.Offset) != msOffset {
+		panic("noncanonical serialized projection offset")
+	}
+	image := compareDecoderImageStorage(layout, data)
+	root := image.owner.Field(0)
+	compareCheckMSImage(opusMSStorageViewsAt(root.FieldByName("Multistream")), coupled)
+	return root.FieldByName("Decoder").Addr().Interface().(*OpusT_OpusProjectionDecoder), image
+}
+
+func compareMSDecoderGeometry(data []byte) (channels, streams, coupled int32) {
+	header := reflect.TypeFor[OpusT_OpusMSDecoder]()
+	layout, _ := header.FieldByName("Flayout")
+	t := reflect.TypeFor[OpusT_ChannelLayout]()
+	read := func(name string) int32 {
+		field, _ := t.FieldByName(name)
+		offset := int(layout.Offset + field.Offset)
+		return int32(binary.NativeEndian.Uint32(data[offset : offset+4]))
+	}
+	channels, streams, coupled = read("Fnb_channels"), read("Fnb_streams"), read("Fnb_coupled_streams")
+	if channels < 1 || channels > 255 || streams < 1 || streams > 255 || coupled < 0 || coupled > streams || streams+coupled > 255 {
+		panic("noncanonical serialized multistream geometry")
+	}
+	return
+}
+
+func compareMSDecoderImage(data []byte) (*OpusT_OpusMSDecoder, compareDecoderImage) {
+	_, streams, coupled := compareMSDecoderGeometry(data)
+	image := compareDecoderImageStorage(opusMSDecoderStorageType(streams, coupled), data)
+	views := opusMSStorageViewsAt(image.owner.Field(0))
+	compareCheckMSImage(views, coupled)
+	return views.Decoder, image
+}
+
+func compareCheckMSImage(views opusMSStorageViews, coupled int32) {
+	for i, codec := range views.Codecs {
+		channels := int32(1)
+		if int32(i) < coupled {
+			channels = 2
+		}
+		layout := opusDecoderStorageType(channels)
+		silk, _ := layout.FieldByName("Silk")
+		celt, _ := layout.FieldByName("Celt")
+		if codec.Decoder.Fchannels != channels || int64(codec.Decoder.Fsilk_dec_offset) != int64(silk.Offset) || int64(codec.Decoder.Fcelt_dec_offset) != int64(celt.Offset) {
+			panic("noncanonical serialized multistream child")
+		}
+	}
+}
+
 func compareOpusDecoderImage(data []byte) (*OpusT_OpusDecoder, compareDecoderImage) {
 	header := reflect.TypeFor[OpusT_OpusDecoder]()
 	channel, _ := header.FieldByName("Fchannels")

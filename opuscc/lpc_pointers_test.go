@@ -27,6 +27,8 @@ func TestIIROwnedOutputPointers(t *testing.T) {
 				}
 				memory[0], memory[len(memory)-1] = 77, 88
 				wantMemory := slices.Clone(memory)
+				spanOutput, spanMemory := slices.Clone(got), slices.Clone(memory)
+				ownedOutput, ownedMemory := slices.Clone(got), slices.Clone(memory)
 				coeff := make([]float32, ord+1)
 				for i := range coeff {
 					coeff[i] = float32(i+1) * .001
@@ -44,24 +46,82 @@ func TestIIROwnedOutputPointers(t *testing.T) {
 				entropyInitGrowStack(12)
 				runtime.GC()
 				Opus_celt_iir(nil, wx, wantDen, &want[start], n, ord, &wantMemory[1], 0)
+				spanInput := input[:n]
+				if inplace {
+					spanInput = spanOutput[start : start+n]
+				}
+				celtIIRSpans(nil, spanInput, coeff[:ord], spanOutput[start:start+n], spanMemory[1:1+ord], n, ord)
+				for i := int32(0); i < ord; i++ {
+					spanMemory[1+i] = spanOutput[start+n-1-i]
+				}
+				ownedInput, inputOffset := input, int32(0)
+				if inplace {
+					ownedInput, inputOffset = ownedOutput, start
+				}
+				celtIIROwned(nil, ownedInput, inputOffset, coefficientOwner, coefficientOffset, n, ord, ownedMemory[1:], 0, ownedOutput, start)
 				if inplace {
 					celtIIRAt(nil, &got[0], start, gotDen, coefficientOffset, nil, n, ord, &memory[1], 0, got, start)
 				} else {
 					celtIIROutputOwned(nil, gx, &coeff[0], nil, n, ord, &memory[1], 0, got, start)
 				}
 				for i := range got {
-					if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+					if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(spanOutput[i]) != math.Float32bits(want[i]) || math.Float32bits(ownedOutput[i]) != math.Float32bits(want[i]) {
 						t.Fatal("owned IIR output", ord, n, inplace, i)
 					}
 				}
 				for i := range memory {
-					if math.Float32bits(memory[i]) != math.Float32bits(wantMemory[i]) {
+					if math.Float32bits(memory[i]) != math.Float32bits(wantMemory[i]) || math.Float32bits(spanMemory[i]) != math.Float32bits(wantMemory[i]) || math.Float32bits(ownedMemory[i]) != math.Float32bits(wantMemory[i]) {
 						t.Fatal("owned IIR memory", ord, n, inplace, i)
 					}
 				}
 			}
 		}
 	}
+}
+
+func TestIIROwnedMemoryAliasPointers(t *testing.T) {
+	for _, ord := range []int32{4, 8} {
+		for _, n := range []int32{0, 1, 3, 4, 5, 8, 17} {
+			start := ord + 1
+			got := make([]float32, ord+n+2)
+			for i := range got {
+				got[i] = float32(i%7-3) * .125
+			}
+			got[0], got[len(got)-1] = 77, 88
+			want := slices.Clone(got)
+			coeff := make([]float32, ord)
+			for i := range coeff {
+				coeff[i] = float32(i+1) * .001
+			}
+			entropyInitGrowStack(12)
+			runtime.GC()
+			Opus_celt_iir(nil, &want[start], &coeff[0], &want[start], n, ord, &want[1], 0)
+			celtIIROwned(nil, got, start, coeff, 0, n, ord, got[1:], 0, got, start)
+			for i := range got {
+				if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+					t.Fatal("live IIR output/memory/history aliases", ord, n, i)
+				}
+			}
+		}
+	}
+}
+
+func TestIIROwnedEmptyInputPointers(t *testing.T) {
+	output := []float32{77, 1, 2, 3, 4, 88}
+	memory := []float32{77, 0, 0, 0, 0, 88}
+	coeff := [4]float32{}
+	celtIIROwned(nil, nil, math.MaxInt32, coeff[:], 0, 0, 4, memory[1:], 0, output, 5)
+	if !slices.Equal(memory, []float32{77, 4, 3, 2, 1, 88}) || !slices.Equal(output, []float32{77, 1, 2, 3, 4, 88}) {
+		t.Fatal("unused input keeps numeric output history/guards")
+	}
+	celtIIROwned(nil, nil, math.MaxInt32, nil, math.MaxInt32, 0, 0, nil, 0, nil, 0)
+	zeroOrder := []float32{77, 0, 88}
+	celtIIROwned(nil, []float32{.25}, 0, nil, math.MaxInt32, 1, 0, nil, 0, zeroOrder, 1)
+	if !slices.Equal(zeroOrder, []float32{77, .25, 88}) {
+		t.Fatal("unused zero-order coefficient owner")
+	}
+	want := "Fatal (internal) error in " + opusDiagnosticString(3330) + ", line 225: " + opusDiagnosticString(3390) + "\n"
+	checkDiagnosticFatal(t, func() { celtIIROwned(nil, nil, math.MaxInt32, nil, 0, 1, 3, nil, 0, nil, 0) }, want)
 }
 
 func TestIIROwnedCoefficientAliasPointers(t *testing.T) {
@@ -74,12 +134,14 @@ func TestIIROwnedCoefficientAliasPointers(t *testing.T) {
 			}
 			got[0], got[len(got)-1] = 77, 88
 			want := slices.Clone(got)
+			owned := slices.Clone(got)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			Opus_celt_iir(nil, &want[start], &want[start], &want[start], n, ord, &want[1], 0)
 			celtIIRAt(nil, &got[0], start, &got[0], start, nil, n, ord, &got[1], 0, got, start)
+			celtIIROwned(nil, owned, start, owned, start, n, ord, owned[1:], 0, owned, start)
 			for i := range got {
-				if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+				if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(owned[i]) != math.Float32bits(want[i]) {
 					t.Fatal("IIR coefficient/input/output/memory aliases", ord, n, i)
 				}
 			}
@@ -98,12 +160,32 @@ func TestPLCPitchSearchPointers(t *testing.T) {
 	entropyInitGrowStack(12)
 	runtime.GC()
 	got := celt_plc_pitch_search(nil, nil, &input[1], nil, 1, 0)
-	if got != PLC_PITCH_LAG_MAX || input != before {
-		t.Fatal("silence/guards", got)
+	owned := celtPLCPitchSearchOwned(nil, nil, [2][]float32{input[1 : len(input)-1], nil}, 1, 0)
+	if got != PLC_PITCH_LAG_MAX || owned != got || input != before {
+		t.Fatal("silence/guards", got, owned)
 	}
 	got = celt_plc_pitch_search(nil, nil, &input[1], &input[1], 2, 0)
-	if got != PLC_PITCH_LAG_MAX || input != before {
-		t.Fatal("shared channels", got)
+	owned = celtPLCPitchSearchOwned(nil, nil, [2][]float32{input[1 : len(input)-1], input[1 : len(input)-1]}, 2, 0)
+	if got != PLC_PITCH_LAG_MAX || owned != got || input != before {
+		t.Fatal("shared channels", got, owned)
+	}
+	for i := 1; i < len(input)-1; i++ {
+		input[i] = float32(math.Sin(float64(i) * .17))
+	}
+	before = input
+	for _, C := range []int32{0, 1, 2} {
+		var right *float32
+		var rightOwner []float32
+		if C == 2 {
+			right, rightOwner = &input[1], input[1:len(input)-1]
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		got = celt_plc_pitch_search(nil, nil, &input[1], right, C, 0)
+		owned = celtPLCPitchSearchOwned(nil, nil, [2][]float32{input[1 : len(input)-1], rightOwner}, C, 0)
+		if got != owned || input != before {
+			t.Fatal("periodic PLC pitch histories/guards", C, got, owned)
+		}
 	}
 }
 
@@ -138,6 +220,98 @@ func TestPitchSearchPointers(t *testing.T) {
 	Opus_pitch_search(nil, &x[0], &y[0], 16, 16, &pitch[1], 0)
 	if pitch[0] != 77 || pitch[2] != 88 || pitch[1] < 0 || pitch[1] >= 16 {
 		t.Fatal(pitch)
+	}
+}
+
+func TestPitchDownsampleKernelsPointers(t *testing.T) {
+	for _, n := range []int32{8, 16} {
+		for _, factor := range []int32{2, 4} {
+			for _, C := range []int32{0, 1, 2} {
+				left, right := make([]float32, n*factor), make([]float32, n*factor)
+				for i := range left {
+					left[i], right[i] = float32(i%13-6)/37, float32(i%7-3)/19
+				}
+				a := make([]float32, n+2)
+				a[0], a[len(a)-1] = 77, 88
+				b := slices.Clone(a)
+				Opus_pitch_downsample(nil, &left[0], &right[0], &a[1], n, C, factor, 0)
+				pitchDownsampleLeft(left, b[1:len(b)-1], n, factor)
+				if C == 2 {
+					pitchDownsampleRight(right, b[1:len(b)-1], n, factor)
+				}
+				pitchDownsampleFilter(nil, b[1:len(b)-1], n, 0)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("downsample kernels/guards", n, factor, C, i)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestPitchDownsampleOwnedPointers(t *testing.T) {
+	for _, n := range []int32{8, 16} {
+		for _, factor := range []int32{2, 4} {
+			for _, C := range []int32{0, 1, 2} {
+				for alias := 0; alias < 5; alias++ {
+					a := make([]float32, 3*n*factor+n+4)
+					for i := range a {
+						a[i] = float32(i%13-6) / 37
+					}
+					a[0], a[len(a)-1] = 77, 88
+					b := slices.Clone(a)
+					l, r, o := int32(1), 1+n*factor+1, 1+2*n*factor+2
+					switch alias {
+					case 1:
+						o = l
+					case 2:
+						o = r
+					case 3:
+						r, o = l+1, l+2
+					case 4:
+						r, o = l, l
+					}
+					var oldRight *float32
+					var ownedRight []float32
+					if C == 2 {
+						oldRight, ownedRight = &a[r], b[r:r+n*factor]
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					Opus_pitch_downsample(nil, &a[l], oldRight, &a[o], n, C, factor, 0)
+					pitchDownsampleOwned(nil, b[l:l+n*factor], ownedRight, b[o:o+n], n, C, factor, 0)
+					for i := range a {
+						if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+							t.Fatal("owned downsample full buffer/aliases/guards", n, factor, C, alias, i)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestPitchDownsampleRightOrderPointers(t *testing.T) {
+	left := [16]float32{}
+	for i := range left {
+		left[i] = float32(i+1) / 17
+	}
+	a, b := [10]float32{77, 0, 0, 0, 0, 0, 0, 0, 0, 88}, [10]float32{77, 0, 0, 0, 0, 0, 0, 0, 0, 88}
+	pitchDownsampleLeft(left[:], a[1:9], 8, 2)
+	if !validationPanics(func() { pitchDownsampleOwned(nil, left[:], nil, b[1:9], 8, 2, 2, 0) }) {
+		t.Fatal("missing stereo history must fail")
+	}
+	if a != b {
+		t.Fatal("all left stores precede right view and whitening", a, b)
+	}
+	for _, C := range []int32{0, 1, -1, 3} {
+		a, b = [10]float32{77, 0, 0, 0, 0, 0, 0, 0, 0, 88}, [10]float32{77, 0, 0, 0, 0, 0, 0, 0, 0, 88}
+		Opus_pitch_downsample(nil, &left[0], nil, &a[1], 8, C, 2, 0)
+		pitchDownsampleOwned(nil, left[:], nil, b[1:9], 8, C, 2, 0)
+		if a != b {
+			t.Fatal("nonstereo ignores absent right history", C)
+		}
 	}
 }
 
@@ -342,7 +516,7 @@ func TestFIRHistoryOwnerPointers(t *testing.T) {
 			runtime.GC()
 			celtFIRWithHistory(nil, &input[ord], &coeff[0], &got[1], n, ord, 0, input[:ord+n])
 			celtFIRSpans(nil, input[:ord+n], reversed, span[1:n+1], n, ord)
-			celtFIROwned(nil, input, ord, &coefficientOwner[0], 1, owned[1:], n, ord, 0)
+			celtFIROwned(nil, input, ord, coefficientOwner, 1, owned[1:], n, ord, 0)
 			if !slices.Equal(got, want) || !slices.Equal(span, want) || !slices.Equal(owned, want) {
 				t.Fatal("typed FIR history/guards", ord, n)
 			}
@@ -353,27 +527,33 @@ func TestFIRHistoryOwnerPointers(t *testing.T) {
 func TestFIROwnedOverlapPointers(t *testing.T) {
 	for _, ord := range []int32{4, 8} {
 		for _, n := range []int32{1, 4, 8, 12} {
-			owned := make([]float32, ord+n+4)
-			for i := range owned {
-				owned[i] = float32(i%9-4) * .0625
-			}
-			owned[0], owned[len(owned)-1] = 77, 88
-			want := slices.Clone(owned)
-			coeff := make([]float32, ord+2)
-			for i := range coeff {
-				coeff[i] = float32(i) * .00390625
-			}
-			entropyInitGrowStack(12)
-			runtime.GC()
-			Opus_celt_fir_c(nil, &want[ord+1], &coeff[1], &want[2], n, ord, 0)
-			celtFIROwned(nil, owned, ord+1, &coeff[0], 1, owned[2:], n, ord, 0)
-			for i := range owned {
-				if math.Float32bits(owned[i]) != math.Float32bits(want[i]) {
-					t.Fatal("owned FIR live overlap", ord, n, i)
+			for _, aliasCoefficients := range []bool{false, true} {
+				owned := make([]float32, ord+n+4)
+				for i := range owned {
+					owned[i] = float32(i%9-4) * .0625
 				}
-			}
-			if owned[0] != 77 || owned[len(owned)-1] != 88 {
-				t.Fatal("owned FIR overlap guards")
+				owned[0], owned[len(owned)-1] = 77, 88
+				want := slices.Clone(owned)
+				coeff := make([]float32, ord+2)
+				for i := range coeff {
+					coeff[i] = float32(i) * .00390625
+				}
+				entropyInitGrowStack(12)
+				runtime.GC()
+				referenceCoefficients, ownedCoefficients := &coeff[1], coeff[:]
+				if aliasCoefficients {
+					referenceCoefficients, ownedCoefficients = &want[1], owned
+				}
+				Opus_celt_fir_c(nil, &want[ord+1], referenceCoefficients, &want[2], n, ord, 0)
+				celtFIROwned(nil, owned, ord+1, ownedCoefficients, 1, owned[2:], n, ord, 0)
+				for i := range owned {
+					if math.Float32bits(owned[i]) != math.Float32bits(want[i]) {
+						t.Fatal("owned FIR live overlap", ord, n, i)
+					}
+				}
+				if owned[0] != 77 || owned[len(owned)-1] != 88 {
+					t.Fatal("owned FIR overlap guards")
+				}
 			}
 		}
 	}
@@ -409,6 +589,44 @@ func TestFIRPointers(t *testing.T) {
 	}
 }
 
+func TestFIROwnedUnusedCoefficientsPointers(t *testing.T) {
+	input, output := []float32{77, .25, 88}, []float32{99, 0, 66}
+	celtFIROwned(nil, input, 1, nil, math.MaxInt32, output[1:], 1, 0, 0)
+	if !slices.Equal(input, []float32{77, .25, 88}) || !slices.Equal(output, []float32{99, .25, 66}) {
+		t.Fatal("FIR zero-order coefficient owner/guards")
+	}
+	want := "Fatal (internal) error in " + opusDiagnosticString(3330) + ", line 157: " + opusDiagnosticString(3305) + "\n"
+	checkDiagnosticFatal(t, func() { celtFIROwned(nil, input, 1, nil, math.MaxInt32, input[1:], 1, 4, 0) }, want)
+}
+
+func TestLPCOwnedPointers(t *testing.T) {
+	for _, p := range []int32{0, 1, 2, 4, 8, 24} {
+		for _, origin := range []int32{1, 2, p + 3} {
+			for _, energy := range []float32{0, 1e-10, float32(math.NaN()), 1} {
+				a := make([]float32, 2*p+5)
+				for i := range a {
+					a[i] = 77
+				}
+				a[1] = energy
+				for i := int32(1); i <= p; i++ {
+					a[1+i] = float32(math.Ldexp(1, -int(i)))
+				}
+				b := slices.Clone(a)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				Opus__celt_lpc(nil, &a[origin], &a[1], p)
+				celtLPCOwned(nil, b, origin, b[1:], p)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("LPC live correlation/output alias and guards", p, origin, energy, i)
+					}
+				}
+			}
+		}
+	}
+	celtLPCOwned(nil, nil, math.MaxInt32, []float32{1}, 0)
+}
+
 func TestLPCPointers(t *testing.T) {
 	for _, tc := range []struct{ ac, want []float32 }{
 		{[]float32{0, 1, 2}, []float32{0, 0}},
@@ -422,11 +640,17 @@ func TestLPCPointers(t *testing.T) {
 		for i := range out {
 			out[i] = 123
 		}
+		span := slices.Clone(out)
 		Opus__celt_lpc(nil, &out[1], &tc.ac[0], int32(len(tc.want)))
+		celtLPCSpans(nil, span[1:len(span)-1], tc.ac)
+		if !slices.Equal(span, out) {
+			t.Fatal("LPC span full output/guards")
+		}
 		if !slices.Equal(out[1:len(out)-1], tc.want) || out[0] != 123 || out[len(out)-1] != 123 {
 			t.Fatalf("ac=%v got=%v want=%v", tc.ac, out, tc.want)
 		}
 	}
 	ac := float32(1)
 	Opus__celt_lpc(nil, nil, &ac, 0)
+	celtLPCSpans(nil, nil, []float32{ac})
 }

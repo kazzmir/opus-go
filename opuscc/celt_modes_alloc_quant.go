@@ -1304,6 +1304,28 @@ func Opus_anti_collapse(tls *libc.TLS, bands *int16, nbBands int32, X *float32, 
 	}
 	p1 := unsafe.Slice(prev1logE, historyChannels*nbBands)
 	p2 := unsafe.Slice(prev2logE, historyChannels*nbBands)
+	antiCollapseSpans(tls, b, nbBands, x, mask, pulse, energy, p1, p2, LM, C, size, start, end, seed, encode, arch)
+}
+
+func antiCollapseOwned(tls *libc.TLS, bands *int16, nbBands int32, spectrum []float32, maskOwner []byte, LM, C, size, start, end int32, logE, prev1logE, prev2logE *float32, pulseOwner []int32, seed uint32, encode, arch int32) {
+	if start >= end {
+		return
+	}
+	b := unsafe.Slice(bands, end+1)
+	x := spectrum[:max(C, 1)*size]
+	mask := maskOwner[:max(end*C, 1)]
+	pulse := pulseOwner[:end]
+	energy := unsafe.Slice(logE, max(C, 1)*nbBands)
+	historyChannels := max(C, 1)
+	if encode == 0 && C == 1 {
+		historyChannels = 2
+	}
+	p1 := unsafe.Slice(prev1logE, historyChannels*nbBands)
+	p2 := unsafe.Slice(prev2logE, historyChannels*nbBands)
+	antiCollapseSpans(tls, b, nbBands, x, mask, pulse, energy, p1, p2, LM, C, size, start, end, seed, encode, arch)
+}
+
+func antiCollapseSpans(tls *libc.TLS, b []int16, nbBands int32, x []float32, mask []byte, pulse []int32, energy, p1, p2 []float32, LM, C, size, start, end int32, seed uint32, encode, arch int32) {
 	for i := start; i < end; i++ {
 		n0 := int32(b[i+1]) - int32(b[i])
 		depth := int32((uint32(1+pulse[i]) / uint32(n0)) >> LM)

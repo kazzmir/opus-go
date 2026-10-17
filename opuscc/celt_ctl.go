@@ -138,8 +138,8 @@ func celt_fir5(tls *libc.TLS, x *OpusT_opus_val16, num *OpusT_opus_val16, N int3
 	celtFIR5Samples(unsafe.Slice(x, int(N)), num0, num1, num2, num3, num4)
 }
 
-func celtFIR5Span(tls *libc.TLS, x []float32, num *float32, N int32) {
-	num0, num1, num2, num3, num4 := celtFIR5Coefficients(num)
+func celtFIR5Span(tls *libc.TLS, x, coefficientOwner []float32, N int32) {
+	num0, num1, num2, num3, num4 := celtFIR5CoefficientsSpan(coefficientOwner)
 	if N <= 0 {
 		return
 	}
@@ -147,7 +147,11 @@ func celtFIR5Span(tls *libc.TLS, x []float32, num *float32, N int32) {
 }
 
 func celtFIR5Coefficients(num *float32) (float32, float32, float32, float32, float32) {
-	coefs := unsafe.Slice(num, 5)
+	return celtFIR5CoefficientsSpan(unsafe.Slice(num, 5))
+}
+
+func celtFIR5CoefficientsSpan(owner []float32) (float32, float32, float32, float32, float32) {
+	coefs := owner[:5]
 	// Like celt/pitch.c, snapshot all five coefficients before the length guard/writes.
 	return coefs[0], coefs[1], coefs[2], coefs[3], coefs[4]
 }
@@ -173,18 +177,42 @@ func celtFIR5Samples(samples []float32, num0, num1, num2, num3, num4 float32) {
 func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, factor, arch int32) {
 	x := unsafe.Slice(left, length*factor)
 	output := unsafe.Slice(out, length)
+	pitchDownsampleLeft(x, output, length, factor)
+	if C == 2 {
+		x = unsafe.Slice(right, length*factor)
+		pitchDownsampleRight(x, output, length, factor)
+	}
+	pitchDownsampleFilter(tls, output, length, arch)
+}
+
+func pitchDownsampleOwned(tls *libc.TLS, leftOwner, rightOwner, outputOwner []float32, length, C, factor, arch int32) {
+	x := leftOwner[:length*factor]
+	output := outputOwner[:length]
+	pitchDownsampleLeft(x, output, length, factor)
+	if C == 2 {
+		x = rightOwner[:length*factor]
+		pitchDownsampleRight(x, output, length, factor)
+	}
+	pitchDownsampleFilter(tls, output, length, arch)
+}
+
+func pitchDownsampleLeft(x, output []float32, length, factor int32) {
 	offset := factor / 2
 	for i := int32(1); i < length; i++ {
 		output[i] = float32(0.25*x[factor*i-offset]) + float32(0.25*x[factor*i+offset]) + float32(0.5*x[factor*i])
 	}
 	output[0] = float32(0.25*x[offset]) + float32(0.5*x[0])
-	if C == 2 {
-		x = unsafe.Slice(right, length*factor)
-		for i := int32(1); i < length; i++ {
-			output[i] += float32(0.25*x[factor*i-offset]) + float32(0.25*x[factor*i+offset]) + float32(0.5*x[factor*i])
-		}
-		output[0] += float32(0.25*x[offset]) + float32(0.5*x[0])
+}
+
+func pitchDownsampleRight(x, output []float32, length, factor int32) {
+	offset := factor / 2
+	for i := int32(1); i < length; i++ {
+		output[i] += float32(0.25*x[factor*i-offset]) + float32(0.25*x[factor*i+offset]) + float32(0.5*x[factor*i])
 	}
+	output[0] += float32(0.25*x[offset]) + float32(0.5*x[0])
+}
+
+func pitchDownsampleFilter(tls *libc.TLS, output []float32, length, arch int32) {
 	var ac [5]float32
 	var lpc [4]float32
 	var lpc2 [5]float32
@@ -194,7 +222,7 @@ func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, 
 		w := float32(0.008 * float32(i))
 		ac[i] -= float32(float32(ac[i]*w) * w)
 	}
-	Opus__celt_lpc(tls, &lpc[0], &ac[0], 4)
+	celtLPCOwned(tls, lpc[:], 0, ac[:], 4)
 	tmp := float32(1)
 	for i := range lpc {
 		tmp = float32(0.9 * tmp)
@@ -205,7 +233,7 @@ func Opus_pitch_downsample(tls *libc.TLS, left, right, out *float32, length, C, 
 		lpc2[i] = lpc[i] + float32(0.8*lpc[i-1])
 	}
 	lpc2[4] = float32(0.8 * lpc[3])
-	celtFIR5Span(tls, output, &lpc2[0], length)
+	celtFIR5Span(tls, output, lpc2[:], length)
 }
 
 // C documentation
@@ -1632,6 +1660,20 @@ func Opus_unquant_fine_energy(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end
 	if prev_quant != nil {
 		prevQuant = unsafe.Slice(prev_quant, m.FnbEBands)
 	}
+	unquantFineEnergySpans(tls, m, start, end, energy, prevQuant, extraQuant, dec, C)
+}
+
+func unquantFineEnergyOwned(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, oldEBands *float32, prevOwner, extraOwner []int32, dec *OpusT_ec_dec, C int32) {
+	energy := unsafe.Slice(oldEBands, C*m.FnbEBands)
+	extraQuant := extraOwner[:m.FnbEBands]
+	var prevQuant []int32
+	if prevOwner != nil {
+		prevQuant = prevOwner[:m.FnbEBands]
+	}
+	unquantFineEnergySpans(tls, m, start, end, energy, prevQuant, extraQuant, dec, C)
+}
+
+func unquantFineEnergySpans(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, energy []float32, prevQuant, extraQuant []int32, dec *OpusT_ec_dec, C int32) {
 	for i := start; i < end; i++ {
 		extra := int16(extraQuant[i])
 		if extraQuant[i] <= 0 {
@@ -1661,6 +1703,20 @@ func Opus_unquant_energy_finalise(tls *libc.TLS, m *OpusT_OpusCustomMode, start,
 	if oldEBands != nil {
 		energy = unsafe.Slice(oldEBands, C*m.FnbEBands)
 	}
+	unquantFinalEnergySpans(tls, m, start, end, energy, quant, priority, bits_left, dec, C)
+}
+
+func unquantFinalEnergyOwned(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, oldEBands *float32, quantOwner, priorityOwner []int32, bits_left int32, dec *OpusT_ec_dec, C int32) {
+	quant := quantOwner[:m.FnbEBands]
+	priority := priorityOwner[:m.FnbEBands]
+	var energy []float32
+	if oldEBands != nil {
+		energy = unsafe.Slice(oldEBands, C*m.FnbEBands)
+	}
+	unquantFinalEnergySpans(tls, m, start, end, energy, quant, priority, bits_left, dec, C)
+}
+
+func unquantFinalEnergySpans(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, energy []float32, quant, priority []int32, bits_left int32, dec *OpusT_ec_dec, C int32) {
 	for prio := int32(0); prio < 2; prio++ {
 		for i := start; i < end && bits_left >= C; i++ {
 			if quant[i] >= MAX_FINE_BITS || priority[i] != prio {
