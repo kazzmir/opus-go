@@ -103,6 +103,10 @@ func find_best_pitch(tls *libc.TLS, xcorr *OpusT_opus_val32, y *OpusT_opus_val16
 	correlations := unsafe.Slice(xcorr, int(max_pitch))
 	// C updates the energy even after the final candidate, reading one extra sample.
 	samples := unsafe.Slice(y, int(len1)+int(max_pitch))
+	findBestPitchSpans(tls, correlations, samples, len1, best_pitch)
+}
+
+func findBestPitchSpans(tls *libc.TLS, correlations, samples []float32, len1 int32, best_pitch *[2]int32) {
 	Syy := float32(1)
 	best_num := [2]OpusT_opus_val16{-1, -1}
 	var best_den [2]OpusT_opus_val32

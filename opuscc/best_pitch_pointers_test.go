@@ -27,7 +27,12 @@ func TestBestPitchPointers(t *testing.T) {
 			after  int32
 		}{before: 111, after: 222}
 		corr, y := slices.Clone(tc.corr), slices.Clone(tc.y)
+		spanResult := result
 		find_best_pitch(nil, unsafe.SliceData(corr), unsafe.SliceData(y), tc.window, int32(len(corr)), &result.pitch)
+		findBestPitchSpans(nil, corr, y, tc.window, &spanResult.pitch)
+		if spanResult != result {
+			t.Fatal("best-pitch slice kernel and guards")
+		}
 		if result.pitch != tc.want || result.before != 111 || result.after != 222 {
 			t.Fatalf("corr=%v y=%v got=%v want=%v", corr, y, result.pitch, tc.want)
 		}
