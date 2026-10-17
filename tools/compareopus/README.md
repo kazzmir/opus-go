@@ -534,6 +534,62 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four synthesis/denormalization rounds extract the unchanged denormalization
+kernel, retain actual frequency scratch, retain active spectrum owners, then
+retain actual output-pointer lists. Both normal and PLC synthesis now receive X
+as []float32 and out_syn[:] as []*float32. Explicit private input/output carriers
+contain real concrete slice owners and an explicit owned flag; legacy fields are
+only for original pointer/negative-history/unused-address compatibility. They do
+not promote caller bytes or reconstruct active owners from addresses. Counts
+remain101 unsafe.Pointer/105 uintptr: active representation work, not dead/cast
+cleanup, new scratch/allocation, fixture ownership repair or global GC-map safety.
+
+Denormalizer still reads table/geometry/downsample bound, forms output, clears
+and returns on silence BEFORE input/energy views, then forms input and energy
+views and runs the same live loop. Prefix clear, per-band gain clamp/Horner/
+integer exponent arithmetic, sequential coefficient stores, late start<=end
+assertion and final tail clear remain ordered; no snapshots or float32 product
+changes. Numeric origins combine in int64 only at owned span formation, not in
+DSP arithmetic. Zero-length owned spans ignore unused origins; raw signed-history
+and unused-end behavior remains. Spectrum input bounds are formed only when
+needed, so silent nil/unused roots stay unused.
+
+Synthesis still captures geometry and allocates exactly ONE N-float scratch,
+then forms its output list at the original point. Upmix stages before transforms,
+finishes ALL left blocks before right blocks; downmix uses existing output scratch
+and rounds the two .5 products independently; ordinary channels stay sequential.
+MDCT strided input/output consumers and numeric origins are unchanged, not
+replaced with universal contiguous spans. Output pointers remain live list loads,
+not a copied pointer array. Legacy pointer APIs, PCM/callback/layout boundaries,
+seed/error/assertion behavior and the floating saturation identity remain.
+Upstream bands.c and celt_decoder.c contracts inspected.
+
+Existing grouped denormalization fixtures additionally compare live shared input/
+output/energy owner slices on EXACT same18-float parents, start/downsample variants
+and guards. Existing synthesis matrix now exercises the owned path against its
+unchanged legacy/static-mode reference: LM0..3, all mono/stereo/upmix/downmix and
+zero-channel layouts, transient/silence, downsample1/2/3/4/6 and band limits. The
+fixture factory exposes its ORIGINAL actual X allocation as a slice (same size/
+guards), not a pointer-to-slice repair or enlarged allocation. Existing alias and
+manual upmix ordering fixtures use owned inputs/output lists; Go-only overlap
+restrictions remain documented, with no new C alias-validity claim. Codec goldens,
+packet/sample/range/hash, extents and encode/decode tolerances are unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped denormalize/synthesis checkptr, typed PartA/PartB and tagged owner/cell
+checks on3 architectures, native comparisons, GC stress, codec references and diff
+checks. Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-denormalise-live-span-kernel{,-retry}.log,
+/tmp/opus-round-synthesis-go-frequency-owner.log,
+/tmp/opus-round-synthesis-go-spectrum-owner{,-retry}.log,
+/tmp/opus-round-synthesis-go-output-list-owner.log and
+/tmp/opus-round-synthesis-span-owners-arm-{checkptr,golden}-repeat.log.
+First kernel and spectrum-owner full attempts retain recurring native
+"sweep increased allocation count" failures, with TestExtensionNextAgainstC
+active. Both COMPLETE unchanged retries pass; no fixtures/scope/tolerances reduced.
+No claim to repair those native GC/EOF issues, opaque images, raw callbacks,
+performance, or direct macOS/global lifetime safety.
+
 Four coarse pitch-xcorr rounds extract the unchanged kernel, then retain output,
 input and history owners. Active pitch search now passes x4, y4 and corr directly
 as concrete Go slices, without scalar-pointer round trips for coarse correlation.

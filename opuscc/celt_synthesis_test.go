@@ -625,7 +625,7 @@ func TestSynthesisSilentOffsetPointers(t *testing.T) {
 			}
 			entropyInitGrowStack(12)
 			runtime.GC()
-			celtSynthesisOwned(nil, mode, nil, &outputs[0], nil, 0, mode.FnbEBands, channels[0], channels[1], transient, 1, 1, 1, 0)
+			celtSynthesisOwned(nil, mode, nil, outputs[:], nil, 0, mode.FnbEBands, channels[0], channels[1], transient, 1, 1, 1, 0)
 			for _, out := range owners {
 				if out[0] != 77 || out[len(out)-1] != 88 {
 					t.Fatal("silent synthesis guards", channels, transient)
@@ -676,7 +676,7 @@ func TestSynthesisScratchPointers(t *testing.T) {
 				for _, down := range []int32{1, 2, 3, 4, 6} {
 					for _, silence := range []int32{0, 1} {
 						for _, limits := range [][2]int32{{0, 21}, {1, 19}, {21, 21}} {
-							celtSynthesisOwned(nil, m, spectrum, &actual[0], owners[1], limits[0], limits[1], layout[0], layout[1], transient, LM, down, silence, 0)
+							celtSynthesisOwned(nil, m, spectrum, actual, owners[1], limits[0], limits[1], layout[0], layout[1], transient, LM, down, silence, 0)
 							celt_synthesis(nil, &mode48000_960_120, owners[0], &expected[0], owners[1], limits[0], limits[1], layout[0], layout[1], transient, LM, down, silence, 0)
 							for _, pair := range [][2][]float32{{g0, w0}, {g1, w1}} {
 								for i := range pair[0] {
@@ -728,7 +728,7 @@ func TestSynthesisAliasesPointers(t *testing.T) {
 				expected := [2]*float32{&want[1], &want[1+offset]}
 				entropyInitGrowStack(12)
 				runtime.GC()
-				celt_synthesis(nil, m, &x[0], &heads[0], &e[0], 0, 21, 2, 2, transient, LM, 1, 0, 0)
+				celtSynthesisOwned(nil, m, x, heads[:], &e[0], 0, 21, 2, 2, transient, LM, 1, 0, 0)
 				celt_synthesis(nil, &mode48000_960_120, &x[0], &expected[0], &e[0], 0, 21, 2, 2, transient, LM, 1, 0, 0)
 				if !slices.Equal(g, want) || g[0] != 77 || g[len(g)-1] != 88 {
 					t.Fatal("shared output lifetime", LM, transient, offset)
@@ -754,7 +754,7 @@ func TestSynthesisAliasesPointers(t *testing.T) {
 	celtSynthesisIMDCT(nil, m, &want[61], &want[1], 120, 3, 1, 0)
 	celtSynthesisIMDCT(nil, m, &freq[0], &want[1], 120, 3, 1, 0)
 	heads := [2]*float32{&g[1], &g[1]}
-	celt_synthesis(nil, m, &x[0], &heads[0], &e[0], 0, 21, 1, 2, 0, 0, 1, 0, 0)
+	celtSynthesisOwned(nil, m, x, heads[:], &e[0], 0, 21, 1, 2, 0, 0, 1, 0, 0)
 	if !slices.Equal(g, want) || g[0] != 77 || g[181] != 88 {
 		t.Fatal("upmix copy/left/right order")
 	}

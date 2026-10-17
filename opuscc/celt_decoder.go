@@ -328,15 +328,29 @@ func celtSynthesisOutputCopy(destination, source *float32, N int32) {
 func celtSynthesisOutputCopyAt(destination *float32, outputOffset int32, source *float32, N int32) {
 	copy(celtDenormaliseSpan(destination, outputOffset, N), unsafe.Slice(source, N))
 }
+
+type celtSynthesisOutputs struct {
+	legacy **float32
+	owner  []*float32
+	owned  bool
+}
+
+func (source celtSynthesisOutputs) span(channels int32) []*float32 {
+	if source.owned {
+		return source.owner[:max(channels, 1)]
+	}
+	return unsafe.Slice(source.legacy, max(channels, 1))
+}
+
 func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_syn **float32, oldBandE *float32, start int32, effEnd int32, C int32, CC int32, isTransient int32, LM int32, downsample int32, silence int32, arch int32) {
-	celtSynthesisFrom(tls, mode, celtDenormaliseInput{legacy: X}, out_syn, oldBandE, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch)
+	celtSynthesisFrom(tls, mode, celtDenormaliseInput{legacy: X}, celtSynthesisOutputs{legacy: out_syn}, oldBandE, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch)
 }
 
-func celtSynthesisOwned(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum []float32, out_syn **float32, oldBandE *float32, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch int32) {
-	celtSynthesisFrom(tls, mode, celtDenormaliseInput{owner: spectrum, owned: true}, out_syn, oldBandE, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch)
+func celtSynthesisOwned(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum []float32, out_syn []*float32, oldBandE *float32, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch int32) {
+	celtSynthesisFrom(tls, mode, celtDenormaliseInput{owner: spectrum, owned: true}, celtSynthesisOutputs{owner: out_syn, owned: true}, oldBandE, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch)
 }
 
-func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtDenormaliseInput, out_syn **float32, oldBandE *float32, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch int32) {
+func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtDenormaliseInput, outputSource celtSynthesisOutputs, oldBandE *float32, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch int32) {
 	bandBoundaries := mode.FeBands
 	overlap, nbEBands, N := celtSynthesisGeometry(mode, LM)
 	// Reuse one N-sample interleaved spectrum, matching the C scratch extent.
@@ -348,7 +362,7 @@ func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtD
 	if isTransient != 0 {
 		B, NB, shift = M, mode.FshortMdctSize, mode.FmaxLM
 	}
-	outputs := unsafe.Slice(out_syn, max(CC, 1))
+	outputs := outputSource.span(CC)
 	if CC == 2 && C == 1 {
 		celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, 0, frequency, 0, oldBandE, 0, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
@@ -1313,7 +1327,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 		}
 		celtPLCDecay(oldBandE, backgroundLogE, nbEBands, start, end, C, loss_duration)
 		celtPLCNoiseSpan(tls, st1, eBands, X, N, start, effEnd, LM, C)
-		celtSynthesisOwned(tls, mode, X, &out_syn[0], oldBandE, start, effEnd, C, C, 0, LM, st1.Fdownsample, 0, st1.Farch)
+		celtSynthesisOwned(tls, mode, X, out_syn[:], oldBandE, start, effEnd, C, C, 0, LM, st1.Fdownsample, 0, st1.Farch)
 		/* Run the postfilter with the last parameters. */
 		c = 0
 		for {
@@ -1534,7 +1548,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 		celtDecodeSilenceEnergy(oldBandE, nbEBands, C)
 	}
 	celtDecodePrefilter(tls, st1, N)
-	celtSynthesisOwned(tls, mode, X, &out_syn[0], oldBandE, start, effEnd, C, CC, isTransient, LM, st1.Fdownsample, silence, st1.Farch)
+	celtSynthesisOwned(tls, mode, X, out_syn[:], oldBandE, start, effEnd, C, CC, isTransient, LM, st1.Fdownsample, silence, st1.Farch)
 	celtDecodePostfilterWithHistory(tls, st1, mode, &out_syn[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap, decode_mem)
 	celtDecodePostfilterFinish(st1, postfilter_pitch, postfilter_gain, postfilter_tapset, LM)
 	if C == 1 {
