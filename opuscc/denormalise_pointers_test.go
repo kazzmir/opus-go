@@ -58,7 +58,7 @@ func TestDenormaliseOffsetPointers(t *testing.T) {
 	for _, start := range []int32{0, 1} {
 		for _, down := range []int32{1, 2} {
 			for _, energy := range []int32{7, 13} {
-				var want, got, numeric, span, owned [18]float32
+				var want, got, numeric, span, owned, full [18]float32
 				for i := range want {
 					want[i] = float32(i%7-3) / 17
 				}
@@ -66,6 +66,7 @@ func TestDenormaliseOffsetPointers(t *testing.T) {
 				numeric = want
 				span = want
 				owned = want
+				full = want
 				// Output overlaps both spectrum and (in one case) energy.
 				Opus_denormalise_bands(nil, &denormalisePointerBands[0], 8, &want[2], &want[4], &want[energy], start, 3, 1, down, 0)
 				entropyInitGrowStack(12)
@@ -73,13 +74,14 @@ func TestDenormaliseOffsetPointers(t *testing.T) {
 				celtDenormaliseBandsAt(nil, &denormalisePointerBands[0], 8, &got[0], 2, &got[4], &got[0], energy, start, 3, 1, down, 0)
 				celtDenormaliseBandsOffsets(nil, &denormalisePointerBands[0], 8, &numeric[0], 2, &numeric[0], 4, &numeric[0], energy, start, 3, 1, down, 0)
 				celtDenormaliseBandsTo(nil, &denormalisePointerBands[0], 8, &owned[0], 2, celtDenormaliseOutput{owner: owned[:], owned: true}, 4, &owned[0], energy, start, 3, 1, down, 0)
+				celtDenormaliseBandsFromTo(nil, &denormalisePointerBands[0], 8, celtDenormaliseInput{owner: full[:], owned: true}, 2, celtDenormaliseOutput{owner: full[:], owned: true}, 4, &full[0], energy, start, 3, 1, down, 0)
 				bound := int32(6)
 				if down != 1 {
 					bound = min(bound, 8/down)
 				}
 				celtDenormaliseSpans(nil, denormalisePointerBands[:], span[2:8], span[4:12], span[energy:energy+3], start, 3, 1, bound)
 				for i := range got {
-					if math.Float32bits(span[i]) != math.Float32bits(want[i]) || math.Float32bits(owned[i]) != math.Float32bits(want[i]) {
+					if math.Float32bits(span[i]) != math.Float32bits(want[i]) || math.Float32bits(owned[i]) != math.Float32bits(want[i]) || math.Float32bits(full[i]) != math.Float32bits(want[i]) {
 						t.Fatal("denormalise span live aliases/guards", i)
 					}
 					if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) {

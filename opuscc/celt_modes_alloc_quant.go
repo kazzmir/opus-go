@@ -1247,11 +1247,31 @@ func (destination celtDenormaliseOutput) span(offset, length int32) []float32 {
 	return destination.owner[int64(offset) : int64(offset)+int64(length)]
 }
 
+type celtDenormaliseInput struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
+}
+
+func (source celtDenormaliseInput) span(offset, length int32) []float32 {
+	if !source.owned {
+		return celtDenormaliseSpan(source.legacy, offset, length)
+	}
+	if length == 0 {
+		return nil
+	}
+	return source.owner[int64(offset) : int64(offset)+int64(length)]
+}
+
 func celtDenormaliseBandsOffsets(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, xOffset int32, freq *OpusT_celt_sig, outputOffset int32, bandLogE *OpusT_celt_glog, energyOffset int32, start, end, M, downsample, silence int32) {
 	celtDenormaliseBandsTo(tls, bands, shortMdctSize, X, xOffset, celtDenormaliseOutput{legacy: freq}, outputOffset, bandLogE, energyOffset, start, end, M, downsample, silence)
 }
 
 func celtDenormaliseBandsTo(tls *libc.TLS, bands *int16, shortMdctSize int32, X *float32, xOffset int32, destination celtDenormaliseOutput, outputOffset int32, bandLogE *float32, energyOffset int32, start, end, M, downsample, silence int32) {
+	celtDenormaliseBandsFromTo(tls, bands, shortMdctSize, celtDenormaliseInput{legacy: X}, xOffset, destination, outputOffset, bandLogE, energyOffset, start, end, M, downsample, silence)
+}
+
+func celtDenormaliseBandsFromTo(tls *libc.TLS, bands *int16, shortMdctSize int32, source celtDenormaliseInput, xOffset int32, destination celtDenormaliseOutput, outputOffset int32, bandLogE *float32, energyOffset int32, start, end, M, downsample, silence int32) {
 	// Pass the two mode inputs explicitly so the table stays GC-visible here.
 	eBands := unsafe.Slice(bands, end+1)
 	N := M * shortMdctSize
@@ -1264,7 +1284,7 @@ func celtDenormaliseBandsTo(tls *libc.TLS, bands *int16, shortMdctSize int32, X 
 		clear(output)
 		return
 	}
-	input := celtDenormaliseSpan(X, xOffset, M*int32(eBands[end]))
+	input := source.span(xOffset, M*int32(eBands[end]))
 	logE := celtDenormaliseSpan(bandLogE, energyOffset, end)
 	celtDenormaliseSpans(tls, eBands, input, output, logE, start, end, M, bound)
 }

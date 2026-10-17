@@ -625,7 +625,7 @@ func TestSynthesisSilentOffsetPointers(t *testing.T) {
 			}
 			entropyInitGrowStack(12)
 			runtime.GC()
-			celt_synthesis(nil, mode, nil, &outputs[0], nil, 0, mode.FnbEBands, channels[0], channels[1], transient, 1, 1, 1, 0)
+			celtSynthesisOwned(nil, mode, nil, &outputs[0], nil, 0, mode.FnbEBands, channels[0], channels[1], transient, 1, 1, 1, 0)
 			for _, out := range owners {
 				if out[0] != 77 || out[len(out)-1] != 88 {
 					t.Fatal("silent synthesis guards", channels, transient)
@@ -645,7 +645,7 @@ func TestSynthesisScratchPointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		_, bands, N := celtSynthesisGeometry(m, LM)
 		for _, layout := range [][2]int32{{1, 1}, {2, 2}, {1, 2}, {2, 1}, {0, 0}, {0, 1}} {
-			owners := func() []*float32 {
+			owners, spectrum := func() ([]*float32, []float32) {
 				x, e := make([]float32, N*max(layout[0], layout[1], 1)+2), make([]float32, bands*max(layout[0], layout[1], 1)+2)
 				l, r := make([]float32, N+62), make([]float32, N+62)
 				for i := range x {
@@ -659,7 +659,7 @@ func TestSynthesisScratchPointers(t *testing.T) {
 					r[i] = float32(i%13-6) / 37
 				}
 				l[0], l[len(l)-1], r[0], r[len(r)-1] = 77, 88, 99, 111
-				return []*float32{&x[1], &e[1], &l[0], &r[0]}
+				return []*float32{&x[1], &e[1], &l[0], &r[0]}, x[1 : len(x)-1]
 			}()
 			g0, g1 := unsafe.Slice(owners[2], N+62), unsafe.Slice(owners[3], N+62)
 			w0, w1 := slices.Clone(g0), slices.Clone(g1)
@@ -676,7 +676,7 @@ func TestSynthesisScratchPointers(t *testing.T) {
 				for _, down := range []int32{1, 2, 3, 4, 6} {
 					for _, silence := range []int32{0, 1} {
 						for _, limits := range [][2]int32{{0, 21}, {1, 19}, {21, 21}} {
-							celt_synthesis(nil, m, owners[0], &actual[0], owners[1], limits[0], limits[1], layout[0], layout[1], transient, LM, down, silence, 0)
+							celtSynthesisOwned(nil, m, spectrum, &actual[0], owners[1], limits[0], limits[1], layout[0], layout[1], transient, LM, down, silence, 0)
 							celt_synthesis(nil, &mode48000_960_120, owners[0], &expected[0], owners[1], limits[0], limits[1], layout[0], layout[1], transient, LM, down, silence, 0)
 							for _, pair := range [][2][]float32{{g0, w0}, {g1, w1}} {
 								for i := range pair[0] {
