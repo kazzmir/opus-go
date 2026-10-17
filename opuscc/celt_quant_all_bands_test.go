@@ -101,7 +101,7 @@ func TestQuantAllBandsActivePointers(t *testing.T) {
 				tls = libc.NewTLS()
 				libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(sentinel)))
 			}
-			quantAllBandsOwned(tls, 0, mode, 0, bands, &x[1], right, masks[1:len(masks)-1], nil, pulses, 1, SPREAD_NORMAL, 0, bands, &tf[0], 4096, 24, ec, LM, bands, &seed, 8, 0, 0)
+			quantAllBandsOwned(tls, 0, mode, 0, bands, &x[1], right, masks[1:len(masks)-1], nil, pulses, 1, SPREAD_NORMAL, 0, bands, tf, 4096, 24, ec, LM, bands, &seed, 8, 0, 0)
 			if *sentinel != before {
 				t.Fatal("quantizer touched legacy cursor")
 			}
@@ -155,7 +155,7 @@ func TestQuantAllBandsWholePointers(t *testing.T) {
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		quantAllBandsOwned(nil, 1, mode, 0, 3, &x[1], right, masks[1:7], &energy[0], pulses, 0, tc.spread, tc.dual, 3, &tf[0], 400, 24, ec, 0, 3, &seed, tc.complexity, 0, 0)
+		quantAllBandsOwned(nil, 1, mode, 0, 3, &x[1], right, masks[1:7], &energy[0], pulses, 0, tc.spread, tc.dual, 3, tf, 400, 24, ec, 0, 3, &seed, tc.complexity, 0, 0)
 		Opus_ec_enc_done(nil, ec)
 		wantedMasks := "\x01\x01\x01"
 		if tc.stereo {
@@ -184,7 +184,7 @@ func TestQuantAllBandsWholePointers(t *testing.T) {
 	masks := make([]byte, 6)
 	entropyInitGrowStack(12)
 	runtime.GC()
-	quantAllBandsOwned(nil, 0, mode, 0, 3, &x[0], &y[0], masks, &energy[0], pulses, 0, SPREAD_NORMAL, 0, 3, &tf[0], 400, 24, ec, 0, 3, &seed, 8, 0, 0)
+	quantAllBandsOwned(nil, 0, mode, 0, 3, &x[0], &y[0], masks, &energy[0], pulses, 0, SPREAD_NORMAL, 0, 3, tf, 400, 24, ec, 0, 3, &seed, 8, 0, 0)
 	if fnv1aFloats(x) != 0xba1de34d || fnv1aFloats(y) != 0xa91fb3cd || seed != 123456789 || string(masks) != "\x01\x01\x01\x01\x01\x01" {
 		t.Fatal("whole typed decode C golden")
 	}
@@ -672,14 +672,15 @@ func TestQuantAllBandsPulsePointers(t *testing.T) {
 
 func TestQuantAllBandsTFPointers(t *testing.T) {
 	flags := []int32{77, -3, 0, 2, 88}
+	view := quantAllBandsIntSource{owner: flags[1:4], owned: true}
 	for band := int32(0); band < 3; band++ {
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if quantAllBandsTF(&flags[1], band) != flags[band+1] {
+		if quantAllBandsTF(&flags[1], band) != flags[band+1] || view.at(band) != flags[band+1] {
 			t.Fatal("TF view", band)
 		}
 		flags[band+1]++
-		if quantAllBandsTF(&flags[1], band) != flags[band+1] || flags[0] != 77 || flags[4] != 88 {
+		if quantAllBandsTF(&flags[1], band) != flags[band+1] || view.at(band) != flags[band+1] || flags[0] != 77 || flags[4] != 88 {
 			t.Fatal("live TF flags")
 		}
 	}
