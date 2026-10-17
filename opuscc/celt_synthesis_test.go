@@ -287,7 +287,7 @@ func TestAllocationOutputsPointers(t *testing.T) {
 					e.Fbuf = &buf[0]
 					entropyInitGrowStack(12)
 					runtime.GC()
-					r := allocationInterpSpans(nil, m, 0, 21, 0, a[0][1:22], a[1][1:22], a[2][1:22], a[3][1:22], a[4][1:22], a[5][1:22], a[6][1:22], budget, &s[0], 0, &s[1], 0, &s[2], 0, C, LM, g, encode, 20, 20)
+					r := allocationInterpOwned(nil, m, 0, 21, 0, a[0][1:22], a[1][1:22], a[2][1:22], a[3][1:22], budget, &s[0], 0, &s[1], 0, &s[2], 0, &a[4][1], &a[5][1], &a[6][1], C, LM, g, encode, 20, 20)
 					wr := interp_bits2pulses(nil, &mode48000_960_120, 0, 21, 0, &b[0][1], &b[1][1], &b[2][1], &b[3][1], budget, &w[0], 0, &w[1], 0, &w[2], 0, &b[4][1], &b[5][1], &b[6][1], C, LM, &e, encode, 20, 20)
 					gc := *g
 					gc.Fbuf = nil
@@ -310,7 +310,7 @@ func TestAllocationOutputsPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
-	r := interp_bits2pulses(tls, m, 0, 1, 0, &arrays[0][0], &arrays[1][0], &arrays[2][0], &arrays[3][0], 0, &balance, 0, &shared, 0, &shared, 0, &arrays[4][0], &arrays[5][0], &arrays[6][0], 1, 0, nil, 0, 0, 0)
+	r := allocationInterpOwned(tls, m, 0, 1, 0, arrays[0][:], arrays[1][:], arrays[2][:], arrays[3][:], 0, &balance, 0, &shared, 0, &shared, 0, &arrays[4][0], &arrays[5][0], &arrays[6][0], 1, 0, nil, 0, 0, 0)
 	if r != 1 || balance != 0 || shared != 0 || arrays[6][0] != 1 || libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
 		t.Fatal("allocation nil entropy/scalar alias/TLS", r, balance, shared, arrays)
 	}

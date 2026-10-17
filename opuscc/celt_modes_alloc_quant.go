@@ -606,6 +606,12 @@ func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end
 	return allocationInterpSpans(tls, m, start, end, skip_start, a1, a2, thresholds, caps, pulse, fine, priority, total, _balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, C, LM, ec, encode, prev, signalBandwidth)
 }
 
+func allocationInterpOwned(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end, skip_start int32, row1, row2, thresholdOwner, capOwner []int32, total int32, balance *int32, skip_rsv int32, intensity *int32, intensity_rsv int32, dual_stereo *int32, dual_stereo_rsv int32, bits, ebits, fine_priority *int32, C, LM int32, ec *OpusT_ec_ctx, encode, prev, signalBandwidth int32) int32 {
+	pulse, fine, priority := unsafe.Slice(bits, end), unsafe.Slice(ebits, end), unsafe.Slice(fine_priority, end)
+	a1, a2, thresholds, caps := row1[:end], row2[:end], thresholdOwner[:end], capOwner[:end]
+	return allocationInterpSpans(tls, m, start, end, skip_start, a1, a2, thresholds, caps, pulse, fine, priority, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, C, LM, ec, encode, prev, signalBandwidth)
+}
+
 func allocationInterpSpans(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end, skip_start int32, a1, a2, thresholds, caps, pulse, fine, priority []int32, total int32, _balance *int32, skip_rsv int32, intensity *int32, intensity_rsv int32, dual_stereo *int32, dual_stereo_rsv, C, LM int32, ec *OpusT_ec_ctx, encode, prev, signalBandwidth int32) int32 {
 	var alloc_floor, band_bits, band_width, codedBands, depth_threshold, done, hi, i, j, lo, logM, mid, rem, stereo, tmp, tmp1, v7, v8 int32
 	var left, percoeff, psum int32
@@ -995,7 +1001,7 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 		bits2[j] = bits2j
 		j = j + 1
 	}
-	codedBands = interp_bits2pulses(tls, m, start, end, skip_start, unsafe.SliceData(bits1), unsafe.SliceData(bits2), unsafe.SliceData(thresh), cap1, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
+	codedBands = allocationInterpOwned(tls, m, start, end, skip_start, bits1, bits2, thresh, caps, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
 	return codedBands
 }
 
