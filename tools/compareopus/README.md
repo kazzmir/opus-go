@@ -534,6 +534,50 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four coarse pitch-xcorr rounds extract the unchanged kernel, then retain output,
+input and history owners. Active pitch search now passes x4, y4 and corr directly
+as concrete Go slices, without scalar-pointer round trips for coarse correlation.
+The public raw xcorr entry remains. Counts remain101 unsafe.Pointer/105 uintptr:
+active carrier work, not adapter/cast deletion, new allocation/scratch, fixture
+ownership repair or proof of global lifetime/performance/macOS safety.
+
+Max-pitch assertion stays BEFORE all views; setup remains input, history, output;
+the unrolled len>=3 assertion stays AFTER those views and before output stores.
+Input extent is length. History extent is exactly length+maxPitch-1 when length>0,
+otherwise zero, preserving original int32 arithmetic. This is ONE LESS than the
+subsequent candidate-energy extent, so y4 remains its full owner for candidate
+selection; no fixtures or reads are extended. Scalar zero-length lags1..3 still
+write zero correlations without touching either input. Unsupported short unrolled
+lengths still assert. Four accumulators, rotating history temporaries, original
+sample/remainder order, sequential four-lag stores and scalar tail stores stay;
+no audio/context snapshots, algebraic dot-product replacement or reassociation.
+Original ignored arch behavior remains. Upstream pitch.c and pitch.h inspected;
+existing Go public validation and assertion behavior remain unchanged.
+
+Existing grouped xcorr fixtures keep the independent scalar expected values for
+lengths0..19 and lags1..13 on exact history extents. Added whole-buffer/full-bit
+comparisons cover remainders, output overlapping input/history (including shifted
+starts), guards, GC and stack growth. These numeric aliases are Go compatibility
+cases, not new independent C alias-domain claims. Directed tests retain original
+max-pitch and unrolled diagnostics, bounds failure before the unrolled assertion,
+no stores on failure, zero-length unrolled failure with nil inputs, and an exact
+6-sample history yielding14/20/26/32 (not a7-sample enlargement). Existing codec
+packet/sample/range/hash, encode/decode goldens and tolerances are unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped xcorr/search/PLC checkptr, typed PartA/PartB and tagged owner/cell checks
+on3 architectures, native comparisons, GC stress, codec references and diff checks.
+Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-pitch-xcorr-live-span-kernel.log,
+/tmp/opus-round-pitch-xcorr-go-output-owner{,-retry}.log,
+/tmp/opus-round-pitch-xcorr-go-input-owner.log,
+/tmp/opus-round-pitch-xcorr-go-history-owner.log and
+/tmp/opus-round-pitch-xcorr-owners-arm-{checkptr,golden}-repeat.log.
+The first output-owner full run retains the recurring native comparison
+"found pointer to free object" failure (TestExtensionNextAgainstC was active).
+The COMPLETE unchanged retry passes; no fixture/scope/tolerance reduction and no
+claim to repair extension EOF/global native GC, raw callbacks or opaque images.
+
 Four pitch-search rounds extract live best-candidate and search kernels, retain
 PLC's actual lowpass owner with numeric input/history origins, then pass actual
 correlation/downsampled-history buffers to both candidate searches. Active PLC

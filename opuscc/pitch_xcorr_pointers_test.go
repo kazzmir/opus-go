@@ -21,7 +21,7 @@ func TestPitchXCorrOwnedAliasesPointers(t *testing.T) {
 				entropyInitGrowStack(12)
 				runtime.GC()
 				Opus_celt_pitch_xcorr_c(nil, &a[1], &a[n+3], &a[origin], n, lags, 0)
-				pitchXCorrOwned(nil, b[1:1+n], &b[n+3], b[origin:origin+lags], n, lags, 0)
+				pitchXCorrOwned(nil, b[1:1+n], b[n+3:n+3+n+lags-1], b[origin:origin+lags], n, lags, 0)
 				for i := range a {
 					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
 						t.Fatal("xcorr full-buffer live aliases/guards", n, lags, origin, i)
@@ -39,7 +39,7 @@ func TestPitchXCorrValidationPointers(t *testing.T) {
 	x, y, out := [2]float32{}, [5]float32{}, [6]float32{77, 1, 2, 3, 4, 88}
 	before := out
 	want = "Fatal (internal) error in " + opusDiagnosticString(3374) + ", line 69: " + opusDiagnosticString(3349) + "\n"
-	checkDiagnosticFatal(t, func() { pitchXCorrOwned(nil, x[:], &y[0], out[1:5], 2, 4, 0) }, want)
+	checkDiagnosticFatal(t, func() { pitchXCorrOwned(nil, x[:], y[:], out[1:5], 2, 4, 0) }, want)
 	if out != before {
 		t.Fatal("unrolled assertion before any output store")
 	}
@@ -47,10 +47,34 @@ func TestPitchXCorrValidationPointers(t *testing.T) {
 	var caught any
 	func() {
 		defer func() { caught = recover() }()
-		pitchXCorrOwned(nil, short[:], &y[0], out[1:5], 2, 4, 0)
+		pitchXCorrOwned(nil, short[:], y[:], out[1:5], 2, 4, 0)
 	}()
 	if _, ok := caught.(runtime.Error); !ok || out != before {
 		t.Fatal("input view precedes unrolled assertion")
+	}
+}
+
+func TestPitchXCorrHistoryExtentPointers(t *testing.T) {
+	x, history := [3]float32{1, 2, 3}, [6]float32{1, 2, 3, 4, 5, 6}
+	a, b := [6]float32{77, 0, 0, 0, 0, 88}, [6]float32{77, 0, 0, 0, 0, 88}
+	Opus_celt_pitch_xcorr_c(nil, &x[0], &history[0], &a[1], 3, 4, 0)
+	pitchXCorrOwned(nil, x[:], history[:], b[1:5], 3, 4, 0)
+	if a != b || b != [6]float32{77, 14, 20, 26, 32, 88} {
+		t.Fatal("exact final-lag history extent/guards", a, b)
+	}
+	before := b
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		pitchXCorrOwned(nil, x[:], history[:5:5], b[1:5], 3, 4, 0)
+	}()
+	if _, ok := caught.(runtime.Error); !ok || b != before {
+		t.Fatal("short history rejected before stores/unrolled work")
+	}
+	want := "Fatal (internal) error in " + opusDiagnosticString(3374) + ", line 69: " + opusDiagnosticString(3349) + "\n"
+	checkDiagnosticFatal(t, func() { pitchXCorrOwned(nil, nil, nil, b[1:5], 0, 4, 0) }, want)
+	if b != before {
+		t.Fatal("zero-length unrolled assertion has no stores or history reads")
 	}
 }
 
@@ -78,7 +102,7 @@ func TestPitchXCorrPointers(t *testing.T) {
 			owned := slices.Clone(out)
 			Opus_celt_pitch_xcorr_c(nil, unsafe.SliceData(x), unsafe.SliceData(y), &out[1], int32(n), int32(lags), 0)
 			pitchXCorrSpans(nil, x, y, span[1:lags+1], int32(n), int32(lags))
-			pitchXCorrOwned(nil, x, unsafe.SliceData(y), owned[1:lags+1], int32(n), int32(lags), 0)
+			pitchXCorrOwned(nil, x, y, owned[1:lags+1], int32(n), int32(lags), 0)
 			for i := range out {
 				if math.Float32bits(out[i]) != math.Float32bits(span[i]) || math.Float32bits(out[i]) != math.Float32bits(owned[i]) {
 					t.Fatal("pitch xcorr kernel/guards", n, lags, i)
