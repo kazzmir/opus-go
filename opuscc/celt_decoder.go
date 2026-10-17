@@ -1540,7 +1540,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	// Decode fixed codebook using Go-owned per-channel collapse flags.
 	collapse_masks = celtDecodeMaskStorage(nbEBands, C)
 	spectralX, spectralY := celtDecodeSpectrumChannels(X, N, C)
-	quant_all_bands(tls, 0, mode, start, end, spectralX, spectralY, unsafe.SliceData(collapse_masks), nil, unsafe.SliceData(pulses), shortBlocks, spread_decision, dual_stereo, intensity, unsafe.SliceData(tf_res), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, &st1.Frng, 0, st1.Farch, st1.Fdisable_inv)
+	quantAllBandsOwned(tls, 0, mode, start, end, spectralX, spectralY, collapse_masks, nil, unsafe.SliceData(pulses), shortBlocks, spread_decision, dual_stereo, intensity, unsafe.SliceData(tf_res), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, &st1.Frng, 0, st1.Farch, st1.Fdisable_inv)
 	anti_collapse_on = celtDecodeAntiCollapseBit(tls, dec, anti_collapse_rsv)
 	celtDecodeFinalEnergyOwned(tls, mode, oldBandE, fine_quant, fine_priority, start, end, len1, C, dec)
 	celtDecodeAntiCollapseOwned(tls, st1, mode, X, collapse_masks, pulses, oldBandE, oldLogE, oldLogE2, N, LM, C, start, end, anti_collapse_on)

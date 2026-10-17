@@ -2792,8 +2792,40 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, 
 	quant_all_bands(tls, encode, m, start, end, X_, Y_, collapse_masks, bandE, pulses, shortBlocks, spread, dual_stereo, intensity, tf_res, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
 }
 
+type quantAllBandsMasks struct {
+	legacy *byte
+	owner  []byte
+	owned  bool
+}
+
+func (masks quantAllBandsMasks) at(index int32) uint32 {
+	if masks.owned {
+		return uint32(masks.owner[index])
+	}
+	return quantAllBandsMask(masks.legacy, index)
+}
+
+func (masks quantAllBandsMasks) store(band, channels int32, left, right uint32) {
+	if !masks.owned {
+		quantAllBandsMaskStore(masks.legacy, band, channels, left, right)
+		return
+	}
+	first := band * channels
+	masks.owner[first] = uint8(left)
+	last := first + channels - 1
+	masks.owner[last] = uint8(right)
+}
+
 // Internal spectra, entropy, tables and scratch owners are typed.
 func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ *float32, collapse_masks *byte, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+	quantAllBandsFrom(tls, encode, m, start, end, X_, Y_, quantAllBandsMasks{legacy: collapse_masks}, bandE, pulses, shortBlocks, spread, dual_stereo, intensity, tf_res, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
+}
+
+func quantAllBandsOwned(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ *float32, masks []byte, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+	quantAllBandsFrom(tls, encode, m, start, end, X_, Y_, quantAllBandsMasks{owner: masks, owned: true}, bandE, pulses, shortBlocks, spread, dual_stereo, intensity, tf_res, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
+}
+
+func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ *float32, masks quantAllBandsMasks, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
 	// Go storage scans context owners throughout PVQ recursion.
 	ctx := new(band_ctx)
 	// Channel weights now stay Go-visible across calls and stack growth.
@@ -2989,8 +3021,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			x_cm = v217
 			fold_i = fold_start
 			for {
-				x_cm = x_cm | quantAllBandsMask(collapse_masks, fold_i*C)
-				y_cm = y_cm | quantAllBandsMask(collapse_masks, fold_i*C+C-1)
+				x_cm = x_cm | masks.at(fold_i*C)
+				y_cm = y_cm | masks.at(fold_i*C+C-1)
 				fold_i = fold_i + 1
 				v1 = fold_i
 				if !(v1 < fold_end) {
@@ -3085,7 +3117,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			}
 			y_cm = x_cm
 		}
-		quantAllBandsMaskStore(collapse_masks, i1, C, x_cm, y_cm)
+		masks.store(i1, C, x_cm, y_cm)
 		balance = balance + (quantAllBandsPulse(pulses, i1) + tell)
 		/* Update the folding position only as long as we have 1 bit/sample depth. */
 		update_lowband = libc.BoolInt32(b > N1<<int32(BITRES))

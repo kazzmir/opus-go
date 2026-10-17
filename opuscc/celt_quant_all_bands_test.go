@@ -3,6 +3,7 @@ package opuscc
 import (
 	"math"
 	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 
@@ -100,7 +101,7 @@ func TestQuantAllBandsActivePointers(t *testing.T) {
 				tls = libc.NewTLS()
 				libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(sentinel)))
 			}
-			quant_all_bands(tls, 0, mode, 0, bands, &x[1], right, &masks[1], nil, &pulses[0], 1, SPREAD_NORMAL, 0, bands, &tf[0], 4096, 24, ec, LM, bands, &seed, 8, 0, 0)
+			quantAllBandsOwned(tls, 0, mode, 0, bands, &x[1], right, masks[1:len(masks)-1], nil, &pulses[0], 1, SPREAD_NORMAL, 0, bands, &tf[0], 4096, 24, ec, LM, bands, &seed, 8, 0, 0)
 			if *sentinel != before {
 				t.Fatal("quantizer touched legacy cursor")
 			}
@@ -154,7 +155,7 @@ func TestQuantAllBandsWholePointers(t *testing.T) {
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		quant_all_bands(nil, 1, mode, 0, 3, &x[1], right, &masks[1], &energy[0], &pulses[0], 0, tc.spread, tc.dual, 3, &tf[0], 400, 24, ec, 0, 3, &seed, tc.complexity, 0, 0)
+		quantAllBandsOwned(nil, 1, mode, 0, 3, &x[1], right, masks[1:7], &energy[0], &pulses[0], 0, tc.spread, tc.dual, 3, &tf[0], 400, 24, ec, 0, 3, &seed, tc.complexity, 0, 0)
 		Opus_ec_enc_done(nil, ec)
 		wantedMasks := "\x01\x01\x01"
 		if tc.stereo {
@@ -183,7 +184,7 @@ func TestQuantAllBandsWholePointers(t *testing.T) {
 	masks := make([]byte, 6)
 	entropyInitGrowStack(12)
 	runtime.GC()
-	quant_all_bands(nil, 0, mode, 0, 3, &x[0], &y[0], &masks[0], &energy[0], &pulses[0], 0, SPREAD_NORMAL, 0, 3, &tf[0], 400, 24, ec, 0, 3, &seed, 8, 0, 0)
+	quantAllBandsOwned(nil, 0, mode, 0, 3, &x[0], &y[0], masks, &energy[0], &pulses[0], 0, SPREAD_NORMAL, 0, 3, &tf[0], 400, 24, ec, 0, 3, &seed, 8, 0, 0)
 	if fnv1aFloats(x) != 0xba1de34d || fnv1aFloats(y) != 0xa91fb3cd || seed != 123456789 || string(masks) != "\x01\x01\x01\x01\x01\x01" {
 		t.Fatal("whole typed decode C golden")
 	}
@@ -632,11 +633,24 @@ func TestQuantAllBandsMaskPointers(t *testing.T) {
 			entropyInitGrowStack(12)
 			runtime.GC()
 			left, right := uint32(0x1234), uint32(0x5678)
+			owned := slices.Clone(masks)
+			view := quantAllBandsMasks{owner: owned[1:7], owned: true}
+			view.store(band, channels, left, right)
 			quantAllBandsMaskStore(&masks[1], band, channels, left, right)
+			if !slices.Equal(masks, owned) || view.at(band*channels+channels-1) != uint32(uint8(right)) {
+				t.Fatal("owned mask stores/reads/guards")
+			}
 			if quantAllBandsMask(&masks[1], band*channels+channels-1) != uint32(uint8(right)) || channels == 2 && quantAllBandsMask(&masks[1], band*channels) != uint32(uint8(left)) || masks[0] != 77 || masks[7] != 88 {
 				t.Fatal("mask narrowing/order", channels, band)
 			}
 		}
+	}
+}
+
+func TestQuantAllBandsMaskPartialStorePointers(t *testing.T) {
+	mask := [1]byte{77}
+	if !validationPanics(func() { (quantAllBandsMasks{owner: mask[:], owned: true}).store(0, 2, 0x1234, 0x5678) }) || mask[0] != 0x34 {
+		t.Fatal("left narrowing/store must precede right bounds failure", mask)
 	}
 }
 
