@@ -534,6 +534,54 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four allocation rounds extract the unchanged interpolation slice kernel, retain
+actual bits1/bits2/threshold/cap rows, retain active decoder offsets/caps, then
+retain pulse/fine/priority outputs. Normal decode now passes ALL five allocation
+arrays as concrete Go slices instead of scalar addresses. Internal curve scratch
+already allocated in Go also remains slice-valued through interpolation. Explicit
+allocationOutputs holds real slice owners with an owned flag; legacy scalar
+pointers serve only the original raw compatibility path. Counts remain101
+unsafe.Pointer/105 uintptr: active carrier work, not cast/adapter deletion,
+fixture ownership repair, new scratch/storage or global lifetime/performance proof.
+
+Driver still forms offset then cap views BEFORE total clamp/mode/reservations,
+retains bit/intensity/dual-stereo reservation order, exact curve scratch lengths,
+[start,end) initialization, binary searches, vector/table reloads and int32 shift/
+product/wrapping arithmetic. Outputs are NOT clipped early at driver entry:
+interpolation forms pulse, fine, priority views BEFORE row1,row2,threshold,cap
+views, then runs the same live loops. Skip signaling, entropy calls, scalar
+intensity/dual aliases, sequential pulse/fine/priority stores, remaining-balance
+store BEFORE skipped-band updates and assertions remain ordered. No table/audio/
+context snapshots; cap/offset/output overlaps remain live. The original pointer
+interfaces and no-TLS-scratch behavior remain. Upstream rate.c inspected.
+
+Existing grouped driver/interpolation fixtures now exercise actual owner slices
+against unchanged legacy/static-mode references with SAME seven23-int arrays,
+guards, buffers and expectations. Coverage retains channels1/2, LM0..3, start0/18,
+negative/zero/high budgets, trims0/10, encode/decode, complete entropy context and
+buffer comparisons, GC/stack growth, exact one-cell/nil-entropy/TLS-sentinel cases.
+All seven alias routes compare owned vs raw: pulse/offset, intensity/dual,
+balance/final-fine, priority/fine, intensity/pulse, pulse/cap and fine/cap. A private
+bounded setup test checks that a short pulse view fails before nil rows/mode and
+without stores. No pointer slots are poisoned; Go-only invalid/alias cases are
+not new native valid-domain claims. Existing codec/native packet/sample/range/
+hash, assertions, fixtures, goldens and encode/decode tolerances are unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped allocation checkptr, typed PartA/PartB and tagged owner/cell checks on3
+architectures, native comparisons, GC stress, codec references and diff checks.
+Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-allocation-interp-live-span-kernel.log,
+/tmp/opus-round-allocation-go-interpolation-rows{,-retry}.log,
+/tmp/opus-round-allocation-go-offset-cap-owners.log,
+/tmp/opus-round-allocation-go-output-owners.log and
+/tmp/opus-round-allocation-span-owners-arm-{checkptr,golden}-repeat.log.
+First row-owner full attempt retains recurring native comparison "found pointer
+to free object", with TestExtensionNextAgainstC active. The COMPLETE unchanged
+retry passes; no scope/fixture/tolerance reduction. Extension EOF/global native
+GC issues, opaque images, raw callbacks and direct macOS/global safety/performance
+guarantees remain outside these typed numeric buffer interfaces.
+
 Four synthesis/denormalization rounds extract the unchanged denormalization
 kernel, retain actual frequency scratch, retain active spectrum owners, then
 retain actual output-pointer lists. Both normal and PLC synthesis now receive X
