@@ -106,6 +106,13 @@ func find_best_pitch(tls *libc.TLS, xcorr *OpusT_opus_val32, y *OpusT_opus_val16
 	findBestPitchSpans(tls, correlations, samples, len1, best_pitch)
 }
 
+func findBestPitchOwned(tls *libc.TLS, correlationOwner, sampleOwner []float32, len1, maxPitch int32, best *[2]int32) {
+	correlations := correlationOwner[:int(maxPitch)]
+	// Preserve the final candidate's energy update and its extra sample.
+	samples := sampleOwner[:int(len1)+int(maxPitch)]
+	findBestPitchSpans(tls, correlations, samples, len1, best)
+}
+
 func findBestPitchSpans(tls *libc.TLS, correlations, samples []float32, len1 int32, best_pitch *[2]int32) {
 	Syy := float32(1)
 	best_num := [2]OpusT_opus_val16{-1, -1}
@@ -390,7 +397,7 @@ func pitchSearchSpans(tls *libc.TLS, input, history []float32, length, maxPitch 
 	}
 	var best [2]int32
 	Opus_celt_pitch_xcorr_c(tls, unsafe.SliceData(x4), unsafe.SliceData(y4), unsafe.SliceData(corr), length>>2, maxPitch>>2, arch)
-	find_best_pitch(tls, unsafe.SliceData(corr), unsafe.SliceData(y4), length>>2, maxPitch>>2, &best)
+	findBestPitchOwned(tls, corr, y4, length>>2, maxPitch>>2, &best)
 	for i := int32(0); i < maxPitch>>1; i++ {
 		corr[i] = 0
 		if libc.Xabs(tls, i-2*best[0]) > 2 && libc.Xabs(tls, i-2*best[1]) > 2 {
@@ -402,7 +409,7 @@ func pitchSearchSpans(tls *libc.TLS, input, history []float32, length, maxPitch 
 		}
 		corr[i] = sum
 	}
-	find_best_pitch(tls, unsafe.SliceData(corr), unsafe.SliceData(history), length>>1, maxPitch>>1, &best)
+	findBestPitchOwned(tls, corr, history, length>>1, maxPitch>>1, &best)
 	offset := int32(0)
 	if best[0] > 0 && best[0] < (maxPitch>>1)-1 {
 		a, b, c := corr[best[0]-1], corr[best[0]], corr[best[0]+1]

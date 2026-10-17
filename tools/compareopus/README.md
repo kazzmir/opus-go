@@ -534,6 +534,51 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four pitch-search rounds extract live best-candidate and search kernels, retain
+PLC's actual lowpass owner with numeric input/history origins, then pass actual
+correlation/downsampled-history buffers to both candidate searches. Active PLC
+no longer reduces lowpass to two interior scalar pointers; candidate selection
+no longer reconstructs its slice arguments from scratch-array addresses. Raw
+public/search/best adapters remain. Counts remain101 unsafe.Pointer/105 uintptr:
+active representation changes, not dead-adapter/cast deletion, new scratch,
+fixture ownership repair or global lifetime/performance/macOS guarantees.
+
+Length assertion precedes max-pitch assertion, BOTH before views, and original
+diagnostics remain. Pointer adapter forms input then history views; owned entry
+uses the same half-rate extents with numeric origins, widening coordinate
+combinations to int64 but retaining original int32 length+maxPitch arithmetic.
+A zero-consumption input does not validate an unused origin. The same quarter-
+rate scratch arrays, decimation loads, coarse correlation, refined candidate
+window, -1 floor, ordered float32 sums, strict ratio comparisons/ties and .7
+pseudo-interpolation remain. Final pitch store stays LAST. Candidate views are
+correlations then samples, including len+max samples: the energy update after
+THE LAST candidate still reads its extra terminal sample. Initial best stores,
+per-iteration correlation loads, live sample/output alias effects and energy
+floor ordering remain. Upstream pitch.c contracts inspected; no arithmetic or
+new valid-domain/unsupported-length behavior changes are claimed.
+
+Existing grouped best/LPC/pitch fixtures keep manual candidate/tie/NaN/zero-row,
+silence and local native expected results. Added full-bit/guard comparisons cover
+lengths16/17/32, max pitches8/9/16/18, shared/shifted/disjoint lowpass origins,
+result words overlapping input, unused extreme input origins and assertions
+before invalid owners. Best-output aliases exercise both correlation and history
+words; a bounded short history fails before best initialization, preserving the
+required terminal extent. Numeric alias fixtures touch no pointer-bearing slots
+and are Go-only compatibility cases, not new C restrict/alias-validity claims.
+Existing packet/sample/range/hash, codec goldens/tolerances and fixture extents
+are unchanged. Coarse xcorr raw adapter, opaque images, callbacks, EOF and global
+native GC issues remain outside these typed private boundaries.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped pitch-search/best/PLC checkptr, typed PartA/PartB and tagged owner/cell
+checks on3 architectures, native comparisons, GC stress, codec references and diff
+checks. Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-best-pitch-live-span-kernel.log,
+/tmp/opus-round-pitch-search-live-span-kernel.log,
+/tmp/opus-round-plc-pitch-search-go-lowpass-origins.log,
+/tmp/opus-round-pitch-search-go-candidate-owners.log and
+/tmp/opus-round-pitch-search-owners-arm-{checkptr,golden}-repeat.log.
+
 Four PLC pitch-downsample rounds separate left sampling, stereo addition and
 whitening into shared live slice kernels, then retain actual lowpass output,
 left history and right history owners. Active PLC receives decode_mem as a concrete
