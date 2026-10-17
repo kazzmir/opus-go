@@ -1246,6 +1246,10 @@ func celtDenormaliseBandsOffsets(tls *libc.TLS, bands *OpusT_opus_int16, shortMd
 	}
 	input := celtDenormaliseSpan(X, xOffset, M*int32(eBands[end]))
 	logE := celtDenormaliseSpan(bandLogE, energyOffset, end)
+	celtDenormaliseSpans(tls, eBands, input, output, logE, start, end, M, bound)
+}
+
+func celtDenormaliseSpans(tls *libc.TLS, eBands []int16, input, output, logE []float32, start, end, M, bound int32) {
 	if start != 0 {
 		clear(output[:M*int32(eBands[start])])
 	}
