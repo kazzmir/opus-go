@@ -287,7 +287,7 @@ func TestAllocationOutputsPointers(t *testing.T) {
 					e.Fbuf = &buf[0]
 					entropyInitGrowStack(12)
 					runtime.GC()
-					r := interp_bits2pulses(nil, m, 0, 21, 0, &a[0][1], &a[1][1], &a[2][1], &a[3][1], budget, &s[0], 0, &s[1], 0, &s[2], 0, &a[4][1], &a[5][1], &a[6][1], C, LM, g, encode, 20, 20)
+					r := allocationInterpSpans(nil, m, 0, 21, 0, a[0][1:22], a[1][1:22], a[2][1:22], a[3][1:22], a[4][1:22], a[5][1:22], a[6][1:22], budget, &s[0], 0, &s[1], 0, &s[2], 0, C, LM, g, encode, 20, 20)
 					wr := interp_bits2pulses(nil, &mode48000_960_120, 0, 21, 0, &b[0][1], &b[1][1], &b[2][1], &b[3][1], budget, &w[0], 0, &w[1], 0, &w[2], 0, &b[4][1], &b[5][1], &b[6][1], C, LM, &e, encode, 20, 20)
 					gc := *g
 					gc.Fbuf = nil

@@ -601,11 +601,15 @@ var LOG2_FRAC_TABLE = [24]uint8{
 
 func allocationInterpBit(a1, a2 []int32, j, mid int32) int32 { return a1[j] + mid*a2[j]>>ALLOC_STEPS }
 func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, skip_start int32, bits1 *int32, bits2 *int32, thresh *int32, cap1 *int32, total OpusT_opus_int32, _balance *int32, skip_rsv int32, intensity *int32, intensity_rsv int32, dual_stereo *int32, dual_stereo_rsv int32, bits *int32, ebits *int32, fine_priority *int32, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
+	pulse, fine, priority := unsafe.Slice(bits, end), unsafe.Slice(ebits, end), unsafe.Slice(fine_priority, end)
+	a1, a2, thresholds, caps := unsafe.Slice(bits1, end), unsafe.Slice(bits2, end), unsafe.Slice(thresh, end), unsafe.Slice(cap1, end)
+	return allocationInterpSpans(tls, m, start, end, skip_start, a1, a2, thresholds, caps, pulse, fine, priority, total, _balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, C, LM, ec, encode, prev, signalBandwidth)
+}
+
+func allocationInterpSpans(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end, skip_start int32, a1, a2, thresholds, caps, pulse, fine, priority []int32, total int32, _balance *int32, skip_rsv int32, intensity *int32, intensity_rsv int32, dual_stereo *int32, dual_stereo_rsv, C, LM int32, ec *OpusT_ec_ctx, encode, prev, signalBandwidth int32) int32 {
 	var alloc_floor, band_bits, band_width, codedBands, depth_threshold, done, hi, i, j, lo, logM, mid, rem, stereo, tmp, tmp1, v7, v8 int32
 	var left, percoeff, psum int32
-	pulse, fine, priority := unsafe.Slice(bits, end), unsafe.Slice(ebits, end), unsafe.Slice(fine_priority, end)
 	var v13, v14 OpusT_opus_uint32
-	a1, a2, thresholds, caps := unsafe.Slice(bits1, end), unsafe.Slice(bits2, end), unsafe.Slice(thresh, end), unsafe.Slice(cap1, end)
 	codedBands = -1
 	alloc_floor = C << int32(BITRES)
 	stereo = libc.BoolInt32(C > int32(1))
