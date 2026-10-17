@@ -21,7 +21,7 @@ func TestPitchXCorrOwnedAliasesPointers(t *testing.T) {
 				entropyInitGrowStack(12)
 				runtime.GC()
 				Opus_celt_pitch_xcorr_c(nil, &a[1], &a[n+3], &a[origin], n, lags, 0)
-				pitchXCorrOwned(nil, &b[1], &b[n+3], b[origin:origin+lags], n, lags, 0)
+				pitchXCorrOwned(nil, b[1:1+n], &b[n+3], b[origin:origin+lags], n, lags, 0)
 				for i := range a {
 					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
 						t.Fatal("xcorr full-buffer live aliases/guards", n, lags, origin, i)
@@ -29,6 +29,28 @@ func TestPitchXCorrOwnedAliasesPointers(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestPitchXCorrValidationPointers(t *testing.T) {
+	want := "Fatal (internal) error in " + opusDiagnosticString(4659) + ", line 265: " + opusDiagnosticString(4629) + "\n"
+	checkDiagnosticFatal(t, func() { Opus_celt_pitch_xcorr_c(nil, nil, nil, nil, math.MaxInt32, 0, 0) }, want)
+	checkDiagnosticFatal(t, func() { pitchXCorrOwned(nil, nil, nil, nil, math.MaxInt32, 0, 0) }, want)
+	x, y, out := [2]float32{}, [5]float32{}, [6]float32{77, 1, 2, 3, 4, 88}
+	before := out
+	want = "Fatal (internal) error in " + opusDiagnosticString(3374) + ", line 69: " + opusDiagnosticString(3349) + "\n"
+	checkDiagnosticFatal(t, func() { pitchXCorrOwned(nil, x[:], &y[0], out[1:5], 2, 4, 0) }, want)
+	if out != before {
+		t.Fatal("unrolled assertion before any output store")
+	}
+	short := [1]float32{}
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		pitchXCorrOwned(nil, short[:], &y[0], out[1:5], 2, 4, 0)
+	}()
+	if _, ok := caught.(runtime.Error); !ok || out != before {
+		t.Fatal("input view precedes unrolled assertion")
 	}
 }
 
@@ -56,7 +78,7 @@ func TestPitchXCorrPointers(t *testing.T) {
 			owned := slices.Clone(out)
 			Opus_celt_pitch_xcorr_c(nil, unsafe.SliceData(x), unsafe.SliceData(y), &out[1], int32(n), int32(lags), 0)
 			pitchXCorrSpans(nil, x, y, span[1:lags+1], int32(n), int32(lags))
-			pitchXCorrOwned(nil, unsafe.SliceData(x), unsafe.SliceData(y), owned[1:lags+1], int32(n), int32(lags), 0)
+			pitchXCorrOwned(nil, x, unsafe.SliceData(y), owned[1:lags+1], int32(n), int32(lags), 0)
 			for i := range out {
 				if math.Float32bits(out[i]) != math.Float32bits(span[i]) || math.Float32bits(out[i]) != math.Float32bits(owned[i]) {
 					t.Fatal("pitch xcorr kernel/guards", n, lags, i)
