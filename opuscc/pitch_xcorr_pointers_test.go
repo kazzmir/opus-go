@@ -2,9 +2,35 @@ package opuscc
 
 import (
 	"math"
+	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 )
+
+func TestPitchXCorrOwnedAliasesPointers(t *testing.T) {
+	for _, n := range []int32{3, 4, 5, 7, 8, 9, 16, 19} {
+		for _, lags := range []int32{1, 2, 3, 4, 5, 8, 9, 13} {
+			for _, origin := range []int32{1, 2, n + 3, n + 4} {
+				a := make([]float32, 3*n+3*lags+8)
+				for i := range a {
+					a[i] = float32(i%11-5) / 8
+				}
+				a[0], a[len(a)-1] = 77, 88
+				b := slices.Clone(a)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				Opus_celt_pitch_xcorr_c(nil, &a[1], &a[n+3], &a[origin], n, lags, 0)
+				pitchXCorrOwned(nil, &b[1], &b[n+3], b[origin:origin+lags], n, lags, 0)
+				for i := range a {
+					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						t.Fatal("xcorr full-buffer live aliases/guards", n, lags, origin, i)
+					}
+				}
+			}
+		}
+	}
+}
 
 func TestPitchXCorrPointers(t *testing.T) {
 	for n := 0; n <= 19; n++ {
@@ -27,10 +53,12 @@ func TestPitchXCorrPointers(t *testing.T) {
 			out[0] = 123
 			out[lags+1] = 456
 			span := append([]float32(nil), out...)
+			owned := slices.Clone(out)
 			Opus_celt_pitch_xcorr_c(nil, unsafe.SliceData(x), unsafe.SliceData(y), &out[1], int32(n), int32(lags), 0)
 			pitchXCorrSpans(nil, x, y, span[1:lags+1], int32(n), int32(lags))
+			pitchXCorrOwned(nil, unsafe.SliceData(x), unsafe.SliceData(y), owned[1:lags+1], int32(n), int32(lags), 0)
 			for i := range out {
-				if math.Float32bits(out[i]) != math.Float32bits(span[i]) {
+				if math.Float32bits(out[i]) != math.Float32bits(span[i]) || math.Float32bits(out[i]) != math.Float32bits(owned[i]) {
 					t.Fatal("pitch xcorr kernel/guards", n, lags, i)
 				}
 			}

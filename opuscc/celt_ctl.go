@@ -270,6 +270,21 @@ func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x, _y *OpusT_opus_val16, xcorr *Opu
 	pitchXCorrSpans(tls, xS, yS, xcorrS, len1, max_pitch)
 }
 
+func pitchXCorrOwned(tls *libc.TLS, input, history *float32, outputOwner []float32, length, maxPitch, arch int32) {
+	_ = arch
+	if !(maxPitch > 0) {
+		opusCeltFatal(tls, opusDiagnosticString(4629), opusDiagnosticString(4659), 265)
+	}
+	x := unsafe.Slice(input, int(length))
+	historyLength := int32(0)
+	if length > 0 {
+		historyLength = maxPitch + length - 1
+	}
+	y := unsafe.Slice(history, int(historyLength))
+	output := outputOwner[:int(maxPitch)]
+	pitchXCorrSpans(tls, x, y, output, length, maxPitch)
+}
+
 func pitchXCorrSpans(tls *libc.TLS, xS, yS, xcorrS []float32, len1, max_pitch int32) {
 	// The original unrolled path requires len1 >= 3.
 	if max_pitch > 3 && len1 < 3 {
@@ -399,7 +414,7 @@ func pitchSearchSpans(tls *libc.TLS, input, history []float32, length, maxPitch 
 		y4[j] = history[2*j]
 	}
 	var best [2]int32
-	Opus_celt_pitch_xcorr_c(tls, unsafe.SliceData(x4), unsafe.SliceData(y4), unsafe.SliceData(corr), length>>2, maxPitch>>2, arch)
+	pitchXCorrOwned(tls, unsafe.SliceData(x4), unsafe.SliceData(y4), corr, length>>2, maxPitch>>2, arch)
 	findBestPitchOwned(tls, corr, y4, length>>2, maxPitch>>2, &best)
 	for i := int32(0); i < maxPitch>>1; i++ {
 		corr[i] = 0
