@@ -205,6 +205,26 @@ func TestRemoveDoublingPointers(t *testing.T) {
 	}
 }
 
+func TestPitchSearchSpansPointers(t *testing.T) {
+	for _, n := range []int32{16, 17, 32} {
+		for _, maxPitch := range []int32{8, 9, 16, 18} {
+			x, y := make([]float32, n>>1), make([]float32, (n+maxPitch)>>1)
+			for i := range x {
+				x[i] = float32(i%7-3) / 17
+			}
+			for i := range y {
+				y[i] = float32(i%13-6) / 23
+			}
+			a, b := [3]int32{77, -1, 88}, [3]int32{77, -1, 88}
+			Opus_pitch_search(nil, &x[0], &y[0], n, maxPitch, &a[1], 0)
+			pitchSearchSpans(nil, x, y, n, maxPitch, &b[1], 0)
+			if a != b {
+				t.Fatal("pitch search span/result guards", n, maxPitch, a, b)
+			}
+		}
+	}
+}
+
 func TestPitchSearchPointers(t *testing.T) {
 	x := [16]float32{}
 	y := [32]float32{}

@@ -352,15 +352,23 @@ func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x, _y *OpusT_opus_val16, xcorr *Opu
 	}
 }
 
-func Opus_pitch_search(tls *libc.TLS, x, y *float32, length, maxPitch int32, pitch *int32, arch int32) {
+func pitchSearchValidate(tls *libc.TLS, length, maxPitch int32) {
 	if length <= 0 {
 		opusCeltFatal(tls, opusDiagnosticString(4675), opusDiagnosticString(4659), 325)
 	}
 	if maxPitch <= 0 {
 		opusCeltFatal(tls, opusDiagnosticString(4629), opusDiagnosticString(4659), 326)
 	}
+}
+
+func Opus_pitch_search(tls *libc.TLS, x, y *float32, length, maxPitch int32, pitch *int32, arch int32) {
+	pitchSearchValidate(tls, length, maxPitch)
 	input := unsafe.Slice(x, length>>1)
 	history := unsafe.Slice(y, (length+maxPitch)>>1)
+	pitchSearchSpans(tls, input, history, length, maxPitch, pitch, arch)
+}
+
+func pitchSearchSpans(tls *libc.TLS, input, history []float32, length, maxPitch int32, pitch *int32, arch int32) {
 	x4 := make([]float32, length>>2)
 	y4 := make([]float32, (length+maxPitch)>>2)
 	corr := make([]float32, maxPitch>>1)
@@ -384,7 +392,7 @@ func Opus_pitch_search(tls *libc.TLS, x, y *float32, length, maxPitch int32, pit
 		}
 		corr[i] = sum
 	}
-	find_best_pitch(tls, unsafe.SliceData(corr), y, length>>1, maxPitch>>1, &best)
+	find_best_pitch(tls, unsafe.SliceData(corr), unsafe.SliceData(history), length>>1, maxPitch>>1, &best)
 	offset := int32(0)
 	if best[0] > 0 && best[0] < (maxPitch>>1)-1 {
 		a, b, c := corr[best[0]-1], corr[best[0]], corr[best[0]+1]
