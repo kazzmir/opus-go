@@ -333,6 +333,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	overlap, nbEBands, N := celtSynthesisGeometry(mode, LM)
 	// Reuse one N-sample interleaved spectrum, matching the C scratch extent.
 	freq := make([]float32, N)
+	frequency := celtDenormaliseOutput{owner: freq, owned: true}
 	freqHead := unsafe.SliceData(freq)
 	M := int32(1) << LM
 	B, NB, shift := int32(1), mode.FshortMdctSize<<LM, mode.FmaxLM-LM
@@ -341,7 +342,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	}
 	outputs := unsafe.Slice(out_syn, max(CC, 1))
 	if CC == 2 && C == 1 {
-		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
+		celtDenormaliseBandsTo(tls, bandBoundaries, mode.FshortMdctSize, X, 0, frequency, 0, oldBandE, 0, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
 		celtSynthesisOutputCopyAt(outputs[1], overlap/2, freqHead, N)
 		for b := int32(0); b < B; b++ {
@@ -351,7 +352,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[1], NB*b, overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
-		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
+		celtDenormaliseBandsTo(tls, bandBoundaries, mode.FshortMdctSize, X, 0, frequency, 0, oldBandE, 0, start, effEnd, M, downsample, silence)
 		celtDenormaliseBandsOffsets(tls, bandBoundaries, mode.FshortMdctSize, X, N, outputs[0], overlap/2, oldBandE, nbEBands, start, effEnd, M, downsample, silence)
 		other := celtDenormaliseSpan(outputs[0], overlap/2, N)
 		// Round both halves independently (including on FMA-capable architectures).
@@ -364,7 +365,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	} else {
 		// The C do-while visits channel zero even when CC is zero.
 		for c := int32(0); c < max(CC, 1); c++ {
-			celtDenormaliseBandsAt(tls, bandBoundaries, mode.FshortMdctSize, X, c*N, freqHead, oldBandE, c*nbEBands, start, effEnd, M, downsample, silence)
+			celtDenormaliseBandsTo(tls, bandBoundaries, mode.FshortMdctSize, X, c*N, frequency, 0, oldBandE, c*nbEBands, start, effEnd, M, downsample, silence)
 			for b := int32(0); b < B; b++ {
 				celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[c], NB*b, overlap, shift, B, arch)
 			}
