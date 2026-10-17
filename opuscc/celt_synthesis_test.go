@@ -139,7 +139,7 @@ func TestAllocationDriverScratchPointers(t *testing.T) {
 							e.Fbuf = &buf[0]
 							entropyInitGrowStack(12)
 							runtime.GC()
-							r := clt_compute_allocation(nil, m, start, 21, &a[0][1], &a[3][1], trim, &s[1], &s[2], budget, &s[0], &a[4][1], &a[5][1], &a[6][1], C, LM, g, encode, 20, 20)
+							r := cltComputeAllocationOwned(nil, m, start, 21, a[0][1:22], a[3][1:22], trim, &s[1], &s[2], budget, &s[0], &a[4][1], &a[5][1], &a[6][1], C, LM, g, encode, 20, 20)
 							wr := clt_compute_allocation(nil, &mode48000_960_120, start, 21, &b[0][1], &b[3][1], trim, &w[1], &w[2], budget, &w[0], &b[4][1], &b[5][1], &b[6][1], C, LM, &e, encode, 20, 20)
 							gc := *g
 							gc.Fbuf = nil
@@ -165,7 +165,7 @@ func TestAllocationDriverScratchPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
-	r := clt_compute_allocation(tls, m, 0, 1, &a[0][0], &a[3][0], 5, &scalar, &scalar, -8, &balance, &a[4][0], &a[5][0], &a[6][0], 1, 0, nil, 0, 0, 0)
+	r := cltComputeAllocationOwned(tls, m, 0, 1, a[0][:], a[3][:], 5, &scalar, &scalar, -8, &balance, &a[4][0], &a[5][0], &a[6][0], 1, 0, nil, 0, 0, 0)
 	if r != 1 || scalar != 0 || balance != 0 || a[6][0] != 1 || libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
 		t.Fatal("driver exact/nil/sentinel", r, scalar, balance, a)
 	}

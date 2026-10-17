@@ -883,6 +883,15 @@ func allocationInputs(offsets, cap *int32, end int32) ([]int32, []int32) {
 }
 func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, offsets *int32, cap1 *int32, alloc_trim int32, intensity *int32, dual_stereo *int32, total OpusT_opus_int32, balance *int32, pulses *int32, ebits *int32, fine_priority *int32, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
 	off, caps := allocationInputs(offsets, cap1, end)
+	return computeAllocationSpans(tls, m, start, end, off, caps, alloc_trim, intensity, dual_stereo, total, balance, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
+}
+
+func cltComputeAllocationOwned(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, offsetOwner, capOwner []int32, alloc_trim int32, intensity, dual_stereo *int32, total int32, balance, pulses, ebits, fine_priority *int32, C, LM int32, ec *OpusT_ec_ctx, encode, prev, signalBandwidth int32) int32 {
+	off, caps := offsetOwner[:end], capOwner[:end]
+	return computeAllocationSpans(tls, m, start, end, off, caps, alloc_trim, intensity, dual_stereo, total, balance, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
+}
+
+func computeAllocationSpans(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, off, caps []int32, alloc_trim int32, intensity, dual_stereo *int32, total int32, balance, pulses, ebits, fine_priority *int32, C, LM int32, ec *OpusT_ec_ctx, encode, prev, signalBandwidth int32) int32 {
 	var N, N1, bits1j, bits2j, bitsj, codedBands, done, dual_stereo_rsv, hi, intensity_rsv, j, len1, lo, mid, psum, skip_rsv, skip_start, v5 int32
 	if total > 0 {
 		v5 = total
