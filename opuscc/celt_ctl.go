@@ -267,7 +267,10 @@ func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x, _y *OpusT_opus_val16, xcorr *Opu
 	}
 	yS := unsafe.Slice(_y, int(yLen))
 	xcorrS := unsafe.Slice(xcorr, int(max_pitch))
+	pitchXCorrSpans(tls, xS, yS, xcorrS, len1, max_pitch)
+}
 
+func pitchXCorrSpans(tls *libc.TLS, xS, yS, xcorrS []float32, len1, max_pitch int32) {
 	// The original unrolled path requires len1 >= 3.
 	if max_pitch > 3 && len1 < 3 {
 		opusCeltFatal(tls, opusDiagnosticString(3349), opusDiagnosticString(3374), int32(69))

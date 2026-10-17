@@ -26,7 +26,14 @@ func TestPitchXCorrPointers(t *testing.T) {
 			out := make([]float32, lags+2)
 			out[0] = 123
 			out[lags+1] = 456
+			span := append([]float32(nil), out...)
 			Opus_celt_pitch_xcorr_c(nil, unsafe.SliceData(x), unsafe.SliceData(y), &out[1], int32(n), int32(lags), 0)
+			pitchXCorrSpans(nil, x, y, span[1:lags+1], int32(n), int32(lags))
+			for i := range out {
+				if math.Float32bits(out[i]) != math.Float32bits(span[i]) {
+					t.Fatal("pitch xcorr kernel/guards", n, lags, i)
+				}
+			}
 			for lag := 0; lag < lags; lag++ {
 				var want float32
 				for j := range x {
