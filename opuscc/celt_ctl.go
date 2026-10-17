@@ -368,6 +368,16 @@ func Opus_pitch_search(tls *libc.TLS, x, y *float32, length, maxPitch int32, pit
 	pitchSearchSpans(tls, input, history, length, maxPitch, pitch, arch)
 }
 
+func pitchSearchOwned(tls *libc.TLS, owner []float32, inputOffset, historyOffset, length, maxPitch int32, pitch *int32, arch int32) {
+	pitchSearchValidate(tls, length, maxPitch)
+	var input []float32
+	if length>>1 > 0 {
+		input = owner[int64(inputOffset) : int64(inputOffset)+int64(length>>1)]
+	}
+	history := owner[int64(historyOffset) : int64(historyOffset)+int64((length+maxPitch)>>1)]
+	pitchSearchSpans(tls, input, history, length, maxPitch, pitch, arch)
+}
+
 func pitchSearchSpans(tls *libc.TLS, input, history []float32, length, maxPitch int32, pitch *int32, arch int32) {
 	x4 := make([]float32, length>>2)
 	y4 := make([]float32, (length+maxPitch)>>2)

@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+	"unsafe"
 )
 
 func TestIIROwnedOutputPointers(t *testing.T) {
@@ -223,6 +224,53 @@ func TestPitchSearchSpansPointers(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestPitchSearchOwnedPointers(t *testing.T) {
+	for _, n := range []int32{16, 17, 32} {
+		for _, maxPitch := range []int32{8, 9, 16, 18} {
+			for _, historyOffset := range []int32{1, 5, 7, n + 4} {
+				for _, aliasOutput := range []bool{false, true} {
+					a := make([]float32, 2*n+maxPitch+12)
+					for i := range a {
+						a[i] = float32(i%13-6) / 37
+					}
+					a[0], a[len(a)-1] = 77, 88
+					b := slices.Clone(a)
+					old, owned := [3]int32{77, -1, 88}, [3]int32{77, -1, 88}
+					oldResult, ownedResult := &old[1], &owned[1]
+					if aliasOutput {
+						oldResult, ownedResult = (*int32)(unsafe.Pointer(&a[5])), (*int32)(unsafe.Pointer(&b[5]))
+					}
+					entropyInitGrowStack(12)
+					runtime.GC()
+					Opus_pitch_search(nil, &a[5], &a[historyOffset], n, maxPitch, oldResult, 0)
+					pitchSearchOwned(nil, b, 5, historyOffset, n, maxPitch, ownedResult, 0)
+					if old != owned {
+						t.Fatal("owned search result/guards", n, maxPitch, historyOffset)
+					}
+					for i := range a {
+						if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+							t.Fatal("owned search full buffer/live result alias", n, maxPitch, historyOffset, aliasOutput, i)
+						}
+					}
+				}
+			}
+		}
+	}
+	for _, origin := range []int32{math.MinInt32, math.MaxInt32} {
+		history := [4]float32{}
+		a, b := int32(-1), int32(-1)
+		Opus_pitch_search(nil, nil, &history[0], 1, 8, &a, 0)
+		pitchSearchOwned(nil, history[:], origin, 0, 1, 8, &b, 0)
+		if a != 0 || a != b {
+			t.Fatal("unused zero-span input origin", origin)
+		}
+	}
+	want := "Fatal (internal) error in " + opusDiagnosticString(4659) + ", line 325: " + opusDiagnosticString(4675) + "\n"
+	checkDiagnosticFatal(t, func() { pitchSearchOwned(nil, nil, math.MaxInt32, math.MinInt32, 0, 0, nil, 0) }, want)
+	want = "Fatal (internal) error in " + opusDiagnosticString(4659) + ", line 326: " + opusDiagnosticString(4629) + "\n"
+	checkDiagnosticFatal(t, func() { pitchSearchOwned(nil, nil, math.MaxInt32, math.MinInt32, 16, 0, nil, 0) }, want)
 }
 
 func TestPitchSearchPointers(t *testing.T) {
