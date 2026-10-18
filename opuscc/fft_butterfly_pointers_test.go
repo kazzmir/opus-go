@@ -246,13 +246,26 @@ func TestMDCTBackwardOffsetPointers(t *testing.T) {
 			want := slices.Clone(got)
 			numeric := slices.Clone(got)
 			history := slices.Clone(got)
+			spanOutput := slices.Clone(got)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &owner[origin], &want[1], &window120[0], 120, shift, stride, 0)
 			opusMDCTBackwardAt(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], origin, &got[1], &window120[0], 120, shift, stride, 0)
 			opusMDCTBackwardOffsets(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], int64(origin), &numeric[0], 1, &window120[0], 120, shift, stride, 0)
 			opusMDCTBackwardOffsets(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], int64(origin), &history[2], -1, &window120[0], 120, shift, stride, 0)
+			tableOffset, size := int32(0), l.Fn
+			for i := int32(0); i < shift; i++ {
+				size >>= 1
+				tableOffset += size
+			}
+			first := min(int32(0), (n-1)*stride)
+			trig := unsafe.Slice(l.Ftrig, tableOffset+n)[tableOffset:]
+			input := owner[int64(origin)+int64(first) : int64(origin)+int64(first)+int64(width)]
+			opusMDCTBackwardSpans(nil, l, st.Ftwiddles, trig, input, -first, spanOutput[1:n+61], window120[:], unsafe.Slice(st.Fbitrev, n/2), n, n/2, 120, shift, stride)
 			for i := range got {
+				if math.Float32bits(spanOutput[i]) != math.Float32bits(want[i]) {
+					t.Fatal("MDCT span kernel/guards", shift, stride, i)
+				}
 				if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) || math.Float32bits(history[i]) != math.Float32bits(want[i]) {
 					t.Fatal("offset MDCT", shift, stride, i)
 				}

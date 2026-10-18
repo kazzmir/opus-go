@@ -132,6 +132,10 @@ func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 	}
 	win := unsafe.Slice(window, overlap)
 	rev := unsafe.Slice(bitrev, N4)
+	opusMDCTBackwardSpans(tls, l, twiddles, trig, input, inputBase, output, win, rev, N2, N4, overlap, shift, stride)
+}
+
+func opusMDCTBackwardSpans(tls *libc.TLS, l *OpusT_mdct_lookup, twiddles *OpusT_kiss_twiddle_cpx, trig, input []float32, inputBase int32, output, win []float32, rev []int16, N2, N4, overlap, shift, stride int32) {
 	base := overlap >> 1
 	for i := int32(0); i < N4; i++ {
 		x1, x2 := input[inputBase+2*i*stride], input[inputBase+(N2-1-2*i)*stride]
