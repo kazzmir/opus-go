@@ -534,6 +534,63 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four inverse-MDCT/FFT rounds extract the unchanged backward live-span kernel,
+retain its FFT output as actual float-lane owner plus numeric origin, introduce
+exact strided owned MDCT input (private staged API in round3), then CONNECT the
+actual synthesis frequency scratch to owned MDCT/copy consumers in round4.
+Synthesis no longer manufactures freqHead, including upmix's staging copy source;
+no extra scratch allocation or sample copies introduced. Upmix's LEFT transform
+still reads borrowed output staging through the original legacy numeric-origin
+path; output pointer-list loads remain live. Public/raw APIs, signed history,
+unused-address compatibility and opaque caller storage remain unclaimed.
+
+MDCT lookup/trig then input/output/window/reversal views retain formation order.
+Kernel retains explicit float32 products, real/imag bitrev store order, FFT timing,
+both-end capture BEFORE post-rotation stores (including odd-N4 middle pair), and
+sequential TDAC window reads/stores. FFT-state lookup precedes its original
+required first-cell output check; that check now validates an index without
+forming a pointer. FFT carrier holds the actual output slice and scalar origin;
+each butterfly still forms ONLY its consumed prefix after unchanged guard/assert
+order. No factor/twiddle/window/sample snapshots, complex reinterpretation of
+float cells, changed assertions, rounding, DSP arithmetic or sequential stores.
+
+Owned MDCT source holds a concrete slice, separate legacy pointer and explicit
+owned discriminator; nil owners never silently become legacy pointers. On-demand
+strided span uses SAME int32 last/first/end/width arithmetic and base correction,
+only combining independent root coordinates in int64. Negative/zero strides and
+singleton extreme strides retain exact minimal consumed extents: not a universal
+N-element contiguous prefix. No new eager spectrum/frequency views. Synthesis
+keeps mono/stereo/upmix/downmix block order, independent half-products, silence
+handling, output reloads and the SAME one N-float scratch; staging copy still
+forms destination BEFORE source and uses overlapping Go copy. No fallback or
+new ownership claim for signed borrowed staging or external opaque images.
+Upstream mdct.c backward and kiss_fft.c stage dispatch inspected; this is Go
+representation work, not a new C restrict/invalid-domain contract.
+
+Extended grouped fixtures retain physical extents, guards, expected values and
+independent existing native/hash oracles. All four canonical MDCT shifts and
+strides -2/0/1/2 compare whole output/guard bits across public raw, numeric input,
+positive/negative numeric output, shared span kernel and owned input. Existing
+whole-buffer complex-vs-float FFT checks now also compare actual owned lanes,
+including guards. Owned strided identity tests cover forward/backward/zero and
+one-cell INT_MIN/INT_MAX strides under GC/stack growth; no broader fake history.
+Added staging-copy whole-buffer checks cover lengths0/1/3/120 and identical,
+left/right overlapping origins under GC/stack growth. Existing alias tests,
+packets, samples, ranges, hashes and encode/decode goldens/tolerances unchanged.
+No fixture repair, pointer-slot poisoning, cast centralization or token cleanup;
+counts remain101 unsafe.Pointer/105 uintptr, including tagged non-test sources.
+
+Each round passes complete amd64/386 and ARM64/QEMU, broad and targeted scoped
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks; final tagged ARM ordinary/scoped
+repeats20. Logs /tmp/opus-round-mdct-backward-live-span-kernel.log,
+/tmp/opus-round-mdct-fft-go-output-lanes.log,
+/tmp/opus-round-mdct-backward-go-strided-input.log,
+/tmp/opus-round-synthesis-mdct-go-frequency-root.log and
+/tmp/opus-round-mdct-span-owners-arm-{checkptr,golden}-repeat.log. No failures in
+this batch. No native GC/extension EOF/callback/opaque-image repair, global
+lifetime safety, performance or direct macOS claims.
+
 Four comb/prefilter rounds extract the unchanged constant-comb slice kernel and
 use it directly in the active tail, retain actual prefilter scratch output in
 comb filtering, retain the same scratch slice as TDAC input, then reuse the rooted

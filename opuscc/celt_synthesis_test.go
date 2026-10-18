@@ -606,6 +606,25 @@ func TestPrefilterStatePointers(t *testing.T) {
 	}
 }
 
+func TestSynthesisOwnedCopyPointers(t *testing.T) {
+	for _, n := range []int32{0, 1, 3, 120} {
+		for _, destination := range []int32{0, 1, 2} {
+			a := make([]float32, n+6)
+			for i := range a {
+				a[i] = float32(i+1) / 17
+			}
+			b := slices.Clone(a)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtSynthesisOutputCopyAt(&a[0], destination, &a[1], n)
+			celtSynthesisOutputCopyOwner(&b[0], destination, b[1:1+n], n)
+			if !slices.Equal(a, b) {
+				t.Fatal("owned synthesis staging copy/overlap/whole buffer", n, destination)
+			}
+		}
+	}
+}
+
 func TestSynthesisConsumedCursorPointers(t *testing.T) {
 	if celtSynthesisCursor(nil, 0, 0) != nil || celtSynthesisCursor(nil, 0, 1) != nil {
 		t.Fatal("zero offset identity")

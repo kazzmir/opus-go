@@ -305,6 +305,12 @@ func celtSynthesisIMDCTOrigins(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *
 	opusMDCTBackwardOffsets(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, inputOffset, out, outputOffset, mode.Fwindow, overlap, shift, stride, arch)
 }
 
+func celtSynthesisIMDCTOwned(tls *libc.TLS, mode *OpusT_OpusCustomMode, frequency []float32, inputOffset int32, out *float32, outputOffset int32, overlap, shift, stride, arch int32) {
+	lookup := &mode.Fmdct
+	st := lookup.Fkfft[shift]
+	opusMDCTBackwardOwned(tls, lookup, st.Fbitrev, st.Ftwiddles, frequency, int64(inputOffset), out, outputOffset, mode.Fwindow, overlap, shift, stride, arch)
+}
+
 // A zero-length consumer may still require C's unused end identity. Only
 // positive consumed spans may turn a displaced address into a readable prefix.
 func celtSynthesisCursor(p *float32, offset, consumed int32) *float32 {
@@ -327,6 +333,10 @@ func celtSynthesisOutputCopy(destination, source *float32, N int32) {
 
 func celtSynthesisOutputCopyAt(destination *float32, outputOffset int32, source *float32, N int32) {
 	copy(celtDenormaliseSpan(destination, outputOffset, N), unsafe.Slice(source, N))
+}
+
+func celtSynthesisOutputCopyOwner(destination *float32, outputOffset int32, source []float32, N int32) {
+	copy(celtDenormaliseSpan(destination, outputOffset, N), source[:N])
 }
 
 type celtSynthesisOutputs struct {
@@ -356,7 +366,6 @@ func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtD
 	// Reuse one N-sample interleaved spectrum, matching the C scratch extent.
 	freq := make([]float32, N)
 	frequency := celtDenormaliseOutput{owner: freq, owned: true}
-	freqHead := unsafe.SliceData(freq)
 	M := int32(1) << LM
 	B, NB, shift := int32(1), mode.FshortMdctSize<<LM, mode.FmaxLM-LM
 	if isTransient != 0 {
@@ -366,12 +375,12 @@ func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtD
 	if CC == 2 && C == 1 {
 		celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, 0, frequency, 0, oldBandE, 0, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
-		celtSynthesisOutputCopyAt(outputs[1], overlap/2, freqHead, N)
+		celtSynthesisOutputCopyOwner(outputs[1], overlap/2, freq, N)
 		for b := int32(0); b < B; b++ {
 			celtSynthesisIMDCTOrigins(tls, mode, outputs[1], int64(overlap/2)+int64(b), outputs[0], NB*b, overlap, shift, B, arch)
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[1], NB*b, overlap, shift, B, arch)
+			celtSynthesisIMDCTOwned(tls, mode, freq, b, outputs[1], NB*b, overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
 		celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, 0, frequency, 0, oldBandE, 0, start, effEnd, M, downsample, silence)
@@ -382,14 +391,14 @@ func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtD
 			freq[i] = float32(float32(.5)*freq[i]) + float32(float32(.5)*other[i])
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[0], NB*b, overlap, shift, B, arch)
+			celtSynthesisIMDCTOwned(tls, mode, freq, b, outputs[0], NB*b, overlap, shift, B, arch)
 		}
 	} else {
 		// The C do-while visits channel zero even when CC is zero.
 		for c := int32(0); c < max(CC, 1); c++ {
 			celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, c*N, frequency, 0, oldBandE, c*nbEBands, start, effEnd, M, downsample, silence)
 			for b := int32(0); b < B; b++ {
-				celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[c], NB*b, overlap, shift, B, arch)
+				celtSynthesisIMDCTOwned(tls, mode, freq, b, outputs[c], NB*b, overlap, shift, B, arch)
 			}
 		}
 	}
