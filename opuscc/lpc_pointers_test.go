@@ -501,6 +501,34 @@ func TestIIRPointers(t *testing.T) {
 	Opus_celt_iir(nil, nil, nil, nil, 0, 0, nil, 0)
 }
 
+func TestCombOwnedOutputPointers(t *testing.T) {
+	window := [4]float32{.1, .25, .6, .9}
+	for _, n := range []int32{0, 1, 3, 8, 17, 64} {
+		for _, overlap := range []int32{0, min(n, 4)} {
+			for _, outputOffset := range []int32{1, 40, 41, 130} {
+				for _, gains := range [][2]float32{{0, 0}, {.3, 0}, {0, .4}, {.3, .4}, {-.4, -.4}} {
+					a := make([]float32, 3*n+150)
+					for i := range a {
+						a[i] = float32(i%17-8) / 31
+					}
+					a[0], a[len(a)-1] = 77, 88
+					b := slices.Clone(a)
+					entropyInitGrowStack(12)
+					runtime.GC()
+					combFilterOwned(nil, &a[outputOffset], a, 40, 15, 17, n, gains[0], gains[1], 0, 1, &window[0], overlap, 0)
+					combFilterBuffersOwned(nil, b, outputOffset, b, 40, 15, 17, n, gains[0], gains[1], 0, 1, &window[0], overlap, 0)
+					for i := range a {
+						if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+							t.Fatal("owned comb output/full-buffer aliases/guards", n, overlap, outputOffset, gains, i)
+						}
+					}
+				}
+			}
+		}
+	}
+	combFilterBuffersOwned(nil, nil, 0, nil, 0, 0, 0, 0, 0, 0, -1, -1, nil, 0, 0)
+}
+
 func TestCombHistoryOwnerPointers(t *testing.T) {
 	for _, n := range []int32{0, 1, 4, 12} {
 		for _, overlap := range []int32{0, 4} {
