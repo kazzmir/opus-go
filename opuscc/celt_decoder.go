@@ -328,20 +328,43 @@ func celtSynthesisOutputCopy(destination, source *float32, N int32) {
 func celtSynthesisOutputCopyAt(destination *float32, outputOffset int32, source *float32, N int32) {
 	copy(celtDenormaliseSpan(destination, outputOffset, N), unsafe.Slice(source, N))
 }
+
+type celtSynthesisOutputs struct {
+	legacy **float32
+	owner  []*float32
+	owned  bool
+}
+
+func (source celtSynthesisOutputs) span(channels int32) []*float32 {
+	if source.owned {
+		return source.owner[:max(channels, 1)]
+	}
+	return unsafe.Slice(source.legacy, max(channels, 1))
+}
+
 func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_syn **float32, oldBandE *float32, start int32, effEnd int32, C int32, CC int32, isTransient int32, LM int32, downsample int32, silence int32, arch int32) {
+	celtSynthesisFrom(tls, mode, celtDenormaliseInput{legacy: X}, celtSynthesisOutputs{legacy: out_syn}, oldBandE, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch)
+}
+
+func celtSynthesisOwned(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum []float32, out_syn []*float32, oldBandE *float32, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch int32) {
+	celtSynthesisFrom(tls, mode, celtDenormaliseInput{owner: spectrum, owned: true}, celtSynthesisOutputs{owner: out_syn, owned: true}, oldBandE, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch)
+}
+
+func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtDenormaliseInput, outputSource celtSynthesisOutputs, oldBandE *float32, start, effEnd, C, CC, isTransient, LM, downsample, silence, arch int32) {
 	bandBoundaries := mode.FeBands
 	overlap, nbEBands, N := celtSynthesisGeometry(mode, LM)
 	// Reuse one N-sample interleaved spectrum, matching the C scratch extent.
 	freq := make([]float32, N)
+	frequency := celtDenormaliseOutput{owner: freq, owned: true}
 	freqHead := unsafe.SliceData(freq)
 	M := int32(1) << LM
 	B, NB, shift := int32(1), mode.FshortMdctSize<<LM, mode.FmaxLM-LM
 	if isTransient != 0 {
 		B, NB, shift = M, mode.FshortMdctSize, mode.FmaxLM
 	}
-	outputs := unsafe.Slice(out_syn, max(CC, 1))
+	outputs := outputSource.span(CC)
 	if CC == 2 && C == 1 {
-		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
+		celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, 0, frequency, 0, oldBandE, 0, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
 		celtSynthesisOutputCopyAt(outputs[1], overlap/2, freqHead, N)
 		for b := int32(0); b < B; b++ {
@@ -351,8 +374,8 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[1], NB*b, overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
-		Opus_denormalise_bands(tls, bandBoundaries, mode.FshortMdctSize, X, freqHead, oldBandE, start, effEnd, M, downsample, silence)
-		celtDenormaliseBandsOffsets(tls, bandBoundaries, mode.FshortMdctSize, X, N, outputs[0], overlap/2, oldBandE, nbEBands, start, effEnd, M, downsample, silence)
+		celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, 0, frequency, 0, oldBandE, 0, start, effEnd, M, downsample, silence)
+		celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, N, celtDenormaliseOutput{legacy: outputs[0]}, overlap/2, oldBandE, nbEBands, start, effEnd, M, downsample, silence)
 		other := celtDenormaliseSpan(outputs[0], overlap/2, N)
 		// Round both halves independently (including on FMA-capable architectures).
 		for i := range freq {
@@ -364,7 +387,7 @@ func celt_synthesis(tls *libc.TLS, mode *OpusT_OpusCustomMode, X *float32, out_s
 	} else {
 		// The C do-while visits channel zero even when CC is zero.
 		for c := int32(0); c < max(CC, 1); c++ {
-			celtDenormaliseBandsAt(tls, bandBoundaries, mode.FshortMdctSize, X, c*N, freqHead, oldBandE, c*nbEBands, start, effEnd, M, downsample, silence)
+			celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, c*N, frequency, 0, oldBandE, c*nbEBands, start, effEnd, M, downsample, silence)
 			for b := int32(0); b < B; b++ {
 				celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[c], NB*b, overlap, shift, B, arch)
 			}
@@ -443,7 +466,7 @@ func celtPLCPitchSearchOwned(tls *libc.TLS, st *OpusT_OpusCustomDecoder, history
 	var lowpass [DEC_PITCH_BUF_SIZE / 2]float32
 	var pitch int32
 	pitchDownsampleOwned(tls, history[0], history[1], lowpass[:], DEC_PITCH_BUF_SIZE/2, C, 2, arch)
-	Opus_pitch_search(tls, &lowpass[PLC_PITCH_LAG_MAX/2], &lowpass[0], DEC_PITCH_BUF_SIZE-PLC_PITCH_LAG_MAX, PLC_PITCH_LAG_MAX-PLC_PITCH_LAG_MIN, &pitch, arch)
+	pitchSearchOwned(tls, lowpass[:], PLC_PITCH_LAG_MAX/2, 0, DEC_PITCH_BUF_SIZE-PLC_PITCH_LAG_MAX, PLC_PITCH_LAG_MAX-PLC_PITCH_LAG_MIN, &pitch, arch)
 	return PLC_PITCH_LAG_MAX - pitch
 }
 
@@ -941,6 +964,18 @@ func celtDecodeSpectrumChannels(spectrum []float32, N, channels int32) (x, y *fl
 	return
 }
 
+func celtDecodeSpectrumSlices(spectrum []float32, N, channels int32) (x, y []float32) {
+	if N == 0 {
+		return
+	}
+	x = spectrum
+	if channels == 2 {
+		_ = spectrum[N] // Preserve the original required interior first sample.
+		y = spectrum[N:]
+	}
+	return
+}
+
 func celtDecodePriorityStorage(bands int32) []int32 { return make([]int32, bands) }
 
 func celtDecodePulseStorage(bands int32) []int32 { return make([]int32, bands) }
@@ -1304,7 +1339,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 		}
 		celtPLCDecay(oldBandE, backgroundLogE, nbEBands, start, end, C, loss_duration)
 		celtPLCNoiseSpan(tls, st1, eBands, X, N, start, effEnd, LM, C)
-		celt_synthesis(tls, mode, unsafe.SliceData(X), &out_syn[0], oldBandE, start, effEnd, C, C, 0, LM, st1.Fdownsample, 0, st1.Farch)
+		celtSynthesisOwned(tls, mode, X, out_syn[:], oldBandE, start, effEnd, C, C, 0, LM, st1.Fdownsample, 0, st1.Farch)
 		/* Run the postfilter with the last parameters. */
 		c = 0
 		for {
@@ -1502,7 +1537,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	bits, anti_collapse_rsv = celtDecodeAllocationBudget(tls, dec, len1, isTransient, LM)
 	pulses = celtDecodePulseStorage(nbEBands)
 	fine_priority = celtDecodePriorityStorage(nbEBands)
-	codedBands = clt_compute_allocation(tls, mode, start, end, unsafe.SliceData(offsets), unsafe.SliceData(cap1), alloc_trim, &intensity, &dual_stereo, bits, &balance, unsafe.SliceData(pulses), unsafe.SliceData(fine_quant), unsafe.SliceData(fine_priority), C, LM, dec, 0, 0, 0)
+	codedBands = cltComputeAllocationOwned(tls, mode, start, end, offsets, cap1, alloc_trim, &intensity, &dual_stereo, bits, &balance, pulses, fine_quant, fine_priority, C, LM, dec, 0, 0, 0)
 	unquantFineEnergyOwned(tls, mode, start, end, oldBandE, nil, fine_quant, dec, C)
 	X = celtDecodeSpectrumStorage(N, C) // Contiguous per-channel normalized MDCT spectra.
 	c = 0
@@ -1516,8 +1551,8 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	}
 	// Decode fixed codebook using Go-owned per-channel collapse flags.
 	collapse_masks = celtDecodeMaskStorage(nbEBands, C)
-	spectralX, spectralY := celtDecodeSpectrumChannels(X, N, C)
-	quant_all_bands(tls, 0, mode, start, end, spectralX, spectralY, unsafe.SliceData(collapse_masks), nil, unsafe.SliceData(pulses), shortBlocks, spread_decision, dual_stereo, intensity, unsafe.SliceData(tf_res), len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, &st1.Frng, 0, st1.Farch, st1.Fdisable_inv)
+	spectralX, spectralY := celtDecodeSpectrumSlices(X, N, C)
+	quantAllBandsOwned(tls, 0, mode, start, end, spectralX, spectralY, collapse_masks, nil, pulses, shortBlocks, spread_decision, dual_stereo, intensity, tf_res, len1*(int32(8)<<int32(BITRES))-anti_collapse_rsv, balance, dec, LM, codedBands, &st1.Frng, 0, st1.Farch, st1.Fdisable_inv)
 	anti_collapse_on = celtDecodeAntiCollapseBit(tls, dec, anti_collapse_rsv)
 	celtDecodeFinalEnergyOwned(tls, mode, oldBandE, fine_quant, fine_priority, start, end, len1, C, dec)
 	celtDecodeAntiCollapseOwned(tls, st1, mode, X, collapse_masks, pulses, oldBandE, oldLogE, oldLogE2, N, LM, C, start, end, anti_collapse_on)
@@ -1525,7 +1560,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 		celtDecodeSilenceEnergy(oldBandE, nbEBands, C)
 	}
 	celtDecodePrefilter(tls, st1, N)
-	celt_synthesis(tls, mode, unsafe.SliceData(X), &out_syn[0], oldBandE, start, effEnd, C, CC, isTransient, LM, st1.Fdownsample, silence, st1.Farch)
+	celtSynthesisOwned(tls, mode, X, out_syn[:], oldBandE, start, effEnd, C, CC, isTransient, LM, st1.Fdownsample, silence, st1.Farch)
 	celtDecodePostfilterWithHistory(tls, st1, mode, &out_syn[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap, decode_mem)
 	celtDecodePostfilterFinish(st1, postfilter_pitch, postfilter_gain, postfilter_tapset, LM)
 	if C == 1 {

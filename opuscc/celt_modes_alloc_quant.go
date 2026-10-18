@@ -601,11 +601,34 @@ var LOG2_FRAC_TABLE = [24]uint8{
 
 func allocationInterpBit(a1, a2 []int32, j, mid int32) int32 { return a1[j] + mid*a2[j]>>ALLOC_STEPS }
 func interp_bits2pulses(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, skip_start int32, bits1 *int32, bits2 *int32, thresh *int32, cap1 *int32, total OpusT_opus_int32, _balance *int32, skip_rsv int32, intensity *int32, intensity_rsv int32, dual_stereo *int32, dual_stereo_rsv int32, bits *int32, ebits *int32, fine_priority *int32, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
+	pulse, fine, priority := unsafe.Slice(bits, end), unsafe.Slice(ebits, end), unsafe.Slice(fine_priority, end)
+	a1, a2, thresholds, caps := unsafe.Slice(bits1, end), unsafe.Slice(bits2, end), unsafe.Slice(thresh, end), unsafe.Slice(cap1, end)
+	return allocationInterpSpans(tls, m, start, end, skip_start, a1, a2, thresholds, caps, pulse, fine, priority, total, _balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, C, LM, ec, encode, prev, signalBandwidth)
+}
+
+type allocationOutputs struct {
+	legacyPulse, legacyFine, legacyPriority *int32
+	pulse, fine, priority                   []int32
+	owned                                   bool
+}
+
+func (output allocationOutputs) spans(end int32) ([]int32, []int32, []int32) {
+	if output.owned {
+		return output.pulse[:end], output.fine[:end], output.priority[:end]
+	}
+	return unsafe.Slice(output.legacyPulse, end), unsafe.Slice(output.legacyFine, end), unsafe.Slice(output.legacyPriority, end)
+}
+
+func allocationInterpOwned(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end, skip_start int32, row1, row2, thresholdOwner, capOwner []int32, total int32, balance *int32, skip_rsv int32, intensity *int32, intensity_rsv int32, dual_stereo *int32, dual_stereo_rsv int32, outputs allocationOutputs, C, LM int32, ec *OpusT_ec_ctx, encode, prev, signalBandwidth int32) int32 {
+	pulse, fine, priority := outputs.spans(end)
+	a1, a2, thresholds, caps := row1[:end], row2[:end], thresholdOwner[:end], capOwner[:end]
+	return allocationInterpSpans(tls, m, start, end, skip_start, a1, a2, thresholds, caps, pulse, fine, priority, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, C, LM, ec, encode, prev, signalBandwidth)
+}
+
+func allocationInterpSpans(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end, skip_start int32, a1, a2, thresholds, caps, pulse, fine, priority []int32, total int32, _balance *int32, skip_rsv int32, intensity *int32, intensity_rsv int32, dual_stereo *int32, dual_stereo_rsv, C, LM int32, ec *OpusT_ec_ctx, encode, prev, signalBandwidth int32) int32 {
 	var alloc_floor, band_bits, band_width, codedBands, depth_threshold, done, hi, i, j, lo, logM, mid, rem, stereo, tmp, tmp1, v7, v8 int32
 	var left, percoeff, psum int32
-	pulse, fine, priority := unsafe.Slice(bits, end), unsafe.Slice(ebits, end), unsafe.Slice(fine_priority, end)
 	var v13, v14 OpusT_opus_uint32
-	a1, a2, thresholds, caps := unsafe.Slice(bits1, end), unsafe.Slice(bits2, end), unsafe.Slice(thresh, end), unsafe.Slice(cap1, end)
 	codedBands = -1
 	alloc_floor = C << int32(BITRES)
 	stereo = libc.BoolInt32(C > int32(1))
@@ -873,6 +896,15 @@ func allocationInputs(offsets, cap *int32, end int32) ([]int32, []int32) {
 }
 func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32, end int32, offsets *int32, cap1 *int32, alloc_trim int32, intensity *int32, dual_stereo *int32, total OpusT_opus_int32, balance *int32, pulses *int32, ebits *int32, fine_priority *int32, C int32, LM int32, ec *OpusT_ec_ctx, encode int32, prev int32, signalBandwidth int32) (r int32) {
 	off, caps := allocationInputs(offsets, cap1, end)
+	return computeAllocationSpans(tls, m, start, end, off, caps, alloc_trim, intensity, dual_stereo, total, balance, allocationOutputs{legacyPulse: pulses, legacyFine: ebits, legacyPriority: fine_priority}, C, LM, ec, encode, prev, signalBandwidth)
+}
+
+func cltComputeAllocationOwned(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, offsetOwner, capOwner []int32, alloc_trim int32, intensity, dual_stereo *int32, total int32, balance *int32, pulses, ebits, fine_priority []int32, C, LM int32, ec *OpusT_ec_ctx, encode, prev, signalBandwidth int32) int32 {
+	off, caps := offsetOwner[:end], capOwner[:end]
+	return computeAllocationSpans(tls, m, start, end, off, caps, alloc_trim, intensity, dual_stereo, total, balance, allocationOutputs{pulse: pulses, fine: ebits, priority: fine_priority, owned: true}, C, LM, ec, encode, prev, signalBandwidth)
+}
+
+func computeAllocationSpans(tls *libc.TLS, m *OpusT_OpusCustomMode, start, end int32, off, caps []int32, alloc_trim int32, intensity, dual_stereo *int32, total int32, balance *int32, outputs allocationOutputs, C, LM int32, ec *OpusT_ec_ctx, encode, prev, signalBandwidth int32) int32 {
 	var N, N1, bits1j, bits2j, bitsj, codedBands, done, dual_stereo_rsv, hi, intensity_rsv, j, len1, lo, mid, psum, skip_rsv, skip_start, v5 int32
 	if total > 0 {
 		v5 = total
@@ -991,7 +1023,7 @@ func clt_compute_allocation(tls *libc.TLS, m *OpusT_OpusCustomMode, start int32,
 		bits2[j] = bits2j
 		j = j + 1
 	}
-	codedBands = interp_bits2pulses(tls, m, start, end, skip_start, unsafe.SliceData(bits1), unsafe.SliceData(bits2), unsafe.SliceData(thresh), cap1, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, pulses, ebits, fine_priority, C, LM, ec, encode, prev, signalBandwidth)
+	codedBands = allocationInterpOwned(tls, m, start, end, skip_start, bits1, bits2, thresh, caps, total, balance, skip_rsv, intensity, intensity_rsv, dual_stereo, dual_stereo_rsv, outputs, C, LM, ec, encode, prev, signalBandwidth)
 	return codedBands
 }
 
@@ -1231,7 +1263,47 @@ func celtDenormaliseBandsAt(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSiz
 	celtDenormaliseBandsOffsets(tls, bands, shortMdctSize, X, xOffset, freq, 0, bandLogE, energyOffset, start, end, M, downsample, silence)
 }
 
+type celtDenormaliseOutput struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
+}
+
+func (destination celtDenormaliseOutput) span(offset, length int32) []float32 {
+	if !destination.owned {
+		return celtDenormaliseSpan(destination.legacy, offset, length)
+	}
+	if length == 0 {
+		return nil
+	}
+	return destination.owner[int64(offset) : int64(offset)+int64(length)]
+}
+
+type celtDenormaliseInput struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
+}
+
+func (source celtDenormaliseInput) span(offset, length int32) []float32 {
+	if !source.owned {
+		return celtDenormaliseSpan(source.legacy, offset, length)
+	}
+	if length == 0 {
+		return nil
+	}
+	return source.owner[int64(offset) : int64(offset)+int64(length)]
+}
+
 func celtDenormaliseBandsOffsets(tls *libc.TLS, bands *OpusT_opus_int16, shortMdctSize int32, X *OpusT_celt_norm, xOffset int32, freq *OpusT_celt_sig, outputOffset int32, bandLogE *OpusT_celt_glog, energyOffset int32, start, end, M, downsample, silence int32) {
+	celtDenormaliseBandsTo(tls, bands, shortMdctSize, X, xOffset, celtDenormaliseOutput{legacy: freq}, outputOffset, bandLogE, energyOffset, start, end, M, downsample, silence)
+}
+
+func celtDenormaliseBandsTo(tls *libc.TLS, bands *int16, shortMdctSize int32, X *float32, xOffset int32, destination celtDenormaliseOutput, outputOffset int32, bandLogE *float32, energyOffset int32, start, end, M, downsample, silence int32) {
+	celtDenormaliseBandsFromTo(tls, bands, shortMdctSize, celtDenormaliseInput{legacy: X}, xOffset, destination, outputOffset, bandLogE, energyOffset, start, end, M, downsample, silence)
+}
+
+func celtDenormaliseBandsFromTo(tls *libc.TLS, bands *int16, shortMdctSize int32, source celtDenormaliseInput, xOffset int32, destination celtDenormaliseOutput, outputOffset int32, bandLogE *float32, energyOffset int32, start, end, M, downsample, silence int32) {
 	// Pass the two mode inputs explicitly so the table stays GC-visible here.
 	eBands := unsafe.Slice(bands, end+1)
 	N := M * shortMdctSize
@@ -1239,13 +1311,17 @@ func celtDenormaliseBandsOffsets(tls *libc.TLS, bands *OpusT_opus_int16, shortMd
 	if downsample != 1 {
 		bound = min(bound, N/downsample)
 	}
-	output := celtDenormaliseSpan(freq, outputOffset, N)
+	output := destination.span(outputOffset, N)
 	if silence != 0 {
 		clear(output)
 		return
 	}
-	input := celtDenormaliseSpan(X, xOffset, M*int32(eBands[end]))
+	input := source.span(xOffset, M*int32(eBands[end]))
 	logE := celtDenormaliseSpan(bandLogE, energyOffset, end)
+	celtDenormaliseSpans(tls, eBands, input, output, logE, start, end, M, bound)
+}
+
+func celtDenormaliseSpans(tls *libc.TLS, eBands []int16, input, output, logE []float32, start, end, M, bound int32) {
 	if start != 0 {
 		clear(output[:M*int32(eBands[start])])
 	}
@@ -2716,8 +2792,74 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, 
 	quant_all_bands(tls, encode, m, start, end, X_, Y_, collapse_masks, bandE, pulses, shortBlocks, spread, dual_stereo, intensity, tf_res, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
 }
 
+type quantAllBandsSpectrumSource struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
+}
+
+func (source quantAllBandsSpectrumSource) present() bool {
+	if source.owned {
+		return source.owner != nil
+	}
+	return source.legacy != nil
+}
+
+func (source quantAllBandsSpectrumSource) at(bands *int16, band, M int32) *float32 {
+	if !source.owned {
+		return quantAllBandsSpectrum(source.legacy, bands, band, M)
+	}
+	offset := M * quantAllBandsBoundary(bands, band)
+	return &source.owner[offset]
+}
+
+type quantAllBandsIntSource struct {
+	legacy *int32
+	owner  []int32
+	owned  bool
+}
+
+func (source quantAllBandsIntSource) at(band int32) int32 {
+	if source.owned {
+		return source.owner[band]
+	}
+	return unsafe.Slice(source.legacy, band+1)[band]
+}
+
+type quantAllBandsMasks struct {
+	legacy *byte
+	owner  []byte
+	owned  bool
+}
+
+func (masks quantAllBandsMasks) at(index int32) uint32 {
+	if masks.owned {
+		return uint32(masks.owner[index])
+	}
+	return quantAllBandsMask(masks.legacy, index)
+}
+
+func (masks quantAllBandsMasks) store(band, channels int32, left, right uint32) {
+	if !masks.owned {
+		quantAllBandsMaskStore(masks.legacy, band, channels, left, right)
+		return
+	}
+	first := band * channels
+	masks.owner[first] = uint8(left)
+	last := first + channels - 1
+	masks.owner[last] = uint8(right)
+}
+
 // Internal spectra, entropy, tables and scratch owners are typed.
 func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ *float32, collapse_masks *byte, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+	quantAllBandsFrom(tls, encode, m, start, end, quantAllBandsSpectrumSource{legacy: X_}, quantAllBandsSpectrumSource{legacy: Y_}, quantAllBandsMasks{legacy: collapse_masks}, bandE, quantAllBandsIntSource{legacy: pulses}, shortBlocks, spread, dual_stereo, intensity, quantAllBandsIntSource{legacy: tf_res}, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
+}
+
+func quantAllBandsOwned(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ []float32, masks []byte, bandE *float32, pulses []int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res []int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+	quantAllBandsFrom(tls, encode, m, start, end, quantAllBandsSpectrumSource{owner: X_, owned: true}, quantAllBandsSpectrumSource{owner: Y_, owned: true}, quantAllBandsMasks{owner: masks, owned: true}, bandE, quantAllBandsIntSource{owner: pulses, owned: true}, shortBlocks, spread, dual_stereo, intensity, quantAllBandsIntSource{owner: tf_res, owned: true}, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
+}
+
+func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ quantAllBandsSpectrumSource, masks quantAllBandsMasks, bandE *float32, pulses quantAllBandsIntSource, shortBlocks, spread, dual_stereo, intensity int32, tf_res quantAllBandsIntSource, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
 	// Go storage scans context owners throughout PVQ recursion.
 	ctx := new(band_ctx)
 	// Channel weights now stay Go-visible across calls and stack growth.
@@ -2737,13 +2879,13 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 	_ = _norm
 	eBands = m.FeBands
 	update_lowband = int32(1)
-	if Y_ != nil {
+	if Y_.present() {
 		v1 = int32(2)
 	} else {
 		v1 = int32(1)
 	}
 	C = v1
-	theta_rdo = libc.BoolInt32(encode != 0 && Y_ != nil && !(dual_stereo != 0) && complexity >= 8)
+	theta_rdo = libc.BoolInt32(encode != 0 && Y_.present() && !(dual_stereo != 0) && complexity >= 8)
 	resynth = libc.BoolInt32(!(encode != 0) || theta_rdo != 0)
 
 	M = int32(1) << LM
@@ -2769,7 +2911,7 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 	if encode != 0 && resynth != 0 {
 		lowband_scratch = unsafe.SliceData(_lowband_scratch)
 	} else if end > start {
-		lowband_scratch = quantAllBandsLowbandView(X_, eBands, m.FeffEBands-1, M)
+		lowband_scratch = X_.at(eBands, m.FeffEBands-1, M)
 	}
 	X_save, Y_save = quantAllBandsInitialStorage(resynth_alloc)
 	X_save2, Y_save2 = quantAllBandsTrialStorage(resynth_alloc)
@@ -2798,9 +2940,9 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 		tf_change = 0
 		ctx.Fi = i1
 		last = libc.BoolInt32(i1 == end-int32(1))
-		X = quantAllBandsSpectrum(X_, eBands, i1, M)
-		if Y_ != nil {
-			Y = quantAllBandsSpectrum(Y_, eBands, i1, M)
+		X = X_.at(eBands, i1, M)
+		if Y_.present() {
+			Y = Y_.at(eBands, i1, M)
 		} else {
 			Y = nil
 		}
@@ -2825,36 +2967,36 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			_ = v204 > int32(0)
 			v205 = balance / v204
 			curr_balance = v205
-			if remaining_bits+1 < quantAllBandsPulse(pulses, i1)+curr_balance {
+			if remaining_bits+1 < pulses.at(i1)+curr_balance {
 				v183 = remaining_bits + 1
 			} else {
-				v183 = quantAllBandsPulse(pulses, i1) + curr_balance
+				v183 = pulses.at(i1) + curr_balance
 			}
 			if 16383 < v183 {
 				v6 = 16383
 			} else {
-				if remaining_bits+1 < quantAllBandsPulse(pulses, i1)+curr_balance {
+				if remaining_bits+1 < pulses.at(i1)+curr_balance {
 					v196 = remaining_bits + 1
 				} else {
-					v196 = quantAllBandsPulse(pulses, i1) + curr_balance
+					v196 = pulses.at(i1) + curr_balance
 				}
 				v6 = v196
 			}
 			if 0 > v6 {
 				v1 = 0
 			} else {
-				if remaining_bits+1 < quantAllBandsPulse(pulses, i1)+curr_balance {
+				if remaining_bits+1 < pulses.at(i1)+curr_balance {
 					v203 = remaining_bits + 1
 				} else {
-					v203 = quantAllBandsPulse(pulses, i1) + curr_balance
+					v203 = pulses.at(i1) + curr_balance
 				}
 				if 16383 < v203 {
 					v201 = 16383
 				} else {
-					if remaining_bits+1 < quantAllBandsPulse(pulses, i1)+curr_balance {
+					if remaining_bits+1 < pulses.at(i1)+curr_balance {
 						v207 = remaining_bits + 1
 					} else {
-						v207 = quantAllBandsPulse(pulses, i1) + curr_balance
+						v207 = pulses.at(i1) + curr_balance
 					}
 					v201 = v207
 				}
@@ -2870,11 +3012,11 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 		if i1 == start+int32(1) {
 			special_hybrid_folding(tls, m.FeBands, norm, norm2, start, M, dual_stereo)
 		}
-		tf_change = quantAllBandsTF(tf_res, i1)
+		tf_change = tf_res.at(i1)
 		ctx.Ftf_change = tf_change
 		if i1 >= m.FeffEBands {
 			X = norm
-			if Y_ != nil {
+			if Y_.present() {
 				Y = norm
 			}
 			lowband_scratch = nil
@@ -2913,8 +3055,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			x_cm = v217
 			fold_i = fold_start
 			for {
-				x_cm = x_cm | quantAllBandsMask(collapse_masks, fold_i*C)
-				y_cm = y_cm | quantAllBandsMask(collapse_masks, fold_i*C+C-1)
+				x_cm = x_cm | masks.at(fold_i*C)
+				y_cm = y_cm | masks.at(fold_i*C+C-1)
 				fold_i = fold_i + 1
 				v1 = fold_i
 				if !(v1 < fold_end) {
@@ -3009,8 +3151,8 @@ func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start
 			}
 			y_cm = x_cm
 		}
-		quantAllBandsMaskStore(collapse_masks, i1, C, x_cm, y_cm)
-		balance = balance + (quantAllBandsPulse(pulses, i1) + tell)
+		masks.store(i1, C, x_cm, y_cm)
+		balance = balance + (pulses.at(i1) + tell)
 		/* Update the folding position only as long as we have 1 bit/sample depth. */
 		update_lowband = libc.BoolInt32(b > N1<<int32(BITRES))
 		/* We only need to avoid noise on a split for the first band. After that, we

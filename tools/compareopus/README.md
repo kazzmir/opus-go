@@ -534,6 +534,251 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four quant-all-bands rounds retain actual collapse-mask, pulse-budget, TF-flag
+and spectrum owners. Active normal decode now passes all five work buffers
+(left/right spectra, masks, pulses, flags) as concrete Go slices. Explicit private
+sources carry real typed owners plus owned flags; raw pointer fields serve only
+unchanged compatibility entries. Numeric band offsets select only the REQUIRED
+first sample at existing spectrum/lowband consumers, not a new universal span.
+No active owner is reconstructed from an address. Counts remain101 unsafe.Pointer/
+105 uintptr: active carrier changes, not cast/adapter deletion, new scratch,
+fixture ownership repair or proof of global lifetime/performance/macOS safety.
+
+All mask/pulse/flag accesses remain on demand, not eagerly bounded/copied at entry.
+Every original repeated pulse read in budget clamps AND the post-mask balance
+update stays live. TF is loaded at its original point. Folding masks are read at
+the original left/right indices; byte narrowing and TWO sequential stores remain
+(left then right, including mono right-overwrites-left). A bounded private test
+checks that the first store survives failure at the second index. No all-buffer
+validation is moved ahead of these stores or empty-band work.
+
+Spectrum sources retain raw nil-right identity or owned nil-right absence for
+channel/RDO decisions. Decoder's new slice channel helper preserves N==0 returning
+nil views and requires the original interior right first sample otherwise. Band/
+lowband offsets retain int32 arithmetic and exact one-sample geometry. Seed/context,
+entropy tells, RDO snapshots/restores/byte ranges/tie choice, normalization owners,
+recursion, scratch allocation, resynthesis/last-band/folding and store/reload order
+remain unchanged. No arithmetic reassociation, snapshots beyond upstream scratch,
+new assertions or global ABI/callback/opaque-image lifetime claims. Upstream bands.c
+quant_all_bands/RDO/folding/store contracts inspected.
+
+Existing grouped active LM0..3 mono/stereo fixtures now use owned APIs on identical
+allocations/extents/guards. Existing whole encode/RDO/dual/mono/decode fixtures
+retain EXACT scalar-C spectrum hashes, mask bytes, entropy bit counts, packet bytes
+and seeds; no golden/tolerance changes. Pulse and TF tests check live mutation and
+original signed widths; masks check mono/stereo narrowing/store order. Spectrum
+fixtures compare original pointer identity to owned band views and actual decoder
+slice roots under GC/stack growth, without new allocations or pointer-slot
+poisoning. Empty-band tests leave all nil work owners unused while preserving seed.
+The legacy spectrum helper stays for compatibility; no dead-adapter cleanup claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped quant-all-bands/spectrum checkptr, typed PartA/PartB and tagged owner/cell
+checks on3 architectures, native comparisons, GC stress, codec references and diff
+checks. Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-quant-bands-go-mask-owner{,-retry}.log,
+/tmp/opus-round-quant-bands-go-pulse-owner.log,
+/tmp/opus-round-quant-bands-go-tf-owner.log,
+/tmp/opus-round-quant-bands-go-spectrum-owners.log and
+/tmp/opus-round-quant-band-work-owners-arm-{checkptr,golden}-repeat.log.
+The first mask run retains a BUILD failure, "undefined: slices", from the new
+fixture's missing import. Only the import was added; the COMPLETE unchanged retry
+passes. No production/fixture/golden/scope weakening, and no claim to repair prior
+native GC/extension EOF/raw callback/opaque image issues.
+
+Four allocation rounds extract the unchanged interpolation slice kernel, retain
+actual bits1/bits2/threshold/cap rows, retain active decoder offsets/caps, then
+retain pulse/fine/priority outputs. Normal decode now passes ALL five allocation
+arrays as concrete Go slices instead of scalar addresses. Internal curve scratch
+already allocated in Go also remains slice-valued through interpolation. Explicit
+allocationOutputs holds real slice owners with an owned flag; legacy scalar
+pointers serve only the original raw compatibility path. Counts remain101
+unsafe.Pointer/105 uintptr: active carrier work, not cast/adapter deletion,
+fixture ownership repair, new scratch/storage or global lifetime/performance proof.
+
+Driver still forms offset then cap views BEFORE total clamp/mode/reservations,
+retains bit/intensity/dual-stereo reservation order, exact curve scratch lengths,
+[start,end) initialization, binary searches, vector/table reloads and int32 shift/
+product/wrapping arithmetic. Outputs are NOT clipped early at driver entry:
+interpolation forms pulse, fine, priority views BEFORE row1,row2,threshold,cap
+views, then runs the same live loops. Skip signaling, entropy calls, scalar
+intensity/dual aliases, sequential pulse/fine/priority stores, remaining-balance
+store BEFORE skipped-band updates and assertions remain ordered. No table/audio/
+context snapshots; cap/offset/output overlaps remain live. The original pointer
+interfaces and no-TLS-scratch behavior remain. Upstream rate.c inspected.
+
+Existing grouped driver/interpolation fixtures now exercise actual owner slices
+against unchanged legacy/static-mode references with SAME seven23-int arrays,
+guards, buffers and expectations. Coverage retains channels1/2, LM0..3, start0/18,
+negative/zero/high budgets, trims0/10, encode/decode, complete entropy context and
+buffer comparisons, GC/stack growth, exact one-cell/nil-entropy/TLS-sentinel cases.
+All seven alias routes compare owned vs raw: pulse/offset, intensity/dual,
+balance/final-fine, priority/fine, intensity/pulse, pulse/cap and fine/cap. A private
+bounded setup test checks that a short pulse view fails before nil rows/mode and
+without stores. No pointer slots are poisoned; Go-only invalid/alias cases are
+not new native valid-domain claims. Existing codec/native packet/sample/range/
+hash, assertions, fixtures, goldens and encode/decode tolerances are unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped allocation checkptr, typed PartA/PartB and tagged owner/cell checks on3
+architectures, native comparisons, GC stress, codec references and diff checks.
+Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-allocation-interp-live-span-kernel.log,
+/tmp/opus-round-allocation-go-interpolation-rows{,-retry}.log,
+/tmp/opus-round-allocation-go-offset-cap-owners.log,
+/tmp/opus-round-allocation-go-output-owners.log and
+/tmp/opus-round-allocation-span-owners-arm-{checkptr,golden}-repeat.log.
+First row-owner full attempt retains recurring native comparison "found pointer
+to free object", with TestExtensionNextAgainstC active. The COMPLETE unchanged
+retry passes; no scope/fixture/tolerance reduction. Extension EOF/global native
+GC issues, opaque images, raw callbacks and direct macOS/global safety/performance
+guarantees remain outside these typed numeric buffer interfaces.
+
+Four synthesis/denormalization rounds extract the unchanged denormalization
+kernel, retain actual frequency scratch, retain active spectrum owners, then
+retain actual output-pointer lists. Both normal and PLC synthesis now receive X
+as []float32 and out_syn[:] as []*float32. Explicit private input/output carriers
+contain real concrete slice owners and an explicit owned flag; legacy fields are
+only for original pointer/negative-history/unused-address compatibility. They do
+not promote caller bytes or reconstruct active owners from addresses. Counts
+remain101 unsafe.Pointer/105 uintptr: active representation work, not dead/cast
+cleanup, new scratch/allocation, fixture ownership repair or global GC-map safety.
+
+Denormalizer still reads table/geometry/downsample bound, forms output, clears
+and returns on silence BEFORE input/energy views, then forms input and energy
+views and runs the same live loop. Prefix clear, per-band gain clamp/Horner/
+integer exponent arithmetic, sequential coefficient stores, late start<=end
+assertion and final tail clear remain ordered; no snapshots or float32 product
+changes. Numeric origins combine in int64 only at owned span formation, not in
+DSP arithmetic. Zero-length owned spans ignore unused origins; raw signed-history
+and unused-end behavior remains. Spectrum input bounds are formed only when
+needed, so silent nil/unused roots stay unused.
+
+Synthesis still captures geometry and allocates exactly ONE N-float scratch,
+then forms its output list at the original point. Upmix stages before transforms,
+finishes ALL left blocks before right blocks; downmix uses existing output scratch
+and rounds the two .5 products independently; ordinary channels stay sequential.
+MDCT strided input/output consumers and numeric origins are unchanged, not
+replaced with universal contiguous spans. Output pointers remain live list loads,
+not a copied pointer array. Legacy pointer APIs, PCM/callback/layout boundaries,
+seed/error/assertion behavior and the floating saturation identity remain.
+Upstream bands.c and celt_decoder.c contracts inspected.
+
+Existing grouped denormalization fixtures additionally compare live shared input/
+output/energy owner slices on EXACT same18-float parents, start/downsample variants
+and guards. Existing synthesis matrix now exercises the owned path against its
+unchanged legacy/static-mode reference: LM0..3, all mono/stereo/upmix/downmix and
+zero-channel layouts, transient/silence, downsample1/2/3/4/6 and band limits. The
+fixture factory exposes its ORIGINAL actual X allocation as a slice (same size/
+guards), not a pointer-to-slice repair or enlarged allocation. Existing alias and
+manual upmix ordering fixtures use owned inputs/output lists; Go-only overlap
+restrictions remain documented, with no new C alias-validity claim. Codec goldens,
+packet/sample/range/hash, extents and encode/decode tolerances are unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped denormalize/synthesis checkptr, typed PartA/PartB and tagged owner/cell
+checks on3 architectures, native comparisons, GC stress, codec references and diff
+checks. Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-denormalise-live-span-kernel{,-retry}.log,
+/tmp/opus-round-synthesis-go-frequency-owner.log,
+/tmp/opus-round-synthesis-go-spectrum-owner{,-retry}.log,
+/tmp/opus-round-synthesis-go-output-list-owner.log and
+/tmp/opus-round-synthesis-span-owners-arm-{checkptr,golden}-repeat.log.
+First kernel and spectrum-owner full attempts retain recurring native
+"sweep increased allocation count" failures, with TestExtensionNextAgainstC
+active. Both COMPLETE unchanged retries pass; no fixtures/scope/tolerances reduced.
+No claim to repair those native GC/EOF issues, opaque images, raw callbacks,
+performance, or direct macOS/global lifetime safety.
+
+Four coarse pitch-xcorr rounds extract the unchanged kernel, then retain output,
+input and history owners. Active pitch search now passes x4, y4 and corr directly
+as concrete Go slices, without scalar-pointer round trips for coarse correlation.
+The public raw xcorr entry remains. Counts remain101 unsafe.Pointer/105 uintptr:
+active carrier work, not adapter/cast deletion, new allocation/scratch, fixture
+ownership repair or proof of global lifetime/performance/macOS safety.
+
+Max-pitch assertion stays BEFORE all views; setup remains input, history, output;
+the unrolled len>=3 assertion stays AFTER those views and before output stores.
+Input extent is length. History extent is exactly length+maxPitch-1 when length>0,
+otherwise zero, preserving original int32 arithmetic. This is ONE LESS than the
+subsequent candidate-energy extent, so y4 remains its full owner for candidate
+selection; no fixtures or reads are extended. Scalar zero-length lags1..3 still
+write zero correlations without touching either input. Unsupported short unrolled
+lengths still assert. Four accumulators, rotating history temporaries, original
+sample/remainder order, sequential four-lag stores and scalar tail stores stay;
+no audio/context snapshots, algebraic dot-product replacement or reassociation.
+Original ignored arch behavior remains. Upstream pitch.c and pitch.h inspected;
+existing Go public validation and assertion behavior remain unchanged.
+
+Existing grouped xcorr fixtures keep the independent scalar expected values for
+lengths0..19 and lags1..13 on exact history extents. Added whole-buffer/full-bit
+comparisons cover remainders, output overlapping input/history (including shifted
+starts), guards, GC and stack growth. These numeric aliases are Go compatibility
+cases, not new independent C alias-domain claims. Directed tests retain original
+max-pitch and unrolled diagnostics, bounds failure before the unrolled assertion,
+no stores on failure, zero-length unrolled failure with nil inputs, and an exact
+6-sample history yielding14/20/26/32 (not a7-sample enlargement). Existing codec
+packet/sample/range/hash, encode/decode goldens and tolerances are unchanged.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped xcorr/search/PLC checkptr, typed PartA/PartB and tagged owner/cell checks
+on3 architectures, native comparisons, GC stress, codec references and diff checks.
+Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-pitch-xcorr-live-span-kernel.log,
+/tmp/opus-round-pitch-xcorr-go-output-owner{,-retry}.log,
+/tmp/opus-round-pitch-xcorr-go-input-owner.log,
+/tmp/opus-round-pitch-xcorr-go-history-owner.log and
+/tmp/opus-round-pitch-xcorr-owners-arm-{checkptr,golden}-repeat.log.
+The first output-owner full run retains the recurring native comparison
+"found pointer to free object" failure (TestExtensionNextAgainstC was active).
+The COMPLETE unchanged retry passes; no fixture/scope/tolerance reduction and no
+claim to repair extension EOF/global native GC, raw callbacks or opaque images.
+
+Four pitch-search rounds extract live best-candidate and search kernels, retain
+PLC's actual lowpass owner with numeric input/history origins, then pass actual
+correlation/downsampled-history buffers to both candidate searches. Active PLC
+no longer reduces lowpass to two interior scalar pointers; candidate selection
+no longer reconstructs its slice arguments from scratch-array addresses. Raw
+public/search/best adapters remain. Counts remain101 unsafe.Pointer/105 uintptr:
+active representation changes, not dead-adapter/cast deletion, new scratch,
+fixture ownership repair or global lifetime/performance/macOS guarantees.
+
+Length assertion precedes max-pitch assertion, BOTH before views, and original
+diagnostics remain. Pointer adapter forms input then history views; owned entry
+uses the same half-rate extents with numeric origins, widening coordinate
+combinations to int64 but retaining original int32 length+maxPitch arithmetic.
+A zero-consumption input does not validate an unused origin. The same quarter-
+rate scratch arrays, decimation loads, coarse correlation, refined candidate
+window, -1 floor, ordered float32 sums, strict ratio comparisons/ties and .7
+pseudo-interpolation remain. Final pitch store stays LAST. Candidate views are
+correlations then samples, including len+max samples: the energy update after
+THE LAST candidate still reads its extra terminal sample. Initial best stores,
+per-iteration correlation loads, live sample/output alias effects and energy
+floor ordering remain. Upstream pitch.c contracts inspected; no arithmetic or
+new valid-domain/unsupported-length behavior changes are claimed.
+
+Existing grouped best/LPC/pitch fixtures keep manual candidate/tie/NaN/zero-row,
+silence and local native expected results. Added full-bit/guard comparisons cover
+lengths16/17/32, max pitches8/9/16/18, shared/shifted/disjoint lowpass origins,
+result words overlapping input, unused extreme input origins and assertions
+before invalid owners. Best-output aliases exercise both correlation and history
+words; a bounded short history fails before best initialization, preserving the
+required terminal extent. Numeric alias fixtures touch no pointer-bearing slots
+and are Go-only compatibility cases, not new C restrict/alias-validity claims.
+Existing packet/sample/range/hash, codec goldens/tolerances and fixture extents
+are unchanged. Coarse xcorr raw adapter, opaque images, callbacks, EOF and global
+native GC issues remain outside these typed private boundaries.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped pitch-search/best/PLC checkptr, typed PartA/PartB and tagged owner/cell
+checks on3 architectures, native comparisons, GC stress, codec references and diff
+checks. Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-best-pitch-live-span-kernel.log,
+/tmp/opus-round-pitch-search-live-span-kernel.log,
+/tmp/opus-round-plc-pitch-search-go-lowpass-origins.log,
+/tmp/opus-round-pitch-search-go-candidate-owners.log and
+/tmp/opus-round-pitch-search-owners-arm-{checkptr,golden}-repeat.log.
+
 Four PLC pitch-downsample rounds separate left sampling, stereo addition and
 whitening into shared live slice kernels, then retain actual lowpass output,
 left history and right history owners. Active PLC receives decode_mem as a concrete

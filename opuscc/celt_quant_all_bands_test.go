@@ -3,6 +3,7 @@ package opuscc
 import (
 	"math"
 	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 
@@ -61,6 +62,16 @@ func TestQuantAllBandsNormConsumedPointers(t *testing.T) {
 	}
 }
 
+func TestQuantAllBandsOwnedEmptyPointers(t *testing.T) {
+	mode := newSynthesisTestMode()
+	old, owned := uint32(123), uint32(123)
+	quant_all_bands(nil, 0, mode, 0, 0, nil, nil, nil, nil, nil, 0, 0, 0, 0, nil, 0, 0, nil, 0, 0, &old, 0, 0, 0)
+	quantAllBandsOwned(nil, 0, mode, 0, 0, nil, nil, nil, nil, nil, 0, 0, 0, 0, nil, 0, 0, nil, 0, 0, &owned, 0, 0, 0)
+	if old != 123 || owned != old {
+		t.Fatal("empty band work leaves nil owners unused and seed unchanged")
+	}
+}
+
 func TestQuantAllBandsActivePointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, C := range []int32{1, 2} {
@@ -87,9 +98,9 @@ func TestQuantAllBandsActivePointers(t *testing.T) {
 			seed := uint32(123456)
 			masks := make([]byte, C*bands+2)
 			masks[0], masks[len(masks)-1] = 33, 44
-			var right *float32
+			var right []float32
 			if C == 2 {
-				right = &y[1]
+				right = y[1 : N+1]
 			}
 			entropyInitGrowStack(12)
 			runtime.GC()
@@ -100,7 +111,7 @@ func TestQuantAllBandsActivePointers(t *testing.T) {
 				tls = libc.NewTLS()
 				libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(sentinel)))
 			}
-			quant_all_bands(tls, 0, mode, 0, bands, &x[1], right, &masks[1], nil, &pulses[0], 1, SPREAD_NORMAL, 0, bands, &tf[0], 4096, 24, ec, LM, bands, &seed, 8, 0, 0)
+			quantAllBandsOwned(tls, 0, mode, 0, bands, x[1:N+1], right, masks[1:len(masks)-1], nil, pulses, 1, SPREAD_NORMAL, 0, bands, tf, 4096, 24, ec, LM, bands, &seed, 8, 0, 0)
 			if *sentinel != before {
 				t.Fatal("quantizer touched legacy cursor")
 			}
@@ -148,13 +159,13 @@ func TestQuantAllBandsWholePointers(t *testing.T) {
 		seed := tc.seed
 		masks := make([]byte, 8)
 		masks[0], masks[7] = 77, 88
-		var right *float32
+		var right []float32
 		if tc.stereo {
-			right = &y[1]
+			right = y[1:13]
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		quant_all_bands(nil, 1, mode, 0, 3, &x[1], right, &masks[1], &energy[0], &pulses[0], 0, tc.spread, tc.dual, 3, &tf[0], 400, 24, ec, 0, 3, &seed, tc.complexity, 0, 0)
+		quantAllBandsOwned(nil, 1, mode, 0, 3, x[1:13], right, masks[1:7], &energy[0], pulses, 0, tc.spread, tc.dual, 3, tf, 400, 24, ec, 0, 3, &seed, tc.complexity, 0, 0)
 		Opus_ec_enc_done(nil, ec)
 		wantedMasks := "\x01\x01\x01"
 		if tc.stereo {
@@ -183,7 +194,7 @@ func TestQuantAllBandsWholePointers(t *testing.T) {
 	masks := make([]byte, 6)
 	entropyInitGrowStack(12)
 	runtime.GC()
-	quant_all_bands(nil, 0, mode, 0, 3, &x[0], &y[0], &masks[0], &energy[0], &pulses[0], 0, SPREAD_NORMAL, 0, 3, &tf[0], 400, 24, ec, 0, 3, &seed, 8, 0, 0)
+	quantAllBandsOwned(nil, 0, mode, 0, 3, x, y, masks, &energy[0], pulses, 0, SPREAD_NORMAL, 0, 3, tf, 400, 24, ec, 0, 3, &seed, 8, 0, 0)
 	if fnv1aFloats(x) != 0xba1de34d || fnv1aFloats(y) != 0xa91fb3cd || seed != 123456789 || string(masks) != "\x01\x01\x01\x01\x01\x01" {
 		t.Fatal("whole typed decode C golden")
 	}
@@ -226,11 +237,12 @@ func TestQuantAllBandsSpectrumPointers(t *testing.T) {
 	for _, M := range []int32{1, 2, 4, 8} {
 		spectrum := make([]float32, 12*M+2)
 		spectrum[0], spectrum[len(spectrum)-1] = 77, 88
+		owned := quantAllBandsSpectrumSource{owner: spectrum[1 : len(spectrum)-1], owned: true}
 		for band := int32(0); band < 3; band++ {
 			pointer := quantAllBandsSpectrum(&spectrum[1], &bands[0], band, M)
 			entropyInitGrowStack(12)
 			runtime.GC()
-			if pointer != &spectrum[1+int32(bands[band])*M] {
+			if pointer != &spectrum[1+int32(bands[band])*M] || owned.at(&bands[0], band, M) != pointer || !owned.present() {
 				t.Fatal("spectrum view geometry")
 			}
 			*pointer = float32(band)
@@ -632,7 +644,13 @@ func TestQuantAllBandsMaskPointers(t *testing.T) {
 			entropyInitGrowStack(12)
 			runtime.GC()
 			left, right := uint32(0x1234), uint32(0x5678)
+			owned := slices.Clone(masks)
+			view := quantAllBandsMasks{owner: owned[1:7], owned: true}
+			view.store(band, channels, left, right)
 			quantAllBandsMaskStore(&masks[1], band, channels, left, right)
+			if !slices.Equal(masks, owned) || view.at(band*channels+channels-1) != uint32(uint8(right)) {
+				t.Fatal("owned mask stores/reads/guards")
+			}
 			if quantAllBandsMask(&masks[1], band*channels+channels-1) != uint32(uint8(right)) || channels == 2 && quantAllBandsMask(&masks[1], band*channels) != uint32(uint8(left)) || masks[0] != 77 || masks[7] != 88 {
 				t.Fatal("mask narrowing/order", channels, band)
 			}
@@ -640,16 +658,24 @@ func TestQuantAllBandsMaskPointers(t *testing.T) {
 	}
 }
 
+func TestQuantAllBandsMaskPartialStorePointers(t *testing.T) {
+	mask := [1]byte{77}
+	if !validationPanics(func() { (quantAllBandsMasks{owner: mask[:], owned: true}).store(0, 2, 0x1234, 0x5678) }) || mask[0] != 0x34 {
+		t.Fatal("left narrowing/store must precede right bounds failure", mask)
+	}
+}
+
 func TestQuantAllBandsPulsePointers(t *testing.T) {
 	pulses := []int32{77, -2147483648, -1, 0, 16383, 2147483647, 88}
+	view := quantAllBandsIntSource{owner: pulses[1:6], owned: true}
 	for band := int32(0); band < 5; band++ {
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if quantAllBandsPulse(&pulses[1], band) != pulses[1+band] {
+		if quantAllBandsPulse(&pulses[1], band) != pulses[1+band] || view.at(band) != pulses[1+band] {
 			t.Fatal("pulse view", band)
 		}
 		pulses[1+band]++
-		if quantAllBandsPulse(&pulses[1], band) != pulses[1+band] || pulses[0] != 77 || pulses[6] != 88 {
+		if quantAllBandsPulse(&pulses[1], band) != pulses[1+band] || view.at(band) != pulses[1+band] || pulses[0] != 77 || pulses[6] != 88 {
 			t.Fatal("live pulse budget")
 		}
 	}
@@ -657,14 +683,15 @@ func TestQuantAllBandsPulsePointers(t *testing.T) {
 
 func TestQuantAllBandsTFPointers(t *testing.T) {
 	flags := []int32{77, -3, 0, 2, 88}
+	view := quantAllBandsIntSource{owner: flags[1:4], owned: true}
 	for band := int32(0); band < 3; band++ {
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if quantAllBandsTF(&flags[1], band) != flags[band+1] {
+		if quantAllBandsTF(&flags[1], band) != flags[band+1] || view.at(band) != flags[band+1] {
 			t.Fatal("TF view", band)
 		}
 		flags[band+1]++
-		if quantAllBandsTF(&flags[1], band) != flags[band+1] || flags[0] != 77 || flags[4] != 88 {
+		if quantAllBandsTF(&flags[1], band) != flags[band+1] || view.at(band) != flags[band+1] || flags[0] != 77 || flags[4] != 88 {
 			t.Fatal("live TF flags")
 		}
 	}

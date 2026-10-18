@@ -5,6 +5,7 @@ import (
 	"math"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 	"unsafe"
 )
@@ -34,7 +35,7 @@ func newSynthesisTestMode() *OpusT_OpusCustomMode {
 
 func TestAllocationDriverAliasPointers(t *testing.T) {
 	mode := newSynthesisTestMode()
-	run := func(m *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, e *OpusT_ec_ctx, trim, encode, alias int32) int32 {
+	run := func(m *OpusT_OpusCustomMode, a *[7][23]int32, s *[3]int32, e *OpusT_ec_ctx, trim, encode, alias int32, owned bool) int32 {
 		balance, intensity, dual := &s[0], &s[1], &s[2]
 		bits, fine, priority := &a[4][1], &a[5][1], &a[6][1]
 		switch alias {
@@ -52,6 +53,20 @@ func TestAllocationDriverAliasPointers(t *testing.T) {
 			bits = &a[3][1]
 		case 7:
 			fine = &a[3][1]
+		}
+		if owned {
+			pulseOwner, fineOwner, priorityOwner := a[4][1:22], a[5][1:22], a[6][1:22]
+			switch alias {
+			case 1:
+				pulseOwner = a[0][1:22]
+			case 4:
+				priorityOwner = fineOwner
+			case 6:
+				pulseOwner = a[3][1:22]
+			case 7:
+				fineOwner = a[3][1:22]
+			}
+			return cltComputeAllocationOwned(nil, m, 0, 21, a[0][1:22], a[3][1:22], trim, intensity, dual, 4096, balance, pulseOwner, fineOwner, priorityOwner, 2, 1, e, encode, 20, 20)
 		}
 		return clt_compute_allocation(nil, m, 0, 21, &a[0][1], &a[3][1], trim, intensity, dual, 4096, balance, bits, fine, priority, 2, 1, e, encode, 20, 20)
 	}
@@ -82,8 +97,8 @@ func TestAllocationDriverAliasPointers(t *testing.T) {
 				e.Fbuf = &buf[0]
 				entropyInitGrowStack(12)
 				runtime.GC()
-				r := run(mode, a, &s, &g, trim, encode, alias)
-				wr := run(&mode48000_960_120, &b, &w, &e, trim, encode, alias)
+				r := run(mode, a, &s, &g, trim, encode, alias, true)
+				wr := run(&mode48000_960_120, &b, &w, &e, trim, encode, alias, false)
 				g.Fbuf = nil
 				e.Fbuf = nil
 				if r != wr || *a != b || s != w || g != e || !slices.Equal(data, buf) {
@@ -139,7 +154,7 @@ func TestAllocationDriverScratchPointers(t *testing.T) {
 							e.Fbuf = &buf[0]
 							entropyInitGrowStack(12)
 							runtime.GC()
-							r := clt_compute_allocation(nil, m, start, 21, &a[0][1], &a[3][1], trim, &s[1], &s[2], budget, &s[0], &a[4][1], &a[5][1], &a[6][1], C, LM, g, encode, 20, 20)
+							r := cltComputeAllocationOwned(nil, m, start, 21, a[0][1:22], a[3][1:22], trim, &s[1], &s[2], budget, &s[0], a[4][1:22], a[5][1:22], a[6][1:22], C, LM, g, encode, 20, 20)
 							wr := clt_compute_allocation(nil, &mode48000_960_120, start, 21, &b[0][1], &b[3][1], trim, &w[1], &w[2], budget, &w[0], &b[4][1], &b[5][1], &b[6][1], C, LM, &e, encode, 20, 20)
 							gc := *g
 							gc.Fbuf = nil
@@ -165,7 +180,7 @@ func TestAllocationDriverScratchPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
-	r := clt_compute_allocation(tls, m, 0, 1, &a[0][0], &a[3][0], 5, &scalar, &scalar, -8, &balance, &a[4][0], &a[5][0], &a[6][0], 1, 0, nil, 0, 0, 0)
+	r := cltComputeAllocationOwned(tls, m, 0, 1, a[0][:], a[3][:], 5, &scalar, &scalar, -8, &balance, a[4][:], a[5][:], a[6][:], 1, 0, nil, 0, 0, 0)
 	if r != 1 || scalar != 0 || balance != 0 || a[6][0] != 1 || libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
 		t.Fatal("driver exact/nil/sentinel", r, scalar, balance, a)
 	}
@@ -251,6 +266,21 @@ func TestAllocationDriverTablesPointers(t *testing.T) {
 	}
 }
 
+func TestAllocationOwnedViewOrderPointers(t *testing.T) {
+	pulse, fine, priority := [1]int32{}, [2]int32{}, [2]int32{}
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		allocationInterpOwned(nil, nil, 0, 2, 0, nil, nil, nil, nil, 0, nil, 0, nil, 0, nil, 0, allocationOutputs{pulse: pulse[:], fine: fine[:], priority: priority[:], owned: true}, 1, 0, nil, 0, 0, 0)
+	}()
+	if failure, ok := caught.(runtime.Error); !ok || !strings.Contains(failure.Error(), "capacity 1") {
+		t.Fatal("output view must precede nil input rows/mode", caught)
+	}
+	if pulse != [1]int32{} || fine != [2]int32{} || priority != [2]int32{} {
+		t.Fatal("no stores during failed view setup")
+	}
+}
+
 func TestAllocationOutputsPointers(t *testing.T) {
 	m := newSynthesisTestMode()
 	for _, C := range []int32{1, 2} {
@@ -287,7 +317,7 @@ func TestAllocationOutputsPointers(t *testing.T) {
 					e.Fbuf = &buf[0]
 					entropyInitGrowStack(12)
 					runtime.GC()
-					r := interp_bits2pulses(nil, m, 0, 21, 0, &a[0][1], &a[1][1], &a[2][1], &a[3][1], budget, &s[0], 0, &s[1], 0, &s[2], 0, &a[4][1], &a[5][1], &a[6][1], C, LM, g, encode, 20, 20)
+					r := allocationInterpOwned(nil, m, 0, 21, 0, a[0][1:22], a[1][1:22], a[2][1:22], a[3][1:22], budget, &s[0], 0, &s[1], 0, &s[2], 0, allocationOutputs{pulse: a[4][1:22], fine: a[5][1:22], priority: a[6][1:22], owned: true}, C, LM, g, encode, 20, 20)
 					wr := interp_bits2pulses(nil, &mode48000_960_120, 0, 21, 0, &b[0][1], &b[1][1], &b[2][1], &b[3][1], budget, &w[0], 0, &w[1], 0, &w[2], 0, &b[4][1], &b[5][1], &b[6][1], C, LM, &e, encode, 20, 20)
 					gc := *g
 					gc.Fbuf = nil
@@ -310,7 +340,7 @@ func TestAllocationOutputsPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 	libc.Xpthread_setspecific(tls, 0x6f707573, 123)
-	r := interp_bits2pulses(tls, m, 0, 1, 0, &arrays[0][0], &arrays[1][0], &arrays[2][0], &arrays[3][0], 0, &balance, 0, &shared, 0, &shared, 0, &arrays[4][0], &arrays[5][0], &arrays[6][0], 1, 0, nil, 0, 0, 0)
+	r := allocationInterpOwned(tls, m, 0, 1, 0, arrays[0][:], arrays[1][:], arrays[2][:], arrays[3][:], 0, &balance, 0, &shared, 0, &shared, 0, allocationOutputs{pulse: arrays[4][:], fine: arrays[5][:], priority: arrays[6][:], owned: true}, 1, 0, nil, 0, 0, 0)
 	if r != 1 || balance != 0 || shared != 0 || arrays[6][0] != 1 || libc.Xpthread_getspecific(tls, 0x6f707573) != 123 {
 		t.Fatal("allocation nil entropy/scalar alias/TLS", r, balance, shared, arrays)
 	}
@@ -625,7 +655,7 @@ func TestSynthesisSilentOffsetPointers(t *testing.T) {
 			}
 			entropyInitGrowStack(12)
 			runtime.GC()
-			celt_synthesis(nil, mode, nil, &outputs[0], nil, 0, mode.FnbEBands, channels[0], channels[1], transient, 1, 1, 1, 0)
+			celtSynthesisOwned(nil, mode, nil, outputs[:], nil, 0, mode.FnbEBands, channels[0], channels[1], transient, 1, 1, 1, 0)
 			for _, out := range owners {
 				if out[0] != 77 || out[len(out)-1] != 88 {
 					t.Fatal("silent synthesis guards", channels, transient)
@@ -645,7 +675,7 @@ func TestSynthesisScratchPointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		_, bands, N := celtSynthesisGeometry(m, LM)
 		for _, layout := range [][2]int32{{1, 1}, {2, 2}, {1, 2}, {2, 1}, {0, 0}, {0, 1}} {
-			owners := func() []*float32 {
+			owners, spectrum := func() ([]*float32, []float32) {
 				x, e := make([]float32, N*max(layout[0], layout[1], 1)+2), make([]float32, bands*max(layout[0], layout[1], 1)+2)
 				l, r := make([]float32, N+62), make([]float32, N+62)
 				for i := range x {
@@ -659,7 +689,7 @@ func TestSynthesisScratchPointers(t *testing.T) {
 					r[i] = float32(i%13-6) / 37
 				}
 				l[0], l[len(l)-1], r[0], r[len(r)-1] = 77, 88, 99, 111
-				return []*float32{&x[1], &e[1], &l[0], &r[0]}
+				return []*float32{&x[1], &e[1], &l[0], &r[0]}, x[1 : len(x)-1]
 			}()
 			g0, g1 := unsafe.Slice(owners[2], N+62), unsafe.Slice(owners[3], N+62)
 			w0, w1 := slices.Clone(g0), slices.Clone(g1)
@@ -676,7 +706,7 @@ func TestSynthesisScratchPointers(t *testing.T) {
 				for _, down := range []int32{1, 2, 3, 4, 6} {
 					for _, silence := range []int32{0, 1} {
 						for _, limits := range [][2]int32{{0, 21}, {1, 19}, {21, 21}} {
-							celt_synthesis(nil, m, owners[0], &actual[0], owners[1], limits[0], limits[1], layout[0], layout[1], transient, LM, down, silence, 0)
+							celtSynthesisOwned(nil, m, spectrum, actual, owners[1], limits[0], limits[1], layout[0], layout[1], transient, LM, down, silence, 0)
 							celt_synthesis(nil, &mode48000_960_120, owners[0], &expected[0], owners[1], limits[0], limits[1], layout[0], layout[1], transient, LM, down, silence, 0)
 							for _, pair := range [][2][]float32{{g0, w0}, {g1, w1}} {
 								for i := range pair[0] {
@@ -728,7 +758,7 @@ func TestSynthesisAliasesPointers(t *testing.T) {
 				expected := [2]*float32{&want[1], &want[1+offset]}
 				entropyInitGrowStack(12)
 				runtime.GC()
-				celt_synthesis(nil, m, &x[0], &heads[0], &e[0], 0, 21, 2, 2, transient, LM, 1, 0, 0)
+				celtSynthesisOwned(nil, m, x, heads[:], &e[0], 0, 21, 2, 2, transient, LM, 1, 0, 0)
 				celt_synthesis(nil, &mode48000_960_120, &x[0], &expected[0], &e[0], 0, 21, 2, 2, transient, LM, 1, 0, 0)
 				if !slices.Equal(g, want) || g[0] != 77 || g[len(g)-1] != 88 {
 					t.Fatal("shared output lifetime", LM, transient, offset)
@@ -754,7 +784,7 @@ func TestSynthesisAliasesPointers(t *testing.T) {
 	celtSynthesisIMDCT(nil, m, &want[61], &want[1], 120, 3, 1, 0)
 	celtSynthesisIMDCT(nil, m, &freq[0], &want[1], 120, 3, 1, 0)
 	heads := [2]*float32{&g[1], &g[1]}
-	celt_synthesis(nil, m, &x[0], &heads[0], &e[0], 0, 21, 1, 2, 0, 0, 1, 0, 0)
+	celtSynthesisOwned(nil, m, x, heads[:], &e[0], 0, 21, 1, 2, 0, 0, 1, 0, 0)
 	if !slices.Equal(g, want) || g[0] != 77 || g[181] != 88 {
 		t.Fatal("upmix copy/left/right order")
 	}
