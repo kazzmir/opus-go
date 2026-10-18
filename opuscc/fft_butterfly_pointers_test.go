@@ -147,6 +147,11 @@ func TestMDCTConsumedStridePointers(t *testing.T) {
 	singleton := float32(7)
 	for _, stride := range []int32{-2147483648, -2, 0, 2, 2147483647} {
 		view, origin := mdctStridedSlice(&singleton, 1, stride)
+		only := [1]float32{7}
+		owned, base := (mdctInputSource{owner: only[:], owned: true}).strided(0, 1, stride)
+		if len(owned) != 1 || base != 0 || &owned[0] != &only[0] {
+			t.Fatal("owned singleton exact extent", stride)
+		}
 		if len(view) != 1 || origin != 0 || &view[0] != &singleton {
 			t.Fatal("singleton extent/identity", stride)
 		}
@@ -155,6 +160,13 @@ func TestMDCTConsumedStridePointers(t *testing.T) {
 	forward, f := mdctStridedSlice(&owner[2], 3, 2)
 	backward, b := mdctStridedSlice(&owner[6], 3, -2)
 	zero, z := mdctStridedSlice(&owner[2], 3, 0)
+	ownedSource := mdctInputSource{owner: owner, owned: true}
+	of, obase := ownedSource.strided(2, 3, 2)
+	ob, bbase := ownedSource.strided(6, 3, -2)
+	oz, zbase := ownedSource.strided(2, 3, 0)
+	if len(of) != len(forward) || len(ob) != len(backward) || len(oz) != len(zero) || obase != f || bbase != b || zbase != z || &of[obase] != &owner[2] || &ob[bbase] != &owner[6] || &oz[zbase] != &owner[2] {
+		t.Fatal("owned strided geometry/identity")
+	}
 	entropyInitGrowStack(12)
 	runtime.GC()
 	if len(forward) != 5 || len(backward) != 5 || len(zero) != 1 || f != 0 || b != 4 || z != 0 {
@@ -252,12 +264,14 @@ func TestMDCTBackwardOffsetPointers(t *testing.T) {
 			numeric := slices.Clone(got)
 			history := slices.Clone(got)
 			spanOutput := slices.Clone(got)
+			ownedOutput := slices.Clone(got)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			Opus_clt_mdct_backward_c(nil, l, st.Fbitrev, st.Ftwiddles, &owner[origin], &want[1], &window120[0], 120, shift, stride, 0)
 			opusMDCTBackwardAt(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], origin, &got[1], &window120[0], 120, shift, stride, 0)
 			opusMDCTBackwardOffsets(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], int64(origin), &numeric[0], 1, &window120[0], 120, shift, stride, 0)
 			opusMDCTBackwardOffsets(nil, l, st.Fbitrev, st.Ftwiddles, &owner[0], int64(origin), &history[2], -1, &window120[0], 120, shift, stride, 0)
+			opusMDCTBackwardOwned(nil, l, st.Fbitrev, st.Ftwiddles, owner, int64(origin), &ownedOutput[0], 1, &window120[0], 120, shift, stride, 0)
 			tableOffset, size := int32(0), l.Fn
 			for i := int32(0); i < shift; i++ {
 				size >>= 1
@@ -268,7 +282,7 @@ func TestMDCTBackwardOffsetPointers(t *testing.T) {
 			input := owner[int64(origin)+int64(first) : int64(origin)+int64(first)+int64(width)]
 			opusMDCTBackwardSpans(nil, l, st.Ftwiddles, trig, input, -first, spanOutput[1:n+61], window120[:], unsafe.Slice(st.Fbitrev, n/2), n, n/2, 120, shift, stride)
 			for i := range got {
-				if math.Float32bits(spanOutput[i]) != math.Float32bits(want[i]) {
+				if math.Float32bits(spanOutput[i]) != math.Float32bits(want[i]) || math.Float32bits(ownedOutput[i]) != math.Float32bits(want[i]) {
 					t.Fatal("MDCT span kernel/guards", shift, stride, i)
 				}
 				if math.Float32bits(got[i]) != math.Float32bits(want[i]) || math.Float32bits(numeric[i]) != math.Float32bits(want[i]) || math.Float32bits(history[i]) != math.Float32bits(want[i]) {

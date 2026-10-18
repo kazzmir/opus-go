@@ -109,7 +109,32 @@ func opusMDCTBackwardAt(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twid
 	opusMDCTBackwardOffsets(tls, l, bitrev, twiddles, in, int64(inputOffset), out, 0, window, overlap, shift, stride, arch)
 }
 
+type mdctInputSource struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
+}
+
+func (source mdctInputSource) strided(offset int64, n, stride int32) ([]float32, int32) {
+	if !source.owned {
+		return mdctStridedSliceOrigin(source.legacy, offset, n, stride)
+	}
+	last := (n - 1) * stride
+	first, end := min(int32(0), last), max(int32(0), last)
+	width := end - first + 1 // Preserve the original int32 strided extent arithmetic.
+	start := offset + int64(first)
+	return source.owner[start : start+int64(width)], -first
+}
+
 func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in *float32, inputOffset int64, out *float32, outputOffset int32, window *float32, overlap, shift, stride, arch int32) {
+	opusMDCTBackwardFrom(tls, l, bitrev, twiddles, mdctInputSource{legacy: in}, inputOffset, out, outputOffset, window, overlap, shift, stride, arch)
+}
+
+func opusMDCTBackwardOwned(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, owner []float32, inputOffset int64, out *float32, outputOffset int32, window *float32, overlap, shift, stride, arch int32) {
+	opusMDCTBackwardFrom(tls, l, bitrev, twiddles, mdctInputSource{owner: owner, owned: true}, inputOffset, out, outputOffset, window, overlap, shift, stride, arch)
+}
+
+func opusMDCTBackwardFrom(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, source mdctInputSource, inputOffset int64, out *float32, outputOffset int32, window *float32, overlap, shift, stride, arch int32) {
 	_ = arch
 	N := l.Fn
 	offset := int32(0)
@@ -119,7 +144,7 @@ func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 	}
 	N2, N4 := N>>1, N>>2
 	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
-	input, inputBase := mdctStridedSliceOrigin(in, inputOffset, N2, stride)
+	input, inputBase := source.strided(inputOffset, N2, stride)
 	var output []float32
 	outputLength := N2 + (overlap >> 1)
 	if outputOffset == 0 {
