@@ -46,6 +46,11 @@ func TestCombFilterPointers(t *testing.T) {
 				if inPlace {
 					got = x[offset:]
 				}
+				spanX, spanOut := slices.Clone(x), slices.Clone(out)
+				span := spanOut[1 : n+1]
+				if inPlace {
+					span = spanX[offset:]
+				}
 				want := make([]float32, n)
 				for i := range want {
 					p := offset + i
@@ -55,6 +60,10 @@ func TestCombFilterPointers(t *testing.T) {
 					}
 				}
 				comb_filter_const_c(nil, &got[0], &x[0], int32(period), int32(n), 0.5, 0.25, -0.125)
+				combFilterConstSpans(spanX, span, int32(period), .5, .25, -.125)
+				if !slices.Equal(spanX, x) || !slices.Equal(spanOut, out) {
+					t.Fatal("constant comb spans/whole buffers/guards")
+				}
 				for i := range want {
 					if got[i] != want[i] {
 						t.Fatalf("period=%d n=%d inplace=%t i=%d: got %g want %g", period, n, inPlace, i, got[i], want[i])
@@ -72,6 +81,7 @@ func TestCombFilterPointers(t *testing.T) {
 		}
 	}
 	comb_filter_const_c(nil, nil, nil, 15, 0, 0.5, 0.25, 0.125)
+	combFilterConstSpans(nil, nil, 15, .5, .25, .125)
 }
 
 func TestCollapseMaskPointers(t *testing.T) {

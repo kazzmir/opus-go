@@ -163,6 +163,14 @@ func comb_filter_const_c(tls *libc.TLS, y *OpusT_opus_val32, xHistory *OpusT_opu
 	offset := int(T) + 2
 	x := unsafe.Slice(xHistory, offset+int(N))
 	out := unsafe.Slice(y, int(N))
+	combFilterConstSpans(x, out, T, g10, g11, g12)
+}
+
+func combFilterConstSpans(x, out []float32, T int32, g10, g11, g12 float32) {
+	if len(out) == 0 {
+		return
+	}
+	offset := int(T) + 2
 	x4, x3, x2, x1 := x[0], x[1], x[2], x[3]
 	for i := range out {
 		x0 := x[i+4]
@@ -254,7 +262,7 @@ func combFilterFromSource(tls *libc.TLS, y *float32, source combFilterSource, T0
 		return
 	}
 	if N > overlap {
-		comb_filter_const_c(tls, &dst[overlap], &src[history+overlap-T1-2], T1, N-overlap, g10, g11, g12)
+		combFilterConstSpans(src[history+overlap-T1-2:], dst[overlap:], T1, g10, g11, g12)
 	}
 }
 
