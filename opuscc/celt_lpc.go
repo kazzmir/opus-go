@@ -256,7 +256,7 @@ func celtAutocorrSamples(tls *libc.TLS, input []float32, ac, window *float32, ov
 		}
 	}
 	fastN := n - lag
-	Opus_celt_pitch_xcorr_c(tls, unsafe.SliceData(signal), unsafe.SliceData(signal), ac, fastN, lag+1, arch)
+	pitchXCorrFrom(tls, pitchXCorrSamples{owner: signal, owned: true}, pitchXCorrSamples{legacy: unsafe.SliceData(signal)}, pitchXCorrSamples{legacy: ac}, fastN, lag+1, arch)
 	out := unsafe.Slice(ac, lag+1)
 	for k := int32(0); k <= lag; k++ {
 		d := float32(0)
