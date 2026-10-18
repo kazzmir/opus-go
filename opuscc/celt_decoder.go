@@ -485,6 +485,20 @@ func prefilterFoldTDAC(mode *OpusT_OpusCustomMode, memory, filtered *float32, ov
 	window := unsafe.Slice(mode.Fwindow, overlap)
 	destination := unsafe.Slice(memory, overlap/2)
 	samples := unsafe.Slice(filtered, overlap)
+	prefilterFoldTDACSpans(window, destination, samples, overlap)
+}
+
+func prefilterFoldTDACSpan(mode *OpusT_OpusCustomMode, memory *float32, filtered []float32, overlap int32) {
+	if overlap/2 <= 0 {
+		return
+	}
+	window := unsafe.Slice(mode.Fwindow, overlap)
+	destination := unsafe.Slice(memory, overlap/2)
+	samples := filtered[:overlap]
+	prefilterFoldTDACSpans(window, destination, samples, overlap)
+}
+
+func prefilterFoldTDACSpans(window, destination, samples []float32, overlap int32) {
 	for i := int32(0); i < overlap/2; i++ {
 		// Keep the generated/C operand order and live window/sample reads.
 		destination[i] = float32(OpusT_celt_coef(window[i])*samples[overlap-1-i]) + float32(OpusT_celt_coef(window[overlap-i-1])*samples[i])
@@ -493,7 +507,6 @@ func prefilterFoldTDAC(mode *OpusT_OpusCustomMode, memory, filtered *float32, ov
 func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	mode, overlap, CC := prefilterFoldState(st1)
 	scratch := make([]float32, overlap)
-	etmp := unsafe.SliceData(scratch)
 	var decodeMem [2]*float32
 	// Match both C do-while loops, including channel zero for CC==0.
 	for c := int32(0); c < max(CC, 1); c++ {
@@ -510,7 +523,7 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 		// Filter the overlap before writing any TDAC samples, then reuse scratch
 		// for the next channel. State controls remain live reads per channel.
 		combFilterBuffersOwned(tls, scratch, 0, unsafe.Slice(decodeMem[c], DEC_PITCH_BUF_SIZE+overlap), DEC_PITCH_BUF_SIZE-N, st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch)
-		prefilterFoldTDAC(mode, input, etmp, overlap)
+		prefilterFoldTDACSpan(mode, input, scratch, overlap)
 	}
 }
 

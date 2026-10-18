@@ -480,7 +480,7 @@ func TestPrefilterTDACRounding(t *testing.T) {
 	m := newSynthesisTestMode()
 	filtered := []float32{-2422, -2249, -2076}
 	var out float32
-	prefilterFoldTDAC(m, &out, &filtered[0], 3)
+	prefilterFoldTDACSpan(m, &out, filtered, 3)
 	if bits := math.Float32bits(out); bits != 0xc086cced {
 		t.Fatalf("fold product rounding: %08x want c086cced", bits)
 	}
@@ -500,7 +500,7 @@ func TestPrefilterTDACPointers(t *testing.T) {
 		want := slices.Clone(g)
 		entropyInitGrowStack(12)
 		runtime.GC()
-		prefilterFoldTDAC(m, &g[1], unsafe.SliceData(filtered), overlap)
+		prefilterFoldTDACSpan(m, &g[1], filtered, overlap)
 		window := unsafe.Slice(m.Fwindow, 120)
 		for i := int32(0); i < overlap/2; i++ {
 			want[1+i] = float32(window[i]*filtered[overlap-1-i]) + float32(window[overlap-i-1]*filtered[i])
@@ -529,11 +529,11 @@ func TestPrefilterTDACPointers(t *testing.T) {
 				want[1+i] = float32(window[i]*want[5-i]) + float32(window[5-i]*want[i])
 			}
 		}
-		p := &filtered[0]
+		samples := filtered
 		if !aliasWindow {
-			p = &data[0]
+			samples = data[:6]
 		}
-		prefilterFoldTDAC(&m, &data[1], p, 6)
+		prefilterFoldTDACSpan(&m, &data[1], samples, 6)
 		if !slices.Equal(data, want) {
 			t.Fatal("fold sequential aliases", aliasWindow, data, want)
 		}
@@ -541,6 +541,8 @@ func TestPrefilterTDACPointers(t *testing.T) {
 	// No window/scratch/output access when there are no folded samples.
 	prefilterFoldTDAC(nil, nil, nil, 0)
 	prefilterFoldTDAC(nil, nil, nil, 1)
+	prefilterFoldTDACSpan(nil, nil, nil, 0)
+	prefilterFoldTDACSpan(nil, nil, nil, 1)
 }
 
 func TestPrefilterHistoryPointers(t *testing.T) {
