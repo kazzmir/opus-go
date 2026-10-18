@@ -534,6 +534,62 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four autocorrelation rounds retain its actual signal as xcorr INPUT, then as
+xcorr HISTORY, retain actual correlation output arrays in PLC/pitch whitening,
+then bind its canonical window to the actual window120 Go array ONLY on exact
+pointer identity and supported0..120 overlap. Other/custom/equal-valued-copy,
+interior/oversized windows preserve the original legacy pointer path. This is
+bounded canonical-owner reuse, not generalized mode/window ownership recovery.
+
+pitchXCorrSamples holds concrete float slice owner, separate legacy pointer and
+explicit discriminator; xcorr adapters share assertion and input/history/output
+view formation, not address casts or opaque alias types. The existing all-owned
+pitch-search path stays all-owned. During rounds1/2, active autocorrelation loses
+its respective scalar signal-head round trips; after round2 neither input nor
+history reduces signal to a pointer. Round3 carries actual ac arrays through
+xcorr and the lag tail, without reconstructing output views from &ac[0]. Both
+PLC and pitch-downsample whitening use it. Public/raw adapters remain intact.
+
+Preserved autocorrelation assertions n>0 BEFORE overlap>=0 BEFORE input view,
+windowed signal allocation/copy BEFORE window view, two separately rounded end
+products using ORIGINAL input even when end regions overlap, fastN arithmetic,
+xcorr then per-lag correction read/add/store order, all live input/window/output
+aliases and return0. No extra scratch allocation, sample/table snapshots or
+arithmetic reassociation. Canonical root selection forms metadata only; its
+actual overlap prefix is deferred to original window consumption, and overlap0
+still never reads window data. Xcorr keeps positive-lag assertion BEFORE input,
+exact length+maxPitch-1 history extent (zero history for nonpositive scalar
+length), output view BEFORE unrolled len>=3 assertion, four-lag temporary/load/
+product/store order and scalar tails. Integer narrowing/wrapping unchanged.
+Upstream celt_lpc.c and pitch.c/macros inspected; no new C invalid/restrict-domain
+claims, altered assertions, diagnostics, validation order or public ABI claims.
+
+Existing grouped xcorr whole-buffer bit/guard/alias matrix now also compares
+mixed input-owner and input/history-owner routes against raw and fully owned
+routes on SAME physical extents; original numerical/manual oracles stay.
+Existing autocorrelation raw/input-span matrix now additionally exercises owned
+output for n8/32, lag0/1/3, overlap0/2/n/2/n, and separate/in-place/shifted output
+with window/input aliases; exact diagnostic checks also cover nil owned roots.
+Canonical-window tests verify actual array identity and all fallback gates,
+then compare whole120-float table bits for live window/input/output aliases,
+lag0/1/3/24 and overlap0/2/60/120 under GC/stack growth. Table is restored after
+EVERY pair and on exit; no enlarged fake spans, pointers poisoned or changed
+fixtures/oracles/tolerances. These aliases are Go-only, not new C restrict-domain
+claims. Existing native comparisons/packets/samples/ranges/hashes and full
+encode/decode references unchanged. Counts remain101 unsafe.Pointer/105 uintptr:
+active owner work, not token/dead-adapter cleanup or fixture ownership repair.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad plus targeted scoped
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks. Final tagged ARM ordinary/scoped
+repeats20. Logs /tmp/opus-round-autocorr-xcorr-go-input-owner.log,
+/tmp/opus-round-autocorr-xcorr-go-history-owner.log,
+/tmp/opus-round-autocorr-go-correlation-output.log,
+/tmp/opus-round-autocorr-go-canonical-window-owner.log and
+/tmp/opus-round-autocorr-span-owners-arm-{checkptr,golden}-repeat.log.
+No validation failures in this batch. No native GC/extension EOF/raw callback/
+opaque-image repair, global lifetime safety, performance or direct macOS claims.
+
 Four inverse-MDCT/FFT rounds extract the unchanged backward live-span kernel,
 retain its FFT output as actual float-lane owner plus numeric origin, introduce
 exact strided owned MDCT input (private staged API in round3), then CONNECT the

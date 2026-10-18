@@ -431,6 +431,47 @@ func TestAutocorrPointers(t *testing.T) {
 	}
 }
 
+func TestAutocorrCanonicalWindowPointers(t *testing.T) {
+	saved := window120
+	defer func() { window120 = saved }()
+	bound := celtAutocorrKnownWindow(&window120[0], 120)
+	if !bound.owned || len(bound.owner) != len(window120) || &bound.owner[0] != &window120[0] {
+		t.Fatal("canonical actual window owner")
+	}
+	for _, candidate := range []struct {
+		pointer *float32
+		overlap int32
+	}{{&saved[0], 120}, {&window120[1], 119}, {&window120[0], 121}, {&window120[0], -1}, {nil, 0}} {
+		if celtAutocorrKnownWindow(candidate.pointer, candidate.overlap).owned {
+			t.Fatal("noncanonical/shifted/unsupported windows must stay legacy")
+		}
+	}
+	// Go-only live window/input/output aliases: preserve sequential stores, not
+	// a new C restrict-domain claim. Restore the canonical table after EACH pair.
+	for _, overlap := range []int32{0, 2, 60, 120} {
+		for _, lag := range []int32{0, 1, 3, 24} {
+			for _, origin := range []int32{0, 1, 80, 95} {
+				window120 = saved
+				entropyInitGrowStack(12)
+				runtime.GC()
+				r := Opus__celt_autocorr(nil, &window120[0], &window120[origin], &window120[0], overlap, lag, 120, 0)
+				want := window120
+				window120 = saved
+				r2 := celtAutocorrOwned(nil, window120[:], window120[origin:], &window120[0], overlap, lag, 120, 0)
+				if r != r2 {
+					t.Fatal("canonical autocorr return")
+				}
+				for i := range want {
+					if math.Float32bits(window120[i]) != math.Float32bits(want[i]) {
+						t.Fatal("canonical live window/input/output aliases", overlap, lag, origin, i)
+					}
+				}
+				window120 = saved
+			}
+		}
+	}
+}
+
 func TestAutocorrSpanPointers(t *testing.T) {
 	for _, n := range []int32{8, 32} {
 		for _, lag := range []int32{0, 1, 3} {
