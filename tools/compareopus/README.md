@@ -534,6 +534,58 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four quant-all-bands rounds retain actual collapse-mask, pulse-budget, TF-flag
+and spectrum owners. Active normal decode now passes all five work buffers
+(left/right spectra, masks, pulses, flags) as concrete Go slices. Explicit private
+sources carry real typed owners plus owned flags; raw pointer fields serve only
+unchanged compatibility entries. Numeric band offsets select only the REQUIRED
+first sample at existing spectrum/lowband consumers, not a new universal span.
+No active owner is reconstructed from an address. Counts remain101 unsafe.Pointer/
+105 uintptr: active carrier changes, not cast/adapter deletion, new scratch,
+fixture ownership repair or proof of global lifetime/performance/macOS safety.
+
+All mask/pulse/flag accesses remain on demand, not eagerly bounded/copied at entry.
+Every original repeated pulse read in budget clamps AND the post-mask balance
+update stays live. TF is loaded at its original point. Folding masks are read at
+the original left/right indices; byte narrowing and TWO sequential stores remain
+(left then right, including mono right-overwrites-left). A bounded private test
+checks that the first store survives failure at the second index. No all-buffer
+validation is moved ahead of these stores or empty-band work.
+
+Spectrum sources retain raw nil-right identity or owned nil-right absence for
+channel/RDO decisions. Decoder's new slice channel helper preserves N==0 returning
+nil views and requires the original interior right first sample otherwise. Band/
+lowband offsets retain int32 arithmetic and exact one-sample geometry. Seed/context,
+entropy tells, RDO snapshots/restores/byte ranges/tie choice, normalization owners,
+recursion, scratch allocation, resynthesis/last-band/folding and store/reload order
+remain unchanged. No arithmetic reassociation, snapshots beyond upstream scratch,
+new assertions or global ABI/callback/opaque-image lifetime claims. Upstream bands.c
+quant_all_bands/RDO/folding/store contracts inspected.
+
+Existing grouped active LM0..3 mono/stereo fixtures now use owned APIs on identical
+allocations/extents/guards. Existing whole encode/RDO/dual/mono/decode fixtures
+retain EXACT scalar-C spectrum hashes, mask bytes, entropy bit counts, packet bytes
+and seeds; no golden/tolerance changes. Pulse and TF tests check live mutation and
+original signed widths; masks check mono/stereo narrowing/store order. Spectrum
+fixtures compare original pointer identity to owned band views and actual decoder
+slice roots under GC/stack growth, without new allocations or pointer-slot
+poisoning. Empty-band tests leave all nil work owners unused while preserving seed.
+The legacy spectrum helper stays for compatibility; no dead-adapter cleanup claim.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped quant-all-bands/spectrum checkptr, typed PartA/PartB and tagged owner/cell
+checks on3 architectures, native comparisons, GC stress, codec references and diff
+checks. Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-quant-bands-go-mask-owner{,-retry}.log,
+/tmp/opus-round-quant-bands-go-pulse-owner.log,
+/tmp/opus-round-quant-bands-go-tf-owner.log,
+/tmp/opus-round-quant-bands-go-spectrum-owners.log and
+/tmp/opus-round-quant-band-work-owners-arm-{checkptr,golden}-repeat.log.
+The first mask run retains a BUILD failure, "undefined: slices", from the new
+fixture's missing import. Only the import was added; the COMPLETE unchanged retry
+passes. No production/fixture/golden/scope weakening, and no claim to repair prior
+native GC/extension EOF/raw callback/opaque image issues.
+
 Four allocation rounds extract the unchanged interpolation slice kernel, retain
 actual bits1/bits2/threshold/cap rows, retain active decoder offsets/caps, then
 retain pulse/fine/priority outputs. Normal decode now passes ALL five allocation

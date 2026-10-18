@@ -62,6 +62,16 @@ func TestQuantAllBandsNormConsumedPointers(t *testing.T) {
 	}
 }
 
+func TestQuantAllBandsOwnedEmptyPointers(t *testing.T) {
+	mode := newSynthesisTestMode()
+	old, owned := uint32(123), uint32(123)
+	quant_all_bands(nil, 0, mode, 0, 0, nil, nil, nil, nil, nil, 0, 0, 0, 0, nil, 0, 0, nil, 0, 0, &old, 0, 0, 0)
+	quantAllBandsOwned(nil, 0, mode, 0, 0, nil, nil, nil, nil, nil, 0, 0, 0, 0, nil, 0, 0, nil, 0, 0, &owned, 0, 0, 0)
+	if old != 123 || owned != old {
+		t.Fatal("empty band work leaves nil owners unused and seed unchanged")
+	}
+}
+
 func TestQuantAllBandsActivePointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		for _, C := range []int32{1, 2} {
@@ -88,9 +98,9 @@ func TestQuantAllBandsActivePointers(t *testing.T) {
 			seed := uint32(123456)
 			masks := make([]byte, C*bands+2)
 			masks[0], masks[len(masks)-1] = 33, 44
-			var right *float32
+			var right []float32
 			if C == 2 {
-				right = &y[1]
+				right = y[1 : N+1]
 			}
 			entropyInitGrowStack(12)
 			runtime.GC()
@@ -101,7 +111,7 @@ func TestQuantAllBandsActivePointers(t *testing.T) {
 				tls = libc.NewTLS()
 				libc.Xpthread_setspecific(tls, 0x6f707573, uintptr(unsafe.Pointer(sentinel)))
 			}
-			quantAllBandsOwned(tls, 0, mode, 0, bands, &x[1], right, masks[1:len(masks)-1], nil, pulses, 1, SPREAD_NORMAL, 0, bands, tf, 4096, 24, ec, LM, bands, &seed, 8, 0, 0)
+			quantAllBandsOwned(tls, 0, mode, 0, bands, x[1:N+1], right, masks[1:len(masks)-1], nil, pulses, 1, SPREAD_NORMAL, 0, bands, tf, 4096, 24, ec, LM, bands, &seed, 8, 0, 0)
 			if *sentinel != before {
 				t.Fatal("quantizer touched legacy cursor")
 			}
@@ -149,13 +159,13 @@ func TestQuantAllBandsWholePointers(t *testing.T) {
 		seed := tc.seed
 		masks := make([]byte, 8)
 		masks[0], masks[7] = 77, 88
-		var right *float32
+		var right []float32
 		if tc.stereo {
-			right = &y[1]
+			right = y[1:13]
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		quantAllBandsOwned(nil, 1, mode, 0, 3, &x[1], right, masks[1:7], &energy[0], pulses, 0, tc.spread, tc.dual, 3, tf, 400, 24, ec, 0, 3, &seed, tc.complexity, 0, 0)
+		quantAllBandsOwned(nil, 1, mode, 0, 3, x[1:13], right, masks[1:7], &energy[0], pulses, 0, tc.spread, tc.dual, 3, tf, 400, 24, ec, 0, 3, &seed, tc.complexity, 0, 0)
 		Opus_ec_enc_done(nil, ec)
 		wantedMasks := "\x01\x01\x01"
 		if tc.stereo {
@@ -184,7 +194,7 @@ func TestQuantAllBandsWholePointers(t *testing.T) {
 	masks := make([]byte, 6)
 	entropyInitGrowStack(12)
 	runtime.GC()
-	quantAllBandsOwned(nil, 0, mode, 0, 3, &x[0], &y[0], masks, &energy[0], pulses, 0, SPREAD_NORMAL, 0, 3, tf, 400, 24, ec, 0, 3, &seed, 8, 0, 0)
+	quantAllBandsOwned(nil, 0, mode, 0, 3, x, y, masks, &energy[0], pulses, 0, SPREAD_NORMAL, 0, 3, tf, 400, 24, ec, 0, 3, &seed, 8, 0, 0)
 	if fnv1aFloats(x) != 0xba1de34d || fnv1aFloats(y) != 0xa91fb3cd || seed != 123456789 || string(masks) != "\x01\x01\x01\x01\x01\x01" {
 		t.Fatal("whole typed decode C golden")
 	}
@@ -227,11 +237,12 @@ func TestQuantAllBandsSpectrumPointers(t *testing.T) {
 	for _, M := range []int32{1, 2, 4, 8} {
 		spectrum := make([]float32, 12*M+2)
 		spectrum[0], spectrum[len(spectrum)-1] = 77, 88
+		owned := quantAllBandsSpectrumSource{owner: spectrum[1 : len(spectrum)-1], owned: true}
 		for band := int32(0); band < 3; band++ {
 			pointer := quantAllBandsSpectrum(&spectrum[1], &bands[0], band, M)
 			entropyInitGrowStack(12)
 			runtime.GC()
-			if pointer != &spectrum[1+int32(bands[band])*M] {
+			if pointer != &spectrum[1+int32(bands[band])*M] || owned.at(&bands[0], band, M) != pointer || !owned.present() {
 				t.Fatal("spectrum view geometry")
 			}
 			*pointer = float32(band)

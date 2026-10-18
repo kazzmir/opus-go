@@ -2792,6 +2792,27 @@ func Opus_quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, 
 	quant_all_bands(tls, encode, m, start, end, X_, Y_, collapse_masks, bandE, pulses, shortBlocks, spread, dual_stereo, intensity, tf_res, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
 }
 
+type quantAllBandsSpectrumSource struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
+}
+
+func (source quantAllBandsSpectrumSource) present() bool {
+	if source.owned {
+		return source.owner != nil
+	}
+	return source.legacy != nil
+}
+
+func (source quantAllBandsSpectrumSource) at(bands *int16, band, M int32) *float32 {
+	if !source.owned {
+		return quantAllBandsSpectrum(source.legacy, bands, band, M)
+	}
+	offset := M * quantAllBandsBoundary(bands, band)
+	return &source.owner[offset]
+}
+
 type quantAllBandsIntSource struct {
 	legacy *int32
 	owner  []int32
@@ -2831,14 +2852,14 @@ func (masks quantAllBandsMasks) store(band, channels int32, left, right uint32) 
 
 // Internal spectra, entropy, tables and scratch owners are typed.
 func quant_all_bands(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ *float32, collapse_masks *byte, bandE *float32, pulses *int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res *int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
-	quantAllBandsFrom(tls, encode, m, start, end, X_, Y_, quantAllBandsMasks{legacy: collapse_masks}, bandE, quantAllBandsIntSource{legacy: pulses}, shortBlocks, spread, dual_stereo, intensity, quantAllBandsIntSource{legacy: tf_res}, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
+	quantAllBandsFrom(tls, encode, m, start, end, quantAllBandsSpectrumSource{legacy: X_}, quantAllBandsSpectrumSource{legacy: Y_}, quantAllBandsMasks{legacy: collapse_masks}, bandE, quantAllBandsIntSource{legacy: pulses}, shortBlocks, spread, dual_stereo, intensity, quantAllBandsIntSource{legacy: tf_res}, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
 }
 
-func quantAllBandsOwned(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ *float32, masks []byte, bandE *float32, pulses []int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res []int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
-	quantAllBandsFrom(tls, encode, m, start, end, X_, Y_, quantAllBandsMasks{owner: masks, owned: true}, bandE, quantAllBandsIntSource{owner: pulses, owned: true}, shortBlocks, spread, dual_stereo, intensity, quantAllBandsIntSource{owner: tf_res, owned: true}, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
+func quantAllBandsOwned(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ []float32, masks []byte, bandE *float32, pulses []int32, shortBlocks, spread, dual_stereo, intensity int32, tf_res []int32, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+	quantAllBandsFrom(tls, encode, m, start, end, quantAllBandsSpectrumSource{owner: X_, owned: true}, quantAllBandsSpectrumSource{owner: Y_, owned: true}, quantAllBandsMasks{owner: masks, owned: true}, bandE, quantAllBandsIntSource{owner: pulses, owned: true}, shortBlocks, spread, dual_stereo, intensity, quantAllBandsIntSource{owner: tf_res, owned: true}, total_bits, balance, ec, LM, codedBands, seed, complexity, arch, disable_inv)
 }
 
-func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ *float32, masks quantAllBandsMasks, bandE *float32, pulses quantAllBandsIntSource, shortBlocks, spread, dual_stereo, intensity int32, tf_res quantAllBandsIntSource, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
+func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, start, end int32, X_, Y_ quantAllBandsSpectrumSource, masks quantAllBandsMasks, bandE *float32, pulses quantAllBandsIntSource, shortBlocks, spread, dual_stereo, intensity int32, tf_res quantAllBandsIntSource, total_bits, balance int32, ec *OpusT_ec_ctx, LM, codedBands int32, seed *uint32, complexity, arch, disable_inv int32) {
 	// Go storage scans context owners throughout PVQ recursion.
 	ctx := new(band_ctx)
 	// Channel weights now stay Go-visible across calls and stack growth.
@@ -2858,13 +2879,13 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 	_ = _norm
 	eBands = m.FeBands
 	update_lowband = int32(1)
-	if Y_ != nil {
+	if Y_.present() {
 		v1 = int32(2)
 	} else {
 		v1 = int32(1)
 	}
 	C = v1
-	theta_rdo = libc.BoolInt32(encode != 0 && Y_ != nil && !(dual_stereo != 0) && complexity >= 8)
+	theta_rdo = libc.BoolInt32(encode != 0 && Y_.present() && !(dual_stereo != 0) && complexity >= 8)
 	resynth = libc.BoolInt32(!(encode != 0) || theta_rdo != 0)
 
 	M = int32(1) << LM
@@ -2890,7 +2911,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 	if encode != 0 && resynth != 0 {
 		lowband_scratch = unsafe.SliceData(_lowband_scratch)
 	} else if end > start {
-		lowband_scratch = quantAllBandsLowbandView(X_, eBands, m.FeffEBands-1, M)
+		lowband_scratch = X_.at(eBands, m.FeffEBands-1, M)
 	}
 	X_save, Y_save = quantAllBandsInitialStorage(resynth_alloc)
 	X_save2, Y_save2 = quantAllBandsTrialStorage(resynth_alloc)
@@ -2919,9 +2940,9 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 		tf_change = 0
 		ctx.Fi = i1
 		last = libc.BoolInt32(i1 == end-int32(1))
-		X = quantAllBandsSpectrum(X_, eBands, i1, M)
-		if Y_ != nil {
-			Y = quantAllBandsSpectrum(Y_, eBands, i1, M)
+		X = X_.at(eBands, i1, M)
+		if Y_.present() {
+			Y = Y_.at(eBands, i1, M)
 		} else {
 			Y = nil
 		}
@@ -2995,7 +3016,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 		ctx.Ftf_change = tf_change
 		if i1 >= m.FeffEBands {
 			X = norm
-			if Y_ != nil {
+			if Y_.present() {
 				Y = norm
 			}
 			lowband_scratch = nil

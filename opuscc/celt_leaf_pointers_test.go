@@ -1435,16 +1435,17 @@ func TestCeltDecodeSpectrumStoragePointers(t *testing.T) {
 			entropyInitGrowStack(12)
 			runtime.GC()
 			x, y := celtDecodeSpectrumChannels(s, N, channels)
+			left, right := celtDecodeSpectrumSlices(s, N, channels)
 			if len(s) != int(N*channels) {
 				t.Fatal("spectral geometry")
 			}
 			if N == 0 {
-				if x != nil || y != nil {
+				if x != nil || y != nil || left != nil || right != nil {
 					t.Fatal("empty spectral views")
 				}
 				continue
 			}
-			if x != &s[0] || (channels == 1 && y != nil) || (channels == 2 && y != &s[N]) {
+			if x != &s[0] || &left[0] != x || (channels == 1 && (y != nil || right != nil)) || (channels == 2 && (y != &s[N] || &right[0] != y)) {
 				t.Fatal("spectral channel views")
 			}
 			for i, v := range s {
@@ -1454,7 +1455,7 @@ func TestCeltDecodeSpectrumStoragePointers(t *testing.T) {
 				s[i] = float32(i%17-8) / 128
 			}
 			runtime.GC()
-			if *x != s[0] || (y != nil && *y != s[N]) {
+			if *x != s[0] || left[0] != s[0] || (y != nil && (*y != s[N] || right[0] != s[N])) {
 				t.Fatal("spectral view retention")
 			}
 		}
