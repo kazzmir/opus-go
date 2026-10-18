@@ -534,6 +534,63 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four comb/prefilter rounds extract the unchanged constant-comb slice kernel and
+use it directly in the active tail, retain actual prefilter scratch output in
+comb filtering, retain the same scratch slice as TDAC input, then reuse the rooted
+history span with numeric TDAC output origin. Prefilter no longer reduces its
+scratch to a scalar pointer or manufactures an active positive output cursor.
+Concrete destination fields hold actual Go slice owners; legacy fields preserve
+original pointer/identity/signed/unused-address boundaries. Counts remain101
+unsafe.Pointer/105 uintptr: active representation work, not cast/adapter cleanup,
+new scratch/allocation, fixture ownership repair or global lifetime safety proof.
+
+Constant-comb keeps four history temporaries, sample load/product/rolling update
+order and sequential stores; its existing Go zero-work guard remains. Main comb
+keeps zero-gain identity gating and overlapping Go copy, explicit legacy-x behavior
+with foreign history, period clamp, tapset/product order, overlap selection, source
+history BEFORE output view, initial history loads, live window reads, transition
+stores and g1-zero tail copy. Owned output formation is deferred; zero-length
+spans do not validate unused output origins. No new sample/table snapshots or
+arithmetic reassociation. The active constant tail receives its already-proven
+source/destination spans instead of reconstructing them from interior addresses.
+
+TDAC keeps zero-fold guard BEFORE mode/window/output/scratch access; otherwise
+window, output, scratch views form in original order. Products round separately,
+live window/sample aliases and sequential stores remain. Its overlap-three
+rounding golden stays EXACT0xc086cced. Prefilter still selects required per-channel
+history starts before the overlap==0 return, preserves the original minimal
+positive first-sample extent check BEFORE complete history formation (now without
+creating a pointer), reuses one overlap-sized scratch, and finishes each comb
+before fold. Controls remain live per channel; CC==0 visits channel zero. Signed
+origins retain explicit legacy cursor fallback; only independent owned output
+coordinate combinations widen to int64. Public/raw entries stay. Upstream celt.c
+and celt_decoder.c inspected; no C-domain/ABI/rounding/error-order changes claimed.
+
+Grouped existing constant-comb/manual and prefilter/TDAC fixtures retain extents,
+expected values, guards and live alias semantics. Added owned-output WHOLE-buffer
+full-bit comparisons cover lengths0/1/3/8/17/64, gain pairs, transition/constant
+paths, zero/partial overlap, separate/in-place/shifted/history-overlapping output
+and nil zero work under GC/stack growth. Existing TDAC matrix and alias fixtures
+now use the fully owned path on SAME allocations; its one-float rounding result
+is a one-element Go array (same4 bytes), not an enlarged fixture. Extreme unused
+owned TDAC origins leave nil roots untouched at overlap0/1. No pointer-bearing
+slots are poisoned. Existing native/packet/sample/range/hash and encode/decode
+goldens/tolerances remain; Go-only aliases are not new C restrict-domain claims.
+
+Each separately committed round passes full amd64/386, ARM64/QEMU, broad relevant
+and scoped comb/prefilter checkptr, typed PartA/PartB and tagged owner/cell checks
+on3 architectures, native comparisons, GC stress, codec references and diff checks.
+Final tagged ARM ordinary/scoped fixtures repeat twenty times. Logs:
+/tmp/opus-round-comb-constant-live-span-kernel.log,
+/tmp/opus-round-prefilter-comb-go-output-owner.log,
+/tmp/opus-round-prefilter-tdac-go-scratch-input.log,
+/tmp/opus-round-prefilter-tdac-go-history-output{,-retry}.log and
+/tmp/opus-round-prefilter-span-owners-arm-{checkptr,golden}-repeat.log.
+First history-output full run retains recurring native "found pointer to free
+object" with TestExtensionNextAgainstC active; COMPLETE unchanged retry passes.
+No scope/fixtures/tolerances reduced, and no claim to repair native GC/extension
+EOF/raw callbacks/opaque images or provide performance/direct macOS guarantees.
+
 Four quant-all-bands rounds retain actual collapse-mask, pulse-budget, TF-flag
 and spectrum owners. Active normal decode now passes all five work buffers
 (left/right spectra, masks, pulses, flags) as concrete Go slices. Explicit private

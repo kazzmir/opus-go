@@ -498,6 +498,16 @@ func prefilterFoldTDACSpan(mode *OpusT_OpusCustomMode, memory *float32, filtered
 	prefilterFoldTDACSpans(window, destination, samples, overlap)
 }
 
+func prefilterFoldTDACOwned(mode *OpusT_OpusCustomMode, history []float32, offset int32, filtered []float32, overlap int32) {
+	if overlap/2 <= 0 {
+		return
+	}
+	window := unsafe.Slice(mode.Fwindow, overlap)
+	destination := history[int64(offset) : int64(offset)+int64(overlap/2)]
+	samples := filtered[:overlap]
+	prefilterFoldTDACSpans(window, destination, samples, overlap)
+}
+
 func prefilterFoldTDACSpans(window, destination, samples []float32, overlap int32) {
 	for i := int32(0); i < overlap/2; i++ {
 		// Keep the generated/C operand order and live window/sample reads.
@@ -519,11 +529,24 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 	for c := int32(0); c < max(CC, 1); c++ {
 		// Nonzero overlap consumes this sample, including N==0's overlap tail.
-		input := celtNormConsumedAt(decodeMem[c], DEC_PITCH_BUF_SIZE-N)
+		inputOffset := int32(DEC_PITCH_BUF_SIZE) - N
+		var signedInput *float32
+		if inputOffset < 0 {
+			signedInput = celtNormConsumedAt(decodeMem[c], inputOffset)
+		} else if inputOffset > 0 {
+			// Preserve the original required first-sample extent check BEFORE
+			// the complete history view, without manufacturing an audio cursor.
+			_ = unsafe.Slice(decodeMem[c], int64(inputOffset)+1)[inputOffset]
+		}
+		history := unsafe.Slice(decodeMem[c], DEC_PITCH_BUF_SIZE+overlap)
 		// Filter the overlap before writing any TDAC samples, then reuse scratch
 		// for the next channel. State controls remain live reads per channel.
-		combFilterBuffersOwned(tls, scratch, 0, unsafe.Slice(decodeMem[c], DEC_PITCH_BUF_SIZE+overlap), DEC_PITCH_BUF_SIZE-N, st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch)
-		prefilterFoldTDACSpan(mode, input, scratch, overlap)
+		combFilterBuffersOwned(tls, scratch, 0, history, inputOffset, st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch)
+		if inputOffset < 0 {
+			prefilterFoldTDACSpan(mode, signedInput, scratch, overlap)
+		} else {
+			prefilterFoldTDACOwned(mode, history, inputOffset, scratch, overlap)
+		}
 	}
 }
 

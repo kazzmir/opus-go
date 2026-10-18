@@ -479,9 +479,9 @@ func TestPrefilterTDACRounding(t *testing.T) {
 	// rewrite changed the ARM PLC golden; this overlap-three case differs by 1 ULP.
 	m := newSynthesisTestMode()
 	filtered := []float32{-2422, -2249, -2076}
-	var out float32
-	prefilterFoldTDACSpan(m, &out, filtered, 3)
-	if bits := math.Float32bits(out); bits != 0xc086cced {
+	var out [1]float32
+	prefilterFoldTDACOwned(m, out[:], 0, filtered, 3)
+	if bits := math.Float32bits(out[0]); bits != 0xc086cced {
 		t.Fatalf("fold product rounding: %08x want c086cced", bits)
 	}
 }
@@ -500,7 +500,7 @@ func TestPrefilterTDACPointers(t *testing.T) {
 		want := slices.Clone(g)
 		entropyInitGrowStack(12)
 		runtime.GC()
-		prefilterFoldTDACSpan(m, &g[1], filtered, overlap)
+		prefilterFoldTDACOwned(m, g, 1, filtered, overlap)
 		window := unsafe.Slice(m.Fwindow, 120)
 		for i := int32(0); i < overlap/2; i++ {
 			want[1+i] = float32(window[i]*filtered[overlap-1-i]) + float32(window[overlap-i-1]*filtered[i])
@@ -533,7 +533,7 @@ func TestPrefilterTDACPointers(t *testing.T) {
 		if !aliasWindow {
 			samples = data[:6]
 		}
-		prefilterFoldTDACSpan(&m, &data[1], samples, 6)
+		prefilterFoldTDACOwned(&m, data, 1, samples, 6)
 		if !slices.Equal(data, want) {
 			t.Fatal("fold sequential aliases", aliasWindow, data, want)
 		}
@@ -543,6 +543,8 @@ func TestPrefilterTDACPointers(t *testing.T) {
 	prefilterFoldTDAC(nil, nil, nil, 1)
 	prefilterFoldTDACSpan(nil, nil, nil, 0)
 	prefilterFoldTDACSpan(nil, nil, nil, 1)
+	prefilterFoldTDACOwned(nil, nil, math.MaxInt32, nil, 0)
+	prefilterFoldTDACOwned(nil, nil, math.MinInt32, nil, 1)
 }
 
 func TestPrefilterHistoryPointers(t *testing.T) {
