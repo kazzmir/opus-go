@@ -145,7 +145,9 @@ func opusMDCTBackwardSpans(tls *libc.TLS, l *OpusT_mdct_lookup, twiddles *OpusT_
 		output[base+2*r+1] = yr
 		output[base+2*r] = yi
 	}
-	opusFFTImplOutput(tls, l.Fkfft[shift], twiddles, fftOutput{scalar: &output[base], floatLanes: true})
+	fftState := l.Fkfft[shift]
+	_ = output[base] // Keep the required first-cell check at the original point.
+	opusFFTImplOutput(tls, fftState, twiddles, fftOutput{scalarOwner: output, scalarOffset: base, floatLanes: true, ownedFloat: true})
 	// Capture both ends before storing: odd N4 computes the middle pair twice.
 	p0, p1 := base, base+N2-2
 	for i := int32(0); i < (N4+1)>>1; i++ {

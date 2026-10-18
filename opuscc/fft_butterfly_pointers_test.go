@@ -126,11 +126,16 @@ func TestFFTFloatImplPointers(t *testing.T) {
 			complex[i] = OpusT_kiss_fft_cpx{Fr: float32(i%13-6) / 17, Fi: float32(i%11-5) / 19}
 			scalar[2*i], scalar[2*i+1] = complex[i].Fr, complex[i].Fi
 		}
+		owned := slices.Clone(scalar)
 		Opus_opus_fft_impl(nil, state, state.Ftwiddles, &complex[1])
 		entropyInitGrowStack(12)
 		runtime.GC()
 		opusFFTImplOutput(nil, state, state.Ftwiddles, fftOutput{scalar: &scalar[2], floatLanes: true})
+		opusFFTImplOutput(nil, state, state.Ftwiddles, fftOutput{scalarOwner: owned, scalarOffset: 2, floatLanes: true, ownedFloat: true})
 		for i, v := range complex {
+			if math.Float32bits(owned[2*i]) != math.Float32bits(v.Fr) || math.Float32bits(owned[2*i+1]) != math.Float32bits(v.Fi) {
+				t.Fatal("owned FFT lanes/guards", shift, i)
+			}
 			if math.Float32bits(scalar[2*i]) != math.Float32bits(v.Fr) || math.Float32bits(scalar[2*i+1]) != math.Float32bits(v.Fi) {
 				t.Fatal("full float FFT bits/guards", shift, i)
 			}

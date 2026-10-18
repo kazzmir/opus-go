@@ -14,9 +14,12 @@ var _ reflect.Type
 // FFT output is either actual complex cells or adjacent real float lanes.
 // Each butterfly declares only its consumed prefix after no-work/assert guards.
 type fftOutput struct {
-	complex    *OpusT_kiss_fft_cpx
-	scalar     *float32
-	floatLanes bool
+	complex      *OpusT_kiss_fft_cpx
+	scalar       *float32
+	floatLanes   bool
+	scalarOwner  []float32
+	scalarOffset int32
+	ownedFloat   bool
 }
 type fftBuffer struct {
 	complex []OpusT_kiss_fft_cpx
@@ -25,6 +28,9 @@ type fftBuffer struct {
 
 func (out fftOutput) prefix(n int32) fftBuffer {
 	if out.floatLanes {
+		if out.ownedFloat {
+			return fftBuffer{scalar: out.scalarOwner[int64(out.scalarOffset) : int64(out.scalarOffset)+int64(n)*2]}
+		}
 		return fftBuffer{scalar: unsafe.Slice(out.scalar, int64(n)*2)}
 	}
 	return fftBuffer{complex: unsafe.Slice(out.complex, n)}
