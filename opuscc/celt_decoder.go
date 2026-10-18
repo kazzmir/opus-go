@@ -1457,7 +1457,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			if st1.Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
 				/* Compute LPC coefficients for the last MAX_PERIOD samples before
 				   the first loss so we can work in the excitation-filter domain. */
-				celtAutocorrSpan(tls, exc, &ac[0], window, overlap, CELT_LPC_ORDER, max_period, st1.Farch)
+				celtAutocorrOwned(tls, exc, ac[:], window, overlap, CELT_LPC_ORDER, max_period, st1.Farch)
 				// Noise floor followed by rounded lag-window products.
 				celtPLCLagWindow(&ac)
 				_ = lpc[c*CELT_LPC_ORDER] // Retain the original output argument's index check.

@@ -234,6 +234,11 @@ func celtAutocorrSpan(tls *libc.TLS, x []float32, ac, window *float32, overlap, 
 	return celtAutocorrSamples(tls, x[:n], ac, window, overlap, lag, n, arch)
 }
 
+func celtAutocorrOwned(tls *libc.TLS, inputOwner, outputOwner []float32, window *float32, overlap, lag, n, arch int32) int32 {
+	celtAutocorrValidate(tls, overlap, n)
+	return celtAutocorrFrom(tls, inputOwner[:n], pitchXCorrSamples{owner: outputOwner, owned: true}, window, overlap, lag, n, arch)
+}
+
 func celtAutocorrValidate(tls *libc.TLS, overlap, n int32) {
 	if n <= 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3419), opusDiagnosticString(3330), 302)
@@ -244,6 +249,10 @@ func celtAutocorrValidate(tls *libc.TLS, overlap, n int32) {
 }
 
 func celtAutocorrSamples(tls *libc.TLS, input []float32, ac, window *float32, overlap, lag, n, arch int32) int32 {
+	return celtAutocorrFrom(tls, input, pitchXCorrSamples{legacy: ac}, window, overlap, lag, n, arch)
+}
+
+func celtAutocorrFrom(tls *libc.TLS, input []float32, output pitchXCorrSamples, window *float32, overlap, lag, n, arch int32) int32 {
 	signal := input
 	if overlap != 0 {
 		signal = make([]float32, n)
@@ -256,8 +265,8 @@ func celtAutocorrSamples(tls *libc.TLS, input []float32, ac, window *float32, ov
 		}
 	}
 	fastN := n - lag
-	pitchXCorrFrom(tls, pitchXCorrSamples{owner: signal, owned: true}, pitchXCorrSamples{owner: signal, owned: true}, pitchXCorrSamples{legacy: ac}, fastN, lag+1, arch)
-	out := unsafe.Slice(ac, lag+1)
+	pitchXCorrFrom(tls, pitchXCorrSamples{owner: signal, owned: true}, pitchXCorrSamples{owner: signal, owned: true}, output, fastN, lag+1, arch)
+	out := output.span(lag + 1)
 	for k := int32(0); k <= lag; k++ {
 		d := float32(0)
 		for i := k + fastN; i < n; i++ {

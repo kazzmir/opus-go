@@ -441,15 +441,17 @@ func TestAutocorrSpanPointers(t *testing.T) {
 						a[i] = float32(i-7) / 37
 					}
 					b := slices.Clone(a)
+					c := slices.Clone(a)
 					entropyInitGrowStack(12)
 					runtime.GC()
 					r := Opus__celt_autocorr(nil, &a[1], &a[offset], &a[1], overlap, lag, n, 0)
 					r2 := celtAutocorrSpan(nil, b[1:], &b[offset], &b[1], overlap, lag, n, 0)
-					if r != r2 {
+					r3 := celtAutocorrOwned(nil, c[1:], c[offset:], &c[1], overlap, lag, n, 0)
+					if r != r2 || r != r3 {
 						t.Fatal("autocorr span return")
 					}
 					for i := range a {
-						if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						if math.Float32bits(a[i]) != math.Float32bits(b[i]) || math.Float32bits(a[i]) != math.Float32bits(c[i]) {
 							t.Fatal("autocorr span/window/output aliases/guards", n, lag, overlap, offset, i)
 						}
 					}
@@ -465,6 +467,7 @@ func TestAutocorrSpanPointers(t *testing.T) {
 		want := "Fatal (internal) error in " + opusDiagnosticString(3330) + ", line " + line + ": " + text + "\n"
 		checkDiagnosticFatal(t, func() { Opus__celt_autocorr(nil, nil, nil, nil, -1, 0, n, 0) }, want)
 		checkDiagnosticFatal(t, func() { celtAutocorrSpan(nil, nil, nil, nil, -1, 0, n, 0) }, want)
+		checkDiagnosticFatal(t, func() { celtAutocorrOwned(nil, nil, nil, nil, -1, 0, n, 0) }, want)
 	}
 }
 
