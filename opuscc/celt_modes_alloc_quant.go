@@ -440,6 +440,21 @@ func Opus_renormalise_vector(tls *libc.TLS, X *OpusT_celt_norm, N1 int32, gain O
 	}
 	_ = arch
 	x := unsafe.Slice(X, int(N1))
+	renormaliseVectorSpan(tls, x, gain)
+}
+
+func renormaliseVectorOwned(tls *libc.TLS, owner []float32, offset, N int32, gain float32, arch int32) {
+	if N <= 0 {
+		return
+	}
+	x := owner[int64(offset) : int64(offset)+int64(N)]
+	renormaliseVectorSpan(tls, x, gain)
+}
+
+func renormaliseVectorSpan(tls *libc.TLS, x []float32, gain float32) {
+	if len(x) == 0 {
+		return
+	}
 	var xy OpusT_opus_val32
 	for _, value := range x {
 		// Keep scalar float32 products and accumulation in C's order.
