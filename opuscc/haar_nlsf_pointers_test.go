@@ -13,6 +13,7 @@ func TestHaarPointers(t *testing.T) {
 				x[i] = float32(i-5) * 0.125
 			}
 			want := append([]float32(nil), x...)
+			span := append([]float32(nil), x...)
 			// Each adjacent pair of rows is transformed independently.
 			for row := 0; row+1 < n; row += 2 {
 				for col := 0; col < stride; col++ {
@@ -24,7 +25,11 @@ func TestHaarPointers(t *testing.T) {
 				}
 			}
 			Opus_haar1(nil, &x[1], int32(n), int32(stride))
+			haarSpans(span[1:1+2*(n/2)*stride], n/2, stride)
 			for i := range x {
+				if math.Float32bits(span[i]) != math.Float32bits(x[i]) {
+					t.Fatal("Haar span full bits/odd tail/guards", n, stride, i)
+				}
 				if x[i] != want[i] {
 					t.Fatalf("n=%d stride=%d index=%d: got %g want %g", n, stride, i, x[i], want[i])
 				}

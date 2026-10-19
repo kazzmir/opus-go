@@ -1716,6 +1716,10 @@ func Opus_haar1(tls *libc.TLS, X *OpusT_celt_norm, N0 int32, stride int32) {
 	step := int(stride)
 	// C processes complete pairs only; an odd trailing row is untouched.
 	x := unsafe.Slice(X, 2*pairs*step)
+	haarSpans(x, pairs, step)
+}
+
+func haarSpans(x []float32, pairs, step int) {
 	for i := 0; i < step; i++ {
 		for j := 0; j < pairs; j++ {
 			a, b := step*2*j+i, step*(2*j+1)+i
