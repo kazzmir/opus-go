@@ -242,6 +242,10 @@ func TestQuantBandScratchOwnerPointers(t *testing.T) {
 	if view.copyFrom(nil, 0) != &owner[1] {
 		t.Fatal("unused owned scratch identity")
 	}
+	prepared := view.prepare(nil, 0)
+	if !prepared.owned || &prepared.owner[0] != &owner[0] || prepared.offset != 1 {
+		t.Fatal("prepared scratch retains real root/origin")
+	}
 	entropyInitGrowStack(12)
 	runtime.GC()
 	if view.copyFrom(&owner[0], 3) != &owner[1] || !slices.Equal(owner, []float32{77, 77, 1, 2, 88}) {

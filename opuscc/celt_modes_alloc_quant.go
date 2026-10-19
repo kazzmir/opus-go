@@ -1713,13 +1713,17 @@ func interleave_hadamard(tls *libc.TLS, X *OpusT_celt_norm, N0 int32, stride int
 }
 
 func Opus_haar1(tls *libc.TLS, X *OpusT_celt_norm, N0 int32, stride int32) {
+	haarFrom(quantBandScratch{legacy: X}, N0, stride)
+}
+
+func haarFrom(source quantBandScratch, N0, stride int32) {
 	pairs := int(N0 >> 1)
 	if pairs <= 0 || stride <= 0 {
 		return
 	}
 	step := int(stride)
 	// C processes complete pairs only; an odd trailing row is untouched.
-	x := unsafe.Slice(X, 2*pairs*step)
+	x := source.span(int64(2 * pairs * step))
 	haarSpans(x, pairs, step)
 }
 
@@ -2324,17 +2328,34 @@ func (scratch quantBandScratch) present() bool {
 	return scratch.legacy != nil
 }
 
-func (scratch quantBandScratch) copyFrom(source *float32, N int32) *float32 {
+func (scratch quantBandScratch) span(length int64) []float32 {
 	if !scratch.owned {
-		copy(unsafe.Slice(scratch.legacy, N), unsafe.Slice(source, N))
+		return unsafe.Slice(scratch.legacy, length)
+	}
+	return scratch.owner[int64(scratch.offset) : int64(scratch.offset)+length]
+}
+
+func (scratch quantBandScratch) pointer() *float32 {
+	if !scratch.owned {
 		return scratch.legacy
 	}
-	if N == 0 {
-		return celtNormAdd(unsafe.SliceData(scratch.owner), scratch.offset)
+	if scratch.offset >= 0 && int64(scratch.offset) < int64(len(scratch.owner)) {
+		return &scratch.owner[scratch.offset]
 	}
-	destination := scratch.owner[int64(scratch.offset) : int64(scratch.offset)+int64(N)]
-	copy(destination, unsafe.Slice(source, N))
-	return &destination[0]
+	return celtNormAdd(unsafe.SliceData(scratch.owner), scratch.offset)
+}
+
+func (scratch quantBandScratch) prepare(source *float32, N int32) quantBandScratch {
+	if scratch.owned && N == 0 {
+		_ = scratch.pointer() // Preserve the original unused-address boundary.
+		return scratch
+	}
+	copy(scratch.span(int64(N)), unsafe.Slice(source, N))
+	return scratch
+}
+
+func (scratch quantBandScratch) copyFrom(source *float32, N int32) *float32 {
+	return scratch.prepare(source, N).pointer()
 }
 
 func quant_band(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, b int32, B int32, lowband *float32, LM int32, lowband_out *float32, gain OpusT_opus_val32, lowband_scratch *float32, fill int32) (r uint32) {
@@ -2368,8 +2389,9 @@ func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowb
 		recombine = tf_change
 	}
 	/* Band recombining to increase frequency resolution */
+	prepared := quantBandScratch{legacy: lowband}
 	if scratch.present() && lowband != nil && (recombine != 0 || N_B&int32(1) == 0 && tf_change < 0 || B0 > int32(1)) {
-		lowband = scratch.copyFrom(lowband, N)
+		prepared = scratch.prepare(lowband, N)
 	}
 	k = 0
 	for {
@@ -2379,8 +2401,8 @@ func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowb
 		if encode != 0 {
 			Opus_haar1(tls, X, N>>k, int32(1)<<k)
 		}
-		if lowband != nil {
-			Opus_haar1(tls, lowband, N>>k, int32(1)<<k)
+		if prepared.present() {
+			haarFrom(prepared, N>>k, int32(1)<<k)
 		}
 		fill = int32(bit_interleave_table[fill&int32(0xF)]) | int32(bit_interleave_table[fill>>int32(4)])<<int32(2)
 		k = k + 1
@@ -2392,8 +2414,8 @@ func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowb
 		if encode != 0 {
 			Opus_haar1(tls, X, N_B, B)
 		}
-		if lowband != nil {
-			Opus_haar1(tls, lowband, N_B, B)
+		if prepared.present() {
+			haarFrom(prepared, N_B, B)
 		}
 		fill = fill | fill<<B
 		B = B << int32(1)
@@ -2408,11 +2430,11 @@ func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowb
 		if encode != 0 {
 			deinterleave_hadamard(tls, X, N_B>>recombine, B0<<recombine, longBlocks)
 		}
-		if lowband != nil {
-			deinterleave_hadamard(tls, lowband, N_B>>recombine, B0<<recombine, longBlocks)
+		if prepared.present() {
+			deinterleave_hadamard(tls, prepared.pointer(), N_B>>recombine, B0<<recombine, longBlocks)
 		}
 	}
-	cm = quant_partition(tls, ctx, X, N, b, B, lowband, LM, gain, fill)
+	cm = quant_partition(tls, ctx, X, N, b, B, prepared.pointer(), LM, gain, fill)
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
 	if ctx.Fresynth != 0 {
 		/* Undo the sample reorganization going from time order to frequency order */
