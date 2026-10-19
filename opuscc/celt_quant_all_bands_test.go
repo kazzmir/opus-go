@@ -385,6 +385,19 @@ func TestQuantAllBandsLowbandStoragePointers(t *testing.T) {
 		if values[N-1] != .75 {
 			t.Fatal("retained lowband")
 		}
+		// Preserve the original pointer-only GC check above; independently test
+		// the newly connected allocated-owner route on an equal-sized allocation.
+		scratch := quantBandScratch{owner: quantAllBandsLowbandStorage(N), owned: true}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if !scratch.present() || scratch.copyFrom(pointer, N) != &scratch.owner[0] {
+			t.Fatal("allocated scratch owner/identity")
+		}
+		for i := range values {
+			if math.Float32bits(values[i]) != math.Float32bits(scratch.owner[i]) {
+				t.Fatal("allocated scratch full bits", N, i)
+			}
+		}
 	}
 	bands := []int16{0, 4, 8}
 	for _, M := range []int32{1, 2, 4, 8} {
