@@ -1141,7 +1141,7 @@ func celtPLCNoiseBands(tls *libc.TLS, state *OpusT_OpusCustomDecoder, bands []in
 				x[offset+j] = float32(int32(seed) >> 20)
 			}
 			if length > 0 {
-				Opus_renormalise_vector(tls, &x[offset], length, 1, state.Farch)
+				renormaliseVectorOwned(tls, x, offset, length, 1, state.Farch)
 			}
 		}
 	}
