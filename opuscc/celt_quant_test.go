@@ -296,6 +296,49 @@ func TestMonoSpectrumPointers(t *testing.T) {
 	}
 }
 
+func TestQuantBandStereoScratchPointers(t *testing.T) {
+	for LM := int32(2); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, B := range []int32{1, N} {
+			for _, tf := range []int32{-1, 0, 1} {
+				if tf > 0 && B < 2 {
+					continue
+				}
+				for _, budget := range []int32{0, 24, 400} {
+					for _, intensity := range []int32{0, 21} {
+						data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+						var ec OpusT_ec_ctx
+						Opus_ec_dec_init(nil, &ec, &data[0], 8)
+						ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fremaining_bits: 600, Fseed: 123456, Ftf_change: tf, Fintensity: intensity}
+						x, y, low, out, scratch := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+						for i := range x {
+							x[i], y[i], low[i], out[i], scratch[i] = float32(i+1)/17, -float32(i+2)/19, float32(i+3)/23, 77, 88
+						}
+						ox, oy, ol, oo, os := slices.Clone(x), slices.Clone(y), slices.Clone(low), slices.Clone(out), slices.Clone(scratch)
+						oec, oc := ec, ctx
+						oc.Fec = &oec
+						entropyInitGrowStack(12)
+						runtime.GC()
+						mask := quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, B, &low[1], LM, &out[1], &scratch[1], (1<<B)-1)
+						om := quantBandStereoFrom(nil, &oc, &ox[1], &oy[1], N, budget, B, &ol[1], LM, &oo[1], quantBandScratch{owner: os, offset: 1, owned: true}, (1<<B)-1)
+						oc.Fec = ctx.Fec
+						if mask != om || ctx != oc || ec != oec {
+							t.Fatal("stereo scratch entropy/context/mask", LM, B, tf, budget, intensity)
+						}
+						for _, pair := range [][2][]float32{{x, ox}, {y, oy}, {low, ol}, {out, oo}, {scratch, os}} {
+							for i := range pair[0] {
+								if math.Float32bits(pair[0][i]) != math.Float32bits(pair[1][i]) {
+									t.Fatal("stereo scratch full buffers/guards", LM, B, tf, budget, intensity, i)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestStereoSpectrumPointers(t *testing.T) {
 	for LM := int32(0); LM <= 3; LM++ {
 		N := int32(1) << LM
