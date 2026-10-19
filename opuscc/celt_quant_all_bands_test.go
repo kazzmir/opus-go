@@ -450,8 +450,8 @@ func TestQuantAllBandsTrialStoragePointers(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		dx, dy := make([]float32, N), make([]float32, N)
-		quantAllBandsCopy(unsafe.SliceData(dx), unsafe.SliceData(x), N)
-		quantAllBandsCopy(unsafe.SliceData(dy), unsafe.SliceData(y), N)
+		quantAllBandsCopyFromOwned(unsafe.SliceData(dx), x, N)
+		quantAllBandsCopyFromOwned(unsafe.SliceData(dy), y, N)
 		for i := range x {
 			if dx[i] != float32(i)+.5 || dy[i] != -float32(i)-.25 || initialX[i] != 7 || initialY[i] != 8 {
 				t.Fatal("trial restoration/initial independence", N, i)
@@ -481,7 +481,7 @@ func TestQuantAllBandsInitialStoragePointers(t *testing.T) {
 		if x[0] != .25 || y[0] != -7 {
 			t.Fatal("independent retained snapshots", N)
 		}
-		quantAllBandsCopy(unsafe.SliceData(src), unsafe.SliceData(x), N)
+		quantAllBandsCopyFromOwned(unsafe.SliceData(src), x, N)
 		if src[0] != .25 {
 			t.Fatal("initial restoration")
 		}
@@ -577,15 +577,18 @@ func TestQuantAllBandsDotPointers(t *testing.T) {
 func TestQuantAllBandsCopyPointers(t *testing.T) {
 	quantAllBandsCopy(nil, nil, 0)
 	quantAllBandsCopyToOwned(nil, nil, 0)
+	quantAllBandsCopyFromOwned(nil, nil, 0)
 	src := []float32{math.Float32frombits(0x80000000), math.Float32frombits(0x7fc00123), 3}
 	dst := []float32{77, 0, 0, 0, 88}
 	owned := slices.Clone(dst)
+	restored := slices.Clone(dst)
 	entropyInitGrowStack(12)
 	runtime.GC()
 	quantAllBandsCopy(&dst[1], &src[0], 3)
 	quantAllBandsCopyToOwned(owned[1:4], &src[0], 3)
+	quantAllBandsCopyFromOwned(&restored[1], src, 3)
 	for i := range dst {
-		if math.Float32bits(dst[i]) != math.Float32bits(owned[i]) {
+		if math.Float32bits(dst[i]) != math.Float32bits(owned[i]) || math.Float32bits(dst[i]) != math.Float32bits(restored[i]) {
 			t.Fatal("owned snapshot whole-buffer bits/guards", i)
 		}
 	}
@@ -599,9 +602,11 @@ func TestQuantAllBandsCopyPointers(t *testing.T) {
 	}
 	alias := []float32{1, 2, 3, 4}
 	ownedAlias := slices.Clone(alias)
+	restoredAlias := slices.Clone(alias)
 	quantAllBandsCopy(&alias[1], &alias[0], 3)
 	quantAllBandsCopyToOwned(ownedAlias[1:], &ownedAlias[0], 3)
-	if !slices.Equal(alias, ownedAlias) {
+	quantAllBandsCopyFromOwned(&restoredAlias[1], restoredAlias[:3], 3)
+	if !slices.Equal(alias, ownedAlias) || !slices.Equal(alias, restoredAlias) {
 		t.Fatal("owned snapshot overlapping copy")
 	}
 	if alias[1] != 1 || alias[2] != 2 || alias[3] != 3 {

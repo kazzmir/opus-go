@@ -2762,6 +2762,13 @@ func quantAllBandsCopyToOwned(destination []float32, source *float32, N int32) {
 	copy(destination[:N], unsafe.Slice(source, N))
 }
 
+func quantAllBandsCopyFromOwned(destination *float32, source []float32, N int32) {
+	if N == 0 {
+		return
+	}
+	copy(unsafe.Slice(destination, N), source[:N])
+}
+
 func quantAllBandsCopy(dst, src *float32, N int32) {
 	if N == 0 {
 		return
@@ -3135,8 +3142,8 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					/* Restore */
 					*ec = ec_save
 					*ctx = ctx_save
-					quantAllBandsCopy(X, unsafe.SliceData(X_save), N1)
-					quantAllBandsCopy(Y, unsafe.SliceData(Y_save), N1)
+					quantAllBandsCopyFromOwned(X, X_save, N1)
+					quantAllBandsCopyFromOwned(Y, Y_save, N1)
 					if i1 == start+int32(1) {
 						special_hybrid_folding(tls, m.FeBands, norm, norm2, start, M, dual_stereo)
 					}
@@ -3152,8 +3159,8 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 						x_cm = cm2
 						*ec = ec_save2
 						*ctx = ctx_save2
-						quantAllBandsCopy(X, unsafe.SliceData(X_save2), N1)
-						quantAllBandsCopy(Y, unsafe.SliceData(Y_save2), N1)
+						quantAllBandsCopyFromOwned(X, X_save2, N1)
+						quantAllBandsCopyFromOwned(Y, Y_save2, N1)
 						if !(last != 0) {
 							quantAllBandsNormCopy(unsafe.SliceData(norm_save2), norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
 						}
