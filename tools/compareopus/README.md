@@ -534,6 +534,70 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four count/renormalization rounds reduce tagged non-test token counts from
+101 unsafe.Pointer/105 uintptr to100/104. This modest reduction is HONEST cleanup:
+round1 removes disabled-DRED's unreachable initialization-failure free/cast and
+a redundant uintptr(uint32(0)) stub conversion. It does NOT represent live pointer
+migration or new lifetime safety. Most remaining tokens are deliberate public
+ABI, callback/varargs, opaque-layout or signed/unused-address compatibility; no
+new aliases, reflect conversions or relocated casts are used to hide them.
+
+Disabled DRED initialization keeps loaded0, arch0, magic0xD8EDDEC0 store order,
+then OPUS_OK; there is no Go model/SIMD initializer that can return failure.
+Creator keeps nil-TLS/registration allocation checks and errors; it directly
+calls this guaranteed-success initializer instead of an unreachable free branch.
+The disabled allocation stub still returns zero/-5. Actual destruction/free,
+magic invalidation, registration cleanup, raw/typed public APIs and12-byte layout
+remain. Upstream opus_decoder.c's ENABLE_DRED/init/create gates inspected; this
+cleanup does NOT apply to an enabled native DRED model. Existing guarded layout,
+factory, registered/weak lifetime checks stay; the stub gains exact zero/error
+coverage. No caller data, ABI or allocation-failure oracle is weakened.
+
+Round2 extracts the unchanged renormalization span kernel and stages a concrete
+owner+numeric-origin entry, round3 connects actual PLC-noise spectra, round4
+connects actual anti-collapse spectra. Consumed spans are formed on demand with
+independent root/origin combinations in int64; original band/count arithmetic
+remains int32. Existing public raw vector adapter stays. N<=0 returns BEFORE
+owned root/origin validation. Kernel preserves scalar float32 square/product/
+accumulation order, E=float32(1e-15)+energy, float64 sqrt conversion, float32
+reciprocal then gain multiplication, and sequential g*x stores. No extra sample
+copy, snapshots, allocation, norm approximation or arithmetic reassociation.
+Upstream vq.c, PLC and anti-collapse renormalization consumers/macros inspected;
+existing numerical/hash oracles and native floating tolerances stay unchanged.
+
+PLC still fills each positive-width band with sequential LCG values BEFORE
+renormalization, skipping zero/nonpositive widths without any spectrum cursor;
+channel/band order and final seed commit remain. Anti-collapse keeps repair/mask/
+history/seed behavior and calls renormalization only after repair. It explicitly
+retains its original REQUIRED first-sample argument check before normalization,
+even if a nonpositive count would otherwise skip all work. No eager band views,
+changed live reloads, partial-store behavior or assertion ordering. Raw signed
+history/unused ends and opaque storage elsewhere remain untouched and unclaimed.
+
+Grouped normalization manual-value/guard fixtures now additionally compare ALL
+owned-vs-raw output bits on SAME extents with GC/stack growth, including zero,
+small/mixed-sign vectors and gains0/.5/1/2. Nil zero/negative-count owned roots
+with INT_MIN/0/INT_MAX unused origins do not form views. Existing full PLC-noise
+and anti-collapse/native fixtures retain seeds, spectra, masks and expected
+values; PLC adds a nil-spectrum unused zero-width band, anti-collapse adds a
+bounded negative-width required-sample check. Those two are Go-only guard tests,
+NOT new C-valid-domain claims. No enlarged fake history, pointer-slot poisoning,
+fixture ownership repair or changed golden values/codec tolerances. opusccenc is
+untouched; this is active decoder span migration plus separately identified
+count cleanup, not four rounds of cast/token removal.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad plus targeted scoped
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks. Final tagged ARM ordinary/scoped
+repeats20, explicitly including DRED and normalization pointer fixtures. Logs:
+/tmp/opus-round-disabled-dred-unreachable-cast-cleanup.log,
+/tmp/opus-round-renormalise-live-span-kernel.log,
+/tmp/opus-round-plc-noise-go-renormalise-root.log,
+/tmp/opus-round-anti-collapse-go-renormalise-root.log and
+/tmp/opus-round-renorm-count-arm-{checkptr,golden}-repeat.log. No validation
+failures in this batch. No native GC/extension EOF/raw callback/opaque-image
+repair, global lifetime safety, performance or direct macOS claims.
+
 Four quant-all-bands RDO rounds retain actual X_save/Y_save and X_save2/Y_save2
 snapshot DESTINATIONS, actual X_save/Y_save DOT sources, actual initial/winning
 spectrum RESTORE sources, then actual norm_save2 plus its existing _norm parent

@@ -1465,7 +1465,8 @@ func antiCollapseSpans(tls *libc.TLS, b []int16, nbBands int32, x []float32, mas
 				}
 			}
 			if renormalize {
-				Opus_renormalise_vector(tls, &x[offset], n0<<LM, 1, arch)
+				_ = x[offset] // Preserve the original required first-sample argument check.
+				renormaliseVectorOwned(tls, x, offset, n0<<LM, 1, arch)
 			}
 		}
 	}
