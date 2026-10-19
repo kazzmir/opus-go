@@ -1669,13 +1669,17 @@ var ordery_table = [30]int32{
 }
 
 func deinterleave_hadamard(tls *libc.TLS, X *OpusT_celt_norm, N0 int32, stride int32, hadamard int32) {
+	deinterleaveFrom(tls, quantBandScratch{legacy: X}, N0, stride, hadamard)
+}
+
+func deinterleaveFrom(tls *libc.TLS, source quantBandScratch, N0, stride, hadamard int32) {
 	if stride <= 0 {
 		opusCeltFatal(tls, opusDiagnosticString(5405), opusDiagnosticString(5312), 582)
 	}
 	if N0 == 0 {
 		return
 	}
-	values := unsafe.Slice(X, N0*stride)
+	values := source.span(int64(N0 * stride))
 	deinterleaveSpans(values, N0, stride, hadamard)
 }
 
@@ -2431,7 +2435,7 @@ func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowb
 			deinterleave_hadamard(tls, X, N_B>>recombine, B0<<recombine, longBlocks)
 		}
 		if prepared.present() {
-			deinterleave_hadamard(tls, prepared.pointer(), N_B>>recombine, B0<<recombine, longBlocks)
+			deinterleaveFrom(tls, prepared, N_B>>recombine, B0<<recombine, longBlocks)
 		}
 	}
 	cm = quant_partition(tls, ctx, X, N, b, B, prepared.pointer(), LM, gain, fill)

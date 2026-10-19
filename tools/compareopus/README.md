@@ -534,6 +534,69 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four lowband-transform rounds extract unchanged Haar/deinterleave span kernels,
+then retain prepared lowband roots through Haar and deinterleave respectively.
+Rounds1/2 stage kernels; rounds3/4 connect actual allocated/borrowed scratch from
+the preceding owner work, including mono/stereo/RDO paths. A required copy now
+returns real owner/origin metadata instead of immediately reducing it to a
+scalar pointer. The existing scalar bridge remains at recursive quant_partition;
+normalization/folding inputs and band output X are NOT claimed migrated here.
+Counts remain100 unsafe.Pointer/104 uintptr; no alias/cast hiding or token cleanup.
+
+The existing concrete scratch carrier now supplies consumed spans and explicit
+legacy/unused pointer boundaries. copyFrom compatibility remains, but active
+preparation retains metadata and performs destination-prefix BEFORE source-view
+then copy, without extra sample snapshots or allocation. Its owned zero-work
+case preserves the original unused-address boundary at the original point.
+Presence and disabling still distinguish owned nil from legacy storage. Scalar
+conversion is deferred to the remaining DSP boundary; known roots are never
+recovered from integer addresses or serialized/opaque byte images.
+
+Haar keeps pairs=int(N0>>1), nonpositive pair/stride guard BEFORE views, native-int
+2*pairs*step extent arithmetic (including386 narrowing), column-then-pair order,
+separately rounded .70710678f products and sum-before-difference stores. Only
+complete pairs are consumed; odd trailing rows remain untouched and are NOT
+invented as readable storage. Deinterleave retains stride-positive assertion
+BEFORE N0==0 guard, int32 N0*stride geometry BEFORE independent root-origin
+combination, values view BEFORE temporary allocation/table access, identical
+row/table/column iteration, and full temporary fill BEFORE copy back. New span
+kernels preserve arithmetic and order verbatim. Legacy raw adapters remain.
+
+Mono's prepared source starts as the original lowband; only the SAME scratch
+predicate replaces it after a required copy. Haar recombination/time-resolution
+and deinterleave receive its real owner until partition. Context/division/N1
+shortcut, fill updates, X transforms, recursive partition, inverse transforms,
+fold scaling, gain, entropy, seed, masks, and RDO trial/rollback ordering stay
+UNCHANGED. Source views are still formed only at original consumer points; no
+eager full-band root checks, changed validation/diagnostics/error ordering or
+new snapshots. Upstream bands.c Haar/deinterleave/copy/transform sequence and
+floating macros inspected. Interleave and recursive input ABI remain intact.
+
+Existing Haar manual fixtures now compare raw/shared-span/owned full-buffer bits,
+odd rows and guards under GC/stack growth on SAME extents; additional TWO-sample
+owned storage proves a third odd row is not needed. Nil owned roots with extreme
+unused origins skip views under original no-work conditions. Existing manual
+permutation fixtures add shared/owned full-bit comparisons, preserving NaN/SNaN
+payloads, table orders and guards on SAME allocations/extents. Nil zero-work and
+stride-before-zero exact diagnostic checks cover the owned deinterleave route.
+Existing mono/stereo context/entropy/mask/full-buffer comparisons, native spectra/
+packets/hashes/bit counts/seeds, codec goldens and tolerances remain unchanged.
+Prepared-root tests check actual owner/origin rather than a pointer alias. No
+fake spans, fixture repair/enlargement, pointer-slot poisoning or weakened oracle;
+Go-only bounded/alias checks are not new C restrict/invalid-domain claims.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad and targeted scoped
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks. Final tagged ARM ordinary/scoped
+repeats20, explicitly including Haar/deinterleave/interleave and band fixtures.
+Logs /tmp/opus-round-haar-live-span-kernel.log,
+/tmp/opus-round-deinterleave-live-span-kernel.log,
+/tmp/opus-round-lowband-haar-go-prepared-root.log,
+/tmp/opus-round-lowband-deinterleave-go-prepared-root.log and
+/tmp/opus-round-lowband-transform-owners-arm-{checkptr,golden}-repeat.log.
+No validation failures in this batch. No native GC/extension EOF/raw callback/
+opaque-image repair, global lifetime safety, performance or direct macOS claims.
+
 Four lowband-scratch rounds introduce concrete mono scratch, propagate that
 owner through stereo, connect actual allocated quant-all-bands scratch, then
 connect actual borrowed spectrum-tail scratch. Rounds1/2 stage the owned private
