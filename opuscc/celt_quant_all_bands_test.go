@@ -245,11 +245,28 @@ func TestQuantAllBandsSpectrumPointers(t *testing.T) {
 			if pointer != &spectrum[1+int32(bands[band])*M] || owned.at(&bands[0], band, M) != pointer || !owned.present() {
 				t.Fatal("spectrum view geometry")
 			}
+			borrowed := owned.scratch(&bands[0], band, M)
+			legacy := (quantAllBandsSpectrumSource{legacy: &spectrum[1]}).scratch(&bands[0], band, M)
+			if !borrowed.owned || !borrowed.present() || &borrowed.owner[0] != &spectrum[1] || borrowed.copyFrom(nil, 0) != pointer || legacy.owned || legacy.legacy != pointer {
+				t.Fatal("borrowed spectrum scratch root/origin/legacy identity")
+			}
 			*pointer = float32(band)
 			if spectrum[0] != 77 || spectrum[len(spectrum)-1] != 88 {
 				t.Fatal("spectrum guards")
 			}
 		}
+	}
+}
+
+func TestQuantAllBandsScratchRequiredSamplePointers(t *testing.T) {
+	bands := []int16{0}
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		(quantAllBandsSpectrumSource{owned: true}).scratch(&bands[0], 0, 1)
+	}()
+	if _, ok := caught.(runtime.Error); !ok {
+		t.Fatal("borrowed scratch must preserve setup's required first sample", caught)
 	}
 }
 
@@ -410,6 +427,24 @@ func TestQuantAllBandsLowbandStoragePointers(t *testing.T) {
 		*view = .25
 		if spectrum[1+8*M] != .25 || spectrum[0] != 77 || spectrum[len(spectrum)-1] != 88 {
 			t.Fatal("live last-band scratch")
+		}
+		borrowed := (quantAllBandsSpectrumSource{owner: spectrum[1 : len(spectrum)-1], owned: true}).scratch(&bands[0], 2, M)
+		source := make([]float32, 4*M)
+		for i := range source {
+			source[i] = float32(i+1) / 37
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if borrowed.copyFrom(&source[0], 4*M) != view {
+			t.Fatal("borrowed last-band scratch address identity")
+		}
+		for i := range source {
+			if math.Float32bits(spectrum[1+8*M+int32(i)]) != math.Float32bits(source[i]) {
+				t.Fatal("borrowed last-band scratch full bits")
+			}
+		}
+		if spectrum[0] != 77 || spectrum[len(spectrum)-1] != 88 {
+			t.Fatal("borrowed scratch guards")
 		}
 	}
 }

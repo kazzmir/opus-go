@@ -534,6 +534,72 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four lowband-scratch rounds introduce concrete mono scratch, propagate that
+owner through stereo, connect actual allocated quant-all-bands scratch, then
+connect actual borrowed spectrum-tail scratch. Rounds1/2 stage the owned private
+API with direct fixtures while preserving raw adapters; round3 connects the
+allocated encode/resynth path in opuscc (not opusccenc), round4 connects normal
+decoding/other borrowed-scratch paths when spectrum ownership is known. Legacy
+spectra retain legacy scratch. Counts remain100 unsafe.Pointer/104 uintptr:
+active owner/offset representation, not token removal or opaque alias types.
+
+quantBandScratch holds actual []float32, numeric origin, separate legacy pointer
+and explicit owned discriminator. Presence uses actual owner nilness for owned
+storage, never silently falls back to legacy. Required lowband copy forms the
+destination prefix BEFORE source; positive owned prefixes combine independent
+coordinates in int64, with unchanged int32 band geometry. Copy completes BEFORE
+returning the matching scalar lowband bridge to existing Haar/reordering/recursive
+consumers. That legacy DSP boundary is deliberately NOT claimed as migrated.
+Copies retain Go overlap semantics; no added samples, allocations or snapshots.
+Zero-length identity uses existing explicit unused-address compatibility without
+validating an unconsumed full prefix; positive work remains bounded by owner.
+
+Mono still loads context and divides block width BEFORE its N==1 shortcut;
+scratch is considered only after that shortcut and the SAME recombination/
+time-resolution/block predicate. Original copy-then-switch-lowband order stays.
+Stereo forwards the SAME carrier through original x2/mid/intensity/side ordering;
+its originally nil side scratch remains nil. No changed theta, bit allocation,
+float32 products, transforms, gain, seed, recursion, mask, context, assertions,
+error/validation order or snapshots. Upstream bands.c mono/stereo, allocation,
+scratch-disable conditions and OPUS_COPY inspected. No new C restrict/invalid-
+domain or memcpy-overlap claims from Go-only alias tests.
+
+Quant-all-bands allocates SAME storage and extent at SAME point; no scalar head
+is manufactured for its owned scratch. Borrowed scratch retains actual X root
+and numeric M*boundary origin. Its setup STILL requires the original first
+sample immediately, BEFORE later buffers/band iteration, but does not eagerly
+form a future N-sample view. Raw source setup retains original pointer helper.
+Last/non-RDO and effective-band disables clear the whole carrier at original
+points; dual mono, stereo, both RDO trials and mono route retain owners. No
+stale fallback pointer survives disabling. RDO snapshots/restores/tie selection,
+folding, spectrum reloads and native numerical/packet oracles remain unchanged.
+
+Existing mono fixture extents/guards stay; additional equal-sized owner copies
+compare mask, complete entropy and context (rebasing ONLY the separate entropy-
+instance pointer), and full X/lowband/output/scratch float bits. Added stereo
+scratch fixtures cover LM2/3, block/time-frequency variants, budgets0/24/400 and
+intensity0/21 with same full comparisons, GC and stack growth. Original native
+fixtures/hashes/bytes/bit counts/seeds and codec references/tolerances unchanged.
+Owned-scratch identity/presence, unused origin and Go-only overlap are checked.
+Original pointer-only storage GC oracle is retained BEFORE independently testing
+an equal-sized allocated carrier. Existing borrowed-view fixtures add exact
+root/origin/legacy identity and full last-band copied bits with original guards;
+a bounded nil-owner fixture preserves setup's required first-sample failure.
+No physical fixture enlargement, fake prefix, pointer-slot poisoning, fixture
+repair, weakened scope/oracle or new allocation/image lifetime claim.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad plus targeted scoped
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks. Final tagged ARM ordinary/scoped
+repeats20, explicitly including mono/stereo/scratch fixtures. Logs:
+/tmp/opus-round-quant-band-mono-owned-scratch.log,
+/tmp/opus-round-quant-band-stereo-owned-scratch.log,
+/tmp/opus-round-quant-all-allocated-lowband-owner.log,
+/tmp/opus-round-quant-all-borrowed-spectrum-scratch-root.log and
+/tmp/opus-round-lowband-scratch-owners-arm-{checkptr,golden}-repeat.log.
+No validation failures in this batch. No native GC/extension EOF/raw callback/
+opaque-image repair, global lifetime safety, performance or direct macOS claims.
+
 Four deemphasis rounds extract the unchanged stereo live-span kernel, retain
 the actual decoder input pointer list, retain actual preemphasis filter memory,
 then carry actual decode_mem history roots plus numeric origin to sample

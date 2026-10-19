@@ -2901,6 +2901,15 @@ func (source quantAllBandsSpectrumSource) at(bands *int16, band, M int32) *float
 	return &source.owner[offset]
 }
 
+func (source quantAllBandsSpectrumSource) scratch(bands *int16, band, M int32) quantBandScratch {
+	if !source.owned {
+		return quantBandScratch{legacy: source.at(bands, band, M)}
+	}
+	offset := M * quantAllBandsBoundary(bands, band)
+	_ = source.owner[offset] // Original setup requires this first sample NOW.
+	return quantBandScratch{owner: source.owner, offset: offset, owned: true}
+}
+
 type quantAllBandsIntSource struct {
 	legacy *int32
 	owner  []int32
@@ -2999,7 +3008,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 	if encode != 0 && resynth != 0 {
 		lowband_scratch = quantBandScratch{owner: _lowband_scratch, owned: true}
 	} else if end > start {
-		lowband_scratch = quantBandScratch{legacy: X_.at(eBands, m.FeffEBands-1, M)}
+		lowband_scratch = X_.scratch(eBands, m.FeffEBands-1, M)
 	}
 	X_save, Y_save = quantAllBandsInitialStorage(resynth_alloc)
 	X_save2, Y_save2 = quantAllBandsTrialStorage(resynth_alloc)
