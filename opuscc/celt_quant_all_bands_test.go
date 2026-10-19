@@ -415,11 +415,11 @@ func TestQuantAllBandsNormStoragePointers(t *testing.T) {
 		for i := int32(0); i < N; i++ {
 			norm[2+i] = float32(i) + .75
 		}
-		quantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(norm), 2, N, false)
+		quantAllBandsNormCopyOwned(saved, norm, 2, N, false)
 		entropyInitGrowStack(12)
 		runtime.GC()
 		clear(norm[2 : 2+N])
-		quantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(norm), 2, N, true)
+		quantAllBandsNormCopyOwned(saved, norm, 2, N, true)
 		for i := int32(0); i < N; i++ {
 			if norm[2+i] != float32(i)+.75 {
 				t.Fatal("owned norm restore", N, i)
@@ -531,20 +531,38 @@ func TestQuantAllBandsBytePointers(t *testing.T) {
 func TestQuantAllBandsNormCopyPointers(t *testing.T) {
 	quantAllBandsNormCopy(nil, nil, 99, 0, false)
 	quantAllBandsNormCopy(nil, nil, 99, 0, true)
+	for _, offset := range []int32{99, math.MinInt32, math.MaxInt32} {
+		quantAllBandsNormCopyOwned(nil, nil, offset, 0, false)
+		quantAllBandsNormCopyOwned(nil, nil, offset, 0, true)
+	}
 	norm := []float32{77, 1, 2, 3, 4, 88}
 	saved := []float32{55, 0, 0, 66}
+	ownedNorm, ownedSaved := slices.Clone(norm), slices.Clone(saved)
 	entropyInitGrowStack(12)
 	runtime.GC()
 	quantAllBandsNormCopy(&saved[1], &norm[1], 1, 2, false)
+	quantAllBandsNormCopyOwned(ownedSaved[1:3], ownedNorm[1:], 1, 2, false)
+	if !slices.Equal(saved, ownedSaved) || !slices.Equal(norm, ownedNorm) {
+		t.Fatal("owned norm snapshot/whole buffers")
+	}
 	if saved[1] != 2 || saved[2] != 3 || saved[0] != 55 || saved[3] != 66 {
 		t.Fatal("norm snapshot")
 	}
 	norm[2], norm[3] = -7, -8
+	ownedNorm[2], ownedNorm[3] = -7, -8
 	quantAllBandsNormCopy(&saved[1], &norm[1], 1, 2, true)
+	quantAllBandsNormCopyOwned(ownedSaved[1:3], ownedNorm[1:], 1, 2, true)
+	if !slices.Equal(saved, ownedSaved) || !slices.Equal(norm, ownedNorm) {
+		t.Fatal("owned norm restore/whole buffers")
+	}
 	if norm[2] != 2 || norm[3] != 3 || norm[0] != 77 || norm[1] != 1 || norm[4] != 4 || norm[5] != 88 {
 		t.Fatal("norm restore guards")
 	}
 	quantAllBandsNormCopy(&norm[1], &norm[1], 1, 3, false)
+	quantAllBandsNormCopyOwned(ownedNorm[1:4], ownedNorm[1:], 1, 3, false)
+	if !slices.Equal(norm, ownedNorm) {
+		t.Fatal("owned norm overlapping copy")
+	}
 	if norm[1] != 2 || norm[2] != 3 || norm[3] != 4 {
 		t.Fatal("Go-only norm overlap")
 	}

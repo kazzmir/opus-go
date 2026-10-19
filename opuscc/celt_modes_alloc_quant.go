@@ -2731,6 +2731,18 @@ func quantAllBandsNormCopy(saved, norm *float32, offset, N int32, restore bool) 
 	}
 }
 
+func quantAllBandsNormCopyOwned(saved, norm []float32, offset, N int32, restore bool) {
+	if N == 0 {
+		return
+	}
+	values := norm[offset : offset+N]
+	if restore {
+		copy(values, saved[:N])
+	} else {
+		copy(saved[:N], values)
+	}
+}
+
 func quantAllBandsDot(left, right *float32, N int32) float32 {
 	if N == 0 {
 		return 0
@@ -2902,7 +2914,6 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 	var curr_balance, remaining_bits, tell, v204, v205 OpusT_opus_int32
 	var dist0, dist1, v229, v232 OpusT_opus_val32
 	var ec_save, ec_save2 OpusT_ec_ctx
-	_ = _norm
 	eBands = m.FeBands
 	update_lowband = int32(1)
 	if Y_.present() {
@@ -3133,7 +3144,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					quantAllBandsCopyToOwned(X_save2, X, N1)
 					quantAllBandsCopyToOwned(Y_save2, Y, N1)
 					if !(last != 0) {
-						quantAllBandsNormCopy(unsafe.SliceData(norm_save2), norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
+						quantAllBandsNormCopyOwned(norm_save2, _norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
 					}
 					nstart_bytes = int32(ec_save.Foffs)
 					nend_bytes = int32(ec_save.Fstorage)
@@ -3162,7 +3173,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 						quantAllBandsCopyFromOwned(X, X_save2, N1)
 						quantAllBandsCopyFromOwned(Y, Y_save2, N1)
 						if !(last != 0) {
-							quantAllBandsNormCopy(unsafe.SliceData(norm_save2), norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
+							quantAllBandsNormCopyOwned(norm_save2, _norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
 						}
 						quantAllBandsByteRestore(bytes_buf, bytes_save, save_bytes)
 					}

@@ -534,6 +534,60 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four quant-all-bands RDO rounds retain actual X_save/Y_save and X_save2/Y_save2
+snapshot DESTINATIONS, actual X_save/Y_save DOT sources, actual initial/winning
+spectrum RESTORE sources, then actual norm_save2 plus its existing _norm parent
+for normalization save/restore. These are active theta-RDO ENCODE branches in
+opuscc, validated by existing scalar-C encode fixtures; normal decoding disables
+RDO and opusccenc is untouched. This is NOT a decoder-hot-path or production
+encoder migration claim. Fourteen scratch-head round trips disappear there;
+folding, lowband, recursive spectrum and raw external boundaries remain.
+
+Concrete []float32 parameters are actual pre-existing Go storage, not pointer
+aliases or new allocations. Save copies still form destination BEFORE source;
+restore copies likewise form destination BEFORE source. Zero work returns before
+any root/coordinate checks. Dot forms saved prefix BEFORE spectrum view, retains
+ordered sum+float32(product) with positive-zero empty result; its shared kernel
+copies no samples. Normalization forms SAME offset:offset+N window BEFORE saved
+prefix and retains original int32 geometry, left-lane root and conditional last-
+band skipping; _norm is actual backing storage, not reconstructed from norm.
+No eager RDO buffer views or snapshots beyond upstream trial requirements.
+
+Entropy/band-context snapshots, X-before-Y copies, downward trial before scoring,
+first-result snapshots, norm save, byte save, initial entropy/context/X/Y restore,
+conditional hybrid refold, upward trial/scoring and dist0>=dist1 tie choice are
+UNCHANGED. Winning mask/context/entropy/X/Y/norm/byte restore sequence also stays;
+no float32 product/grouping, narrowing/wrapping, live alias/reload, recursion,
+assertion, diagnostic or validation-order changes. Upstream bands.c theta-RDO and
+OPUS_COPY inspected; Go overlapping-copy tests remain Go-only, not new memcpy/
+restrict-domain claims. Raw helper adapters and all public APIs stay intact.
+
+Existing grouped initial/trial/norm storage fixtures now use the owned helpers
+on SAME allocations and extents. Existing manual ordered-dot/cancellation/input-
+alias checks also exercise owned sources. Existing signed-zero/NaN-payload copy
+fixture additionally compares WHOLE owned snapshot/restore buffers and guards;
+overlapping Go copy is compared for both directions of ownership transfer.
+Normalization fixtures add whole-buffer save/restore/overlap equivalence and
+nil zero-work roots with unused99/INT_MIN/INT_MAX origins; original values,
+physical extents, guards and native C spectrum hashes/masks/packets/bit counts/
+seeds remain unchanged. No fake spans, pointer-slot poisoning, fixture repairs,
+weakened oracles or changed encode/decode references/tolerances. Counts remain101
+unsafe.Pointer/105 uintptr: active scratch representation work, not token or
+dead-adapter cleanup; no broad ownership claim for recursive/opaque consumers.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad and targeted scoped
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks. Final tagged ARM ordinary/scoped
+repeats20. Logs /tmp/opus-round-quant-rdo-go-snapshot-destinations{,-retry}.log,
+/tmp/opus-round-quant-rdo-go-dot-sources.log,
+/tmp/opus-round-quant-rdo-go-restore-sources.log,
+/tmp/opus-round-quant-rdo-go-normalization-owners.log and
+/tmp/opus-round-quant-rdo-owners-arm-{checkptr,golden}-repeat.log. Initial snapshot
+run retains recurring native "found pointer to free object" with
+TestExtensionNextAgainstC active; COMPLETE unchanged retry passes. No reduced
+scope or claim to repair native GC/extension EOF/raw callbacks/opaque images,
+global lifetime safety, performance or direct macOS support.
+
 Four autocorrelation rounds retain its actual signal as xcorr INPUT, then as
 xcorr HISTORY, retain actual correlation output arrays in PLC/pitch whitening,
 then bind its canonical window to the actual window120 Go array ONLY on exact
