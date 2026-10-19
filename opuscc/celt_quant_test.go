@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	"math"
 	"runtime"
 	"slices"
 	"testing"
@@ -232,6 +233,22 @@ func TestPartitionSpectrumPointers(t *testing.T) {
 	}
 }
 
+func TestQuantBandScratchOwnerPointers(t *testing.T) {
+	owner := []float32{77, 1, 2, 3, 88}
+	view := quantBandScratch{owner: owner, offset: 1, owned: true}
+	if !view.present() || (quantBandScratch{legacy: &owner[0], owned: true}).present() {
+		t.Fatal("explicit scratch ownership/presence")
+	}
+	if view.copyFrom(nil, 0) != &owner[1] {
+		t.Fatal("unused owned scratch identity")
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if view.copyFrom(&owner[0], 3) != &owner[1] || !slices.Equal(owner, []float32{77, 77, 1, 2, 88}) {
+		t.Fatal("owned scratch overlap/identity/guards")
+	}
+}
+
 func TestMonoSpectrumPointers(t *testing.T) {
 	for LM := int32(1); LM <= 3; LM++ {
 		N := int32(1) << LM
@@ -252,9 +269,24 @@ func TestMonoSpectrumPointers(t *testing.T) {
 						out[i] = 77
 						scratch[i] = 88
 					}
+					ownedX, ownedLow, ownedOut, ownedScratch := slices.Clone(x), slices.Clone(low), slices.Clone(out), slices.Clone(scratch)
+					ownedEC, ownedCtx := ec, ctx
+					ownedCtx.Fec = &ownedEC
 					entropyInitGrowStack(12)
 					runtime.GC()
-					quant_band(nil, &ctx, &x[1], N, budget, B, &low[1], LM, &out[1], 1, &scratch[1], (1<<B)-1)
+					mask := quant_band(nil, &ctx, &x[1], N, budget, B, &low[1], LM, &out[1], 1, &scratch[1], (1<<B)-1)
+					ownedMask := quantBandFrom(nil, &ownedCtx, &ownedX[1], N, budget, B, &ownedLow[1], LM, &ownedOut[1], 1, quantBandScratch{owner: ownedScratch, offset: 1, owned: true}, (1<<B)-1)
+					ownedCtx.Fec = ctx.Fec
+					if mask != ownedMask || ctx != ownedCtx || ec != ownedEC {
+						t.Fatal("owned mono scratch entropy/context/mask", LM, B, tf, budget)
+					}
+					for _, pair := range [][2][]float32{{x, ownedX}, {low, ownedLow}, {out, ownedOut}, {scratch, ownedScratch}} {
+						for i := range pair[0] {
+							if math.Float32bits(pair[0][i]) != math.Float32bits(pair[1][i]) {
+								t.Fatal("owned mono scratch full buffers/guards", LM, B, tf, budget, i)
+							}
+						}
+					}
 					if out[0] != 77 || out[N+1] != 77 || scratch[0] != 88 || scratch[N+1] != 88 {
 						t.Fatal("mono buffer guards", LM, B, tf, budget)
 					}

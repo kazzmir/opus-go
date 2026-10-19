@@ -2302,7 +2302,38 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 // C documentation
 //
 //	/* This function is responsible for encoding and decoding a band for the mono case. */
+type quantBandScratch struct {
+	legacy *float32
+	owner  []float32
+	offset int32
+	owned  bool
+}
+
+func (scratch quantBandScratch) present() bool {
+	if scratch.owned {
+		return scratch.owner != nil
+	}
+	return scratch.legacy != nil
+}
+
+func (scratch quantBandScratch) copyFrom(source *float32, N int32) *float32 {
+	if !scratch.owned {
+		copy(unsafe.Slice(scratch.legacy, N), unsafe.Slice(source, N))
+		return scratch.legacy
+	}
+	if N == 0 {
+		return celtNormAdd(unsafe.SliceData(scratch.owner), scratch.offset)
+	}
+	destination := scratch.owner[int64(scratch.offset) : int64(scratch.offset)+int64(N)]
+	copy(destination, unsafe.Slice(source, N))
+	return &destination[0]
+}
+
 func quant_band(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, b int32, B int32, lowband *float32, LM int32, lowband_out *float32, gain OpusT_opus_val32, lowband_scratch *float32, fill int32) (r uint32) {
+	return quantBandFrom(tls, ctx, X, N, b, B, lowband, LM, lowband_out, gain, quantBandScratch{legacy: lowband_scratch}, fill)
+}
+
+func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowband *float32, LM int32, lowband_out *float32, gain float32, scratch quantBandScratch, fill int32) (r uint32) {
 	var B0, N0, N_B, N_B0, encode, j, k, longBlocks, recombine, tf_change, time_divide int32
 	var cm uint32
 	var n1 OpusT_opus_val16
@@ -2329,9 +2360,8 @@ func quant_band(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, b int32, B in
 		recombine = tf_change
 	}
 	/* Band recombining to increase frequency resolution */
-	if lowband_scratch != nil && lowband != nil && (recombine != 0 || N_B&int32(1) == 0 && tf_change < 0 || B0 > int32(1)) {
-		copy(unsafe.Slice(lowband_scratch, N), unsafe.Slice(lowband, N))
-		lowband = lowband_scratch
+	if scratch.present() && lowband != nil && (recombine != 0 || N_B&int32(1) == 0 && tf_change < 0 || B0 > int32(1)) {
+		lowband = scratch.copyFrom(lowband, N)
 	}
 	k = 0
 	for {
