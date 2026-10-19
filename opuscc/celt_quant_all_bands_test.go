@@ -415,11 +415,11 @@ func TestQuantAllBandsNormStoragePointers(t *testing.T) {
 		for i := int32(0); i < N; i++ {
 			norm[2+i] = float32(i) + .75
 		}
-		quantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(norm), 2, N, false)
+		quantAllBandsNormCopyOwned(saved, norm, 2, N, false)
 		entropyInitGrowStack(12)
 		runtime.GC()
 		clear(norm[2 : 2+N])
-		quantAllBandsNormCopy(unsafe.SliceData(saved), unsafe.SliceData(norm), 2, N, true)
+		quantAllBandsNormCopyOwned(saved, norm, 2, N, true)
 		for i := int32(0); i < N; i++ {
 			if norm[2+i] != float32(i)+.75 {
 				t.Fatal("owned norm restore", N, i)
@@ -450,8 +450,8 @@ func TestQuantAllBandsTrialStoragePointers(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		dx, dy := make([]float32, N), make([]float32, N)
-		quantAllBandsCopy(unsafe.SliceData(dx), unsafe.SliceData(x), N)
-		quantAllBandsCopy(unsafe.SliceData(dy), unsafe.SliceData(y), N)
+		quantAllBandsCopyFromOwned(unsafe.SliceData(dx), x, N)
+		quantAllBandsCopyFromOwned(unsafe.SliceData(dy), y, N)
 		for i := range x {
 			if dx[i] != float32(i)+.5 || dy[i] != -float32(i)-.25 || initialX[i] != 7 || initialY[i] != 8 {
 				t.Fatal("trial restoration/initial independence", N, i)
@@ -473,15 +473,15 @@ func TestQuantAllBandsInitialStoragePointers(t *testing.T) {
 		for i := range src {
 			src[i] = float32(i) + .25
 		}
-		quantAllBandsCopy(unsafe.SliceData(x), unsafe.SliceData(src), N)
+		quantAllBandsCopyToOwned(x, unsafe.SliceData(src), N)
 		src[0] = -7
-		quantAllBandsCopy(unsafe.SliceData(y), unsafe.SliceData(src), N)
+		quantAllBandsCopyToOwned(y, unsafe.SliceData(src), N)
 		entropyInitGrowStack(12)
 		runtime.GC()
 		if x[0] != .25 || y[0] != -7 {
 			t.Fatal("independent retained snapshots", N)
 		}
-		quantAllBandsCopy(unsafe.SliceData(src), unsafe.SliceData(x), N)
+		quantAllBandsCopyFromOwned(unsafe.SliceData(src), x, N)
 		if src[0] != .25 {
 			t.Fatal("initial restoration")
 		}
@@ -531,27 +531,45 @@ func TestQuantAllBandsBytePointers(t *testing.T) {
 func TestQuantAllBandsNormCopyPointers(t *testing.T) {
 	quantAllBandsNormCopy(nil, nil, 99, 0, false)
 	quantAllBandsNormCopy(nil, nil, 99, 0, true)
+	for _, offset := range []int32{99, math.MinInt32, math.MaxInt32} {
+		quantAllBandsNormCopyOwned(nil, nil, offset, 0, false)
+		quantAllBandsNormCopyOwned(nil, nil, offset, 0, true)
+	}
 	norm := []float32{77, 1, 2, 3, 4, 88}
 	saved := []float32{55, 0, 0, 66}
+	ownedNorm, ownedSaved := slices.Clone(norm), slices.Clone(saved)
 	entropyInitGrowStack(12)
 	runtime.GC()
 	quantAllBandsNormCopy(&saved[1], &norm[1], 1, 2, false)
+	quantAllBandsNormCopyOwned(ownedSaved[1:3], ownedNorm[1:], 1, 2, false)
+	if !slices.Equal(saved, ownedSaved) || !slices.Equal(norm, ownedNorm) {
+		t.Fatal("owned norm snapshot/whole buffers")
+	}
 	if saved[1] != 2 || saved[2] != 3 || saved[0] != 55 || saved[3] != 66 {
 		t.Fatal("norm snapshot")
 	}
 	norm[2], norm[3] = -7, -8
+	ownedNorm[2], ownedNorm[3] = -7, -8
 	quantAllBandsNormCopy(&saved[1], &norm[1], 1, 2, true)
+	quantAllBandsNormCopyOwned(ownedSaved[1:3], ownedNorm[1:], 1, 2, true)
+	if !slices.Equal(saved, ownedSaved) || !slices.Equal(norm, ownedNorm) {
+		t.Fatal("owned norm restore/whole buffers")
+	}
 	if norm[2] != 2 || norm[3] != 3 || norm[0] != 77 || norm[1] != 1 || norm[4] != 4 || norm[5] != 88 {
 		t.Fatal("norm restore guards")
 	}
 	quantAllBandsNormCopy(&norm[1], &norm[1], 1, 3, false)
+	quantAllBandsNormCopyOwned(ownedNorm[1:4], ownedNorm[1:], 1, 3, false)
+	if !slices.Equal(norm, ownedNorm) {
+		t.Fatal("owned norm overlapping copy")
+	}
 	if norm[1] != 2 || norm[2] != 3 || norm[3] != 4 {
 		t.Fatal("Go-only norm overlap")
 	}
 }
 
 func TestQuantAllBandsDotPointers(t *testing.T) {
-	if math.Float32bits(quantAllBandsDot(nil, nil, 0)) != 0 {
+	if math.Float32bits(quantAllBandsDot(nil, nil, 0)) != 0 || math.Float32bits(quantAllBandsDotOwned(nil, nil, 0)) != 0 {
 		t.Fatal("empty RDO dot")
 	}
 	x := []float32{77, 1.00001, 10000, -10000, 0.12345, 88}
@@ -562,25 +580,36 @@ func TestQuantAllBandsDotPointers(t *testing.T) {
 	}
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if math.Float32bits(quantAllBandsDot(&x[1], &y[0], 4)) != math.Float32bits(sum) || x[0] != 77 || x[5] != 88 {
+	if math.Float32bits(quantAllBandsDot(&x[1], &y[0], 4)) != math.Float32bits(sum) || math.Float32bits(quantAllBandsDotOwned(x[1:5], &y[0], 4)) != math.Float32bits(sum) || x[0] != 77 || x[5] != 88 {
 		t.Fatal("ordered RDO dot")
 	}
 	want := float32(0)
 	for i := 0; i < 4; i++ {
 		want += float32(x[i+1] * x[i+1])
 	}
-	if quantAllBandsDot(&x[1], &x[1], 4) != want {
+	if quantAllBandsDot(&x[1], &x[1], 4) != want || quantAllBandsDotOwned(x[1:5], &x[1], 4) != want {
 		t.Fatal("dot input alias")
 	}
 }
 
 func TestQuantAllBandsCopyPointers(t *testing.T) {
 	quantAllBandsCopy(nil, nil, 0)
+	quantAllBandsCopyToOwned(nil, nil, 0)
+	quantAllBandsCopyFromOwned(nil, nil, 0)
 	src := []float32{math.Float32frombits(0x80000000), math.Float32frombits(0x7fc00123), 3}
 	dst := []float32{77, 0, 0, 0, 88}
+	owned := slices.Clone(dst)
+	restored := slices.Clone(dst)
 	entropyInitGrowStack(12)
 	runtime.GC()
 	quantAllBandsCopy(&dst[1], &src[0], 3)
+	quantAllBandsCopyToOwned(owned[1:4], &src[0], 3)
+	quantAllBandsCopyFromOwned(&restored[1], src, 3)
+	for i := range dst {
+		if math.Float32bits(dst[i]) != math.Float32bits(owned[i]) || math.Float32bits(dst[i]) != math.Float32bits(restored[i]) {
+			t.Fatal("owned snapshot whole-buffer bits/guards", i)
+		}
+	}
 	for i := range src {
 		if math.Float32bits(dst[i+1]) != math.Float32bits(src[i]) {
 			t.Fatal("RDO snapshot bits", i)
@@ -590,7 +619,14 @@ func TestQuantAllBandsCopyPointers(t *testing.T) {
 		t.Fatal("RDO copy guards")
 	}
 	alias := []float32{1, 2, 3, 4}
+	ownedAlias := slices.Clone(alias)
+	restoredAlias := slices.Clone(alias)
 	quantAllBandsCopy(&alias[1], &alias[0], 3)
+	quantAllBandsCopyToOwned(ownedAlias[1:], &ownedAlias[0], 3)
+	quantAllBandsCopyFromOwned(&restoredAlias[1], restoredAlias[:3], 3)
+	if !slices.Equal(alias, ownedAlias) || !slices.Equal(alias, restoredAlias) {
+		t.Fatal("owned snapshot overlapping copy")
+	}
 	if alias[1] != 1 || alias[2] != 2 || alias[3] != 3 {
 		t.Fatal("Go-only overlapping copy")
 	}

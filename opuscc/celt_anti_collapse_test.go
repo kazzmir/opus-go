@@ -10,6 +10,21 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
+func TestAntiCollapseRenormaliseRequiredSamplePointers(t *testing.T) {
+	// Go-only invalid bounded geometry: the original scalar argument required
+	// its first sample EVEN when normalization's negative length does no work.
+	bands, pulse, mask := []int16{1, 0}, []int32{0}, []byte{0}
+	history := []float32{0, 0}
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		antiCollapseSpans(nil, bands, 1, nil, mask, pulse, history[:1], history, history, 0, 1, 0, 0, 1, 1, 0, 0)
+	}()
+	if _, ok := caught.(runtime.Error); !ok {
+		t.Fatal("required renormalization sample check", caught)
+	}
+}
+
 func TestAntiCollapseOwnedPointers(t *testing.T) {
 	bands := [3]int16{0, 1, 3}
 	mode := OpusT_OpusCustomMode{FeBands: &bands[0], FnbEBands: 2}

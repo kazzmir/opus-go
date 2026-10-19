@@ -227,7 +227,7 @@ func pitchDownsampleFilter(tls *libc.TLS, output []float32, length, arch int32) 
 	var ac [5]float32
 	var lpc [4]float32
 	var lpc2 [5]float32
-	celtAutocorrSpan(tls, output, &ac[0], nil, 0, 4, length, arch)
+	celtAutocorrOwned(tls, output, ac[:], nil, 0, 4, length, arch)
 	ac[0] = float32(ac[0] * 1.0001)
 	for i := 1; i <= 4; i++ {
 		w := float32(0.008 * float32(i))
@@ -250,7 +250,24 @@ func pitchDownsampleFilter(tls *libc.TLS, output []float32, length, arch int32) 
 // C documentation
 //
 //	/* Pure C implementation. */
+type pitchXCorrSamples struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
+}
+
+func (samples pitchXCorrSamples) span(length int32) []float32 {
+	if samples.owned {
+		return samples.owner[:int(length)]
+	}
+	return unsafe.Slice(samples.legacy, int(length))
+}
+
 func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x, _y *OpusT_opus_val16, xcorr *OpusT_opus_val32, len1 int32, max_pitch int32, arch int32) {
+	pitchXCorrFrom(tls, pitchXCorrSamples{legacy: _x}, pitchXCorrSamples{legacy: _y}, pitchXCorrSamples{legacy: xcorr}, len1, max_pitch, arch)
+}
+
+func pitchXCorrFrom(tls *libc.TLS, input, history, output pitchXCorrSamples, len1, max_pitch, arch int32) {
 	_ = arch
 	/*The EDSP version requires that max_pitch is at least 1, and that _x is
 	  32-bit aligned.
@@ -258,31 +275,20 @@ func Opus_celt_pitch_xcorr_c(tls *libc.TLS, _x, _y *OpusT_opus_val16, xcorr *Opu
 	if !(max_pitch > int32(0)) {
 		opusCeltFatal(tls, opusDiagnosticString(4629), opusDiagnosticString(4659), int32(265))
 	}
-	xS := unsafe.Slice(_x, int(len1))
+	xS := input.span(len1)
 	// The final lag reads through y[max_pitch+len1-2]. No input is
 	// accessed for the scalar zero-length case.
 	yLen := int32(0)
 	if len1 > 0 {
 		yLen = max_pitch + len1 - 1
 	}
-	yS := unsafe.Slice(_y, int(yLen))
-	xcorrS := unsafe.Slice(xcorr, int(max_pitch))
+	yS := history.span(yLen)
+	xcorrS := output.span(max_pitch)
 	pitchXCorrSpans(tls, xS, yS, xcorrS, len1, max_pitch)
 }
 
 func pitchXCorrOwned(tls *libc.TLS, inputOwner, historyOwner, outputOwner []float32, length, maxPitch, arch int32) {
-	_ = arch
-	if !(maxPitch > 0) {
-		opusCeltFatal(tls, opusDiagnosticString(4629), opusDiagnosticString(4659), 265)
-	}
-	x := inputOwner[:int(length)]
-	historyLength := int32(0)
-	if length > 0 {
-		historyLength = maxPitch + length - 1
-	}
-	y := historyOwner[:int(historyLength)]
-	output := outputOwner[:int(maxPitch)]
-	pitchXCorrSpans(tls, x, y, output, length, maxPitch)
+	pitchXCorrFrom(tls, pitchXCorrSamples{owner: inputOwner, owned: true}, pitchXCorrSamples{owner: historyOwner, owned: true}, pitchXCorrSamples{owner: outputOwner, owned: true}, length, maxPitch, arch)
 }
 
 func pitchXCorrSpans(tls *libc.TLS, xS, yS, xcorrS []float32, len1, max_pitch int32) {

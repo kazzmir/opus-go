@@ -479,9 +479,9 @@ func TestPrefilterTDACRounding(t *testing.T) {
 	// rewrite changed the ARM PLC golden; this overlap-three case differs by 1 ULP.
 	m := newSynthesisTestMode()
 	filtered := []float32{-2422, -2249, -2076}
-	var out float32
-	prefilterFoldTDAC(m, &out, &filtered[0], 3)
-	if bits := math.Float32bits(out); bits != 0xc086cced {
+	var out [1]float32
+	prefilterFoldTDACOwned(m, out[:], 0, filtered, 3)
+	if bits := math.Float32bits(out[0]); bits != 0xc086cced {
 		t.Fatalf("fold product rounding: %08x want c086cced", bits)
 	}
 }
@@ -500,7 +500,7 @@ func TestPrefilterTDACPointers(t *testing.T) {
 		want := slices.Clone(g)
 		entropyInitGrowStack(12)
 		runtime.GC()
-		prefilterFoldTDAC(m, &g[1], unsafe.SliceData(filtered), overlap)
+		prefilterFoldTDACOwned(m, g, 1, filtered, overlap)
 		window := unsafe.Slice(m.Fwindow, 120)
 		for i := int32(0); i < overlap/2; i++ {
 			want[1+i] = float32(window[i]*filtered[overlap-1-i]) + float32(window[overlap-i-1]*filtered[i])
@@ -529,11 +529,11 @@ func TestPrefilterTDACPointers(t *testing.T) {
 				want[1+i] = float32(window[i]*want[5-i]) + float32(window[5-i]*want[i])
 			}
 		}
-		p := &filtered[0]
+		samples := filtered
 		if !aliasWindow {
-			p = &data[0]
+			samples = data[:6]
 		}
-		prefilterFoldTDAC(&m, &data[1], p, 6)
+		prefilterFoldTDACOwned(&m, data, 1, samples, 6)
 		if !slices.Equal(data, want) {
 			t.Fatal("fold sequential aliases", aliasWindow, data, want)
 		}
@@ -541,6 +541,10 @@ func TestPrefilterTDACPointers(t *testing.T) {
 	// No window/scratch/output access when there are no folded samples.
 	prefilterFoldTDAC(nil, nil, nil, 0)
 	prefilterFoldTDAC(nil, nil, nil, 1)
+	prefilterFoldTDACSpan(nil, nil, nil, 0)
+	prefilterFoldTDACSpan(nil, nil, nil, 1)
+	prefilterFoldTDACOwned(nil, nil, math.MaxInt32, nil, 0)
+	prefilterFoldTDACOwned(nil, nil, math.MinInt32, nil, 1)
 }
 
 func TestPrefilterHistoryPointers(t *testing.T) {
@@ -597,6 +601,25 @@ func TestPrefilterStatePointers(t *testing.T) {
 			owned, o, c := prefilterFoldState(st)
 			if owned != m || o != overlap || c != channels || unsafe.Slice(owned.Fwindow, 120)[119] != window120[119] {
 				t.Fatal("prefilter state owner", overlap, channels)
+			}
+		}
+	}
+}
+
+func TestSynthesisOwnedCopyPointers(t *testing.T) {
+	for _, n := range []int32{0, 1, 3, 120} {
+		for _, destination := range []int32{0, 1, 2} {
+			a := make([]float32, n+6)
+			for i := range a {
+				a[i] = float32(i+1) / 17
+			}
+			b := slices.Clone(a)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			celtSynthesisOutputCopyAt(&a[0], destination, &a[1], n)
+			celtSynthesisOutputCopyOwner(&b[0], destination, b[1:1+n], n)
+			if !slices.Equal(a, b) {
+				t.Fatal("owned synthesis staging copy/overlap/whole buffer", n, destination)
 			}
 		}
 	}

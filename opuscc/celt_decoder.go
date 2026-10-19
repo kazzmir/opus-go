@@ -305,6 +305,12 @@ func celtSynthesisIMDCTOrigins(tls *libc.TLS, mode *OpusT_OpusCustomMode, freq *
 	opusMDCTBackwardOffsets(tls, lookup, st.Fbitrev, st.Ftwiddles, freq, inputOffset, out, outputOffset, mode.Fwindow, overlap, shift, stride, arch)
 }
 
+func celtSynthesisIMDCTOwned(tls *libc.TLS, mode *OpusT_OpusCustomMode, frequency []float32, inputOffset int32, out *float32, outputOffset int32, overlap, shift, stride, arch int32) {
+	lookup := &mode.Fmdct
+	st := lookup.Fkfft[shift]
+	opusMDCTBackwardOwned(tls, lookup, st.Fbitrev, st.Ftwiddles, frequency, int64(inputOffset), out, outputOffset, mode.Fwindow, overlap, shift, stride, arch)
+}
+
 // A zero-length consumer may still require C's unused end identity. Only
 // positive consumed spans may turn a displaced address into a readable prefix.
 func celtSynthesisCursor(p *float32, offset, consumed int32) *float32 {
@@ -327,6 +333,10 @@ func celtSynthesisOutputCopy(destination, source *float32, N int32) {
 
 func celtSynthesisOutputCopyAt(destination *float32, outputOffset int32, source *float32, N int32) {
 	copy(celtDenormaliseSpan(destination, outputOffset, N), unsafe.Slice(source, N))
+}
+
+func celtSynthesisOutputCopyOwner(destination *float32, outputOffset int32, source []float32, N int32) {
+	copy(celtDenormaliseSpan(destination, outputOffset, N), source[:N])
 }
 
 type celtSynthesisOutputs struct {
@@ -356,7 +366,6 @@ func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtD
 	// Reuse one N-sample interleaved spectrum, matching the C scratch extent.
 	freq := make([]float32, N)
 	frequency := celtDenormaliseOutput{owner: freq, owned: true}
-	freqHead := unsafe.SliceData(freq)
 	M := int32(1) << LM
 	B, NB, shift := int32(1), mode.FshortMdctSize<<LM, mode.FmaxLM-LM
 	if isTransient != 0 {
@@ -366,12 +375,12 @@ func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtD
 	if CC == 2 && C == 1 {
 		celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, 0, frequency, 0, oldBandE, 0, start, effEnd, M, downsample, silence)
 		// Copy before either transform, and finish all left blocks before right blocks.
-		celtSynthesisOutputCopyAt(outputs[1], overlap/2, freqHead, N)
+		celtSynthesisOutputCopyOwner(outputs[1], overlap/2, freq, N)
 		for b := int32(0); b < B; b++ {
 			celtSynthesisIMDCTOrigins(tls, mode, outputs[1], int64(overlap/2)+int64(b), outputs[0], NB*b, overlap, shift, B, arch)
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[1], NB*b, overlap, shift, B, arch)
+			celtSynthesisIMDCTOwned(tls, mode, freq, b, outputs[1], NB*b, overlap, shift, B, arch)
 		}
 	} else if CC == 1 && C == 2 {
 		celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, 0, frequency, 0, oldBandE, 0, start, effEnd, M, downsample, silence)
@@ -382,14 +391,14 @@ func celtSynthesisFrom(tls *libc.TLS, mode *OpusT_OpusCustomMode, spectrum celtD
 			freq[i] = float32(float32(.5)*freq[i]) + float32(float32(.5)*other[i])
 		}
 		for b := int32(0); b < B; b++ {
-			celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[0], NB*b, overlap, shift, B, arch)
+			celtSynthesisIMDCTOwned(tls, mode, freq, b, outputs[0], NB*b, overlap, shift, B, arch)
 		}
 	} else {
 		// The C do-while visits channel zero even when CC is zero.
 		for c := int32(0); c < max(CC, 1); c++ {
 			celtDenormaliseBandsFromTo(tls, bandBoundaries, mode.FshortMdctSize, spectrum, c*N, frequency, 0, oldBandE, c*nbEBands, start, effEnd, M, downsample, silence)
 			for b := int32(0); b < B; b++ {
-				celtSynthesisIMDCTOffsets(tls, mode, freqHead, b, outputs[c], NB*b, overlap, shift, B, arch)
+				celtSynthesisIMDCTOwned(tls, mode, freq, b, outputs[c], NB*b, overlap, shift, B, arch)
 			}
 		}
 	}
@@ -485,6 +494,30 @@ func prefilterFoldTDAC(mode *OpusT_OpusCustomMode, memory, filtered *float32, ov
 	window := unsafe.Slice(mode.Fwindow, overlap)
 	destination := unsafe.Slice(memory, overlap/2)
 	samples := unsafe.Slice(filtered, overlap)
+	prefilterFoldTDACSpans(window, destination, samples, overlap)
+}
+
+func prefilterFoldTDACSpan(mode *OpusT_OpusCustomMode, memory *float32, filtered []float32, overlap int32) {
+	if overlap/2 <= 0 {
+		return
+	}
+	window := unsafe.Slice(mode.Fwindow, overlap)
+	destination := unsafe.Slice(memory, overlap/2)
+	samples := filtered[:overlap]
+	prefilterFoldTDACSpans(window, destination, samples, overlap)
+}
+
+func prefilterFoldTDACOwned(mode *OpusT_OpusCustomMode, history []float32, offset int32, filtered []float32, overlap int32) {
+	if overlap/2 <= 0 {
+		return
+	}
+	window := unsafe.Slice(mode.Fwindow, overlap)
+	destination := history[int64(offset) : int64(offset)+int64(overlap/2)]
+	samples := filtered[:overlap]
+	prefilterFoldTDACSpans(window, destination, samples, overlap)
+}
+
+func prefilterFoldTDACSpans(window, destination, samples []float32, overlap int32) {
 	for i := int32(0); i < overlap/2; i++ {
 		// Keep the generated/C operand order and live window/sample reads.
 		destination[i] = float32(OpusT_celt_coef(window[i])*samples[overlap-1-i]) + float32(OpusT_celt_coef(window[overlap-i-1])*samples[i])
@@ -493,7 +526,6 @@ func prefilterFoldTDAC(mode *OpusT_OpusCustomMode, memory, filtered *float32, ov
 func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	mode, overlap, CC := prefilterFoldState(st1)
 	scratch := make([]float32, overlap)
-	etmp := unsafe.SliceData(scratch)
 	var decodeMem [2]*float32
 	// Match both C do-while loops, including channel zero for CC==0.
 	for c := int32(0); c < max(CC, 1); c++ {
@@ -506,11 +538,24 @@ func prefilter_and_fold(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32) {
 	}
 	for c := int32(0); c < max(CC, 1); c++ {
 		// Nonzero overlap consumes this sample, including N==0's overlap tail.
-		input := celtNormConsumedAt(decodeMem[c], DEC_PITCH_BUF_SIZE-N)
+		inputOffset := int32(DEC_PITCH_BUF_SIZE) - N
+		var signedInput *float32
+		if inputOffset < 0 {
+			signedInput = celtNormConsumedAt(decodeMem[c], inputOffset)
+		} else if inputOffset > 0 {
+			// Preserve the original required first-sample extent check BEFORE
+			// the complete history view, without manufacturing an audio cursor.
+			_ = unsafe.Slice(decodeMem[c], int64(inputOffset)+1)[inputOffset]
+		}
+		history := unsafe.Slice(decodeMem[c], DEC_PITCH_BUF_SIZE+overlap)
 		// Filter the overlap before writing any TDAC samples, then reuse scratch
 		// for the next channel. State controls remain live reads per channel.
-		combFilterOwned(tls, etmp, unsafe.Slice(decodeMem[c], DEC_PITCH_BUF_SIZE+overlap), DEC_PITCH_BUF_SIZE-N, st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch)
-		prefilterFoldTDAC(mode, input, etmp, overlap)
+		combFilterBuffersOwned(tls, scratch, 0, history, inputOffset, st1.Fpostfilter_period_old, st1.Fpostfilter_period, overlap, -st1.Fpostfilter_gain_old, -st1.Fpostfilter_gain, st1.Fpostfilter_tapset_old, st1.Fpostfilter_tapset, nil, 0, st1.Farch)
+		if inputOffset < 0 {
+			prefilterFoldTDACSpan(mode, signedInput, scratch, overlap)
+		} else {
+			prefilterFoldTDACOwned(mode, history, inputOffset, scratch, overlap)
+		}
 	}
 }
 
@@ -1096,7 +1141,7 @@ func celtPLCNoiseBands(tls *libc.TLS, state *OpusT_OpusCustomDecoder, bands []in
 				x[offset+j] = float32(int32(seed) >> 20)
 			}
 			if length > 0 {
-				Opus_renormalise_vector(tls, &x[offset], length, 1, state.Farch)
+				renormaliseVectorOwned(tls, x, offset, length, 1, state.Farch)
 			}
 		}
 	}
@@ -1412,7 +1457,7 @@ func celt_decode_lost(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, N int32, LM i
 			if st1.Flast_frame_type != int32(FRAME_PLC_PERIODIC) && !(last_neural != 0 && curr_neural != 0) {
 				/* Compute LPC coefficients for the last MAX_PERIOD samples before
 				   the first loss so we can work in the excitation-filter domain. */
-				celtAutocorrSpan(tls, exc, &ac[0], window, overlap, CELT_LPC_ORDER, max_period, st1.Farch)
+				celtAutocorrOwned(tls, exc, ac[:], window, overlap, CELT_LPC_ORDER, max_period, st1.Farch)
 				// Noise floor followed by rounded lag-window products.
 				celtPLCLagWindow(&ac)
 				_ = lpc[c*CELT_LPC_ORDER] // Retain the original output argument's index check.

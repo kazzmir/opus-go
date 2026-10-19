@@ -109,7 +109,32 @@ func opusMDCTBackwardAt(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twid
 	opusMDCTBackwardOffsets(tls, l, bitrev, twiddles, in, int64(inputOffset), out, 0, window, overlap, shift, stride, arch)
 }
 
+type mdctInputSource struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
+}
+
+func (source mdctInputSource) strided(offset int64, n, stride int32) ([]float32, int32) {
+	if !source.owned {
+		return mdctStridedSliceOrigin(source.legacy, offset, n, stride)
+	}
+	last := (n - 1) * stride
+	first, end := min(int32(0), last), max(int32(0), last)
+	width := end - first + 1 // Preserve the original int32 strided extent arithmetic.
+	start := offset + int64(first)
+	return source.owner[start : start+int64(width)], -first
+}
+
 func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, in *float32, inputOffset int64, out *float32, outputOffset int32, window *float32, overlap, shift, stride, arch int32) {
+	opusMDCTBackwardFrom(tls, l, bitrev, twiddles, mdctInputSource{legacy: in}, inputOffset, out, outputOffset, window, overlap, shift, stride, arch)
+}
+
+func opusMDCTBackwardOwned(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, owner []float32, inputOffset int64, out *float32, outputOffset int32, window *float32, overlap, shift, stride, arch int32) {
+	opusMDCTBackwardFrom(tls, l, bitrev, twiddles, mdctInputSource{owner: owner, owned: true}, inputOffset, out, outputOffset, window, overlap, shift, stride, arch)
+}
+
+func opusMDCTBackwardFrom(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16, twiddles *OpusT_kiss_twiddle_cpx, source mdctInputSource, inputOffset int64, out *float32, outputOffset int32, window *float32, overlap, shift, stride, arch int32) {
 	_ = arch
 	N := l.Fn
 	offset := int32(0)
@@ -119,7 +144,7 @@ func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 	}
 	N2, N4 := N>>1, N>>2
 	trig := unsafe.Slice(l.Ftrig, offset+N2)[offset:]
-	input, inputBase := mdctStridedSliceOrigin(in, inputOffset, N2, stride)
+	input, inputBase := source.strided(inputOffset, N2, stride)
 	var output []float32
 	outputLength := N2 + (overlap >> 1)
 	if outputOffset == 0 {
@@ -132,6 +157,10 @@ func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 	}
 	win := unsafe.Slice(window, overlap)
 	rev := unsafe.Slice(bitrev, N4)
+	opusMDCTBackwardSpans(tls, l, twiddles, trig, input, inputBase, output, win, rev, N2, N4, overlap, shift, stride)
+}
+
+func opusMDCTBackwardSpans(tls *libc.TLS, l *OpusT_mdct_lookup, twiddles *OpusT_kiss_twiddle_cpx, trig, input []float32, inputBase int32, output, win []float32, rev []int16, N2, N4, overlap, shift, stride int32) {
 	base := overlap >> 1
 	for i := int32(0); i < N4; i++ {
 		x1, x2 := input[inputBase+2*i*stride], input[inputBase+(N2-1-2*i)*stride]
@@ -141,7 +170,9 @@ func opusMDCTBackwardOffsets(tls *libc.TLS, l *OpusT_mdct_lookup, bitrev *int16,
 		output[base+2*r+1] = yr
 		output[base+2*r] = yi
 	}
-	opusFFTImplOutput(tls, l.Fkfft[shift], twiddles, fftOutput{scalar: &output[base], floatLanes: true})
+	fftState := l.Fkfft[shift]
+	_ = output[base] // Keep the required first-cell check at the original point.
+	opusFFTImplOutput(tls, fftState, twiddles, fftOutput{scalarOwner: output, scalarOffset: base, floatLanes: true, ownedFloat: true})
 	// Capture both ends before storing: odd N4 computes the middle pair twice.
 	p0, p1 := base, base+N2-2
 	for i := int32(0); i < (N4+1)>>1; i++ {

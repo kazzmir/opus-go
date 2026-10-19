@@ -431,6 +431,47 @@ func TestAutocorrPointers(t *testing.T) {
 	}
 }
 
+func TestAutocorrCanonicalWindowPointers(t *testing.T) {
+	saved := window120
+	defer func() { window120 = saved }()
+	bound := celtAutocorrKnownWindow(&window120[0], 120)
+	if !bound.owned || len(bound.owner) != len(window120) || &bound.owner[0] != &window120[0] {
+		t.Fatal("canonical actual window owner")
+	}
+	for _, candidate := range []struct {
+		pointer *float32
+		overlap int32
+	}{{&saved[0], 120}, {&window120[1], 119}, {&window120[0], 121}, {&window120[0], -1}, {nil, 0}} {
+		if celtAutocorrKnownWindow(candidate.pointer, candidate.overlap).owned {
+			t.Fatal("noncanonical/shifted/unsupported windows must stay legacy")
+		}
+	}
+	// Go-only live window/input/output aliases: preserve sequential stores, not
+	// a new C restrict-domain claim. Restore the canonical table after EACH pair.
+	for _, overlap := range []int32{0, 2, 60, 120} {
+		for _, lag := range []int32{0, 1, 3, 24} {
+			for _, origin := range []int32{0, 1, 80, 95} {
+				window120 = saved
+				entropyInitGrowStack(12)
+				runtime.GC()
+				r := Opus__celt_autocorr(nil, &window120[0], &window120[origin], &window120[0], overlap, lag, 120, 0)
+				want := window120
+				window120 = saved
+				r2 := celtAutocorrOwned(nil, window120[:], window120[origin:], &window120[0], overlap, lag, 120, 0)
+				if r != r2 {
+					t.Fatal("canonical autocorr return")
+				}
+				for i := range want {
+					if math.Float32bits(window120[i]) != math.Float32bits(want[i]) {
+						t.Fatal("canonical live window/input/output aliases", overlap, lag, origin, i)
+					}
+				}
+				window120 = saved
+			}
+		}
+	}
+}
+
 func TestAutocorrSpanPointers(t *testing.T) {
 	for _, n := range []int32{8, 32} {
 		for _, lag := range []int32{0, 1, 3} {
@@ -441,15 +482,17 @@ func TestAutocorrSpanPointers(t *testing.T) {
 						a[i] = float32(i-7) / 37
 					}
 					b := slices.Clone(a)
+					c := slices.Clone(a)
 					entropyInitGrowStack(12)
 					runtime.GC()
 					r := Opus__celt_autocorr(nil, &a[1], &a[offset], &a[1], overlap, lag, n, 0)
 					r2 := celtAutocorrSpan(nil, b[1:], &b[offset], &b[1], overlap, lag, n, 0)
-					if r != r2 {
+					r3 := celtAutocorrOwned(nil, c[1:], c[offset:], &c[1], overlap, lag, n, 0)
+					if r != r2 || r != r3 {
 						t.Fatal("autocorr span return")
 					}
 					for i := range a {
-						if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+						if math.Float32bits(a[i]) != math.Float32bits(b[i]) || math.Float32bits(a[i]) != math.Float32bits(c[i]) {
 							t.Fatal("autocorr span/window/output aliases/guards", n, lag, overlap, offset, i)
 						}
 					}
@@ -465,6 +508,7 @@ func TestAutocorrSpanPointers(t *testing.T) {
 		want := "Fatal (internal) error in " + opusDiagnosticString(3330) + ", line " + line + ": " + text + "\n"
 		checkDiagnosticFatal(t, func() { Opus__celt_autocorr(nil, nil, nil, nil, -1, 0, n, 0) }, want)
 		checkDiagnosticFatal(t, func() { celtAutocorrSpan(nil, nil, nil, nil, -1, 0, n, 0) }, want)
+		checkDiagnosticFatal(t, func() { celtAutocorrOwned(nil, nil, nil, nil, -1, 0, n, 0) }, want)
 	}
 }
 
@@ -499,6 +543,34 @@ func TestIIRPointers(t *testing.T) {
 	}
 	// The empty order-zero tail consumes no pointers.
 	Opus_celt_iir(nil, nil, nil, nil, 0, 0, nil, 0)
+}
+
+func TestCombOwnedOutputPointers(t *testing.T) {
+	window := [4]float32{.1, .25, .6, .9}
+	for _, n := range []int32{0, 1, 3, 8, 17, 64} {
+		for _, overlap := range []int32{0, min(n, 4)} {
+			for _, outputOffset := range []int32{1, 40, 41, 130} {
+				for _, gains := range [][2]float32{{0, 0}, {.3, 0}, {0, .4}, {.3, .4}, {-.4, -.4}} {
+					a := make([]float32, 3*n+150)
+					for i := range a {
+						a[i] = float32(i%17-8) / 31
+					}
+					a[0], a[len(a)-1] = 77, 88
+					b := slices.Clone(a)
+					entropyInitGrowStack(12)
+					runtime.GC()
+					combFilterOwned(nil, &a[outputOffset], a, 40, 15, 17, n, gains[0], gains[1], 0, 1, &window[0], overlap, 0)
+					combFilterBuffersOwned(nil, b, outputOffset, b, 40, 15, 17, n, gains[0], gains[1], 0, 1, &window[0], overlap, 0)
+					for i := range a {
+						if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
+							t.Fatal("owned comb output/full-buffer aliases/guards", n, overlap, outputOffset, gains, i)
+						}
+					}
+				}
+			}
+		}
+	}
+	combFilterBuffersOwned(nil, nil, 0, nil, 0, 0, 0, 0, 0, 0, -1, -1, nil, 0, 0)
 }
 
 func TestCombHistoryOwnerPointers(t *testing.T) {

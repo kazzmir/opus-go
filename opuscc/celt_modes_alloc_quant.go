@@ -440,6 +440,21 @@ func Opus_renormalise_vector(tls *libc.TLS, X *OpusT_celt_norm, N1 int32, gain O
 	}
 	_ = arch
 	x := unsafe.Slice(X, int(N1))
+	renormaliseVectorSpan(tls, x, gain)
+}
+
+func renormaliseVectorOwned(tls *libc.TLS, owner []float32, offset, N int32, gain float32, arch int32) {
+	if N <= 0 {
+		return
+	}
+	x := owner[int64(offset) : int64(offset)+int64(N)]
+	renormaliseVectorSpan(tls, x, gain)
+}
+
+func renormaliseVectorSpan(tls *libc.TLS, x []float32, gain float32) {
+	if len(x) == 0 {
+		return
+	}
 	var xy OpusT_opus_val32
 	for _, value := range x {
 		// Keep scalar float32 products and accumulation in C's order.
@@ -1450,7 +1465,8 @@ func antiCollapseSpans(tls *libc.TLS, b []int16, nbBands int32, x []float32, mas
 				}
 			}
 			if renormalize {
-				Opus_renormalise_vector(tls, &x[offset], n0<<LM, 1, arch)
+				_ = x[offset] // Preserve the original required first-sample argument check.
+				renormaliseVectorOwned(tls, x, offset, n0<<LM, 1, arch)
 			}
 		}
 	}
@@ -2731,16 +2747,54 @@ func quantAllBandsNormCopy(saved, norm *float32, offset, N int32, restore bool) 
 	}
 }
 
+func quantAllBandsNormCopyOwned(saved, norm []float32, offset, N int32, restore bool) {
+	if N == 0 {
+		return
+	}
+	values := norm[offset : offset+N]
+	if restore {
+		copy(values, saved[:N])
+	} else {
+		copy(saved[:N], values)
+	}
+}
+
 func quantAllBandsDot(left, right *float32, N int32) float32 {
 	if N == 0 {
 		return 0
 	}
 	x, y := unsafe.Slice(left, N), unsafe.Slice(right, N)
+	return quantAllBandsDotSpans(x, y, N)
+}
+
+func quantAllBandsDotOwned(left []float32, right *float32, N int32) float32 {
+	if N == 0 {
+		return 0
+	}
+	x, y := left[:N], unsafe.Slice(right, N)
+	return quantAllBandsDotSpans(x, y, N)
+}
+
+func quantAllBandsDotSpans(x, y []float32, N int32) float32 {
 	sum := float32(0)
 	for i := int32(0); i < N; i++ {
 		sum = sum + float32(x[i]*y[i])
 	}
 	return sum
+}
+
+func quantAllBandsCopyToOwned(destination []float32, source *float32, N int32) {
+	if N == 0 {
+		return
+	}
+	copy(destination[:N], unsafe.Slice(source, N))
+}
+
+func quantAllBandsCopyFromOwned(destination *float32, source []float32, N int32) {
+	if N == 0 {
+		return
+	}
+	copy(unsafe.Slice(destination, N), source[:N])
 }
 
 func quantAllBandsCopy(dst, src *float32, N int32) {
@@ -2876,7 +2930,6 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 	var curr_balance, remaining_bits, tell, v204, v205 OpusT_opus_int32
 	var dist0, dist1, v229, v232 OpusT_opus_val32
 	var ec_save, ec_save2 OpusT_ec_ctx
-	_ = _norm
 	eBands = m.FeBands
 	update_lowband = int32(1)
 	if Y_.present() {
@@ -3090,24 +3143,24 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					cm = x_cm | y_cm
 					ec_save = *ec
 					ctx_save = *ctx
-					quantAllBandsCopy(unsafe.SliceData(X_save), X, N1)
-					quantAllBandsCopy(unsafe.SliceData(Y_save), Y, N1)
+					quantAllBandsCopyToOwned(X_save, X, N1)
+					quantAllBandsCopyToOwned(Y_save, Y, N1)
 					/* Encode and round down. */
 					ctx.Ftheta_round = -1
 					input, output := quantAllBandsBandViews(norm, eBands, i1, M, norm_offset, N1, effective_lowband, last)
 					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
 					_ = arch
-					v229 = quantAllBandsDot(unsafe.SliceData(X_save), X, N1)
-					v232 = quantAllBandsDot(unsafe.SliceData(Y_save), Y, N1)
+					v229 = quantAllBandsDotOwned(X_save, X, N1)
+					v232 = quantAllBandsDotOwned(Y_save, Y, N1)
 					dist0 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					/* Save first result. */
 					cm2 = x_cm
 					ec_save2 = *ec
 					ctx_save2 = *ctx
-					quantAllBandsCopy(unsafe.SliceData(X_save2), X, N1)
-					quantAllBandsCopy(unsafe.SliceData(Y_save2), Y, N1)
+					quantAllBandsCopyToOwned(X_save2, X, N1)
+					quantAllBandsCopyToOwned(Y_save2, Y, N1)
 					if !(last != 0) {
-						quantAllBandsNormCopy(unsafe.SliceData(norm_save2), norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
+						quantAllBandsNormCopyOwned(norm_save2, _norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
 					}
 					nstart_bytes = int32(ec_save.Foffs)
 					nend_bytes = int32(ec_save.Fstorage)
@@ -3116,8 +3169,8 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					/* Restore */
 					*ec = ec_save
 					*ctx = ctx_save
-					quantAllBandsCopy(X, unsafe.SliceData(X_save), N1)
-					quantAllBandsCopy(Y, unsafe.SliceData(Y_save), N1)
+					quantAllBandsCopyFromOwned(X, X_save, N1)
+					quantAllBandsCopyFromOwned(Y, Y_save, N1)
 					if i1 == start+int32(1) {
 						special_hybrid_folding(tls, m.FeBands, norm, norm2, start, M, dual_stereo)
 					}
@@ -3126,17 +3179,17 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					input, output = quantAllBandsBandViews(norm, eBands, i1, M, norm_offset, N1, effective_lowband, last)
 					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
 					_ = arch
-					v229 = quantAllBandsDot(unsafe.SliceData(X_save), X, N1)
-					v232 = quantAllBandsDot(unsafe.SliceData(Y_save), Y, N1)
+					v229 = quantAllBandsDotOwned(X_save, X, N1)
+					v232 = quantAllBandsDotOwned(Y_save, Y, N1)
 					dist1 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					if dist0 >= dist1 {
 						x_cm = cm2
 						*ec = ec_save2
 						*ctx = ctx_save2
-						quantAllBandsCopy(X, unsafe.SliceData(X_save2), N1)
-						quantAllBandsCopy(Y, unsafe.SliceData(Y_save2), N1)
+						quantAllBandsCopyFromOwned(X, X_save2, N1)
+						quantAllBandsCopyFromOwned(Y, Y_save2, N1)
 						if !(last != 0) {
-							quantAllBandsNormCopy(unsafe.SliceData(norm_save2), norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
+							quantAllBandsNormCopyOwned(norm_save2, _norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, true)
 						}
 						quantAllBandsByteRestore(bytes_buf, bytes_save, save_bytes)
 					}

@@ -163,6 +163,14 @@ func comb_filter_const_c(tls *libc.TLS, y *OpusT_opus_val32, xHistory *OpusT_opu
 	offset := int(T) + 2
 	x := unsafe.Slice(xHistory, offset+int(N))
 	out := unsafe.Slice(y, int(N))
+	combFilterConstSpans(x, out, T, g10, g11, g12)
+}
+
+func combFilterConstSpans(x, out []float32, T int32, g10, g11, g12 float32) {
+	if len(out) == 0 {
+		return
+	}
+	offset := int(T) + 2
 	x4, x3, x2, x1 := x[0], x[1], x[2], x[3]
 	for i := range out {
 		x0 := x[i+4]
@@ -213,10 +221,45 @@ func combFilterOwned(tls *libc.TLS, y *float32, owner []float32, offset int32, T
 	combFilterFromSource(tls, y, combFilterSource{owner: owner, offset: offset, owned: true}, T0, T1, N, g0, g1, tapset0, tapset1, window, overlap, arch)
 }
 
+type combFilterDestination struct {
+	legacy *float32
+	owner  []float32
+	offset int32
+	owned  bool
+}
+
+func (destination combFilterDestination) identity() *float32 {
+	if !destination.owned {
+		return destination.legacy
+	}
+	if destination.offset >= 0 && int64(destination.offset) < int64(len(destination.owner)) {
+		return &destination.owner[destination.offset]
+	}
+	return celtNormAdd(unsafe.SliceData(destination.owner), destination.offset)
+}
+
+func (destination combFilterDestination) samples(N int32) []float32 {
+	if !destination.owned {
+		return unsafe.Slice(destination.legacy, N)
+	}
+	if N == 0 {
+		return nil
+	}
+	return destination.owner[int64(destination.offset) : int64(destination.offset)+int64(N)]
+}
+
+func combFilterBuffersOwned(tls *libc.TLS, outputOwner []float32, outputOffset int32, owner []float32, offset int32, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32) {
+	combFilterFrom(tls, combFilterDestination{owner: outputOwner, offset: outputOffset, owned: true}, combFilterSource{owner: owner, offset: offset, owned: true}, T0, T1, N, g0, g1, tapset0, tapset1, window, overlap, arch)
+}
+
 func combFilterFromSource(tls *libc.TLS, y *float32, source combFilterSource, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32) {
+	combFilterFrom(tls, combFilterDestination{legacy: y}, source, T0, T1, N, g0, g1, tapset0, tapset1, window, overlap, arch)
+}
+
+func combFilterFrom(tls *libc.TLS, destination combFilterDestination, source combFilterSource, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32) {
 	if g0 == 0 && g1 == 0 {
-		if !source.same(y) {
-			copy(unsafe.Slice(y, N), source.samples(N))
+		if !source.same(destination.identity()) {
+			copy(destination.samples(N), source.samples(N))
 		}
 		return
 	}
@@ -238,7 +281,7 @@ func combFilterFromSource(tls *libc.TLS, y *float32, source combFilterSource, T0
 	} else {
 		src = unsafe.Slice((*float32)(unsafe.Add(unsafe.Pointer(source.legacy), -int(history)*4)), history+N)
 	}
-	dst := unsafe.Slice(y, N)
+	dst := destination.samples(N)
 	x1, x2, x3, x4 := src[history-T1+1], src[history-T1], src[history-T1-1], src[history-T1-2]
 	win := unsafe.Slice(window, overlap)
 	for i := int32(0); i < overlap; i++ {
@@ -248,13 +291,13 @@ func combFilterFromSource(tls *libc.TLS, y *float32, source combFilterSource, T0
 		x4, x3, x2, x1 = x3, x2, x1, x0
 	}
 	if g1 == 0 {
-		if !source.same(y) {
+		if !source.same(destination.identity()) {
 			copy(dst[overlap:], src[history+overlap:])
 		}
 		return
 	}
 	if N > overlap {
-		comb_filter_const_c(tls, &dst[overlap], &src[history+overlap-T1-2], T1, N-overlap, g10, g11, g12)
+		combFilterConstSpans(src[history+overlap-T1-2:], dst[overlap:], T1, g10, g11, g12)
 	}
 }
 

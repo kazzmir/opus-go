@@ -18,11 +18,18 @@ func TestPitchXCorrOwnedAliasesPointers(t *testing.T) {
 				}
 				a[0], a[len(a)-1] = 77, 88
 				b := slices.Clone(a)
+				mixed := slices.Clone(a)
+				mixedHistory := slices.Clone(a)
 				entropyInitGrowStack(12)
 				runtime.GC()
 				Opus_celt_pitch_xcorr_c(nil, &a[1], &a[n+3], &a[origin], n, lags, 0)
 				pitchXCorrOwned(nil, b[1:1+n], b[n+3:n+3+n+lags-1], b[origin:origin+lags], n, lags, 0)
+				pitchXCorrFrom(nil, pitchXCorrSamples{owner: mixed[1 : 1+n], owned: true}, pitchXCorrSamples{legacy: &mixed[n+3]}, pitchXCorrSamples{legacy: &mixed[origin]}, n, lags, 0)
+				pitchXCorrFrom(nil, pitchXCorrSamples{owner: mixedHistory[1 : 1+n], owned: true}, pitchXCorrSamples{owner: mixedHistory[n+3 : n+3+n+lags-1], owned: true}, pitchXCorrSamples{legacy: &mixedHistory[origin]}, n, lags, 0)
 				for i := range a {
+					if math.Float32bits(mixed[i]) != math.Float32bits(a[i]) || math.Float32bits(mixedHistory[i]) != math.Float32bits(a[i]) {
+						t.Fatal("mixed owned xcorr input/whole-buffer aliases", n, lags, origin, i)
+					}
 					if math.Float32bits(a[i]) != math.Float32bits(b[i]) {
 						t.Fatal("xcorr full-buffer live aliases/guards", n, lags, origin, i)
 					}

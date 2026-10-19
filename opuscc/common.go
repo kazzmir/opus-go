@@ -3153,21 +3153,13 @@ func Opus_opus_dred_decoder_init(tls *libc.TLS, dec uintptr) int32 {
 	return opusDREDDecoderInit(tls, (*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)))
 }
 
-func opusDREDDecoderInit(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) (r int32) {
-	var ret, v1 int32
-	_, _ = ret, v1
-	ret = 0
+func opusDREDDecoderInit(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) int32 {
+	// This port has no model/SIMD initialization that can fail.
 	dec.Floaded = 0
-	v1 = 0
-	dec.Farch = v1
+	dec.Farch = 0
 	/* To make sure nobody forgets to init, use a magic number. */
 	dec.Fmagic = uint32(0xD8EDDEC0)
-	if ret == 0 {
-		v1 = OPUS_OK
-	} else {
-		v1 = -int32(5)
-	}
-	return v1
+	return OPUS_OK
 }
 
 func Opus_opus_dred_decoder_create_typed(tls *libc.TLS) (*OpusT_OpusDREDDecoder, error) {
@@ -3178,10 +3170,7 @@ func Opus_opus_dred_decoder_create_typed(tls *libc.TLS) (*OpusT_OpusDREDDecoder,
 	if dec == nil {
 		return nil, opusErrorFromCode(-int32(7))
 	}
-	if ret := opusDREDDecoderInit(tls, dec); ret != OPUS_OK {
-		libc.XfreePointer(tls, unsafe.Pointer(dec))
-		return nil, opusErrorFromCode(ret)
-	}
+	opusDREDDecoderInit(tls, dec)
 	return dec, nil
 }
 
@@ -3213,7 +3202,7 @@ func Opus_opus_dred_get_size(tls *libc.TLS) (r int32) {
 }
 
 func Opus_opus_dred_alloc(tls *libc.TLS) (uintptr, error) {
-	return uintptr(uint32(0)), opusErrorFromCode(-int32(5))
+	return 0, opusErrorFromCode(-int32(5))
 }
 
 func Opus_opus_dred_free(tls *libc.TLS, dec uintptr) {

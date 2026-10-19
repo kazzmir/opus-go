@@ -2134,6 +2134,9 @@ func TestCeltPLCNoisePointers(t *testing.T) {
 	celtPLCNoise(nil, state, nil, nil, 0, 0, 1, 0, 0)
 	celtPLCNoiseSpan(nil, state, nil, nil, 2147483647, 0, 0, 0, 2)
 	celtPLCNoiseSpan(nil, state, nil, nil, 2147483647, 0, 1, 0, 0)
+	// Go-only unused zero-width band: no spectrum cursor/view may be formed.
+	emptyBand := [2]int16{32767, 32767}
+	celtPLCNoiseSpan(nil, state, &emptyBand[0], nil, 0, 0, 1, 0, 1)
 	if state.Frng != 123 {
 		t.Fatal("unused noise")
 	}
