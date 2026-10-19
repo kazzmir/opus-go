@@ -161,6 +161,13 @@ func deemphasis_stereo_simple(tls *libc.TLS, left *OpusT_celt_sig, right *OpusT_
 	}
 	x0, x1 := unsafe.Slice(left, int(N)), unsafe.Slice(right, int(N))
 	output := unsafe.Slice(pcm, 2*int(N))
+	deemphasisStereoSpans(x0, x1, output, coef0, mem)
+}
+
+func deemphasisStereoSpans(x0, x1, output []float32, coef0 float32, mem *[2]float32) {
+	if len(x0) == 0 {
+		return
+	}
 	m0, m1 := mem[0], mem[1]
 	for j := range x0 {
 		// Add VERY_SMALL first, preserving the floating-point C operation order.

@@ -160,7 +160,12 @@ func TestDeemphasisPointers(t *testing.T) {
 	want := []float32{1, -1, 0.5, -0.5, 0.75, -0.25, -0.625, 0.875}
 	output := [10]float32{111, 0, 0, 0, 0, 0, 0, 0, 0, 222}
 	var state [2]float32
+	spanOutput, spanState := output, state
 	deemphasis_stereo_simple(nil, &left[0], &right[0], &output[1], 4, 0.5, &state)
+	deemphasisStereoSpans(left[:], right[:], spanOutput[1:9], .5, &spanState)
+	if spanOutput != output || spanState != state {
+		t.Fatal("stereo spans/whole buffer/guards")
+	}
 	if !slices.Equal(output[1:9], want) || state != [2]float32{-10240, 14336} {
 		t.Fatalf("PCM=%v state=%v", output, state)
 	}
@@ -168,6 +173,7 @@ func TestDeemphasisPointers(t *testing.T) {
 		t.Fatal("input or sentinels changed")
 	}
 	before := state
+	deemphasisStereoSpans(nil, nil, nil, .5, nil)
 	deemphasis_stereo_simple(nil, nil, nil, nil, 0, 0.5, &state)
 	if state != before {
 		t.Fatal("empty frame changed state")
