@@ -37,7 +37,14 @@ func TestDeinterleavePointers(t *testing.T) {
 						want[row*n0+j] = bits
 					}
 				}
+				span := append([]float32(nil), data...)
 				deinterleave_hadamard(nil, &data[1], n0, stride, h)
+				deinterleaveSpans(span[1:n+1], n0, stride, h)
+				for i := range data {
+					if math.Float32bits(data[i]) != math.Float32bits(span[i]) {
+						t.Fatal("deinterleave span full bits/NaN payloads/guards", n0, stride, h, i)
+					}
+				}
 				for i, bits := range want {
 					if math.Float32bits(data[i+1]) != bits {
 						t.Fatalf("n0=%d stride=%d h=%d i=%d", n0, stride, h, i)

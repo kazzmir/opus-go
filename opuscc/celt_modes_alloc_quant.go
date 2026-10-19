@@ -1676,6 +1676,10 @@ func deinterleave_hadamard(tls *libc.TLS, X *OpusT_celt_norm, N0 int32, stride i
 		return
 	}
 	values := unsafe.Slice(X, N0*stride)
+	deinterleaveSpans(values, N0, stride, hadamard)
+}
+
+func deinterleaveSpans(values []float32, N0, stride, hadamard int32) {
 	tmp := make([]OpusT_celt_norm, len(values))
 	for i := int32(0); i < stride; i++ {
 		row := i
