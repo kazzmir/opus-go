@@ -195,21 +195,34 @@ func deemphasisOutputAt(pcm *float32, channel, sampleOffset int32) *float32 {
 }
 
 func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, downsample int32, coef *float32, mem *float32, accum int32) {
-	deemphasisFrom(tls, celtSynthesisOutputs{legacy: in}, pcm, N, C, downsample, coef, mem, accum)
+	deemphasisFrom(tls, celtSynthesisOutputs{legacy: in}, pcm, N, C, downsample, coef, deemphasisMemory{legacy: mem}, accum)
 }
 
-func deemphasisOwned(tls *libc.TLS, inputs []*float32, pcm *float32, N, C, downsample int32, coef, mem *float32, accum int32) {
-	deemphasisFrom(tls, celtSynthesisOutputs{owner: inputs, owned: true}, pcm, N, C, downsample, coef, mem, accum)
+type deemphasisMemory struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
 }
 
-func deemphasisFrom(tls *libc.TLS, input celtSynthesisOutputs, pcm *float32, N, C, downsample int32, coef, mem *float32, accum int32) {
+func (memory deemphasisMemory) span(channels int32) []float32 {
+	if memory.owned {
+		return memory.owner[:channels]
+	}
+	return unsafe.Slice(memory.legacy, channels)
+}
+
+func deemphasisOwned(tls *libc.TLS, inputs []*float32, pcm *float32, N, C, downsample int32, coef *float32, memory []float32, accum int32) {
+	deemphasisFrom(tls, celtSynthesisOutputs{owner: inputs, owned: true}, pcm, N, C, downsample, coef, deemphasisMemory{owner: memory, owned: true}, accum)
+}
+
+func deemphasisFrom(tls *libc.TLS, input celtSynthesisOutputs, pcm *float32, N, C, downsample int32, coef *float32, mem deemphasisMemory, accum int32) {
 	// Common stereo dispatch needs no TLS scratch, just as the C early return.
 	if downsample == 1 && C == 2 && accum == 0 {
 		channels := input.span(2)
 		coefficient := *coef
 		var memory *[2]float32
 		if N > 0 {
-			memory = (*[2]float32)(unsafe.Slice(mem, 2))
+			memory = (*[2]float32)(mem.span(2))
 		}
 		deemphasis_stereo_simple(tls, channels[0], channels[1], pcm, N, coefficient, memory)
 		return
@@ -225,7 +238,7 @@ func deemphasisFrom(tls *libc.TLS, input celtSynthesisOutputs, pcm *float32, N, 
 	Nd = N / downsample
 	c = 0
 	for {
-		m = unsafe.Slice(mem, max(C, 1))[c]
+		m = mem.span(max(C, 1))[c]
 		x = input.span(max(C, 1))[c]
 		if downsample > int32(1) {
 			/* Shortcut for the standard (non-custom modes) case */
@@ -267,7 +280,7 @@ func deemphasisFrom(tls *libc.TLS, input celtSynthesisOutputs, pcm *float32, N, 
 				}
 			}
 		}
-		unsafe.Slice(mem, max(C, 1))[c] = m
+		mem.span(max(C, 1))[c] = m
 		if apply_downsampling != 0 {
 			/* Perform down-sampling */
 			if accum != 0 {
@@ -780,7 +793,7 @@ func celtDecodeDeemphasis(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *O
 }
 
 func celtDecodeDeemphasisOwned(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs []*float32, pcm *float32, N, channels, accum int32) {
-	deemphasisOwned(tls, outputs, pcm, N, channels, state.Fdownsample, &mode.Fpreemph[0], &state.Fpreemph_memD[0], accum)
+	deemphasisOwned(tls, outputs, pcm, N, channels, state.Fdownsample, &mode.Fpreemph[0], state.Fpreemph_memD[:], accum)
 }
 
 func celtDecodePrefilter(tls *libc.TLS, state *OpusT_OpusCustomDecoder, N int32) {

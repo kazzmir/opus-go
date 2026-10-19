@@ -124,7 +124,7 @@ func TestDeemphasisScratchPointers(t *testing.T) {
 					entropyInitGrowStack(12)
 					runtime.GC()
 					deemphasis(nil, &input[0], &out[1], N, C, down, &coef, &memory[0], accum)
-					deemphasisOwned(nil, input[:], &ownedOut[1], N, C, down, &coef, &ownedMemory[0], accum)
+					deemphasisOwned(nil, input[:], &ownedOut[1], N, C, down, &coef, ownedMemory[:], accum)
 					for i := range out {
 						if math.Float32bits(ownedOut[i]) != math.Float32bits(out[i]) {
 							t.Fatal("owned input-list/whole PCM/guards", N, C, down, accum, i)
@@ -145,6 +145,8 @@ func TestDeemphasisScratchPointers(t *testing.T) {
 	coef := float32(.85)
 	memory := [2]float32{.25, -.5}
 	deemphasis(nil, &input[0], nil, 0, 2, 6, &coef, &memory[0], 1)
+	deemphasisOwned(nil, input[:], nil, 0, 2, 6, &coef, memory[:], 1)
+	deemphasisOwned(nil, input[:], nil, 0, 2, 1, &coef, nil, 0)
 	if memory != [2]float32{.25, -.5} {
 		t.Fatal("zero length")
 	}
@@ -152,8 +154,13 @@ func TestDeemphasisScratchPointers(t *testing.T) {
 	left := []float32{32768, 0}
 	input[0] = &left[0]
 	out := []float32{.5, 77}
+	ownedAlias := slices.Clone(out)
 	coef = .5
 	deemphasis(nil, &input[0], &out[0], 2, 1, 2, &coef, &out[0], 0)
+	deemphasisOwned(nil, input[:], &ownedAlias[0], 2, 1, 2, &coef, ownedAlias[:1], 0)
+	if !slices.Equal(out, ownedAlias) {
+		t.Fatal("owned memory/PCM store ordering")
+	}
 	if out[0] != float32(float32(32768+.5)*float32(1.0/32768)) || out[1] != 77 {
 		t.Fatal("memory/output store order", out)
 	}
