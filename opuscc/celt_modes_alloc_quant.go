@@ -2736,6 +2736,18 @@ func quantAllBandsDot(left, right *float32, N int32) float32 {
 		return 0
 	}
 	x, y := unsafe.Slice(left, N), unsafe.Slice(right, N)
+	return quantAllBandsDotSpans(x, y, N)
+}
+
+func quantAllBandsDotOwned(left []float32, right *float32, N int32) float32 {
+	if N == 0 {
+		return 0
+	}
+	x, y := left[:N], unsafe.Slice(right, N)
+	return quantAllBandsDotSpans(x, y, N)
+}
+
+func quantAllBandsDotSpans(x, y []float32, N int32) float32 {
 	sum := float32(0)
 	for i := int32(0); i < N; i++ {
 		sum = sum + float32(x[i]*y[i])
@@ -3104,8 +3116,8 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					input, output := quantAllBandsBandViews(norm, eBands, i1, M, norm_offset, N1, effective_lowband, last)
 					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
 					_ = arch
-					v229 = quantAllBandsDot(unsafe.SliceData(X_save), X, N1)
-					v232 = quantAllBandsDot(unsafe.SliceData(Y_save), Y, N1)
+					v229 = quantAllBandsDotOwned(X_save, X, N1)
+					v232 = quantAllBandsDotOwned(Y_save, Y, N1)
 					dist0 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					/* Save first result. */
 					cm2 = x_cm
@@ -3133,8 +3145,8 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					input, output = quantAllBandsBandViews(norm, eBands, i1, M, norm_offset, N1, effective_lowband, last)
 					x_cm = quant_band_stereo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
 					_ = arch
-					v229 = quantAllBandsDot(unsafe.SliceData(X_save), X, N1)
-					v232 = quantAllBandsDot(unsafe.SliceData(Y_save), Y, N1)
+					v229 = quantAllBandsDotOwned(X_save, X, N1)
+					v232 = quantAllBandsDotOwned(Y_save, Y, N1)
 					dist1 = OpusT_opus_val16(w[0]*v229) + OpusT_opus_val16(w[1]*v232)
 					if dist0 >= dist1 {
 						x_cm = cm2

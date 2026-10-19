@@ -551,7 +551,7 @@ func TestQuantAllBandsNormCopyPointers(t *testing.T) {
 }
 
 func TestQuantAllBandsDotPointers(t *testing.T) {
-	if math.Float32bits(quantAllBandsDot(nil, nil, 0)) != 0 {
+	if math.Float32bits(quantAllBandsDot(nil, nil, 0)) != 0 || math.Float32bits(quantAllBandsDotOwned(nil, nil, 0)) != 0 {
 		t.Fatal("empty RDO dot")
 	}
 	x := []float32{77, 1.00001, 10000, -10000, 0.12345, 88}
@@ -562,14 +562,14 @@ func TestQuantAllBandsDotPointers(t *testing.T) {
 	}
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if math.Float32bits(quantAllBandsDot(&x[1], &y[0], 4)) != math.Float32bits(sum) || x[0] != 77 || x[5] != 88 {
+	if math.Float32bits(quantAllBandsDot(&x[1], &y[0], 4)) != math.Float32bits(sum) || math.Float32bits(quantAllBandsDotOwned(x[1:5], &y[0], 4)) != math.Float32bits(sum) || x[0] != 77 || x[5] != 88 {
 		t.Fatal("ordered RDO dot")
 	}
 	want := float32(0)
 	for i := 0; i < 4; i++ {
 		want += float32(x[i+1] * x[i+1])
 	}
-	if quantAllBandsDot(&x[1], &x[1], 4) != want {
+	if quantAllBandsDot(&x[1], &x[1], 4) != want || quantAllBandsDotOwned(x[1:5], &x[1], 4) != want {
 		t.Fatal("dot input alias")
 	}
 }
