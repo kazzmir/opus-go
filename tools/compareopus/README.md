@@ -534,6 +534,66 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four deemphasis rounds extract the unchanged stereo live-span kernel, retain
+the actual decoder input pointer list, retain actual preemphasis filter memory,
+then carry actual decode_mem history roots plus numeric origin to sample
+consumers. Both lost and normal decoder exits use the owned route. The original
+raw driver and scalar stereo adapters remain; matching input pointers are NOT
+reconstructed from integer addresses. Counts remain100 unsafe.Pointer/104
+uintptr: active owner representation, not token removal, ABI deletion, new
+storage, fixture repair or cast centralization.
+
+Pointer-list storage reuses the concrete owned list carrier; entries remain
+live and are reloaded at original per-channel points, never copied to a new
+list. Concrete memory carrier has explicit owned/legacy distinction; its views
+form only when originally consumed. Decoder passes its actual two-float field,
+not a scalar head. History channel carrier holds real Go slice plus origin;
+only exact live-pointer identity, channel and consumed extent match permit
+owned reads. Unknown/mismatched pointers, signed origins, unsupported extents
+and unused samples retain legacy pointer behavior; no address registry, opaque
+alias or new ownership claim for caller byte images is introduced. Numeric
+root-coordinate combinations widen to int64, not DSP/stride arithmetic.
+
+Stereo dispatch still forms the two-entry list BEFORE coefficient read, skips
+memory/data/PCM views for N<=0, otherwise forms memory before left/right/PCM
+consumption. Kernel captures both memories once, computes both channel samples
+before stores, preserves x+VERY_SMALL+m and separately rounded products/scaling,
+left-before-right PCM stores and final memory commits. Generic driver retains
+scratch allocation BEFORE coefficient read/division, memory read BEFORE live
+input pointer read, C==0 do-while channel zero, per-sample view timing and the
+accumulating x+m+VERY_SMALL versus nonaccumulating x+VERY_SMALL+m distinction.
+Per-channel memory commit remains BEFORE downsampled PCM stores, including
+memory/output aliases; scratch remains one N-float buffer reused per channel.
+No added sample snapshots, coefficient reloads, changed FMA/grouping, buffer
+validation, diagnostics, error order or public ABI. Positive history binding
+checks metadata only; samples stay live across overlapping PCM writes. Existing
+signed/unused PCM cursor compatibility remains unchanged. Upstream
+celt_decoder.c stereo/general deemphasis inspected against these contracts.
+
+Existing guarded stereo/manual/chunk fixtures additionally exercise the shared
+span kernel on SAME extents. Existing generic N/C/downsample/accum manual matrix
+now compares complete owned-list/memory and history-bound PCM bits plus state
+against raw/manual values under GC/stack growth. Existing nil/zero-work cases
+also cover owned memory, preserving fast-stereo nil-memory behavior versus the
+generic channel-history requirement. Existing memory/PCM alias checks include
+the actual owned memory route. New history tests verify exact root/origin,
+geometry/identity/signed/unused fallbacks and live pointer-list mutation; a
+Go-only overlapping input/PCM case checks sequential live reads for accumulating
+and nonaccumulating paths. These aliases are NOT new C restrict-domain claims.
+No physical fixture enlargement, fake spans, pointer-slot poisoning, expected
+value/hash/packet/sample/range changes or weakened native/codec tolerances.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad and scoped deemphasis
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks. Final tagged ARM ordinary/scoped
+repeats20. Logs /tmp/opus-round-deemphasis-stereo-live-span-kernel.log,
+/tmp/opus-round-deemphasis-go-input-pointer-list.log,
+/tmp/opus-round-deemphasis-go-filter-memory-owner.log,
+/tmp/opus-round-deemphasis-go-channel-history-roots.log and
+/tmp/opus-round-deemphasis-owners-arm-{checkptr,golden}-repeat.log. No validation
+failures in this batch. No native GC/extension EOF/raw callback/opaque-image
+repair, global lifetime safety, performance or direct macOS claims.
+
 Four count/renormalization rounds reduce tagged non-test token counts from
 101 unsafe.Pointer/105 uintptr to100/104. This modest reduction is HONEST cleanup:
 round1 removes disabled-DRED's unreachable initialization-failure free/cast and
