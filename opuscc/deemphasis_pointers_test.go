@@ -82,6 +82,8 @@ func TestDeemphasisScratchPointers(t *testing.T) {
 						out[i] = float32(i+77) / 31
 					}
 					want := append([]float32(nil), out...)
+					ownedOut := slices.Clone(out)
+					ownedMemory := [2]float32{.25, -.5}
 					memory, wm := [2]float32{.25, -.5}, [2]float32{.25, -.5}
 					coef := float32(.85)
 					channels := [][]float32{left, right}
@@ -122,12 +124,16 @@ func TestDeemphasisScratchPointers(t *testing.T) {
 					entropyInitGrowStack(12)
 					runtime.GC()
 					deemphasis(nil, &input[0], &out[1], N, C, down, &coef, &memory[0], accum)
+					deemphasisOwned(nil, input[:], &ownedOut[1], N, C, down, &coef, &ownedMemory[0], accum)
 					for i := range out {
+						if math.Float32bits(ownedOut[i]) != math.Float32bits(out[i]) {
+							t.Fatal("owned input-list/whole PCM/guards", N, C, down, accum, i)
+						}
 						if math.Float32bits(out[i]) != math.Float32bits(want[i]) {
 							t.Fatal("scratch output", N, C, down, accum, i, out[i], want[i])
 						}
 					}
-					if memory != wm {
+					if memory != wm || ownedMemory != wm {
 						t.Fatal("scratch memory", N, C, down, accum, memory, wm)
 					}
 				}

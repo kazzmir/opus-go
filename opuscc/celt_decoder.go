@@ -195,9 +195,17 @@ func deemphasisOutputAt(pcm *float32, channel, sampleOffset int32) *float32 {
 }
 
 func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, downsample int32, coef *float32, mem *float32, accum int32) {
+	deemphasisFrom(tls, celtSynthesisOutputs{legacy: in}, pcm, N, C, downsample, coef, mem, accum)
+}
+
+func deemphasisOwned(tls *libc.TLS, inputs []*float32, pcm *float32, N, C, downsample int32, coef, mem *float32, accum int32) {
+	deemphasisFrom(tls, celtSynthesisOutputs{owner: inputs, owned: true}, pcm, N, C, downsample, coef, mem, accum)
+}
+
+func deemphasisFrom(tls *libc.TLS, input celtSynthesisOutputs, pcm *float32, N, C, downsample int32, coef, mem *float32, accum int32) {
 	// Common stereo dispatch needs no TLS scratch, just as the C early return.
 	if downsample == 1 && C == 2 && accum == 0 {
-		channels := unsafe.Slice(in, 2)
+		channels := input.span(2)
 		coefficient := *coef
 		var memory *[2]float32
 		if N > 0 {
@@ -218,7 +226,7 @@ func deemphasis(tls *libc.TLS, in **float32, pcm *float32, N int32, C int32, dow
 	c = 0
 	for {
 		m = unsafe.Slice(mem, max(C, 1))[c]
-		x = unsafe.Slice(in, max(C, 1))[c]
+		x = input.span(max(C, 1))[c]
 		if downsample > int32(1) {
 			/* Shortcut for the standard (non-custom modes) case */
 			j = 0
@@ -769,6 +777,10 @@ func celtDecodePacketError(state *OpusT_OpusCustomDecoder, ec *OpusT_ec_ctx, len
 
 func celtDecodeDeemphasis(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, pcm *float32, N, channels, accum int32) {
 	deemphasis(tls, outputs, pcm, N, channels, state.Fdownsample, &mode.Fpreemph[0], &state.Fpreemph_memD[0], accum)
+}
+
+func celtDecodeDeemphasisOwned(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs []*float32, pcm *float32, N, channels, accum int32) {
+	deemphasisOwned(tls, outputs, pcm, N, channels, state.Fdownsample, &mode.Fpreemph[0], &state.Fpreemph_memD[0], accum)
 }
 
 func celtDecodePrefilter(tls *libc.TLS, state *OpusT_OpusCustomDecoder, N int32) {
@@ -1560,7 +1572,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	}
 	if celtDecodePacketLost(data, len1) {
 		celt_decode_lost(tls, st1, N, LM)
-		celtDecodeDeemphasis(tls, st1, mode, &out_syn[0], pcm, N, CC, accum)
+		celtDecodeDeemphasisOwned(tls, st1, mode, out_syn[:], pcm, N, CC, accum)
 		return frame_size / st1.Fdownsample
 	}
 	/* Check if there are at least two packets received consecutively before
@@ -1626,7 +1638,7 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	/* In case start or end were to change: energy, previous, log store order. */
 	celtDecodeEnergyClear(oldBandE, oldLogE, oldLogE2, nbEBands, start, end)
 	st1.Frng = dec.Frng
-	celtDecodeDeemphasis(tls, st1, mode, &out_syn[0], pcm, N, CC, accum)
+	celtDecodeDeemphasisOwned(tls, st1, mode, out_syn[:], pcm, N, CC, accum)
 	celtDecodePacketFinish(st1)
 	if errorCode := celtDecodePacketError(st1, dec, len1); errorCode != 0 {
 		return errorCode
