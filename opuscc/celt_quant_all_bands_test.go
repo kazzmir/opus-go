@@ -473,9 +473,9 @@ func TestQuantAllBandsInitialStoragePointers(t *testing.T) {
 		for i := range src {
 			src[i] = float32(i) + .25
 		}
-		quantAllBandsCopy(unsafe.SliceData(x), unsafe.SliceData(src), N)
+		quantAllBandsCopyToOwned(x, unsafe.SliceData(src), N)
 		src[0] = -7
-		quantAllBandsCopy(unsafe.SliceData(y), unsafe.SliceData(src), N)
+		quantAllBandsCopyToOwned(y, unsafe.SliceData(src), N)
 		entropyInitGrowStack(12)
 		runtime.GC()
 		if x[0] != .25 || y[0] != -7 {
@@ -576,11 +576,19 @@ func TestQuantAllBandsDotPointers(t *testing.T) {
 
 func TestQuantAllBandsCopyPointers(t *testing.T) {
 	quantAllBandsCopy(nil, nil, 0)
+	quantAllBandsCopyToOwned(nil, nil, 0)
 	src := []float32{math.Float32frombits(0x80000000), math.Float32frombits(0x7fc00123), 3}
 	dst := []float32{77, 0, 0, 0, 88}
+	owned := slices.Clone(dst)
 	entropyInitGrowStack(12)
 	runtime.GC()
 	quantAllBandsCopy(&dst[1], &src[0], 3)
+	quantAllBandsCopyToOwned(owned[1:4], &src[0], 3)
+	for i := range dst {
+		if math.Float32bits(dst[i]) != math.Float32bits(owned[i]) {
+			t.Fatal("owned snapshot whole-buffer bits/guards", i)
+		}
+	}
 	for i := range src {
 		if math.Float32bits(dst[i+1]) != math.Float32bits(src[i]) {
 			t.Fatal("RDO snapshot bits", i)
@@ -590,7 +598,12 @@ func TestQuantAllBandsCopyPointers(t *testing.T) {
 		t.Fatal("RDO copy guards")
 	}
 	alias := []float32{1, 2, 3, 4}
+	ownedAlias := slices.Clone(alias)
 	quantAllBandsCopy(&alias[1], &alias[0], 3)
+	quantAllBandsCopyToOwned(ownedAlias[1:], &ownedAlias[0], 3)
+	if !slices.Equal(alias, ownedAlias) {
+		t.Fatal("owned snapshot overlapping copy")
+	}
 	if alias[1] != 1 || alias[2] != 2 || alias[3] != 3 {
 		t.Fatal("Go-only overlapping copy")
 	}

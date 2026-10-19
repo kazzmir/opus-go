@@ -2743,6 +2743,13 @@ func quantAllBandsDot(left, right *float32, N int32) float32 {
 	return sum
 }
 
+func quantAllBandsCopyToOwned(destination []float32, source *float32, N int32) {
+	if N == 0 {
+		return
+	}
+	copy(destination[:N], unsafe.Slice(source, N))
+}
+
 func quantAllBandsCopy(dst, src *float32, N int32) {
 	if N == 0 {
 		return
@@ -3090,8 +3097,8 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					cm = x_cm | y_cm
 					ec_save = *ec
 					ctx_save = *ctx
-					quantAllBandsCopy(unsafe.SliceData(X_save), X, N1)
-					quantAllBandsCopy(unsafe.SliceData(Y_save), Y, N1)
+					quantAllBandsCopyToOwned(X_save, X, N1)
+					quantAllBandsCopyToOwned(Y_save, Y, N1)
 					/* Encode and round down. */
 					ctx.Ftheta_round = -1
 					input, output := quantAllBandsBandViews(norm, eBands, i1, M, norm_offset, N1, effective_lowband, last)
@@ -3104,8 +3111,8 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					cm2 = x_cm
 					ec_save2 = *ec
 					ctx_save2 = *ctx
-					quantAllBandsCopy(unsafe.SliceData(X_save2), X, N1)
-					quantAllBandsCopy(unsafe.SliceData(Y_save2), Y, N1)
+					quantAllBandsCopyToOwned(X_save2, X, N1)
+					quantAllBandsCopyToOwned(Y_save2, Y, N1)
 					if !(last != 0) {
 						quantAllBandsNormCopy(unsafe.SliceData(norm_save2), norm, M*quantAllBandsBoundary(eBands, i1)-norm_offset, N1, false)
 					}
