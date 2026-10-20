@@ -1507,10 +1507,14 @@ var CELT_PVQ_U_DATA = [1272]OpusT_opus_uint32{
 }
 
 func icwrs(tls *libc.TLS, n int32, input *int32) uint32 {
+	return icwrsVector(tls, n, celtPulseVector{legacy: input})
+}
+
+func icwrsVector(tls *libc.TLS, n int32, input celtPulseVector) uint32 {
 	if n < 2 {
 		opusCeltFatal(tls, opusDiagnosticString(3610), opusDiagnosticString(3634), 448)
 	}
-	y := unsafe.Slice(input, n)
+	y := input.span(n)
 	j := n - 1
 	index := uint32(0)
 	if y[j] < 0 {
@@ -1539,11 +1543,19 @@ func icwrs(tls *libc.TLS, n int32, input *int32) uint32 {
 }
 
 func Opus_encode_pulses(tls *libc.TLS, y *int32, n, k int32, enc *OpusT_ec_enc) {
+	encodePulsesFrom(tls, celtPulseVector{legacy: y}, n, k, enc)
+}
+
+func encodePulsesOwned(tls *libc.TLS, y []int32, n, k int32, enc *OpusT_ec_enc) {
+	encodePulsesFrom(tls, celtPulseVector{owner: y, owned: true}, n, k, enc)
+}
+
+func encodePulsesFrom(tls *libc.TLS, y celtPulseVector, n, k int32, enc *OpusT_ec_enc) {
 	if k <= 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3649), opusDiagnosticString(3634), 463)
 	}
 	total := celtPVQU(min(n, k), max(n, k)) + celtPVQU(min(n, k+1), max(n, k+1))
-	Opus_ec_enc_uint(tls, enc, icwrs(tls, n, y), total)
+	Opus_ec_enc_uint(tls, enc, icwrsVector(tls, n, y), total)
 }
 
 // Row offsets mirror the C table without storing pointers in uintptr values.
@@ -1553,8 +1565,25 @@ func celtPVQU(row, column int32) uint32 {
 	return CELT_PVQ_U_DATA[celtPVQRowOffsets[row]+column]
 }
 
+type celtPulseVector struct {
+	legacy *int32
+	owner  []int32
+	owned  bool
+}
+
+func (vector celtPulseVector) span(n int32) []int32 {
+	if vector.owned {
+		return vector.owner[:n]
+	}
+	return unsafe.Slice(vector.legacy, n)
+}
+
 func cwrsi(tls *libc.TLS, _n int32, _k int32, _i OpusT_opus_uint32, output *int32) (r OpusT_opus_val32) {
-	y := unsafe.Slice(output, _n)
+	return cwrsiVector(tls, _n, _k, _i, celtPulseVector{legacy: output})
+}
+
+func cwrsiVector(tls *libc.TLS, _n int32, _k int32, _i uint32, output celtPulseVector) (r float32) {
+	y := output.span(_n)
 	position := 0
 	var k0, s, v1 int32
 	var p, q OpusT_opus_uint32
@@ -1653,6 +1682,14 @@ func cwrsi(tls *libc.TLS, _n int32, _k int32, _i OpusT_opus_uint32, output *int3
 }
 
 func Opus_decode_pulses(tls *libc.TLS, _y *int32, _n int32, _k int32, _dec *OpusT_ec_dec) (r OpusT_opus_val32) {
+	return decodePulsesFrom(tls, celtPulseVector{legacy: _y}, _n, _k, _dec)
+}
+
+func decodePulsesOwned(tls *libc.TLS, y []int32, n, k int32, dec *OpusT_ec_dec) float32 {
+	return decodePulsesFrom(tls, celtPulseVector{owner: y, owned: true}, n, k, dec)
+}
+
+func decodePulsesFrom(tls *libc.TLS, y celtPulseVector, _n, _k int32, _dec *OpusT_ec_dec) float32 {
 	var v1, v2, v3, v4 int32
 	_, _, _, _ = v1, v2, v3, v4
 	if _n < _k {
@@ -1675,7 +1712,7 @@ func Opus_decode_pulses(tls *libc.TLS, _y *int32, _n int32, _k int32, _dec *Opus
 	} else {
 		v4 = _k + int32(1)
 	}
-	return cwrsi(tls, _n, _k, Opus_ec_dec_uint(tls, _dec, celtPVQU(v1, v2)+celtPVQU(v3, v4)), _y)
+	return cwrsiVector(tls, _n, _k, Opus_ec_dec_uint(tls, _dec, celtPVQU(v1, v2)+celtPVQU(v3, v4)), y)
 }
 
 const CELT_SIG_SCALE7 = 32768

@@ -82,6 +82,10 @@ func TestDeemphasisScratchPointers(t *testing.T) {
 						out[i] = float32(i+77) / 31
 					}
 					want := append([]float32(nil), out...)
+					ownedOut := slices.Clone(out)
+					ownedMemory := [2]float32{.25, -.5}
+					historyOut := slices.Clone(out)
+					historyMemory := ownedMemory
 					memory, wm := [2]float32{.25, -.5}, [2]float32{.25, -.5}
 					coef := float32(.85)
 					channels := [][]float32{left, right}
@@ -122,12 +126,17 @@ func TestDeemphasisScratchPointers(t *testing.T) {
 					entropyInitGrowStack(12)
 					runtime.GC()
 					deemphasis(nil, &input[0], &out[1], N, C, down, &coef, &memory[0], accum)
+					deemphasisOwned(nil, input[:], &ownedOut[1], N, C, down, &coef, ownedMemory[:], accum)
+					deemphasisWithHistory(nil, input[:], [2][]float32{left, right}, 0, &historyOut[1], N, C, down, &coef, historyMemory[:], accum)
 					for i := range out {
+						if math.Float32bits(ownedOut[i]) != math.Float32bits(out[i]) || math.Float32bits(historyOut[i]) != math.Float32bits(out[i]) {
+							t.Fatal("owned input-list/whole PCM/guards", N, C, down, accum, i)
+						}
 						if math.Float32bits(out[i]) != math.Float32bits(want[i]) {
 							t.Fatal("scratch output", N, C, down, accum, i, out[i], want[i])
 						}
 					}
-					if memory != wm {
+					if memory != wm || ownedMemory != wm || historyMemory != wm {
 						t.Fatal("scratch memory", N, C, down, accum, memory, wm)
 					}
 				}
@@ -139,6 +148,8 @@ func TestDeemphasisScratchPointers(t *testing.T) {
 	coef := float32(.85)
 	memory := [2]float32{.25, -.5}
 	deemphasis(nil, &input[0], nil, 0, 2, 6, &coef, &memory[0], 1)
+	deemphasisOwned(nil, input[:], nil, 0, 2, 6, &coef, memory[:], 1)
+	deemphasisOwned(nil, input[:], nil, 0, 2, 1, &coef, nil, 0)
 	if memory != [2]float32{.25, -.5} {
 		t.Fatal("zero length")
 	}
@@ -146,10 +157,56 @@ func TestDeemphasisScratchPointers(t *testing.T) {
 	left := []float32{32768, 0}
 	input[0] = &left[0]
 	out := []float32{.5, 77}
+	ownedAlias := slices.Clone(out)
 	coef = .5
 	deemphasis(nil, &input[0], &out[0], 2, 1, 2, &coef, &out[0], 0)
+	deemphasisOwned(nil, input[:], &ownedAlias[0], 2, 1, 2, &coef, ownedAlias[:1], 0)
+	if !slices.Equal(out, ownedAlias) {
+		t.Fatal("owned memory/PCM store ordering")
+	}
 	if out[0] != float32(float32(32768+.5)*float32(1.0/32768)) || out[1] != 77 {
 		t.Fatal("memory/output store order", out)
+	}
+}
+
+func TestDeemphasisHistoryPointers(t *testing.T) {
+	left, right := []float32{77, 88, 32768, 0, -32768, 99}, []float32{11, 22, -32768, 16384, 0, 33}
+	list := []*float32{&left[2], &right[2]}
+	input := deemphasisInputs{pointers: celtSynthesisOutputs{owner: list, owned: true}, history: [2][]float32{left, right}, origin: 2, hasHistory: true}
+	bound := input.channel(list[0], 0, 3)
+	if !bound.owned || len(bound.samples(3)) != 3 || &bound.samples(3)[0] != &left[2] {
+		t.Fatal("actual history/root/origin identity")
+	}
+	for _, tc := range []struct {
+		pointer        *float32
+		channel, count int32
+	}{{list[1], 0, 3}, {list[0], 0, 0}, {list[0], 0, 99}, {list[0], 2, 3}} {
+		fallback := input.channel(tc.pointer, tc.channel, tc.count)
+		if fallback.owned || fallback.legacy != tc.pointer {
+			t.Fatal("history mismatch/unused/unbound fallback")
+		}
+	}
+	negative := input
+	negative.origin = -1
+	if negative.channel(list[0], 0, 3).owned {
+		t.Fatal("signed origin stays legacy")
+	}
+	// Root metadata must not snapshot live pointer-list entries.
+	list[0] = &right[2]
+	if input.channel(input.span(2)[0], 0, 3).owned {
+		t.Fatal("live input pointer reload")
+	}
+	list[0] = &left[2]
+	// Go-only input/PCM overlap: owned samples stay live across stores.
+	for _, accum := range []int32{0, 1} {
+		a, b := slices.Clone(left), slices.Clone(left)
+		ma, mb := []float32{.25}, []float32{.25}
+		coef := float32(.5)
+		deemphasis(nil, &[]*float32{&a[2]}[0], &a[3], 2, 1, 1, &coef, &ma[0], accum)
+		deemphasisWithHistory(nil, []*float32{&b[2]}, [2][]float32{b}, 2, &b[3], 2, 1, 1, &coef, mb, accum)
+		if !slices.Equal(a, b) || !slices.Equal(ma, mb) {
+			t.Fatal("live owned input/PCM aliases", accum)
+		}
 	}
 }
 
@@ -160,7 +217,12 @@ func TestDeemphasisPointers(t *testing.T) {
 	want := []float32{1, -1, 0.5, -0.5, 0.75, -0.25, -0.625, 0.875}
 	output := [10]float32{111, 0, 0, 0, 0, 0, 0, 0, 0, 222}
 	var state [2]float32
+	spanOutput, spanState := output, state
 	deemphasis_stereo_simple(nil, &left[0], &right[0], &output[1], 4, 0.5, &state)
+	deemphasisStereoSpans(left[:], right[:], spanOutput[1:9], .5, &spanState)
+	if spanOutput != output || spanState != state {
+		t.Fatal("stereo spans/whole buffer/guards")
+	}
 	if !slices.Equal(output[1:9], want) || state != [2]float32{-10240, 14336} {
 		t.Fatalf("PCM=%v state=%v", output, state)
 	}
@@ -168,6 +230,7 @@ func TestDeemphasisPointers(t *testing.T) {
 		t.Fatal("input or sentinels changed")
 	}
 	before := state
+	deemphasisStereoSpans(nil, nil, nil, .5, nil)
 	deemphasis_stereo_simple(nil, nil, nil, nil, 0, 0.5, &state)
 	if state != before {
 		t.Fatal("empty frame changed state")

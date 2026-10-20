@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	"math"
+	"runtime"
 	"testing"
 )
 
@@ -11,6 +12,11 @@ var hadamardTestOrders = map[int32][]int32{
 
 func TestDeinterleavePointers(t *testing.T) {
 	deinterleave_hadamard(nil, nil, 0, 2, 1)
+	for _, offset := range []int32{math.MinInt32, 0, math.MaxInt32} {
+		deinterleaveFrom(nil, quantBandScratch{offset: offset, owned: true}, 0, 2, 1)
+	}
+	wantFatal := "Fatal (internal) error in " + opusDiagnosticString(5312) + ", line 582: " + opusDiagnosticString(5405) + "\n"
+	checkDiagnosticFatal(t, func() { deinterleaveFrom(nil, quantBandScratch{owned: true}, 0, 0, 0) }, wantFatal)
 	for _, stride := range []int32{1, 2, 3, 4, 8, 16} {
 		for _, n0 := range []int32{1, 2, 7, 22, 37} {
 			for h := int32(0); h <= 1; h++ {
@@ -37,7 +43,18 @@ func TestDeinterleavePointers(t *testing.T) {
 						want[row*n0+j] = bits
 					}
 				}
+				span := append([]float32(nil), data...)
+				owned := append([]float32(nil), data...)
+				entropyInitGrowStack(12)
+				runtime.GC()
 				deinterleave_hadamard(nil, &data[1], n0, stride, h)
+				deinterleaveSpans(span[1:n+1], n0, stride, h)
+				deinterleaveFrom(nil, quantBandScratch{owner: owned, offset: 1, owned: true}, n0, stride, h)
+				for i := range data {
+					if math.Float32bits(data[i]) != math.Float32bits(span[i]) || math.Float32bits(data[i]) != math.Float32bits(owned[i]) {
+						t.Fatal("deinterleave span full bits/NaN payloads/guards", n0, stride, h, i)
+					}
+				}
 				for i, bits := range want {
 					if math.Float32bits(data[i+1]) != bits {
 						t.Fatalf("n0=%d stride=%d h=%d i=%d", n0, stride, h, i)

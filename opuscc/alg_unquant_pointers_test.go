@@ -43,16 +43,53 @@ func TestAlgQuantPointers(t *testing.T) {
 func TestPVQSearchPointers(t *testing.T) {
 	x := [4]float32{77, -.25, .5, 88}
 	p := [4]int32{77, 0, 0, 88}
+	ownedX, ownedP := x, p
 	entropyInitGrowStack(12)
 	runtime.GC()
 	yy := Opus_op_pvq_search_c(nil, &x[1], &p[1], 5, 2, 0)
+	ownedYY := pvqSearchPulsesOwned(&ownedX[1], ownedP[1:3], 5, 2)
+	if ownedX != x || ownedP != p || ownedYY != yy {
+		t.Fatal("owned PVQ producer full buffers/energy")
+	}
 	if p != [4]int32{77, -2, 3, 88} || x != [4]float32{77, .25, .5, 88} || yy != 13 {
 		t.Fatal("pulse search", x, p, yy)
 	}
 	zero := [2]float32{}
 	pulses := [2]int32{}
+	ownedZero, ownedSilence := zero, pulses
+	if got := pvqSearchPulsesOwned(&ownedZero[0], ownedSilence[:], 16, 2); got != 256 || ownedSilence != [2]int32{16, 0} || ownedZero != [2]float32{1, 0} {
+		t.Fatal("owned silence fallback", got, ownedSilence, ownedZero)
+	}
 	if got := Opus_op_pvq_search_c(nil, &zero[0], &pulses[0], 16, 2, 0); got != 256 || pulses != [2]int32{16, 0} || zero != [2]float32{1, 0} {
 		t.Fatal("silence fallback", got, pulses, zero)
+	}
+}
+
+func TestPVQSearchOwnedVariantsPointers(t *testing.T) {
+	for _, N := range []int32{2, 4, 8, 16, 32, 176} {
+		for _, K := range []int32{1, N / 2, N/2 + 1, 2 * N, 127} {
+			x, p := make([]float32, N+2), make([]int32, N+2)
+			x[0], x[N+1], p[0], p[N+1] = 77, 88, 77, 88
+			for j := int32(0); j < N; j++ {
+				x[j+1] = float32(j%7-3) / 17
+			}
+			ox, op := slices.Clone(x), slices.Clone(p)
+			entropyInitGrowStack(12)
+			runtime.GC()
+			yy := Opus_op_pvq_search_c(nil, &x[1], &p[1], K, N, 0)
+			oy := pvqSearchPulsesOwned(&ox[1], op[1:N+1], K, N)
+			if !slices.Equal(p, op) || math.Float32bits(yy) != math.Float32bits(oy) {
+				t.Fatal("owned PVQ pulses/energy", N, K)
+			}
+			for j := range x {
+				if math.Float32bits(x[j]) != math.Float32bits(ox[j]) {
+					t.Fatal("owned PVQ full spectrum bits", N, K, j)
+				}
+			}
+			if x[0] != 77 || x[N+1] != 88 || p[0] != 77 || p[N+1] != 88 {
+				t.Fatal("owned PVQ guards")
+			}
+		}
 	}
 }
 

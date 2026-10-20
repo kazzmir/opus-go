@@ -534,6 +534,331 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four PVQ pulse-codec rounds retain actual encoder search output, actual CWRS
+decoder output, stage owned CWRS ranking, then connect owned pulse encoding.
+Round3 stages ranking with direct owned fixtures; round4 connects it to the
+actual opuscc alg_quant pulse allocation. Search/mask/encode/normalization now
+keep the SAME encode slice; decode/normalization/mask keep the SAME decode
+slice. Neither alg_quant nor alg_unquant manufactures a pulse head pointer.
+Public/raw APIs remain; opusccenc is untouched. Counts remain100 unsafe.Pointer/
+104 uintptr: actual owner dataflow, not token cleanup or opaque pointer aliases.
+
+PVQ search shares unchanged span arithmetic. Legacy views remain X BEFORE pulse
+output; owned search clips actual pulses[:N] at SAME point BEFORE temporary y/
+signs allocation. Signs/absolute stores, sum/fallback guard, projection/floor,
+N+3 wrapping, two separate emergency energy additions, strict tie comparison,
+ordered energy updates and final signed pulse stores remain verbatim. Encoder
+still allocates N+3 physical pulse words, decoder N; no padding/root enlargement,
+new algorithm snapshots or changed feature/arch behavior. Input spectrum remains
+a legacy scalar boundary; this does NOT claim spectrum ownership migration.
+
+celtPulseVector carries actual []int32 plus separate legacy pointer and explicit
+discriminator. Owned spans NEVER fall back to legacy, including nil owners.
+CWRS decoder forms output view at SAME first-body point BEFORE existing K/N
+assertions; rows/position, integer wrapping, int16 captures, unsigned subtraction,
+zero stores, sequential writes and separate float32 energy updates are unchanged.
+Pulse decoding computes SAME table totals and consumes entropy BEFORE forming
+output prefix. No eager output checks, including on the public raw adapter.
+
+CWRS rank keeps n>=2 assertion BEFORE source view, last-cell sign/absolute reads,
+reverse iteration, live table calls and repeated y[j] sign reads after k updates.
+No pulse/table snapshot. Encoding preserves K assertion BEFORE totals, totals
+BEFORE ranking, ranking BEFORE entropy writes. Root clips stay deferred to
+original consumers. Scalar raw wrappers use identical shared kernels without
+binding external byte images or guessed owners. Upstream cwrs.c/vq.c search,
+rank/reconstruction, entropy calls and macros inspected; no arithmetic changes.
+
+Original hand-computed two-bin search/silence fixtures now add equal-size owned
+results; added Go variants retain N+2 guard shape and compare whole pulse arrays,
+full spectrum float bits and energy with GC/stack growth across budgets/sizes.
+Existing exhaustive CWRS reconstruction rows retain n+2 extents and independent
+L1/energy/guard oracle while comparing complete owned vectors/energy. Existing
+rank fixtures retain their index oracle and extents, add actual-root reads and
+input immutability checks. Existing encode streams retain 512-byte buffers and
+vectors; equal-size independent owned runs compare ALL bytes and COMPLETE
+entropy after EACH vector and finalization, rebasing ONLY the comparison copy's
+independent buffer pointer. Original decode/round-trip oracle remains unchanged.
+
+Bounded Go-only checks preserve owned-nil discrimination, output-view BEFORE
+CWRS assertions, rank assertion BEFORE source view, decoder entropy BEFORE a
+short output error, encoder K diagnostic BEFORE input, and input failure BEFORE
+entropy writes. No fake prefixes, out-of-allocation addresses, pointer-slot
+poisoning, original fixture repair/enlargement or weaker oracle/tolerance. These
+new invalid bounded Go cases are not claimed as new C-valid/restrict domains.
+Existing native vectors/hashes/bytes/bit counts/seeds, codec references and
+normalization tolerances are unchanged. No new lifetime/opaque-image claim.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including search, CWRS, encoding and all preceding owner fixtures.
+Logs /tmp/opus-round-pvq-search-go-pulse-output.log,
+/tmp/opus-round-cwrs-decode-go-pulse-output.log,
+/tmp/opus-round-cwrs-rank-go-pulse-input.log,
+/tmp/opus-round-cwrs-encode-go-pulse-input.log and
+/tmp/opus-round-pvq-codec-pulse-owners-arm-{checkptr,golden}-repeat.log.
+No validation failures in this batch. No native GC/extension EOF/raw callback/
+opaque-image repair, global lifetime safety, performance or direct macOS claims.
+
+Four partition/PVQ rounds stage concrete lowband recursion, connect prepared
+scratch to it, retain actual pulse inputs through residual normalization, then
+retain actual pulse inputs through collapse-mask extraction. Round1 stages the
+owned partition API with direct equivalence fixtures; round2 connects actual
+allocated/borrowed prepared scratch from mono/stereo/RDO to recursive folding.
+Rounds3/4 connect BOTH opuscc alg_quant and alg_unquant pulse allocations, not
+opusccenc. Counts remain100 unsafe.Pointer/104 uintptr: real owner/offset flow,
+not opaque aliases, removed ABI, moved casts or token cleanup.
+
+quantPartitionLowband carries actual []float32 root, int64 numeric origin,
+separate legacy pointer and explicit discriminator. Splits preserve the original
+required second-half first sample check AFTER theta/budget updates and BEFORE
+recursion, with independent child coordinates combined in int64. No eager full
+parent/child views. Both recursion orders, rebalance, gain rounding, fill shifts,
+cache reloads, local split contexts, entropy, mask and seed remain unchanged.
+Fold leaves form the SAME full consumed source prefix at each original sample
+read AFTER seed/noise work, preserving destination-view-before-source and live
+sequential output aliases. No added samples/snapshots or hidden scalar heads.
+Raw adapters and absent-source/noise behavior remain. Known readable prepared
+roots project directly; unreadable signed/unused origins explicitly retain the
+original scalar boundary. Actual transform-to-partition lowband data no longer
+round-trips through a head pointer. Spectrum X/theta/recursive output, initial
+uncopied fold sources, pulse codecs/search and external/raw ABI are NOT claimed
+migrated. No unbound/opaque image gains a Go map or registered ownership here.
+
+Residual normalization forms actual pulse[:N] BEFORE legacy output view, then
+uses the SAME reciprocal-square-root float32 gain, conversion, products and
+sequential stores. Raw helper shares unchanged span arithmetic. Fixed-point-
+only shift stays ignored; no new zero-work shortcut. Collapse keeps B<=1 return
+BEFORE touching pulse/N geometry, unsigned division BEFORE full-N prefix, exact
+block slices and signed-to-uint32 OR/bit shifts. Trailing remainder remains
+ignored; no source snapshot. Mask/encode/resynth ordering and normalization/
+inverse-rotation/mask ordering stay unchanged. Encode retains N+3 physical pulse
+padding and decode N physical words at SAME allocation points. Only consumers'
+head conversions disappear; decode/encode/search bridges remain deliberately.
+Upstream bands.c recursive split/fold and vq.c helpers/macros inspected.
+
+Existing partition fixtures compare raw/owned mask, COMPLETE entropy/context
+(rebasing ONLY the separate entropy-instance pointer), full spectrum and source
+bits/guards on SAME extents, including GC/stack growth and original Go-only
+sequential overlap. Direct child tests verify actual root/origin, live reads,
+no owned-to-legacy fallback and required interior-cell failure. Prepared root
+projection and bounded unused identity checks preserve physical allocations.
+Existing residual manual numeric oracle adds equal-sized full-bit/guard/input-
+immutability comparisons; existing mask manual per-block oracle adds owned
+results, source immutability, sign-bit/32-block/remainder and unused-guard cases.
+No changed native physical fixtures/hashes/bytes/bit counts/seeds, codec goldens,
+tolerances or scope. Go-only bounded/alias cases are not new C-valid/restrict-
+domain claims. No fake prefixes, pointer-slot poisoning or production snapshots.
+
+Each round passes full amd64/386, ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including partition/source/pulse helper fixtures. Logs:
+/tmp/opus-round-partition-owned-lowband-recursion{,-retry}.log,
+/tmp/opus-round-partition-prepared-lowband-owner.log,
+/tmp/opus-round-residual-normalise-go-pulse-owner.log,
+/tmp/opus-round-collapse-mask-go-pulse-owner.log and
+/tmp/opus-round-partition-pulse-owners-arm-{checkptr,golden}-repeat.log.
+First round initially hit native found-pointer-to-free-object with
+TestExtensionNextAgainstC active; COMPLETE UNCHANGED full retry passed. Failed
+log retained. Round2's new focused compatibility test initially put root-1
+outside its allocation and failed checkptr; retained reproduction log is
+/tmp/opus-round-partition-prepared-unused-fixture-focused-failure.log. Corrected
+ONLY that new Go test to an interior slice of SAME five-element allocation so
+both fallback coordinates lie inside real storage, then ran COMPLETE unchanged
+validation. No original fixture/oracle/tolerance weakening, suppressions or
+production fix. Rounds3/4 have no validation failures. No native GC/EOF/callback/
+opaque-image repair, global lifetime safety, performance or direct macOS claims.
+
+Four lowband-transform rounds extract unchanged Haar/deinterleave span kernels,
+then retain prepared lowband roots through Haar and deinterleave respectively.
+Rounds1/2 stage kernels; rounds3/4 connect actual allocated/borrowed scratch from
+the preceding owner work, including mono/stereo/RDO paths. A required copy now
+returns real owner/origin metadata instead of immediately reducing it to a
+scalar pointer. The existing scalar bridge remains at recursive quant_partition;
+normalization/folding inputs and band output X are NOT claimed migrated here.
+Counts remain100 unsafe.Pointer/104 uintptr; no alias/cast hiding or token cleanup.
+
+The existing concrete scratch carrier now supplies consumed spans and explicit
+legacy/unused pointer boundaries. copyFrom compatibility remains, but active
+preparation retains metadata and performs destination-prefix BEFORE source-view
+then copy, without extra sample snapshots or allocation. Its owned zero-work
+case preserves the original unused-address boundary at the original point.
+Presence and disabling still distinguish owned nil from legacy storage. Scalar
+conversion is deferred to the remaining DSP boundary; known roots are never
+recovered from integer addresses or serialized/opaque byte images.
+
+Haar keeps pairs=int(N0>>1), nonpositive pair/stride guard BEFORE views, native-int
+2*pairs*step extent arithmetic (including386 narrowing), column-then-pair order,
+separately rounded .70710678f products and sum-before-difference stores. Only
+complete pairs are consumed; odd trailing rows remain untouched and are NOT
+invented as readable storage. Deinterleave retains stride-positive assertion
+BEFORE N0==0 guard, int32 N0*stride geometry BEFORE independent root-origin
+combination, values view BEFORE temporary allocation/table access, identical
+row/table/column iteration, and full temporary fill BEFORE copy back. New span
+kernels preserve arithmetic and order verbatim. Legacy raw adapters remain.
+
+Mono's prepared source starts as the original lowband; only the SAME scratch
+predicate replaces it after a required copy. Haar recombination/time-resolution
+and deinterleave receive its real owner until partition. Context/division/N1
+shortcut, fill updates, X transforms, recursive partition, inverse transforms,
+fold scaling, gain, entropy, seed, masks, and RDO trial/rollback ordering stay
+UNCHANGED. Source views are still formed only at original consumer points; no
+eager full-band root checks, changed validation/diagnostics/error ordering or
+new snapshots. Upstream bands.c Haar/deinterleave/copy/transform sequence and
+floating macros inspected. Interleave and recursive input ABI remain intact.
+
+Existing Haar manual fixtures now compare raw/shared-span/owned full-buffer bits,
+odd rows and guards under GC/stack growth on SAME extents; additional TWO-sample
+owned storage proves a third odd row is not needed. Nil owned roots with extreme
+unused origins skip views under original no-work conditions. Existing manual
+permutation fixtures add shared/owned full-bit comparisons, preserving NaN/SNaN
+payloads, table orders and guards on SAME allocations/extents. Nil zero-work and
+stride-before-zero exact diagnostic checks cover the owned deinterleave route.
+Existing mono/stereo context/entropy/mask/full-buffer comparisons, native spectra/
+packets/hashes/bit counts/seeds, codec goldens and tolerances remain unchanged.
+Prepared-root tests check actual owner/origin rather than a pointer alias. No
+fake spans, fixture repair/enlargement, pointer-slot poisoning or weakened oracle;
+Go-only bounded/alias checks are not new C restrict/invalid-domain claims.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad and targeted scoped
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks. Final tagged ARM ordinary/scoped
+repeats20, explicitly including Haar/deinterleave/interleave and band fixtures.
+Logs /tmp/opus-round-haar-live-span-kernel.log,
+/tmp/opus-round-deinterleave-live-span-kernel.log,
+/tmp/opus-round-lowband-haar-go-prepared-root.log,
+/tmp/opus-round-lowband-deinterleave-go-prepared-root.log and
+/tmp/opus-round-lowband-transform-owners-arm-{checkptr,golden}-repeat.log.
+No validation failures in this batch. No native GC/extension EOF/raw callback/
+opaque-image repair, global lifetime safety, performance or direct macOS claims.
+
+Four lowband-scratch rounds introduce concrete mono scratch, propagate that
+owner through stereo, connect actual allocated quant-all-bands scratch, then
+connect actual borrowed spectrum-tail scratch. Rounds1/2 stage the owned private
+API with direct fixtures while preserving raw adapters; round3 connects the
+allocated encode/resynth path in opuscc (not opusccenc), round4 connects normal
+decoding/other borrowed-scratch paths when spectrum ownership is known. Legacy
+spectra retain legacy scratch. Counts remain100 unsafe.Pointer/104 uintptr:
+active owner/offset representation, not token removal or opaque alias types.
+
+quantBandScratch holds actual []float32, numeric origin, separate legacy pointer
+and explicit owned discriminator. Presence uses actual owner nilness for owned
+storage, never silently falls back to legacy. Required lowband copy forms the
+destination prefix BEFORE source; positive owned prefixes combine independent
+coordinates in int64, with unchanged int32 band geometry. Copy completes BEFORE
+returning the matching scalar lowband bridge to existing Haar/reordering/recursive
+consumers. That legacy DSP boundary is deliberately NOT claimed as migrated.
+Copies retain Go overlap semantics; no added samples, allocations or snapshots.
+Zero-length identity uses existing explicit unused-address compatibility without
+validating an unconsumed full prefix; positive work remains bounded by owner.
+
+Mono still loads context and divides block width BEFORE its N==1 shortcut;
+scratch is considered only after that shortcut and the SAME recombination/
+time-resolution/block predicate. Original copy-then-switch-lowband order stays.
+Stereo forwards the SAME carrier through original x2/mid/intensity/side ordering;
+its originally nil side scratch remains nil. No changed theta, bit allocation,
+float32 products, transforms, gain, seed, recursion, mask, context, assertions,
+error/validation order or snapshots. Upstream bands.c mono/stereo, allocation,
+scratch-disable conditions and OPUS_COPY inspected. No new C restrict/invalid-
+domain or memcpy-overlap claims from Go-only alias tests.
+
+Quant-all-bands allocates SAME storage and extent at SAME point; no scalar head
+is manufactured for its owned scratch. Borrowed scratch retains actual X root
+and numeric M*boundary origin. Its setup STILL requires the original first
+sample immediately, BEFORE later buffers/band iteration, but does not eagerly
+form a future N-sample view. Raw source setup retains original pointer helper.
+Last/non-RDO and effective-band disables clear the whole carrier at original
+points; dual mono, stereo, both RDO trials and mono route retain owners. No
+stale fallback pointer survives disabling. RDO snapshots/restores/tie selection,
+folding, spectrum reloads and native numerical/packet oracles remain unchanged.
+
+Existing mono fixture extents/guards stay; additional equal-sized owner copies
+compare mask, complete entropy and context (rebasing ONLY the separate entropy-
+instance pointer), and full X/lowband/output/scratch float bits. Added stereo
+scratch fixtures cover LM2/3, block/time-frequency variants, budgets0/24/400 and
+intensity0/21 with same full comparisons, GC and stack growth. Original native
+fixtures/hashes/bytes/bit counts/seeds and codec references/tolerances unchanged.
+Owned-scratch identity/presence, unused origin and Go-only overlap are checked.
+Original pointer-only storage GC oracle is retained BEFORE independently testing
+an equal-sized allocated carrier. Existing borrowed-view fixtures add exact
+root/origin/legacy identity and full last-band copied bits with original guards;
+a bounded nil-owner fixture preserves setup's required first-sample failure.
+No physical fixture enlargement, fake prefix, pointer-slot poisoning, fixture
+repair, weakened scope/oracle or new allocation/image lifetime claim.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad plus targeted scoped
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks. Final tagged ARM ordinary/scoped
+repeats20, explicitly including mono/stereo/scratch fixtures. Logs:
+/tmp/opus-round-quant-band-mono-owned-scratch.log,
+/tmp/opus-round-quant-band-stereo-owned-scratch.log,
+/tmp/opus-round-quant-all-allocated-lowband-owner.log,
+/tmp/opus-round-quant-all-borrowed-spectrum-scratch-root.log and
+/tmp/opus-round-lowband-scratch-owners-arm-{checkptr,golden}-repeat.log.
+No validation failures in this batch. No native GC/extension EOF/raw callback/
+opaque-image repair, global lifetime safety, performance or direct macOS claims.
+
+Four deemphasis rounds extract the unchanged stereo live-span kernel, retain
+the actual decoder input pointer list, retain actual preemphasis filter memory,
+then carry actual decode_mem history roots plus numeric origin to sample
+consumers. Both lost and normal decoder exits use the owned route. The original
+raw driver and scalar stereo adapters remain; matching input pointers are NOT
+reconstructed from integer addresses. Counts remain100 unsafe.Pointer/104
+uintptr: active owner representation, not token removal, ABI deletion, new
+storage, fixture repair or cast centralization.
+
+Pointer-list storage reuses the concrete owned list carrier; entries remain
+live and are reloaded at original per-channel points, never copied to a new
+list. Concrete memory carrier has explicit owned/legacy distinction; its views
+form only when originally consumed. Decoder passes its actual two-float field,
+not a scalar head. History channel carrier holds real Go slice plus origin;
+only exact live-pointer identity, channel and consumed extent match permit
+owned reads. Unknown/mismatched pointers, signed origins, unsupported extents
+and unused samples retain legacy pointer behavior; no address registry, opaque
+alias or new ownership claim for caller byte images is introduced. Numeric
+root-coordinate combinations widen to int64, not DSP/stride arithmetic.
+
+Stereo dispatch still forms the two-entry list BEFORE coefficient read, skips
+memory/data/PCM views for N<=0, otherwise forms memory before left/right/PCM
+consumption. Kernel captures both memories once, computes both channel samples
+before stores, preserves x+VERY_SMALL+m and separately rounded products/scaling,
+left-before-right PCM stores and final memory commits. Generic driver retains
+scratch allocation BEFORE coefficient read/division, memory read BEFORE live
+input pointer read, C==0 do-while channel zero, per-sample view timing and the
+accumulating x+m+VERY_SMALL versus nonaccumulating x+VERY_SMALL+m distinction.
+Per-channel memory commit remains BEFORE downsampled PCM stores, including
+memory/output aliases; scratch remains one N-float buffer reused per channel.
+No added sample snapshots, coefficient reloads, changed FMA/grouping, buffer
+validation, diagnostics, error order or public ABI. Positive history binding
+checks metadata only; samples stay live across overlapping PCM writes. Existing
+signed/unused PCM cursor compatibility remains unchanged. Upstream
+celt_decoder.c stereo/general deemphasis inspected against these contracts.
+
+Existing guarded stereo/manual/chunk fixtures additionally exercise the shared
+span kernel on SAME extents. Existing generic N/C/downsample/accum manual matrix
+now compares complete owned-list/memory and history-bound PCM bits plus state
+against raw/manual values under GC/stack growth. Existing nil/zero-work cases
+also cover owned memory, preserving fast-stereo nil-memory behavior versus the
+generic channel-history requirement. Existing memory/PCM alias checks include
+the actual owned memory route. New history tests verify exact root/origin,
+geometry/identity/signed/unused fallbacks and live pointer-list mutation; a
+Go-only overlapping input/PCM case checks sequential live reads for accumulating
+and nonaccumulating paths. These aliases are NOT new C restrict-domain claims.
+No physical fixture enlargement, fake spans, pointer-slot poisoning, expected
+value/hash/packet/sample/range changes or weakened native/codec tolerances.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad and scoped deemphasis
+checkptr, tagged typed PartA/PartB/storage/owner/cell checks, native comparisons,
+GC stress, codec references and diff checks. Final tagged ARM ordinary/scoped
+repeats20. Logs /tmp/opus-round-deemphasis-stereo-live-span-kernel.log,
+/tmp/opus-round-deemphasis-go-input-pointer-list.log,
+/tmp/opus-round-deemphasis-go-filter-memory-owner.log,
+/tmp/opus-round-deemphasis-go-channel-history-roots.log and
+/tmp/opus-round-deemphasis-owners-arm-{checkptr,golden}-repeat.log. No validation
+failures in this batch. No native GC/extension EOF/raw callback/opaque-image
+repair, global lifetime safety, performance or direct macOS claims.
+
 Four count/renormalization rounds reduce tagged non-test token counts from
 101 unsafe.Pointer/105 uintptr to100/104. This modest reduction is HONEST cleanup:
 round1 removes disabled-DRED's unreachable initialization-failure free/cast and

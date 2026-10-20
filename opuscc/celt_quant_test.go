@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	"math"
 	"runtime"
 	"slices"
 	"testing"
@@ -211,9 +212,26 @@ func TestPartitionSpectrumPointers(t *testing.T) {
 					lp = &low[1]
 				}
 				before := slices.Clone(low)
+				ownedLow, ownedX := slices.Clone(low), slices.Clone(x)
+				ownedEC, ownedCtx := ec, ctx
+				ownedCtx.Fec = &ownedEC
+				source := quantPartitionLowband{}
+				if fold {
+					source = quantPartitionLowband{owner: ownedLow, offset: 1, owned: true}
+				}
 				entropyInitGrowStack(12)
 				runtime.GC()
 				mask := quant_partition(nil, &ctx, &x[1], N, budget, 1, lp, LM, 1, 1)
+				ownedMask := quantPartitionFrom(nil, &ownedCtx, &ownedX[1], N, budget, 1, source, LM, 1, 1)
+				ownedCtx.Fec = ctx.Fec
+				if ownedMask != mask || ownedEC != ec || ownedCtx != ctx {
+					t.Fatal("partition owned full state/mask", LM, budget, fold)
+				}
+				for i := range x {
+					if math.Float32bits(x[i]) != math.Float32bits(ownedX[i]) || math.Float32bits(low[i]) != math.Float32bits(ownedLow[i]) {
+						t.Fatal("partition owned full bits", LM, budget, fold, i)
+					}
+				}
 				if x[0] != 77 || x[N+1] != 88 || !slices.Equal(low, before) || mask > 1 {
 					t.Fatal("partition guards/mask", LM, budget, mask)
 				}
@@ -226,9 +244,82 @@ func TestPartitionSpectrumPointers(t *testing.T) {
 	Opus_ec_dec_init(nil, &ec, &data[0], 1)
 	ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fseed: 123456}
 	shared := []float32{.2, .3, .4, .5, .6}
+	owned := slices.Clone(shared)
+	ownedEC, ownedCtx := ec, ctx
+	ownedCtx.Fec = &ownedEC
 	quant_partition(nil, &ctx, &shared[1], 4, 0, 1, &shared[0], 2, 1, 1)
+	quantPartitionFrom(nil, &ownedCtx, &owned[1], 4, 0, 1, quantPartitionLowband{owner: owned, owned: true}, 2, 1, 1)
+	ownedCtx.Fec = ctx.Fec
+	if ownedCtx != ctx || ownedEC != ec {
+		t.Fatal("partition alias state")
+	}
+	for i := range shared {
+		if math.Float32bits(shared[i]) != math.Float32bits(owned[i]) {
+			t.Fatal("partition live sequential alias", i)
+		}
+	}
 	if shared[0] != .2 {
 		t.Fatal("overlapping fold guard")
+	}
+}
+
+func TestQuantPartitionLowbandPointers(t *testing.T) {
+	root := []float32{77, 1, 2, 3, 88}
+	if (quantPartitionLowband{owner: nil, legacy: &root[0], owned: true}).present() {
+		t.Fatal("no owned-to-legacy fallback")
+	}
+	source := quantPartitionLowband{owner: root, offset: 1, owned: true}
+	child := source.second(2)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if !child.present() || child.offset != 3 || &child.owner[0] != &root[0] || &child.samples(1)[0] != &root[3] {
+		t.Fatal("partition child concrete root/origin")
+	}
+	root[3] = 9
+	if child.samples(1)[0] != 9 {
+		t.Fatal("partition child live sample")
+	}
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		(quantPartitionLowband{owner: []float32{1, 2}, owned: true}).second(2)
+	}()
+	if _, ok := caught.(runtime.Error); !ok {
+		t.Fatal("required recursive second cell", caught)
+	}
+}
+
+func TestQuantBandScratchOwnerPointers(t *testing.T) {
+	owner := []float32{77, 1, 2, 3, 88}
+	view := quantBandScratch{owner: owner, offset: 1, owned: true}
+	if !view.present() || (quantBandScratch{legacy: &owner[0], owned: true}).present() {
+		t.Fatal("explicit scratch ownership/presence")
+	}
+	if view.copyFrom(nil, 0) != &owner[1] {
+		t.Fatal("unused owned scratch identity")
+	}
+	prepared := view.prepare(nil, 0)
+	if !prepared.owned || &prepared.owner[0] != &owner[0] || prepared.offset != 1 {
+		t.Fatal("prepared scratch retains real root/origin")
+	}
+	partition := prepared.partitionSource()
+	if !partition.owned || &partition.owner[0] != &owner[0] || partition.offset != 1 {
+		t.Fatal("prepared partition concrete root/origin")
+	}
+	// Both unused coordinates remain INSIDE the existing physical allocation.
+	interior := owner[1 : len(owner)-1]
+	for _, offset := range []int32{-1, int32(len(interior))} {
+		unused := quantBandScratch{owner: interior, offset: offset, owned: true}
+		compat := unused.partitionSource()
+		if compat.owned || compat.legacy != unused.pointer() {
+			t.Fatal("signed/unused partition compatibility", offset)
+		}
+	}
+
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if view.copyFrom(&owner[0], 3) != &owner[1] || !slices.Equal(owner, []float32{77, 77, 1, 2, 88}) {
+		t.Fatal("owned scratch overlap/identity/guards")
 	}
 }
 
@@ -252,11 +343,69 @@ func TestMonoSpectrumPointers(t *testing.T) {
 						out[i] = 77
 						scratch[i] = 88
 					}
+					ownedX, ownedLow, ownedOut, ownedScratch := slices.Clone(x), slices.Clone(low), slices.Clone(out), slices.Clone(scratch)
+					ownedEC, ownedCtx := ec, ctx
+					ownedCtx.Fec = &ownedEC
 					entropyInitGrowStack(12)
 					runtime.GC()
-					quant_band(nil, &ctx, &x[1], N, budget, B, &low[1], LM, &out[1], 1, &scratch[1], (1<<B)-1)
+					mask := quant_band(nil, &ctx, &x[1], N, budget, B, &low[1], LM, &out[1], 1, &scratch[1], (1<<B)-1)
+					ownedMask := quantBandFrom(nil, &ownedCtx, &ownedX[1], N, budget, B, &ownedLow[1], LM, &ownedOut[1], 1, quantBandScratch{owner: ownedScratch, offset: 1, owned: true}, (1<<B)-1)
+					ownedCtx.Fec = ctx.Fec
+					if mask != ownedMask || ctx != ownedCtx || ec != ownedEC {
+						t.Fatal("owned mono scratch entropy/context/mask", LM, B, tf, budget)
+					}
+					for _, pair := range [][2][]float32{{x, ownedX}, {low, ownedLow}, {out, ownedOut}, {scratch, ownedScratch}} {
+						for i := range pair[0] {
+							if math.Float32bits(pair[0][i]) != math.Float32bits(pair[1][i]) {
+								t.Fatal("owned mono scratch full buffers/guards", LM, B, tf, budget, i)
+							}
+						}
+					}
 					if out[0] != 77 || out[N+1] != 77 || scratch[0] != 88 || scratch[N+1] != 88 {
 						t.Fatal("mono buffer guards", LM, B, tf, budget)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestQuantBandStereoScratchPointers(t *testing.T) {
+	for LM := int32(2); LM <= 3; LM++ {
+		N := int32(1) << LM
+		for _, B := range []int32{1, N} {
+			for _, tf := range []int32{-1, 0, 1} {
+				if tf > 0 && B < 2 {
+					continue
+				}
+				for _, budget := range []int32{0, 24, 400} {
+					for _, intensity := range []int32{0, 21} {
+						data := []byte{17, 255, 88, 1, 192, 0, 77, 43}
+						var ec OpusT_ec_ctx
+						Opus_ec_dec_init(nil, &ec, &data[0], 8)
+						ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fremaining_bits: 600, Fseed: 123456, Ftf_change: tf, Fintensity: intensity}
+						x, y, low, out, scratch := make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2), make([]float32, N+2)
+						for i := range x {
+							x[i], y[i], low[i], out[i], scratch[i] = float32(i+1)/17, -float32(i+2)/19, float32(i+3)/23, 77, 88
+						}
+						ox, oy, ol, oo, os := slices.Clone(x), slices.Clone(y), slices.Clone(low), slices.Clone(out), slices.Clone(scratch)
+						oec, oc := ec, ctx
+						oc.Fec = &oec
+						entropyInitGrowStack(12)
+						runtime.GC()
+						mask := quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, B, &low[1], LM, &out[1], &scratch[1], (1<<B)-1)
+						om := quantBandStereoFrom(nil, &oc, &ox[1], &oy[1], N, budget, B, &ol[1], LM, &oo[1], quantBandScratch{owner: os, offset: 1, owned: true}, (1<<B)-1)
+						oc.Fec = ctx.Fec
+						if mask != om || ctx != oc || ec != oec {
+							t.Fatal("stereo scratch entropy/context/mask", LM, B, tf, budget, intensity)
+						}
+						for _, pair := range [][2][]float32{{x, ox}, {y, oy}, {low, ol}, {out, oo}, {scratch, os}} {
+							for i := range pair[0] {
+								if math.Float32bits(pair[0][i]) != math.Float32bits(pair[1][i]) {
+									t.Fatal("stereo scratch full buffers/guards", LM, B, tf, budget, intensity, i)
+								}
+							}
+						}
 					}
 				}
 			}

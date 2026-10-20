@@ -2,6 +2,7 @@ package opuscc
 
 import (
 	"math"
+	"runtime"
 	"testing"
 )
 
@@ -13,6 +14,8 @@ func TestHaarPointers(t *testing.T) {
 				x[i] = float32(i-5) * 0.125
 			}
 			want := append([]float32(nil), x...)
+			span := append([]float32(nil), x...)
+			owned := append([]float32(nil), x...)
 			// Each adjacent pair of rows is transformed independently.
 			for row := 0; row+1 < n; row += 2 {
 				for col := 0; col < stride; col++ {
@@ -23,8 +26,15 @@ func TestHaarPointers(t *testing.T) {
 					want[a], want[b] = left+right, left-right
 				}
 			}
+			entropyInitGrowStack(12)
+			runtime.GC()
 			Opus_haar1(nil, &x[1], int32(n), int32(stride))
+			haarFrom(quantBandScratch{owner: owned, offset: 1, owned: true}, int32(n), int32(stride))
+			haarSpans(span[1:1+2*(n/2)*stride], n/2, stride)
 			for i := range x {
+				if math.Float32bits(span[i]) != math.Float32bits(x[i]) || math.Float32bits(owned[i]) != math.Float32bits(x[i]) {
+					t.Fatal("Haar span full bits/odd tail/guards", n, stride, i)
+				}
 				if x[i] != want[i] {
 					t.Fatalf("n=%d stride=%d index=%d: got %g want %g", n, stride, i, x[i], want[i])
 				}
@@ -33,6 +43,17 @@ func TestHaarPointers(t *testing.T) {
 	}
 	Opus_haar1(nil, nil, 1, 2)
 	Opus_haar1(nil, nil, 4, 0)
+	for _, offset := range []int32{math.MinInt32, 0, math.MaxInt32} {
+		haarFrom(quantBandScratch{offset: offset, owned: true}, 1, 2)
+		haarFrom(quantBandScratch{offset: offset, owned: true}, 4, 0)
+	}
+	// No invented odd trailing row: only two real samples are consumed.
+	short := []float32{1, 2}
+	haarFrom(quantBandScratch{owner: short, owned: true}, 3, 1)
+	a, b := float32(.70710678), float32(float32(.70710678)*2)
+	if short[0] != a+b || short[1] != a-b {
+		t.Fatal("exact complete-pair owned extent")
+	}
 }
 
 func TestChannelWeightsPointers(t *testing.T) {
