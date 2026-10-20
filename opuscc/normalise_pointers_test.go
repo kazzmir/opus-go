@@ -13,7 +13,19 @@ func TestNormalisePointers(t *testing.T) {
 		out := [6]float32{111, 0, 0, 0, 0, 222}
 		g := float32(1) / float32(13) * gain
 		for _, shift := range []int32{0, 3} {
+			owned := out
+			entropyInitGrowStack(12)
+			runtime.GC()
 			normalise_residual(nil, &input[0], &out[1], 4, 169, gain, shift)
+			normaliseResidualOwned(nil, input[:], &owned[1], 4, 169, gain, shift)
+			for i := range out {
+				if math.Float32bits(out[i]) != math.Float32bits(owned[i]) {
+					t.Fatal("residual pulse-owner full bits/guards", gain, shift, i)
+				}
+			}
+			if input != [4]int32{3, -4, 0, 12} {
+				t.Fatal("residual pulse input changed")
+			}
 			for i, value := range input {
 				if out[i+1] != float32(value)*g {
 					t.Fatalf("gain=%g shift=%d index=%d: %g", gain, shift, i, out[i+1])
@@ -24,6 +36,8 @@ func TestNormalisePointers(t *testing.T) {
 			}
 		}
 	}
+	normalise_residual(nil, nil, nil, 0, 1, 1, 0)
+	normaliseResidualOwned(nil, nil, nil, 0, 1, 1, 0)
 	for _, input := range [][]float32{{0}, {3, 4}, {0, 0, 0}, {-12, 3, -4}, {1e-10, -1e-10}} {
 		for _, gain := range []float32{0, 0.5, 1, 2} {
 			x := append([]float32{111}, input...)

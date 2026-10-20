@@ -299,6 +299,16 @@ func normalise_residual(tls *libc.TLS, iy *int32, X *OpusT_celt_norm, N int32, R
 	// The C caller supplies N > 0 and positive residual energy.
 	input := unsafe.Slice(iy, int(N))
 	output := unsafe.Slice(X, int(N))
+	normaliseResidualSpans(tls, input, output, Ryy, gain, shift)
+}
+
+func normaliseResidualOwned(tls *libc.TLS, pulses []int32, X *float32, N int32, Ryy, gain float32, shift int32) {
+	input := pulses[:N]
+	output := unsafe.Slice(X, int(N))
+	normaliseResidualSpans(tls, input, output, Ryy, gain, shift)
+}
+
+func normaliseResidualSpans(tls *libc.TLS, input []int32, output []float32, Ryy, gain float32, shift int32) {
 	g := float32(float32(1) / float32(libc.Xsqrt(tls, float64(Ryy))) * gain)
 	_ = shift // Used only by fixed-point builds, as in C.
 	for i, value := range input {
@@ -408,13 +418,13 @@ func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, en
 	mask := extract_collapse_mask(tls, &pulses[0], N, B)
 	Opus_encode_pulses(tls, &pulses[0], N, K, enc)
 	if resynth != 0 {
-		normalise_residual(tls, &pulses[0], X, N, yy, gain, 0)
+		normaliseResidualOwned(tls, pulses, X, N, yy, gain, 0)
 		Opus_exp_rotation(tls, X, N, -1, B, K, spread)
 	}
 	return mask
 }
 
-// The partition driver still owns integer-addressed band/context buffers.
+// Pulse-codec and spectrum-output adapters retain their raw ABI.
 // C documentation
 //
 //	/** Decode pulse vector and combine the result with the pitch vector to produce
@@ -429,7 +439,7 @@ func Opus_alg_unquant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, 
 	// Keep the decoded pulse vector owned by Go throughout reconstruction.
 	pulses := make([]int32, N)
 	energy := Opus_decode_pulses(tls, &pulses[0], N, K, dec)
-	normalise_residual(tls, &pulses[0], X, N, energy, gain, 0)
+	normaliseResidualOwned(tls, pulses, X, N, energy, gain, 0)
 	Opus_exp_rotation(tls, X, N, -1, B, K, spread)
 	return extract_collapse_mask(tls, &pulses[0], N, B)
 }
