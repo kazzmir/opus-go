@@ -352,6 +352,16 @@ func collapseMaskSpans(coefficients []int32, blockSize int, B int32) uint32 {
 func Opus_op_pvq_search_c(tls *libc.TLS, X *float32, iy *int32, K, N, arch int32) float32 {
 	x := unsafe.Slice(X, N)
 	pulses := unsafe.Slice(iy, N)
+	return pvqSearchSpans(x, pulses, K, N)
+}
+
+func pvqSearchPulsesOwned(X *float32, pulses []int32, K, N int32) float32 {
+	x := unsafe.Slice(X, N)
+	output := pulses[:N]
+	return pvqSearchSpans(x, output, K, N)
+}
+
+func pvqSearchSpans(x []float32, pulses []int32, K, N int32) float32 {
 	y := make([]float32, N)
 	signs := make([]int32, N)
 	for j := range x {
@@ -427,7 +437,7 @@ func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, en
 	// Preserve C's three padding words for up-to-four-lane pulse search.
 	pulses := make([]int32, N+3)
 	Opus_exp_rotation(tls, X, N, 1, B, K, spread)
-	yy := Opus_op_pvq_search_c(tls, X, &pulses[0], K, N, arch)
+	yy := pvqSearchPulsesOwned(X, pulses, K, N)
 	mask := extractCollapseMaskOwned(pulses, N, B)
 	Opus_encode_pulses(tls, &pulses[0], N, K, enc)
 	if resynth != 0 {
