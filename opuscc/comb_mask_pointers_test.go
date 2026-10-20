@@ -88,13 +88,19 @@ func TestCollapseMaskPointers(t *testing.T) {
 	for _, blocks := range []int{2, 4, 8, 16, 32} {
 		for _, width := range []int{1, 3} {
 			x := make([]int32, blocks*width)
-			if got := extract_collapse_mask(nil, &x[0], int32(len(x)), int32(blocks)); got != 0 {
+			if got := extract_collapse_mask(nil, &x[0], int32(len(x)), int32(blocks)); got != 0 || extractCollapseMaskOwned(x, int32(len(x)), int32(blocks)) != got {
 				t.Fatal("zero mask")
 			}
 			for b := 0; b < blocks; b++ {
 				x[b*width+width-1] = -2147483648
-				if got := extract_collapse_mask(nil, &x[0], int32(len(x)), int32(blocks)); got != uint32(1)<<b {
+				before := slices.Clone(x)
+				entropyInitGrowStack(12)
+				runtime.GC()
+				if got := extract_collapse_mask(nil, &x[0], int32(len(x)), int32(blocks)); got != uint32(1)<<b || extractCollapseMaskOwned(x, int32(len(x)), int32(blocks)) != got {
 					t.Fatalf("blocks=%d width=%d active=%d got=%x", blocks, width, b, got)
+				}
+				if !slices.Equal(x, before) {
+					t.Fatal("collapse pulse source changed")
 				}
 				x[b*width+width-1] = 0
 			}
@@ -103,9 +109,16 @@ func TestCollapseMaskPointers(t *testing.T) {
 	if got := extract_collapse_mask(nil, nil, 0, 1); got != 1 {
 		t.Fatal("single block special case")
 	}
+	for _, N := range []int32{-2147483648, -1, 0, 1, 2147483647} {
+		for _, B := range []int32{-2147483648, -1, 0, 1} {
+			if extractCollapseMaskOwned(nil, N, B) != 1 || extract_collapse_mask(nil, nil, N, B) != 1 {
+				t.Fatal("collapse unused input before guard", N, B)
+			}
+		}
+	}
 	// Integer division ignores a trailing remainder just as C does.
 	x := [5]int32{1, -1, 0, 0, 99}
-	if got := extract_collapse_mask(nil, &x[0], 5, 2); got != 1 {
+	if got := extract_collapse_mask(nil, &x[0], 5, 2); got != 1 || extractCollapseMaskOwned(x[:], 5, 2) != got {
 		t.Fatalf("remainder/cancellation: %x", got)
 	}
 }

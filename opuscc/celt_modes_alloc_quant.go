@@ -323,6 +323,19 @@ func extract_collapse_mask(tls *libc.TLS, iy *int32, N int32, B int32) (r uint32
 	// Valid bands contain at least one coefficient per block (N >= B).
 	blockSize := int(uint32(N) / uint32(B))
 	coefficients := unsafe.Slice(iy, int(N))
+	return collapseMaskSpans(coefficients, blockSize, B)
+}
+
+func extractCollapseMaskOwned(pulses []int32, N, B int32) uint32 {
+	if B <= 1 {
+		return 1
+	}
+	blockSize := int(uint32(N) / uint32(B))
+	coefficients := pulses[:N]
+	return collapseMaskSpans(coefficients, blockSize, B)
+}
+
+func collapseMaskSpans(coefficients []int32, blockSize int, B int32) uint32 {
 	var mask uint32
 	for i := 0; i < int(B); i++ {
 		var combined uint32
@@ -415,7 +428,7 @@ func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, en
 	pulses := make([]int32, N+3)
 	Opus_exp_rotation(tls, X, N, 1, B, K, spread)
 	yy := Opus_op_pvq_search_c(tls, X, &pulses[0], K, N, arch)
-	mask := extract_collapse_mask(tls, &pulses[0], N, B)
+	mask := extractCollapseMaskOwned(pulses, N, B)
 	Opus_encode_pulses(tls, &pulses[0], N, K, enc)
 	if resynth != 0 {
 		normaliseResidualOwned(tls, pulses, X, N, yy, gain, 0)
@@ -441,7 +454,7 @@ func Opus_alg_unquant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, 
 	energy := Opus_decode_pulses(tls, &pulses[0], N, K, dec)
 	normaliseResidualOwned(tls, pulses, X, N, energy, gain, 0)
 	Opus_exp_rotation(tls, X, N, -1, B, K, spread)
-	return extract_collapse_mask(tls, &pulses[0], N, B)
+	return extractCollapseMaskOwned(pulses, N, B)
 }
 
 func Opus_renormalise_vector(tls *libc.TLS, X *OpusT_celt_norm, N1 int32, gain OpusT_opus_val32, arch int32) {
