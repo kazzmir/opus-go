@@ -461,7 +461,7 @@ func Opus_alg_unquant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, 
 	}
 	// Keep the decoded pulse vector owned by Go throughout reconstruction.
 	pulses := make([]int32, N)
-	energy := Opus_decode_pulses(tls, &pulses[0], N, K, dec)
+	energy := decodePulsesOwned(tls, pulses, N, K, dec)
 	normaliseResidualOwned(tls, pulses, X, N, energy, gain, 0)
 	Opus_exp_rotation(tls, X, N, -1, B, K, spread)
 	return extractCollapseMaskOwned(pulses, N, B)
