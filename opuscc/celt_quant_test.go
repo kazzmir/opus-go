@@ -420,7 +420,7 @@ func TestQuantBandStereoScratchPointers(t *testing.T) {
 						entropyInitGrowStack(12)
 						runtime.GC()
 						mask := quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, B, &low[1], LM, &out[1], &scratch[1], (1<<B)-1)
-						om := quantBandStereoFrom(nil, &oc, &ox[1], &oy[1], N, budget, B, &ol[1], LM, &oo[1], quantBandScratch{owner: os, offset: 1, owned: true}, (1<<B)-1)
+						om := quantBandStereoTo(nil, &oc, &ox[1], &oy[1], N, budget, B, &ol[1], LM, quantBandFoldOutput{owner: oo, offset: 1, owned: true}, quantBandScratch{owner: os, offset: 1, owned: true}, (1<<B)-1)
 						oc.Fec = ctx.Fec
 						if mask != om || ctx != oc || ec != oec {
 							t.Fatal("stereo scratch entropy/context/mask", LM, B, tf, budget, intensity)
@@ -455,9 +455,24 @@ func TestStereoSpectrumPointers(t *testing.T) {
 					out[i] = 77
 				}
 				firstX, lastX, firstY, lastY := x[0], x[N+1], y[0], y[N+1]
+				ox, oy, oo := slices.Clone(x), slices.Clone(y), slices.Clone(out)
+				oec, oc := ec, ctx
+				oc.Fec = &oec
 				entropyInitGrowStack(12)
 				runtime.GC()
-				quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, 1, nil, LM, &out[1], nil, 3)
+				mask := quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, 1, nil, LM, &out[1], nil, 3)
+				om := quantBandStereoTo(nil, &oc, &ox[1], &oy[1], N, budget, 1, nil, LM, quantBandFoldOutput{owner: oo, offset: 1, owned: true}, quantBandScratch{}, 3)
+				oc.Fec = ctx.Fec
+				if om != mask || oc != ctx || oec != ec {
+					t.Fatal("owned stereo fold full state/mask", LM, budget, intensity)
+				}
+				for _, pair := range [][2][]float32{{x, ox}, {y, oy}, {out, oo}} {
+					for i := range pair[0] {
+						if math.Float32bits(pair[0][i]) != math.Float32bits(pair[1][i]) {
+							t.Fatal("owned stereo fold full bits", LM, budget, intensity, i)
+						}
+					}
+				}
 				if x[0] != firstX || x[N+1] != lastX || y[0] != firstY || y[N+1] != lastY || out[0] != 77 || out[N+1] != 77 {
 					t.Fatal("stereo guards", LM, budget, intensity)
 				}

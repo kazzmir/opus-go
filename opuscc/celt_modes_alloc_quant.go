@@ -2647,6 +2647,10 @@ func quant_band_stereo(tls *libc.TLS, ctx *band_ctx, X *float32, Y *float32, N i
 }
 
 func quantBandStereoFrom(tls *libc.TLS, ctx *band_ctx, X, Y *float32, N, _b, B int32, lowband *float32, LM int32, lowband_out *float32, scratch quantBandScratch, _fill int32) (r uint32) {
+	return quantBandStereoTo(tls, ctx, X, Y, N, _b, B, lowband, LM, quantBandFoldOutput{legacy: lowband_out}, scratch, _fill)
+}
+
+func quantBandStereoTo(tls *libc.TLS, ctx *band_ctx, X, Y *float32, N, _b, B int32, lowband *float32, LM int32, output quantBandFoldOutput, scratch quantBandScratch, _fill int32) (r uint32) {
 	b := _b
 	fill := _fill
 	var c, delta, encode, imid, inv, iside, itheta, j, mbits, orig_fill, qalloc, sbits, sign, v3, v4, v5 int32
@@ -2669,7 +2673,7 @@ func quantBandStereoFrom(tls *libc.TLS, ctx *band_ctx, X, Y *float32, N, _b, B i
 	ec = bandContext.Fec
 	/* Special case for one sample */
 	if N == int32(1) {
-		return quant_band_n1(tls, bandContext, bandContext.Fec, X, Y, lowband_out)
+		return quantBandN1To(tls, bandContext, bandContext.Fec, X, Y, output)
 	}
 	orig_fill = fill
 	if encode != 0 {
@@ -2729,7 +2733,7 @@ func quantBandStereoFrom(tls *libc.TLS, ctx *band_ctx, X, Y *float32, N, _b, B i
 		sign = int32(1) - int32(2)*sign
 		/* We use orig_fill here because we want to fold the side, but if
 		   itheta==16384, we'll have cleared the low bits of fill. */
-		cm = quantBandFrom(tls, bandContext, x2, N, mbits, B, lowband, LM, lowband_out, float32(1), scratch, orig_fill)
+		cm = quantBandTo(tls, bandContext, x2, N, mbits, B, lowband, LM, output, float32(1), scratch, orig_fill)
 		/* We don't split N=2 bands, so cm is either 1 or 0 (for a fold-collapse),
 		   and there's no need to worry about mixing with the other channel. */
 		*y2 = OpusT_celt_norm(float32(-sign) * unsafe.Slice(x2, N)[1])
@@ -2769,7 +2773,7 @@ func quantBandStereoFrom(tls *libc.TLS, ctx *band_ctx, X, Y *float32, N, _b, B i
 		if mbits >= sbits {
 			/* In stereo mode, we do not apply a scaling to the mid because we need the normalized
 			   mid for folding later. */
-			cm = quantBandFrom(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), scratch, fill)
+			cm = quantBandTo(tls, bandContext, X, N, mbits, B, lowband, LM, output, float32(1), scratch, fill)
 			rebalance = mbits - (rebalance - bandContext.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != 0 {
 				sbits = sbits + (rebalance - int32(3)<<int32(BITRES))
@@ -2787,7 +2791,7 @@ func quantBandStereoFrom(tls *libc.TLS, ctx *band_ctx, X, Y *float32, N, _b, B i
 			}
 			/* In stereo mode, we do not apply a scaling to the mid because we need the normalized
 			   mid for folding later. */
-			cm = cm | quantBandFrom(tls, bandContext, X, N, mbits, B, lowband, LM, lowband_out, float32(1), scratch, fill)
+			cm = cm | quantBandTo(tls, bandContext, X, N, mbits, B, lowband, LM, output, float32(1), scratch, fill)
 		}
 	}
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
