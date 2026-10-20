@@ -315,6 +315,13 @@ func TestQuantAllBandsBandViewsPointers(t *testing.T) {
 	for _, last := range []int32{0, 1} {
 		for _, effective := range []int32{-1, 0, 2} {
 			input, output := quantAllBandsBandViews(unsafe.SliceData(norm), &bands[0], 1, 2, 1, 2, effective, last)
+			ownedInput, ownedOutput := quantAllBandsBandViewsTo(unsafe.SliceData(norm), norm, 0, &bands[0], 1, 2, 1, 2, effective, last)
+			if ownedInput != input || ownedOutput.present() != (output != nil) {
+				t.Fatal("owned fold input/output forwarding")
+			}
+			if output != nil && (!ownedOutput.owned || &ownedOutput.owner[0] != &norm[0] || ownedOutput.offset != 3 || &ownedOutput.span(2)[0] != output) {
+				t.Fatal("fold actual root/origin/full-prefix identity")
+			}
 			entropyInitGrowStack(12)
 			runtime.GC()
 			if effective == -1 {
@@ -336,6 +343,17 @@ func TestQuantAllBandsBandViewsPointers(t *testing.T) {
 }
 
 func TestQuantAllBandsFoldPointers(t *testing.T) {
+	if quantAllBandsFoldOutputOwned(nil, math.MaxInt64, nil, 99, 1, 0, 4, 1).present() || quantAllBandsFoldOutputOwned(nil, math.MaxInt64, nil, 99, 1, 0, 0, 0).present() {
+		t.Fatal("unused owned fold geometry")
+	}
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		quantAllBandsFoldOutputOwned([]float32{1}, 0, &[]int16{0, 2, 4}[0], 1, 2, 1, 2, 0)
+	}()
+	if _, ok := caught.(runtime.Error); !ok {
+		t.Fatal("owned fold full argument prefix required now", caught)
+	}
 	if quantAllBandsFoldInput(nil, -1, 3) != nil || quantAllBandsFoldInput(nil, 99, 0) != nil || quantAllBandsFoldOutput(nil, nil, 99, 1, 0, 4, 1) != nil {
 		t.Fatal("unused fold views")
 	}
@@ -353,7 +371,14 @@ func TestQuantAllBandsFoldPointers(t *testing.T) {
 	if output != &data[4] {
 		t.Fatal("fold output geometry")
 	}
+	owned := quantAllBandsFoldOutputOwned(data, 1, &bands[0], 1, 2, 1, 2, 0)
+	if !owned.owned || owned.offset != 4 || &owned.owner[0] != &data[0] || &owned.span(2)[0] != output {
+		t.Fatal("owned fold bounded parent origin")
+	}
 	*output = 7
+	if owned.span(2)[0] != 7 {
+		t.Fatal("live owned fold output")
+	}
 	if data[4] != 7 || data[0] != 77 || data[7] != 88 {
 		t.Fatal("retained fold view/guards")
 	}
