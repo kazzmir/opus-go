@@ -534,6 +534,77 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four fold-output rounds stage concrete mono/singleton destinations, propagate
+them through stereo, connect primary norm output, then connect dual-stereo norm
+output with cached numeric lane origin. Rounds1/2 stage owned private APIs and
+direct equivalence fixtures; rounds3/4 connect actual quant-all-bands _norm Go
+storage in normal decode, stereo/dual paths and both opuscc encode-only RDO
+trials. Not opusccenc. Counts remain100 unsafe.Pointer/104 uintptr: genuine
+owner/offset migration, not opaque aliases, cast hiding or token cleanup.
+
+quantBandFoldOutput holds actual []float32, int64 numeric origin, explicit owned
+flag and separate legacy pointer. Nil-owned never falls back. Mono preserves
+context/division BEFORE N1 shortcut, original scratch/partition/transform order,
+and resynth/presence guards. Scaling retains sqrt(N0) at original point, full
+destination prefix BEFORE EACH source read, float32 product then sequential
+store, without new sample snapshots/views before guards. N1 keeps encode caching,
+channel/sign/entropy/resynth ordering and final live X copy AFTER both channels;
+legacy first-cell store stays direct, owned store uses actual root. No changed
+float32 products, wrapping, cache reloads, pulse behavior, masks, seed or context.
+
+Stereo forwards SAME destination through N1, selected N2 mid, either mid/side
+recursion order and intensity handling. Originally absent side fold output
+remains absent; fold occurs before original reconstruction/inversion. Raw public/
+private adapters remain, with no added slice-view validation on legacy N1.
+Primary norm now supplies root/origin directly to mono/stereo/both RDO trials;
+dual left and right execute in original order. Norm input/hybrid folding/merge,
+spectrum X/Y, entropy and external-image adapters still retain legacy boundaries;
+this is NOT a whole-norm/spectrum/opaque-image or native GC repair claim.
+
+Owned output binding keeps last/N==0 guards BEFORE table/lane/root access and
+forms original FULL N output prefix at original argument point, AFTER fold input
+view and BEFORE DSP entry, even when resynth will skip writing. Numeric band
+index retains original int32 M*boundary-offset; independent lane/index/length
+coordinates combine in int64 for bounds. Relative negative-index checks remain.
+Each actual store forms its on-demand span without copying data. Right lane is
+cached at the EXACT original setup read that bound norm2, not recovered from
+addresses or reloaded later from mutable bands. Length-zero return, allocation,
+left binding, conditional right-table read and required right-first-cell check
+remain in order. Existing scalar norm heads remain for other consumers. RDO
+snapshots/restores/folding and dist0>=dist1 tie choice are unchanged. Upstream
+bands.c singleton/mono/stereo fold and normalization allocation inspected.
+
+Existing mono/stereo fixtures retain physical extents and compare COMPLETE
+entropy/context (rebasing ONLY separate entropy-instance pointer), masks and
+whole float-bit buffers/guards; stereo includes N1/N2/intensity and block/TF
+cases under GC/stack growth. New bounded N1 final-copy alias oracle checks
+independent buffers/entropy and exact negative-zero/NaN payload copy bits.
+New Go-only four-bin shared storage compares full states/bits plus an independent
+sequential-doubling oracle, ensuring no input snapshot/hoisted reads. Existing
+band-view fixtures add actual root/origin/full-prefix identity, full argument
+bounds and nil/unused guards without enlarging allocation. Existing pointer-only
+norm GC oracle runs BEFORE an independent equal-sized cached-lane fixture;
+mutable setup boundary is restored after checking already-bound right origin.
+No native fixture/hash/bytes/bit-count/seed, codec golden, scope or tolerance
+change; no fake prefixes, pointer-slot poisoning or original fixture repair.
+Go-only invalid bounded/alias cases are not new C-valid/restrict-domain claims.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including all fold/root/alias fixtures. Logs
+/tmp/opus-round-mono-go-fold-output.log,
+/tmp/opus-round-stereo-go-fold-output{,-retry}.log,
+/tmp/opus-round-primary-norm-go-fold-output.log,
+/tmp/opus-round-dual-norm-go-fold-output{,-final}.log and
+/tmp/opus-round-fold-output-owners-arm-{checkptr,golden}-repeat.log.
+Round2's initial native run hit found-pointer-to-free-object while
+TestExtensionNextAgainstC was active; COMPLETE UNCHANGED retry passed, failed
+log retained. Other rounds/final passes have no validation failures. A unique-
+text edit mismatch was resolved BEFORE round3 validation, with no test weakening.
+No native GC/extension EOF/raw callback/opaque-image repair, global lifetime
+safety, performance or direct macOS claims.
+
 Four PVQ pulse-codec rounds retain actual encoder search output, actual CWRS
 decoder output, stage owned CWRS ranking, then connect owned pulse encoding.
 Round3 stages ranking with direct owned fixtures; round4 connects it to the

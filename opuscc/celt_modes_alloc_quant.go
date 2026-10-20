@@ -2836,6 +2836,11 @@ func quantAllBandsSpectrum(spectrum *float32, bands *int16, band, M int32) *floa
 }
 
 func quantAllBandsNormBuffer(bands *int16, index, M, channels, offset int32) (memory []float32, left, right *float32) {
+	memory, left, right, _ = quantAllBandsNormBufferWithLane(bands, index, M, channels, offset)
+	return
+}
+
+func quantAllBandsNormBufferWithLane(bands *int16, index, M, channels, offset int32) (memory []float32, left, right *float32, lane int32) {
 	length := quantAllBandsNormLength(bands, index, M, channels, offset)
 	if length == 0 {
 		return
@@ -2843,7 +2848,7 @@ func quantAllBandsNormBuffer(bands *int16, index, M, channels, offset int32) (me
 	memory = make([]float32, length)
 	left = unsafe.SliceData(memory)
 	if channels > 1 {
-		lane := M*quantAllBandsBoundary(bands, index) - offset
+		lane = M*quantAllBandsBoundary(bands, index) - offset
 		right = &memory[lane]
 	}
 	return
@@ -3137,6 +3142,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 	var X_save, Y_save, X_save2, Y_save2, norm_save2, _lowband_scratch []float32
 	var lowband_scratch quantBandScratch
 	var norm, norm2 *float32
+	var norm2Origin int32
 	var _norm []float32
 	var X, Y *float32
 	var cm, cm2, x_cm, y_cm, v217 uint32
@@ -3165,7 +3171,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 	norm_offset = M * quantAllBandsBoundary(eBands, start)
 	/* No need to allocate norm for the last band because we don't need an
 	   output in that band. */
-	_norm, norm, norm2 = quantAllBandsNormBuffer(eBands, m.FnbEBands-1, M, C, norm_offset)
+	_norm, norm, norm2, norm2Origin = quantAllBandsNormBufferWithLane(eBands, m.FnbEBands-1, M, C, norm_offset)
 	/* For decoding, we can use the last band as scratch space because we don't need that
 	   scratch space for the last band and we don't care about the data there until we're
 	   decoding the last band. */
@@ -3347,7 +3353,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 			output := quantAllBandsFoldOutputOwned(_norm, 0, eBands, i1, M, norm_offset, N1, last)
 			x_cm = quantBandTo(tls, ctx, X, N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(x_cm))
 			input = quantAllBandsFoldInput(norm2, effective_lowband, N1)
-			output = quantBandFoldOutput{legacy: quantAllBandsFoldOutput(norm2, eBands, i1, M, norm_offset, N1, last)}
+			output = quantAllBandsFoldOutputOwned(_norm, int64(norm2Origin), eBands, i1, M, norm_offset, N1, last)
 			y_cm = quantBandTo(tls, ctx, Y, N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(y_cm))
 		} else {
 			if Y != nil {

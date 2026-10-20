@@ -61,6 +61,14 @@ func TestQuantBandN1OwnedFoldPointers(t *testing.T) {
 	}
 	ctx = band_ctx{}
 	quantBandN1To(nil, &ctx, nil, nil, nil, absent)
+	for _, bits := range []uint32{0x80000000, 0x7f800001, 0xffc12345, 0x3f800001} {
+		value := math.Float32frombits(bits)
+		output := []float32{77, 0, 88}
+		quantBandN1To(nil, &ctx, nil, &value, nil, quantBandFoldOutput{owner: output, offset: 1, owned: true})
+		if math.Float32bits(output[1]) != bits || output[0] != 77 || output[2] != 88 {
+			t.Fatal("N1 fold copy preserves exact bits", bits)
+		}
+	}
 }
 
 func TestBandContextEntropyPointers(t *testing.T) {
@@ -312,6 +320,34 @@ func TestQuantPartitionLowbandPointers(t *testing.T) {
 	}()
 	if _, ok := caught.(runtime.Error); !ok {
 		t.Fatal("required recursive second cell", caught)
+	}
+}
+
+func TestQuantBandFoldLiveAliasPointers(t *testing.T) {
+	x := [6]float32{77, .2, .3, .4, .5, 88}
+	owned := x
+	ec := OpusT_ec_ctx{Frng: 1 << 31, Fval: (1 << 31) - 1, Fnbits_total: 33}
+	oec := ec
+	ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fseed: 123456}
+	oc := ctx
+	oc.Fec = &oec
+	entropyInitGrowStack(12)
+	runtime.GC()
+	mask := quant_band(nil, &ctx, &x[1], 4, 0, 1, nil, 2, &x[2], 1, nil, 1)
+	om := quantBandTo(nil, &oc, &owned[1], 4, 0, 1, nil, 2, quantBandFoldOutput{owner: owned[:], offset: 2, owned: true}, 1, quantBandScratch{}, 1)
+	oc.Fec = ctx.Fec
+	if mask != om || ctx != oc || ec != oec || x[0] != 77 {
+		t.Fatal("fold alias full state/mask")
+	}
+	for i := range x {
+		if math.Float32bits(x[i]) != math.Float32bits(owned[i]) {
+			t.Fatal("fold live alias full bits", i)
+		}
+	}
+	for i := 2; i < len(x); i++ {
+		if x[i] != float32(2*x[i-1]) {
+			t.Fatal("fold must reload after each sequential store", i, x)
+		}
 	}
 }
 

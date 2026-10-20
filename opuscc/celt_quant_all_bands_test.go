@@ -285,6 +285,10 @@ func TestQuantAllBandsNormBufferPointers(t *testing.T) {
 					if memory != nil || left != nil || right != nil {
 						t.Fatal("unused empty norm")
 					}
+					owned, ol, or, origin := quantAllBandsNormBufferWithLane(&bands[0], 2, M, C, offset)
+					if owned != nil || ol != nil || or != nil || origin != 0 {
+						t.Fatal("empty cached norm geometry")
+					}
 					continue
 				}
 				if left != &memory[0] || C == 1 && right != nil || C == 2 && right != &memory[lane] {
@@ -298,6 +302,30 @@ func TestQuantAllBandsNormBufferPointers(t *testing.T) {
 					*right = 2
 					if *left != 1 {
 						t.Fatal("independent norm lanes")
+					}
+				}
+				// Preserve the original pointer-only GC oracle ABOVE this allocation.
+				owned, ol, or, origin := quantAllBandsNormBufferWithLane(&bands[0], 2, M, C, offset)
+				expected := int32(0)
+				if C == 2 {
+					expected = lane
+				}
+				if len(owned) != int(C*lane) || origin != expected || ol != &owned[0] || C == 1 && or != nil || C == 2 && or != &owned[origin] {
+					t.Fatal("cached concrete norm lane geometry")
+				}
+				if C == 2 {
+					// The original right pointer was already bound, not reloaded later.
+					bands[2]++
+					output := quantAllBandsFoldOutputOwned(owned, int64(origin), &bands[0], start, M, offset, 1, 0)
+					bands[2]--
+					entropyInitGrowStack(12)
+					runtime.GC()
+					if !output.owned || output.offset != int64(lane) || &output.span(1)[0] != or {
+						t.Fatal("cached right fold origin/live table")
+					}
+					output.span(1)[0] = 3
+					if *or != 3 || *ol != 0 {
+						t.Fatal("owned right fold live storage")
 					}
 				}
 			}
