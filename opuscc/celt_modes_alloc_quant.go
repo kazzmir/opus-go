@@ -439,7 +439,7 @@ func Opus_alg_quant(tls *libc.TLS, X *OpusT_celt_norm, N, K, spread, B int32, en
 	Opus_exp_rotation(tls, X, N, 1, B, K, spread)
 	yy := pvqSearchPulsesOwned(X, pulses, K, N)
 	mask := extractCollapseMaskOwned(pulses, N, B)
-	Opus_encode_pulses(tls, &pulses[0], N, K, enc)
+	encodePulsesOwned(tls, pulses, N, K, enc)
 	if resynth != 0 {
 		normaliseResidualOwned(tls, pulses, X, N, yy, gain, 0)
 		Opus_exp_rotation(tls, X, N, -1, B, K, spread)

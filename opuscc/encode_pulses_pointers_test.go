@@ -1,6 +1,7 @@
 package opuscc
 
 import (
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -11,6 +12,9 @@ func TestEncodePulsesPointers(t *testing.T) {
 		var b [512]byte
 		var e OpusT_ec_enc
 		Opus_ec_enc_init(nil, &e, &b[0], 512)
+		var ownedBuffer [512]byte
+		var ownedEnc OpusT_ec_enc
+		Opus_ec_enc_init(nil, &ownedEnc, &ownedBuffer[0], 512)
 		vectors := make([][]int32, 20)
 		for i := range vectors {
 			y := make([]int32, n)
@@ -19,9 +23,24 @@ func TestEncodePulsesPointers(t *testing.T) {
 				y[i%int(n)] = -k
 			}
 			vectors[i] = y
+			before := slices.Clone(y)
+			entropyInitGrowStack(12)
+			runtime.GC()
 			Opus_encode_pulses(nil, &y[0], n, k, &e)
+			encodePulsesOwned(nil, y, n, k, &ownedEnc)
+			probe := ownedEnc
+			probe.Fbuf = e.Fbuf // Only the independent buffer's pointer identity differs.
+			if probe != e || ownedBuffer != b || !slices.Equal(y, before) {
+				t.Fatal("owned pulse encode complete entropy/bytes/input", n, k, i)
+			}
 		}
 		Opus_ec_enc_done(nil, &e)
+		Opus_ec_enc_done(nil, &ownedEnc)
+		probe := ownedEnc
+		probe.Fbuf = e.Fbuf
+		if probe != e || ownedBuffer != b {
+			t.Fatal("owned pulse encode finalized entropy/full bytes", n, k)
+		}
 		if e.Ferror1 != 0 {
 			t.Fatal(e)
 		}

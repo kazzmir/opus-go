@@ -1543,11 +1543,19 @@ func icwrsVector(tls *libc.TLS, n int32, input celtPulseVector) uint32 {
 }
 
 func Opus_encode_pulses(tls *libc.TLS, y *int32, n, k int32, enc *OpusT_ec_enc) {
+	encodePulsesFrom(tls, celtPulseVector{legacy: y}, n, k, enc)
+}
+
+func encodePulsesOwned(tls *libc.TLS, y []int32, n, k int32, enc *OpusT_ec_enc) {
+	encodePulsesFrom(tls, celtPulseVector{owner: y, owned: true}, n, k, enc)
+}
+
+func encodePulsesFrom(tls *libc.TLS, y celtPulseVector, n, k int32, enc *OpusT_ec_enc) {
 	if k <= 0 {
 		opusCeltFatal(tls, opusDiagnosticString(3649), opusDiagnosticString(3634), 463)
 	}
 	total := celtPVQU(min(n, k), max(n, k)) + celtPVQU(min(n, k+1), max(n, k+1))
-	Opus_ec_enc_uint(tls, enc, icwrs(tls, n, y), total)
+	Opus_ec_enc_uint(tls, enc, icwrsVector(tls, n, y), total)
 }
 
 // Row offsets mirror the C table without storing pointers in uintptr values.

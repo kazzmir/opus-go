@@ -534,6 +534,72 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four PVQ pulse-codec rounds retain actual encoder search output, actual CWRS
+decoder output, stage owned CWRS ranking, then connect owned pulse encoding.
+Round3 stages ranking with direct owned fixtures; round4 connects it to the
+actual opuscc alg_quant pulse allocation. Search/mask/encode/normalization now
+keep the SAME encode slice; decode/normalization/mask keep the SAME decode
+slice. Neither alg_quant nor alg_unquant manufactures a pulse head pointer.
+Public/raw APIs remain; opusccenc is untouched. Counts remain100 unsafe.Pointer/
+104 uintptr: actual owner dataflow, not token cleanup or opaque pointer aliases.
+
+PVQ search shares unchanged span arithmetic. Legacy views remain X BEFORE pulse
+output; owned search clips actual pulses[:N] at SAME point BEFORE temporary y/
+signs allocation. Signs/absolute stores, sum/fallback guard, projection/floor,
+N+3 wrapping, two separate emergency energy additions, strict tie comparison,
+ordered energy updates and final signed pulse stores remain verbatim. Encoder
+still allocates N+3 physical pulse words, decoder N; no padding/root enlargement,
+new algorithm snapshots or changed feature/arch behavior. Input spectrum remains
+a legacy scalar boundary; this does NOT claim spectrum ownership migration.
+
+celtPulseVector carries actual []int32 plus separate legacy pointer and explicit
+discriminator. Owned spans NEVER fall back to legacy, including nil owners.
+CWRS decoder forms output view at SAME first-body point BEFORE existing K/N
+assertions; rows/position, integer wrapping, int16 captures, unsigned subtraction,
+zero stores, sequential writes and separate float32 energy updates are unchanged.
+Pulse decoding computes SAME table totals and consumes entropy BEFORE forming
+output prefix. No eager output checks, including on the public raw adapter.
+
+CWRS rank keeps n>=2 assertion BEFORE source view, last-cell sign/absolute reads,
+reverse iteration, live table calls and repeated y[j] sign reads after k updates.
+No pulse/table snapshot. Encoding preserves K assertion BEFORE totals, totals
+BEFORE ranking, ranking BEFORE entropy writes. Root clips stay deferred to
+original consumers. Scalar raw wrappers use identical shared kernels without
+binding external byte images or guessed owners. Upstream cwrs.c/vq.c search,
+rank/reconstruction, entropy calls and macros inspected; no arithmetic changes.
+
+Original hand-computed two-bin search/silence fixtures now add equal-size owned
+results; added Go variants retain N+2 guard shape and compare whole pulse arrays,
+full spectrum float bits and energy with GC/stack growth across budgets/sizes.
+Existing exhaustive CWRS reconstruction rows retain n+2 extents and independent
+L1/energy/guard oracle while comparing complete owned vectors/energy. Existing
+rank fixtures retain their index oracle and extents, add actual-root reads and
+input immutability checks. Existing encode streams retain 512-byte buffers and
+vectors; equal-size independent owned runs compare ALL bytes and COMPLETE
+entropy after EACH vector and finalization, rebasing ONLY the comparison copy's
+independent buffer pointer. Original decode/round-trip oracle remains unchanged.
+
+Bounded Go-only checks preserve owned-nil discrimination, output-view BEFORE
+CWRS assertions, rank assertion BEFORE source view, decoder entropy BEFORE a
+short output error, encoder K diagnostic BEFORE input, and input failure BEFORE
+entropy writes. No fake prefixes, out-of-allocation addresses, pointer-slot
+poisoning, original fixture repair/enlargement or weaker oracle/tolerance. These
+new invalid bounded Go cases are not claimed as new C-valid/restrict domains.
+Existing native vectors/hashes/bytes/bit counts/seeds, codec references and
+normalization tolerances are unchanged. No new lifetime/opaque-image claim.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including search, CWRS, encoding and all preceding owner fixtures.
+Logs /tmp/opus-round-pvq-search-go-pulse-output.log,
+/tmp/opus-round-cwrs-decode-go-pulse-output.log,
+/tmp/opus-round-cwrs-rank-go-pulse-input.log,
+/tmp/opus-round-cwrs-encode-go-pulse-input.log and
+/tmp/opus-round-pvq-codec-pulse-owners-arm-{checkptr,golden}-repeat.log.
+No validation failures in this batch. No native GC/extension EOF/raw callback/
+opaque-image repair, global lifetime safety, performance or direct macOS claims.
+
 Four partition/PVQ rounds stage concrete lowband recursion, connect prepared
 scratch to it, retain actual pulse inputs through residual normalization, then
 retain actual pulse inputs through collapse-mask extraction. Round1 stages the
