@@ -212,9 +212,26 @@ func TestPartitionSpectrumPointers(t *testing.T) {
 					lp = &low[1]
 				}
 				before := slices.Clone(low)
+				ownedLow, ownedX := slices.Clone(low), slices.Clone(x)
+				ownedEC, ownedCtx := ec, ctx
+				ownedCtx.Fec = &ownedEC
+				source := quantPartitionLowband{}
+				if fold {
+					source = quantPartitionLowband{owner: ownedLow, offset: 1, owned: true}
+				}
 				entropyInitGrowStack(12)
 				runtime.GC()
 				mask := quant_partition(nil, &ctx, &x[1], N, budget, 1, lp, LM, 1, 1)
+				ownedMask := quantPartitionFrom(nil, &ownedCtx, &ownedX[1], N, budget, 1, source, LM, 1, 1)
+				ownedCtx.Fec = ctx.Fec
+				if ownedMask != mask || ownedEC != ec || ownedCtx != ctx {
+					t.Fatal("partition owned full state/mask", LM, budget, fold)
+				}
+				for i := range x {
+					if math.Float32bits(x[i]) != math.Float32bits(ownedX[i]) || math.Float32bits(low[i]) != math.Float32bits(ownedLow[i]) {
+						t.Fatal("partition owned full bits", LM, budget, fold, i)
+					}
+				}
 				if x[0] != 77 || x[N+1] != 88 || !slices.Equal(low, before) || mask > 1 {
 					t.Fatal("partition guards/mask", LM, budget, mask)
 				}
@@ -227,9 +244,48 @@ func TestPartitionSpectrumPointers(t *testing.T) {
 	Opus_ec_dec_init(nil, &ec, &data[0], 1)
 	ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fseed: 123456}
 	shared := []float32{.2, .3, .4, .5, .6}
+	owned := slices.Clone(shared)
+	ownedEC, ownedCtx := ec, ctx
+	ownedCtx.Fec = &ownedEC
 	quant_partition(nil, &ctx, &shared[1], 4, 0, 1, &shared[0], 2, 1, 1)
+	quantPartitionFrom(nil, &ownedCtx, &owned[1], 4, 0, 1, quantPartitionLowband{owner: owned, owned: true}, 2, 1, 1)
+	ownedCtx.Fec = ctx.Fec
+	if ownedCtx != ctx || ownedEC != ec {
+		t.Fatal("partition alias state")
+	}
+	for i := range shared {
+		if math.Float32bits(shared[i]) != math.Float32bits(owned[i]) {
+			t.Fatal("partition live sequential alias", i)
+		}
+	}
 	if shared[0] != .2 {
 		t.Fatal("overlapping fold guard")
+	}
+}
+
+func TestQuantPartitionLowbandPointers(t *testing.T) {
+	root := []float32{77, 1, 2, 3, 88}
+	if (quantPartitionLowband{owner: nil, legacy: &root[0], owned: true}).present() {
+		t.Fatal("no owned-to-legacy fallback")
+	}
+	source := quantPartitionLowband{owner: root, offset: 1, owned: true}
+	child := source.second(2)
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if !child.present() || child.offset != 3 || &child.owner[0] != &root[0] || &child.samples(1)[0] != &root[3] {
+		t.Fatal("partition child concrete root/origin")
+	}
+	root[3] = 9
+	if child.samples(1)[0] != 9 {
+		t.Fatal("partition child live sample")
+	}
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		(quantPartitionLowband{owner: []float32{1, 2}, owned: true}).second(2)
+	}()
+	if _, ok := caught.(runtime.Error); !ok {
+		t.Fatal("required recursive second cell", caught)
 	}
 }
 

@@ -2137,11 +2137,47 @@ func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband
 //	   It can split the band in two and transmit the energy difference with
 //	   the two half-bands. It can be called recursively so bands can end up being
 //	   split in 8 parts. */
+type quantPartitionLowband struct {
+	legacy *float32
+	owner  []float32
+	offset int64
+	owned  bool
+}
+
+func (source quantPartitionLowband) present() bool {
+	if source.owned {
+		return source.owner != nil
+	}
+	return source.legacy != nil
+}
+
+func (source quantPartitionLowband) samples(N int32) []float32 {
+	if source.owned {
+		return source.owner[source.offset : source.offset+int64(N)]
+	}
+	return unsafe.Slice(source.legacy, N)
+}
+
+func (source quantPartitionLowband) second(N int32) quantPartitionLowband {
+	if !source.owned {
+		return quantPartitionLowband{legacy: &unsafe.Slice(source.legacy, int64(N)+1)[N]}
+	}
+	offset := source.offset + int64(N)
+	_ = source.owner[offset] // Preserve the split's required interior sample check.
+	source.offset = offset
+	return source
+}
+
 func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32, B int32, lowband *float32, LM2 int32, gain OpusT_opus_val32, _fill int32) (r uint32) {
+	return quantPartitionFrom(tls, ctx, X, N, _b, B, quantPartitionLowband{legacy: lowband}, LM2, gain, _fill)
+}
+
+func quantPartitionFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, _b, B int32, lowband quantPartitionLowband, LM2 int32, gain float32, _fill int32) (r uint32) {
 	b := _b
 	fill := _fill
 	var B0, K, curr_bits, delta, encode, i2, imid, iside, itheta, j, mbits, q, qalloc, sbits, spread, v1, v2, v3 int32
-	var Y, next_lowband2 *float32
+	var Y *float32
+	var next_lowband2 quantPartitionLowband
 	var ec *OpusT_ec_ctx
 	var m2 *OpusT_OpusCustomMode
 	var cache, cache1, cache2 modePulseRow
@@ -2165,7 +2201,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 	/* If we need 1.5 more bit than we can produce, split the band in two. */
 	cache2 = modePulseCacheRow(m2, (LM2+int32(1))*m2.FnbEBands+i2)
 	if LM2 != -int32(1) && b > int32(cache2.at(int32(cache2.at(0))))+int32(12) && N > int32(2) {
-		next_lowband2 = nil
+		next_lowband2 = quantPartitionLowband{}
 		N = N >> int32(1)
 		// This split consumes both halves: N>0 and the second half is readable.
 		Y = &unsafe.Slice(X, int64(N)+1)[N]
@@ -2215,25 +2251,25 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 		mbits = v1
 		sbits = b - mbits
 		ctx.Fremaining_bits -= qalloc
-		if lowband != nil {
+		if lowband.present() {
 			// The recursive second half consumes this interior lowband cell.
-			next_lowband2 = &unsafe.Slice(lowband, int64(N)+1)[N]
+			next_lowband2 = lowband.second(N)
 		} /* >32-bit split case */
 		rebalance = ctx.Fremaining_bits
 		if mbits >= sbits {
-			cm = quant_partition(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), fill)
+			cm = quantPartitionFrom(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), fill)
 			rebalance = mbits - (rebalance - ctx.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != 0 {
 				sbits = sbits + (rebalance - int32(3)<<int32(BITRES))
 			}
-			cm = cm | quant_partition(tls, ctx, Y, N, sbits, B, next_lowband2, LM2, OpusT_opus_val32(gain*side), fill>>B)<<(B0>>int32(1))
+			cm = cm | quantPartitionFrom(tls, ctx, Y, N, sbits, B, next_lowband2, LM2, OpusT_opus_val32(gain*side), fill>>B)<<(B0>>int32(1))
 		} else {
-			cm = quant_partition(tls, ctx, Y, N, sbits, B, next_lowband2, LM2, OpusT_opus_val32(gain*side), fill>>B) << (B0 >> int32(1))
+			cm = quantPartitionFrom(tls, ctx, Y, N, sbits, B, next_lowband2, LM2, OpusT_opus_val32(gain*side), fill>>B) << (B0 >> int32(1))
 			rebalance = sbits - (rebalance - ctx.Fremaining_bits)
 			if rebalance > int32(3)<<int32(BITRES) && itheta != int32(16384) {
 				mbits = mbits + (rebalance - int32(3)<<int32(BITRES))
 			}
-			cm = cm | quant_partition(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), fill)
+			cm = cm | quantPartitionFrom(tls, ctx, X, N, mbits, B, lowband, LM2, OpusT_opus_val32(gain*mid1), fill)
 		}
 	} else {
 		/* This is the basic no-split case. Reload the cache for each C helper. */
@@ -2274,7 +2310,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 				if !(fill != 0) {
 					clear(unsafe.Slice(X, N))
 				} else {
-					if lowband == nil {
+					if !lowband.present() {
 						/* Noise */
 						j = 0
 						for {
@@ -2302,7 +2338,7 @@ func quant_partition(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, _b int32
 								v30 = -tmp
 							}
 							tmp = v30
-							unsafe.Slice(X, N)[j] = unsafe.Slice(lowband, N)[j] + tmp
+							unsafe.Slice(X, N)[j] = lowband.samples(N)[j] + tmp
 							j = j + 1
 						}
 						cm = uint32(fill)
