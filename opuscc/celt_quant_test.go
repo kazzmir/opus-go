@@ -302,6 +302,20 @@ func TestQuantBandScratchOwnerPointers(t *testing.T) {
 	if !prepared.owned || &prepared.owner[0] != &owner[0] || prepared.offset != 1 {
 		t.Fatal("prepared scratch retains real root/origin")
 	}
+	partition := prepared.partitionSource()
+	if !partition.owned || &partition.owner[0] != &owner[0] || partition.offset != 1 {
+		t.Fatal("prepared partition concrete root/origin")
+	}
+	// Both unused coordinates remain INSIDE the existing physical allocation.
+	interior := owner[1 : len(owner)-1]
+	for _, offset := range []int32{-1, int32(len(interior))} {
+		unused := quantBandScratch{owner: interior, offset: offset, owned: true}
+		compat := unused.partitionSource()
+		if compat.owned || compat.legacy != unused.pointer() {
+			t.Fatal("signed/unused partition compatibility", offset)
+		}
+	}
+
 	entropyInitGrowStack(12)
 	runtime.GC()
 	if view.copyFrom(&owner[0], 3) != &owner[1] || !slices.Equal(owner, []float32{77, 77, 1, 2, 88}) {

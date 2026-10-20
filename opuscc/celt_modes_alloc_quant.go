@@ -2394,6 +2394,17 @@ func (scratch quantBandScratch) prepare(source *float32, N int32) quantBandScrat
 	return scratch
 }
 
+func (scratch quantBandScratch) partitionSource() quantPartitionLowband {
+	if !scratch.owned {
+		return quantPartitionLowband{legacy: scratch.legacy}
+	}
+	if scratch.offset < 0 || int64(scratch.offset) >= int64(len(scratch.owner)) {
+		// Unreadable signed/unused coordinates retain the scalar ABI boundary.
+		return quantPartitionLowband{legacy: scratch.pointer()}
+	}
+	return quantPartitionLowband{owner: scratch.owner, offset: int64(scratch.offset), owned: true}
+}
+
 func (scratch quantBandScratch) copyFrom(source *float32, N int32) *float32 {
 	return scratch.prepare(source, N).pointer()
 }
@@ -2474,7 +2485,7 @@ func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowb
 			deinterleaveFrom(tls, prepared, N_B>>recombine, B0<<recombine, longBlocks)
 		}
 	}
-	cm = quant_partition(tls, ctx, X, N, b, B, prepared.pointer(), LM, gain, fill)
+	cm = quantPartitionFrom(tls, ctx, X, N, b, B, prepared.partitionSource(), LM, gain, fill)
 	/* This code is used by the decoder and by the resynthesis-enabled encoder */
 	if ctx.Fresynth != 0 {
 		/* Undo the sample reorganization going from time order to frequency order */
