@@ -2131,7 +2131,40 @@ func compute_theta(tls *libc.TLS, ctx *band_ctx, sctx *split_ctx, X *float32, Y 
 	sctx.Fqalloc = qalloc
 }
 
+type quantBandFoldOutput struct {
+	legacy *float32
+	owner  []float32
+	offset int64
+	owned  bool
+}
+
+func (output quantBandFoldOutput) present() bool {
+	if output.owned {
+		return output.owner != nil
+	}
+	return output.legacy != nil
+}
+
+func (output quantBandFoldOutput) span(N int32) []float32 {
+	if output.owned {
+		return output.owner[output.offset : output.offset+int64(N)]
+	}
+	return unsafe.Slice(output.legacy, N)
+}
+
+func (output quantBandFoldOutput) first(value float32) {
+	if output.owned {
+		output.owner[output.offset] = value
+	} else {
+		*output.legacy = value
+	}
+}
+
 func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband *OpusT_celt_norm) uint32 {
+	return quantBandN1To(tls, ctx, ec, X, Y, quantBandFoldOutput{legacy: lowband})
+}
+
+func quantBandN1To(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y *float32, output quantBandFoldOutput) uint32 {
 	encode := ctx.Fencode // C caches this before either channel can emit bytes.
 	x := X
 	channels := 1
@@ -2158,8 +2191,8 @@ func quant_band_n1(tls *libc.TLS, ctx *band_ctx, ec *OpusT_ec_ctx, X, Y, lowband
 		}
 		x = Y
 	}
-	if lowband != nil {
-		*lowband = *X
+	if output.present() {
+		output.first(*X)
 	}
 	return 1
 }
@@ -2447,6 +2480,10 @@ func quant_band(tls *libc.TLS, ctx *band_ctx, X *float32, N int32, b int32, B in
 }
 
 func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowband *float32, LM int32, lowband_out *float32, gain float32, scratch quantBandScratch, fill int32) (r uint32) {
+	return quantBandTo(tls, ctx, X, N, b, B, lowband, LM, quantBandFoldOutput{legacy: lowband_out}, gain, scratch, fill)
+}
+
+func quantBandTo(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowband *float32, LM int32, output quantBandFoldOutput, gain float32, scratch quantBandScratch, fill int32) (r uint32) {
 	var B0, N0, N_B, N_B0, encode, j, k, longBlocks, recombine, tf_change, time_divide int32
 	var cm uint32
 	var n1 OpusT_opus_val16
@@ -2467,7 +2504,7 @@ func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowb
 	N_B = int32(v2)
 	/* Special case for one sample */
 	if N == int32(1) {
-		return quant_band_n1(tls, ctx, ctx.Fec, X, nil, lowband_out)
+		return quantBandN1To(tls, ctx, ctx.Fec, X, nil, output)
 	}
 	if tf_change > 0 {
 		recombine = tf_change
@@ -2550,14 +2587,14 @@ func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowb
 		}
 		B = B << recombine
 		/* Scale output for later folding */
-		if lowband_out != nil {
+		if output.present() {
 			n1 = float32(libc.Xsqrt(tls, float64(N0)))
 			j = 0
 			for {
 				if !(j < N0) {
 					break
 				}
-				unsafe.Slice(lowband_out, N0)[j] = OpusT_opus_val16(n1 * unsafe.Slice(X, N0)[j])
+				output.span(N0)[j] = OpusT_opus_val16(n1 * unsafe.Slice(X, N0)[j])
 				j = j + 1
 			}
 		}

@@ -37,6 +37,32 @@ func TestQuantBandN1Pointers(t *testing.T) {
 	}
 }
 
+func TestQuantBandN1OwnedFoldPointers(t *testing.T) {
+	x := [4]float32{77, -.5, .25, 88}
+	owned := x
+	var buffer, ownedBuffer [16]byte
+	var ec, ownedEC OpusT_ec_enc
+	Opus_ec_enc_init(nil, &ec, &buffer[0], 16)
+	Opus_ec_enc_init(nil, &ownedEC, &ownedBuffer[0], 16)
+	ctx := band_ctx{Fencode: 1, Fresynth: 1, Fremaining_bits: 16}
+	ownedCtx := ctx
+	entropyInitGrowStack(12)
+	runtime.GC()
+	mask := quant_band_n1(nil, &ctx, &ec, &x[1], &x[2], &x[2])
+	ownedMask := quantBandN1To(nil, &ownedCtx, &ownedEC, &owned[1], &owned[2], quantBandFoldOutput{owner: owned[:], offset: 2, owned: true})
+	probe := ownedEC
+	probe.Fbuf = ec.Fbuf
+	if mask != ownedMask || ctx != ownedCtx || probe != ec || buffer != ownedBuffer || x != owned || x != [4]float32{77, -1, -1, 88} {
+		t.Fatal("N1 owned final live X copy/alias/state", x, owned)
+	}
+	absent := quantBandFoldOutput{legacy: &x[0], owned: true}
+	if absent.present() {
+		t.Fatal("owned nil output must not fall back")
+	}
+	ctx = band_ctx{}
+	quantBandN1To(nil, &ctx, nil, nil, nil, absent)
+}
+
 func TestBandContextEntropyPointers(t *testing.T) {
 	makeEncoder := func(capacity int) *band_ctx {
 		buffer := make([]byte, capacity)
@@ -349,7 +375,7 @@ func TestMonoSpectrumPointers(t *testing.T) {
 					entropyInitGrowStack(12)
 					runtime.GC()
 					mask := quant_band(nil, &ctx, &x[1], N, budget, B, &low[1], LM, &out[1], 1, &scratch[1], (1<<B)-1)
-					ownedMask := quantBandFrom(nil, &ownedCtx, &ownedX[1], N, budget, B, &ownedLow[1], LM, &ownedOut[1], 1, quantBandScratch{owner: ownedScratch, offset: 1, owned: true}, (1<<B)-1)
+					ownedMask := quantBandTo(nil, &ownedCtx, &ownedX[1], N, budget, B, &ownedLow[1], LM, quantBandFoldOutput{owner: ownedOut, offset: 1, owned: true}, 1, quantBandScratch{owner: ownedScratch, offset: 1, owned: true}, (1<<B)-1)
 					ownedCtx.Fec = ctx.Fec
 					if mask != ownedMask || ctx != ownedCtx || ec != ownedEC {
 						t.Fatal("owned mono scratch entropy/context/mask", LM, B, tf, budget)
