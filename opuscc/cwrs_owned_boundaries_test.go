@@ -19,6 +19,8 @@ func TestCWRSOwnedBoundariesPointers(t *testing.T) {
 	checkDiagnosticFatal(t, func() { cwrsiVector(nil, 1, 0, 0, celtPulseVector{owner: []int32{0}, owned: true}) }, want)
 	want = "Fatal (internal) error in " + opusDiagnosticString(3634) + ", line 474: " + opusDiagnosticString(3672) + "\n"
 	checkDiagnosticFatal(t, func() { cwrsiVector(nil, 0, 1, 0, celtPulseVector{owned: true}) }, want)
+	want = "Fatal (internal) error in " + opusDiagnosticString(3634) + ", line 448: " + opusDiagnosticString(3610) + "\n"
+	checkDiagnosticFatal(t, func() { icwrsVector(nil, 1, celtPulseVector{owned: true}) }, want)
 	// Bounded invalid Go storage: entropy must be consumed BEFORE output clipping.
 	dec := OpusT_ec_dec{Frng: 1 << 31, Fval: (1 << 31) - 1, Fnbits_total: 33}
 	expected := dec

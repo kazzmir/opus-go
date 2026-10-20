@@ -1507,10 +1507,14 @@ var CELT_PVQ_U_DATA = [1272]OpusT_opus_uint32{
 }
 
 func icwrs(tls *libc.TLS, n int32, input *int32) uint32 {
+	return icwrsVector(tls, n, celtPulseVector{legacy: input})
+}
+
+func icwrsVector(tls *libc.TLS, n int32, input celtPulseVector) uint32 {
 	if n < 2 {
 		opusCeltFatal(tls, opusDiagnosticString(3610), opusDiagnosticString(3634), 448)
 	}
-	y := unsafe.Slice(input, n)
+	y := input.span(n)
 	j := n - 1
 	index := uint32(0)
 	if y[j] < 0 {

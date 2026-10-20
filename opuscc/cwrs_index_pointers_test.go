@@ -1,6 +1,8 @@
 package opuscc
 
 import (
+	"runtime"
+	"slices"
 	"testing"
 	"unsafe"
 )
@@ -15,6 +17,14 @@ func TestCWRSIndexPointers(t *testing.T) {
 			y[0] = 77
 			y[n+1] = 88
 			cwrsi(nil, n, k, index, &y[1])
+			before := slices.Clone(y)
+			if index == 0 {
+				entropyInitGrowStack(12)
+				runtime.GC()
+			}
+			if got := icwrsVector(nil, n, celtPulseVector{owner: y[1 : n+1], owned: true}); got != index || !slices.Equal(y, before) {
+				t.Fatal("owned CWRS rank/root/immutability", n, k, index, got)
+			}
 			if got := icwrs(nil, n, &y[1]); got != index || y[0] != 77 || y[n+1] != 88 {
 				t.Fatal(n, k, index, got, y)
 			}
@@ -22,7 +32,7 @@ func TestCWRSIndexPointers(t *testing.T) {
 	}
 	// Small exact stack-owned input.
 	y := [2]int32{-1, 0}
-	if got := icwrs(nil, 2, unsafe.SliceData(y[:])); got != 3 {
+	if got := icwrs(nil, 2, unsafe.SliceData(y[:])); got != 3 || icwrsVector(nil, 2, celtPulseVector{owner: y[:], owned: true}) != 3 {
 		t.Fatal(y, got)
 	}
 }
