@@ -20,15 +20,18 @@ func Opus_opus_projection_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusProject
 	return Opus_opus_multistream_decoder_ctl_typed(tls, get_multistream_decoder(tls, st), request, a)
 }
 
-func msCtlLegacyArgs(st *OpusT_OpusMSDecoder, request int32, ap uintptr) (a OpusDecoderCtlArgs) {
+// Open the cursor only for a consumed request. Raw entry points defer their
+// address conversion until here, preserving unused/invalid argument behavior.
+func msCtlLegacyArgs(st *OpusT_OpusMSDecoder, request int32, ap func() libc.VaCursor) (a OpusDecoderCtlArgs) {
 	switch request {
 	case OPUS_GET_BANDWIDTH_REQUEST, OPUS_GET_SAMPLE_RATE_REQUEST, OPUS_GET_GAIN_REQUEST, OPUS_GET_LAST_PACKET_DURATION_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_GET_COMPLEXITY_REQUEST, OPUS_GET_FINAL_RANGE_REQUEST, OPUS_SET_GAIN_REQUEST, OPUS_SET_COMPLEXITY_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
 		return opusCtlLegacyArgs(request, ap)
 	case OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST:
-		a.Value = libc.VaInt32(&ap)
+		cursor := ap()
+		a.Value = cursor.Int32()
 		// Do not read the second vararg for an invalid stream ID.
 		if a.Value >= 0 && a.Value < st.Flayout.Fnb_streams {
-			a.Decoder = (**OpusT_OpusDecoder)(unsafe.Pointer(libc.VaUintptr(&ap)))
+			a.Decoder = (**OpusT_OpusDecoder)(cursor.Pointer())
 		}
 	}
 	return
@@ -92,14 +95,17 @@ func opusMSDecoderCtlArgs(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32,
 	return OPUS_OK
 }
 
-func opusCtlLegacyArgs(request int32, ap uintptr) (a OpusDecoderCtlArgs) {
+func opusCtlLegacyArgs(request int32, ap func() libc.VaCursor) (a OpusDecoderCtlArgs) {
 	switch request {
 	case OPUS_SET_COMPLEXITY_REQUEST, OPUS_SET_GAIN_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_SET_IGNORE_EXTENSIONS_REQUEST:
-		a.Value = libc.VaInt32(&ap)
+		cursor := ap()
+		a.Value = cursor.Int32()
 	case OPUS_GET_BANDWIDTH_REQUEST, OPUS_GET_COMPLEXITY_REQUEST, OPUS_GET_SAMPLE_RATE_REQUEST, OPUS_GET_PITCH_REQUEST, OPUS_GET_GAIN_REQUEST, OPUS_GET_LAST_PACKET_DURATION_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_GET_IGNORE_EXTENSIONS_REQUEST:
-		a.I32 = (*int32)(unsafe.Pointer(libc.VaUintptr(&ap)))
+		cursor := ap()
+		a.I32 = (*int32)(cursor.Pointer())
 	case OPUS_GET_FINAL_RANGE_REQUEST:
-		a.U32 = (*uint32)(unsafe.Pointer(libc.VaUintptr(&ap)))
+		cursor := ap()
+		a.U32 = (*uint32)(cursor.Pointer())
 	}
 	return
 }
@@ -209,16 +215,20 @@ func opusDecoderCtlArgs(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, a o
 	return OPUS_OK
 }
 
-func customCtlLegacyArgs(request int32, ap uintptr) (a OpusDecoderCtlArgs) {
+func customCtlLegacyArgs(request int32, ap func() libc.VaCursor) (a OpusDecoderCtlArgs) {
 	switch request {
 	case OPUS_SET_COMPLEXITY_REQUEST, CELT_SET_START_BAND_REQUEST, CELT_SET_END_BAND_REQUEST, CELT_SET_CHANNELS_REQUEST, CELT_SET_SIGNALLING_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
-		a.Value = libc.VaInt32(&ap)
+		cursor := ap()
+		a.Value = cursor.Int32()
 	case OPUS_GET_COMPLEXITY_REQUEST, CELT_GET_AND_CLEAR_ERROR_REQUEST, OPUS_GET_LOOKAHEAD_REQUEST, OPUS_GET_PITCH_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST:
-		a.I32 = (*int32)(unsafe.Pointer(libc.VaUintptr(&ap)))
+		cursor := ap()
+		a.I32 = (*int32)(cursor.Pointer())
 	case OPUS_GET_FINAL_RANGE_REQUEST:
-		a.U32 = (*uint32)(unsafe.Pointer(libc.VaUintptr(&ap)))
+		cursor := ap()
+		a.U32 = (*uint32)(cursor.Pointer())
 	case CELT_GET_MODE_REQUEST:
-		a.Mode = (**OpusT_OpusCustomMode)(unsafe.Pointer(libc.VaUintptr(&ap)))
+		cursor := ap()
+		a.Mode = (**OpusT_OpusCustomMode)(cursor.Pointer())
 	}
 	return
 }

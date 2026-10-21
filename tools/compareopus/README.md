@@ -534,6 +534,39 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Focused decoder_ctl_typed.go migration: no uintptr types/address reconstruction
+remain in that file. msCtlLegacyArgs, opusCtlLegacyArgs and customCtlLegacyArgs
+now consume lazy factories for actual pointer-based libcshim.VaCursor values.
+Cursor retains a Go-visible base pointer plus numeric byte offset; native-word
+Int32 reads preserve low32/sign behavior on 32/64-bit targets, pointer slots
+load actual pointers directly, and advancement never forms an unused one-past
+pointer. This is not a uintptr alias or relocated integer-word pointer decoder.
+Four EXISTING raw ABI entry points keep original exported signatures and defer
+ONLY their unavoidable raw va-base conversion until a consumed request opens
+the cursor. No new raw adapter, uintptr-storing cursor, TLS scratch or slot copy.
+
+Laziness preserves unknown/reset/unsupported requests with unused varargs;
+multistream opens once, reads stream ID first, then checks its original bounds
+before accessing a second slot. Request whitelists, delegation, value/null
+checks, error order, live output aliases, typed stores/write barriers and DSP
+remain unchanged. Upstream multistream va_arg/bounds order inspected. Existing
+raw VaList/VaInt32/VaUintptr and public typed CTL arguments are unchanged.
+New tests use scanned actual pointer slots/native scalar words across GC/stack
+growth, cover all three adapters' setter/getter groups, pointer/null outputs,
+unsigned/mode/decoder slots, one-word invalid stream IDs, and unused factories
+that fail if opened. Native-word low32/high-bit and offset/base tests cover both
+word sizes. No opaque byte image gains GC maps: legacy vararg byte/word buffers
+still require external pointee lifetimes. No native GC/lifetime repair claimed.
+
+Counts: opuscc uintptr102->99; unsafe.Pointer100->98 (six integer-to-output
+pointer casts replaced by actual pointer loads, four deferred raw-base casts at
+existing boundaries). Original fixtures/extents/native independent oracles,
+codec hashes/goldens/tolerances and broad validation scope unchanged. Full
+inherited amd64/386/ARM64-QEMU/native/GC stress checks pass, explicit cursor/CTL
+scoped checkptr amd64/386 and tagged ARM ordinary/scoped repeats20 pass. No test
+failures. Logs /tmp/opus-ctl-pointer-cursor-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No performance/global lifetime/direct macOS claims. Historical counts follow.
+
 Focused Opus_celt_fatal migration: exported str/file parameters are now *byte,
 not uintptr. This intentionally CHANGES the exported Go signature: callers pass
 typed NUL-terminated C-string pointers; no relocated integer-address adapter was

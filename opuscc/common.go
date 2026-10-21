@@ -3044,7 +3044,7 @@ func opusDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, leng
 
 // Legacy varargs boundary; forwarding stays typed and allocates no TLS scratch.
 func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {
-	return Opus_opus_decoder_ctl_typed(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), request, opusCtlLegacyArgs(request, va))
+	return Opus_opus_decoder_ctl_typed(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), request, opusCtlLegacyArgs(request, func() libc.VaCursor { return libc.NewVaCursor(unsafe.Pointer(va)) }))
 }
 
 // The legacy ABI frees an address key without reconstructing a Go pointer.
@@ -3873,7 +3873,7 @@ func opusMSDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, 
 
 func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, request int32, ap OpusT_va_list) int32 {
 	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st))
-	return Opus_opus_multistream_decoder_ctl_typed(tls, decoder, request, msCtlLegacyArgs(decoder, request, ap))
+	return Opus_opus_multistream_decoder_ctl_typed(tls, decoder, request, msCtlLegacyArgs(decoder, request, func() libc.VaCursor { return libc.NewVaCursor(unsafe.Pointer(ap)) }))
 }
 
 func Opus_opus_multistream_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
@@ -4379,7 +4379,7 @@ func opusProjectionDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusProjectionDecod
 func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {
 	decoder := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))
 	ms := get_multistream_decoder(tls, decoder)
-	return Opus_opus_projection_decoder_ctl_typed(tls, decoder, request, msCtlLegacyArgs(ms, request, va))
+	return Opus_opus_projection_decoder_ctl_typed(tls, decoder, request, msCtlLegacyArgs(ms, request, func() libc.VaCursor { return libc.NewVaCursor(unsafe.Pointer(va)) }))
 }
 
 func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {

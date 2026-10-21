@@ -50,7 +50,7 @@ func celt_decoder_reset(tls *libc.TLS, st *OpusT_OpusCustomDecoder) {
 
 // Legacy varargs boundary; typed callers retain state and output ownership.
 func Opus_opus_custom_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {
-	return Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)), request, customCtlLegacyArgs(request, va))
+	return Opus_opus_custom_decoder_ctl_typed(tls, (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st)), request, customCtlLegacyArgs(request, func() libc.VaCursor { return libc.NewVaCursor(unsafe.Pointer(va)) }))
 }
 
 const CELT_SIG_SCALE8 = "32768.f"
