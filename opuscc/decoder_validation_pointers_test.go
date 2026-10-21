@@ -100,7 +100,7 @@ func TestMSDecoderDestroyPointers(t *testing.T) {
 		tls := libc.NewTLS()
 		release := func() weak.Pointer[OpusT_OpusMSDecoder] {
 			mapping := [3]byte{0, 1, 2}
-			st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 3, 2, 1, &mapping[0])
+			st, err := legacyRegisteredMSTestDecoder(tls, 48000, 3, 2, 1, &mapping[0])
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -132,28 +132,25 @@ func TestMSDecoderDestroyPointers(t *testing.T) {
 
 func TestMSDecoderCreatePointers(t *testing.T) {
 	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
-		tls := libc.NewTLS()
 		mapping := [3]byte{0, 1, 2}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		st, err := Opus_opus_multistream_decoder_create_typed(tls, rate, 3, 2, 1, &mapping[0])
+		st, err := Opus_opus_multistream_decoder_create_typed(rate, 3, 2, 1, &mapping[0])
 		if err != nil || st == nil || st.Flayout.Fmapping[2] != 2 || st.Flayout.Fnb_streams != 2 {
 			t.Fatal(st, err)
 		}
 		runtime.GC()
-		Opus_opus_multistream_decoder_destroy_typed(tls, st)
-		tls.Close()
+		runtime.KeepAlive(st)
 	}
-	for _, test := range []struct{ rate, channels, streams, coupled, code int32 }{{48000, 0, 1, 0, -1}, {48000, 1, 0, 0, -1}, {48000, 1, 1, 2, -1}, {44100, 1, 1, 0, -7}, {48000, 1, 1, 0, -7}} {
-		st, err := Opus_opus_multistream_decoder_create_typed(nil, test.rate, test.channels, test.streams, test.coupled, nil)
+	for _, test := range []struct{ rate, channels, streams, coupled, code int32 }{{48000, 0, 1, 0, -1}, {48000, 1, 0, 0, -1}, {48000, 1, 1, 2, -1}, {44100, 1, 1, 0, -1}} {
+		mapping := [1]byte{0}
+		st, err := Opus_opus_multistream_decoder_create_typed(test.rate, test.channels, test.streams, test.coupled, &mapping[0])
 		if st != nil || err == nil || err.(*OpusError).Code != test.code {
 			t.Fatal(test, st, err)
 		}
 	}
-	tls := libc.NewTLS()
-	defer tls.Close()
 	mapping := [1]byte{1}
-	st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 1, 1, 0, &mapping[0])
+	st, err := Opus_opus_multistream_decoder_create_typed(48000, 1, 1, 0, &mapping[0])
 	if st != nil || err == nil || err.(*OpusError).Code != -1 {
 		t.Fatal("failed layout", st, err)
 	}
@@ -320,7 +317,7 @@ func registeredDecoderStorage(tls *libc.TLS, channels int32) (uintptr, weak.Poin
 //go:noinline
 func registeredMSDecoderStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_OpusCustomMode], [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2][2]weak.Pointer[[32]int16]) {
 	mapping := [4]byte{0, 1, 2, 255}
-	st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 4, 2, 1, &mapping[0])
+	st, err := legacyRegisteredMSTestDecoder(tls, 48000, 4, 2, 1, &mapping[0])
 	if err != nil {
 		panic(err)
 	}
@@ -978,7 +975,7 @@ func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
 	for _, raw := range []bool{false, true} {
 		tls := libc.NewTLS()
 		mapping := [3]byte{0, 1, 2}
-		st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 3, 2, 1, &mapping[0])
+		st, err := legacyRegisteredMSTestDecoder(tls, 48000, 3, 2, 1, &mapping[0])
 		if err != nil {
 			t.Fatal(err)
 		}

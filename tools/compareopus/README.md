@@ -534,6 +534,49 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream normal-Go ownership: create_typed now takes NO TLS and returns
+*OpusMSDecoder directly. No RegisterGoAllocation, metadata binding, child alias
+registration, side table or replacement registry in normal creation. Actual
+scanned Go composite storage/16-byte alignment/C child strides remain: returning
+its real header pointer roots the complete allocation, unlike new(header) with
+missing child storage. Initializer consumes actual Go field views with nil TLS;
+failed initialization simply drops Go storage. Same native mapping/rate/shape
+validation order, return codes and initialized bytes when allocation succeeds.
+Nil-TLS fake allocation failure is intentionally no longer an API contract:
+Go allocation has normal Go OOM behavior, not injectable C malloc failure -7.
+
+All normal callers updated. opus.NewMultistreamDecoder creates Go state before
+its SEPARATE runtime TLS context; Close drops ms pointer rather than freeing/
+unregistering Go state. Runtime TLS is still used by existing decode scratch/
+legacy paths; not claimed globally eliminated. Reference fixtures likewise drop
+explicit destruction, preserving original buffers/oracles. Existing registry
+bindings/destructors remain ONLY for legacy registered/projection interop. Their
+old registry-only weak-root/bound-view/cleanup tests now use an EXPLICIT test-only
+legacyRegisteredMSTestDecoder fixture with the prior registration/binding setup,
+not a hidden normal-factory registration or weakened registry test.
+
+New Go ownership tests exercise parent/child mode/codebook/coefficient reachability
+through actual fields across GC/stack growth, no metadata/registration, survival
+of unrelated TLS.Close, interior child retaining whole composite after parent
+header dropped, and collection with no destructor while unrelated TLS remains
+live. Fresh initialized PLC decodes without TLS and checks full silence/canaries;
+fake codebook-owner fixtures are queried only, never treated as valid DSP inputs.
+Public opus wrapper test checks unregistered state, decode, Close pointer/context
+drop and collection. Legacy projection binding/clear/geometry tests preserved.
+
+Native create-image comparisons keep ALL original shape/rate/mapping and exact
+byte/normalization oracles for successful Go allocation. Original native malloc-
+failure cases still run separately with SAME C error-order expectations; they
+are NOT relabeled as Go allocation-failure coverage or suppressed. No fixture
+size/reference/tolerance change. Full inherited amd64/386/ARM64-QEMU/native/GC
+stress/codec reference checks pass, explicit native factory comparison passes,
+scoped Go/legacy/projection owner tests amd64/386 and tagged ARM ordinary/checkptr
+repeats20 pass. Ordinary also repeats both multistream C transcripts. No failures.
+Logs /tmp/opus-ms-go-create-{focused,wrapper-focused,native-focused,full,full-final,386-checkptr,386-checkptr-final,arm-checkptr-repeat,arm-checkptr-repeat-final,arm-repeat,arm-repeat-final}.log.
+Counts remain47 uintptr/78 unsafe.Pointer: actual ownership/lifetime change, not
+token cleanup. No new native GC/opaque-image repair, global safety, performance
+or direct macOS claim. Previous TLS-required factory notes below are historical.
+
 Multistream typed-create cleanup: removed Opus_opus_multistream_decoder_create
 integer-returning wrapper; both remaining reference callers now use typed create
 and destroy with actual state/mapping pointers. External Go users must use typed

@@ -23,11 +23,10 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 	mapping := libc.XmallocPointer(tls, 4)
 	defer libc.XfreePointer(tls, mapping)
 	copy(unsafe.Slice((*byte)(mapping), 4), []byte{0, 1, 2, 3})
-	st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 4, 3, 1, (*byte)(mapping))
+	st, err := Opus_opus_multistream_decoder_create_typed(48000, 4, 3, 1, (*byte)(mapping))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Opus_opus_multistream_decoder_destroy_typed(tls, st)
 	va := libc.Xmalloc(tls, 2*uint64(unsafe.Sizeof(uintptr(0))))
 	defer libc.Xfree(tls, va)
 	out := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))

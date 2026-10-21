@@ -3475,24 +3475,18 @@ func opusMSDecoderInitWithCodecs(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs Opus
 	return OPUS_OK
 }
 
-func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte) (*OpusT_OpusMSDecoder, error) {
+// The returned header points into actual scanned Go storage containing every
+// child decoder. Its pointer alone keeps the composite alive; no TLS registry or
+// explicit destruction is needed. A header-only allocation cannot hold children.
+func Opus_opus_multistream_decoder_create_typed(Fs OpusT_opus_int32, channels, streams, coupled int32, mapping *byte) (*OpusMSDecoder, error) {
 	if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
 		return nil, opusErrorFromCode(-1)
 	}
-	if tls == nil {
-		return nil, opusErrorFromCode(-7)
-	}
 	owned := opusMSDecoderOwnedStorage(streams, coupled)
-	st := libc.RegisterGoAllocation(tls, owned.Decoder)
-	if st == nil {
-		return nil, opusErrorFromCode(-7)
-	}
-	if ret := opusMSDecoderInitWithCodecs(tls, st, Fs, channels, streams, coupled, mapping, owned.Children, owned.Codecs); ret != OPUS_OK {
-		Opus_opus_multistream_decoder_destroy_typed(tls, st)
+	if ret := opusMSDecoderInitWithCodecs(nil, owned.Decoder, Fs, channels, streams, coupled, mapping, owned.Children, owned.Codecs); ret != OPUS_OK {
 		return nil, opusErrorFromCode(ret)
 	}
-	opusBindMSCodecViews(tls, owned)
-	return st, nil
+	return owned.Decoder, nil
 }
 
 func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams, Fs int32) int32 {
@@ -3853,7 +3847,8 @@ func Opus_opus_multistream_decoder_destroy(tls *libc.TLS, st uintptr) {
 }
 
 func Opus_opus_multistream_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
-	// Child registry aliases are not allocations; remove their bindings first.
+	// Compatibility cleanup for registered ABI/projection storage only.
+	// Go-created multistream decoders need no explicit destruction.
 	opusReleaseMSCodecViews(tls, st)
 	libc.XfreePointer(tls, unsafe.Pointer(st))
 }

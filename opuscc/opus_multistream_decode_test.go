@@ -543,11 +543,10 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 	mapping := libc.XmallocPointer(tls, 5)
 	defer libc.XfreePointer(tls, mapping)
 	copy(unsafe.Slice((*byte)(mapping), 5), []byte{2, 0, 1, 2, 255})
-	dec, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 5, 2, 1, (*byte)(mapping))
+	dec, err := Opus_opus_multistream_decoder_create_typed(48000, 5, 2, 1, (*byte)(mapping))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Opus_opus_multistream_decoder_destroy_typed(tls, dec)
 	data := libc.XmallocPointer(tls, 4000)
 	defer libc.XfreePointer(tls, data)
 	pcm := libc.XmallocPointer(tls, 6400*5*4)
