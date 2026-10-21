@@ -128,7 +128,7 @@ func TestOpusInt16WholePointers(t *testing.T) {
 }
 
 func TestOpusInt24NoPseudostack(t *testing.T) {
-	if Opus_opus_decode24(nil, 0, 0, 0, 0, 0, 2) != -1 {
+	if Opus_opus_decode24_typed(nil, nil, nil, 0, nil, 0, 2) != -1 {
 		t.Fatal("int24 validation order")
 	}
 	for _, C := range []int32{1, 2} {
@@ -138,10 +138,10 @@ func TestOpusInt24NoPseudostack(t *testing.T) {
 		pcm[0], pcm[len(pcm)-1] = 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if Opus_opus_decode24(nil, uintptr(unsafe.Pointer(&storage.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&pcm[1])), 5760, 0) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+		if Opus_opus_decode24_typed(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
 			t.Fatal("int24 nil TLS", C)
 		}
-		if Opus_opus_decode24(nil, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+		if Opus_opus_decode24_typed(nil, &storage.Decoder, nil, 0, &pcm[1], 120, 0) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
 			t.Fatal("int24 short PLC")
 		}
 	}
@@ -201,7 +201,7 @@ func TestOpusIntegerDecodeGoScratch(t *testing.T) {
 		a[0], a[len(a)-1], b[0], b[len(b)-1] = 77, 88, 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if Opus_opus_decode_typed(tls, &left.Decoder, &packet[0], int32(len(packet)), &a[1], 5760, 0) != 2880 || Opus_opus_decode24(tls, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&b[1])), 5760, 0) != 2880 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 || *cursor != before {
+		if Opus_opus_decode_typed(tls, &left.Decoder, &packet[0], int32(len(packet)), &a[1], 5760, 0) != 2880 || Opus_opus_decode24_typed(tls, &right.Decoder, &packet[0], int32(len(packet)), &b[1], 5760, 0) != 2880 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 || *cursor != before {
 			t.Fatal("integer Go scratch/cursors", C)
 		}
 	}

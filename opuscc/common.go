@@ -2973,11 +2973,6 @@ func opusDecodeInt16(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, leng
 	return result
 }
 
-//go:uintptrescapes
-func Opus_opus_decode24(tls *libc.TLS, st1, data uintptr, length int32, pcm uintptr, frameSize, fec int32) int32 {
-	return opusDecodeInt24(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), length, (*int32)(unsafe.Pointer(pcm)), frameSize, fec)
-}
-
 func Opus_opus_decode24_typed(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, length int32, pcm *int32, frameSize, fec int32) int32 {
 	return opusDecodeInt24(tls, decoder, data, length, pcm, frameSize, fec)
 }

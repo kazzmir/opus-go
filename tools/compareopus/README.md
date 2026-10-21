@@ -534,6 +534,22 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Int24 typed-only entry migration: replaced all remaining opuscc
+Opus_opus_decode24 calls with Opus_opus_decode24_typed and actual state/packet/
+PCM pointers. Removed unused raw wrapper/uintptrescapes directive, no substitute
+integer-address adapter. External Go callers must use typed entry. Nil/error
+ordering, mono/stereo real packet/PLC buffers/guards and mixed int16/int24 Go
+scratch/TLS cursor checks retain same physical fixtures and expected values;
+codec/reference/oracle/tolerance unchanged. Mixed scratch now uses BOTH typed
+decode APIs; raw TLS setup remains and is NOT claimed checkptr-safe or repaired.
+Full inherited checks and scoped integer pointer/no-pseudostack/native-reference
+amd64/386 plus tagged ARM ordinary/checkptr repeats20 pass. Ordinary includes
+mixed TLS scratch case. No failures. Logs
+/tmp/opus-int24-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr77->75, unsafe.Pointer82->79. Encoder separate raw API is
+unchanged; earlier remaining-raw-int24 notes below are superseded. No native GC,
+global lifetime, opaque-image GC maps, performance or direct macOS claims.
+
 Int16 typed-only entry migration: replaced every remaining opuscc
 Opus_opus_decode call with Opus_opus_decode_typed and actual decoder/packet/PCM
 pointers. Removed unused integer-address wrapper and its uintptrescapes directive;
