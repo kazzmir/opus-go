@@ -862,7 +862,15 @@ func celtDecodePostfilter(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *O
 }
 
 func celtDecodePostfilterWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, channels, N, LM, period int32, gain float32, tapset, overlap int32, history [2][]float32) {
-	out := unsafe.Slice(outputs, max(int32(1), channels))
+	celtDecodePostfilterFrom(tls, state, mode, celtSynthesisOutputs{legacy: outputs}, channels, N, LM, period, gain, tapset, overlap, history)
+}
+
+func celtDecodePostfilterOwned(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs []*float32, channels, N, LM, period int32, gain float32, tapset, overlap int32, history [2][]float32) {
+	celtDecodePostfilterFrom(tls, state, mode, celtSynthesisOutputs{owner: outputs, owned: true}, channels, N, LM, period, gain, tapset, overlap, history)
+}
+
+func celtDecodePostfilterFrom(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs celtSynthesisOutputs, channels, N, LM, period int32, gain float32, tapset, overlap int32, history [2][]float32) {
+	out := outputs.span(channels)
 	for c := int32(0); ; c++ {
 		celtDecodePostfilterClamp(state)
 		celtDecodePostfilterFirstWithHistory(tls, state, mode, out[c], overlap, history[c], DEC_PITCH_BUF_SIZE-N)
@@ -1679,7 +1687,8 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	}
 	celtDecodePrefilter(tls, st1, N)
 	celtSynthesisOwned(tls, mode, X, out_syn[:], oldBandE, start, effEnd, C, CC, isTransient, LM, st1.Fdownsample, silence, st1.Farch)
-	celtDecodePostfilterWithHistory(tls, st1, mode, &out_syn[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap, decode_mem)
+	_ = out_syn[0] // Preserve the original required pointer-list first cell.
+	celtDecodePostfilterOwned(tls, st1, mode, out_syn[:], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap, decode_mem)
 	celtDecodePostfilterFinish(st1, postfilter_pitch, postfilter_gain, postfilter_tapset, LM)
 	if C == 1 {
 		celtDecodeEnergyMono(oldBandE, nbEBands)

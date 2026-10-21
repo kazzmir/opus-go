@@ -995,7 +995,7 @@ func TestCeltDecodePostfilterHistoryPointers(t *testing.T) {
 			history := [2][]float32{owners[0][1 : len(owners[0])-1], owners[1][1 : len(owners[1])-1]}
 			entropyInitGrowStack(12)
 			runtime.GC()
-			celtDecodePostfilterWithHistory(nil, &state, mode, &out[0], channels, N, LM, 80, .7, 0, 120, history)
+			celtDecodePostfilterOwned(nil, &state, mode, out[:], channels, N, LM, 80, .7, 0, 120, history)
 			if state != wantState {
 				t.Fatal("owned postfilter state")
 			}
