@@ -456,7 +456,7 @@ func TestQuantBandStereoScratchPointers(t *testing.T) {
 						entropyInitGrowStack(12)
 						runtime.GC()
 						mask := quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, B, &low[1], LM, &out[1], &scratch[1], (1<<B)-1)
-						om := quantBandStereoTo(nil, &oc, &ox[1], &oy[1], N, budget, B, &ol[1], LM, quantBandFoldOutput{owner: oo, offset: 1, owned: true}, quantBandScratch{owner: os, offset: 1, owned: true}, (1<<B)-1)
+						om := quantBandStereoLanes(nil, &oc, &ox[1], &oy[1], N, budget, B, quantBandScratch{owner: ol, offset: 1, owned: true}, LM, quantBandFoldOutput{owner: oo, offset: 1, owned: true}, quantBandScratch{owner: os, offset: 1, owned: true}, (1<<B)-1)
 						oc.Fec = ctx.Fec
 						if mask != om || ctx != oc || ec != oec {
 							t.Fatal("stereo scratch entropy/context/mask", LM, B, tf, budget, intensity)

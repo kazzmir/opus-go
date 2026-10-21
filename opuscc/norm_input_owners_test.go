@@ -13,6 +13,10 @@ func TestQuantBandOwnedInputUnusedPointers(t *testing.T) {
 		if quantBandLanes(nil, &ctx, &x, 1, 0, 1, quantBandScratch{offset: offset, owned: true}, 0, quantBandFoldOutput{}, 1, quantBandScratch{}, 1) != 1 {
 			t.Fatal("N1 must not touch unused lowband owner")
 		}
+		y := float32(.25)
+		if quantBandStereoLanes(nil, &ctx, &x, &y, 1, 0, 1, quantBandScratch{offset: offset, owned: true}, 0, quantBandFoldOutput{}, quantBandScratch{}, 1) != 1 || y != .25 {
+			t.Fatal("stereo N1 must ignore lowband owner")
+		}
 	}
 }
 
