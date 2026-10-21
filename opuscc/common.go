@@ -3001,11 +3001,6 @@ func opusDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, leng
 	return result
 }
 
-//go:uintptrescapes
-func Opus_opus_decode_float(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frameSize, fec int32) int32 {
-	return opusDecodeFloat(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*float32)(unsafe.Pointer(pcm)), frameSize, fec)
-}
-
 func opusDecodeInt24PCM(tls *libc.TLS, input *float32, output *int32, count int32) {
 	if count <= 0 {
 		return

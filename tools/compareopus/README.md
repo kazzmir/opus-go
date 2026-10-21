@@ -534,6 +534,16 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Float typed-only cleanup: removed unused Opus_opus_decode_float raw wrapper
+and uintptrescapes directive entirely. All callers already use
+Opus_opus_decode_float_typed, including opus/decoder.go; no caller casts, adapter
+or test/oracle changes needed. Typed/private float DSP/error behavior unchanged.
+Full inherited validation, scoped float/native-reference amd64/386 and tagged
+ARM ordinary/checkptr repeats20 pass; no failures. Logs
+/tmp/opus-float-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr75->73, unsafe.Pointer79->76. No global/native lifetime,
+GC-map, performance or direct macOS claim.
+
 Int24 typed-only entry migration: replaced all remaining opuscc
 Opus_opus_decode24 calls with Opus_opus_decode24_typed and actual state/packet/
 PCM pointers. Removed unused raw wrapper/uintptrescapes directive, no substitute
