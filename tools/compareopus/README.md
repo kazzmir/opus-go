@@ -534,6 +534,24 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Custom decoder CTL pointer migration: Opus_opus_custom_decoder_ctl now takes
+*OpusT_OpusCustomDecoder and libcshim.VaCursor, removing BOTH uintptr parameters
+and BOTH state/base reconstruction casts. Exported Go signature changes; typed
+request implementation and lazy helper/argument-read timing stay unchanged. No
+replacement integer-address adapter or hidden alias. All migrated public CTL
+entry points now use actual state pointers/cursors; DRED keeps no cursor because
+it remains unimplemented. Earlier custom-CTL raw-boundary notes are superseded.
+New public-entry test uses actual scanned decoder/mode owners and native scalar/
+pointer slots across GC/stack growth, setter/getter, range, null, invalid value
+before stores, unknown/reset with empty cursor, repeated cursor/live reload,
+aliased error clear/store ordering, mode output/write barrier and retained mode
+owner. Original typed/native independent oracles/extents/layouts and codec
+references/tolerances unchanged. Full inherited validation plus scoped CTL/
+cursor amd64/386 and tagged ARM ordinary/checkptr repeats20 pass; no failures.
+Logs /tmp/opus-custom-ctl-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr87->85, unsafe.Pointer91->89. No native lifetime/GC repair,
+opaque-image GC maps, performance or direct macOS claims.
+
 Version-string pointer migration: opuscc.Opus_opus_get_version_string now
 returns *byte directly, with no integer-address result or pointer-to-integer
 conversion. This changes its exported Go return type. Existing _typed entry
