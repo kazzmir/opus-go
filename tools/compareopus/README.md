@@ -534,6 +534,69 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four postfilter rounds retain actual output-pointer-list storage, first-block
+history destination, tail history destination, then canonical comb window120.
+All four connect active decoder/comb consumers. Exact known history and static
+window storage are Go-visible owners, not aliases for byte images or displaced
+casts. Counts remain100 unsafe.Pointer/104 uintptr; public/raw adapters stay.
+
+Postfilter's actual [2]*float32 output array passes as its real slice, sharing
+the existing concrete synthesis-output carrier. Original required first-cell
+argument check remains. Full max(1,channels) pointer-list view forms BEFORE any
+clamp/channel DSP. Clamp stays per channel; out[c] is reloaded separately for
+first and tail, preserving live list aliases, LM guard and channel-zero do/while
+behavior. History arrays/origins, state/period/gain/tapset reads and arithmetic
+remain unchanged. Raw and typed output-list routes share identical dispatch.
+
+First and tail use actual history as BOTH comb source and destination only
+AFTER existing exact live-pointer/root/origin match. Mismatched/nil/unbound paths
+retain original raw fallback. Tail STILL forms original full N prefix and
+required shortMdctSize cell BEFORE ownership matching and BEFORE zero-gain
+identity guard; needed scalar tail identity/fallback boundary is deliberately
+retained. No skipped required index, eager destination views or guessed root.
+Source-before-output view order, no-work/identity behavior, signed unused
+compatibility, per-channel first-before-tail, float32 rounding/products and
+sequential stores stay unchanged. No spectrum/image/whole-decoder migration claim.
+
+Comb window binding occurs at original window-view point AFTER history, output
+and initial delayed-sample loads, never at entry or before zero-gain fast path.
+Only exact &window120[0] plus overlap0..120 binds actual window120[:]. Copy,
+interior, oversized, negative and nil cases retain legacy pointer/length;
+unsupported classification does NOT manufacture fake larger spans. Owner flag
+never silently falls back. Overlap suppression and original deferred read timing
+stay. Window coefficients remain live through destination aliases; no snapshot.
+No C/SIMD/QEXT enabling, table/layout/ABI or arithmetic change. Upstream
+celt_decoder.c first/tail loop and celt.c comb guards/window arithmetic inspected.
+
+Existing postfilter history fixture keeps same buffers/guards and full bit/state
+oracle, now exercises real pointer-list owner under GC/stack growth. Existing
+first/tail fixtures retain independent raw comb oracle and physical extents,
+add equal-sized owned-destination full-bit/state comparisons across gains/taps/
+N. Bounded new tail check requires original interior cell even with zero gains,
+before stores/state changes. Canonical window tests prove actual root and exact
+identity/extent classification; raw copied table is independent same-120-word
+reference for whole-buffer live-window alias comparisons. Canonical table is
+restored after EVERY pair and on exit. Go-only aliases/invalid bounded cases do
+not claim new C restrict/const/invalid domains. No native fixture/hash/bytes/
+bit-count/seed, codec reference/tolerance/scope change or pointer-slot poisoning.
+
+Round1 initially failed compilation because actual out_syn is [2]*float32;
+corrected ONLY array-to-slice argument (no copied pointer list), then complete
+validation hit native found-pointer-to-free-object with TestExtensionNextAgainstC
+active. COMPLETE UNCHANGED next retry passed. All logs retained:
+/tmp/opus-round-postfilter-go-pointer-list{,-retry,-retry2}.log.
+No oracle weakening or production native GC fix. Other round logs:
+/tmp/opus-round-postfilter-first-go-destination.log,
+/tmp/opus-round-postfilter-tail-go-destination.log,
+/tmp/opus-round-comb-canonical-go-window.log and
+/tmp/opus-round-postfilter-owners-arm-{checkptr,golden}-repeat.log.
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including postfilter/tail/window and preceding owner fixtures.
+No other batch failures. No native GC/extension EOF/raw callback/opaque-image
+repair, global lifetime safety, performance or direct macOS claims.
+
 Four norm-input rounds stage concrete copy sources, mono input lanes, stereo
 input lanes, then connect BOTH actual normalization lanes in quant-all-bands.
 Rounds1/2/3 stage owned private APIs with direct equivalence fixtures; round4

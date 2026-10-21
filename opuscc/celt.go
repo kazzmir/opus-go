@@ -256,6 +256,26 @@ func combFilterFromSource(tls *libc.TLS, y *float32, source combFilterSource, T0
 	combFilterFrom(tls, combFilterDestination{legacy: y}, source, T0, T1, N, g0, g1, tapset0, tapset1, window, overlap, arch)
 }
 
+type combFilterWindow struct {
+	legacy *float32
+	owner  []float32
+	owned  bool
+}
+
+func combFilterKnownWindow(window *float32, overlap int32) combFilterWindow {
+	if window == &window120[0] && overlap >= 0 && int64(overlap) <= int64(len(window120)) {
+		return combFilterWindow{owner: window120[:], owned: true}
+	}
+	return combFilterWindow{legacy: window}
+}
+
+func (window combFilterWindow) span(overlap int32) []float32 {
+	if window.owned {
+		return window.owner[:overlap]
+	}
+	return unsafe.Slice(window.legacy, overlap)
+}
+
 func combFilterFrom(tls *libc.TLS, destination combFilterDestination, source combFilterSource, T0, T1, N int32, g0, g1 float32, tapset0, tapset1 int32, window *float32, overlap, arch int32) {
 	if g0 == 0 && g1 == 0 {
 		if !source.same(destination.identity()) {
@@ -283,7 +303,7 @@ func combFilterFrom(tls *libc.TLS, destination combFilterDestination, source com
 	}
 	dst := destination.samples(N)
 	x1, x2, x3, x4 := src[history-T1+1], src[history-T1], src[history-T1-1], src[history-T1-2]
-	win := unsafe.Slice(window, overlap)
+	win := combFilterKnownWindow(window, overlap).span(overlap)
 	for i := int32(0); i < overlap; i++ {
 		x0 := src[history+i-T1+2]
 		f := float32(win[i] * win[i])
