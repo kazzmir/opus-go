@@ -2232,12 +2232,6 @@ func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels
 	return st, nil
 }
 
-// Legacy exported creation ABI for the remaining integer-address decode/control callers.
-func Opus_opus_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (uintptr, error) {
-	st, err := Opus_opus_decoder_create_typed(tls, Fs, channels)
-	return uintptr(unsafe.Pointer(st)), err
-}
-
 func smooth_fade(tls *libc.TLS, in1, in2, out *OpusT_opus_res, overlap, channels int32, window *OpusT_celt_coef, Fs OpusT_opus_int32) {
 	inc := int32(48000) / Fs
 	if overlap <= 0 || channels <= 0 {

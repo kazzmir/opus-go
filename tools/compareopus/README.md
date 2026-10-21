@@ -534,6 +534,31 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Typed decoder creation migration: every remaining opuscc caller now uses
+Opus_opus_decoder_create_typed and matching destroy_typed. Removed unused
+exported integer-returning Opus_opus_decoder_create wrapper; external Go callers
+must switch to the typed API. No relocated legacy constructor/opaque alias.
+Production opus/decoder.go already used typed creation and is unchanged.
+
+Native decode C-reference fixture now keeps actual decoder/packet/PCM/offset
+pointers through existing typed native/int16 drivers, not typed creation followed
+by a cast back to integer decoding. Raw native wrapper only forwarded these same
+values (its omitted DRED arguments were zero/ignored); all packet bytes, sample
+counts, buffers/physical extents, independent C hashes/ranges/offsets/durations,
+FEC/error/softclip cases and exact tolerances unchanged. Original eight vararg
+bytes stay [2]int32, with equivalent native-word scalar1 encoding, not integer
+address reconstruction. Separate raw/native ABI fixtures remain unchanged.
+CTL transcript keeps original vararg/output allocations, encodings, transcript
+and oracle; only factory/destroy/state/child-origin plumbing becomes typed or
+numeric unsafe.Add. Native fixture is now additionally checkptr-tested directly.
+
+Full inherited amd64/386/ARM64-QEMU/native/GC stress/reference validation passes;
+explicit native-reference/create/storage scoped amd64/386 plus tagged ARM
+ordinary/checkptr repeats20 pass (ordinary also includes original CTL transcript).
+No failures. Logs /tmp/opus-decoder-typed-create-{focused,full,amd64-checkptr,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr85->83, unsafe.Pointer89->88. Encoder's separate constructor
+is unchanged; no native GC/opaque-image/lifetime/performance/macOS claims.
+
 Custom decoder CTL pointer migration: Opus_opus_custom_decoder_ctl now takes
 *OpusT_OpusCustomDecoder and libcshim.VaCursor, removing BOTH uintptr parameters
 and BOTH state/base reconstruction casts. Exported Go signature changes; typed
