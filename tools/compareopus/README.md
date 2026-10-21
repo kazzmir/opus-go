@@ -534,6 +534,14 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Latest DRED CTL decision: removed unused VaCursor again at user request because
+DRED remains unimplemented. Signature is now (TLS, *OpusT_OpusDREDDecoder,
+request); existing -5 result is unchanged. Updated no-argument test. No DRED
+implementation/configuration was disabled or changed. This supersedes the
+restoration below. Full inherited validation, scoped amd64/386 and tagged ARM
+ordinary/checkptr repeats20 pass; no failures. Logs
+/tmp/opus-dred-ctl-remove-cursor-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+
 DRED CTL correction: restored VaCursor parameter at user request, preserving
 the argument-carrying signature from the common.go CTL migration. DRED was
 ALREADY an unimplemented -5 stub before these cursor changes; neither removing
