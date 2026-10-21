@@ -19,6 +19,7 @@ func TestHybridFoldingPointers(t *testing.T) {
 			want2[6] = -4
 		}
 		ownedFirst, ownedSecond := first, second
+		allFirst, allSecond := first, second
 		var ownedP2 *float32
 		if dual != 0 {
 			ownedP2 = &ownedSecond[1]
@@ -27,8 +28,9 @@ func TestHybridFoldingPointers(t *testing.T) {
 		runtime.GC()
 		special_hybrid_folding(nil, &bands[0], &first[1], p2, 1, 1, dual)
 		specialHybridFoldingFrom(&bands[0], quantBandFoldOutput{owner: ownedFirst[:], offset: 1, owned: true}, quantBandFoldOutput{legacy: ownedP2}, 1, 1, dual)
+		specialHybridFoldingFrom(&bands[0], quantBandFoldOutput{owner: allFirst[:], offset: 1, owned: true}, quantAllBandsNormRight(allSecond[:], 1, dual != 0), 1, 1, dual)
 		for i := range first {
-			if math.Float32bits(first[i]) != math.Float32bits(ownedFirst[i]) || math.Float32bits(second[i]) != math.Float32bits(ownedSecond[i]) {
+			if math.Float32bits(first[i]) != math.Float32bits(ownedFirst[i]) || math.Float32bits(second[i]) != math.Float32bits(ownedSecond[i]) || math.Float32bits(first[i]) != math.Float32bits(allFirst[i]) || math.Float32bits(second[i]) != math.Float32bits(allSecond[i]) {
 				t.Fatal("primary hybrid concrete owner/full bits", dual, i)
 			}
 		}

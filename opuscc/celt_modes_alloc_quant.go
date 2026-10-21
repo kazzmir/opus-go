@@ -2817,6 +2817,13 @@ func special_hybrid_folding(tls *libc.TLS, bands *OpusT_opus_int16, norm, norm2 
 	specialHybridFoldingFrom(bands, quantBandFoldOutput{legacy: norm}, quantBandFoldOutput{legacy: norm2}, start, M, dual_stereo)
 }
 
+func quantAllBandsNormRight(memory []float32, origin int32, present bool) quantBandFoldOutput {
+	if !present {
+		return quantBandFoldOutput{}
+	}
+	return quantBandFoldOutput{owner: memory, offset: int64(origin), owned: true}
+}
+
 func specialHybridFoldingFrom(bands *int16, primary, secondary quantBandFoldOutput, start, M, dual_stereo int32) {
 	eBands := unsafe.Slice(bands, start+3)
 	n1 := M * (int32(eBands[start+1]) - int32(eBands[start]))
@@ -3287,7 +3294,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 			lowband_offset = i1
 		}
 		if i1 == start+int32(1) {
-			specialHybridFoldingFrom(m.FeBands, quantBandFoldOutput{owner: _norm, owned: true}, quantBandFoldOutput{legacy: norm2}, start, M, dual_stereo)
+			specialHybridFoldingFrom(m.FeBands, quantBandFoldOutput{owner: _norm, owned: true}, quantAllBandsNormRight(_norm, norm2Origin, norm2 != nil), start, M, dual_stereo)
 		}
 		tf_change = tf_res.at(i1)
 		ctx.Ftf_change = tf_change
@@ -3396,7 +3403,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					quantAllBandsCopyFromOwned(X, X_save, N1)
 					quantAllBandsCopyFromOwned(Y, Y_save, N1)
 					if i1 == start+int32(1) {
-						specialHybridFoldingFrom(m.FeBands, quantBandFoldOutput{owner: _norm, owned: true}, quantBandFoldOutput{legacy: norm2}, start, M, dual_stereo)
+						specialHybridFoldingFrom(m.FeBands, quantBandFoldOutput{owner: _norm, owned: true}, quantAllBandsNormRight(_norm, norm2Origin, norm2 != nil), start, M, dual_stereo)
 					}
 					/* Encode and round up. */
 					ctx.Ftheta_round = 1
