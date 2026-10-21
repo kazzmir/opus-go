@@ -42,7 +42,7 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	}
 	dp := dec
 	po = -1
-	n := opusDecodeNative(tls, dec, &p60[0], int32(len(p60)), pcmPtr, 2880, 0, 0, &po, 0)
+	n := Opus_opus_decode_native(tls, dec, &p60[0], int32(len(p60)), pcmPtr, 2880, 0, 0, &po, 0, nil, 0)
 	if n != 2880 {
 		t.Fatalf("multi60: n=%d want 2880", n)
 	}
@@ -71,7 +71,7 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	}
 	dp = dec
 	po = -1
-	n = opusDecodeNative(tls, dec, &p20[0], int32(len(p20)), pcmPtr, 960, 0, 0, &po, 0)
+	n = Opus_opus_decode_native(tls, dec, &p20[0], int32(len(p20)), pcmPtr, 960, 0, 0, &po, 0, nil, 0)
 	if n != 960 {
 		t.Fatalf("plain20: n=%d want 960", n)
 	}
@@ -85,7 +85,7 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 		t.Fatalf("plain20: packet_offset=%d want %d", got, want)
 	}
 	po = -1
-	n = opusDecodeNative(tls, dec, &pad[0], int32(len(pad)), pcmPtr, 960, 0, 0, &po, 0)
+	n = Opus_opus_decode_native(tls, dec, &pad[0], int32(len(pad)), pcmPtr, 960, 0, 0, &po, 0, nil, 0)
 	if n != 960 {
 		t.Fatalf("padded20: n=%d want 960", n)
 	}
@@ -111,7 +111,7 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 		t.Fatalf("OPUS_SET_IGNORE_EXTENSIONS: %d", got)
 	}
 	po = -1
-	n = opusDecodeNative(tls, dec, &pad[0], int32(len(pad)), pcmPtr, 960, 0, 0, &po, 0)
+	n = Opus_opus_decode_native(tls, dec, &pad[0], int32(len(pad)), pcmPtr, 960, 0, 0, &po, 0, nil, 0)
 	if n != 960 {
 		t.Fatalf("ignoreext: n=%d want 960", n)
 	}
@@ -130,7 +130,7 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	}
 	dp = dec
 	po = -1
-	n = opusDecodeNative(tls, dec, &selfdel[0], int32(len(selfdel)), pcmPtr, 960, 0, 1, &po, 0)
+	n = Opus_opus_decode_native(tls, dec, &selfdel[0], int32(len(selfdel)), pcmPtr, 960, 0, 1, &po, 0, nil, 0)
 	if n != 960 {
 		t.Fatalf("selfdel: n=%d want 960", n)
 	}
@@ -151,11 +151,11 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 		t.Fatalf("decoder create: %v", err)
 	}
 	dp = dec
-	n = opusDecodeNative(tls, dec, &p20[0], int32(len(p20)), pcmPtr, 960, 0, 0, nil, 0)
+	n = Opus_opus_decode_native(tls, dec, &p20[0], int32(len(p20)), pcmPtr, 960, 0, 0, nil, 0, nil, 0)
 	if n != 960 {
 		t.Fatalf("fecshort warmup: n=%d want 960", n)
 	}
-	n = opusDecodeNative(tls, dec, &p60[0], int32(len(p60)), pcmPtr, 480, 1, 0, nil, 0)
+	n = Opus_opus_decode_native(tls, dec, &p60[0], int32(len(p60)), pcmPtr, 480, 1, 0, nil, 0, nil, 0)
 	if n != 480 {
 		t.Fatalf("fecshort: n=%d want 480", n)
 	}
@@ -178,10 +178,10 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
-	if got := opusDecodeNative(tls, dec, &p20[0], int32(len(p20)), pcmPtr, 100, 1, 0, nil, 0); got != -1 {
+	if got := Opus_opus_decode_native(tls, dec, &p20[0], int32(len(p20)), pcmPtr, 100, 1, 0, nil, 0, nil, 0); got != -1 {
 		t.Fatalf("badsize: %d want -1", got)
 	}
-	if got := opusDecodeNative(tls, dec, &p20[0], int32(len(p20)), pcmPtr, 960, 2, 0, nil, 0); got != -1 {
+	if got := Opus_opus_decode_native(tls, dec, &p20[0], int32(len(p20)), pcmPtr, 960, 2, 0, nil, 0, nil, 0); got != -1 {
 		t.Fatalf("badfec: %d want -1", got)
 	}
 	Opus_opus_decoder_destroy_typed(tls, dec)

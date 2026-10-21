@@ -310,7 +310,7 @@ func TestOpusNativeTypedPayloadEntry(t *testing.T) {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		ra := opusDecodeNative(nil, &left.Decoder, &packet[0], int32(len(packet)), &a[1], 2880, 0, 0, nil, 0)
-		rb := Opus_opus_decode_native(nil, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&b[1])), 2880, 0, 0, 0, 0, 0, 0)
+		rb := Opus_opus_decode_native(nil, &right.Decoder, &packet[0], int32(len(packet)), &b[1], 2880, 0, 0, nil, 0, nil, 0)
 		if ra <= 0 || rb != ra || left.Decoder != right.Decoder || a[0] != 77 || a[5761] != 88 {
 			t.Fatal("native typed payload")
 		}
@@ -434,7 +434,7 @@ func TestOpusNativeTypedDecoderEntry(t *testing.T) {
 	entropyInitGrowStack(12)
 	runtime.GC()
 	ra := opusDecodeNative(nil, &left.Decoder, nil, 0, &a[1], 120, 0, 0, nil, 0)
-	rb := Opus_opus_decode_native(nil, uintptr(unsafe.Pointer(&right.Decoder)), 0, 0, uintptr(unsafe.Pointer(&b[1])), 120, 0, 0, 0, 0, 0, 0)
+	rb := Opus_opus_decode_native(nil, &right.Decoder, nil, 0, &b[1], 120, 0, 0, nil, 0, nil, 0)
 	if ra != 120 || rb != ra || left.Decoder != right.Decoder || a[0] != 77 || a[121] != 88 {
 		t.Fatal("native typed decoder entry")
 	}
@@ -586,7 +586,7 @@ func TestOpusDecodeNativeLossFrame(t *testing.T) {
 	}
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(memory))
 	output := make([]float32, 120)
-	if got, want := Opus_opus_decode_native(tls, memory, 0, 0, uintptr(unsafe.Pointer(&output[0])), 120, 0, 0, 0, 0, 0, 0), int32(120); got != want {
+	if got, want := Opus_opus_decode_native(tls, decoder, nil, 0, &output[0], 120, 0, 0, nil, 0, nil, 0), int32(120); got != want {
 		t.Fatalf("decoded samples: got %d, want %d", got, want)
 	}
 	if got, want := decoder.Flast_packet_duration, int32(120); got != want {

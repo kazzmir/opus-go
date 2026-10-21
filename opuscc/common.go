@@ -2814,9 +2814,9 @@ func opusNativePLCFrame(tls *libc.TLS, decoder *OpusT_OpusDecoder, pcm *float32,
 	return opusDecodeFrame(tls, decoder, nil, 0, opusFramePCMAtBytes(pcm, uint(count*decoder.Fchannels)*4), total-count, 0)
 }
 
-//go:uintptrescapes
-func Opus_opus_decode_native(tls *libc.TLS, st, data uintptr, len1 int32, pcm uintptr, frame_size, decode_fec, self_delimited int32, packet_offset uintptr, soft_clip int32, dred uintptr, dred_offset int32) int32 {
-	return opusDecodeNative(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), len1, (*float32)(unsafe.Pointer(pcm)), frame_size, decode_fec, self_delimited, (*int32)(unsafe.Pointer(packet_offset)), soft_clip)
+// DRED remains an ignored opaque argument in this port; no DRED layout is assumed.
+func Opus_opus_decode_native(tls *libc.TLS, st *OpusT_OpusDecoder, data *byte, len1 int32, pcm *float32, frame_size, decode_fec, self_delimited int32, packet_offset *int32, soft_clip int32, dred unsafe.Pointer, dred_offset int32) int32 {
+	return opusDecodeNative(tls, st, data, len1, pcm, frame_size, decode_fec, self_delimited, packet_offset, soft_clip)
 }
 
 func opusDecodeNative(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, len1 int32, pcm *float32, frame_size, decode_fec, self_delimited int32, packet_offset *int32, soft_clip int32) (r int32) {

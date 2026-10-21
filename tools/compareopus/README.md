@@ -534,6 +534,33 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Public native decode pointer migration: Opus_opus_decode_native has NO uintptr
+parameters/address reconstruction. Decoder is *OpusT_OpusDecoder, packet *byte,
+PCM *float32, offset output *int32; removed obsolete uintptrescapes directive.
+DRED remains an ignored unsafe.Pointer argument with unchanged signed offset,
+not a fabricated Go DRED layout or new implementation. No relocated raw native
+adapter. This CHANGES exported Go parameter types. Existing typed driver and
+validation/error order, live inputs/outputs, arithmetic and codec DSP unchanged.
+
+Updated three callers to actual state/buffer pointers, not casts back to integer
+addresses. Loss-frame fixture keeps original raw allocation/init/physical extent;
+no GC-map repair claimed. Independent native C-reference fixture now exercises
+public pointer entry directly for SAME packets, physical buffers, FEC/error/
+self-delimited/packet-offset cases, exact hashes/ranges/durations/PCM and original
+eight vararg bytes. Existing paired direct/public state/full-PCM/guard checks
+remain. New bounded Go case compares valid nonnil opaque DRED byte pointer and
+extreme signed offsets against typed core (DRED ignored), retaining original
+output canaries; not a native DRED model/restrict/invalid-domain claim.
+Full inherited amd64/386/ARM64-QEMU/native/GC stress/reference checks pass;
+scoped native/direct/public/C-oracle amd64/386 and tagged ARM ordinary/checkptr
+repeats20 pass. Ordinary also includes original raw-allocation loss-frame fixture.
+No failures. Logs /tmp/opus-native-typed-public-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr83->79, unsafe.Pointer88->85 (four reconstruction casts
+removed, one legitimate opaque pointer parameter). Historical raw-native ABI
+comparison descriptions below now refer to typed/public comparisons; no integer
+native decode boundary remains in this API. No global lifetime/opaque-image GC
+maps/native repair/performance/direct macOS claims.
+
 Typed decoder creation migration: every remaining opuscc caller now uses
 Opus_opus_decoder_create_typed and matching destroy_typed. Removed unused
 exported integer-returning Opus_opus_decoder_create wrapper; external Go callers
