@@ -534,6 +534,18 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+DRED typed-destroy cleanup: removed unused Opus_opus_dred_decoder_destroy raw
+wrapper/uintptrescapes directive entirely. All existing users already call typed
+destructor; no caller casts or adapter needed. Typed invalidation/free behavior,
+DRED header/factory/registry fixtures and codec/oracle/extents unchanged. Full
+inherited validation hit recurring native found-pointer-to-free-object TWICE,
+both with TestExtensionNextAgainstC active; complete unchanged third attempt
+passed. Both failed logs retained, no native repair claimed. Focused amd64/386
+DRED/storage scoped checks and tagged ARM ordinary/checkptr repeats20 pass.
+Logs /tmp/opus-dred-typed-destroy-{focused,focused-retry,focused-retry2,full,full-retry,full-retry2,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr69->68, unsafe.Pointer74->73. No global lifetime/GC-map,
+performance/direct macOS claims; unrelated encoder API unchanged.
+
 DRED create pointer migration: Opus_opus_dred_decoder_create now returns
 (*OpusT_OpusDREDDecoder,error), directly forwarding existing typed factory without
 integer-address result/conversion. Exported Go return type changes. Existing

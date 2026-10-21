@@ -3160,11 +3160,6 @@ func Opus_opus_dred_decoder_destroy_typed(tls *libc.TLS, dec *OpusT_OpusDREDDeco
 	libc.XfreePointer(tls, unsafe.Pointer(dec))
 }
 
-//go:uintptrescapes
-func Opus_opus_dred_decoder_destroy(tls *libc.TLS, dec uintptr) {
-	Opus_opus_dred_decoder_destroy_typed(tls, (*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)))
-}
-
 // DRED CTL is unimplemented and consumes no arguments.
 func Opus_opus_dred_decoder_ctl(tls *libc.TLS, dred_dec *OpusT_OpusDREDDecoder, request int32) (r int32) {
 	_ = dred_dec
