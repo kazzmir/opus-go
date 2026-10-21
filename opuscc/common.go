@@ -3149,9 +3149,8 @@ func Opus_opus_dred_decoder_create_typed(tls *libc.TLS) (*OpusT_OpusDREDDecoder,
 	return dec, nil
 }
 
-func Opus_opus_dred_decoder_create(tls *libc.TLS) (uintptr, error) {
-	dec, err := Opus_opus_dred_decoder_create_typed(tls)
-	return uintptr(unsafe.Pointer(dec)), err
+func Opus_opus_dred_decoder_create(tls *libc.TLS) (*OpusT_OpusDREDDecoder, error) {
+	return Opus_opus_dred_decoder_create_typed(tls)
 }
 
 func Opus_opus_dred_decoder_destroy_typed(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) {

@@ -13,12 +13,12 @@ func TestDREDFactoryPointers(t *testing.T) {
 		t.Fatal("disabled DRED allocation stub", handle, err)
 	}
 	Opus_opus_dred_decoder_destroy_typed(nil, nil)
-	if dec, err := Opus_opus_dred_decoder_create_typed(nil); dec != nil || err == nil {
+	if dec, err := Opus_opus_dred_decoder_create(nil); dec != nil || err == nil {
 		t.Fatal("DRED allocation failure", dec, err)
 	}
 	tls := libc.NewTLS()
 	defer tls.Close()
-	dec, err := Opus_opus_dred_decoder_create_typed(tls)
+	dec, err := Opus_opus_dred_decoder_create(tls)
 	if err != nil || dec == nil {
 		t.Fatal("typed DRED create", dec, err)
 	}
