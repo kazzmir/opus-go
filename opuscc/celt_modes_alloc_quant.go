@@ -3360,7 +3360,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 			/* Switch off dual stereo to do intensity. */
 			dual_stereo = 0
 			if resynth != 0 {
-				quantAllBandsMergeFrom(quantBandFoldOutput{owner: _norm, owned: true}, quantBandFoldOutput{legacy: norm2}, eBands, i1, M, norm_offset)
+				quantAllBandsMergeFrom(quantBandFoldOutput{owner: _norm, owned: true}, quantAllBandsNormRight(_norm, norm2Origin, norm2 != nil), eBands, i1, M, norm_offset)
 			}
 		}
 		if dual_stereo != 0 {

@@ -534,6 +534,71 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four norm-mutation rounds retain primary hybrid storage, secondary hybrid
+storage, primary merge storage, then secondary merge storage. Each connects an
+actual quant-all-bands _norm Go owner (not an opaque alias), using the previously
+cached numeric right origin. Both hybrid entry points, including opuscc RDO
+restore, and dual-to-intensity resynthesis merge keep roots. Public/raw adapters
+remain; opusccenc is untouched. Counts remain100 unsafe.Pointer/104 uintptr:
+active dataflow migration, not token removal, relocated casts or layout recovery.
+
+The existing concrete fold-output carrier supplies mutable lane spans directly.
+Hybrid retains original eager bands view and int32 width calculations, equal-
+width guard BEFORE all lane views, primary full-n2 view then copy, and secondary
+view/copy ONLY after primary copy and ONLY when dual stereo is nonzero. No
+whole-buffer/table snapshots, new samples or allocations. Required first-copy
+completion before second-view failure is unchanged. Right selection preserves
+whether setup actually produced a right lane; absent right remains legacy nil,
+never silently aliases primary. Present right uses actual root/cached origin,
+not an address-derived offset or a new setup-boundary reload.
+
+Merge retains boundary lookup in EVERY loop condition (including final check),
+original int32 M*boundary-offset and j+1 geometry, primary prefix BEFORE secondary
+prefix on EACH iteration, addition BEFORE separate float32 half product, and
+sequential stores. No eager full-bound spans, bound caching, data snapshots or
+changed expression/read order. Aliased right reads observe prior left writes;
+Go-only output/table alias retains live-bound updates. Resynth/dual/intensity
+conditions, call points, hybrid/RDO copy/restore order, entropy, masks, contexts,
+seed, tie choices and all surrounding arithmetic stay unchanged. Upstream
+bands.c hybrid and intensity transition inspected. Norm input, X/Y and remaining
+raw/image/callback adapters are NOT claimed migrated or lifetime-repaired.
+
+Original manual hybrid n+guard allocations/extents stay; equal-size primary-only
+and both-owned runs compare full float bits and original expected arrays under
+GC/stack growth. Equal-width/nil/unused-origin guard, missing-right selection,
+copy-before-bounded-secondary-error and Go-only cross-lane sequential alias
+oracles are added on real allocations. Existing merge numeric/guard/alias/live-
+bound fixtures retain physical extents, add primary-owner full-bit comparisons;
+new both-lane fixtures independently check complete storage, unchanged source/
+guards, sequential averaging and live-bound behavior. Incremental short-right
+failure must occur AFTER the first completed store. No fake prefixes, pointer-
+slot poisoning, original native fixture/hash/bytes/bit-count/seed changes or
+codec golden/tolerance/scope weakening. Go-only invalid bounded/alias cases are
+not new C-valid/restrict-domain claims.
+
+Missing-right positive work retains original raw nil-span failure, not recovery
+or ownership fallback. Its NEW Go assertion initially incorrectly expected
+recover() under checkptr; the runtime terminated the test process. Failed log
+/tmp/opus-round-merge-secondary-go-norm-owner.log retained. Corrected ONLY that
+new assertion to a subprocess death test checking exact nil-positive-span text
+and a pre-call marker (nonzero exit required). Same check runs ordinarily and
+under scoped checkptr; cross-ARM exec-format failure explicitly launches QEMU,
+without skipping or suppressing validation. No production correction or weakened
+oracle. COMPLETE unchanged validation rerun passed in
+/tmp/opus-round-merge-secondary-go-norm-owner-retry.log. No other batch failures.
+Precision text-edit uniqueness/overlap mismatches resolved BEFORE validation.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including hybrid, merge, death tests and preceding owner fixtures.
+Other logs /tmp/opus-round-hybrid-primary-go-norm-owner.log,
+/tmp/opus-round-hybrid-secondary-go-norm-owner.log,
+/tmp/opus-round-merge-primary-go-norm-owner.log and
+/tmp/opus-round-norm-mutation-owners-arm-{checkptr,golden}-repeat.log.
+No native GC/extension EOF/raw callback/opaque-image repair, global lifetime
+safety, performance or direct macOS claims.
+
 Four fold-output rounds stage concrete mono/singleton destinations, propagate
 them through stereo, connect primary norm output, then connect dual-stereo norm
 output with cached numeric lane origin. Rounds1/2 stage owned private APIs and
