@@ -3171,15 +3171,16 @@ func Opus_opus_dred_get_size(tls *libc.TLS) (r int32) {
 	return 0
 }
 
-func Opus_opus_dred_alloc(tls *libc.TLS) (uintptr, error) {
-	return 0, opusErrorFromCode(-int32(5))
+// DRED payload storage is opaque: this port does not implement its layout.
+func Opus_opus_dred_alloc(tls *libc.TLS) (unsafe.Pointer, error) {
+	return nil, opusErrorFromCode(-int32(5))
 }
 
-func Opus_opus_dred_free(tls *libc.TLS, dec uintptr) {
+func Opus_opus_dred_free(tls *libc.TLS, dec unsafe.Pointer) {
 	_ = dec
 }
 
-func Opus_opus_dred_parse(tls *libc.TLS, dred_dec uintptr, dred uintptr, data uintptr, len1 OpusT_opus_int32, max_dred_samples OpusT_opus_int32, sampling_rate OpusT_opus_int32, dred_end uintptr, defer_processing int32) (r int32) {
+func Opus_opus_dred_parse(tls *libc.TLS, dred_dec *OpusT_OpusDREDDecoder, dred unsafe.Pointer, data *byte, len1 OpusT_opus_int32, max_dred_samples OpusT_opus_int32, sampling_rate OpusT_opus_int32, dred_end *int32, defer_processing int32) (r int32) {
 	_ = dred_dec
 	_ = dred
 	_ = data
@@ -3191,14 +3192,14 @@ func Opus_opus_dred_parse(tls *libc.TLS, dred_dec uintptr, dred uintptr, data ui
 	return -int32(5)
 }
 
-func Opus_opus_dred_process(tls *libc.TLS, dred_dec uintptr, src uintptr, dst uintptr) (r int32) {
+func Opus_opus_dred_process(tls *libc.TLS, dred_dec *OpusT_OpusDREDDecoder, src, dst unsafe.Pointer) (r int32) {
 	_ = dred_dec
 	_ = src
 	_ = dst
 	return -int32(5)
 }
 
-func Opus_opus_decoder_dred_decode(tls *libc.TLS, st uintptr, dred uintptr, dred_offset OpusT_opus_int32, pcm uintptr, frame_size OpusT_opus_int32) (r int32) {
+func Opus_opus_decoder_dred_decode(tls *libc.TLS, st *OpusT_OpusDecoder, dred unsafe.Pointer, dred_offset OpusT_opus_int32, pcm *int16, frame_size OpusT_opus_int32) (r int32) {
 	_ = st
 	_ = dred
 	_ = dred_offset
@@ -3207,7 +3208,7 @@ func Opus_opus_decoder_dred_decode(tls *libc.TLS, st uintptr, dred uintptr, dred
 	return -int32(5)
 }
 
-func Opus_opus_decoder_dred_decode24(tls *libc.TLS, st uintptr, dred uintptr, dred_offset OpusT_opus_int32, pcm uintptr, frame_size OpusT_opus_int32) (r int32) {
+func Opus_opus_decoder_dred_decode24(tls *libc.TLS, st *OpusT_OpusDecoder, dred unsafe.Pointer, dred_offset OpusT_opus_int32, pcm *int32, frame_size OpusT_opus_int32) (r int32) {
 	_ = st
 	_ = dred
 	_ = dred_offset
@@ -3216,7 +3217,7 @@ func Opus_opus_decoder_dred_decode24(tls *libc.TLS, st uintptr, dred uintptr, dr
 	return -int32(5)
 }
 
-func Opus_opus_decoder_dred_decode_float(tls *libc.TLS, st uintptr, dred uintptr, dred_offset OpusT_opus_int32, pcm uintptr, frame_size OpusT_opus_int32) (r int32) {
+func Opus_opus_decoder_dred_decode_float(tls *libc.TLS, st *OpusT_OpusDecoder, dred unsafe.Pointer, dred_offset OpusT_opus_int32, pcm *float32, frame_size OpusT_opus_int32) (r int32) {
 	_ = st
 	_ = dred
 	_ = dred_offset

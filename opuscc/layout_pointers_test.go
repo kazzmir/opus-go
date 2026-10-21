@@ -9,7 +9,7 @@ import (
 )
 
 func TestDREDFactoryPointers(t *testing.T) {
-	if handle, err := Opus_opus_dred_alloc(nil); handle != 0 || err == nil || err.Error() != opusErrorFromCode(-5).Error() {
+	if handle, err := Opus_opus_dred_alloc(nil); handle != nil || err == nil || err.Error() != opusErrorFromCode(-5).Error() {
 		t.Fatal("disabled DRED allocation stub", handle, err)
 	}
 	Opus_opus_dred_decoder_destroy_typed(nil, nil)

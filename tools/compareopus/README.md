@@ -534,6 +534,31 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+All DRED signature cleanup: every Opus_opus_dred_* API and related
+Opus_opus_decoder_dred_decode{,24,_float} now has NO uintptr arguments/results.
+Decoder states use canonical concrete pointers, packet *byte, dred_end *int32,
+PCM *int16/*int32/*float32. Payload alloc/free/parse/process use unsafe.Pointer
+for genuinely opaque, unimplemented OpusDRED storage; no hidden integer alias,
+fabricated zero-size/model layout or relocated reconstruction. Allocation returns
+nil plus same -5 error. This changes exported Go signatures. Inspected upstream
+opus_decoder.c ENABLE_DRED-disabled branches and actual dred_decoder.h layout;
+we do NOT enable/disable DRED, assume that enabled layout, or claim ownership
+migration in no-op stubs. Size0, no-op free, parse/process/decode -5 and ignored
+argument/error/store order remain unchanged. Header init/factory behavior stays.
+
+Updated nil allocation oracle, added bounded Go pointer cases across GC/stack
+growth for nil/non-nil states, opaque byte roots, aliasing process inputs,
+ignored signed metadata/extreme offsets, packet/end/sample canaries and no state/
+output writes. These are current unimplemented-branch tests, not new enabled-C
+model/layout/restrict/invalid-pointer claims. Original fixtures/extents and native
+codec/reference/tolerance scopes unchanged. Full inherited checks, scoped DRED/
+header/storage amd64/386 and tagged ARM ordinary/checkptr repeats20 pass; no
+failures. Logs /tmp/opus-dred-all-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr68->50; unsafe.Pointer73->80 (seven legitimate opaque
+pointer type occurrences added, NOT unsafe token reduction). No blob allocation,
+model processing, native GC/opaque-image maps/global lifetime/performance/macOS
+claim. Other packages' generated APIs are unchanged.
+
 DRED typed-destroy cleanup: removed unused Opus_opus_dred_decoder_destroy raw
 wrapper/uintptrescapes directive entirely. All existing users already call typed
 destructor; no caller casts or adapter needed. Typed invalidation/free behavior,
