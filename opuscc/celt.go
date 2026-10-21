@@ -62,10 +62,10 @@ type OpusT_fpos_t = struct {
 
 type _G_fpos64_t = OpusT_fpos_t
 
-func Opus_celt_fatal(tls *libc.TLS, str uintptr, file uintptr, line int32) {
-	// Retain the legacy file-before-message conversion order.
-	fileString := libc.GoString(file)
-	strString := libc.GoString(str)
+func Opus_celt_fatal(tls *libc.TLS, str, file *byte, line int32) {
+	// Retain the file-before-message conversion order.
+	fileString := libc.GoStringPointer(file)
+	strString := libc.GoStringPointer(str)
 	opusCeltFatal(tls, strString, fileString, line)
 }
 

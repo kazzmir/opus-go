@@ -546,6 +546,25 @@ func GoString(p uintptr) string {
 	return string(buf)
 }
 
+// GoStringPointer reads a NUL-terminated C string without converting its owner
+// to an integer address. As with GoString, scanning stops after at most 1 MiB;
+// the caller must supply readable storage through the terminator or that limit.
+func GoStringPointer(p *byte) string {
+	if p == nil {
+		return ""
+	}
+	const max = 1 << 20
+	buf := make([]byte, 0, 64)
+	for i := 0; i < max; i++ {
+		b := *(*byte)(unsafe.Add(unsafe.Pointer(p), i))
+		if b == 0 {
+			break
+		}
+		buf = append(buf, b)
+	}
+	return string(buf)
+}
+
 // ---- Pointer helpers for higher-level packages (to reduce unsafe usage there) ----
 
 func PtrUint8(s []uint8) uintptr {

@@ -534,6 +534,32 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Focused Opus_celt_fatal migration: exported str/file parameters are now *byte,
+not uintptr. This intentionally CHANGES the exported Go signature: callers pass
+typed NUL-terminated C-string pointers; no relocated integer-address adapter was
+added. Internal Go-string fatal calls remain unchanged. New libcshim.GoStringPointer
+scans from an actual pointer using numeric byte offsets, with SAME nil result,
+NUL termination and 1MiB bound as legacy GoString, without integer reconstruction
+or a fabricated maximum-length slice. File conversion STILL precedes message;
+stderr formatting, signed line and abort behavior remain identical. Legacy
+libcshim.GoString and other raw APIs are deliberately unchanged. Earlier historic
+notes calling public Opus_celt_fatal a remaining raw-integer adapter are superseded
+by this focused change. Counts: unsafe.Pointer100 unchanged, uintptr104->102.
+
+Original two native fatal diagnostic oracles/physical C-string lengths stay;
+fixture now uses real Go byte allocations and typed pointers across GC/stack
+growth, not malloc addresses or unscanned integer slots. Added nil/embedded-NUL
+Go-shim cases, invalid-byte preservation, interior roots and exact scan-limit
+coverage. Nil/unterminated bounded Go cases are not new C printf-domain claims.
+Pointer reader still requires actual readable storage through NUL or limit;
+it does not validate arbitrary pointers or give opaque images GC maps.
+Full inherited amd64/386/ARM64-QEMU validation, native comparisons, GC stress,
+codec goldens/tolerances and diff checks pass. Explicit fatal/reader scoped
+checkptr passes amd64/386 plus tagged ARM ordinary/checkptr repeats20. No failures.
+Logs /tmp/opus-celt-fatal-typed-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No native GC/extension EOF/raw callback repair, global lifetime safety,
+performance or direct macOS claim. Historical batch counts below remain historical.
+
 Four postfilter rounds retain actual output-pointer-list storage, first-block
 history destination, tail history destination, then canonical comb window120.
 All four connect active decoder/comb consumers. Exact known history and static
