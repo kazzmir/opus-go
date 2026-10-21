@@ -411,7 +411,7 @@ func TestMonoSpectrumPointers(t *testing.T) {
 					entropyInitGrowStack(12)
 					runtime.GC()
 					mask := quant_band(nil, &ctx, &x[1], N, budget, B, &low[1], LM, &out[1], 1, &scratch[1], (1<<B)-1)
-					ownedMask := quantBandTo(nil, &ownedCtx, &ownedX[1], N, budget, B, &ownedLow[1], LM, quantBandFoldOutput{owner: ownedOut, offset: 1, owned: true}, 1, quantBandScratch{owner: ownedScratch, offset: 1, owned: true}, (1<<B)-1)
+					ownedMask := quantBandLanes(nil, &ownedCtx, &ownedX[1], N, budget, B, quantBandScratch{owner: ownedLow, offset: 1, owned: true}, LM, quantBandFoldOutput{owner: ownedOut, offset: 1, owned: true}, 1, quantBandScratch{owner: ownedScratch, offset: 1, owned: true}, (1<<B)-1)
 					ownedCtx.Fec = ctx.Fec
 					if mask != ownedMask || ctx != ownedCtx || ec != ownedEC {
 						t.Fatal("owned mono scratch entropy/context/mask", LM, B, tf, budget)

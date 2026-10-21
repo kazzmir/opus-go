@@ -2488,6 +2488,10 @@ func quantBandFrom(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowb
 }
 
 func quantBandTo(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowband *float32, LM int32, output quantBandFoldOutput, gain float32, scratch quantBandScratch, fill int32) (r uint32) {
+	return quantBandLanes(tls, ctx, X, N, b, B, quantBandScratch{legacy: lowband}, LM, output, gain, scratch, fill)
+}
+
+func quantBandLanes(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowband quantBandScratch, LM int32, output quantBandFoldOutput, gain float32, scratch quantBandScratch, fill int32) (r uint32) {
 	var B0, N0, N_B, N_B0, encode, j, k, longBlocks, recombine, tf_change, time_divide int32
 	var cm uint32
 	var n1 OpusT_opus_val16
@@ -2514,9 +2518,9 @@ func quantBandTo(tls *libc.TLS, ctx *band_ctx, X *float32, N, b, B int32, lowban
 		recombine = tf_change
 	}
 	/* Band recombining to increase frequency resolution */
-	prepared := quantBandScratch{legacy: lowband}
-	if scratch.present() && lowband != nil && (recombine != 0 || N_B&int32(1) == 0 && tf_change < 0 || B0 > int32(1)) {
-		prepared = scratch.prepare(lowband, N)
+	prepared := lowband
+	if scratch.present() && lowband.present() && (recombine != 0 || N_B&int32(1) == 0 && tf_change < 0 || B0 > int32(1)) {
+		prepared = scratch.prepareFrom(lowband, N)
 	}
 	k = 0
 	for {

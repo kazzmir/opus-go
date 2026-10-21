@@ -6,6 +6,16 @@ import (
 	"testing"
 )
 
+func TestQuantBandOwnedInputUnusedPointers(t *testing.T) {
+	ctx := band_ctx{}
+	x := float32(1)
+	for _, offset := range []int32{math.MinInt32, 0, math.MaxInt32} {
+		if quantBandLanes(nil, &ctx, &x, 1, 0, 1, quantBandScratch{offset: offset, owned: true}, 0, quantBandFoldOutput{}, 1, quantBandScratch{}, 1) != 1 {
+			t.Fatal("N1 must not touch unused lowband owner")
+		}
+	}
+}
+
 func TestQuantBandOwnedInputPreparationPointers(t *testing.T) {
 	raw := [5]float32{77, 1, 2, 3, 88}
 	owned := raw
