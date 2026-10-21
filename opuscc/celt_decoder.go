@@ -902,7 +902,7 @@ func celtDecodePostfilterFirst(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mo
 
 func celtDecodePostfilterFirstWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, overlap int32, history []float32, offset int32) {
 	if combFilterOwnerMatches(history, offset, output) {
-		combFilterOwned(tls, output, history, offset, state.Fpostfilter_period_old, state.Fpostfilter_period, mode.FshortMdctSize, state.Fpostfilter_gain_old, state.Fpostfilter_gain, state.Fpostfilter_tapset_old, state.Fpostfilter_tapset, mode.Fwindow, overlap, state.Farch)
+		combFilterBuffersOwned(tls, history, offset, history, offset, state.Fpostfilter_period_old, state.Fpostfilter_period, mode.FshortMdctSize, state.Fpostfilter_gain_old, state.Fpostfilter_gain, state.Fpostfilter_tapset_old, state.Fpostfilter_tapset, mode.Fwindow, overlap, state.Farch)
 		return
 	}
 	combFilterWithHistory(tls, output, output, state.Fpostfilter_period_old, state.Fpostfilter_period, mode.FshortMdctSize, state.Fpostfilter_gain_old, state.Fpostfilter_gain, state.Fpostfilter_tapset_old, state.Fpostfilter_tapset, mode.Fwindow, overlap, state.Farch, history, offset)

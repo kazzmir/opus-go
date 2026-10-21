@@ -1088,16 +1088,21 @@ func TestCeltDecodePostfilterFirstPointers(t *testing.T) {
 				h[i] = float32(i%13-6) / 128
 			}
 			want := append([]float32(nil), h...)
+			owned := append([]float32(nil), h...)
 			Opus_comb_filter(nil, &want[257], &want[257], 45, 100, 120, gain, .3, tap, 2, mode.Fwindow, 120, 0)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			celtDecodePostfilterFirst(nil, state, mode, &h[257], 120)
+			celtDecodePostfilterFirstWithHistory(nil, state, mode, &owned[257], 120, owned[1:len(owned)-1], 256)
 			if *state != before {
 				t.Fatal("first postfilter state")
 			}
 			for i := range h {
 				if math.Float32bits(h[i]) != math.Float32bits(want[i]) {
 					t.Fatal("first postfilter", gain, tap, i)
+				}
+				if math.Float32bits(owned[i]) != math.Float32bits(want[i]) {
+					t.Fatal("owned first postfilter/full buffers", gain, tap, i)
 				}
 			}
 		}
