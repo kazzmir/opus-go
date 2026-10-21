@@ -862,7 +862,15 @@ func celtDecodePostfilter(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *O
 }
 
 func celtDecodePostfilterWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs **float32, channels, N, LM, period int32, gain float32, tapset, overlap int32, history [2][]float32) {
-	out := unsafe.Slice(outputs, max(int32(1), channels))
+	celtDecodePostfilterFrom(tls, state, mode, celtSynthesisOutputs{legacy: outputs}, channels, N, LM, period, gain, tapset, overlap, history)
+}
+
+func celtDecodePostfilterOwned(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs []*float32, channels, N, LM, period int32, gain float32, tapset, overlap int32, history [2][]float32) {
+	celtDecodePostfilterFrom(tls, state, mode, celtSynthesisOutputs{owner: outputs, owned: true}, channels, N, LM, period, gain, tapset, overlap, history)
+}
+
+func celtDecodePostfilterFrom(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, outputs celtSynthesisOutputs, channels, N, LM, period int32, gain float32, tapset, overlap int32, history [2][]float32) {
+	out := outputs.span(channels)
 	for c := int32(0); ; c++ {
 		celtDecodePostfilterClamp(state)
 		celtDecodePostfilterFirstWithHistory(tls, state, mode, out[c], overlap, history[c], DEC_PITCH_BUF_SIZE-N)
@@ -882,7 +890,7 @@ func celtDecodePostfilterTail(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mod
 func celtDecodePostfilterTailWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, N, period int32, gain float32, tapset, overlap int32, history []float32, offset int32) {
 	tail := &unsafe.Slice(output, N)[mode.FshortMdctSize]
 	if combFilterOwnerMatches(history, offset+mode.FshortMdctSize, tail) {
-		combFilterOwned(tls, tail, history, offset+mode.FshortMdctSize, state.Fpostfilter_period, period, N-mode.FshortMdctSize, state.Fpostfilter_gain, gain, state.Fpostfilter_tapset, tapset, mode.Fwindow, overlap, state.Farch)
+		combFilterBuffersOwned(tls, history, offset+mode.FshortMdctSize, history, offset+mode.FshortMdctSize, state.Fpostfilter_period, period, N-mode.FshortMdctSize, state.Fpostfilter_gain, gain, state.Fpostfilter_tapset, tapset, mode.Fwindow, overlap, state.Farch)
 		return
 	}
 	combFilterWithHistory(tls, tail, tail, state.Fpostfilter_period, period, N-mode.FshortMdctSize, state.Fpostfilter_gain, gain, state.Fpostfilter_tapset, tapset, mode.Fwindow, overlap, state.Farch, history, offset+mode.FshortMdctSize)
@@ -894,7 +902,7 @@ func celtDecodePostfilterFirst(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mo
 
 func celtDecodePostfilterFirstWithHistory(tls *libc.TLS, state *OpusT_OpusCustomDecoder, mode *OpusT_OpusCustomMode, output *float32, overlap int32, history []float32, offset int32) {
 	if combFilterOwnerMatches(history, offset, output) {
-		combFilterOwned(tls, output, history, offset, state.Fpostfilter_period_old, state.Fpostfilter_period, mode.FshortMdctSize, state.Fpostfilter_gain_old, state.Fpostfilter_gain, state.Fpostfilter_tapset_old, state.Fpostfilter_tapset, mode.Fwindow, overlap, state.Farch)
+		combFilterBuffersOwned(tls, history, offset, history, offset, state.Fpostfilter_period_old, state.Fpostfilter_period, mode.FshortMdctSize, state.Fpostfilter_gain_old, state.Fpostfilter_gain, state.Fpostfilter_tapset_old, state.Fpostfilter_tapset, mode.Fwindow, overlap, state.Farch)
 		return
 	}
 	combFilterWithHistory(tls, output, output, state.Fpostfilter_period_old, state.Fpostfilter_period, mode.FshortMdctSize, state.Fpostfilter_gain_old, state.Fpostfilter_gain, state.Fpostfilter_tapset_old, state.Fpostfilter_tapset, mode.Fwindow, overlap, state.Farch, history, offset)
@@ -1679,7 +1687,8 @@ func celt_decode_with_ec_dred(tls *libc.TLS, st1 *OpusT_OpusCustomDecoder, data 
 	}
 	celtDecodePrefilter(tls, st1, N)
 	celtSynthesisOwned(tls, mode, X, out_syn[:], oldBandE, start, effEnd, C, CC, isTransient, LM, st1.Fdownsample, silence, st1.Farch)
-	celtDecodePostfilterWithHistory(tls, st1, mode, &out_syn[0], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap, decode_mem)
+	_ = out_syn[0] // Preserve the original required pointer-list first cell.
+	celtDecodePostfilterOwned(tls, st1, mode, out_syn[:], CC, N, LM, postfilter_pitch, postfilter_gain, postfilter_tapset, overlap, decode_mem)
 	celtDecodePostfilterFinish(st1, postfilter_pitch, postfilter_gain, postfilter_tapset, LM)
 	if C == 1 {
 		celtDecodeEnergyMono(oldBandE, nbEBands)

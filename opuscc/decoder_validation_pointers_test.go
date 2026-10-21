@@ -1343,11 +1343,11 @@ func TestDiagnosticMiniAssertPointers(t *testing.T) {
 
 func TestDiagnosticVersionPointers(t *testing.T) {
 	const want = "libopus 1.6.1"
-	p := Opus_opus_get_version_string_typed(nil)
+	p := Opus_opus_get_version_string(nil)
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if p != unsafe.StringData(__ccgo_ts1[3291:]) || unsafe.String(p, len(want)) != want || unsafe.Slice(p, len(want)+1)[len(want)] != 0 || Opus_opus_get_version_string(nil) != uintptr(unsafe.Pointer(p)) {
-		t.Fatal("static typed/raw version pointer/text/NUL")
+	if p != unsafe.StringData(__ccgo_ts1[3291:]) || unsafe.String(p, len(want)) != want || unsafe.Slice(p, len(want)+1)[len(want)] != 0 || Opus_opus_get_version_string_typed(nil) != p {
+		t.Fatal("static version pointer/text/NUL and typed entry parity")
 	}
 }
 

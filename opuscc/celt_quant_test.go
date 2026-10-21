@@ -37,6 +37,40 @@ func TestQuantBandN1Pointers(t *testing.T) {
 	}
 }
 
+func TestQuantBandN1OwnedFoldPointers(t *testing.T) {
+	x := [4]float32{77, -.5, .25, 88}
+	owned := x
+	var buffer, ownedBuffer [16]byte
+	var ec, ownedEC OpusT_ec_enc
+	Opus_ec_enc_init(nil, &ec, &buffer[0], 16)
+	Opus_ec_enc_init(nil, &ownedEC, &ownedBuffer[0], 16)
+	ctx := band_ctx{Fencode: 1, Fresynth: 1, Fremaining_bits: 16}
+	ownedCtx := ctx
+	entropyInitGrowStack(12)
+	runtime.GC()
+	mask := quant_band_n1(nil, &ctx, &ec, &x[1], &x[2], &x[2])
+	ownedMask := quantBandN1To(nil, &ownedCtx, &ownedEC, &owned[1], &owned[2], quantBandFoldOutput{owner: owned[:], offset: 2, owned: true})
+	probe := ownedEC
+	probe.Fbuf = ec.Fbuf
+	if mask != ownedMask || ctx != ownedCtx || probe != ec || buffer != ownedBuffer || x != owned || x != [4]float32{77, -1, -1, 88} {
+		t.Fatal("N1 owned final live X copy/alias/state", x, owned)
+	}
+	absent := quantBandFoldOutput{legacy: &x[0], owned: true}
+	if absent.present() {
+		t.Fatal("owned nil output must not fall back")
+	}
+	ctx = band_ctx{}
+	quantBandN1To(nil, &ctx, nil, nil, nil, absent)
+	for _, bits := range []uint32{0x80000000, 0x7f800001, 0xffc12345, 0x3f800001} {
+		value := math.Float32frombits(bits)
+		output := []float32{77, 0, 88}
+		quantBandN1To(nil, &ctx, nil, &value, nil, quantBandFoldOutput{owner: output, offset: 1, owned: true})
+		if math.Float32bits(output[1]) != bits || output[0] != 77 || output[2] != 88 {
+			t.Fatal("N1 fold copy preserves exact bits", bits)
+		}
+	}
+}
+
 func TestBandContextEntropyPointers(t *testing.T) {
 	makeEncoder := func(capacity int) *band_ctx {
 		buffer := make([]byte, capacity)
@@ -289,6 +323,34 @@ func TestQuantPartitionLowbandPointers(t *testing.T) {
 	}
 }
 
+func TestQuantBandFoldLiveAliasPointers(t *testing.T) {
+	x := [6]float32{77, .2, .3, .4, .5, 88}
+	owned := x
+	ec := OpusT_ec_ctx{Frng: 1 << 31, Fval: (1 << 31) - 1, Fnbits_total: 33}
+	oec := ec
+	ctx := band_ctx{Fm: &mode48000_960_120, Fec: &ec, Fresynth: 1, Fseed: 123456}
+	oc := ctx
+	oc.Fec = &oec
+	entropyInitGrowStack(12)
+	runtime.GC()
+	mask := quant_band(nil, &ctx, &x[1], 4, 0, 1, nil, 2, &x[2], 1, nil, 1)
+	om := quantBandTo(nil, &oc, &owned[1], 4, 0, 1, nil, 2, quantBandFoldOutput{owner: owned[:], offset: 2, owned: true}, 1, quantBandScratch{}, 1)
+	oc.Fec = ctx.Fec
+	if mask != om || ctx != oc || ec != oec || x[0] != 77 {
+		t.Fatal("fold alias full state/mask")
+	}
+	for i := range x {
+		if math.Float32bits(x[i]) != math.Float32bits(owned[i]) {
+			t.Fatal("fold live alias full bits", i)
+		}
+	}
+	for i := 2; i < len(x); i++ {
+		if x[i] != float32(2*x[i-1]) {
+			t.Fatal("fold must reload after each sequential store", i, x)
+		}
+	}
+}
+
 func TestQuantBandScratchOwnerPointers(t *testing.T) {
 	owner := []float32{77, 1, 2, 3, 88}
 	view := quantBandScratch{owner: owner, offset: 1, owned: true}
@@ -349,7 +411,7 @@ func TestMonoSpectrumPointers(t *testing.T) {
 					entropyInitGrowStack(12)
 					runtime.GC()
 					mask := quant_band(nil, &ctx, &x[1], N, budget, B, &low[1], LM, &out[1], 1, &scratch[1], (1<<B)-1)
-					ownedMask := quantBandFrom(nil, &ownedCtx, &ownedX[1], N, budget, B, &ownedLow[1], LM, &ownedOut[1], 1, quantBandScratch{owner: ownedScratch, offset: 1, owned: true}, (1<<B)-1)
+					ownedMask := quantBandLanes(nil, &ownedCtx, &ownedX[1], N, budget, B, quantBandScratch{owner: ownedLow, offset: 1, owned: true}, LM, quantBandFoldOutput{owner: ownedOut, offset: 1, owned: true}, 1, quantBandScratch{owner: ownedScratch, offset: 1, owned: true}, (1<<B)-1)
 					ownedCtx.Fec = ctx.Fec
 					if mask != ownedMask || ctx != ownedCtx || ec != ownedEC {
 						t.Fatal("owned mono scratch entropy/context/mask", LM, B, tf, budget)
@@ -394,7 +456,7 @@ func TestQuantBandStereoScratchPointers(t *testing.T) {
 						entropyInitGrowStack(12)
 						runtime.GC()
 						mask := quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, B, &low[1], LM, &out[1], &scratch[1], (1<<B)-1)
-						om := quantBandStereoFrom(nil, &oc, &ox[1], &oy[1], N, budget, B, &ol[1], LM, &oo[1], quantBandScratch{owner: os, offset: 1, owned: true}, (1<<B)-1)
+						om := quantBandStereoLanes(nil, &oc, &ox[1], &oy[1], N, budget, B, quantBandScratch{owner: ol, offset: 1, owned: true}, LM, quantBandFoldOutput{owner: oo, offset: 1, owned: true}, quantBandScratch{owner: os, offset: 1, owned: true}, (1<<B)-1)
 						oc.Fec = ctx.Fec
 						if mask != om || ctx != oc || ec != oec {
 							t.Fatal("stereo scratch entropy/context/mask", LM, B, tf, budget, intensity)
@@ -429,9 +491,24 @@ func TestStereoSpectrumPointers(t *testing.T) {
 					out[i] = 77
 				}
 				firstX, lastX, firstY, lastY := x[0], x[N+1], y[0], y[N+1]
+				ox, oy, oo := slices.Clone(x), slices.Clone(y), slices.Clone(out)
+				oec, oc := ec, ctx
+				oc.Fec = &oec
 				entropyInitGrowStack(12)
 				runtime.GC()
-				quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, 1, nil, LM, &out[1], nil, 3)
+				mask := quant_band_stereo(nil, &ctx, &x[1], &y[1], N, budget, 1, nil, LM, &out[1], nil, 3)
+				om := quantBandStereoTo(nil, &oc, &ox[1], &oy[1], N, budget, 1, nil, LM, quantBandFoldOutput{owner: oo, offset: 1, owned: true}, quantBandScratch{}, 3)
+				oc.Fec = ctx.Fec
+				if om != mask || oc != ctx || oec != ec {
+					t.Fatal("owned stereo fold full state/mask", LM, budget, intensity)
+				}
+				for _, pair := range [][2][]float32{{x, ox}, {y, oy}, {out, oo}} {
+					for i := range pair[0] {
+						if math.Float32bits(pair[0][i]) != math.Float32bits(pair[1][i]) {
+							t.Fatal("owned stereo fold full bits", LM, budget, intensity, i)
+						}
+					}
+				}
 				if x[0] != firstX || x[N+1] != lastX || y[0] != firstY || y[N+1] != lastY || out[0] != 77 || out[N+1] != 77 {
 					t.Fatal("stereo guards", LM, budget, intensity)
 				}

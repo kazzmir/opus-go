@@ -601,7 +601,7 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 		if hash != wantHash {
 			t.Fatalf("%s line %d: PCM hash %d, want %d", name, line, hash, wantHash)
 		}
-		if ret := Opus_opus_multistream_decoder_ctl(tls, dec, OPUS_GET_FINAL_RANGE_REQUEST, libc.VaList(va, rng)); ret != 0 {
+		if ret := Opus_opus_multistream_decoder_ctl(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(dec)), OPUS_GET_FINAL_RANGE_REQUEST, libc.NewVaCursor(unsafe.Pointer(libc.VaList(va, rng)))); ret != 0 {
 			t.Fatalf("range CTL = %d", ret)
 		}
 		if got := *(*uint32)(unsafe.Pointer(rng)); got != wantRange {

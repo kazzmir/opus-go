@@ -19,17 +19,17 @@ func TestOpusDecoderCtlCReference(t *testing.T) {
 	defer f.Close()
 	tls := libc.NewTLS()
 	defer tls.Close()
-	st, err := Opus_opus_decoder_create(tls, 48000, 2)
+	st, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Opus_opus_decoder_destroy(tls, st)
+	defer Opus_opus_decoder_destroy_typed(tls, st)
 	va := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
 	defer libc.Xfree(tls, va)
 	out := libc.Xmalloc(tls, 4)
 	defer libc.Xfree(tls, out)
-	d := (*OpusT_OpusDecoder)(unsafe.Pointer(st))
-	celt := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(st + uintptr(d.Fcelt_dec_offset)))
+	d := st
+	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), d.Fcelt_dec_offset))
 	scanner := bufio.NewScanner(f)
 	for line := 1; scanner.Scan(); line++ {
 		var op string
@@ -59,7 +59,7 @@ func TestOpusDecoderCtlCReference(t *testing.T) {
 		default:
 			t.Fatalf("unknown operation %q", op)
 		}
-		ret := Opus_opus_decoder_ctl(tls, st, request, va)
+		ret := Opus_opus_decoder_ctl(tls, d, request, libc.NewVaCursor(unsafe.Pointer(va)))
 		if ret != wantRet {
 			t.Fatalf("line %d (%s): return %d, want %d", line, scanner.Text(), ret, wantRet)
 		}

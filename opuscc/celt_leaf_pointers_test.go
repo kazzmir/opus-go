@@ -995,7 +995,7 @@ func TestCeltDecodePostfilterHistoryPointers(t *testing.T) {
 			history := [2][]float32{owners[0][1 : len(owners[0])-1], owners[1][1 : len(owners[1])-1]}
 			entropyInitGrowStack(12)
 			runtime.GC()
-			celtDecodePostfilterWithHistory(nil, &state, mode, &out[0], channels, N, LM, 80, .7, 0, 120, history)
+			celtDecodePostfilterOwned(nil, &state, mode, out[:], channels, N, LM, 80, .7, 0, 120, history)
 			if state != wantState {
 				t.Fatal("owned postfilter state")
 			}
@@ -1061,16 +1061,21 @@ func TestCeltDecodePostfilterTailPointers(t *testing.T) {
 					h[i] = float32(i%13-6) / 128
 				}
 				want := append([]float32(nil), h...)
+				owned := append([]float32(nil), h...)
 				Opus_comb_filter(nil, &want[377], &want[377], 100, 80, N-120, .3, gain, 2, tap, mode.Fwindow, 120, 0)
 				entropyInitGrowStack(12)
 				runtime.GC()
 				celtDecodePostfilterTail(nil, state, mode, &h[257], N, 80, gain, tap, 120)
+				celtDecodePostfilterTailWithHistory(nil, state, mode, &owned[257], N, 80, gain, tap, 120, owned[1:len(owned)-1], 256)
 				if *state != before {
 					t.Fatal("tail postfilter state")
 				}
 				for i := range h {
 					if math.Float32bits(h[i]) != math.Float32bits(want[i]) {
 						t.Fatal("tail postfilter", N, gain, tap, i)
+					}
+					if math.Float32bits(owned[i]) != math.Float32bits(want[i]) {
+						t.Fatal("owned tail postfilter/full buffers", N, gain, tap, i)
 					}
 				}
 			}
@@ -1088,16 +1093,21 @@ func TestCeltDecodePostfilterFirstPointers(t *testing.T) {
 				h[i] = float32(i%13-6) / 128
 			}
 			want := append([]float32(nil), h...)
+			owned := append([]float32(nil), h...)
 			Opus_comb_filter(nil, &want[257], &want[257], 45, 100, 120, gain, .3, tap, 2, mode.Fwindow, 120, 0)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			celtDecodePostfilterFirst(nil, state, mode, &h[257], 120)
+			celtDecodePostfilterFirstWithHistory(nil, state, mode, &owned[257], 120, owned[1:len(owned)-1], 256)
 			if *state != before {
 				t.Fatal("first postfilter state")
 			}
 			for i := range h {
 				if math.Float32bits(h[i]) != math.Float32bits(want[i]) {
 					t.Fatal("first postfilter", gain, tap, i)
+				}
+				if math.Float32bits(owned[i]) != math.Float32bits(want[i]) {
+					t.Fatal("owned first postfilter/full buffers", gain, tap, i)
 				}
 			}
 		}

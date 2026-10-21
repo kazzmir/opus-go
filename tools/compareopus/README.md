@@ -534,6 +534,490 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Public native decode pointer migration: Opus_opus_decode_native has NO uintptr
+parameters/address reconstruction. Decoder is *OpusT_OpusDecoder, packet *byte,
+PCM *float32, offset output *int32; removed obsolete uintptrescapes directive.
+DRED remains an ignored unsafe.Pointer argument with unchanged signed offset,
+not a fabricated Go DRED layout or new implementation. No relocated raw native
+adapter. This CHANGES exported Go parameter types. Existing typed driver and
+validation/error order, live inputs/outputs, arithmetic and codec DSP unchanged.
+
+Updated three callers to actual state/buffer pointers, not casts back to integer
+addresses. Loss-frame fixture keeps original raw allocation/init/physical extent;
+no GC-map repair claimed. Independent native C-reference fixture now exercises
+public pointer entry directly for SAME packets, physical buffers, FEC/error/
+self-delimited/packet-offset cases, exact hashes/ranges/durations/PCM and original
+eight vararg bytes. Existing paired direct/public state/full-PCM/guard checks
+remain. New bounded Go case compares valid nonnil opaque DRED byte pointer and
+extreme signed offsets against typed core (DRED ignored), retaining original
+output canaries; not a native DRED model/restrict/invalid-domain claim.
+Full inherited amd64/386/ARM64-QEMU/native/GC stress/reference checks pass;
+scoped native/direct/public/C-oracle amd64/386 and tagged ARM ordinary/checkptr
+repeats20 pass. Ordinary also includes original raw-allocation loss-frame fixture.
+No failures. Logs /tmp/opus-native-typed-public-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr83->79, unsafe.Pointer88->85 (four reconstruction casts
+removed, one legitimate opaque pointer parameter). Historical raw-native ABI
+comparison descriptions below now refer to typed/public comparisons; no integer
+native decode boundary remains in this API. No global lifetime/opaque-image GC
+maps/native repair/performance/direct macOS claims.
+
+Typed decoder creation migration: every remaining opuscc caller now uses
+Opus_opus_decoder_create_typed and matching destroy_typed. Removed unused
+exported integer-returning Opus_opus_decoder_create wrapper; external Go callers
+must switch to the typed API. No relocated legacy constructor/opaque alias.
+Production opus/decoder.go already used typed creation and is unchanged.
+
+Native decode C-reference fixture now keeps actual decoder/packet/PCM/offset
+pointers through existing typed native/int16 drivers, not typed creation followed
+by a cast back to integer decoding. Raw native wrapper only forwarded these same
+values (its omitted DRED arguments were zero/ignored); all packet bytes, sample
+counts, buffers/physical extents, independent C hashes/ranges/offsets/durations,
+FEC/error/softclip cases and exact tolerances unchanged. Original eight vararg
+bytes stay [2]int32, with equivalent native-word scalar1 encoding, not integer
+address reconstruction. Separate raw/native ABI fixtures remain unchanged.
+CTL transcript keeps original vararg/output allocations, encodings, transcript
+and oracle; only factory/destroy/state/child-origin plumbing becomes typed or
+numeric unsafe.Add. Native fixture is now additionally checkptr-tested directly.
+
+Full inherited amd64/386/ARM64-QEMU/native/GC stress/reference validation passes;
+explicit native-reference/create/storage scoped amd64/386 plus tagged ARM
+ordinary/checkptr repeats20 pass (ordinary also includes original CTL transcript).
+No failures. Logs /tmp/opus-decoder-typed-create-{focused,full,amd64-checkptr,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr85->83, unsafe.Pointer89->88. Encoder's separate constructor
+is unchanged; no native GC/opaque-image/lifetime/performance/macOS claims.
+
+Custom decoder CTL pointer migration: Opus_opus_custom_decoder_ctl now takes
+*OpusT_OpusCustomDecoder and libcshim.VaCursor, removing BOTH uintptr parameters
+and BOTH state/base reconstruction casts. Exported Go signature changes; typed
+request implementation and lazy helper/argument-read timing stay unchanged. No
+replacement integer-address adapter or hidden alias. All migrated public CTL
+entry points now use actual state pointers/cursors; DRED keeps no cursor because
+it remains unimplemented. Earlier custom-CTL raw-boundary notes are superseded.
+New public-entry test uses actual scanned decoder/mode owners and native scalar/
+pointer slots across GC/stack growth, setter/getter, range, null, invalid value
+before stores, unknown/reset with empty cursor, repeated cursor/live reload,
+aliased error clear/store ordering, mode output/write barrier and retained mode
+owner. Original typed/native independent oracles/extents/layouts and codec
+references/tolerances unchanged. Full inherited validation plus scoped CTL/
+cursor amd64/386 and tagged ARM ordinary/checkptr repeats20 pass; no failures.
+Logs /tmp/opus-custom-ctl-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr87->85, unsafe.Pointer91->89. No native lifetime/GC repair,
+opaque-image GC maps, performance or direct macOS claims.
+
+Version-string pointer migration: opuscc.Opus_opus_get_version_string now
+returns *byte directly, with no integer-address result or pointer-to-integer
+conversion. This changes its exported Go return type. Existing _typed entry
+remains and returns SAME read-only, NUL-terminated static diagnostic-pool root.
+No storage copy, string/pool/layout/NUL change or new compatibility adapter.
+Version fixture now holds the public entry's actual pointer across GC/stack
+growth and checks original pool identity, exact libopus 1.6.1 text, NUL and
+_typed parity without integer conversions. Existing independent oracles/extents,
+codec goldens/tolerances and broad validation unchanged. Full inherited checks,
+scoped diagnostics amd64/386 and tagged ARM ordinary/checkptr repeats20 pass;
+no failures. Logs /tmp/opus-version-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr89->87, unsafe.Pointer92->91. Encoder package's separate
+legacy version API is unchanged; no global ABI/lifetime/performance claims.
+
+Latest DRED CTL decision: removed unused VaCursor again at user request because
+DRED remains unimplemented. Signature is now (TLS, *OpusT_OpusDREDDecoder,
+request); existing -5 result is unchanged. Updated no-argument test. No DRED
+implementation/configuration was disabled or changed. This supersedes the
+restoration below. Full inherited validation, scoped amd64/386 and tagged ARM
+ordinary/checkptr repeats20 pass; no failures. Logs
+/tmp/opus-dred-ctl-remove-cursor-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+
+DRED CTL correction: restored VaCursor parameter at user request, preserving
+the argument-carrying signature from the common.go CTL migration. DRED was
+ALREADY an unimplemented -5 stub before these cursor changes; neither removing
+nor restoring an unused parameter enables/disables DRED processing. No DRED
+implementation was removed. Current stub still returns -5; implementing actual
+DRED is separate work. Cursor holds a pointer and numeric offset, not an integer
+address (its shared slot-size expression uses sizeof(uintptr), a width constant).
+No model/codec/configuration, ABI layout, lifetime or arithmetic change claimed.
+Full inherited validation, scoped amd64/386 and tagged ARM ordinary/checkptr
+repeats20 pass unchanged. No failures. Logs
+/tmp/opus-dred-ctl-restore-cursor-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts remain89 uintptr/92 unsafe.Pointer. The no-argument signature recorded
+immediately below is superseded by this correction.
+
+Disabled DRED CTL follow-up: Opus_opus_dred_decoder_ctl now takes ONLY TLS,
+typed DRED decoder and request. Removed unused VaCursor parameter entirely;
+no placeholder/opaque alias, varargs parser, pointer-width dependency or new
+raw adapter. This is a further exported Go signature change and unused-stub
+API cleanup, not an ownership/DSP migration. Every request still ignores state
+and returns -5. Other CTL/cursor APIs are unchanged. Renamed/updated no-argument
+DRED tests; native fixtures/extents/oracles/codec references/tolerances unchanged.
+Full inherited validation initially hit recurring native found-pointer-to-free-
+object with TestExtensionNextAgainstC active. Complete UNCHANGED retry passed;
+failed log retained, no native fix claimed. Scoped amd64/386 and tagged ARM
+ordinary/checkptr repeats20 include DRED and preceding CTL/cursor cases. Logs
+/tmp/opus-dred-ctl-no-cursor-{focused,focused-retry,full,full-retry,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts remain89 uintptr/92 unsafe.Pointer; no global safety/performance claims.
+Prior DRED cursor-signature notes below are historical.
+
+Focused common.go CTL migration (NOT whole-file integer-address removal):
+Opus_opus_decoder_ctl, multistream ctl/ctl_va_list and projection ctl now take
+actual concrete decoder pointers and libcshim.VaCursor values. OpusT_va_list now
+names that real pointer-plus-offset cursor, not an integer-address alias. No
+state/base reconstruction remains in these CTL APIs, no replacement raw adapter
+was relocated elsewhere, and no integer slot snapshots/TLS scratch were added.
+This intentionally CHANGES exported Go signatures/va_list representation.
+Go callers can also use existing *_ctl_typed with OpusDecoderCtlArgs directly.
+Disabled DRED ctl receives matching typed state/cursor signature; this is stub
+API cleanup only, not a new DRED ownership/DSP claim (still ignores everything,
+returns -5). Remaining create/decode/destroy/callback/difference uintptr sites
+in common.go are explicitly NOT migrated by this focused CTL step.
+
+Cursor copied per call; opening/reading remains request-lazy. Reset/unknown
+consume no slots, invalid stream ID consumes exactly its first native word,
+second output slot is deferred until bounds pass. Projection derives MS at
+same points as before. Validation/store order, live aliases, child forwarding,
+range XOR/clear-before-query, write barriers, reset prefix/gain preservation
+and all error values unchanged. Removed unused generated MS forwarding locals
+without changing cursor-copy semantics. Original native transcript/hash fixtures
+keep SAME allocations/extents/encodings/expected values; only fixture-boundary
+state/cursor arguments adapt to new signatures. No production compatibility
+casts relocated into new helpers and no oracle/tolerance changes.
+
+New public-entry tests use actual scanned composite decoder parents, pointer
+output slots/native scalar words across GC/stack growth, all four ctl routes,
+repeated cursor calls/live scalar reloads, null output, unknown/reset with empty
+cursor, invalid gain/no stores, actual child output, one-word invalid stream ID,
+aliased final range and reset gain preservation. DRED nil/empty cases remain -5.
+These are bounded Go cases, not new native invalid/restrict-domain claims; no
+opaque image GC maps/legacy vararg pointee lifetime/native GC repair claimed.
+Counts: opuscc uintptr99->89; unsafe.Pointer98->92. Full inherited amd64/386/
+ARM64-QEMU/native/GC stress/unchanged-codec-reference checks, explicit scoped
+public ctl/cursor tests amd64/386, tagged ARM ordinary/scoped repeats20, and diff
+checks pass. No failures. Logs
+/tmp/opus-common-ctl-cursor-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No performance/global lifetime/direct macOS claims. Previous raw-boundary notes
+below are historical; only custom CELT ctl retains that raw boundary now.
+
+Focused decoder_ctl_typed.go migration: no uintptr types/address reconstruction
+remain in that file. msCtlLegacyArgs, opusCtlLegacyArgs and customCtlLegacyArgs
+now consume lazy factories for actual pointer-based libcshim.VaCursor values.
+Cursor retains a Go-visible base pointer plus numeric byte offset; native-word
+Int32 reads preserve low32/sign behavior on 32/64-bit targets, pointer slots
+load actual pointers directly, and advancement never forms an unused one-past
+pointer. This is not a uintptr alias or relocated integer-word pointer decoder.
+Four EXISTING raw ABI entry points keep original exported signatures and defer
+ONLY their unavoidable raw va-base conversion until a consumed request opens
+the cursor. No new raw adapter, uintptr-storing cursor, TLS scratch or slot copy.
+
+Laziness preserves unknown/reset/unsupported requests with unused varargs;
+multistream opens once, reads stream ID first, then checks its original bounds
+before accessing a second slot. Request whitelists, delegation, value/null
+checks, error order, live output aliases, typed stores/write barriers and DSP
+remain unchanged. Upstream multistream va_arg/bounds order inspected. Existing
+raw VaList/VaInt32/VaUintptr and public typed CTL arguments are unchanged.
+New tests use scanned actual pointer slots/native scalar words across GC/stack
+growth, cover all three adapters' setter/getter groups, pointer/null outputs,
+unsigned/mode/decoder slots, one-word invalid stream IDs, and unused factories
+that fail if opened. Native-word low32/high-bit and offset/base tests cover both
+word sizes. No opaque byte image gains GC maps: legacy vararg byte/word buffers
+still require external pointee lifetimes. No native GC/lifetime repair claimed.
+
+Counts: opuscc uintptr102->99; unsafe.Pointer100->98 (six integer-to-output
+pointer casts replaced by actual pointer loads, four deferred raw-base casts at
+existing boundaries). Original fixtures/extents/native independent oracles,
+codec hashes/goldens/tolerances and broad validation scope unchanged. Full
+inherited amd64/386/ARM64-QEMU/native/GC stress checks pass, explicit cursor/CTL
+scoped checkptr amd64/386 and tagged ARM ordinary/scoped repeats20 pass. No test
+failures. Logs /tmp/opus-ctl-pointer-cursor-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No performance/global lifetime/direct macOS claims. Historical counts follow.
+
+Focused Opus_celt_fatal migration: exported str/file parameters are now *byte,
+not uintptr. This intentionally CHANGES the exported Go signature: callers pass
+typed NUL-terminated C-string pointers; no relocated integer-address adapter was
+added. Internal Go-string fatal calls remain unchanged. New libcshim.GoStringPointer
+scans from an actual pointer using numeric byte offsets, with SAME nil result,
+NUL termination and 1MiB bound as legacy GoString, without integer reconstruction
+or a fabricated maximum-length slice. File conversion STILL precedes message;
+stderr formatting, signed line and abort behavior remain identical. Legacy
+libcshim.GoString and other raw APIs are deliberately unchanged. Earlier historic
+notes calling public Opus_celt_fatal a remaining raw-integer adapter are superseded
+by this focused change. Counts: unsafe.Pointer100 unchanged, uintptr104->102.
+
+Original two native fatal diagnostic oracles/physical C-string lengths stay;
+fixture now uses real Go byte allocations and typed pointers across GC/stack
+growth, not malloc addresses or unscanned integer slots. Added nil/embedded-NUL
+Go-shim cases, invalid-byte preservation, interior roots and exact scan-limit
+coverage. Nil/unterminated bounded Go cases are not new C printf-domain claims.
+Pointer reader still requires actual readable storage through NUL or limit;
+it does not validate arbitrary pointers or give opaque images GC maps.
+Full inherited amd64/386/ARM64-QEMU validation, native comparisons, GC stress,
+codec goldens/tolerances and diff checks pass. Explicit fatal/reader scoped
+checkptr passes amd64/386 plus tagged ARM ordinary/checkptr repeats20. No failures.
+Logs /tmp/opus-celt-fatal-typed-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No native GC/extension EOF/raw callback repair, global lifetime safety,
+performance or direct macOS claim. Historical batch counts below remain historical.
+
+Four postfilter rounds retain actual output-pointer-list storage, first-block
+history destination, tail history destination, then canonical comb window120.
+All four connect active decoder/comb consumers. Exact known history and static
+window storage are Go-visible owners, not aliases for byte images or displaced
+casts. Counts remain100 unsafe.Pointer/104 uintptr; public/raw adapters stay.
+
+Postfilter's actual [2]*float32 output array passes as its real slice, sharing
+the existing concrete synthesis-output carrier. Original required first-cell
+argument check remains. Full max(1,channels) pointer-list view forms BEFORE any
+clamp/channel DSP. Clamp stays per channel; out[c] is reloaded separately for
+first and tail, preserving live list aliases, LM guard and channel-zero do/while
+behavior. History arrays/origins, state/period/gain/tapset reads and arithmetic
+remain unchanged. Raw and typed output-list routes share identical dispatch.
+
+First and tail use actual history as BOTH comb source and destination only
+AFTER existing exact live-pointer/root/origin match. Mismatched/nil/unbound paths
+retain original raw fallback. Tail STILL forms original full N prefix and
+required shortMdctSize cell BEFORE ownership matching and BEFORE zero-gain
+identity guard; needed scalar tail identity/fallback boundary is deliberately
+retained. No skipped required index, eager destination views or guessed root.
+Source-before-output view order, no-work/identity behavior, signed unused
+compatibility, per-channel first-before-tail, float32 rounding/products and
+sequential stores stay unchanged. No spectrum/image/whole-decoder migration claim.
+
+Comb window binding occurs at original window-view point AFTER history, output
+and initial delayed-sample loads, never at entry or before zero-gain fast path.
+Only exact &window120[0] plus overlap0..120 binds actual window120[:]. Copy,
+interior, oversized, negative and nil cases retain legacy pointer/length;
+unsupported classification does NOT manufacture fake larger spans. Owner flag
+never silently falls back. Overlap suppression and original deferred read timing
+stay. Window coefficients remain live through destination aliases; no snapshot.
+No C/SIMD/QEXT enabling, table/layout/ABI or arithmetic change. Upstream
+celt_decoder.c first/tail loop and celt.c comb guards/window arithmetic inspected.
+
+Existing postfilter history fixture keeps same buffers/guards and full bit/state
+oracle, now exercises real pointer-list owner under GC/stack growth. Existing
+first/tail fixtures retain independent raw comb oracle and physical extents,
+add equal-sized owned-destination full-bit/state comparisons across gains/taps/
+N. Bounded new tail check requires original interior cell even with zero gains,
+before stores/state changes. Canonical window tests prove actual root and exact
+identity/extent classification; raw copied table is independent same-120-word
+reference for whole-buffer live-window alias comparisons. Canonical table is
+restored after EVERY pair and on exit. Go-only aliases/invalid bounded cases do
+not claim new C restrict/const/invalid domains. No native fixture/hash/bytes/
+bit-count/seed, codec reference/tolerance/scope change or pointer-slot poisoning.
+
+Round1 initially failed compilation because actual out_syn is [2]*float32;
+corrected ONLY array-to-slice argument (no copied pointer list), then complete
+validation hit native found-pointer-to-free-object with TestExtensionNextAgainstC
+active. COMPLETE UNCHANGED next retry passed. All logs retained:
+/tmp/opus-round-postfilter-go-pointer-list{,-retry,-retry2}.log.
+No oracle weakening or production native GC fix. Other round logs:
+/tmp/opus-round-postfilter-first-go-destination.log,
+/tmp/opus-round-postfilter-tail-go-destination.log,
+/tmp/opus-round-comb-canonical-go-window.log and
+/tmp/opus-round-postfilter-owners-arm-{checkptr,golden}-repeat.log.
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including postfilter/tail/window and preceding owner fixtures.
+No other batch failures. No native GC/extension EOF/raw callback/opaque-image
+repair, global lifetime safety, performance or direct macOS claims.
+
+Four norm-input rounds stage concrete copy sources, mono input lanes, stereo
+input lanes, then connect BOTH actual normalization lanes in quant-all-bands.
+Rounds1/2/3 stage owned private APIs with direct equivalence fixtures; round4
+connects actual _norm storage for normal decode, mono/stereo/dual paths and both
+opuscc encode-only RDO trials (not opusccenc). Counts remain100 unsafe.Pointer/
+104 uintptr: real scanned slice/offset flow, not opaque aliases or token removal.
+
+The existing concrete scratch/lowband carrier now accepts a concrete copy source;
+legacy preparation delegates with explicit legacy discriminator. Required copy
+still forms destination prefix BEFORE source prefix BEFORE stores and switches
+prepared source only AFTER copy. The original owned zero-length unused-address
+boundary stays at same point and ignores unconsumed source geometry. Go overlap
+semantics and exact required snapshot/copy extent remain; no extra allocation or
+sample snapshot. Source presence never silently falls back from owned nil.
+
+Mono carries incoming lane directly as prepared lowband until SAME scratch-copy
+predicate replaces it. Existing Haar/deinterleave/recursive partition source
+owners now survive even when scratch is disabled and NO copy occurs. Context
+loads/division BEFORE N1 shortcut, N1 unused-input behavior, transform/copy/read
+order, fill/gain/seed/entropy/mask, partition validation and sequential folding
+remain unchanged. Stereo forwards SAME source through N1/N2/intensity and either
+mid/side order; originally nil side source/scratch/output remain nil. Scalar raw
+APIs/wrappers retain original branches and consume identical shared kernels.
+
+Actual input binding keeps effective==-1 OR N==0 return BEFORE lane/presence/
+root access; missing work-required lane uses original raw nil-span boundary,
+not noise fallback or guessed primary ownership. Present lane uses a real Go
+suffix of _norm at cached numeric lane origin, with relative effective offset.
+Original int32 offset+N endpoint is computed BEFORE full-prefix clipping. FULL
+N input prefix is validated at SAME argument point BEFORE output/table binding
+and BEFORE DSP/N1 shortcuts, not deferred to only samples eventually consumed.
+Right origin is cached at original norm2 setup point, never reconstructed from
+addresses or reloaded from mutable bands. Parent/suffix slices retain actual
+allocation ownership; no fake prefix. No pulse/codec/byte snapshot or RDO rollback/
+tie change. Upstream bands.c source selection/copy/transform/dual dispatch checked.
+Remaining X/Y, raw/image/callback and unused-coordinate boundaries are NOT
+claimed migrated or lifetime-repaired; scalar norm heads still serve other uses.
+
+Existing mono/stereo full-buffer/guard/context/COMPLETE entropy comparisons now
+exercise actual incoming owners as well as destination/scratch owners, retaining
+same physical extents and original raw/native expected results. Context rebases
+ONLY separate entropy-instance pointer. Additional owner-copy overlap/manual
+oracle, source-prefix-before-stores failure, zero-work ignored source, mono/
+stereo N1 unused origins, true suffix/root/offset identity, unused guards and
+input-before-output full-prefix error checks use real bounded storage. A no-
+scratch shared-input/output fixture compares whole states and float bits to
+original raw sequential folding under GC/stack growth. Existing native physical
+fixtures/hashes/bytes/bit counts/seeds, codec references/tolerances and validation
+scope remain unchanged. No pointer-slot poisoning, fixture repair/enlargement or
+oracle weakening; Go-only invalid/alias checks are not new C restrict/domain claims.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including all incoming-lane/copy/no-scratch and prior owner fixtures.
+Logs /tmp/opus-round-norm-input-owned-copy-source.log,
+/tmp/opus-round-mono-go-norm-input.log,
+/tmp/opus-round-stereo-go-norm-input{,-retry}.log,
+/tmp/opus-round-all-bands-go-norm-input.log and
+/tmp/opus-round-norm-input-owners-arm-{checkptr,golden}-repeat.log.
+Round3 initially hit native found-pointer-to-free-object with
+TestExtensionNextAgainstC active; COMPLETE UNCHANGED retry passed. Failed log
+retained. Other rounds/final checks have no validation failures. No native GC/
+extension EOF/raw callback/opaque-image repair, global lifetime safety,
+performance or direct macOS claims.
+
+Four norm-mutation rounds retain primary hybrid storage, secondary hybrid
+storage, primary merge storage, then secondary merge storage. Each connects an
+actual quant-all-bands _norm Go owner (not an opaque alias), using the previously
+cached numeric right origin. Both hybrid entry points, including opuscc RDO
+restore, and dual-to-intensity resynthesis merge keep roots. Public/raw adapters
+remain; opusccenc is untouched. Counts remain100 unsafe.Pointer/104 uintptr:
+active dataflow migration, not token removal, relocated casts or layout recovery.
+
+The existing concrete fold-output carrier supplies mutable lane spans directly.
+Hybrid retains original eager bands view and int32 width calculations, equal-
+width guard BEFORE all lane views, primary full-n2 view then copy, and secondary
+view/copy ONLY after primary copy and ONLY when dual stereo is nonzero. No
+whole-buffer/table snapshots, new samples or allocations. Required first-copy
+completion before second-view failure is unchanged. Right selection preserves
+whether setup actually produced a right lane; absent right remains legacy nil,
+never silently aliases primary. Present right uses actual root/cached origin,
+not an address-derived offset or a new setup-boundary reload.
+
+Merge retains boundary lookup in EVERY loop condition (including final check),
+original int32 M*boundary-offset and j+1 geometry, primary prefix BEFORE secondary
+prefix on EACH iteration, addition BEFORE separate float32 half product, and
+sequential stores. No eager full-bound spans, bound caching, data snapshots or
+changed expression/read order. Aliased right reads observe prior left writes;
+Go-only output/table alias retains live-bound updates. Resynth/dual/intensity
+conditions, call points, hybrid/RDO copy/restore order, entropy, masks, contexts,
+seed, tie choices and all surrounding arithmetic stay unchanged. Upstream
+bands.c hybrid and intensity transition inspected. Norm input, X/Y and remaining
+raw/image/callback adapters are NOT claimed migrated or lifetime-repaired.
+
+Original manual hybrid n+guard allocations/extents stay; equal-size primary-only
+and both-owned runs compare full float bits and original expected arrays under
+GC/stack growth. Equal-width/nil/unused-origin guard, missing-right selection,
+copy-before-bounded-secondary-error and Go-only cross-lane sequential alias
+oracles are added on real allocations. Existing merge numeric/guard/alias/live-
+bound fixtures retain physical extents, add primary-owner full-bit comparisons;
+new both-lane fixtures independently check complete storage, unchanged source/
+guards, sequential averaging and live-bound behavior. Incremental short-right
+failure must occur AFTER the first completed store. No fake prefixes, pointer-
+slot poisoning, original native fixture/hash/bytes/bit-count/seed changes or
+codec golden/tolerance/scope weakening. Go-only invalid bounded/alias cases are
+not new C-valid/restrict-domain claims.
+
+Missing-right positive work retains original raw nil-span failure, not recovery
+or ownership fallback. Its NEW Go assertion initially incorrectly expected
+recover() under checkptr; the runtime terminated the test process. Failed log
+/tmp/opus-round-merge-secondary-go-norm-owner.log retained. Corrected ONLY that
+new assertion to a subprocess death test checking exact nil-positive-span text
+and a pre-call marker (nonzero exit required). Same check runs ordinarily and
+under scoped checkptr; cross-ARM exec-format failure explicitly launches QEMU,
+without skipping or suppressing validation. No production correction or weakened
+oracle. COMPLETE unchanged validation rerun passed in
+/tmp/opus-round-merge-secondary-go-norm-owner-retry.log. No other batch failures.
+Precision text-edit uniqueness/overlap mismatches resolved BEFORE validation.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including hybrid, merge, death tests and preceding owner fixtures.
+Other logs /tmp/opus-round-hybrid-primary-go-norm-owner.log,
+/tmp/opus-round-hybrid-secondary-go-norm-owner.log,
+/tmp/opus-round-merge-primary-go-norm-owner.log and
+/tmp/opus-round-norm-mutation-owners-arm-{checkptr,golden}-repeat.log.
+No native GC/extension EOF/raw callback/opaque-image repair, global lifetime
+safety, performance or direct macOS claims.
+
+Four fold-output rounds stage concrete mono/singleton destinations, propagate
+them through stereo, connect primary norm output, then connect dual-stereo norm
+output with cached numeric lane origin. Rounds1/2 stage owned private APIs and
+direct equivalence fixtures; rounds3/4 connect actual quant-all-bands _norm Go
+storage in normal decode, stereo/dual paths and both opuscc encode-only RDO
+trials. Not opusccenc. Counts remain100 unsafe.Pointer/104 uintptr: genuine
+owner/offset migration, not opaque aliases, cast hiding or token cleanup.
+
+quantBandFoldOutput holds actual []float32, int64 numeric origin, explicit owned
+flag and separate legacy pointer. Nil-owned never falls back. Mono preserves
+context/division BEFORE N1 shortcut, original scratch/partition/transform order,
+and resynth/presence guards. Scaling retains sqrt(N0) at original point, full
+destination prefix BEFORE EACH source read, float32 product then sequential
+store, without new sample snapshots/views before guards. N1 keeps encode caching,
+channel/sign/entropy/resynth ordering and final live X copy AFTER both channels;
+legacy first-cell store stays direct, owned store uses actual root. No changed
+float32 products, wrapping, cache reloads, pulse behavior, masks, seed or context.
+
+Stereo forwards SAME destination through N1, selected N2 mid, either mid/side
+recursion order and intensity handling. Originally absent side fold output
+remains absent; fold occurs before original reconstruction/inversion. Raw public/
+private adapters remain, with no added slice-view validation on legacy N1.
+Primary norm now supplies root/origin directly to mono/stereo/both RDO trials;
+dual left and right execute in original order. Norm input/hybrid folding/merge,
+spectrum X/Y, entropy and external-image adapters still retain legacy boundaries;
+this is NOT a whole-norm/spectrum/opaque-image or native GC repair claim.
+
+Owned output binding keeps last/N==0 guards BEFORE table/lane/root access and
+forms original FULL N output prefix at original argument point, AFTER fold input
+view and BEFORE DSP entry, even when resynth will skip writing. Numeric band
+index retains original int32 M*boundary-offset; independent lane/index/length
+coordinates combine in int64 for bounds. Relative negative-index checks remain.
+Each actual store forms its on-demand span without copying data. Right lane is
+cached at the EXACT original setup read that bound norm2, not recovered from
+addresses or reloaded later from mutable bands. Length-zero return, allocation,
+left binding, conditional right-table read and required right-first-cell check
+remain in order. Existing scalar norm heads remain for other consumers. RDO
+snapshots/restores/folding and dist0>=dist1 tie choice are unchanged. Upstream
+bands.c singleton/mono/stereo fold and normalization allocation inspected.
+
+Existing mono/stereo fixtures retain physical extents and compare COMPLETE
+entropy/context (rebasing ONLY separate entropy-instance pointer), masks and
+whole float-bit buffers/guards; stereo includes N1/N2/intensity and block/TF
+cases under GC/stack growth. New bounded N1 final-copy alias oracle checks
+independent buffers/entropy and exact negative-zero/NaN payload copy bits.
+New Go-only four-bin shared storage compares full states/bits plus an independent
+sequential-doubling oracle, ensuring no input snapshot/hoisted reads. Existing
+band-view fixtures add actual root/origin/full-prefix identity, full argument
+bounds and nil/unused guards without enlarging allocation. Existing pointer-only
+norm GC oracle runs BEFORE an independent equal-sized cached-lane fixture;
+mutable setup boundary is restored after checking already-bound right origin.
+No native fixture/hash/bytes/bit-count/seed, codec golden, scope or tolerance
+change; no fake prefixes, pointer-slot poisoning or original fixture repair.
+Go-only invalid bounded/alias cases are not new C-valid/restrict-domain claims.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including all fold/root/alias fixtures. Logs
+/tmp/opus-round-mono-go-fold-output.log,
+/tmp/opus-round-stereo-go-fold-output{,-retry}.log,
+/tmp/opus-round-primary-norm-go-fold-output.log,
+/tmp/opus-round-dual-norm-go-fold-output{,-final}.log and
+/tmp/opus-round-fold-output-owners-arm-{checkptr,golden}-repeat.log.
+Round2's initial native run hit found-pointer-to-free-object while
+TestExtensionNextAgainstC was active; COMPLETE UNCHANGED retry passed, failed
+log retained. Other rounds/final passes have no validation failures. A unique-
+text edit mismatch was resolved BEFORE round3 validation, with no test weakening.
+No native GC/extension EOF/raw callback/opaque-image repair, global lifetime
+safety, performance or direct macOS claims.
+
 Four PVQ pulse-codec rounds retain actual encoder search output, actual CWRS
 decoder output, stage owned CWRS ranking, then connect owned pulse encoding.
 Round3 stages ranking with direct owned fixtures; round4 connects it to the

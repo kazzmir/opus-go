@@ -155,6 +155,35 @@ func VaInt32(ap *uintptr) int32 {
 	return int32(uint32(v))
 }
 
+// VaCursor reads native-word vararg slots from pointer-backed storage. Its
+// position is a numeric byte offset, not an integer address. The caller must
+// keep pointer arguments in scanned storage or otherwise own their lifetimes;
+// this cursor does not add GC maps to legacy byte/word buffers.
+type VaCursor struct {
+	base   unsafe.Pointer
+	offset uint
+}
+
+func NewVaCursor(base unsafe.Pointer) VaCursor { return VaCursor{base: base} }
+
+func (cursor *VaCursor) Int32() int32 {
+	slot := unsafe.Add(cursor.base, cursor.offset)
+	var value int32
+	if ptrSize == 8 {
+		value = int32(uint32(*(*uint64)(slot)))
+	} else {
+		value = int32(*(*uint32)(slot))
+	}
+	cursor.offset += uint(ptrSize)
+	return value
+}
+
+func (cursor *VaCursor) Pointer() unsafe.Pointer {
+	value := *(*unsafe.Pointer)(unsafe.Add(cursor.base, cursor.offset))
+	cursor.offset += uint(ptrSize)
+	return value
+}
+
 // ---- Memory allocation / libc-ish primitives ----
 
 // Xmalloc is the legacy integer-address allocation boundary.
@@ -538,6 +567,25 @@ func GoString(p uintptr) string {
 	base := unsafe.Pointer(p)
 	for i := 0; i < max; i++ {
 		b := *(*byte)(ptrAdd(base, uintptr(i)))
+		if b == 0 {
+			break
+		}
+		buf = append(buf, b)
+	}
+	return string(buf)
+}
+
+// GoStringPointer reads a NUL-terminated C string without converting its owner
+// to an integer address. As with GoString, scanning stops after at most 1 MiB;
+// the caller must supply readable storage through the terminator or that limit.
+func GoStringPointer(p *byte) string {
+	if p == nil {
+		return ""
+	}
+	const max = 1 << 20
+	buf := make([]byte, 0, 64)
+	for i := 0; i < max; i++ {
+		b := *(*byte)(unsafe.Add(unsafe.Pointer(p), i))
 		if b == 0 {
 			break
 		}

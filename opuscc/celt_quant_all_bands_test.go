@@ -285,6 +285,10 @@ func TestQuantAllBandsNormBufferPointers(t *testing.T) {
 					if memory != nil || left != nil || right != nil {
 						t.Fatal("unused empty norm")
 					}
+					owned, ol, or, origin := quantAllBandsNormBufferWithLane(&bands[0], 2, M, C, offset)
+					if owned != nil || ol != nil || or != nil || origin != 0 {
+						t.Fatal("empty cached norm geometry")
+					}
 					continue
 				}
 				if left != &memory[0] || C == 1 && right != nil || C == 2 && right != &memory[lane] {
@@ -298,6 +302,30 @@ func TestQuantAllBandsNormBufferPointers(t *testing.T) {
 					*right = 2
 					if *left != 1 {
 						t.Fatal("independent norm lanes")
+					}
+				}
+				// Preserve the original pointer-only GC oracle ABOVE this allocation.
+				owned, ol, or, origin := quantAllBandsNormBufferWithLane(&bands[0], 2, M, C, offset)
+				expected := int32(0)
+				if C == 2 {
+					expected = lane
+				}
+				if len(owned) != int(C*lane) || origin != expected || ol != &owned[0] || C == 1 && or != nil || C == 2 && or != &owned[origin] {
+					t.Fatal("cached concrete norm lane geometry")
+				}
+				if C == 2 {
+					// The original right pointer was already bound, not reloaded later.
+					bands[2]++
+					output := quantAllBandsFoldOutputOwned(owned, int64(origin), &bands[0], start, M, offset, 1, 0)
+					bands[2]--
+					entropyInitGrowStack(12)
+					runtime.GC()
+					if !output.owned || output.offset != int64(lane) || &output.span(1)[0] != or {
+						t.Fatal("cached right fold origin/live table")
+					}
+					output.span(1)[0] = 3
+					if *or != 3 || *ol != 0 {
+						t.Fatal("owned right fold live storage")
 					}
 				}
 			}
@@ -315,6 +343,23 @@ func TestQuantAllBandsBandViewsPointers(t *testing.T) {
 	for _, last := range []int32{0, 1} {
 		for _, effective := range []int32{-1, 0, 2} {
 			input, output := quantAllBandsBandViews(unsafe.SliceData(norm), &bands[0], 1, 2, 1, 2, effective, last)
+			ownedInput, ownedOutput := quantAllBandsBandViewsTo(unsafe.SliceData(norm), norm, 0, &bands[0], 1, 2, 1, 2, effective, last)
+			laneInput, laneOutput := quantAllBandsBandLaneViews(norm, 0, true, &bands[0], 1, 2, 1, 2, effective, last)
+			if laneInput.present() != (input != nil) || laneOutput.present() != (output != nil) {
+				t.Fatal("owned lane input/output presence")
+			}
+			if input != nil && (!laneInput.owned || &laneInput.owner[0] != &norm[0] || laneInput.offset != effective || &laneInput.span(2)[0] != input) {
+				t.Fatal("owned normalization input root/origin/prefix")
+			}
+			if output != nil && &laneOutput.span(2)[0] != output {
+				t.Fatal("owned lane output identity")
+			}
+			if ownedInput != input || ownedOutput.present() != (output != nil) {
+				t.Fatal("owned fold input/output forwarding")
+			}
+			if output != nil && (!ownedOutput.owned || &ownedOutput.owner[0] != &norm[0] || ownedOutput.offset != 3 || &ownedOutput.span(2)[0] != output) {
+				t.Fatal("fold actual root/origin/full-prefix identity")
+			}
 			entropyInitGrowStack(12)
 			runtime.GC()
 			if effective == -1 {
@@ -336,6 +381,17 @@ func TestQuantAllBandsBandViewsPointers(t *testing.T) {
 }
 
 func TestQuantAllBandsFoldPointers(t *testing.T) {
+	if quantAllBandsFoldOutputOwned(nil, math.MaxInt64, nil, 99, 1, 0, 4, 1).present() || quantAllBandsFoldOutputOwned(nil, math.MaxInt64, nil, 99, 1, 0, 0, 0).present() {
+		t.Fatal("unused owned fold geometry")
+	}
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		quantAllBandsFoldOutputOwned([]float32{1}, 0, &[]int16{0, 2, 4}[0], 1, 2, 1, 2, 0)
+	}()
+	if _, ok := caught.(runtime.Error); !ok {
+		t.Fatal("owned fold full argument prefix required now", caught)
+	}
 	if quantAllBandsFoldInput(nil, -1, 3) != nil || quantAllBandsFoldInput(nil, 99, 0) != nil || quantAllBandsFoldOutput(nil, nil, 99, 1, 0, 4, 1) != nil {
 		t.Fatal("unused fold views")
 	}
@@ -353,7 +409,14 @@ func TestQuantAllBandsFoldPointers(t *testing.T) {
 	if output != &data[4] {
 		t.Fatal("fold output geometry")
 	}
+	owned := quantAllBandsFoldOutputOwned(data, 1, &bands[0], 1, 2, 1, 2, 0)
+	if !owned.owned || owned.offset != 4 || &owned.owner[0] != &data[0] || &owned.span(2)[0] != output {
+		t.Fatal("owned fold bounded parent origin")
+	}
 	*output = 7
+	if owned.span(2)[0] != 7 {
+		t.Fatal("live owned fold output")
+	}
 	if data[4] != 7 || data[0] != 77 || data[7] != 88 {
 		t.Fatal("retained fold view/guards")
 	}
@@ -363,22 +426,41 @@ func TestQuantAllBandsMergePointers(t *testing.T) {
 	bands := []int16{0, 3}
 	norm := []float32{77, 1, 2, 3, 88}
 	other := []float32{4, 5, 6}
+	owned := slices.Clone(norm)
 	entropyInitGrowStack(12)
 	runtime.GC()
 	quantAllBandsMerge(&norm[1], &other[0], &bands[0], 1, 1, 0)
+	quantAllBandsMergeFrom(quantBandFoldOutput{owner: owned, offset: 1, owned: true}, quantBandFoldOutput{legacy: &other[0]}, &bands[0], 1, 1, 0)
+	for i := range norm {
+		if math.Float32bits(norm[i]) != math.Float32bits(owned[i]) {
+			t.Fatal("primary merge actual owner/full bits/guards", i)
+		}
+	}
 	if norm[1] != 2.5 || norm[2] != 3.5 || norm[3] != 4.5 || norm[0] != 77 || norm[4] != 88 {
 		t.Fatal("ordered norm merge")
 	}
 	quantAllBandsMerge(nil, nil, &bands[0], 0, 1, 0)
 	alias := []float32{1, 2, 3, 4}
+	ownedAlias := slices.Clone(alias)
 	quantAllBandsMerge(&alias[1], &alias[0], &bands[0], 1, 1, 0)
+	quantAllBandsMergeFrom(quantBandFoldOutput{owner: ownedAlias, offset: 1, owned: true}, quantBandFoldOutput{legacy: &ownedAlias[0]}, &bands[0], 1, 1, 0)
+	if !slices.Equal(alias, ownedAlias) {
+		t.Fatal("primary merge sequential aliases")
+	}
 	if alias[1] != 1.5 || alias[2] != 2.25 || alias[3] != 3.125 {
 		t.Fatal("live merge aliases")
 	}
 	live := []float32{math.Float32frombits(3), 2, 77}
+	ownedLive := slices.Clone(live)
 	bound := (*int16)(unsafe.Pointer(&live[0]))
 	zero := []float32{0, 0, 0}
 	quantAllBandsMerge(&live[0], &zero[0], bound, 0, 1, 0)
+	quantAllBandsMergeFrom(quantBandFoldOutput{owner: ownedLive, owned: true}, quantBandFoldOutput{legacy: &zero[0]}, (*int16)(unsafe.Pointer(&ownedLive[0])), 0, 1, 0)
+	for i := range live {
+		if math.Float32bits(live[i]) != math.Float32bits(ownedLive[i]) {
+			t.Fatal("primary merge live bound/full bits", i)
+		}
+	}
 	if math.Float32bits(live[0]) != 2 || live[1] != 1 || live[2] != 77 {
 		t.Fatal("Go-only live bound reload")
 	}
