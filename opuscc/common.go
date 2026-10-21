@@ -3124,9 +3124,8 @@ func Opus_opus_dred_decoder_get_size(tls *libc.TLS) int32 {
 	return int32(unsafe.Sizeof(OpusT_OpusDREDDecoder{}))
 }
 
-//go:uintptrescapes
-func Opus_opus_dred_decoder_init(tls *libc.TLS, dec uintptr) int32 {
-	return opusDREDDecoderInit(tls, (*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)))
+func Opus_opus_dred_decoder_init(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) int32 {
+	return opusDREDDecoderInit(tls, dec)
 }
 
 func opusDREDDecoderInit(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) int32 {

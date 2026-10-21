@@ -46,7 +46,7 @@ func TestDREDInitPointers(t *testing.T) {
 	owner.Decoder = OpusT_OpusDREDDecoder{Floaded: -1, Farch: -1, Fmagic: 0xffffffff}
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if ret := opusDREDDecoderInit(nil, &owner.Decoder); ret != OPUS_OK {
+	if ret := Opus_opus_dred_decoder_init(nil, &owner.Decoder); ret != OPUS_OK {
 		t.Fatal("disabled DRED init", ret)
 	}
 	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {

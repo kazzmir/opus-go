@@ -534,6 +534,18 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+DRED init pointer migration: Opus_opus_dred_decoder_init now accepts actual
+*OpusT_OpusDREDDecoder, not uintptr; removed reconstruction/uintptrescapes directive.
+Exported Go parameter type changes, no replacement raw adapter. Existing guarded
+12-byte DRED header fixture now calls public entry across GC/stack growth; fields,
+magic, guard extents, alias/layout and invalidation oracle unchanged. Existing
+private initializer/factory behavior stays (no model/SIMD implementation enabled
+or disabled). Full inherited validation, scoped DRED/header/storage amd64/386,
+tagged ARM ordinary/checkptr repeats20 and diff checks pass; no failures. Logs
+/tmp/opus-dred-init-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr72->71, unsafe.Pointer76->75. No native GC/global lifetime,
+opaque-image GC maps, performance or direct macOS claims.
+
 Decoder typed-destroy cleanup: replaced final Opus_opus_decoder_destroy use
 with destroy_typed and removed unused raw-address wrapper. External Go users
 must use typed entry. Registry fixture STILL returns only numeric registration
