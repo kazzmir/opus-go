@@ -3193,7 +3193,8 @@ func Opus_opus_dred_decoder_destroy(tls *libc.TLS, dec uintptr) {
 	Opus_opus_dred_decoder_destroy_typed(tls, (*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)))
 }
 
-func Opus_opus_dred_decoder_ctl(tls *libc.TLS, dred_dec *OpusT_OpusDREDDecoder, request int32, va libc.VaCursor) (r int32) {
+// DRED is disabled: no CTL request consumes arguments in this build.
+func Opus_opus_dred_decoder_ctl(tls *libc.TLS, dred_dec *OpusT_OpusDREDDecoder, request int32) (r int32) {
 	_ = dred_dec
 	_ = request
 	return -int32(5)
