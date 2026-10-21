@@ -2452,11 +2452,15 @@ func (scratch quantBandScratch) pointer() *float32 {
 }
 
 func (scratch quantBandScratch) prepare(source *float32, N int32) quantBandScratch {
+	return scratch.prepareFrom(quantBandScratch{legacy: source}, N)
+}
+
+func (scratch quantBandScratch) prepareFrom(source quantBandScratch, N int32) quantBandScratch {
 	if scratch.owned && N == 0 {
 		_ = scratch.pointer() // Preserve the original unused-address boundary.
 		return scratch
 	}
-	copy(scratch.span(int64(N)), unsafe.Slice(source, N))
+	copy(scratch.span(int64(N)), source.span(int64(N)))
 	return scratch
 }
 
