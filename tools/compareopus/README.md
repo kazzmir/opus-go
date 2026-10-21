@@ -534,6 +534,23 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Int16 typed-only entry migration: replaced every remaining opuscc
+Opus_opus_decode call with Opus_opus_decode_typed and actual decoder/packet/PCM
+pointers. Removed unused integer-address wrapper and its uintptrescapes directive;
+no replacement raw adapter or pointer-to-integer conversion. External users must
+use typed entry. Production opus/decoder.go already did so and is unchanged.
+Nil/zero-frame/FEC validation-order, mono/stereo decode/PLC guards and original
+Go-scratch cursor checks retain same physical fixtures and expected results.
+Mixed int16/int24 scratch test changes ONLY int16 call; raw int24 ABI and its
+existing ordinary coverage remain untouched. No codec, reference, allocation,
+rounding, assertion, tolerance or input-size change. Full inherited validation,
+scoped int16/integer-pointer/native-C-reference amd64/386 and tagged ARM
+ordinary/checkptr repeats20 pass. Ordinary includes mixed legacy scratch case;
+no previously unsafe raw int24/TLS-pointer case is relabeled checkptr-safe.
+No failures. Logs /tmp/opus-int16-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr79->77, unsafe.Pointer85->82. Encoder's separate raw entry
+is unchanged; no global/native GC/opaque-image/lifetime/performance claims.
+
 Public native decode pointer migration: Opus_opus_decode_native has NO uintptr
 parameters/address reconstruction. Decoder is *OpusT_OpusDecoder, packet *byte,
 PCM *float32, offset output *int32; removed obsolete uintptrescapes directive.
