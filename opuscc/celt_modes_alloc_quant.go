@@ -2898,6 +2898,25 @@ func quantAllBandsFoldOutputOwned(memory []float32, lane int64, bands *int16, ba
 	return quantBandFoldOutput{owner: memory, offset: lane + int64(index), owned: true}
 }
 
+func quantAllBandsBandLaneViews(memory []float32, lane int64, present bool, bands *int16, band, M, offset, N, effective, last int32) (input quantBandScratch, output quantBandFoldOutput) {
+	input = quantAllBandsFoldInputOwned(memory, lane, present, effective, N)
+	output = quantAllBandsFoldOutputOwned(memory, lane, bands, band, M, offset, N, last)
+	return
+}
+
+func quantAllBandsFoldInputOwned(memory []float32, lane int64, present bool, offset, N int32) quantBandScratch {
+	if offset == -1 || N == 0 {
+		return quantBandScratch{}
+	}
+	if !present {
+		return quantBandScratch{legacy: quantAllBandsFoldInput(nil, offset, N)}
+	}
+	owner := memory[lane:]
+	end := offset + N     // Retain original int32 endpoint arithmetic before clipping.
+	_ = owner[offset:end] // Original argument validates the full consumed prefix now.
+	return quantBandScratch{owner: owner, offset: offset, owned: true}
+}
+
 func quantAllBandsFoldInput(norm *float32, offset, N int32) *float32 {
 	if offset == -1 || N == 0 {
 		return nil
@@ -3376,12 +3395,12 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 			}
 		}
 		if dual_stereo != 0 {
-			input := quantAllBandsFoldInput(norm, effective_lowband, N1)
+			input := quantAllBandsFoldInputOwned(_norm, 0, norm != nil, effective_lowband, N1)
 			output := quantAllBandsFoldOutputOwned(_norm, 0, eBands, i1, M, norm_offset, N1, last)
-			x_cm = quantBandTo(tls, ctx, X, N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(x_cm))
-			input = quantAllBandsFoldInput(norm2, effective_lowband, N1)
+			x_cm = quantBandLanes(tls, ctx, X, N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(x_cm))
+			input = quantAllBandsFoldInputOwned(_norm, int64(norm2Origin), norm2 != nil, effective_lowband, N1)
 			output = quantAllBandsFoldOutputOwned(_norm, int64(norm2Origin), eBands, i1, M, norm_offset, N1, last)
-			y_cm = quantBandTo(tls, ctx, Y, N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(y_cm))
+			y_cm = quantBandLanes(tls, ctx, Y, N1, b/2, B, input, LM, output, 1, lowband_scratch, int32(y_cm))
 		} else {
 			if Y != nil {
 				if theta_rdo != 0 && i1 < intensity {
@@ -3394,8 +3413,8 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					quantAllBandsCopyToOwned(Y_save, Y, N1)
 					/* Encode and round down. */
 					ctx.Ftheta_round = -1
-					input, output := quantAllBandsBandViewsTo(norm, _norm, 0, eBands, i1, M, norm_offset, N1, effective_lowband, last)
-					x_cm = quantBandStereoTo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
+					input, output := quantAllBandsBandLaneViews(_norm, 0, norm != nil, eBands, i1, M, norm_offset, N1, effective_lowband, last)
+					x_cm = quantBandStereoLanes(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
 					_ = arch
 					v229 = quantAllBandsDotOwned(X_save, X, N1)
 					v232 = quantAllBandsDotOwned(Y_save, Y, N1)
@@ -3423,8 +3442,8 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					}
 					/* Encode and round up. */
 					ctx.Ftheta_round = 1
-					input, output = quantAllBandsBandViewsTo(norm, _norm, 0, eBands, i1, M, norm_offset, N1, effective_lowband, last)
-					x_cm = quantBandStereoTo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
+					input, output = quantAllBandsBandLaneViews(_norm, 0, norm != nil, eBands, i1, M, norm_offset, N1, effective_lowband, last)
+					x_cm = quantBandStereoLanes(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(cm))
 					_ = arch
 					v229 = quantAllBandsDotOwned(X_save, X, N1)
 					v232 = quantAllBandsDotOwned(Y_save, Y, N1)
@@ -3442,12 +3461,12 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 					}
 				} else {
 					ctx.Ftheta_round = 0
-					input, output := quantAllBandsBandViewsTo(norm, _norm, 0, eBands, i1, M, norm_offset, N1, effective_lowband, last)
-					x_cm = quantBandStereoTo(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(x_cm|y_cm))
+					input, output := quantAllBandsBandLaneViews(_norm, 0, norm != nil, eBands, i1, M, norm_offset, N1, effective_lowband, last)
+					x_cm = quantBandStereoLanes(tls, ctx, X, Y, N1, b, B, input, LM, output, lowband_scratch, int32(x_cm|y_cm))
 				}
 			} else {
-				input, output := quantAllBandsBandViewsTo(norm, _norm, 0, eBands, i1, M, norm_offset, N1, effective_lowband, last)
-				x_cm = quantBandTo(tls, ctx, X, N1, b, B, input, LM, output, 1, lowband_scratch, int32(x_cm|y_cm))
+				input, output := quantAllBandsBandLaneViews(_norm, 0, norm != nil, eBands, i1, M, norm_offset, N1, effective_lowband, last)
+				x_cm = quantBandLanes(tls, ctx, X, N1, b, B, input, LM, output, 1, lowband_scratch, int32(x_cm|y_cm))
 			}
 			y_cm = x_cm
 		}

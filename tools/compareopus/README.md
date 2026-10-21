@@ -534,6 +534,72 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Four norm-input rounds stage concrete copy sources, mono input lanes, stereo
+input lanes, then connect BOTH actual normalization lanes in quant-all-bands.
+Rounds1/2/3 stage owned private APIs with direct equivalence fixtures; round4
+connects actual _norm storage for normal decode, mono/stereo/dual paths and both
+opuscc encode-only RDO trials (not opusccenc). Counts remain100 unsafe.Pointer/
+104 uintptr: real scanned slice/offset flow, not opaque aliases or token removal.
+
+The existing concrete scratch/lowband carrier now accepts a concrete copy source;
+legacy preparation delegates with explicit legacy discriminator. Required copy
+still forms destination prefix BEFORE source prefix BEFORE stores and switches
+prepared source only AFTER copy. The original owned zero-length unused-address
+boundary stays at same point and ignores unconsumed source geometry. Go overlap
+semantics and exact required snapshot/copy extent remain; no extra allocation or
+sample snapshot. Source presence never silently falls back from owned nil.
+
+Mono carries incoming lane directly as prepared lowband until SAME scratch-copy
+predicate replaces it. Existing Haar/deinterleave/recursive partition source
+owners now survive even when scratch is disabled and NO copy occurs. Context
+loads/division BEFORE N1 shortcut, N1 unused-input behavior, transform/copy/read
+order, fill/gain/seed/entropy/mask, partition validation and sequential folding
+remain unchanged. Stereo forwards SAME source through N1/N2/intensity and either
+mid/side order; originally nil side source/scratch/output remain nil. Scalar raw
+APIs/wrappers retain original branches and consume identical shared kernels.
+
+Actual input binding keeps effective==-1 OR N==0 return BEFORE lane/presence/
+root access; missing work-required lane uses original raw nil-span boundary,
+not noise fallback or guessed primary ownership. Present lane uses a real Go
+suffix of _norm at cached numeric lane origin, with relative effective offset.
+Original int32 offset+N endpoint is computed BEFORE full-prefix clipping. FULL
+N input prefix is validated at SAME argument point BEFORE output/table binding
+and BEFORE DSP/N1 shortcuts, not deferred to only samples eventually consumed.
+Right origin is cached at original norm2 setup point, never reconstructed from
+addresses or reloaded from mutable bands. Parent/suffix slices retain actual
+allocation ownership; no fake prefix. No pulse/codec/byte snapshot or RDO rollback/
+tie change. Upstream bands.c source selection/copy/transform/dual dispatch checked.
+Remaining X/Y, raw/image/callback and unused-coordinate boundaries are NOT
+claimed migrated or lifetime-repaired; scalar norm heads still serve other uses.
+
+Existing mono/stereo full-buffer/guard/context/COMPLETE entropy comparisons now
+exercise actual incoming owners as well as destination/scratch owners, retaining
+same physical extents and original raw/native expected results. Context rebases
+ONLY separate entropy-instance pointer. Additional owner-copy overlap/manual
+oracle, source-prefix-before-stores failure, zero-work ignored source, mono/
+stereo N1 unused origins, true suffix/root/offset identity, unused guards and
+input-before-output full-prefix error checks use real bounded storage. A no-
+scratch shared-input/output fixture compares whole states and float bits to
+original raw sequential folding under GC/stack growth. Existing native physical
+fixtures/hashes/bytes/bit counts/seeds, codec references/tolerances and validation
+scope remain unchanged. No pointer-slot poisoning, fixture repair/enlargement or
+oracle weakening; Go-only invalid/alias checks are not new C restrict/domain claims.
+
+Each round passes full amd64/386 and ARM64/QEMU, broad/targeted scoped checkptr,
+tagged typed PartA/PartB/storage/owner/cell checks, native comparisons, GC stress,
+codec references and diff checks. Final tagged ARM ordinary/scoped repeats20,
+explicitly including all incoming-lane/copy/no-scratch and prior owner fixtures.
+Logs /tmp/opus-round-norm-input-owned-copy-source.log,
+/tmp/opus-round-mono-go-norm-input.log,
+/tmp/opus-round-stereo-go-norm-input{,-retry}.log,
+/tmp/opus-round-all-bands-go-norm-input.log and
+/tmp/opus-round-norm-input-owners-arm-{checkptr,golden}-repeat.log.
+Round3 initially hit native found-pointer-to-free-object with
+TestExtensionNextAgainstC active; COMPLETE UNCHANGED retry passed. Failed log
+retained. Other rounds/final checks have no validation failures. No native GC/
+extension EOF/raw callback/opaque-image repair, global lifetime safety,
+performance or direct macOS claims.
+
 Four norm-mutation rounds retain primary hybrid storage, secondary hybrid
 storage, primary merge storage, then secondary merge storage. Each connects an
 actual quant-all-bands _norm Go owner (not an opaque alias), using the previously

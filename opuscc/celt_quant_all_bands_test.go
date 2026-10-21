@@ -344,6 +344,16 @@ func TestQuantAllBandsBandViewsPointers(t *testing.T) {
 		for _, effective := range []int32{-1, 0, 2} {
 			input, output := quantAllBandsBandViews(unsafe.SliceData(norm), &bands[0], 1, 2, 1, 2, effective, last)
 			ownedInput, ownedOutput := quantAllBandsBandViewsTo(unsafe.SliceData(norm), norm, 0, &bands[0], 1, 2, 1, 2, effective, last)
+			laneInput, laneOutput := quantAllBandsBandLaneViews(norm, 0, true, &bands[0], 1, 2, 1, 2, effective, last)
+			if laneInput.present() != (input != nil) || laneOutput.present() != (output != nil) {
+				t.Fatal("owned lane input/output presence")
+			}
+			if input != nil && (!laneInput.owned || &laneInput.owner[0] != &norm[0] || laneInput.offset != effective || &laneInput.span(2)[0] != input) {
+				t.Fatal("owned normalization input root/origin/prefix")
+			}
+			if output != nil && &laneOutput.span(2)[0] != output {
+				t.Fatal("owned lane output identity")
+			}
 			if ownedInput != input || ownedOutput.present() != (output != nil) {
 				t.Fatal("owned fold input/output forwarding")
 			}
