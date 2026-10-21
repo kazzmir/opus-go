@@ -20,14 +20,14 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 	defer f.Close()
 	tls := libc.NewTLS()
 	defer tls.Close()
-	mapping := libc.Xmalloc(tls, 4)
-	defer libc.Xfree(tls, mapping)
-	copy(unsafe.Slice((*byte)(unsafe.Pointer(mapping)), 4), []byte{0, 1, 2, 3})
-	st, err := Opus_opus_multistream_decoder_create(tls, 48000, 4, 3, 1, mapping)
+	mapping := libc.XmallocPointer(tls, 4)
+	defer libc.XfreePointer(tls, mapping)
+	copy(unsafe.Slice((*byte)(mapping), 4), []byte{0, 1, 2, 3})
+	st, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 4, 3, 1, (*byte)(mapping))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Opus_opus_multistream_decoder_destroy(tls, st)
+	defer Opus_opus_multistream_decoder_destroy_typed(tls, st)
 	va := libc.Xmalloc(tls, 2*uint64(unsafe.Sizeof(uintptr(0))))
 	defer libc.Xfree(tls, va)
 	out := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
@@ -69,7 +69,7 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 		}
 		var ret int32
 		if stream < 0 {
-			ret = Opus_opus_multistream_decoder_ctl_va_list(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), request, libc.NewVaCursor(unsafe.Pointer(va)))
+			ret = Opus_opus_multistream_decoder_ctl_va_list(tls, st, request, libc.NewVaCursor(unsafe.Pointer(va)))
 		} else {
 			ret = Opus_opus_decoder_ctl(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(dec[stream])), request, libc.NewVaCursor(unsafe.Pointer(va)))
 		}
@@ -85,7 +85,7 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 			p := *(*uintptr)(unsafe.Pointer(out))
 			offset := int64(0)
 			if p != 0 {
-				offset = int64(p - st)
+				offset = int64(p - uintptr(unsafe.Pointer(st))) // Numeric distance oracle only.
 			}
 			// Each preceding stream occupies one decoder allocation.
 			if ret == 0 {

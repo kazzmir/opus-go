@@ -540,18 +540,18 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 	defer f.Close()
 	tls := libc.NewTLS()
 	defer tls.Close()
-	mapping := libc.Xmalloc(tls, 5)
-	defer libc.Xfree(tls, mapping)
-	copy(unsafe.Slice((*byte)(unsafe.Pointer(mapping)), 5), []byte{2, 0, 1, 2, 255})
-	dec, err := Opus_opus_multistream_decoder_create(tls, 48000, 5, 2, 1, mapping)
+	mapping := libc.XmallocPointer(tls, 5)
+	defer libc.XfreePointer(tls, mapping)
+	copy(unsafe.Slice((*byte)(mapping), 5), []byte{2, 0, 1, 2, 255})
+	dec, err := Opus_opus_multistream_decoder_create_typed(tls, 48000, 5, 2, 1, (*byte)(mapping))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Opus_opus_multistream_decoder_destroy(tls, dec)
-	data := libc.Xmalloc(tls, 4000)
-	defer libc.Xfree(tls, data)
-	pcm := libc.Xmalloc(tls, 6400*5*4)
-	defer libc.Xfree(tls, pcm)
+	defer Opus_opus_multistream_decoder_destroy_typed(tls, dec)
+	data := libc.XmallocPointer(tls, 4000)
+	defer libc.XfreePointer(tls, data)
+	pcm := libc.XmallocPointer(tls, 6400*5*4)
+	defer libc.XfreePointer(tls, pcm)
 	va := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
 	defer libc.Xfree(tls, va)
 	rng := libc.Xmalloc(tls, 4)
@@ -565,7 +565,7 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 		if n, err := fmt.Sscanf(scanner.Text(), "%s %d %d %d %d %d %d %d %s", &name, &length, &frame, &fec, &shortOut, &wantRet, &wantHash, &wantRange, &packet); err != nil || n != 9 {
 			t.Fatalf("line %d: %v", line, err)
 		}
-		input := uintptr(0)
+		var input *byte
 		if packet != "-" {
 			bytes, err := hex.DecodeString(packet)
 			if err != nil {
@@ -574,15 +574,18 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 			if len(bytes) != int(length) {
 				t.Fatal("fixture length mismatch")
 			}
-			copy(unsafe.Slice((*byte)(unsafe.Pointer(data)), 4000), bytes)
-			input = data
+			copy(unsafe.Slice((*byte)(data), 4000), bytes)
+			input = (*byte)(data)
 		}
-		libc.Xmemset(tls, pcm, 0xa5, 6400*5*4)
+		pcmBytes := unsafe.Slice((*byte)(pcm), 6400*5*4)
+		for i := range pcmBytes {
+			pcmBytes[i] = 0xa5
+		}
 		var ret int32
 		if shortOut != 0 {
-			ret = Opus_opus_multistream_decode(tls, dec, input, length, pcm, frame, fec)
+			ret = Opus_opus_multistream_decode_typed(tls, dec, input, length, (*int16)(pcm), frame, fec)
 		} else {
-			ret = Opus_opus_multistream_decode_float(tls, dec, input, length, pcm, frame, fec)
+			ret = Opus_opus_multistream_decode_float_typed(tls, dec, input, length, (*float32)(pcm), frame, fec)
 		}
 		if ret != wantRet {
 			t.Fatalf("%s line %d: return %d, want %d", name, line, ret, wantRet)
@@ -593,7 +596,7 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 			if shortOut != 0 {
 				width = 2
 			}
-			for _, b := range unsafe.Slice((*byte)(unsafe.Pointer(pcm)), int(ret)*5*width) {
+			for _, b := range unsafe.Slice((*byte)(pcm), int(ret)*5*width) {
 				hash ^= uint64(b)
 				hash *= 1099511628211
 			}
@@ -601,7 +604,7 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 		if hash != wantHash {
 			t.Fatalf("%s line %d: PCM hash %d, want %d", name, line, hash, wantHash)
 		}
-		if ret := Opus_opus_multistream_decoder_ctl(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(dec)), OPUS_GET_FINAL_RANGE_REQUEST, libc.NewVaCursor(unsafe.Pointer(libc.VaList(va, rng)))); ret != 0 {
+		if ret := Opus_opus_multistream_decoder_ctl(tls, dec, OPUS_GET_FINAL_RANGE_REQUEST, libc.NewVaCursor(unsafe.Pointer(libc.VaList(va, rng)))); ret != 0 {
 			t.Fatalf("range CTL = %d", ret)
 		}
 		if got := *(*uint32)(unsafe.Pointer(rng)); got != wantRange {

@@ -534,6 +534,30 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream typed-create cleanup: removed Opus_opus_multistream_decoder_create
+integer-returning wrapper; both remaining reference callers now use typed create
+and destroy with actual state/mapping pointers. External Go users must use typed
+factory. Decode fixture keeps state typed through existing typed int16/float
+entries and CTL, not a cast back to integer decoders. Mapping/data/PCM allocations
+use SAME allocator, alignment and exact payload extents via XmallocPointer/free;
+original full PCM 0xa5 byte fill and width-dependent hashes remain. No buffer
+size/packet/transcript/range/hash/tolerance or allocation-count change. CTL
+fixture keeps original raw vararg/output/child slots; only parent/mapping/factory
+plumbing changes. Parent pointer is converted to a number ONLY for the existing
+independent offset-distance oracle, never reconstructed. No opaque image/legacy
+vararg lifetime repair claimed. Original child-layout delta adjustment stays.
+
+Full inherited validation initially hit recurring native found-pointer-to-free-
+object with TestExtensionNextAgainstC active. Complete unchanged retry passed;
+failed log retained, no native fix. Both independent C-reference transcripts pass;
+scoped create/MS-storage/owner checks amd64/386 and tagged ARM ordinary/checkptr
+repeats20 pass. Ordinary also repeats both C fixtures; raw-vararg C fixtures are
+NOT newly claimed checkptr-safe. Logs
+/tmp/opus-ms-typed-create-{native-focused,native-focused-retry,focused,focused-retry,full,full-retry,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr50->47, unsafe.Pointer80->78. No relocated raw constructor,
+codec/ABI layout/model/performance/global lifetime/direct macOS claim. Other
+packages unchanged.
+
 All DRED signature cleanup: every Opus_opus_dred_* API and related
 Opus_opus_decoder_dred_decode{,24,_float} now has NO uintptr arguments/results.
 Decoder states use canonical concrete pointers, packet *byte, dred_end *int32,

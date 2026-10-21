@@ -3495,12 +3495,6 @@ func Opus_opus_multistream_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int
 	return st, nil
 }
 
-// Legacy exported creation ABI for integer-address outer decode/control callers.
-func Opus_opus_multistream_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, mapping uintptr) (uintptr, error) {
-	st, err := Opus_opus_multistream_decoder_create_typed(tls, Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(mapping)))
-	return uintptr(unsafe.Pointer(st)), err
-}
-
 func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams, Fs int32) int32 {
 	var position uint
 	var toc byte
