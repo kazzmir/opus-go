@@ -69,9 +69,9 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 		}
 		var ret int32
 		if stream < 0 {
-			ret = Opus_opus_multistream_decoder_ctl_va_list(tls, st, request, va)
+			ret = Opus_opus_multistream_decoder_ctl_va_list(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), request, libc.NewVaCursor(unsafe.Pointer(va)))
 		} else {
-			ret = Opus_opus_decoder_ctl(tls, dec[stream], request, va)
+			ret = Opus_opus_decoder_ctl(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(dec[stream])), request, libc.NewVaCursor(unsafe.Pointer(va)))
 		}
 		if ret != wantRet {
 			t.Fatalf("line %d (%s): return %d, want %d", line, scanner.Text(), ret, wantRet)

@@ -976,7 +976,8 @@ var tapset_icdf = [3]uint8{
 	1: uint8(1),
 }
 
-type OpusT_va_list = uintptr
+// OpusT_va_list is a pointer-backed cursor over native-word CTL slots.
+type OpusT_va_list = libc.VaCursor
 
 type OpusRepacketizer = OpusT_OpusRepacketizer
 
@@ -3042,9 +3043,10 @@ func opusDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, leng
 	return opusDecodeNative(tls, decoder, data, length, pcm, frameSize, fec, 0, nil, 0)
 }
 
-// Legacy varargs boundary; forwarding stays typed and allocates no TLS scratch.
-func Opus_opus_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {
-	return Opus_opus_decoder_ctl_typed(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(st)), request, opusCtlLegacyArgs(request, func() libc.VaCursor { return libc.NewVaCursor(unsafe.Pointer(va)) }))
+// Pointer-backed varargs; forwarding retains state/slot ownership and allocates
+// no TLS scratch. Unknown and reset requests never consume the cursor.
+func Opus_opus_decoder_ctl(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, va libc.VaCursor) int32 {
+	return Opus_opus_decoder_ctl_typed(tls, st, request, opusCtlLegacyArgs(request, func() libc.VaCursor { return va }))
 }
 
 // The legacy ABI frees an address key without reconstructing a Go pointer.
@@ -3191,7 +3193,7 @@ func Opus_opus_dred_decoder_destroy(tls *libc.TLS, dec uintptr) {
 	Opus_opus_dred_decoder_destroy_typed(tls, (*OpusT_OpusDREDDecoder)(unsafe.Pointer(dec)))
 }
 
-func Opus_opus_dred_decoder_ctl(tls *libc.TLS, dred_dec uintptr, request int32, va uintptr) (r int32) {
+func Opus_opus_dred_decoder_ctl(tls *libc.TLS, dred_dec *OpusT_OpusDREDDecoder, request int32, va libc.VaCursor) (r int32) {
 	_ = dred_dec
 	_ = request
 	return -int32(5)
@@ -3871,19 +3873,12 @@ func opusMSDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusMSDecoder, data *byte, 
 	return opusMSDecodeBound(tls, decoder, data, length, copyOut, frame, fec, 0)
 }
 
-func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st uintptr, request int32, ap OpusT_va_list) int32 {
-	decoder := (*OpusT_OpusMSDecoder)(unsafe.Pointer(st))
-	return Opus_opus_multistream_decoder_ctl_typed(tls, decoder, request, msCtlLegacyArgs(decoder, request, func() libc.VaCursor { return libc.NewVaCursor(unsafe.Pointer(ap)) }))
+func Opus_opus_multistream_decoder_ctl_va_list(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32, ap OpusT_va_list) int32 {
+	return Opus_opus_multistream_decoder_ctl_typed(tls, st, request, msCtlLegacyArgs(st, request, func() libc.VaCursor { return ap }))
 }
 
-func Opus_opus_multistream_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) (r int32) {
-	var ap OpusT_va_list
-	var ret int32
-	_, _ = ap, ret
-	ap = va
-	ret = Opus_opus_multistream_decoder_ctl_va_list(tls, st, request, ap)
-	_ = ap
-	return ret
+func Opus_opus_multistream_decoder_ctl(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32, va libc.VaCursor) int32 {
+	return Opus_opus_multistream_decoder_ctl_va_list(tls, st, request, va)
 }
 
 func Opus_opus_multistream_decoder_destroy(tls *libc.TLS, st uintptr) {
@@ -4376,10 +4371,9 @@ func opusProjectionDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusProjectionDecod
 	return opusMSDecodeBound(tls, ms, data, length, opusProjectionFloatCopy(matrix, pcm), frame, fec, 0)
 }
 
-func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st uintptr, request int32, va uintptr) int32 {
-	decoder := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))
-	ms := get_multistream_decoder(tls, decoder)
-	return Opus_opus_projection_decoder_ctl_typed(tls, decoder, request, msCtlLegacyArgs(ms, request, func() libc.VaCursor { return libc.NewVaCursor(unsafe.Pointer(va)) }))
+func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, request int32, va libc.VaCursor) int32 {
+	ms := get_multistream_decoder(tls, st)
+	return Opus_opus_projection_decoder_ctl_typed(tls, st, request, msCtlLegacyArgs(ms, request, func() libc.VaCursor { return va }))
 }
 
 func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {

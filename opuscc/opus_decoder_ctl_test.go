@@ -59,7 +59,7 @@ func TestOpusDecoderCtlCReference(t *testing.T) {
 		default:
 			t.Fatalf("unknown operation %q", op)
 		}
-		ret := Opus_opus_decoder_ctl(tls, st, request, va)
+		ret := Opus_opus_decoder_ctl(tls, d, request, libc.NewVaCursor(unsafe.Pointer(va)))
 		if ret != wantRet {
 			t.Fatalf("line %d (%s): return %d, want %d", line, scanner.Text(), ret, wantRet)
 		}

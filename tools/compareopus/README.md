@@ -534,6 +534,45 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Focused common.go CTL migration (NOT whole-file integer-address removal):
+Opus_opus_decoder_ctl, multistream ctl/ctl_va_list and projection ctl now take
+actual concrete decoder pointers and libcshim.VaCursor values. OpusT_va_list now
+names that real pointer-plus-offset cursor, not an integer-address alias. No
+state/base reconstruction remains in these CTL APIs, no replacement raw adapter
+was relocated elsewhere, and no integer slot snapshots/TLS scratch were added.
+This intentionally CHANGES exported Go signatures/va_list representation.
+Go callers can also use existing *_ctl_typed with OpusDecoderCtlArgs directly.
+Disabled DRED ctl receives matching typed state/cursor signature; this is stub
+API cleanup only, not a new DRED ownership/DSP claim (still ignores everything,
+returns -5). Remaining create/decode/destroy/callback/difference uintptr sites
+in common.go are explicitly NOT migrated by this focused CTL step.
+
+Cursor copied per call; opening/reading remains request-lazy. Reset/unknown
+consume no slots, invalid stream ID consumes exactly its first native word,
+second output slot is deferred until bounds pass. Projection derives MS at
+same points as before. Validation/store order, live aliases, child forwarding,
+range XOR/clear-before-query, write barriers, reset prefix/gain preservation
+and all error values unchanged. Removed unused generated MS forwarding locals
+without changing cursor-copy semantics. Original native transcript/hash fixtures
+keep SAME allocations/extents/encodings/expected values; only fixture-boundary
+state/cursor arguments adapt to new signatures. No production compatibility
+casts relocated into new helpers and no oracle/tolerance changes.
+
+New public-entry tests use actual scanned composite decoder parents, pointer
+output slots/native scalar words across GC/stack growth, all four ctl routes,
+repeated cursor calls/live scalar reloads, null output, unknown/reset with empty
+cursor, invalid gain/no stores, actual child output, one-word invalid stream ID,
+aliased final range and reset gain preservation. DRED nil/empty cases remain -5.
+These are bounded Go cases, not new native invalid/restrict-domain claims; no
+opaque image GC maps/legacy vararg pointee lifetime/native GC repair claimed.
+Counts: opuscc uintptr99->89; unsafe.Pointer98->92. Full inherited amd64/386/
+ARM64-QEMU/native/GC stress/unchanged-codec-reference checks, explicit scoped
+public ctl/cursor tests amd64/386, tagged ARM ordinary/scoped repeats20, and diff
+checks pass. No failures. Logs
+/tmp/opus-common-ctl-cursor-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No performance/global lifetime/direct macOS claims. Previous raw-boundary notes
+below are historical; only custom CELT ctl retains that raw boundary now.
+
 Focused decoder_ctl_typed.go migration: no uintptr types/address reconstruction
 remain in that file. msCtlLegacyArgs, opusCtlLegacyArgs and customCtlLegacyArgs
 now consume lazy factories for actual pointer-based libcshim.VaCursor values.

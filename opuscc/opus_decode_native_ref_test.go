@@ -102,7 +102,7 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 		t.Fatalf("padded20: pcm[0]=%08x want %08x", got, want)
 	}
 	var slot [2]int32
-	if got := Opus_opus_decoder_ctl(tls, dec, OPUS_SET_IGNORE_EXTENSIONS_REQUEST, libc.VaList(uintptr(unsafe.Pointer(&slot[0])), int32(1))); got != OPUS_OK {
+	if got := Opus_opus_decoder_ctl(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(dec)), OPUS_SET_IGNORE_EXTENSIONS_REQUEST, libc.NewVaCursor(unsafe.Pointer(libc.VaList(uintptr(unsafe.Pointer(&slot[0])), int32(1))))); got != OPUS_OK {
 		t.Fatalf("OPUS_SET_IGNORE_EXTENSIONS: %d", got)
 	}
 	po = -1
