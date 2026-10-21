@@ -37,11 +37,13 @@ func msCtlLegacyArgs(st *OpusT_OpusMSDecoder, request int32, ap func() libc.VaCu
 	return
 }
 
-func Opus_opus_multistream_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32, a OpusDecoderCtlArgs) int32 {
+func Opus_opus_multistream_decoder_ctl_typed(tls *libc.TLS, st OpusMSDecoderState, request int32, a OpusDecoderCtlArgs) int32 {
 	return opusMSDecoderCtlArgs(tls, st, request, opusCtlArgs{OpusDecoderCtlArgs: a})
 }
 
-func opusMSDecoderCtlArgs(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32, a opusCtlArgs) int32 {
+func opusMSDecoderCtlArgs(tls *libc.TLS, source OpusMSDecoderState, request int32, a opusCtlArgs) int32 {
+	st := opusMSHeaderOf(source)
+	childAt := func(offset uint) *OpusT_OpusDecoder { return opusMSChildOf(tls, source, offset) }
 	coupled := uint((uint32(Opus_opus_decoder_get_size(tls, 2)) + 7) &^ uint32(7))
 	mono := uint((uint32(Opus_opus_decoder_get_size(tls, 1)) + 7) &^ uint32(7))
 	offset := (uint(unsafe.Sizeof(*st)) + 7) &^ uint(7)
@@ -54,14 +56,14 @@ func opusMSDecoderCtlArgs(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32,
 	}
 	switch request {
 	case OPUS_GET_BANDWIDTH_REQUEST, OPUS_GET_SAMPLE_RATE_REQUEST, OPUS_GET_GAIN_REQUEST, OPUS_GET_LAST_PACKET_DURATION_REQUEST, OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST, OPUS_GET_COMPLEXITY_REQUEST:
-		return opusDecoderCtlArgs(tls, opusMSDecoderBoundAt(tls, st, offset), request, a)
+		return opusDecoderCtlArgs(tls, childAt(offset), request, a)
 	case OPUS_GET_FINAL_RANGE_REQUEST:
 		if !a.hasU32() {
 			return -1
 		}
 		a.storeU32(0)
 		for s := int32(0); s < st.Flayout.Fnb_streams; s++ {
-			dec := opusMSDecoderBoundAt(tls, st, offset)
+			dec := childAt(offset)
 			next(s)
 			var tmp uint32
 			if ret := Opus_opus_decoder_ctl_typed(tls, dec, request, OpusDecoderCtlArgs{U32: &tmp}); ret != OPUS_OK {
@@ -71,7 +73,7 @@ func opusMSDecoderCtlArgs(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32,
 		}
 	case OPUS_RESET_STATE, OPUS_SET_GAIN_REQUEST, OPUS_SET_COMPLEXITY_REQUEST, OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
 		for s := int32(0); s < st.Flayout.Fnb_streams; s++ {
-			dec := opusMSDecoderBoundAt(tls, st, offset)
+			dec := childAt(offset)
 			next(s)
 			if ret := opusDecoderCtlArgs(tls, dec, request, a); ret != OPUS_OK {
 				return ret
@@ -87,7 +89,7 @@ func opusMSDecoderCtlArgs(tls *libc.TLS, st *OpusT_OpusMSDecoder, request int32,
 		for s := int32(0); s < a.Value; s++ {
 			next(s)
 		}
-		*a.Decoder = opusMSDecoderBoundAt(tls, st, offset)
+		*a.Decoder = childAt(offset)
 	default:
 		return -5
 	}

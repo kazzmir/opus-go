@@ -169,12 +169,13 @@ func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
 	return views
 }
 
-func opusMSDecoderOwnedStorage(streams, coupled int32) opusMSStorageViews {
+// Flat ABI storage remains only for legacy/projection interoperability.
+func opusMSDecoderLegacyOwnedStorage(streams, coupled int32) opusMSStorageViews {
 	return opusMSStorageViewsAt(opusDecoderAlignedStorage(opusMSDecoderStorageType(streams, coupled)))
 }
 
 func opusMSDecoderStorage(streams, coupled int32) *OpusT_OpusMSDecoder {
-	return opusMSDecoderOwnedStorage(streams, coupled).Decoder
+	return opusMSDecoderLegacyOwnedStorage(streams, coupled).Decoder
 }
 
 // Disabled DRED still has a concrete 12-byte scalar ABI header. Use its real

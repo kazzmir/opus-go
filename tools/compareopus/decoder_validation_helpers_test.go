@@ -403,7 +403,7 @@ func TestMSDecoderCreateAgainstC(t *testing.T) {
 				code := factoryErrorCode(err)
 				var image []byte
 				if st != nil {
-					image = slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(st)), int(opuscc.Opus_opus_multistream_decoder_get_size(nil, streams, coupled))))
+					image = opuscc.CompareMSGoImage(st)
 					normalizeMSModes(image, streams, coupled)
 				}
 				native := make([]byte, len(image))

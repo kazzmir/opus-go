@@ -12,7 +12,7 @@ import (
 // Only registry/projection-interop fixtures use this explicit legacy setup.
 // Normal Go creation must never call it or register its state/child views.
 func legacyRegisteredMSTestDecoder(tls *libc.TLS, rate, channels, streams, coupled int32, mapping *byte) (*OpusT_OpusMSDecoder, error) {
-	owned := opusMSDecoderOwnedStorage(streams, coupled)
+	owned := opusMSDecoderLegacyOwnedStorage(streams, coupled)
 	st := libc.RegisterGoAllocation(tls, owned.Decoder)
 	if st == nil {
 		return nil, opusErrorFromCode(-7)
@@ -49,10 +49,10 @@ func TestMSDecoderGoOwnershipPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 	st, modes, books, coefs := unregisteredMSOwner(t)
-	if libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, uintptr(unsafe.Pointer(st))) != nil {
+	if libc.RegisteredGoAllocation[OpusMSDecoder](tls, uintptr(unsafe.Pointer(st))) != nil {
 		t.Fatal("Go factory registered its parent")
 	}
-	if _, ok := libc.GoAllocationMetadata[OpusT_OpusMSDecoder, opusMSCodecBinding](tls, st); ok {
+	if _, ok := libc.GoAllocationMetadata[OpusT_OpusMSDecoder, opusMSCodecBinding](tls, st.opusMSHeader()); ok {
 		t.Fatal("Go factory requires TLS metadata")
 	}
 	entropyInitGrowStack(12)
@@ -78,7 +78,7 @@ func TestMSDecoderGoOwnershipPointers(t *testing.T) {
 	st = nil
 	runtime.GC()
 	if child.FFs != 48000 || modes[0].Value() == nil || modes[1].Value() == nil {
-		t.Fatal("interior child must retain full scanned composite")
+		t.Fatal("child back reference must retain Go parent/siblings")
 	}
 	var rate int32
 	if Opus_opus_decoder_ctl_typed(nil, child, OPUS_GET_SAMPLE_RATE_REQUEST, OpusDecoderCtlArgs{I32: &rate}) != 0 || rate != 48000 {

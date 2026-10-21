@@ -534,6 +534,54 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream static Go objects (supersedes the contiguous-reflect normal factory
+below): opusMSDecoderOwnedStorage now returns an ordinary *OpusMSDecoder containing
+a private scalar header, concrete child-view slice and numeric logical offsets.
+Normal allocation/callees use NO reflect.Type/reflect.Value/StructOf/ArrayOf:
+mono/stereo children are declared Go structs with real Opus/SILK/CELT fields and
+float32 tail arrays, created with new. Tail extents implement the unchanged
+standard-mode formula (overlap120/bands21); constructor verifies canonical mode,
+field offsets and exact ABI extents against existing size functions. This is
+normal Opus storage, not a new dynamic-custom-mode allocator.
+
+Children retain parent through an actual typed Go pointer OUTSIDE their ABI body;
+Clear zeroes only the typed body, retaining that parent/sibling graph. Unreachable
+cycles collect normally. Child headers retain the 16-byte policy using actual Go
+fields: numeric alignment tests select a declared typed-array element if needed,
+never reconstruct a pointer from an integer. Potentially zero-length residue
+padding is FIRST to avoid Go's trailing-zero-sized-field padding; dedicated
+alignment-array residue tests exercise both channel layouts on all architectures.
+
+OpusMSDecoder is now a real Go owner, distinct from the flat OpusT_OpusMSDecoder.
+Typed decode/CTL accept the explicit OpusMSDecoderState interface implemented by
+these two concrete pointer types. Normal child lookup follows real Go child
+objects at logical coordinates; legacy lookup retains original bound/flat ABI
+addressing and live reloads. No side table, opaque any or replacement registration.
+The private normal header prevents accidental public conversion to a flat state.
+Normal objects are NOT contiguous MS ABI images; invalid mutated Go geometry has
+no invented address-recovery fallback. Legacy flat geometry/alias behavior remains.
+
+Multistream reflection remains only in explicit legacy/projection/image paths,
+including renamed opusMSDecoderLegacyOwnedStorage; standalone decoder/DRED
+reflection is untouched. Existing flat registry/geometry/clear
+fixtures explicitly use that representation, with original checks unchanged.
+Physical-displacement CTL C transcript uses explicit flat fixture (same original
+sizes/bytes/displacements/requests). Normal CTL parity, live zero-before-loop
+alias, static child field/byte/extent equality, alignment, typed clear/reinit,
+GC/stack growth, child-retains-parent/siblings, collection and wrapper tests pass.
+Normal multistream C decode transcript retains Go creation and exact audio/range
+oracles. Native factory comparison now serializes actual logical header/child ABI
+components, NOT bytes beyond the normal Go object's allocation. All original
+native cases, byte/normalization/tolerance and C allocator-failure oracles retained.
+
+Full inherited amd64/386/ARM64-QEMU/native/GC-stress/codec checks pass; scoped amd64
+and386 checkptr plus tagged ARM ordinary/checkptr repeats20 pass. No failed runs.
+Logs /tmp/opus-ms-static-go-{focused,checkptr-focused,checkptr-focused-final,native-focused,full,full-final,amd64-checkptr-final,386-checkptr,386-checkptr-final,arm-checkptr-repeat,arm-checkptr-repeat-final,arm-repeat,arm-repeat-final}.log.
+Counts51 uintptr/84 unsafe.Pointer (was47/78): four numeric alignment casts and
+six alignment/compare-transport pointer conversions, not new integer owners.
+No performance/global lifetime/native GC/opaque-image/macOS claim. Older normal
+factory/contiguous-composite observations below describe the superseded version.
+
 Multistream normal-Go ownership: create_typed now takes NO TLS and returns
 *OpusMSDecoder directly. No RegisterGoAllocation, metadata binding, child alias
 registration, side table or replacement registry in normal creation. Actual

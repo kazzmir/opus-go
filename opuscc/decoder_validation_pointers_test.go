@@ -480,7 +480,7 @@ func TestOpusDecoderMSCodecBoundStoragePointers(t *testing.T) {
 	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 0}, {2, 2}, {3, 1}} {
 		streams, coupled := geometry[0], geometry[1]
 		for _, rate := range []int32{48000, 24000, 44100} {
-			owned := opusMSDecoderOwnedStorage(streams, coupled)
+			owned := opusMSDecoderLegacyOwnedStorage(streams, coupled)
 			legacy := opusMSDecoderStorage(streams, coupled)
 			mapping := make([]byte, streams+coupled)
 			for i := range mapping {
@@ -517,7 +517,7 @@ func TestOpusDecoderMSBoundStoragePointers(t *testing.T) {
 	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 1}, {3, 1}} {
 		streams, coupled := geometry[0], geometry[1]
 		for _, rate := range []int32{48000, 44100} {
-			owned := opusMSDecoderOwnedStorage(streams, coupled)
+			owned := opusMSDecoderLegacyOwnedStorage(streams, coupled)
 			legacy := opusMSDecoderStorage(streams, coupled)
 			mapping := make([]byte, streams+coupled)
 			for i := range mapping {
@@ -731,7 +731,7 @@ func TestOpusDecoderSingleTypedClearStoragePointers(t *testing.T) {
 
 func TestOpusDecoderMSTypedClearStoragePointers(t *testing.T) {
 	for _, coupled := range []int32{0, 1} {
-		owned := opusMSDecoderOwnedStorage(3, coupled)
+		owned := opusMSDecoderLegacyOwnedStorage(3, coupled)
 		mapping := make([]byte, 3+coupled)
 		for i := range mapping {
 			mapping[i] = byte(i)
