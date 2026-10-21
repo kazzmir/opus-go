@@ -534,6 +534,20 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Version-string pointer migration: opuscc.Opus_opus_get_version_string now
+returns *byte directly, with no integer-address result or pointer-to-integer
+conversion. This changes its exported Go return type. Existing _typed entry
+remains and returns SAME read-only, NUL-terminated static diagnostic-pool root.
+No storage copy, string/pool/layout/NUL change or new compatibility adapter.
+Version fixture now holds the public entry's actual pointer across GC/stack
+growth and checks original pool identity, exact libopus 1.6.1 text, NUL and
+_typed parity without integer conversions. Existing independent oracles/extents,
+codec goldens/tolerances and broad validation unchanged. Full inherited checks,
+scoped diagnostics amd64/386 and tagged ARM ordinary/checkptr repeats20 pass;
+no failures. Logs /tmp/opus-version-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr89->87, unsafe.Pointer92->91. Encoder package's separate
+legacy version API is unchanged; no global ABI/lifetime/performance claims.
+
 Latest DRED CTL decision: removed unused VaCursor again at user request because
 DRED remains unimplemented. Signature is now (TLS, *OpusT_OpusDREDDecoder,
 request); existing -5 result is unchanged. Updated no-argument test. No DRED

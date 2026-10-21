@@ -399,8 +399,9 @@ func Opus_opus_get_version_string_typed(tls *libc.TLS) *byte {
 	return unsafe.StringData(opusDiagnosticString(3291))
 }
 
-func Opus_opus_get_version_string(tls *libc.TLS) (r uintptr) {
-	return uintptr(unsafe.Pointer(Opus_opus_get_version_string_typed(tls)))
+// Opus_opus_get_version_string returns read-only, NUL-terminated static text.
+func Opus_opus_get_version_string(tls *libc.TLS) *byte {
+	return Opus_opus_get_version_string_typed(tls)
 }
 
 const CELT_SIG_SCALE4 = "32768.f"
