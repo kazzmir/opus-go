@@ -2901,8 +2901,12 @@ func quantAllBandsFoldOutput(norm *float32, bands *int16, band, M, offset, N, la
 }
 
 func quantAllBandsMerge(norm, other *float32, bands *int16, band, M, offset int32) {
+	quantAllBandsMergeFrom(quantBandFoldOutput{legacy: norm}, quantBandFoldOutput{legacy: other}, bands, band, M, offset)
+}
+
+func quantAllBandsMergeFrom(primary, secondary quantBandFoldOutput, bands *int16, band, M, offset int32) {
 	for j := int32(0); j < M*quantAllBandsBoundary(bands, band)-offset; j++ {
-		left, right := unsafe.Slice(norm, j+1), unsafe.Slice(other, j+1)
+		left, right := primary.span(j+1), secondary.span(j+1)
 		left[j] = float32(float32(.5) * (left[j] + right[j]))
 	}
 }
@@ -3356,7 +3360,7 @@ func quantAllBandsFrom(tls *libc.TLS, encode int32, m *OpusT_OpusCustomMode, sta
 			/* Switch off dual stereo to do intensity. */
 			dual_stereo = 0
 			if resynth != 0 {
-				quantAllBandsMerge(norm, norm2, eBands, i1, M, norm_offset)
+				quantAllBandsMergeFrom(quantBandFoldOutput{owner: _norm, owned: true}, quantBandFoldOutput{legacy: norm2}, eBands, i1, M, norm_offset)
 			}
 		}
 		if dual_stereo != 0 {

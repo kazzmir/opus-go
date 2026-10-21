@@ -416,22 +416,41 @@ func TestQuantAllBandsMergePointers(t *testing.T) {
 	bands := []int16{0, 3}
 	norm := []float32{77, 1, 2, 3, 88}
 	other := []float32{4, 5, 6}
+	owned := slices.Clone(norm)
 	entropyInitGrowStack(12)
 	runtime.GC()
 	quantAllBandsMerge(&norm[1], &other[0], &bands[0], 1, 1, 0)
+	quantAllBandsMergeFrom(quantBandFoldOutput{owner: owned, offset: 1, owned: true}, quantBandFoldOutput{legacy: &other[0]}, &bands[0], 1, 1, 0)
+	for i := range norm {
+		if math.Float32bits(norm[i]) != math.Float32bits(owned[i]) {
+			t.Fatal("primary merge actual owner/full bits/guards", i)
+		}
+	}
 	if norm[1] != 2.5 || norm[2] != 3.5 || norm[3] != 4.5 || norm[0] != 77 || norm[4] != 88 {
 		t.Fatal("ordered norm merge")
 	}
 	quantAllBandsMerge(nil, nil, &bands[0], 0, 1, 0)
 	alias := []float32{1, 2, 3, 4}
+	ownedAlias := slices.Clone(alias)
 	quantAllBandsMerge(&alias[1], &alias[0], &bands[0], 1, 1, 0)
+	quantAllBandsMergeFrom(quantBandFoldOutput{owner: ownedAlias, offset: 1, owned: true}, quantBandFoldOutput{legacy: &ownedAlias[0]}, &bands[0], 1, 1, 0)
+	if !slices.Equal(alias, ownedAlias) {
+		t.Fatal("primary merge sequential aliases")
+	}
 	if alias[1] != 1.5 || alias[2] != 2.25 || alias[3] != 3.125 {
 		t.Fatal("live merge aliases")
 	}
 	live := []float32{math.Float32frombits(3), 2, 77}
+	ownedLive := slices.Clone(live)
 	bound := (*int16)(unsafe.Pointer(&live[0]))
 	zero := []float32{0, 0, 0}
 	quantAllBandsMerge(&live[0], &zero[0], bound, 0, 1, 0)
+	quantAllBandsMergeFrom(quantBandFoldOutput{owner: ownedLive, owned: true}, quantBandFoldOutput{legacy: &zero[0]}, (*int16)(unsafe.Pointer(&ownedLive[0])), 0, 1, 0)
+	for i := range live {
+		if math.Float32bits(live[i]) != math.Float32bits(ownedLive[i]) {
+			t.Fatal("primary merge live bound/full bits", i)
+		}
+	}
 	if math.Float32bits(live[0]) != 2 || live[1] != 1 || live[2] != 77 {
 		t.Fatal("Go-only live bound reload")
 	}
