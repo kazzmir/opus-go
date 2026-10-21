@@ -88,9 +88,9 @@ func TestCommonCtlCursorPointers(t *testing.T) {
 	}
 }
 
-func TestCommonDREDCtlNoArgsPointers(t *testing.T) {
+func TestCommonDREDCtlCursorPointers(t *testing.T) {
 	for _, request := range []int32{-1234, OPUS_RESET_STATE, OPUS_GET_FINAL_RANGE_REQUEST} {
-		if Opus_opus_dred_decoder_ctl(nil, nil, request) != -5 {
+		if Opus_opus_dred_decoder_ctl(nil, nil, request, libc.VaCursor{}) != -5 {
 			t.Fatal("disabled DRED never consumes arguments")
 		}
 	}
