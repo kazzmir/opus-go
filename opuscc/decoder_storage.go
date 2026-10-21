@@ -211,11 +211,21 @@ func opusDecoderStorageClearAt(owner reflect.Value) func() {
 	}
 }
 
-func opusDecoderOwnedStorage(channels int32) opusDecoderStorageViews {
+// Explicit flat-layout oracle for legacy/image interoperability tests.
+func opusDecoderLegacyOwnedStorage(channels int32) opusDecoderStorageViews {
 	owner := opusDecoderAlignedStorage(opusDecoderStorageType(channels))
 	views := opusDecoderStorageViewsAt(owner)
 	views.Clear = opusDecoderStorageClearAt(owner)
 	return views
+}
+
+// Normal decoder allocation uses declared Go fields, never runtime reflection.
+func opusDecoderOwnedStorage(channels int32) opusDecoderStorageViews {
+	opusDecoderGoStorageCheck(channels)
+	if channels == 2 {
+		return opusGoStereoStorage(nil)
+	}
+	return opusGoMonoStorage(nil)
 }
 
 func opusDecoderStorage(channels int32) *OpusT_OpusDecoder {

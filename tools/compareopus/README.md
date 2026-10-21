@@ -534,6 +534,41 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Single-decoder static Go storage: opusDecoderOwnedStorage now uses the shared
+ordinary mono/stereo structs via opusGoMonoStorage(nil)/opusGoStereoStorage(nil),
+not reflect.Type/reflect.Value or an indirect reflective allocator. The same
+real Opus/SILK/CELT fields and float32 tails retain exact per-channel ABI offsets,
+extents, pointer maps and16-byte child/header alignment. Shared standard-mode/
+channel/field/extent checks cover both single and multistream allocation.
+
+Opus_opus_decoder_create_typed's TLS parameter, nil-TLS -7, registry ownership,
+codec bindings, destroy contract, validation/error order and return type are
+UNCHANGED: this request removes reflection, not the existing registration API.
+No raw byte allocation, global root table, pointer-valued integer or replacement
+registry introduced. Reflection for DRED/custom/legacy/image paths is untouched.
+
+The original reflective single allocation is explicitly named
+opusDecoderLegacyOwnedStorage and used only as the independent legacy layout
+oracle in bound-init tests. Those tests now compare actual static Go storage
+against the prior layout for both channels/all original rates, with unchanged
+byte/status/invalid-rate no-write checks. Original reflected neighbor/extent
+fixture remains unchanged. Shared typed Clear zeroes prefix fields and tail
+array, not enclosing Go final padding or out-of-ABI parent pointer. New static
+single tests poison only scalar final padding, verify exact clear extent, and
+verify header-only reachability of actual Go CELT/SILK owners across stack growth/
+GC without TLS or a retained view descriptor. Fake book fixtures are queried,
+not used as valid DSP inputs. Factory registry-only weak-root checks remain.
+
+Full inherited amd64/386/ARM64-QEMU/native/GC-stress/codec checks pass; scoped amd64
+and386 checkptr and tagged ARM ordinary/checkptr repeats20 pass, including shared
+MS ownership/alignment regressions. Explicit native single/MS factory comparisons
+pass, keeping all original allocation-failure/error-order/image oracles. No
+fixture size, codec golden, tolerance or native comparison oracle changes/failures.
+Logs /tmp/opus-decoder-static-go-{focused,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts unchanged51 uintptr/84 unsafe.Pointer. No performance, global lifetime,
+native GC/opaque-image repair or direct macOS claim. The earlier note below that
+standalone reflection was untouched is now superseded for normal Opus creation.
+
 Multistream static Go objects (supersedes the contiguous-reflect normal factory
 below): opusMSDecoderOwnedStorage now returns an ordinary *OpusMSDecoder containing
 a private scalar header, concrete child-view slice and numeric logical offsets.

@@ -48,7 +48,7 @@ func opusMSChildOf(tls *libc.TLS, st OpusMSDecoderState, offset uint) *OpusT_Opu
 	return st.opusMSChild(tls, offset)
 }
 
-// Ordinary Go structs retain the canonical per-child ABI offsets. Only the
+// Shared single/multistream Go structs retain the canonical decoder ABI offsets. Only the
 // standard 48k/960 CELT mode is used by the Opus decoder (21 bands, overlap120).
 // Tail words match opus_custom_decoder_get_size, not a cast byte allocation.
 type opusGoDecoderPrefix struct {
@@ -109,7 +109,10 @@ func opusGoMonoStorage(parent *OpusMSDecoder) opusDecoderStorageViews {
 		}
 	}
 	cell.Owner = parent
-	return opusDecoderStorageViews{Decoder: &cell.Body.Decoder, Silk: &cell.Body.Silk, Celt: &cell.Body.Celt, Clear: func() { cell.Body = opusGoMonoBody{} }}
+	return opusDecoderStorageViews{Decoder: &cell.Body.Decoder, Silk: &cell.Body.Silk, Celt: &cell.Body.Celt, Clear: func() {
+		cell.Body.opusGoDecoderPrefix = opusGoDecoderPrefix{}
+		clear(cell.Body.Tail[:])
+	}}
 }
 func opusGoStereoStorage(parent *OpusMSDecoder) opusDecoderStorageViews {
 	cell := new(opusGoStereoCell)
@@ -127,7 +130,30 @@ func opusGoStereoStorage(parent *OpusMSDecoder) opusDecoderStorageViews {
 		}
 	}
 	cell.Owner = parent
-	return opusDecoderStorageViews{Decoder: &cell.Body.Decoder, Silk: &cell.Body.Silk, Celt: &cell.Body.Celt, Clear: func() { cell.Body = opusGoStereoBody{} }}
+	return opusDecoderStorageViews{Decoder: &cell.Body.Decoder, Silk: &cell.Body.Silk, Celt: &cell.Body.Celt, Clear: func() {
+		cell.Body.opusGoDecoderPrefix = opusGoDecoderPrefix{}
+		clear(cell.Body.Tail[:])
+	}}
+}
+
+func opusDecoderGoStorageCheck(channels int32) {
+	if channels != 1 && channels != 2 {
+		panic("opus Go decoder channel geometry")
+	}
+	if mode48000_960_120.Foverlap != 120 || mode48000_960_120.FnbEBands != 21 {
+		panic("opus Go decoder standard mode geometry")
+	}
+	prefix := opusGoDecoderPrefix{}
+	if uint(unsafe.Offsetof(prefix.Silk)) != uint(opusAlignSize8(int32(unsafe.Sizeof(prefix.Decoder)))) || uint(unsafe.Offsetof(prefix.Celt)) != uint(unsafe.Offsetof(prefix.Silk))+uint(opusAlignSize8(int32(unsafe.Sizeof(prefix.Silk)))) {
+		panic("opus Go child field offsets")
+	}
+	words := opusGoMonoTailWords
+	if channels == 2 {
+		words = opusGoStereoTailWords
+	}
+	if int(unsafe.Sizeof(prefix))+words*4 != int(Opus_opus_decoder_get_size(nil, channels)) {
+		panic("opus Go child extent")
+	}
 }
 
 func opusMSDecoderOwnedStorage(streams, coupled int32) *OpusMSDecoder {
@@ -144,18 +170,8 @@ func opusMSDecoderOwnedStorage(streams, coupled int32) *OpusMSDecoder {
 		} else {
 			st.codecs[i] = opusGoMonoStorage(st)
 		}
-		// These verify the real static Go fields against the unchanged codec ABI.
-		prefix := opusGoDecoderPrefix{}
-		if uint(unsafe.Offsetof(prefix.Silk)) != uint(opusAlignSize8(int32(unsafe.Sizeof(prefix.Decoder)))) || uint(unsafe.Offsetof(prefix.Celt)) != uint(unsafe.Offsetof(prefix.Silk))+uint(opusAlignSize8(int32(unsafe.Sizeof(prefix.Silk)))) {
-			panic("opus Go child field offsets")
-		}
-		words := opusGoMonoTailWords
-		if channels == 2 {
-			words = opusGoStereoTailWords
-		}
-		if int(unsafe.Sizeof(prefix))+words*4 != int(Opus_opus_decoder_get_size(nil, channels)) {
-			panic("opus Go child extent")
-		}
+		// Verify the real static Go fields against the unchanged codec ABI.
+		opusDecoderGoStorageCheck(channels)
 		st.offsets[i] = offset
 		offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
 	}

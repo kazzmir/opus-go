@@ -631,7 +631,7 @@ func TestOpusDecoderCodecViewsStoragePointers(t *testing.T) {
 func TestOpusDecoderCodecBoundStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for _, rate := range []int32{48000, 24000, 16000, 12000, 8000, 44100} {
-			owned, legacy := opusDecoderOwnedStorage(channels), opusDecoderOwnedStorage(channels)
+			owned, legacy := opusDecoderOwnedStorage(channels), opusDecoderLegacyOwnedStorage(channels)
 			if Opus_opus_decoder_init(nil, owned.Decoder, 48000, channels) != 0 || Opus_opus_decoder_init(nil, legacy.Decoder, 48000, channels) != 0 {
 				t.Fatal("initial codec image")
 			}
