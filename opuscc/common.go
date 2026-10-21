@@ -3028,11 +3028,6 @@ func Opus_opus_decoder_ctl(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, 
 	return Opus_opus_decoder_ctl_typed(tls, st, request, opusCtlLegacyArgs(request, func() libc.VaCursor { return va }))
 }
 
-// The legacy ABI frees an address key without reconstructing a Go pointer.
-func Opus_opus_decoder_destroy(tls *libc.TLS, st uintptr) {
-	libc.Xfree(tls, st)
-}
-
 func Opus_opus_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusDecoder) {
 	libc.XfreePointer(tls, unsafe.Pointer(st))
 }

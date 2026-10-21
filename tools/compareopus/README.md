@@ -534,6 +534,23 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Decoder typed-destroy cleanup: replaced final Opus_opus_decoder_destroy use
+with destroy_typed and removed unused raw-address wrapper. External Go users
+must use typed entry. Registry fixture STILL returns only numeric registration
+key plus weak references; no strong decoder owner is kept during its original
+GC trials. Only AFTER those registry-only checks does RegisteredGoAllocation
+recover the actual typed owner, without integer-to-pointer reconstruction, for
+cleanup. Added post-destroy registration-absent check BEFORE TLS.Close. No weaker
+registry oracle, raw-key dereference, new allocation or fixture extent change.
+Existing typed destructor/free/callback semantics and codec references unchanged.
+Full inherited validation initially hit recurring native found-pointer-to-free-
+object with TestExtensionNextAgainstC active. Complete unchanged retry passed;
+failed log retained, no native repair claimed. Scoped create/storage checks
+amd64/386 and tagged ARM ordinary/checkptr repeats20 pass. Logs
+/tmp/opus-decoder-typed-destroy-{focused,focused-retry,full,full-retry,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr73->72, unsafe.Pointer76 unchanged. Encoder's separate API
+unchanged; no global lifetime/GC-map/performance/direct macOS claim.
+
 Float typed-only cleanup: removed unused Opus_opus_decode_float raw wrapper
 and uintptrescapes directive entirely. All callers already use
 Opus_opus_decode_float_typed, including opus/decoder.go; no caller casts, adapter

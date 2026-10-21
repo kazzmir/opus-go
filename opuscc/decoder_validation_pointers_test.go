@@ -1112,7 +1112,15 @@ func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 				}
 			}
 		}
-		Opus_opus_decoder_destroy(tls, address)
+		// Recover the actual owner only AFTER the registry-only GC checks above.
+		st := libc.RegisteredGoAllocation[OpusT_OpusDecoder](tls, address)
+		if st == nil {
+			t.Fatal("registered decoder owner missing")
+		}
+		Opus_opus_decoder_destroy_typed(tls, st)
+		if libc.RegisteredGoAllocation[OpusT_OpusDecoder](tls, address) != nil {
+			t.Fatal("typed destroy retained allocation registration")
+		}
 		tls.Close()
 	}
 }
