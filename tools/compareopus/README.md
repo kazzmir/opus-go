@@ -534,6 +534,38 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Mono fixed typed backing: opusGoMonoStorage now takes the Cell field of
+new(opusGoMonoAllocation), sets its real Go parent backlink and returns actual
+Decoder/Silk/Celt fields plus the SAME typed body clear. NO uintptr/unsafe.Pointer
+or address probes/selection loop/panic in that function. Removed obsolete mono
+residue-stride wrapper; stereo allocator/selection policy remains unchanged.
+
+Backing object is explicitly32768 bytes, with canonical mono cell at offset0 and
+ordinary byte padding AFTER the complete cell/backlink. This MEMORY COST preserves
+the existing16-byte child policy without inspecting addresses: supported Go heap
+allocators give this size page-aligned storage rather than the8-byte displacement
+of a scanned small-object malloc header. //go:noinline keeps this allocation on
+the heap. Not a Go-language alignment declaration, arbitrary-runtime guarantee,
+performance improvement or claim that the padding is free. Prior small-cell plus
+fallback typed arrays are no longer allocated by the mono path. No smaller-cell
+or new SIMD alignment assumption hidden behind a helper/opaque integer alias.
+
+Actual codec ABI header/field offsets/tail extent, native images, logical child
+displacements, Clear extent/store ordering and parent/sibling/projection graph
+retention remain unchanged. Clear zeroes canonical prefix+tail only, preserving
+Owner and backing padding. Ordinary scanned fields/closures remain the GC owners;
+no registries/reflection/raw image owner reconstruction introduced.
+
+Alignment test now checks32KiB backing/offset0 and actual mono allocator alignment,
+while retaining original stereo array geometry/coverage. New test retains32
+simultaneous independent mono views through stack growth/GC, checks all alignment/
+stored values and typed clear. Existing all-channel/static/flat/native/guard/
+parent collection checks unchanged. Full inherited/native/GC stress, scoped
+amd64/386 checkptr and ARM ordinary/checkptr repeats20 pass. No failures or golden/
+tolerance/physical C fixture extent changes. Logs /tmp/opus-mono-fixed-cell-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Production opuscc counts7 uintptr/47 unsafe.Pointer (was9/49). No global safety/
+native GC/opaque-image GC-map/performance/direct macOS claim.
+
 DRED fixed Go cell: opusDREDDecoderStorage is now just a direct field pointer
 from new(opusDREDDecoderCell). Named cell contains the unchanged12-byte scalar
 header at offset0 and4 bytes ordinary padding: fixed16-byte object. Removed BOTH

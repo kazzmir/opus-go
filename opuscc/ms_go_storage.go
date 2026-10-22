@@ -82,32 +82,27 @@ type opusGoStereoCell struct {
 	Owner *OpusMSDecoder
 }
 
+// A fixed 32KiB scanned allocation avoids the small-object malloc header that
+// can shift ordinary Go cells by eight bytes. Supported Go allocators give this
+// allocation page-aligned storage; this is not a language-level alignment rule.
+// Padding is an explicit memory cost, outside the codec ABI and Clear extent.
+type opusGoMonoAllocation struct {
+	Cell    opusGoMonoCell
+	Padding [32768 - unsafe.Sizeof(opusGoMonoCell{})]byte
+}
+
 // Put potentially zero-sized padding FIRST: a trailing zero-sized Go field
 // can add an extra alignment unit and invalidate the intended residue stride.
-type opusGoMonoAligned struct {
-	Padding [(unsafe.Alignof(opusGoMonoCell{}) + 16 - unsafe.Sizeof(opusGoMonoCell{})%16) % 16]byte
-	Cell    opusGoMonoCell
-}
 type opusGoStereoAligned struct {
 	Padding [(unsafe.Alignof(opusGoStereoCell{}) + 16 - unsafe.Sizeof(opusGoStereoCell{})%16) % 16]byte
 	Cell    opusGoStereoCell
 }
 
+// Keep this allocation on the heap, not an inlined caller's stack.
+//
+//go:noinline
 func opusGoMonoStorage(parent *OpusMSDecoder) opusDecoderStorageViews {
-	cell := new(opusGoMonoCell)
-	if uintptr(unsafe.Pointer(&cell.Body.Decoder))&15 != 0 {
-		cells := new([16 / unsafe.Alignof(opusGoMonoCell{})]opusGoMonoAligned)
-		cell = nil
-		for i := range cells {
-			if uintptr(unsafe.Pointer(&cells[i].Cell.Body.Decoder))&15 == 0 {
-				cell = &cells[i].Cell
-				break
-			}
-		}
-		if cell == nil {
-			panic("opus Go mono alignment")
-		}
-	}
+	cell := &new(opusGoMonoAllocation).Cell
 	cell.Owner = parent
 	return opusDecoderStorageViews{Decoder: &cell.Body.Decoder, Silk: &cell.Body.Silk, Celt: &cell.Body.Celt, Clear: func() {
 		cell.Body.opusGoDecoderPrefix = opusGoDecoderPrefix{}
