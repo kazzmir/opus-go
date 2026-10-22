@@ -46,12 +46,12 @@ func TestDecoderStaticGoClearExtentPointers(t *testing.T) {
 
 //go:noinline
 func singleStaticGoOwner(t *testing.T, channels int32) (*OpusT_OpusDecoder, weak.Pointer[OpusT_OpusCustomMode], [2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2]weak.Pointer[[32]int16]) {
-	owned := opusDecoderOwnedStorage(channels)
-	if opusDecoderInitWithStorage(nil, owned.Decoder, 48000, channels, &owned) != 0 {
-		t.Fatal("init")
+	st, err := Opus_opus_decoder_create_typed(nil, 48000, channels)
+	if err != nil {
+		t.Fatal(err)
 	}
-	mode, books, coefs := decoderStorageForeignPointers(owned.Decoder)
-	return owned.Decoder, mode, books, coefs
+	mode, books, coefs := decoderStorageForeignPointers(st)
+	return st, mode, books, coefs
 }
 
 func TestDecoderStaticGoOwnershipPointers(t *testing.T) {

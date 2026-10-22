@@ -2215,24 +2215,17 @@ func opusDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_o
 	return OPUS_OK
 }
 
-func Opus_opus_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels int32) (*OpusT_OpusDecoder, error) {
+// The returned pointer owns scanned Go storage; TLS is retained only for API
+// compatibility. Creation needs neither registration nor explicit destruction.
+func Opus_opus_decoder_create_typed(_ *libc.TLS, Fs OpusT_opus_int32, channels int32) (*OpusT_OpusDecoder, error) {
 	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
 		return nil, opusErrorFromCode(-1)
 	}
-	if tls == nil {
-		return nil, opusErrorFromCode(-7)
-	}
 	owned := opusDecoderOwnedStorage(channels)
-	st := libc.RegisterGoAllocation(tls, owned.Decoder)
-	if st == nil {
-		return nil, opusErrorFromCode(-7)
-	}
-	if ret := opusDecoderInitWithStorage(tls, st, Fs, channels, &owned); ret != OPUS_OK {
-		Opus_opus_decoder_destroy_typed(tls, st)
+	if ret := opusDecoderInitWithStorage(nil, owned.Decoder, Fs, channels, &owned); ret != OPUS_OK {
 		return nil, opusErrorFromCode(ret)
 	}
-	opusBindCodecViews(tls, owned)
-	return st, nil
+	return owned.Decoder, nil
 }
 
 func smooth_fade(tls *libc.TLS, in1, in2, out *OpusT_opus_res, overlap, channels int32, window *OpusT_celt_coef, Fs OpusT_opus_int32) {
@@ -3031,9 +3024,9 @@ func Opus_opus_decoder_ctl(tls *libc.TLS, st *OpusT_OpusDecoder, request int32, 
 	return Opus_opus_decoder_ctl_typed(tls, st, request, opusCtlLegacyArgs(request, func() libc.VaCursor { return va }))
 }
 
-func Opus_opus_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusDecoder) {
-	libc.XfreePointer(tls, unsafe.Pointer(st))
-}
+// Compatibility no-op: Go-created decoder storage lives as long as its Go
+// pointers. Legacy externally registered storage remains its registrar's concern.
+func Opus_opus_decoder_destroy_typed(_ *libc.TLS, _ *OpusT_OpusDecoder) {}
 
 func Opus_opus_packet_get_bandwidth(tls *libc.TLS, data *byte) (r int32) {
 	toc := *data

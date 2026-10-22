@@ -114,13 +114,10 @@ func (d *Decoder) Close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// Multistream storage is Go-owned; dropping the pointer releases our owner.
+	// Decoder storage is Go-owned; dropping pointers releases our owners.
 	d.ms = nil
+	d.st = nil
 	if d.tls != nil {
-		if d.st != nil {
-			opuscc.Opus_opus_decoder_destroy_typed(d.tls, d.st)
-			d.st = nil
-		}
 		d.packetBuf = nil
 		d.pcm16 = nil
 		d.pcmFloat = nil

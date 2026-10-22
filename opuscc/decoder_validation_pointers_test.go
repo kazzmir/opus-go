@@ -83,12 +83,9 @@ func TestDecoderCreatePointers(t *testing.T) {
 			tls.Close()
 		}
 	}
-	for _, args := range [][2]int32{{44100, 1}, {48000, 0}, {48000, 3}, {48000, 1}} {
+	for _, args := range [][2]int32{{44100, 1}, {48000, 0}, {48000, 3}} {
 		st, err := Opus_opus_decoder_create_typed(nil, args[0], args[1])
 		want := int32(-1)
-		if args == [2]int32{48000, 1} {
-			want = -7
-		}
 		if st != nil || err == nil || err.(*OpusError).Code != want {
 			t.Fatal("error ordering", args, st, err)
 		}
@@ -306,7 +303,7 @@ func decoderStorageForeignPointers(st *OpusT_OpusDecoder) (weak.Pointer[OpusT_Op
 
 //go:noinline
 func registeredDecoderStorage(tls *libc.TLS, channels int32) (uintptr, weak.Pointer[OpusT_OpusCustomMode], [2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2]weak.Pointer[[32]int16]) {
-	st, err := Opus_opus_decoder_create_typed(tls, 48000, channels)
+	st, err := legacyRegisteredDecoderTestStorage(tls, 48000, channels)
 	if err != nil {
 		panic(err)
 	}
@@ -942,11 +939,11 @@ func TestOpusDecoderDREDRegisteredStoragePointers(t *testing.T) {
 func TestOpusDecoderBoundCodecStoragePointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	st, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+	st, err := legacyRegisteredDecoderTestStorage(tls, 48000, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Opus_opus_decoder_destroy_typed(tls, st)
+	defer libc.RemoveGoAllocation(tls, st)
 	binding, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, st)
 	if !ok {
 		t.Fatal("factory codec views")
@@ -1115,8 +1112,11 @@ func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 			t.Fatal("registered decoder owner missing")
 		}
 		Opus_opus_decoder_destroy_typed(tls, st)
-		if libc.RegisteredGoAllocation[OpusT_OpusDecoder](tls, address) != nil {
-			t.Fatal("typed destroy retained allocation registration")
+		if libc.RegisteredGoAllocation[OpusT_OpusDecoder](tls, address) != st {
+			t.Fatal("Go destroy must not free externally registered storage")
+		}
+		if !libc.RemoveGoAllocation(tls, st) || libc.RegisteredGoAllocation[OpusT_OpusDecoder](tls, address) != nil {
+			t.Fatal("legacy registrar cleanup")
 		}
 		tls.Close()
 	}

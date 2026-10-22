@@ -371,12 +371,22 @@ func TestDecoderCreateAgainstC(t *testing.T) {
 					clear(image[off : off+int(unsafe.Sizeof(uintptr(0)))])
 				}
 				native := make([]byte, len(image))
-				want := nativeOpusCreateImage(native, rate, channels, fail)
+				want := nativeOpusCreateImage(native, rate, channels, false)
+				// Nil TLS is now normal Go allocation, not a fake malloc failure.
+				// Keep every original native failure case as a separate oracle.
+				if fail {
+					wantFailure := int32(-7)
+					if want != 0 {
+						wantFailure = want
+					}
+					if got := nativeOpusCreateImage(nil, rate, channels, true); got != wantFailure {
+						t.Fatal(rate, channels, got, wantFailure, "native allocator failure order")
+					}
+				}
 				if code != want || !slices.Equal(image, native) {
 					t.Fatal(rate, channels, fail, code, want, "factory image")
 				}
 				if tls != nil {
-					libc.XfreePointer(tls, unsafe.Pointer(st))
 					tls.Close()
 				}
 			}

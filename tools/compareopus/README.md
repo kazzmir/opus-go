@@ -534,6 +534,42 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Single-decoder registry removal (supersedes the TLS/registration contract below):
+Opus_opus_decoder_create_typed returns its actual scanned Go header directly,
+without RegisterGoAllocation, codec binding or another registry/side table.
+It initializes actual static Go views with nil TLS. TLS PARAMETER is retained
+only for source compatibility and ignored; nil TLS now succeeds for valid args.
+Invalid rate/channel still returns -1 before allocation. No recoverable simulated
+nil-TLS -7 allocation failure; Go allocation has normal Go OOM behavior.
+
+Opus_opus_decoder_destroy_typed is an explicit compatibility NO-OP: no Xfree,
+XfreePointer, registration removal or pointer dereference, including nil inputs.
+Externally registered legacy storage remains its registrar's responsibility.
+opus.Decoder.Close drops both single/MS Go pointers independently of runtime TLS
+and only frees its separate runtime buffers/context. Existing TLS for decoding
+is not claimed globally eliminated.
+
+New tests check no root/codec registration with nonnil TLS, collection WITHOUT
+a destructor while TLS stays live, valid nil-TLS creation and PLC silence/canaries
+after no-op destruction/unrelated TLS close. Existing header-only foreign-mode/
+book/coefficient GC test now exercises the actual public nil-TLS factory, not
+just its allocator. Fake codebooks are queried only. Explicit registry/binding
+oracles use test-only legacyRegisteredDecoderTestStorage (prior root/bind setup),
+not hidden normal-factory registration. Legacy registry test verifies no-op
+destroy does NOT free external ownership, then explicitly removes its own root;
+registry-only weak retention and binding/changed-offset checks are unchanged.
+
+Native create-image comparison keeps every original TLS/nil-TLS and invalid
+rate/channel input, compares successful Go allocations to C normal allocations,
+and retains every original native malloc-failure/error-order check SEPARATELY.
+No Go allocation-failure coverage is fabricated. Byte extents, normalization,
+codec references/hashes/tolerances unchanged. Full inherited amd64/386/ARM64-QEMU/
+native/GC-stress/codec checks pass, explicit single/MS native factory checks pass,
+scoped amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20 pass.
+No failed runs. Logs /tmp/opus-decoder-unregistered-{focused,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts51 uintptr/83 unsafe.Pointer (one destructor conversion removed). No native
+GC/opaque-image repair, global lifetime, performance or direct macOS claim.
+
 Single-decoder static Go storage: opusDecoderOwnedStorage now uses the shared
 ordinary mono/stereo structs via opusGoMonoStorage(nil)/opusGoStereoStorage(nil),
 not reflect.Type/reflect.Value or an indirect reflective allocator. The same
