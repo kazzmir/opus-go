@@ -3836,14 +3836,6 @@ func Opus_opus_multistream_decoder_ctl(tls *libc.TLS, st OpusMSDecoderState, req
 	return Opus_opus_multistream_decoder_ctl_va_list(tls, st, request, va)
 }
 
-func Opus_opus_multistream_decoder_destroy(tls *libc.TLS, st uintptr) {
-	if owned := libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, st); owned != nil {
-		Opus_opus_multistream_decoder_destroy_typed(tls, owned)
-		return
-	}
-	libc.Xfree(tls, st)
-}
-
 func Opus_opus_multistream_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
 	// Compatibility cleanup for registered ABI/projection storage only.
 	// Go-created multistream decoders need no explicit destruction.

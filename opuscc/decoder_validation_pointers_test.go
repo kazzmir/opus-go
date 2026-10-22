@@ -93,7 +93,7 @@ func TestDecoderCreatePointers(t *testing.T) {
 }
 
 func TestMSDecoderDestroyPointers(t *testing.T) {
-	for _, legacy := range []bool{false, true} {
+	for trial := range 2 {
 		tls := libc.NewTLS()
 		release := func() weak.Pointer[OpusT_OpusMSDecoder] {
 			mapping := [3]byte{0, 1, 2}
@@ -104,11 +104,7 @@ func TestMSDecoderDestroyPointers(t *testing.T) {
 			w := weak.Make(st)
 			entropyInitGrowStack(12)
 			runtime.GC()
-			if legacy {
-				Opus_opus_multistream_decoder_destroy(tls, uintptr(unsafe.Pointer(st)))
-			} else {
-				Opus_opus_multistream_decoder_destroy_typed(tls, st)
-			}
+			Opus_opus_multistream_decoder_destroy_typed(tls, st)
 			return w
 		}
 		w := release()
@@ -116,7 +112,7 @@ func TestMSDecoderDestroyPointers(t *testing.T) {
 			runtime.GC()
 		}
 		if w.Value() != nil {
-			t.Fatal("multistream allocation retained", legacy)
+			t.Fatal("multistream allocation retained", trial)
 		}
 		runtime.KeepAlive(tls)
 		tls.Close()
@@ -606,7 +602,15 @@ func TestOpusDecoderMSStoragePointers(t *testing.T) {
 			}
 		}
 	}
-	Opus_opus_multistream_decoder_destroy(tls, address)
+	// Recover the actual owner only AFTER registry-only GC checks.
+	st := libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, address)
+	if st == nil {
+		t.Fatal("registered MS owner missing")
+	}
+	Opus_opus_multistream_decoder_destroy_typed(tls, st)
+	if libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, address) != nil {
+		t.Fatal("typed MS cleanup retained registration")
+	}
 	tls.Close()
 }
 
@@ -981,7 +985,7 @@ func TestOpusDecoderBoundCodecStoragePointers(t *testing.T) {
 }
 
 func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
-	for _, raw := range []bool{false, true} {
+	for range 2 {
 		tls := libc.NewTLS()
 		mapping := [3]byte{0, 1, 2}
 		st, err := legacyRegisteredMSTestDecoder(tls, 48000, 3, 2, 1, &mapping[0])
@@ -1014,11 +1018,7 @@ func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
 		if libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, uintptr(unsafe.Pointer(st))) != st {
 			t.Fatal("child alias freed parent")
 		}
-		if raw {
-			Opus_opus_multistream_decoder_destroy(tls, uintptr(unsafe.Pointer(st)))
-		} else {
-			Opus_opus_multistream_decoder_destroy_typed(tls, st)
-		}
+		Opus_opus_multistream_decoder_destroy_typed(tls, st)
 		for _, codec := range binding.Views.Codecs {
 			if _, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, codec.Decoder); ok {
 				t.Fatal("MS child binding leaked")

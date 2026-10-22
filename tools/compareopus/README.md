@@ -534,6 +534,19 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream typed-only destruction: removed Opus_opus_multistream_decoder_destroy
+raw wrapper; all THREE callers now use typed cleanup. Registry-only weak-root
+GC trials retain no strong parent; recover the actual registered owner only
+AFTER those checks, then typed destroy and assert registration removed. Both
+former dispatch iterations retained as two typed cleanup trials; unchanged
+child-binding release/parent-retention checks. No numeric pointer reconstruction
+or replacement raw adapter. Normal Go ownership unchanged; typed destructor's
+explicit flat ABI cleanup behavior retained. Full inherited validation, scoped
+amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20 pass, no failures
+or oracle/tolerance changes. Logs /tmp/opus-ms-typed-destroy-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts34 uintptr/72 unsafe.Pointer (was35/72). Wrapper cleanup, no global safety/
+performance claim; encoder API untouched.
+
 Multistream float typed-only: removed unused Opus_opus_multistream_decode_float
 raw wrapper and uintptrescapes directive. All callers already use the typed
 version; no reconstruction adapter added. Existing float/kernel/C transcript/
