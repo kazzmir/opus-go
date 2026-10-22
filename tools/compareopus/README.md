@@ -534,6 +534,35 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Decoder initialization typed views: opusDecoderInitWithStorage now has NO
+unsafe.Pointer/unsafe.Add usage; it takes actual provided SILK/CELT pointers,
+clears mode then SILK pointers, invokes typed Clear and runs unchanged scalar/
+codec setup. Missing views explicitly enter public caller-owned ABI initialization;
+missing Clear retains exact external-byte-clear compatibility. Normal Go factories
+provide actual scanned field descriptors and never take that raw-clear path.
+
+Public Opus_opus_decoder_init is the explicit external ABI boundary: invalid
+rate/channel returns before any buffer access; a SINGLE declared canonical prefix
+view exposes real header/padding/SILK/CELT fields, replacing TWO integer-offset
+unsafe.Add reconstructions. Dedicated opusDecoderClearABI retains unavoidable
+exact-size byte clearing (including ABI padding) at its original consumption point,
+after typed pointer stores. This is NOT recovery of a hidden Go allocation owner
+or a GC-map repair for caller-supplied byte images. Net ONE fewer pointer cast and
+TWO fewer address additions overall, not just moving the old unsafe expressions.
+Numeric offsets/error codes, rate/channel validation, codec initialization order,
+mode nil -> SILK zero -> Clear -> header stores and original view extents preserved
+for supported initialized buffers. No new nil-positive/undersized raw-buffer safety
+claim. No metadata/table/opaque integer substitute.
+
+Existing all-rate/both-channel native and static-vs-flat byte/init/no-write
+oracles retained. New tests check pointer clearing BEFORE Clear while header gain
+is still321, exactly one Clear, scalar reset and missing-descriptor compatibility.
+Full inherited validation/native factory/init comparisons pass; scoped amd64/386
+checkptr and tagged ARM ordinary/checkptr repeats20 pass. No failures or fixture/
+golden/tolerance changes. Logs /tmp/opus-decoder-init-typed-views-{focused,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts11 uintptr/51 unsafe.Pointer (was11/52). No global lifetime/native GC/
+opaque-image/performance/direct macOS claim.
+
 Multistream int16/int24 typed-only: removed Opus_opus_multistream_decode and
 Opus_opus_multistream_decode24 raw wrappers/uintptrescapes directives. Neither had
 remaining callers; all users already use their typed counterparts. No casts

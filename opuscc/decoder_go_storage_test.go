@@ -54,6 +54,42 @@ func singleStaticGoOwner(t *testing.T, channels int32) (*OpusT_OpusDecoder, weak
 	return st, mode, books, coefs
 }
 
+func TestDecoderInitTypedViewClearOrderPointers(t *testing.T) {
+	for _, channels := range []int32{1, 2} {
+		owned := opusDecoderOwnedStorage(channels)
+		if opusDecoderInitWithStorage(nil, owned.Decoder, 48000, channels, &owned) != 0 {
+			t.Fatal("initial init")
+		}
+		decoderStorageForeignPointers(owned.Decoder)
+		owned.Decoder.Fdecode_gain = 321
+		clearBody := owned.Clear
+		calls := 0
+		owned.Clear = func() {
+			calls++
+			if owned.Celt.Fmode != nil || owned.Decoder.Fdecode_gain != 321 {
+				t.Fatal("mode clear before body clear/header reset")
+			}
+			for i := range owned.Silk.Fchannel_state {
+				state := &owned.Silk.Fchannel_state[i]
+				if state.FpsNLSF_CB != nil || state.Fresampler_state.FCoefs != nil {
+					t.Fatal("typed SILK pointers before body clear")
+				}
+			}
+			clearBody()
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if opusDecoderInitWithStorage(nil, owned.Decoder, 24000, channels, &owned) != 0 || calls != 1 || owned.Decoder.Fdecode_gain != 0 {
+			t.Fatal("typed initialization order/status")
+		}
+		// Preserve missing-descriptor compatibility without fabricating an owner.
+		owned.Clear = nil
+		if opusDecoderInitWithStorage(nil, owned.Decoder, 48000, channels, &owned) != 0 || owned.Decoder.FFs != 48000 {
+			t.Fatal("explicit ABI clear fallback")
+		}
+	}
+}
+
 func TestDecoderStaticGoOwnershipPointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		st, mode, books, coefs := singleStaticGoOwner(t, channels)

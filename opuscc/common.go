@@ -2157,12 +2157,31 @@ func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) int32 {
 }
 
 func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32) int32 {
-	return opusDecoderInitWithStorage(tls, st, Fs, channels, nil)
+	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
+		return OPUS_BAD_ARG
+	}
+	// Explicit caller-owned ABI boundary, not recovery of a Go allocation owner.
+	// The declared prefix has canonical header/padding/SILK/CELT fields.
+	prefix := (*opusGoDecoderPrefix)(unsafe.Pointer(st))
+	views := opusDecoderStorageViews{
+		Decoder: st, Silk: &prefix.Silk, Celt: &prefix.Celt,
+		Clear: func() { opusDecoderClearABI(tls, st, channels) },
+	}
+	return opusDecoderInitWithStorage(tls, st, Fs, channels, &views)
+}
+
+// External ABI images have no Go clear descriptor. Clear precisely their ABI
+// extent, including padding, only after embedded pointers were cleared by type.
+func opusDecoderClearABI(tls *libc.TLS, st *OpusT_OpusDecoder, channels int32) {
+	clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
 }
 
 func opusDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32, owned *opusDecoderStorageViews) int32 {
 	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
 		return OPUS_BAD_ARG
+	}
+	if owned == nil {
+		return Opus_opus_decoder_init(tls, st, Fs, channels)
 	}
 	var silkSize int32
 	ret := Opus_silk_Get_Decoder_Size(tls, &silkSize)
@@ -2172,27 +2191,16 @@ func opusDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_o
 	align := func(n int32) int32 { return int32((uint32(n) + 7) &^ uint32(7)) }
 	silkOffset := align(int32(unsafe.Sizeof(*st)))
 	celtOffset := silkOffset + align(silkSize)
-	var celt *OpusT_OpusCustomDecoder
-	if owned != nil {
-		celt = owned.Celt
-	} else {
-		celt = (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), celtOffset))
-	}
+	celt := owned.Celt
 	// Clear every embedded pointer through typed stores before clearing the ABI
 	// image: SILK also contains codebook/resampler pointers in both channels.
 	celt.Fmode = nil
-	var silk *OpusT_silk_decoder
-	if owned != nil {
-		silk = owned.Silk
-	} else {
-		silk = (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(st), silkOffset))
-	}
+	silk := owned.Silk
 	*silk = OpusT_silk_decoder{}
-	if owned != nil && owned.Clear != nil {
+	if owned.Clear != nil {
 		owned.Clear()
 	} else {
-		// External ABI images have no canonical Go field descriptor.
-		clear(unsafe.Slice((*byte)(unsafe.Pointer(st)), Opus_opus_decoder_get_size(tls, channels)))
+		opusDecoderClearABI(tls, st, channels)
 	}
 	st.Fsilk_dec_offset = silkOffset
 	st.Fcelt_dec_offset = celtOffset
