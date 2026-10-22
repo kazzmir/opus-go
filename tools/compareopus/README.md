@@ -534,6 +534,28 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Test-file organization only: consolidated112 small opuscc pointer-test files
+into21 subsystem files, reducing196 *_test.go files to105. Groups cover CELT
+entropy decode/encode/Laplace/CWRS/energy/filter/pitch/stereo/vector layout, PCM
+conversion, packet parsing/duration, projection decode/matrix IO, and SILK gain/
+LPC/NLSF/PLC/pulse coding/FIR-IIR resampling/stereo. See ../../opuscc/TESTS.md;
+source-section comments identify old filenames. Large FFT/codec/ownership/native
+reference suites remain separate; external-package interpolate test and tagged
+image comparison test retain package/build-tag boundaries.
+
+No production changes and NO test/helper bodies, declarations, fixture paths,
+assertions, names or build tags changed. Merged import lists only; all821 distinct
+non-import declaration hashes (with multiplicities across ALL test files) match
+exactly before/after. Sorted go test -list inventories identical. Test execution
+order may follow new filenames, but no shared-state workaround/skip was added.
+Original files were all tracked; unrelated untracked files untouched.
+
+Ordinary complete opuscc suite, full inherited/native/GC stress, ALL Pointers$
+tests under amd64/386 checkptr and ARM ordinary/checkptr repeats20 pass, no test
+failures or golden/tolerance/scope changes. Logs /tmp/opus-test-consolidation-{plan-final,declarations,focused,full,checkptr,386-checkptr,arm-checkptr-repeat,arm-repeat}.log; inventory diff /tmp/opus-test-consolidation-inventory.diff is empty.
+This supersedes historical test FILE locations below, not test names or behavior.
+No lifetime/global safety/native GC/opaque-image/performance/macOS claim.
+
 Encoder actual function values: removed the ACTIVE encoder __ccgo_fp too.
 NO exact __ccgo_fp function/call remains in repository Go sources. Three callback
 typedefs (copy_channel_in, copy_channel_out, downmix) now alias actual concrete Go
