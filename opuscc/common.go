@@ -3743,22 +3743,12 @@ func opusMSInt24Copy(dst *int32) OpusMSChannelCopy {
 	}
 }
 
-//go:uintptrescapes
-func Opus_opus_multistream_decode(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
-	return opusMSDecodeShort(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int16)(unsafe.Pointer(pcm)), frame, fec)
-}
-
 func Opus_opus_multistream_decode_typed(tls *libc.TLS, decoder OpusMSDecoderState, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
 	return opusMSDecodeShort(tls, decoder, data, length, pcm, frame, fec)
 }
 
 func opusMSDecodeShort(tls *libc.TLS, decoder OpusMSDecoderState, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
 	return opusMSDecodeBound(tls, decoder, data, length, opusMSShortCopy(pcm), frame, fec, OPTIONAL_CLIP)
-}
-
-//go:uintptrescapes
-func Opus_opus_multistream_decode24(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
-	return opusMSDecodeInt24(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int32)(unsafe.Pointer(pcm)), frame, fec)
 }
 
 func Opus_opus_multistream_decode24_typed(tls *libc.TLS, decoder OpusMSDecoderState, data *byte, length int32, pcm *int32, frame, fec int32) int32 {

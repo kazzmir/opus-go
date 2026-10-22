@@ -534,6 +534,16 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream int16/int24 typed-only: removed Opus_opus_multistream_decode and
+Opus_opus_multistream_decode24 raw wrappers/uintptrescapes directives. Neither had
+remaining callers; all users already use their typed counterparts. No casts
+relocated, typed kernels/capture ownership and all existing codec/native/guard/
+range oracles unchanged. Full inherited validation, scoped amd64/386 checkptr and
+tagged ARM ordinary/checkptr repeats20 pass, no failures/tolerance changes.
+Logs /tmp/opus-ms-int16-int24-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts11 uintptr/52 unsafe.Pointer (was15/58): wrapper cleanup, not new ownership
+or global lifetime/performance claims. Separate encoder API unchanged.
+
 Multistream concrete closure ownership (supersedes opaque callback parameters
 below): OpusMSChannelCopy now takes ONLY TLS, destination stride/channel, *float32
 source and source stride/frame count. Generated callback typedef and internal
