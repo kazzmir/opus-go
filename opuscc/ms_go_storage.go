@@ -91,11 +91,9 @@ type opusGoMonoAllocation struct {
 	Padding [32768 - unsafe.Sizeof(opusGoMonoCell{})]byte
 }
 
-// Put potentially zero-sized padding FIRST: a trailing zero-sized Go field
-// can add an extra alignment unit and invalidate the intended residue stride.
-type opusGoStereoAligned struct {
-	Padding [(unsafe.Alignof(opusGoStereoCell{}) + 16 - unsafe.Sizeof(opusGoStereoCell{})%16) % 16]byte
+type opusGoStereoAllocation struct {
 	Cell    opusGoStereoCell
+	Padding [32768 - unsafe.Sizeof(opusGoStereoCell{})]byte
 }
 
 // Keep this allocation on the heap, not an inlined caller's stack.
@@ -109,21 +107,12 @@ func opusGoMonoStorage(parent *OpusMSDecoder) opusDecoderStorageViews {
 		clear(cell.Body.Tail[:])
 	}}
 }
+
+// Keep this allocation on the heap, not an inlined caller's stack.
+//
+//go:noinline
 func opusGoStereoStorage(parent *OpusMSDecoder) opusDecoderStorageViews {
-	cell := new(opusGoStereoCell)
-	if uintptr(unsafe.Pointer(&cell.Body.Decoder))&15 != 0 {
-		cells := new([16 / unsafe.Alignof(opusGoStereoCell{})]opusGoStereoAligned)
-		cell = nil
-		for i := range cells {
-			if uintptr(unsafe.Pointer(&cells[i].Cell.Body.Decoder))&15 == 0 {
-				cell = &cells[i].Cell
-				break
-			}
-		}
-		if cell == nil {
-			panic("opus Go stereo alignment")
-		}
-	}
+	cell := &new(opusGoStereoAllocation).Cell
 	cell.Owner = parent
 	return opusDecoderStorageViews{Decoder: &cell.Body.Decoder, Silk: &cell.Body.Silk, Celt: &cell.Body.Celt, Clear: func() {
 		cell.Body.opusGoDecoderPrefix = opusGoDecoderPrefix{}

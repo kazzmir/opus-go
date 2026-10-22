@@ -534,6 +534,32 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Stereo fixed typed backing: opusGoStereoStorage now takes the Cell field of
+new(opusGoStereoAllocation), retaining actual header/SILK/CELT/tail fields, parent
+backlink and SAME typed clear. Removed BOTH uintptr/unsafe.Pointer probes,
+residue-stride wrapper, fallback array/loop/alignment panic. ms_go_storage.go now
+has NO uintptr/unsafe.Pointer/address-reconstruction expressions (unsafe.Sizeof/
+Offsetof remain compile-time geometry operations).
+
+Like mono, fixed backing is32768 bytes, with cell/body at offset0 and explicit
+trailing byte padding OUTSIDE codec ABI/Clear. This is a real MEMORY COST to keep
+the16-byte policy without probing addresses; supported Go allocators give this
+heap size page alignment rather than the scanned-small-object header displacement.
+//go:noinline prevents stack placement after inlining. Not a Go-language alignment
+guarantee/arbitrary-runtime promise or performance improvement. No opaque alias,
+new registry/reflection owner or relocated address cast. Previous stereo small+
+fallback array ownership strategy is superseded, normal owners stay scanned Go.
+
+Tests now verify actual stereo allocator alignment and fixed geometry instead of
+obsolete array residues, plus32 simultaneous independent stereo views across
+stack growth/GC and typed clear. Existing mono, both-channel static/native byte
+images, logical offsets, guards, parent/sibling/projection graph retention and
+collection checks unchanged. Full inherited/native/GC stress, scoped amd64/386
+checkptr and ARM ordinary/checkptr repeats20 pass. No failures or fixture/golden/
+tolerance changes. Logs /tmp/opus-stereo-fixed-cell-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Production opuscc counts5 uintptr/45 unsafe.Pointer (was7/47). No global safety/
+native GC/opaque-image GC-map/performance/direct macOS claim.
+
 Mono fixed typed backing: opusGoMonoStorage now takes the Cell field of
 new(opusGoMonoAllocation), sets its real Go parent backlink and returns actual
 Decoder/Silk/Celt fields plus the SAME typed body clear. NO uintptr/unsafe.Pointer
