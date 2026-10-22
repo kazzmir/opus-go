@@ -44,14 +44,14 @@ func TestMultistreamDecoderInitFieldAccesses(t *testing.T) {
 
 	const streams, coupledStreams, channels = 2, 1, 3
 	size := Opus_opus_multistream_decoder_get_size(tls, streams, coupledStreams)
-	decoder := libc.Xmalloc(tls, uint64(size))
+	decoder := libc.XmallocPointer(tls, uint64(size))
 	mapping := []uint8{0, 1, 2}
 
-	if got, want := Opus_opus_multistream_decoder_init(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(decoder)), 48000, channels, streams, coupledStreams, &mapping[0]), int32(OPUS_OK); got != want {
+	if got, want := Opus_opus_multistream_decoder_init(tls, (*OpusT_OpusMSDecoder)(decoder), 48000, channels, streams, coupledStreams, &mapping[0]), int32(OPUS_OK); got != want {
 		t.Fatalf("initialization result: got %d, want %d", got, want)
 	}
 
-	layout := (*OpusT_OpusMSDecoder)(unsafe.Pointer(decoder)).Flayout
+	layout := (*OpusT_OpusMSDecoder)(decoder).Flayout
 	if got, want := layout.Fnb_channels, int32(channels); got != want {
 		t.Fatalf("channels: got %d, want %d", got, want)
 	}

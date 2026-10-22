@@ -28,7 +28,7 @@ func legacyRegisteredProjectionTestDecoder(tls *libc.TLS, rate, channels, stream
 //go:noinline
 func droppedProjectionGoOwner(t *testing.T, tls *libc.TLS) weak.Pointer[OpusProjectionDecoder] {
 	matrix := [18]byte{}
-	st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], 18)
+	st, err := Opus_opus_projection_decoder_create_typed(48000, 3, 2, 1, &matrix[0], 18)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestProjectionGoDecodePointers(t *testing.T) {
 	for method := 0; method < 3; method++ {
 		tls := libc.NewTLS()
 		matrix := [2]byte{0, 0x80}
-		st, err := Opus_opus_projection_decoder_create_typed(nil, 48000, 1, 1, 0, &matrix[0], 2)
+		st, err := Opus_opus_projection_decoder_create_typed(48000, 1, 1, 0, &matrix[0], 2)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -113,7 +113,7 @@ func TestProjectionGoDecodePointers(t *testing.T) {
 
 func TestProjectionGoChildrenPointers(t *testing.T) {
 	matrix := [18]byte{0, 0x80, 0xff, 0x7f, 1, 0}
-	st, err := Opus_opus_projection_decoder_create_typed(nil, 48000, 3, 2, 1, &matrix[0], 18)
+	st, err := Opus_opus_projection_decoder_create_typed(48000, 3, 2, 1, &matrix[0], 18)
 	if err != nil {
 		t.Fatal(err)
 	}

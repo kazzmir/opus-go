@@ -66,7 +66,7 @@ func NewDecoder(sampleRate, channels int) (*Decoder, error) {
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	st, err := opuscc.Opus_opus_decoder_create_typed(tls, opuscc.OpusT_opus_int32(sampleRate), int32(channels))
+	st, err := opuscc.Opus_opus_decoder_create_typed(opuscc.OpusT_opus_int32(sampleRate), int32(channels))
 	if err != nil || st == nil {
 		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
 			msg := opusccErrorString(oe.Code)

@@ -43,14 +43,14 @@ func TestDecoderDestroyPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
 	release := func() weak.Pointer[OpusT_OpusDecoder] {
-		st, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+		st, err := Opus_opus_decoder_create_typed(48000, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
 		w := weak.Make(st)
 		entropyInitGrowStack(12)
 		runtime.GC()
-		Opus_opus_decoder_destroy_typed(tls, st)
+		Opus_opus_decoder_destroy_typed(st)
 		return w
 	}
 	w := release()
@@ -61,16 +61,16 @@ func TestDecoderDestroyPointers(t *testing.T) {
 		t.Fatal("destroy left allocation registered")
 	}
 	runtime.KeepAlive(tls)
-	Opus_opus_decoder_destroy_typed(tls, nil)
-	Opus_opus_decoder_destroy_typed(nil, nil)
-	Opus_opus_decoder_destroy_typed(nil, &OpusT_OpusDecoder{})
+	Opus_opus_decoder_destroy_typed(nil)
+	Opus_opus_decoder_destroy_typed(nil)
+	Opus_opus_decoder_destroy_typed(&OpusT_OpusDecoder{})
 }
 
 func TestDecoderCreatePointers(t *testing.T) {
 	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
 		for _, channels := range []int32{1, 2} {
 			tls := libc.NewTLS()
-			st, err := Opus_opus_decoder_create_typed(tls, rate, channels)
+			st, err := Opus_opus_decoder_create_typed(rate, channels)
 			if err != nil || st == nil || st.FFs != rate || st.Fchannels != channels {
 				t.Fatal(rate, channels, st, err)
 			}
@@ -79,12 +79,12 @@ func TestDecoderCreatePointers(t *testing.T) {
 			if st.FFs != rate || st.Fchannels != channels {
 				t.Fatal("creation lifetime")
 			}
-			Opus_opus_decoder_destroy_typed(tls, st)
+			Opus_opus_decoder_destroy_typed(st)
 			tls.Close()
 		}
 	}
 	for _, args := range [][2]int32{{44100, 1}, {48000, 0}, {48000, 3}} {
-		st, err := Opus_opus_decoder_create_typed(nil, args[0], args[1])
+		st, err := Opus_opus_decoder_create_typed(args[0], args[1])
 		want := int32(-1)
 		if st != nil || err == nil || err.(*OpusError).Code != want {
 			t.Fatal("error ordering", args, st, err)
@@ -104,7 +104,7 @@ func TestMSDecoderDestroyPointers(t *testing.T) {
 			w := weak.Make(st)
 			entropyInitGrowStack(12)
 			runtime.GC()
-			Opus_opus_multistream_decoder_destroy_typed(tls, st)
+			Opus_opus_multistream_decoder_destroy_typed(st)
 			return w
 		}
 		w := release()
@@ -117,10 +117,10 @@ func TestMSDecoderDestroyPointers(t *testing.T) {
 		runtime.KeepAlive(tls)
 		tls.Close()
 	}
-	Opus_opus_multistream_decoder_destroy_typed(nil, nil)
+	Opus_opus_multistream_decoder_destroy_typed(nil)
 	tls := libc.NewTLS()
 	defer tls.Close()
-	Opus_opus_multistream_decoder_destroy_typed(tls, nil)
+	Opus_opus_multistream_decoder_destroy_typed(nil)
 }
 
 func TestMSDecoderCreatePointers(t *testing.T) {
@@ -154,7 +154,7 @@ func TestProjectionDecoderDestroyPointers(t *testing.T) {
 	defer tls.Close()
 	release := func() weak.Pointer[OpusProjectionDecoder] {
 		matrix := [18]byte{}
-		st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], 18)
+		st, err := Opus_opus_projection_decoder_create_typed(48000, 3, 2, 1, &matrix[0], 18)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -186,7 +186,7 @@ func TestProjectionDecoderCreatePointers(t *testing.T) {
 		before := matrix
 		entropyInitGrowStack(12)
 		runtime.GC()
-		st, err := Opus_opus_projection_decoder_create_typed(tls, rate, 3, 2, 1, &matrix[0], 18)
+		st, err := Opus_opus_projection_decoder_create_typed(rate, 3, 2, 1, &matrix[0], 18)
 		if err != nil || st == nil || matrix != before {
 			t.Fatal(st, err)
 		}
@@ -200,7 +200,7 @@ func TestProjectionDecoderCreatePointers(t *testing.T) {
 		tls.Close()
 	}
 	for _, args := range [][4]int32{{48000, 3, 2, 17}, {44100, 3, 2, 18}, {48000, 256, 1, 0}} {
-		st, err := Opus_opus_projection_decoder_create_typed(nil, args[0], args[1], args[2], 0, nil, args[3])
+		st, err := Opus_opus_projection_decoder_create_typed(args[0], args[1], args[2], 0, nil, args[3])
 		want := int32(-1)
 		if args[1] == 256 {
 			want = -7
@@ -211,7 +211,7 @@ func TestProjectionDecoderCreatePointers(t *testing.T) {
 	}
 	tls := libc.NewTLS()
 	defer tls.Close()
-	st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, nil, 17)
+	st, err := Opus_opus_projection_decoder_create_typed(48000, 3, 2, 1, nil, 17)
 	if st != nil || err == nil || err.(*OpusError).Code != -1 {
 		t.Fatal("size failure", st, err)
 	}
@@ -249,15 +249,15 @@ func TestMSValidationPointers(t *testing.T) {
 	before := st
 	entropyInitGrowStack(12)
 	runtime.GC()
-	validate_ms_decoder(nil, &st)
+	validate_ms_decoder(&st)
 	if st != before {
 		t.Fatal("state changed")
 	}
 	// The original validator intentionally ignores an invalid layout return value.
 	st.Flayout.Fmapping[0] = 7
 	before = st
-	validate_ms_decoder(nil, &st)
-	if st != before || Opus_validate_layout(nil, &st.Flayout) != 0 {
+	validate_ms_decoder(&st)
+	if st != before || Opus_validate_layout(&st.Flayout) != 0 {
 		t.Fatal("invalid-layout behavior changed")
 	}
 }
@@ -598,7 +598,7 @@ func TestOpusDecoderMSStoragePointers(t *testing.T) {
 			}
 		}
 	}
-	Opus_opus_multistream_decoder_destroy_typed(tls, st)
+	Opus_opus_multistream_decoder_destroy_typed(st)
 	runtime.GC()
 	if modes[0].Value() == nil || modes[1].Value() == nil {
 		t.Fatal("no-op destroy changed Go storage ownership")
@@ -904,7 +904,7 @@ func TestOpusDecoderDREDStoragePointers(t *testing.T) {
 		if unsafe.Sizeof(*state) != 12 || uintptr(unsafe.Pointer(state))&15 != 0 || *state != (OpusT_OpusDREDDecoder{}) {
 			t.Fatal("canonical aligned DRED header")
 		}
-		if opusDREDDecoderInit(nil, state) != OPUS_OK {
+		if opusDREDDecoderInit(state) != OPUS_OK {
 			t.Fatal("DRED scalar init")
 		}
 		entropyInitGrowStack(12)
@@ -918,7 +918,7 @@ func TestOpusDecoderDREDStoragePointers(t *testing.T) {
 
 //go:noinline
 func droppedDREDStorage(t *testing.T, tls *libc.TLS) weak.Pointer[OpusT_OpusDREDDecoder] {
-	state, err := Opus_opus_dred_decoder_create_typed(tls)
+	state, err := Opus_opus_dred_decoder_create_typed()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -938,8 +938,9 @@ func TestOpusDecoderDREDGoOwnershipPointers(t *testing.T) {
 	if owner.Value() != nil {
 		t.Fatal("DRED owner retained without Go pointer/destructor")
 	}
-	for _, ctx := range []*libc.TLS{nil, tls} {
-		state, err := Opus_opus_dred_decoder_create_typed(ctx)
+	// Repeat Go creation/destruction while the independent runtime TLS is live.
+	for range 2 {
+		state, err := Opus_opus_dred_decoder_create_typed()
 		if err != nil || state == nil {
 			t.Fatal("Go DRED creation", err)
 		}
@@ -949,22 +950,22 @@ func TestOpusDecoderDREDGoOwnershipPointers(t *testing.T) {
 			t.Fatal("initialized aligned Go DRED owner")
 		}
 		state.Floaded, state.Farch = 17, 23
-		Opus_opus_dred_decoder_destroy_typed(ctx, state)
+		Opus_opus_dred_decoder_destroy_typed(state)
 		runtime.GC()
 		if state.Fmagic != 0xDE57801D || state.Floaded != 17 || state.Farch != 23 {
 			t.Fatal("DRED destroy must only invalidate magic")
 		}
-		Opus_opus_dred_decoder_destroy_typed(ctx, state)
+		Opus_opus_dred_decoder_destroy_typed(state)
 		runtime.KeepAlive(state)
 	}
 	tls.Close()
-	state, err := Opus_opus_dred_decoder_create(tls)
+	state, err := Opus_opus_dred_decoder_create()
 	if err != nil || state.Fmagic != 0xD8EDDEC0 {
 		t.Fatal("DRED storage independent of TLS lifetime")
 	}
-	Opus_opus_dred_decoder_destroy_typed(nil, state)
-	Opus_opus_dred_decoder_destroy_typed(tls, nil)
-	Opus_opus_dred_decoder_destroy_typed(nil, nil)
+	Opus_opus_dred_decoder_destroy_typed(state)
+	Opus_opus_dred_decoder_destroy_typed(nil)
+	Opus_opus_dred_decoder_destroy_typed(nil)
 	runtime.KeepAlive(tls)
 }
 
@@ -1033,11 +1034,11 @@ func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
 		}
 		st.Flayout.Fnb_coupled_streams = binding.Coupled
 		// Child destruction must not release borrowed projection storage.
-		Opus_opus_decoder_destroy_typed(tls, binding.Views.Codecs[0].Decoder)
+		Opus_opus_decoder_destroy_typed(binding.Views.Codecs[0].Decoder)
 		if libc.RegisteredGoAllocation[OpusT_OpusProjectionDecoder](tls, uintptr(unsafe.Pointer(projection))) != projection {
 			t.Fatal("child alias freed projection parent")
 		}
-		Opus_opus_multistream_decoder_destroy_typed(tls, st)
+		Opus_opus_multistream_decoder_destroy_typed(st)
 		for _, codec := range binding.Views.Codecs {
 			if _, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, codec.Decoder); !ok {
 				t.Fatal("borrowed MS destroy released projection bindings")
@@ -1049,7 +1050,7 @@ func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
 				t.Fatal("MS child binding leaked")
 			}
 		}
-		Opus_opus_multistream_decoder_destroy_typed(tls, st)
+		Opus_opus_multistream_decoder_destroy_typed(st)
 		tls.Close()
 	}
 }
@@ -1099,7 +1100,7 @@ func TestOpusDecoderProjectionBoundCodecStoragePointers(t *testing.T) {
 		}
 		// An interior MS destructor must not unregister the projection base.
 		if method == 0 {
-			Opus_opus_multistream_decoder_destroy_typed(tls, binding.Views.Multistream.Decoder)
+			Opus_opus_multistream_decoder_destroy_typed(binding.Views.Multistream.Decoder)
 		}
 		switch method {
 		case 0:
@@ -1148,7 +1149,7 @@ func TestOpusDecoderRegisteredStoragePointers(t *testing.T) {
 		if st == nil {
 			t.Fatal("registered decoder owner missing")
 		}
-		Opus_opus_decoder_destroy_typed(tls, st)
+		Opus_opus_decoder_destroy_typed(st)
 		if libc.RegisteredGoAllocation[OpusT_OpusDecoder](tls, address) != st {
 			t.Fatal("Go destroy must not free externally registered storage")
 		}

@@ -333,7 +333,7 @@ func TestOpusNativeEmptyPaddingPointers(t *testing.T) {
 		if len(packet) == 3 && packet[0] == 0 {
 			selfDelimited = 1
 		}
-		count := opusNativeParsePacket(nil, &packet[0], int32(len(packet)), selfDelimited, &toc, &size, &offset, &consumed, &padding, &padLength)
+		count := opusNativeParsePacket(&packet[0], int32(len(packet)), selfDelimited, &toc, &size, &offset, &consumed, &padding, &padLength)
 		if count < 0 {
 			t.Fatal("padding fixture")
 		}
@@ -532,7 +532,7 @@ func TestOpusNativePacketConsumedCursorPointers(t *testing.T) {
 		var padding *byte
 		entropyInitGrowStack(12)
 		runtime.GC()
-		count := Opus_opus_packet_parse_impl(nil, &packet[0], int32(len(encoded)), 0, nil, &frames, &sizes, &payload, &offset, &padding, &paddingLength)
+		count := Opus_opus_packet_parse_impl(&packet[0], int32(len(encoded)), 0, nil, &frames, &sizes, &payload, &offset, &padding, &paddingLength)
 		wantCount := int32(1)
 		if encoded[0] == 1 {
 			wantCount = 2
@@ -561,7 +561,7 @@ func TestOpusNativePacketDescriptorsPointers(t *testing.T) {
 	var sizes [48]int16
 	var offset, packetOffset, paddingLength int32
 	var padding *byte
-	if Opus_opus_packet_parse_impl(nil, &packet[0], 7, 0, &toc, nil, &sizes, &offset, &packetOffset, &padding, &paddingLength) != 1 || toc != 255 || sizes[0] != 3 || offset != 3 || packetOffset != 7 || paddingLength != 1 || padding != &packet[6] {
+	if Opus_opus_packet_parse_impl(&packet[0], 7, 0, &toc, nil, &sizes, &offset, &packetOffset, &padding, &paddingLength) != 1 || toc != 255 || sizes[0] != 3 || offset != 3 || packetOffset != 7 || paddingLength != 1 || padding != &packet[6] {
 		t.Fatal("native packet descriptors")
 	}
 	entropyInitGrowStack(12)

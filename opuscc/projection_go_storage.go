@@ -54,7 +54,7 @@ func projectionGoCreate(rate, channels, streams, coupled int32, matrix *byte, ma
 		coefficients[i] = int16(((s & 0xffff) ^ 0x8000) - 0x8000)
 	}
 	st := new(OpusProjectionDecoder)
-	st.Fdemixing_matrix_size_in_bytes = Opus_mapping_matrix_get_size(nil, channels, inputs)
+	st.Fdemixing_matrix_size_in_bytes = Opus_mapping_matrix_get_size(channels, inputs)
 	if st.Fdemixing_matrix_size_in_bytes == 0 {
 		return nil, opusErrorFromCode(-1)
 	}

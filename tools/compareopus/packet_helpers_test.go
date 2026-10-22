@@ -46,9 +46,9 @@ func goPacketParse(data *byte, length, self, mask int32, public ...bool) packetP
 		padlen = &r.PaddingLen
 	}
 	if len(public) != 0 && public[0] {
-		r.Count = opuscc.Opus_opus_packet_parse(nil, data, length, toc, frames, size, payload)
+		r.Count = opuscc.Opus_opus_packet_parse(data, length, toc, frames, size, payload)
 	} else {
-		r.Count = opuscc.Opus_opus_packet_parse_impl(nil, data, length, self, toc, frames, size, payload, offset, padding, padlen)
+		r.Count = opuscc.Opus_opus_packet_parse_impl(data, length, self, toc, frames, size, payload, offset, padding, padlen)
 	}
 	for i, p := range f {
 		r.Frames[i] = -1
@@ -117,7 +117,7 @@ func TestPacketLBRRAgainstC(t *testing.T) {
 			packet := [8]byte{byte(toc), byte(payload), 0, 1, 2, 3, 4, 5}
 			before := packet
 			for _, length := range []int32{-1, 0, 1, 2, 3, 8} {
-				g := opuscc.Opus_opus_packet_has_lbrr(nil, &packet[0], length)
+				g := opuscc.Opus_opus_packet_has_lbrr(&packet[0], length)
 				c := nativePacketLBRR(&packet[0], length)
 				if g != c || packet != before {
 					t.Fatal(toc, payload, length, g, c)
@@ -128,7 +128,7 @@ func TestPacketLBRRAgainstC(t *testing.T) {
 	for _, packet := range packetParserFixtures() {
 		data := append(slices.Clone(packet), 0, 0)
 		before := slices.Clone(data)
-		g := opuscc.Opus_opus_packet_has_lbrr(nil, &data[0], int32(len(packet)))
+		g := opuscc.Opus_opus_packet_has_lbrr(&data[0], int32(len(packet)))
 		c := nativePacketLBRR(&data[0], int32(len(packet)))
 		if g != c || !slices.Equal(data, before) {
 			t.Fatal(packet, g, c)
@@ -259,29 +259,29 @@ func TestPacketParseImplAgainstC(t *testing.T) {
 func TestPacketHelpersAgainstC(t *testing.T) {
 	for toc := 0; toc < 256; toc++ {
 		b := byte(toc)
-		if got, want := opuscc.Opus_opus_packet_get_bandwidth(nil, &b), nativePacketBandwidth(&b); got != want {
+		if got, want := opuscc.Opus_opus_packet_get_bandwidth(&b), nativePacketBandwidth(&b); got != want {
 			t.Fatalf("TOC %#x bandwidth: Go=%d C=%d", toc, got, want)
 		}
-		if got, want := opuscc.Opus_opus_packet_get_nb_channels(nil, &b), nativePacketChannels(&b); got != want {
+		if got, want := opuscc.Opus_opus_packet_get_nb_channels(&b), nativePacketChannels(&b); got != want {
 			t.Fatalf("TOC %#x channels: Go=%d C=%d", toc, got, want)
 		}
 		for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
-			if got, want := opuscc.Opus_opus_packet_get_samples_per_frame(nil, &b, rate), nativePacketSamplesPerFrame(&b, rate); got != want {
+			if got, want := opuscc.Opus_opus_packet_get_samples_per_frame(&b, rate), nativePacketSamplesPerFrame(&b, rate); got != want {
 				t.Fatalf("TOC %#x rate %d samples/frame: Go=%d C=%d", toc, rate, got, want)
 			}
 		}
-		if got, want := opuscc.Opus_opus_packet_get_nb_frames(nil, &b, 1), nativePacketFrames(&b, 1); got != want {
+		if got, want := opuscc.Opus_opus_packet_get_nb_frames(&b, 1), nativePacketFrames(&b, 1); got != want {
 			t.Fatalf("TOC %#x length 1 frames: Go=%d C=%d", toc, got, want)
 		}
 		for second := 0; second < 256; second++ {
 			packet := [2]byte{b, byte(second)}
-			if got, want := opuscc.Opus_opus_packet_get_nb_frames(nil, &packet[0], 2), nativePacketFrames(&packet[0], 2); got != want {
+			if got, want := opuscc.Opus_opus_packet_get_nb_frames(&packet[0], 2), nativePacketFrames(&packet[0], 2); got != want {
 				t.Fatalf("packet %x frames: Go=%d C=%d", packet, got, want)
 			}
 		}
 	}
 	for _, length := range []int32{-1, 0} {
-		if got, want := opuscc.Opus_opus_packet_get_nb_frames(nil, nil, length), nativePacketFrames(nil, length); got != want {
+		if got, want := opuscc.Opus_opus_packet_get_nb_frames(nil, length), nativePacketFrames(nil, length); got != want {
 			t.Fatalf("length %d frames: Go=%d C=%d", length, got, want)
 		}
 	}

@@ -9,25 +9,25 @@ import (
 )
 
 func TestDREDFactoryPointers(t *testing.T) {
-	if handle, err := Opus_opus_dred_alloc(nil); handle != nil || err == nil || err.Error() != opusErrorFromCode(-5).Error() {
+	if handle, err := Opus_opus_dred_alloc(); handle != nil || err == nil || err.Error() != opusErrorFromCode(-5).Error() {
 		t.Fatal("disabled DRED allocation stub", handle, err)
 	}
-	Opus_opus_dred_decoder_destroy_typed(nil, nil)
-	if dec, err := Opus_opus_dred_decoder_create(nil); dec == nil || err != nil || dec.Fmagic != 0xD8EDDEC0 {
+	Opus_opus_dred_decoder_destroy_typed(nil)
+	if dec, err := Opus_opus_dred_decoder_create(); dec == nil || err != nil || dec.Fmagic != 0xD8EDDEC0 {
 		t.Fatal("Go-owned DRED creation without TLS", dec, err)
 	} else {
-		Opus_opus_dred_decoder_destroy_typed(nil, dec)
+		Opus_opus_dred_decoder_destroy_typed(dec)
 		if dec.Fmagic != 0xDE57801D {
 			t.Fatal("DRED invalidation")
 		}
 	}
 	tls := libc.NewTLS()
 	defer tls.Close()
-	dec, err := Opus_opus_dred_decoder_create(tls)
+	dec, err := Opus_opus_dred_decoder_create()
 	if err != nil || dec == nil {
 		t.Fatal("typed DRED create", dec, err)
 	}
-	defer Opus_opus_dred_decoder_destroy_typed(tls, dec)
+	defer Opus_opus_dred_decoder_destroy_typed(dec)
 	entropyInitGrowStack(12)
 	runtime.GC()
 	if *dec != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) {
@@ -40,7 +40,7 @@ func TestDREDFactoryPointers(t *testing.T) {
 func TestDREDInitPointers(t *testing.T) {
 	var alias OpusDREDDecoder
 	var canonical *OpusT_OpusDREDDecoder = &alias
-	if canonical != &alias || unsafe.Sizeof(alias) != 12 || Opus_opus_dred_decoder_get_size(nil) != int32(unsafe.Sizeof(alias)) {
+	if canonical != &alias || unsafe.Sizeof(alias) != 12 || Opus_opus_dred_decoder_get_size() != int32(unsafe.Sizeof(alias)) {
 		t.Fatal("canonical disabled DRED alias/layout")
 	}
 	owner := &struct {
@@ -51,14 +51,14 @@ func TestDREDInitPointers(t *testing.T) {
 	owner.Decoder = OpusT_OpusDREDDecoder{Floaded: -1, Farch: -1, Fmagic: 0xffffffff}
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if ret := Opus_opus_dred_decoder_init(nil, &owner.Decoder); ret != OPUS_OK {
+	if ret := Opus_opus_dred_decoder_init(&owner.Decoder); ret != OPUS_OK {
 		t.Fatal("disabled DRED init", ret)
 	}
 	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {
 		t.Fatal("disabled DRED fields/guards", owner)
 	}
 	// Destruction invalidates only the magic; Go-owned storage is never freed.
-	Opus_opus_dred_decoder_destroy_typed(nil, &owner.Decoder)
+	Opus_opus_dred_decoder_destroy_typed(&owner.Decoder)
 	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xDE57801D}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {
 		t.Fatal("disabled DRED invalidation/guards", owner)
 	}
@@ -232,31 +232,31 @@ func TestLayoutChannelPointers(t *testing.T) {
 		var got int32
 		switch tc.kind {
 		case "left":
-			got = Opus_get_left_channel(nil, &layout, tc.stream, tc.prev)
+			got = Opus_get_left_channel(&layout, tc.stream, tc.prev)
 		case "right":
-			got = Opus_get_right_channel(nil, &layout, tc.stream, tc.prev)
+			got = Opus_get_right_channel(&layout, tc.stream, tc.prev)
 		case "mono":
-			got = Opus_get_mono_channel(nil, &layout, tc.stream, tc.prev)
+			got = Opus_get_mono_channel(&layout, tc.stream, tc.prev)
 		}
 		if got != tc.want {
 			t.Fatalf("%s stream=%d prev=%d: got %d want %d", tc.kind, tc.stream, tc.prev, got, tc.want)
 		}
 	}
-	if Opus_validate_layout(nil, &layout) != 1 || layout != before {
+	if Opus_validate_layout(&layout) != 1 || layout != before {
 		t.Fatal("valid layout rejected or modified")
 	}
 	layout.Fnb_streams = 254
 	layout.Fnb_coupled_streams = 1
 	layout.Fmapping[0] = 254
-	if Opus_validate_layout(nil, &layout) != 1 {
+	if Opus_validate_layout(&layout) != 1 {
 		t.Fatal("255 coded channels should be valid")
 	}
 	layout.Fnb_streams++
-	if Opus_validate_layout(nil, &layout) != 0 {
+	if Opus_validate_layout(&layout) != 0 {
 		t.Fatal("256 coded channels should be rejected")
 	}
 	layout = OpusT_ChannelLayout{}
-	if Opus_get_left_channel(nil, &layout, 0, -1) != -1 || Opus_get_right_channel(nil, &layout, 0, -1) != -1 || Opus_get_mono_channel(nil, &layout, 0, -1) != -1 {
+	if Opus_get_left_channel(&layout, 0, -1) != -1 || Opus_get_right_channel(&layout, 0, -1) != -1 || Opus_get_mono_channel(&layout, 0, -1) != -1 {
 		t.Fatal("empty layout should have no channels")
 	}
 }

@@ -22,7 +22,7 @@ func newProjectionFloatOwner(t *testing.T) *projectionFloatTestOwner {
 	owner.MS = *newTwoStreamMSOwner(t)
 	owner.MS.MS.Flayout.Fnb_channels = 4
 	copy(owner.MS.MS.Flayout.Fmapping[:], []byte{0, 1, 2, 3})
-	owner.Projection.Fdemixing_matrix_size_in_bytes = Opus_mapping_matrix_get_size(nil, 4, 4)
+	owner.Projection.Fdemixing_matrix_size_in_bytes = Opus_mapping_matrix_get_size(4, 4)
 	if unsafe.Offsetof(owner.Matrix) != 8 || unsafe.Offsetof(owner.MS) != uintptr(owner.Projection.Fdemixing_matrix_size_in_bytes)+8 || get_multistream_decoder(nil, &owner.Projection) != &owner.MS.MS || Opus_mapping_matrix_get_data(nil, &owner.Matrix) != &owner.Coefficients[0] {
 		t.Fatal("projection scanned geometry")
 	}

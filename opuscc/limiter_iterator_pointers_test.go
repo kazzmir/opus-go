@@ -47,17 +47,17 @@ func TestIteratorPointers(t *testing.T) {
 	want.Flast_long = nil
 	want.Fcurr_len = 20
 	want.Fcurr_frame, want.Frepeat_frame, want.Ftrailing_short_len = 0, 0, 0
-	Opus_opus_extension_iterator_reset(nil, &iter)
+	Opus_opus_extension_iterator_reset(&iter)
 	if iter != want {
 		t.Fatalf("reset: got %+v want %+v", iter, want)
 	}
-	Opus_opus_extension_iterator_reset(nil, &iter)
+	Opus_opus_extension_iterator_reset(&iter)
 	if iter != want {
 		t.Fatal("reset not idempotent")
 	}
 	for _, frameMax := range []int32{0, 1, 48} {
 		want.Fframe_max = frameMax
-		Opus_opus_extension_iterator_set_frame_max(nil, &iter, frameMax)
+		Opus_opus_extension_iterator_set_frame_max(&iter, frameMax)
 		if iter != want {
 			t.Fatalf("set max %d changed unexpected fields", frameMax)
 		}

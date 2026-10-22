@@ -170,7 +170,7 @@ func TestMultistreamFloatWrapperPointers(t *testing.T) {
 		runtime.GC()
 		got := Opus_opus_multistream_decode_float_typed(nil, &owner.MS, data, length, &out[1], 5760, fec)
 		copyOut := func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
-			opus_copy_channel_out_float(tls, &want[1], ds, dc, src, ss, n)
+			opus_copy_channel_out_float(&want[1], ds, dc, src, ss, n)
 		}
 		expected := opusMSDecodeBound(nil, &baseline.MS, data, length, copyOut, 5760, fec, 0)
 		if got != expected || got <= 0 || owner.Children[0].Decoder != baseline.Children[0].Decoder || owner.Children[1].Decoder != baseline.Children[1].Decoder || out[0] != 77 || out[len(out)-1] != 88 {
@@ -470,9 +470,9 @@ func TestMultistreamAudioScratchPointers(t *testing.T) {
 	if opusMSDecodeChild(nil, &storage.Decoder, &packet[0], 2, unsafe.SliceData(audio), 480, 0, 1, &offset, 0) != 480 {
 		t.Fatal("Go scratch native decode")
 	}
-	opus_copy_channel_out_float(nil, &out[1], 3, 0, &audio[0], 2, 480)
-	opus_copy_channel_out_float(nil, &out[1], 3, 2, &audio[1], 2, 480)
-	opus_copy_channel_out_float(nil, &out[1], 3, 1, nil, 0, 480)
+	opus_copy_channel_out_float(&out[1], 3, 0, &audio[0], 2, 480)
+	opus_copy_channel_out_float(&out[1], 3, 2, &audio[1], 2, 480)
+	opus_copy_channel_out_float(&out[1], 3, 1, nil, 0, 480)
 	if out[0] != 77 || out[1441] != 88 || offset != 2 {
 		t.Fatal("typed Go scratch consumers")
 	}
@@ -565,10 +565,10 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 	defer libc.XfreePointer(tls, data)
 	pcm := libc.XmallocPointer(tls, 6400*5*4)
 	defer libc.XfreePointer(tls, pcm)
-	va := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
-	defer libc.Xfree(tls, va)
-	rng := libc.Xmalloc(tls, 4)
-	defer libc.Xfree(tls, rng)
+	va := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(uintptr(0))))
+	defer libc.XfreePointer(tls, va)
+	rng := libc.XmallocPointer(tls, 4)
+	defer libc.XfreePointer(tls, rng)
 	scanner := bufio.NewScanner(f)
 	for line := 1; scanner.Scan(); line++ {
 		var name, packet string
@@ -617,10 +617,11 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 		if hash != wantHash {
 			t.Fatalf("%s line %d: PCM hash %d, want %d", name, line, hash, wantHash)
 		}
-		if ret := Opus_opus_multistream_decoder_ctl(tls, dec, OPUS_GET_FINAL_RANGE_REQUEST, libc.NewVaCursor(unsafe.Pointer(libc.VaList(va, rng)))); ret != 0 {
+		*(*unsafe.Pointer)(va) = rng
+		if ret := Opus_opus_multistream_decoder_ctl(tls, dec, OPUS_GET_FINAL_RANGE_REQUEST, libc.NewVaCursor(va)); ret != 0 {
 			t.Fatalf("range CTL = %d", ret)
 		}
-		if got := *(*uint32)(unsafe.Pointer(rng)); got != wantRange {
+		if got := *(*uint32)(rng); got != wantRange {
 			t.Fatalf("%s: range %d, want %d", name, got, wantRange)
 		}
 	}

@@ -93,7 +93,7 @@ func opusMSDecoderStorageType(streams, coupled int32) reflect.Type {
 }
 
 func opusProjectionDecoderStorageType(channels, streams, coupled int32) reflect.Type {
-	matrixSize := Opus_mapping_matrix_get_size(nil, channels, streams+coupled)
+	matrixSize := Opus_mapping_matrix_get_size(channels, streams+coupled)
 	matrixFields := []reflect.StructField{
 		{Name: "Matrix", Type: reflect.TypeFor[OpusT_MappingMatrix]()},
 		{Name: "HeaderPadding", Type: reflect.ArrayOf(4, reflect.TypeFor[byte]())},

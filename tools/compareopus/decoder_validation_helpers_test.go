@@ -121,7 +121,7 @@ func TestCompositeProjectionSizeAgainstC(t *testing.T) {
 
 func TestCompositeMatrixSizeAgainstC(t *testing.T) {
 	for _, shape := range [][2]int32{{0, 0}, {1, 1}, {255, 127}, {255, 128}, {200, 162}, {256, 0}, {0, 256}, {-1, 3}, {-300, 2}} {
-		got := opuscc.Opus_mapping_matrix_get_size(nil, shape[0], shape[1])
+		got := opuscc.Opus_mapping_matrix_get_size(shape[0], shape[1])
 		if want := nativeMappingMatrixSize(shape[0], shape[1]); got != want {
 			t.Fatal("matrix size", shape, got, want)
 		}
@@ -221,7 +221,7 @@ func TestProjectionDecoderInitAgainstC(t *testing.T) {
 			matrix[2*i] = byte(v)
 			matrix[2*i+1] = byte(v >> 8)
 		}
-		msOffset := int((unsafe.Sizeof(opuscc.OpusT_OpusProjectionDecoder{})+7)&^uintptr(7)) + int(opuscc.Opus_mapping_matrix_get_size(nil, channels, streams+coupled))
+		msOffset := int((unsafe.Sizeof(opuscc.OpusT_OpusProjectionDecoder{})+7)&^uintptr(7)) + int(opuscc.Opus_mapping_matrix_get_size(channels, streams+coupled))
 		for _, rate := range []int32{8000, 12000, 16000, 24000, 48000, 44100} {
 			for _, delta := range []int32{-1, 0, 1} {
 				backing := make([]uint64, (size+7)/8+2)
@@ -255,7 +255,7 @@ func TestProjectionDecoderInitAgainstC(t *testing.T) {
 		for i := range g {
 			g[i] = byte(i * 17)
 		}
-		msOffset := 8 + int(opuscc.Opus_mapping_matrix_get_size(nil, 3, 3))
+		msOffset := 8 + int(opuscc.Opus_mapping_matrix_get_size(3, 3))
 		normalizeMSModes(g[msOffset:], 2, 1)
 		c := slices.Clone(g)
 		code := opuscc.Opus_opus_projection_decoder_init(nil, st, 48000, 3, 2, 1, &g[offset], 18)
@@ -362,7 +362,7 @@ func TestDecoderCreateAgainstC(t *testing.T) {
 				if !fail {
 					tls = libc.NewTLS()
 				}
-				st, err := opuscc.Opus_opus_decoder_create_typed(tls, rate, channels)
+				st, err := opuscc.Opus_opus_decoder_create_typed(rate, channels)
 				code := factoryErrorCode(err)
 				var image []byte
 				if st != nil {
@@ -450,7 +450,7 @@ func TestProjectionDecoderCreateAgainstC(t *testing.T) {
 					if !fail {
 						tls = libc.NewTLS()
 					}
-					st, err := opuscc.Opus_opus_projection_decoder_create_typed(tls, rate, channels, streams, coupled, unsafe.SliceData(matrix), count*2+delta)
+					st, err := opuscc.Opus_opus_projection_decoder_create_typed(rate, channels, streams, coupled, unsafe.SliceData(matrix), count*2+delta)
 					code := factoryErrorCode(err)
 					var image []byte
 					if st != nil {

@@ -534,6 +534,52 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Common TLS argument cleanup: removed TLS from45 named common.go functions,
+updating every same-package and external opuscc caller. AST call-graph eligibility
+requires TLS either unused or ONLY forwarded as the first argument to another
+removable common.go function. Function-value references/effectful first arguments
+are not rewritten; no side-effecting context expression is silently discarded.
+No inserted nil TLS bridges, alternate opaque context argument or signature shims.
+Remaining functions still pass TLS into codec/libc/diagnostic operations (outside
+this bounded cleanup); not a claim that every remaining dependency is essential.
+
+Includes packet size/header/duration/parser helpers (public+native parser), mode
+and LBRR queries, fade, float channel copy, layout/channel lookup/validation,
+multistream packet validation, matrix-size calculation, extension skip/reset/
+frame-max helpers, ordinary single/projection factories, single/MS no-op destroy,
+and DRED size/init/factory/destroy/parse/process/decode/alloc/free/ctl stubs. DRED
+behavior/error ordering remains UNIMPLEMENTED where it was unimplemented, never
+incidentally enabled. Callback function TYPES keep their context contract; only
+eligible named function definitions/calls changed. Single/projection factories
+now have no ignored TLS parameter; all existing Go owner/collection semantics
+unchanged. This is dependency/API cleanup, not a new allocation owner or speedup.
+
+Build issue /tmp/opus-common-tls-compile.log: obsolete ctx loop variable after
+DRED factory TLS removal. Repeat creation/destruction twice with runtime TLS live
+and retain after-close creation, magic/loaded/arch checks and weak collection.
+No fabricated nil/closed TLS input contract for an API without that argument.
+compile-retry and all-package tagged compilation pass.
+
+Expanded scoped checkptr uncovered old TEST-only integer pointer plumbing:
+focused.log: TestOpusDecoderCtlCReference output/vararg integer conversion;
+focused-retry.log: TestMultistreamDecoderCtlCReference integer vararg/state cache;
+focused-retry2.log: TestMultistreamDecodeNativeCReference libc.VaList;
+focused-retry3.log: TestMultistreamDecoderInitFieldAccesses integer allocation.
+Migrated these and same-pattern decoder init fixture to XmallocPointer with SAME
+allocation sizes/alignment/free/TLS ownership, typed pointer stores and numeric
+scalar vararg words; MS child cache now [3]*OpusT_OpusDecoder, with
+uintptr used ONLY for unchanged numeric distance oracle. No fake GC-map repair
+for byte vararg buffers; actual output pointers remain Go-visible local roots.
+All original C transcripts, hashes, per-stream state, native fixtures, canaries,
+validation and replay expectations retained. No scope/oracle/tolerance weakening.
+focused-retry4 and focused-final pass with the SAME expanded regex, then COMPLETE
+inherited validation/native comparisons/386 checkptr/ARM ordinary+checkptr20 pass.
+
+Logs /tmp/opus-common-tls-{compile,compile-retry,all-compile,focused,focused-retry,focused-retry2,focused-retry3,focused-retry4,focused-final,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts unchanged11 uintptr/51 unsafe.Pointer in production opuscc. No global
+safety/native GC/opaque-image/performance/direct macOS claim. Older TLS signatures
+and compatibility descriptions below are superseded for the45 migrated functions.
+
 Public decoder init actual storage API: Opus_opus_decoder_init now accepts
 *OpusDecoderStorage, an exported concrete descriptor with actual canonical
 Decoder/Silk/Celt field pointers and Clear. NO unsafe.Pointer cast, prefix/owner

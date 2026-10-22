@@ -64,11 +64,11 @@ func TestOpusDecodeFrameCReferencePartA(t *testing.T) {
 	defer tls.Close()
 	setupResamplerPseudostack(tls)
 
-	dec, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+	dec, err := Opus_opus_decoder_create_typed(48000, 2)
 	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
-	defer Opus_opus_decoder_destroy_typed(tls, dec)
+	defer Opus_opus_decoder_destroy_typed(dec)
 	dp := dec
 
 	/* tv02 pkt0/pkt1: SILK NB mono 60 ms; tv02 pkt602: SILK NB stereo 60 ms;
@@ -158,11 +158,11 @@ func TestOpusDecodeFrameCReferencePartB(t *testing.T) {
 	defer tls.Close()
 	setupResamplerPseudostack(tls)
 
-	dec, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+	dec, err := Opus_opus_decoder_create_typed(48000, 2)
 	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
-	defer Opus_opus_decoder_destroy_typed(tls, dec)
+	defer Opus_opus_decoder_destroy_typed(dec)
 	dp := dec
 
 	/* Packets produced by the C encoder (deterministic LCG noise input; see

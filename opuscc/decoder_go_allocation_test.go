@@ -25,7 +25,7 @@ func legacyRegisteredDecoderTestStorage(tls *libc.TLS, rate, channels int32) (*O
 
 //go:noinline
 func droppedDecoderGoOwner(t *testing.T, tls *libc.TLS, channels int32) weak.Pointer[OpusT_OpusDecoder] {
-	st, err := Opus_opus_decoder_create_typed(tls, 48000, channels)
+	st, err := Opus_opus_decoder_create_typed(48000, channels)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,13 +57,13 @@ func TestDecoderGoCollectionPointers(t *testing.T) {
 func TestDecoderGoNoFreePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		tls := libc.NewTLS()
-		st, err := Opus_opus_decoder_create_typed(nil, 48000, channels)
+		st, err := Opus_opus_decoder_create_typed(48000, channels)
 		if err != nil {
 			t.Fatal(err)
 		}
 		entropyInitGrowStack(12)
 		runtime.GC()
-		Opus_opus_decoder_destroy_typed(tls, st)
+		Opus_opus_decoder_destroy_typed(st)
 		tls.Close()
 		runtime.GC()
 		pcm := make([]float32, 120*channels+2)

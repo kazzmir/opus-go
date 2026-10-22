@@ -68,7 +68,7 @@ func TestMSDecoderGoOwnershipPointers(t *testing.T) {
 		}
 	}
 	// Destroy is a no-op, and closing runtime TLS cannot destroy Go storage.
-	Opus_opus_multistream_decoder_destroy_typed(tls, st)
+	Opus_opus_multistream_decoder_destroy_typed(st)
 	tls.Close()
 	var child *OpusT_OpusDecoder
 	if Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Value: 1, Decoder: &child}) != 0 {
@@ -92,7 +92,7 @@ func TestMSDecoderGoDecodePointers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	Opus_opus_multistream_decoder_destroy_typed(nil, st)
+	Opus_opus_multistream_decoder_destroy_typed(st)
 	pcm := make([]float32, 362)
 	pcm[0], pcm[361] = 77, 88
 	entropyInitGrowStack(12)

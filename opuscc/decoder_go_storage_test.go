@@ -46,7 +46,7 @@ func TestDecoderStaticGoClearExtentPointers(t *testing.T) {
 
 //go:noinline
 func singleStaticGoOwner(t *testing.T, channels int32) (*OpusT_OpusDecoder, weak.Pointer[OpusT_OpusCustomMode], [2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2]weak.Pointer[[32]int16]) {
-	st, err := Opus_opus_decoder_create_typed(nil, 48000, channels)
+	st, err := Opus_opus_decoder_create_typed(48000, channels)
 	if err != nil {
 		t.Fatal(err)
 	}
