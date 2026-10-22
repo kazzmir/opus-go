@@ -378,7 +378,15 @@ func TestOpusDecoderRegisteredProjectionStoragePointers(t *testing.T) {
 			}
 		}
 	}
-	Opus_opus_projection_decoder_destroy(tls, address)
+	// Recover the actual registered owner only after registry-only GC checks.
+	st := libc.RegisteredGoAllocation[OpusT_OpusProjectionDecoder](tls, address)
+	if st == nil {
+		t.Fatal("registered projection owner missing")
+	}
+	Opus_opus_projection_decoder_destroy_typed(tls, st)
+	if libc.RegisteredGoAllocation[OpusT_OpusProjectionDecoder](tls, address) != nil {
+		t.Fatal("typed projection cleanup retained registration")
+	}
 	tls.Close()
 }
 
@@ -1072,7 +1080,7 @@ func TestOpusDecoderProjectionBoundCodecStoragePointers(t *testing.T) {
 		case 0:
 			Opus_opus_projection_decoder_destroy_typed(tls, st)
 		case 1:
-			Opus_opus_projection_decoder_destroy(tls, uintptr(unsafe.Pointer(st)))
+			Opus_opus_projection_decoder_destroy_typed(tls, st)
 		case 2:
 			libc.Xfree(tls, uintptr(unsafe.Pointer(st)))
 		case 3:

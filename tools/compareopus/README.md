@@ -534,6 +534,20 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Projection typed-only destruction: removed unused-public-ABI wrapper
+Opus_opus_projection_decoder_destroy and migrated BOTH remaining test callers to
+Opus_opus_projection_decoder_destroy_typed. Registry-only weak-root GC checks still
+retain NO strong owner until after all GC trials; then retrieve the actual
+registered pointer, use typed cleanup and verify registration removed. No numeric
+pointer reconstruction/replacement wrapper. Both cleanup iterations remain (with
+and without prior interior-MS destruction); explicit external-free/TLS-close
+interop cases unchanged. Normal Go destroy remains no-op; legacy typed cleanup
+retains its original registered alias/base release behavior. Separate opusccenc
+API untouched. Full inherited validation and scoped amd64/386 checkptr plus tagged
+ARM ordinary/checkptr repeats20 pass, no failures/oracle/tolerance changes.
+Logs /tmp/opus-projection-typed-destroy-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts47 uintptr/83 unsafe.Pointer. No global lifetime/native GC/performance claim.
+
 Projection normal Go ownership: create_typed now returns *OpusProjectionDecoder,
 an ordinary object with a private scalar header, declared matrix header/padding/
 int16 coefficient array and *OpusMSDecoder. No reflection, RegisterGoAllocation,

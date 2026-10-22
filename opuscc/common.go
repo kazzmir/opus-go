@@ -4302,14 +4302,6 @@ func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st OpusProjectionDecoderSta
 	return Opus_opus_projection_decoder_ctl_typed(tls, st, request, msCtlLegacyArgs(opusMSHeaderOf(ms), request, func() libc.VaCursor { return va }))
 }
 
-func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {
-	if owned := libc.RegisteredGoAllocation[OpusT_OpusProjectionDecoder](tls, st); owned != nil {
-		Opus_opus_projection_decoder_destroy_typed(tls, owned)
-		return
-	}
-	libc.Xfree(tls, st)
-}
-
 func Opus_opus_projection_decoder_destroy_typed(tls *libc.TLS, st OpusProjectionDecoderState) {
 	// Normal Go owners need no destruction; flat legacy owners keep explicit cleanup.
 	if st != nil {
