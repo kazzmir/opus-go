@@ -92,7 +92,7 @@ func TestProjectionGoDecodePointers(t *testing.T) {
 			case 2:
 				x, y := make([]int32, 2882), make([]int32, 2882)
 				x[0], y[0], x[2881], y[2881] = 77, 77, 88, 88
-				a = Opus_opus_projection_decode24_typed(nil, st, unsafe.SliceData(data), int32(len(data)), &x[1], 2880, 0)
+				a = Opus_opus_projection_decode24(nil, st, unsafe.SliceData(data), int32(len(data)), &x[1], 2880, 0)
 				b = Opus_opus_projection_decode24_typed(tls, flat, unsafe.SliceData(data), int32(len(data)), &y[1], 2880, 0)
 				if !slices.Equal(x, y) || x[0] != 77 || x[2881] != 88 {
 					t.Fatal("int24/guards")

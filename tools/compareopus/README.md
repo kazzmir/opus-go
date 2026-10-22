@@ -534,6 +534,15 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Projection int24 public entry pointers: Opus_opus_projection_decode24 now takes
+OpusProjectionDecoderState, *byte packet and *int32 PCM; direct typed forwarding,
+no uintptr/reconstruction/uintptrescapes. Existing real packet/PLC projection test
+now exercises public int24 entry against legacy typed path with unchanged exact
+samples/guards/status/final-range checks. Full inherited validation, amd64/386
+scoped checkptr and tagged ARM ordinary/checkptr repeats20 pass, no failures or
+oracle/tolerance changes. Logs /tmp/opus-projection-int24-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts43 uintptr/77 unsafe.Pointer (was45/80). No global safety/performance claim.
+
 Projection int16 public entry pointers: Opus_opus_projection_decode now takes
 OpusProjectionDecoderState, *byte packet and *int16 PCM, forwarding directly to
 the existing typed kernel. No uintptr arguments, reconstruction casts or
