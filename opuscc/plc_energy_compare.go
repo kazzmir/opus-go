@@ -80,7 +80,7 @@ func CompareOpusInt24PCM(tls *libc.TLS, input *float32, output *int32, count int
 }
 
 func CompareOpusNativeParsePacket(tls *libc.TLS, data *byte, length, selfDelimited int32, toc *byte, size *[48]int16, offset, packetOffset *int32, padding **byte, paddingLength *int32) int32 {
-	return opusNativeParsePacket(tls, data, length, selfDelimited, toc, size, offset, packetOffset, padding, paddingLength)
+	return opusNativeParsePacket(data, length, selfDelimited, toc, size, offset, packetOffset, padding, paddingLength)
 }
 
 func CompareOpusFrameRedundantPacket(data *byte, offset, length int32) *byte {

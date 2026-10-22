@@ -215,7 +215,7 @@ func TestCeltDecodeFrameModePointers(t *testing.T) {
 		data[i] = 1
 		other[i] = 2
 	}
-	smooth_fade(nil, &data[1], &other[1], &data[1], 120, 1, window, 48000)
+	smooth_fade(&data[1], &other[1], &data[1], 120, 1, window, 48000)
 	if data[0] != 77 || data[121] != 88 {
 		t.Fatal("typed frame window/fade guards")
 	}

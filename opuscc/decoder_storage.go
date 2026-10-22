@@ -1,6 +1,9 @@
 package opuscc
 
-import "reflect"
+import (
+	"reflect"
+	"unsafe"
+)
 
 // These layouts describe actual Go allocations, including the runtime GC map.
 // Caller-supplied ABI byte buffers are not retroactively made pointer-scanned.
@@ -90,7 +93,7 @@ func opusMSDecoderStorageType(streams, coupled int32) reflect.Type {
 }
 
 func opusProjectionDecoderStorageType(channels, streams, coupled int32) reflect.Type {
-	matrixSize := Opus_mapping_matrix_get_size(nil, channels, streams+coupled)
+	matrixSize := Opus_mapping_matrix_get_size(channels, streams+coupled)
 	matrixFields := []reflect.StructField{
 		{Name: "Matrix", Type: reflect.TypeFor[OpusT_MappingMatrix]()},
 		{Name: "HeaderPadding", Type: reflect.ArrayOf(4, reflect.TypeFor[byte]())},
@@ -121,7 +124,8 @@ type opusProjectionStorageViews struct {
 	MultistreamOffset uint // actual reflection-field displacement
 }
 
-func opusProjectionDecoderOwnedStorage(channels, streams, coupled int32) opusProjectionStorageViews {
+// Explicit flat ABI/image storage; normal projection creation uses Go fields.
+func opusProjectionDecoderLegacyOwnedStorage(channels, streams, coupled int32) opusProjectionStorageViews {
 	owner := opusDecoderAlignedStorage(opusProjectionDecoderStorageType(channels, streams, coupled))
 	matrix := owner.FieldByName("Demixing")
 	msField, _ := owner.Type().FieldByName("Multistream")
@@ -138,7 +142,7 @@ func opusProjectionDecoderOwnedStorage(channels, streams, coupled int32) opusPro
 }
 
 func opusProjectionDecoderStorage(channels, streams, coupled int32) *OpusT_OpusProjectionDecoder {
-	return opusProjectionDecoderOwnedStorage(channels, streams, coupled).Decoder
+	return opusProjectionDecoderLegacyOwnedStorage(channels, streams, coupled).Decoder
 }
 
 type opusMSStorageViews struct {
@@ -169,27 +173,41 @@ func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
 	return views
 }
 
-func opusMSDecoderOwnedStorage(streams, coupled int32) opusMSStorageViews {
-	return opusMSStorageViewsAt(opusDecoderAlignedStorage(opusMSDecoderStorageType(streams, coupled)))
-}
-
-func opusMSDecoderStorage(streams, coupled int32) *OpusT_OpusMSDecoder {
-	return opusMSDecoderOwnedStorage(streams, coupled).Decoder
-}
-
-// Disabled DRED still has a concrete 12-byte scalar ABI header. Use its real
-// Go type and the existing alignment policy, not a cast malloc byte image.
+// DRED has a concrete 12-byte scalar ABI header; normal Go cells retain the
+// 16-byte alignment policy without reflection, registration or opaque images.
 func opusDREDDecoderStorage() *OpusT_OpusDREDDecoder {
-	owner := opusDecoderAlignedStorage(reflect.TypeFor[OpusT_OpusDREDDecoder]())
-	return owner.Addr().Interface().(*OpusT_OpusDREDDecoder)
+	cell := new(struct {
+		Decoder OpusT_OpusDREDDecoder
+		Padding [4]byte
+	})
+	if uintptr(unsafe.Pointer(&cell.Decoder))&15 == 0 {
+		return &cell.Decoder
+	}
+	// A 20-byte stride visits every four-byte-aligned residue modulo16.
+	cells := new([4]struct {
+		Decoder OpusT_OpusDREDDecoder
+		Padding [8]byte
+	})
+	for i := range cells {
+		if uintptr(unsafe.Pointer(&cells[i].Decoder))&15 == 0 {
+			return &cells[i].Decoder
+		}
+	}
+	panic("opus Go DRED alignment")
 }
 
-type opusDecoderStorageViews struct {
+// OpusDecoderStorage describes actual fields of complete canonical decoder
+// storage, not a bare header or independently allocated codec states. Field
+// pointers retain their Go backing owner. Clear must preserve bytes beyond the
+// requested channel layout's ABI extent.
+type OpusDecoderStorage struct {
 	Decoder *OpusT_OpusDecoder
 	Silk    *OpusT_silk_decoder
 	Celt    *OpusT_OpusCustomDecoder
 	Clear   func()
 }
+
+type opusDecoderStorageViews = OpusDecoderStorage
 
 func opusDecoderStorageViewsAt(owner reflect.Value) opusDecoderStorageViews {
 	return opusDecoderStorageViews{
@@ -210,11 +228,21 @@ func opusDecoderStorageClearAt(owner reflect.Value) func() {
 	}
 }
 
-func opusDecoderOwnedStorage(channels int32) opusDecoderStorageViews {
+// Explicit flat-layout oracle for legacy/image interoperability tests.
+func opusDecoderLegacyOwnedStorage(channels int32) opusDecoderStorageViews {
 	owner := opusDecoderAlignedStorage(opusDecoderStorageType(channels))
 	views := opusDecoderStorageViewsAt(owner)
 	views.Clear = opusDecoderStorageClearAt(owner)
 	return views
+}
+
+// Normal decoder allocation uses declared Go fields, never runtime reflection.
+func opusDecoderOwnedStorage(channels int32) opusDecoderStorageViews {
+	opusDecoderGoStorageCheck(channels)
+	if channels == 2 {
+		return opusGoStereoStorage(nil)
+	}
+	return opusGoMonoStorage(nil)
 }
 
 func opusDecoderStorage(channels int32) *OpusT_OpusDecoder {

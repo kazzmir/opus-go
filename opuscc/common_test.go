@@ -11,7 +11,7 @@ func TestCompositeSizeProjection(t *testing.T) {
 	for _, shape := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {4, 2, 2}, {0, 1, 0}, {-1, 1, 0}, {256, 1, 0}, {255, 255, 255}, {1, 0, 0}, {1, 2, -1}, {1, 1, 2}, {1, 2147483647, 0}} {
 		channels, streams, coupled := shape[0], shape[1], shape[2]
 		var want int32
-		matrix := Opus_mapping_matrix_get_size(nil, streams+coupled, channels)
+		matrix := Opus_mapping_matrix_get_size(streams+coupled, channels)
 		if matrix != 0 {
 			decoder := Opus_opus_multistream_decoder_get_size(nil, streams, coupled)
 			if decoder != 0 {
@@ -34,7 +34,7 @@ func TestCompositeSizeMatrix(t *testing.T) {
 				want = 16 + int32((uint32(size)+7)/8*8)
 			}
 		}
-		if got := Opus_mapping_matrix_get_size(nil, rows, cols); got != want {
+		if got := Opus_mapping_matrix_get_size(rows, cols); got != want {
 			t.Fatal("mapping size", shape, got, want)
 		}
 	}
@@ -96,7 +96,7 @@ func TestOpusDecoderGetSizeLocalSilkSize(t *testing.T) {
 	}
 
 	state := make([]byte, stereo)
-	if got := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(&state[0])), 48000, 2); got != OPUS_OK {
+	if got := Opus_opus_decoder_init_abi(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(&state[0])), 48000, 2); got != OPUS_OK {
 		t.Fatalf("decoder initialization: got %d, want %d", got, OPUS_OK)
 	}
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(&state[0]))

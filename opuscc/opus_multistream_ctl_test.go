@@ -20,19 +20,22 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 	defer f.Close()
 	tls := libc.NewTLS()
 	defer tls.Close()
-	mapping := libc.Xmalloc(tls, 4)
-	defer libc.Xfree(tls, mapping)
-	copy(unsafe.Slice((*byte)(unsafe.Pointer(mapping)), 4), []byte{0, 1, 2, 3})
-	st, err := Opus_opus_multistream_decoder_create(tls, 48000, 4, 3, 1, mapping)
+	mapping := libc.XmallocPointer(tls, 4)
+	defer libc.XfreePointer(tls, mapping)
+	copy(unsafe.Slice((*byte)(mapping), 4), []byte{0, 1, 2, 3})
+	// This transcript checks physical C child displacements, so retain a flat
+	// ABI fixture rather than treating the normal Go owner as contiguous bytes.
+	st, err := flatMSTestDecoder(tls, 48000, 4, 3, 1, (*byte)(mapping))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Opus_opus_multistream_decoder_destroy(tls, st)
-	va := libc.Xmalloc(tls, 2*uint64(unsafe.Sizeof(uintptr(0))))
-	defer libc.Xfree(tls, va)
-	out := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
-	defer libc.Xfree(tls, out)
-	var dec [3]uintptr
+	defer Opus_opus_multistream_decoder_destroy_typed(st)
+	va := libc.XmallocPointer(tls, 2*uint64(unsafe.Sizeof(uintptr(0))))
+	defer libc.XfreePointer(tls, va)
+	second := unsafe.Add(va, unsafe.Sizeof(uintptr(0)))
+	out := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(uintptr(0))))
+	defer libc.XfreePointer(tls, out)
+	var dec [3]*OpusT_OpusDecoder
 	scanner := bufio.NewScanner(f)
 	for line := 1; scanner.Scan(); line++ {
 		var op string
@@ -43,8 +46,7 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 		}
 		switch op {
 		case "seed":
-			for i, p := range dec {
-				d := (*OpusT_OpusDecoder)(unsafe.Pointer(p))
+			for i, d := range dec {
 				d.FrangeFinal = 0x87654321 + uint32(i)*0x12345678
 				d.Fbandwidth = 1101 + int32(i)
 				d.Flast_packet_duration = 120 * (int32(i) + 1)
@@ -52,40 +54,42 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 			}
 			continue
 		case "get":
-			*(*int32)(unsafe.Pointer(out)) = -999
-			libc.VaList(va, out)
+			*(*int32)(out) = -999
+			*(*unsafe.Pointer)(va) = out
 		case "null":
-			libc.VaList(va, uintptr(0))
+			*(*unsafe.Pointer)(va) = nil
 		case "set":
-			libc.VaList(va, arg)
+			*(*uintptr)(va) = uintptr(uint32(arg))
 		case "state":
-			*(*uintptr)(unsafe.Pointer(out)) = 0
-			libc.VaList(va, arg, out)
+			*(*unsafe.Pointer)(out) = nil
+			*(*uintptr)(va) = uintptr(uint32(arg))
+			*(*unsafe.Pointer)(second) = out
 		case "state_null":
-			libc.VaList(va, arg, uintptr(0))
+			*(*uintptr)(va) = uintptr(uint32(arg))
+			*(*unsafe.Pointer)(second) = nil
 		case "reset":
 		default:
 			t.Fatalf("unknown operation %s", op)
 		}
 		var ret int32
 		if stream < 0 {
-			ret = Opus_opus_multistream_decoder_ctl_va_list(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), request, libc.NewVaCursor(unsafe.Pointer(va)))
+			ret = Opus_opus_multistream_decoder_ctl_va_list(tls, st, request, libc.NewVaCursor(va))
 		} else {
-			ret = Opus_opus_decoder_ctl(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(dec[stream])), request, libc.NewVaCursor(unsafe.Pointer(va)))
+			ret = Opus_opus_decoder_ctl(tls, dec[stream], request, libc.NewVaCursor(va))
 		}
 		if ret != wantRet {
 			t.Fatalf("line %d (%s): return %d, want %d", line, scanner.Text(), ret, wantRet)
 		}
 		if op == "get" {
-			if got := int64(*(*int32)(unsafe.Pointer(out))); got != wantValue {
+			if got := int64(*(*int32)(out)); got != wantValue {
 				t.Fatalf("line %d: got %d, want %d", line, got, wantValue)
 			}
 		}
 		if op == "state" {
-			p := *(*uintptr)(unsafe.Pointer(out))
+			p := *(**OpusT_OpusDecoder)(out)
 			offset := int64(0)
-			if p != 0 {
-				offset = int64(p - st)
+			if p != nil {
+				offset = int64(uintptr(unsafe.Pointer(p)) - uintptr(unsafe.Pointer(st))) // Numeric distance oracle only.
 			}
 			// Each preceding stream occupies one decoder allocation.
 			if ret == 0 {

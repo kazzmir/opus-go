@@ -36,7 +36,7 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	var po int32
 
 	/* multi-frame 60 ms code-3 packet, packet_offset out-param */
-	dec, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+	dec, err := Opus_opus_decoder_create_typed(48000, 2)
 	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
@@ -61,11 +61,11 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	if got, want := math.Float32bits(pcm[0]), uint32(0); got != want {
 		t.Fatalf("multi60: pcm[0]=%08x want %08x", got, want)
 	}
-	Opus_opus_decoder_destroy_typed(tls, dec)
+	Opus_opus_decoder_destroy_typed(dec)
 
 	/* plain 20 ms, then the same packet padded with 13 bytes (real padding +
 	   extension iterator), then padded again with ignore_extensions */
-	dec, err = Opus_opus_decoder_create_typed(tls, 48000, 2)
+	dec, err = Opus_opus_decoder_create_typed(48000, 2)
 	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
@@ -121,10 +121,10 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	if got, want := po, int32(50); got != want {
 		t.Fatalf("ignoreext: packet_offset=%d want %d", got, want)
 	}
-	Opus_opus_decoder_destroy_typed(tls, dec)
+	Opus_opus_decoder_destroy_typed(dec)
 
 	/* self-delimited packet */
-	dec, err = Opus_opus_decoder_create_typed(tls, 48000, 2)
+	dec, err = Opus_opus_decoder_create_typed(48000, 2)
 	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
@@ -143,10 +143,10 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	if got, want := po, int32(38); got != want {
 		t.Fatalf("selfdel: packet_offset=%d want %d", got, want)
 	}
-	Opus_opus_decoder_destroy_typed(tls, dec)
+	Opus_opus_decoder_destroy_typed(dec)
 
 	/* decode_fec early-PLC branch: frame_size < packet_frame_size */
-	dec, err = Opus_opus_decoder_create_typed(tls, 48000, 2)
+	dec, err = Opus_opus_decoder_create_typed(48000, 2)
 	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
@@ -171,10 +171,10 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	if got, want := math.Float32bits(pcm[0]), uint32(0xbf086200); got != want {
 		t.Fatalf("fecshort: pcm[0]=%08x want %08x", got, want)
 	}
-	Opus_opus_decoder_destroy_typed(tls, dec)
+	Opus_opus_decoder_destroy_typed(dec)
 
 	/* bad args */
-	dec, err = Opus_opus_decoder_create_typed(tls, 48000, 2)
+	dec, err = Opus_opus_decoder_create_typed(48000, 2)
 	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
@@ -184,10 +184,10 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 	if got := Opus_opus_decode_native(tls, dec, &p20[0], int32(len(p20)), pcmPtr, 960, 2, 0, nil, 0, nil, 0); got != -1 {
 		t.Fatalf("badfec: %d want -1", got)
 	}
-	Opus_opus_decoder_destroy_typed(tls, dec)
+	Opus_opus_decoder_destroy_typed(dec)
 
 	/* int16 wrapper on the 60 ms packet (soft clip path) */
-	dec, err = Opus_opus_decoder_create_typed(tls, 48000, 2)
+	dec, err = Opus_opus_decoder_create_typed(48000, 2)
 	if err != nil || dec == nil {
 		t.Fatalf("decoder create: %v", err)
 	}
@@ -211,5 +211,5 @@ func TestOpusDecodeNativeCReference(t *testing.T) {
 			t.Fatalf("i16: pcm16[%d]=%d want %d", j, got, want)
 		}
 	}
-	Opus_opus_decoder_destroy_typed(tls, dec)
+	Opus_opus_decoder_destroy_typed(dec)
 }

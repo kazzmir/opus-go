@@ -48,8 +48,9 @@ func TestOpusIntegerRatesPointers(t *testing.T) {
 	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
 		for _, C := range []int32{1, 2} {
 			left, right := newOpusFrameOwnerDecoder(t, C), newOpusFrameOwnerDecoder(t, C)
-			Opus_opus_decoder_init(nil, &left.Decoder, rate, C)
-			Opus_opus_decoder_init(nil, &right.Decoder, rate, C)
+			leftViews, rightViews := left.initViews(C), right.initViews(C)
+			Opus_opus_decoder_init(nil, &leftViews, rate, C)
+			Opus_opus_decoder_init(nil, &rightViews, rate, C)
 			N := rate * 60 / 1000
 			a, b := make([]int16, N*C+2), make([]int32, N*C+2)
 			a[0], a[len(a)-1], b[0], b[len(b)-1] = 77, 88, 77, 88
@@ -128,7 +129,7 @@ func TestOpusInt16WholePointers(t *testing.T) {
 }
 
 func TestOpusInt24NoPseudostack(t *testing.T) {
-	if Opus_opus_decode24(nil, 0, 0, 0, 0, 0, 2) != -1 {
+	if Opus_opus_decode24_typed(nil, nil, nil, 0, nil, 0, 2) != -1 {
 		t.Fatal("int24 validation order")
 	}
 	for _, C := range []int32{1, 2} {
@@ -138,17 +139,17 @@ func TestOpusInt24NoPseudostack(t *testing.T) {
 		pcm[0], pcm[len(pcm)-1] = 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if Opus_opus_decode24(nil, uintptr(unsafe.Pointer(&storage.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&pcm[1])), 5760, 0) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+		if Opus_opus_decode24_typed(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
 			t.Fatal("int24 nil TLS", C)
 		}
-		if Opus_opus_decode24(nil, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+		if Opus_opus_decode24_typed(nil, &storage.Decoder, nil, 0, &pcm[1], 120, 0) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
 			t.Fatal("int24 short PLC")
 		}
 	}
 }
 
 func TestOpusInt16NoPseudostack(t *testing.T) {
-	if Opus_opus_decode(nil, 0, 0, 0, 0, 0, 2) != -1 {
+	if Opus_opus_decode_typed(nil, nil, nil, 0, nil, 0, 2) != -1 {
 		t.Fatal("int16 validation order")
 	}
 	for _, C := range []int32{1, 2} {
@@ -158,10 +159,10 @@ func TestOpusInt16NoPseudostack(t *testing.T) {
 		pcm[0], pcm[len(pcm)-1] = 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if Opus_opus_decode(nil, uintptr(unsafe.Pointer(&storage.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&pcm[1])), 5760, 0) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+		if Opus_opus_decode_typed(nil, &storage.Decoder, &packet[0], int32(len(packet)), &pcm[1], 5760, 0) != 2880 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
 			t.Fatal("int16 nil TLS", C)
 		}
-		if Opus_opus_decode(nil, uintptr(unsafe.Pointer(&storage.Decoder)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), 120, 0) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+		if Opus_opus_decode_typed(nil, &storage.Decoder, nil, 0, &pcm[1], 120, 0) != 120 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
 			t.Fatal("int16 short PLC")
 		}
 	}
@@ -201,7 +202,7 @@ func TestOpusIntegerDecodeGoScratch(t *testing.T) {
 		a[0], a[len(a)-1], b[0], b[len(b)-1] = 77, 88, 77, 88
 		entropyInitGrowStack(12)
 		runtime.GC()
-		if Opus_opus_decode(tls, uintptr(unsafe.Pointer(&left.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&a[1])), 5760, 0) != 2880 || Opus_opus_decode24(tls, uintptr(unsafe.Pointer(&right.Decoder)), uintptr(unsafe.Pointer(&packet[0])), int32(len(packet)), uintptr(unsafe.Pointer(&b[1])), 5760, 0) != 2880 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 || *cursor != before {
+		if Opus_opus_decode_typed(tls, &left.Decoder, &packet[0], int32(len(packet)), &a[1], 5760, 0) != 2880 || Opus_opus_decode24_typed(tls, &right.Decoder, &packet[0], int32(len(packet)), &b[1], 5760, 0) != 2880 || a[0] != 77 || a[len(a)-1] != 88 || b[0] != 77 || b[len(b)-1] != 88 || *cursor != before {
 			t.Fatal("integer Go scratch/cursors", C)
 		}
 	}
@@ -332,7 +333,7 @@ func TestOpusNativeEmptyPaddingPointers(t *testing.T) {
 		if len(packet) == 3 && packet[0] == 0 {
 			selfDelimited = 1
 		}
-		count := opusNativeParsePacket(nil, &packet[0], int32(len(packet)), selfDelimited, &toc, &size, &offset, &consumed, &padding, &padLength)
+		count := opusNativeParsePacket(&packet[0], int32(len(packet)), selfDelimited, &toc, &size, &offset, &consumed, &padding, &padLength)
 		if count < 0 {
 			t.Fatal("padding fixture")
 		}
@@ -531,7 +532,7 @@ func TestOpusNativePacketConsumedCursorPointers(t *testing.T) {
 		var padding *byte
 		entropyInitGrowStack(12)
 		runtime.GC()
-		count := Opus_opus_packet_parse_impl(nil, &packet[0], int32(len(encoded)), 0, nil, &frames, &sizes, &payload, &offset, &padding, &paddingLength)
+		count := Opus_opus_packet_parse_impl(&packet[0], int32(len(encoded)), 0, nil, &frames, &sizes, &payload, &offset, &padding, &paddingLength)
 		wantCount := int32(1)
 		if encoded[0] == 1 {
 			wantCount = 2
@@ -560,7 +561,7 @@ func TestOpusNativePacketDescriptorsPointers(t *testing.T) {
 	var sizes [48]int16
 	var offset, packetOffset, paddingLength int32
 	var padding *byte
-	if Opus_opus_packet_parse_impl(nil, &packet[0], 7, 0, &toc, nil, &sizes, &offset, &packetOffset, &padding, &paddingLength) != 1 || toc != 255 || sizes[0] != 3 || offset != 3 || packetOffset != 7 || paddingLength != 1 || padding != &packet[6] {
+	if Opus_opus_packet_parse_impl(&packet[0], 7, 0, &toc, nil, &sizes, &offset, &packetOffset, &padding, &paddingLength) != 1 || toc != 255 || sizes[0] != 3 || offset != 3 || packetOffset != 7 || paddingLength != 1 || padding != &packet[6] {
 		t.Fatal("native packet descriptors")
 	}
 	entropyInitGrowStack(12)
@@ -581,7 +582,7 @@ func TestOpusDecodeNativeLossFrame(t *testing.T) {
 	setupResamplerPseudostack(tls)
 
 	memory := libc.Xmalloc(tls, uint64(Opus_opus_decoder_get_size(tls, 1)))
-	if got := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), 24000, 1); got != OPUS_OK {
+	if got := Opus_opus_decoder_init_abi(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), 24000, 1); got != OPUS_OK {
 		t.Fatalf("decoder initialization: got %d", got)
 	}
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(memory))

@@ -16,10 +16,23 @@ type opusFrameOwnerTestStorage struct {
 	Celt           celtStateTestStorage
 }
 
+func (storage *opusFrameOwnerTestStorage) initViews(channels int32) OpusDecoderStorage {
+	return OpusDecoderStorage{Decoder: &storage.Decoder, Silk: &storage.Silk, Celt: &storage.Celt.State, Clear: func() {
+		storage.Decoder = OpusT_OpusDecoder{}
+		clear(storage.DecoderPadding[:])
+		storage.Silk = OpusT_silk_decoder{}
+		clear(storage.SilkPadding[:])
+		storage.Celt.State = OpusT_OpusCustomDecoder{}
+		words := (int(Opus_celt_decoder_get_size(nil, channels)) - int(unsafe.Sizeof(storage.Celt.State))) / 4
+		clear(storage.Celt.Tail[:words])
+	}}
+}
+
 func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage {
 	t.Helper()
 	storage := new(opusFrameOwnerTestStorage)
-	if Opus_opus_decoder_init(nil, &storage.Decoder, 48000, C) != 0 {
+	views := storage.initViews(C)
+	if Opus_opus_decoder_init(nil, &views, 48000, C) != 0 {
 		t.Fatal("frame init")
 	}
 	if storage.Decoder.Fsilk_dec_offset != int32(unsafe.Offsetof(storage.Silk)) || storage.Decoder.Fcelt_dec_offset != int32(unsafe.Offsetof(storage.Celt)) {
@@ -124,10 +137,10 @@ func TestOpusFrameActualPacketsPointers(t *testing.T) {
 			if packet[0]&3 != 0 {
 				t.Fatal("fixture must be single-frame")
 			}
-			decoder.Fmode = opus_packet_get_mode(nil, &packet[0])
-			decoder.Fbandwidth = Opus_opus_packet_get_bandwidth(nil, &packet[0])
-			decoder.Fstream_channels = Opus_opus_packet_get_nb_channels(nil, &packet[0])
-			decoder.Fframe_size = Opus_opus_packet_get_samples_per_frame(nil, &packet[0], 48000)
+			decoder.Fmode = opus_packet_get_mode(&packet[0])
+			decoder.Fbandwidth = Opus_opus_packet_get_bandwidth(&packet[0])
+			decoder.Fstream_channels = Opus_opus_packet_get_nb_channels(&packet[0])
+			decoder.Fframe_size = Opus_opus_packet_get_samples_per_frame(&packet[0], 48000)
 			N := decoder.Fframe_size
 			pcm := make([]float32, 2*N+2)
 			pcm[0], pcm[len(pcm)-1] = 77, 88
@@ -368,7 +381,7 @@ func TestOpusFrameRedundancyStoragePointers(t *testing.T) {
 				output[1+C*i+channel] = *opusFramePCMAtBytes(temporary, uint(C*i+channel)*4)
 			}
 		}
-		smooth_fade(nil, opusFramePCMAtBytes(temporary, uint(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
+		smooth_fade(opusFramePCMAtBytes(temporary, uint(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
 		if output[0] != 77 || output[len(output)-1] != 88 {
 			t.Fatal("redundancy prefix/fade guards")
 		}
@@ -395,7 +408,7 @@ func TestOpusFrameSilkTransitionStoragePointers(t *testing.T) {
 	output := make([]float32, 242)
 	output[0], output[241] = 77, 88
 	copy(output[1:121], transition[:120])
-	smooth_fade(nil, &transition[120], &output[121], &output[121], 120, 1, mode48000_960_120.Fwindow, 48000)
+	smooth_fade(&transition[120], &output[121], &output[121], 120, 1, mode48000_960_120.Fwindow, 48000)
 	if output[0] != 77 || output[241] != 88 || output[1] != 3 {
 		t.Fatal("SILK transition prefix/fade guards")
 	}
@@ -415,7 +428,7 @@ func TestOpusFrameCeltTransitionStoragePointers(t *testing.T) {
 		output := make([]float32, 240*C+2)
 		output[0], output[len(output)-1] = 77, 88
 		copy(output[1:1+120*C], temporary[:120*C])
-		smooth_fade(nil, opusFramePCMAtBytes(pointer, uint(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
+		smooth_fade(opusFramePCMAtBytes(pointer, uint(120*C)*4), &output[1+120*C], &output[1+120*C], 120, C, mode48000_960_120.Fwindow, 48000)
 		if output[0] != 77 || output[len(output)-1] != 88 || pointer != &temporary[0] {
 			t.Fatal("transition storage guards/owner")
 		}
@@ -542,7 +555,7 @@ func TestOpusDecodeFrameFieldAccesses(t *testing.T) {
 	setupResamplerPseudostack(tls)
 
 	memory := libc.Xmalloc(tls, uint64(Opus_opus_decoder_get_size(tls, 1)))
-	if got := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), 24000, 1); got != OPUS_OK {
+	if got := Opus_opus_decoder_init_abi(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), 24000, 1); got != OPUS_OK {
 		t.Fatalf("decoder initialization: got %d", got)
 	}
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(memory))

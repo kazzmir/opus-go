@@ -252,9 +252,9 @@ func TestExtensionFindAgainstC(t *testing.T) {
 					var st opuscc.OpusT_OpusExtensionIterator
 					opuscc.Opus_opus_extension_iterator_init(nil, &st, base, int32(len(data)), frames)
 					if scenario == 1 {
-						opuscc.Opus_opus_extension_iterator_set_frame_max(nil, &st, 1)
+						opuscc.Opus_opus_extension_iterator_set_frame_max(&st, 1)
 					} else if scenario == 2 {
-						opuscc.Opus_opus_extension_iterator_set_frame_max(nil, &st, 0)
+						opuscc.Opus_opus_extension_iterator_set_frame_max(&st, 0)
 					}
 					ext := opuscc.OpusT_opus_extension_data{Fid: 91, Fframe: 92, Fdata: base, Flen1: 93}
 					want := int32(1)
@@ -304,9 +304,9 @@ func TestExtensionNextAgainstC(t *testing.T) {
 				limit := (len(data)+1)*(int(frames)+1) + 1
 				for step := 0; step < limit; step++ {
 					if scenario == 1 {
-						opuscc.Opus_opus_extension_iterator_set_frame_max(nil, &st, 0)
+						opuscc.Opus_opus_extension_iterator_set_frame_max(&st, 0)
 					} else if scenario == 2 && step == 1 {
-						opuscc.Opus_opus_extension_iterator_set_frame_max(nil, &st, 1)
+						opuscc.Opus_opus_extension_iterator_set_frame_max(&st, 1)
 					}
 					v := extensionTestWithOutput(&st, &ext)
 					want := int32((fi + step) % 2)

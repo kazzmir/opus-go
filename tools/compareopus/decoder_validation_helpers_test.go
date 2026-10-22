@@ -121,7 +121,7 @@ func TestCompositeProjectionSizeAgainstC(t *testing.T) {
 
 func TestCompositeMatrixSizeAgainstC(t *testing.T) {
 	for _, shape := range [][2]int32{{0, 0}, {1, 1}, {255, 127}, {255, 128}, {200, 162}, {256, 0}, {0, 256}, {-1, 3}, {-300, 2}} {
-		got := opuscc.Opus_mapping_matrix_get_size(nil, shape[0], shape[1])
+		got := opuscc.Opus_mapping_matrix_get_size(shape[0], shape[1])
 		if want := nativeMappingMatrixSize(shape[0], shape[1]); got != want {
 			t.Fatal("matrix size", shape, got, want)
 		}
@@ -221,7 +221,7 @@ func TestProjectionDecoderInitAgainstC(t *testing.T) {
 			matrix[2*i] = byte(v)
 			matrix[2*i+1] = byte(v >> 8)
 		}
-		msOffset := int((unsafe.Sizeof(opuscc.OpusT_OpusProjectionDecoder{})+7)&^uintptr(7)) + int(opuscc.Opus_mapping_matrix_get_size(nil, channels, streams+coupled))
+		msOffset := int((unsafe.Sizeof(opuscc.OpusT_OpusProjectionDecoder{})+7)&^uintptr(7)) + int(opuscc.Opus_mapping_matrix_get_size(channels, streams+coupled))
 		for _, rate := range []int32{8000, 12000, 16000, 24000, 48000, 44100} {
 			for _, delta := range []int32{-1, 0, 1} {
 				backing := make([]uint64, (size+7)/8+2)
@@ -255,7 +255,7 @@ func TestProjectionDecoderInitAgainstC(t *testing.T) {
 		for i := range g {
 			g[i] = byte(i * 17)
 		}
-		msOffset := 8 + int(opuscc.Opus_mapping_matrix_get_size(nil, 3, 3))
+		msOffset := 8 + int(opuscc.Opus_mapping_matrix_get_size(3, 3))
 		normalizeMSModes(g[msOffset:], 2, 1)
 		c := slices.Clone(g)
 		code := opuscc.Opus_opus_projection_decoder_init(nil, st, 48000, 3, 2, 1, &g[offset], 18)
@@ -362,7 +362,7 @@ func TestDecoderCreateAgainstC(t *testing.T) {
 				if !fail {
 					tls = libc.NewTLS()
 				}
-				st, err := opuscc.Opus_opus_decoder_create_typed(tls, rate, channels)
+				st, err := opuscc.Opus_opus_decoder_create_typed(rate, channels)
 				code := factoryErrorCode(err)
 				var image []byte
 				if st != nil {
@@ -371,12 +371,22 @@ func TestDecoderCreateAgainstC(t *testing.T) {
 					clear(image[off : off+int(unsafe.Sizeof(uintptr(0)))])
 				}
 				native := make([]byte, len(image))
-				want := nativeOpusCreateImage(native, rate, channels, fail)
+				want := nativeOpusCreateImage(native, rate, channels, false)
+				// Nil TLS is now normal Go allocation, not a fake malloc failure.
+				// Keep every original native failure case as a separate oracle.
+				if fail {
+					wantFailure := int32(-7)
+					if want != 0 {
+						wantFailure = want
+					}
+					if got := nativeOpusCreateImage(nil, rate, channels, true); got != wantFailure {
+						t.Fatal(rate, channels, got, wantFailure, "native allocator failure order")
+					}
+				}
 				if code != want || !slices.Equal(image, native) {
 					t.Fatal(rate, channels, fail, code, want, "factory image")
 				}
 				if tls != nil {
-					libc.XfreePointer(tls, unsafe.Pointer(st))
 					tls.Close()
 				}
 			}
@@ -388,38 +398,37 @@ func TestMSDecoderCreateAgainstC(t *testing.T) {
 	for _, shape := range [][3]int32{{1, 1, 0}, {2, 1, 1}, {3, 2, 1}, {5, 3, 2}, {255, 1, 0}, {0, 1, 0}, {256, 1, 0}, {1, 0, 0}, {1, 1, -1}, {1, 1, 2}, {1, 256, 0}} {
 		channels, streams, coupled := shape[0], shape[1], shape[2]
 		for _, rate := range []int32{8000, 12000, 16000, 24000, 48000, 44100} {
-			for _, fail := range []bool{false, true} {
-				for variant := 0; variant < 3; variant++ {
-					mapping := make([]byte, max(channels, 1))
-					for i := range mapping {
-						mapping[i] = byte(int32(i) % max(streams+coupled, 1))
-					}
-					if variant == 1 {
-						mapping[0] = 255
-					}
-					if variant == 2 {
-						mapping[0] = byte(streams + coupled)
-					}
-					var tls *libc.TLS
-					if !fail {
-						tls = libc.NewTLS()
-					}
-					st, err := opuscc.Opus_opus_multistream_decoder_create_typed(tls, rate, channels, streams, coupled, &mapping[0])
-					code := factoryErrorCode(err)
-					var image []byte
-					if st != nil {
-						image = slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(st)), int(opuscc.Opus_opus_multistream_decoder_get_size(nil, streams, coupled))))
-						normalizeMSModes(image, streams, coupled)
-					}
-					native := make([]byte, len(image))
-					want := nativeMSCreateImage(native, rate, channels, streams, coupled, mapping, fail)
-					if code != want || !slices.Equal(image, native) {
-						t.Fatal(shape, rate, fail, variant, code, want, "factory image")
-					}
-					if tls != nil {
-						libc.XfreePointer(tls, unsafe.Pointer(st))
-						tls.Close()
-					}
+			for variant := 0; variant < 3; variant++ {
+				mapping := make([]byte, max(channels, 1))
+				for i := range mapping {
+					mapping[i] = byte(int32(i) % max(streams+coupled, 1))
+				}
+				if variant == 1 {
+					mapping[0] = 255
+				}
+				if variant == 2 {
+					mapping[0] = byte(streams + coupled)
+				}
+				st, err := opuscc.Opus_opus_multistream_decoder_create_typed(rate, channels, streams, coupled, &mapping[0])
+				code := factoryErrorCode(err)
+				var image []byte
+				if st != nil {
+					image = opuscc.CompareMSGoImage(st)
+					normalizeMSModes(image, streams, coupled)
+				}
+				native := make([]byte, len(image))
+				want := nativeMSCreateImage(native, rate, channels, streams, coupled, mapping, false)
+				if code != want || !slices.Equal(image, native) {
+					t.Fatal(shape, rate, variant, code, want, "factory image")
+				}
+				// Retain every original native allocator-failure case. A normal Go
+				// allocator no longer has a nil-TLS/fake-malloc-failure counterpart.
+				wantFailure := int32(-7)
+				if channels > 255 || channels < 1 || coupled > streams || streams < 1 || coupled < 0 || streams > 255-coupled {
+					wantFailure = -1
+				}
+				if got := nativeMSCreateImage(nil, rate, channels, streams, coupled, mapping, true); got != wantFailure {
+					t.Fatal(shape, rate, variant, got, wantFailure, "native allocator-failure order")
 				}
 			}
 		}
@@ -441,21 +450,26 @@ func TestProjectionDecoderCreateAgainstC(t *testing.T) {
 					if !fail {
 						tls = libc.NewTLS()
 					}
-					st, err := opuscc.Opus_opus_projection_decoder_create_typed(tls, rate, channels, streams, coupled, unsafe.SliceData(matrix), count*2+delta)
+					st, err := opuscc.Opus_opus_projection_decoder_create_typed(rate, channels, streams, coupled, unsafe.SliceData(matrix), count*2+delta)
 					code := factoryErrorCode(err)
 					var image []byte
 					if st != nil {
-						image = slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(st)), int(opuscc.Opus_opus_projection_decoder_get_size(nil, channels, streams, coupled))))
-						msOffset := int((unsafe.Sizeof(*st)+7)&^uintptr(7)) + int(st.Fdemixing_matrix_size_in_bytes)
+						image = opuscc.CompareProjectionGoImage(st)
+						msOffset := 8 + int(st.Fdemixing_matrix_size_in_bytes)
 						normalizeMSModes(image[msOffset:], streams, coupled)
 					}
 					native := make([]byte, len(image))
-					want := nativeProjectionCreateImage(native, rate, channels, streams, coupled, matrix, count*2+delta, fail)
+					want := nativeProjectionCreateImage(native, rate, channels, streams, coupled, matrix, count*2+delta, false)
+					if fail {
+						wantFailure := int32(-7)
+						if got := nativeProjectionCreateImage(nil, rate, channels, streams, coupled, matrix, count*2+delta, true); got != wantFailure {
+							t.Fatal(shape, rate, delta, got, wantFailure, "native allocation failure order")
+						}
+					}
 					if code != want || !slices.Equal(image, native) {
 						t.Fatal(shape, rate, fail, delta, code, want, "factory image")
 					}
 					if tls != nil {
-						libc.XfreePointer(tls, unsafe.Pointer(st))
 						tls.Close()
 					}
 				}
@@ -483,7 +497,7 @@ func TestOpusDecoderInitAgainstC(t *testing.T) {
 				}
 				clear(g[offset : offset+int(unsafe.Sizeof(uintptr(0)))])
 				c := slices.Clone(g)
-				code := opuscc.Opus_opus_decoder_init(nil, st, rate, channels)
+				code := opuscc.Opus_opus_decoder_init_abi(nil, st, rate, channels)
 				native := nativeOpusInitImage(c, rate, channels)
 				normalized := slices.Clone(g)
 				if code == 0 {
@@ -1000,7 +1014,7 @@ func TestOpusCtlAgainstC(t *testing.T) {
 						size := int(opuscc.Opus_opus_decoder_get_size(nil, ch))
 						g := make([]byte, size+16)
 						st := (*opuscc.OpusT_OpusDecoder)(unsafe.Pointer(&g[0]))
-						opuscc.Opus_opus_decoder_init(nil, st, 48000, ch)
+						opuscc.Opus_opus_decoder_init_abi(nil, st, 48000, ch)
 						st.Fprev_mode = prev
 						st.Fdecode_gain = -99
 						st.FDecControl.FprevPitchLag = 55

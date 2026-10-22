@@ -25,7 +25,7 @@ type Decoder struct {
 
 	tls *libc.TLS
 	st  *opuscc.OpusT_OpusDecoder
-	ms  *opuscc.OpusT_OpusMSDecoder
+	ms  *opuscc.OpusMSDecoder
 
 	sampleRate int
 	channels   int
@@ -66,7 +66,7 @@ func NewDecoder(sampleRate, channels int) (*Decoder, error) {
 		return nil, errors.New("opus: failed to allocate TLS")
 	}
 
-	st, err := opuscc.Opus_opus_decoder_create_typed(tls, opuscc.OpusT_opus_int32(sampleRate), int32(channels))
+	st, err := opuscc.Opus_opus_decoder_create_typed(opuscc.OpusT_opus_int32(sampleRate), int32(channels))
 	if err != nil || st == nil {
 		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
 			msg := opusccErrorString(oe.Code)
@@ -81,15 +81,9 @@ func NewDecoder(sampleRate, channels int) (*Decoder, error) {
 }
 
 func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, mapping []uint8) (*Decoder, error) {
-	tls := libc.NewTLS()
-	if tls == nil {
-		return nil, errors.New("opus: failed to allocate TLS")
-	}
-
-	// The typed initializer consumes/copies the mapping synchronously.
-
+	// Go storage owns the entire decoder; creation consumes/copies the mapping
+	// synchronously and does not require TLS.
 	st, err := opuscc.Opus_opus_multistream_decoder_create_typed(
-		tls,
 		opuscc.OpusT_opus_int32(sampleRate),
 		int32(channels),
 		int32(streams),
@@ -99,13 +93,17 @@ func NewMultistreamDecoder(sampleRate, channels, streams, coupledStreams int, ma
 	if err != nil || st == nil {
 		if oe := (*opuscc.OpusError)(nil); errors.As(err, &oe) {
 			msg := opusccErrorString(oe.Code)
-			tls.Close()
 			return nil, fmt.Errorf("opus: multistream_decoder_create failed: %s (%d)", msg, oe.Code)
 		}
-		tls.Close()
 		return nil, fmt.Errorf("opus: multistream_decoder_create failed: %w", err)
 	}
 
+	// Decode still uses a TLS context for runtime scratch/legacy compatibility,
+	// independently of the decoder's Go allocation lifetime.
+	tls := libc.NewTLS()
+	if tls == nil {
+		return nil, errors.New("opus: failed to allocate TLS")
+	}
 	return &Decoder{tls: tls, ms: st, sampleRate: sampleRate, channels: channels, multistream: true}, nil
 }
 
@@ -116,15 +114,10 @@ func (d *Decoder) Close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	// Decoder storage is Go-owned; dropping pointers releases our owners.
+	d.ms = nil
+	d.st = nil
 	if d.tls != nil {
-		if d.ms != nil {
-			opuscc.Opus_opus_multistream_decoder_destroy_typed(d.tls, d.ms)
-			d.ms = nil
-		}
-		if d.st != nil {
-			opuscc.Opus_opus_decoder_destroy_typed(d.tls, d.st)
-			d.st = nil
-		}
 		d.packetBuf = nil
 		d.pcm16 = nil
 		d.pcmFloat = nil

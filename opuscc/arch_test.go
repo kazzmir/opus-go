@@ -26,7 +26,7 @@ func TestArchPacketFramePointers(t *testing.T) {
 		guard  [2]uintptr
 	}{guard: [2]uintptr{123, 456}}
 	var sizes [48]int16
-	n := Opus_opus_packet_parse(tls, &packet[0], int32(len(packet)), nil, &storage.frames, &sizes, nil)
+	n := Opus_opus_packet_parse(&packet[0], int32(len(packet)), nil, &storage.frames, &sizes, nil)
 	if n != 2 {
 		t.Fatalf("frame count = %d", n)
 	}

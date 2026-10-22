@@ -19,15 +19,15 @@ func TestOpusDecoderCtlCReference(t *testing.T) {
 	defer f.Close()
 	tls := libc.NewTLS()
 	defer tls.Close()
-	st, err := Opus_opus_decoder_create_typed(tls, 48000, 2)
+	st, err := Opus_opus_decoder_create_typed(48000, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Opus_opus_decoder_destroy_typed(tls, st)
-	va := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
-	defer libc.Xfree(tls, va)
-	out := libc.Xmalloc(tls, 4)
-	defer libc.Xfree(tls, out)
+	defer Opus_opus_decoder_destroy_typed(st)
+	va := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(uintptr(0))))
+	defer libc.XfreePointer(tls, va)
+	out := libc.XmallocPointer(tls, 4)
+	defer libc.XfreePointer(tls, out)
 	d := st
 	celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), d.Fcelt_dec_offset))
 	scanner := bufio.NewScanner(f)
@@ -49,22 +49,22 @@ func TestOpusDecoderCtlCReference(t *testing.T) {
 			d.Fprev_mode = MODE_CELT_ONLY
 			continue
 		case "get":
-			*(*int32)(unsafe.Pointer(out)) = -999
-			libc.VaList(va, out)
+			*(*int32)(out) = -999
+			*(*unsafe.Pointer)(va) = out
 		case "null":
-			libc.VaList(va, uintptr(0))
+			*(*unsafe.Pointer)(va) = nil
 		case "set":
-			libc.VaList(va, arg)
+			*(*uintptr)(va) = uintptr(uint32(arg))
 		case "reset":
 		default:
 			t.Fatalf("unknown operation %q", op)
 		}
-		ret := Opus_opus_decoder_ctl(tls, d, request, libc.NewVaCursor(unsafe.Pointer(va)))
+		ret := Opus_opus_decoder_ctl(tls, d, request, libc.NewVaCursor(va))
 		if ret != wantRet {
 			t.Fatalf("line %d (%s): return %d, want %d", line, scanner.Text(), ret, wantRet)
 		}
-		if op == "get" && *(*int32)(unsafe.Pointer(out)) != wantValue {
-			t.Fatalf("line %d: output %d, want %d", line, *(*int32)(unsafe.Pointer(out)), wantValue)
+		if op == "get" && *(*int32)(out) != wantValue {
+			t.Fatalf("line %d: output %d, want %d", line, *(*int32)(out), wantValue)
 		}
 		if request == OPUS_SET_COMPLEXITY_REQUEST && celt.Fcomplexity != d.Fcomplexity {
 			t.Fatalf("line %d: complexity not forwarded", line)

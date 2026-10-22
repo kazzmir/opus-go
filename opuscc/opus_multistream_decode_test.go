@@ -23,6 +23,18 @@ type msCoupledTestChild struct {
 	Tail           [msCoupledTailWords]float32
 	Padding        [(8 - (unsafe.Sizeof(OpusT_OpusCustomDecoder{})+msCoupledTailWords*4)%8) % 8]byte
 }
+
+func (child *msCoupledTestChild) initViews() OpusDecoderStorage {
+	return OpusDecoderStorage{Decoder: &child.Decoder, Silk: &child.Silk, Celt: &child.Celt, Clear: func() {
+		child.Decoder = OpusT_OpusDecoder{}
+		clear(child.DecoderPadding[:])
+		child.Silk = OpusT_silk_decoder{}
+		clear(child.SilkPadding[:])
+		child.Celt = OpusT_OpusCustomDecoder{}
+		clear(child.Tail[:])
+	}}
+}
+
 type msTwoStreamTestOwner struct {
 	MS       OpusT_OpusMSDecoder
 	Padding  [(8 - unsafe.Sizeof(OpusT_OpusMSDecoder{})%8) % 8]byte
@@ -41,7 +53,8 @@ func newTwoStreamMSOwner(t *testing.T) *msTwoStreamTestOwner {
 	owner.MS.Flayout.Fnb_coupled_streams = 2
 	copy(owner.MS.Flayout.Fmapping[:], []byte{2, 0, 1, 2, 3, 255})
 	for i := range owner.Children {
-		if Opus_opus_decoder_init(nil, &owner.Children[i].Decoder, 48000, 2) != 0 {
+		views := owner.Children[i].initViews()
+		if Opus_opus_decoder_init(nil, &views, 48000, 2) != 0 {
 			t.Fatal("MS wrapper init")
 		}
 	}
@@ -157,7 +170,7 @@ func TestMultistreamFloatWrapperPointers(t *testing.T) {
 		runtime.GC()
 		got := Opus_opus_multistream_decode_float_typed(nil, &owner.MS, data, length, &out[1], 5760, fec)
 		copyOut := func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
-			opus_copy_channel_out_float(tls, &want[1], ds, dc, src, ss, n)
+			opus_copy_channel_out_float(&want[1], ds, dc, src, ss, n)
 		}
 		expected := opusMSDecodeBound(nil, &baseline.MS, data, length, copyOut, 5760, fec, 0)
 		if got != expected || got <= 0 || owner.Children[0].Decoder != baseline.Children[0].Decoder || owner.Children[1].Decoder != baseline.Children[1].Decoder || out[0] != 77 || out[len(out)-1] != 88 {
@@ -186,7 +199,8 @@ func TestMultistreamWholePointers(t *testing.T) {
 		owner.MS.Flayout.Fnb_coupled_streams = 2
 		copy(owner.MS.Flayout.Fmapping[:], []byte{2, 0, 1, 2, 3, 255})
 		for i := range owner.Children {
-			if Opus_opus_decoder_init(nil, &owner.Children[i].Decoder, 48000, 2) != 0 {
+			views := owner.Children[i].initViews()
+			if Opus_opus_decoder_init(nil, &views, 48000, 2) != 0 {
 				t.Fatal("scanned child init")
 			}
 		}
@@ -199,11 +213,11 @@ func TestMultistreamWholePointers(t *testing.T) {
 		floats[0], floats[len(floats)-1] = 77, 88
 		switch format {
 		case 16:
-			copyOut = opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_short_legacy), 0, unsafe.Pointer(&short[1]))
+			copyOut = opusMSShortCopy(&short[1])
 		case 24:
-			copyOut = opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_int24_legacy), 0, unsafe.Pointer(&wide[1]))
+			copyOut = opusMSInt24Copy(&wide[1])
 		default:
-			copyOut = opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 0, unsafe.Pointer(&floats[1]))
+			copyOut = opusMSFloatCopy(&floats[1])
 		}
 		silk := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
 		combined := append([]byte{silk[0], byte(len(silk) - 1)}, silk[1:]...)
@@ -239,7 +253,7 @@ func TestMultistreamWholePointers(t *testing.T) {
 func TestMultistreamArgumentsPointers(t *testing.T) {
 	owner := newMultistreamOwner(t)
 	value := float32(77)
-	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 0, unsafe.Pointer(&value))
+	copyOut := opusMSFloatCopy(&value)
 	for _, item := range []struct {
 		packet              []byte
 		length, frame, want int32
@@ -276,13 +290,13 @@ func TestMultistreamNoPseudostack(t *testing.T) {
 	packet := []byte{4}
 	pcm := make([]float32, 5760*4+2)
 	pcm[0], pcm[len(pcm)-1] = 77, 88
-	callback := __ccgo_fp(opus_copy_channel_out_float_legacy)
+	callback := opusMSFloatCopy(&pcm[1])
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if Opus_opus_multistream_decode_native(nil, uintptr(unsafe.Pointer(&owner.MS)), uintptr(unsafe.Pointer(&packet[0])), 1, uintptr(unsafe.Pointer(&pcm[1])), callback, 10000, 0, 0, 0) != 480 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+	if Opus_opus_multistream_decode_native(nil, &owner.MS, &packet[0], 1, callback, 10000, 0, 0) != 480 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
 		t.Fatal("nil TLS MS entry")
 	}
-	if Opus_opus_multistream_decode_native(nil, uintptr(unsafe.Pointer(&owner.MS)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), callback, 10000, 0, 0, 0) != 5760 {
+	if Opus_opus_multistream_decode_native(nil, &owner.MS, nil, 0, callback, 10000, 0, 0) != 5760 {
 		t.Fatal("nil TLS MS capped PLC")
 	}
 }
@@ -321,7 +335,7 @@ func TestMultistreamSampleRatePointers(t *testing.T) {
 func TestMultistreamFloatBoundBindingPointers(t *testing.T) {
 	output := make([]float32, 11)
 	output[0], output[10] = 77, 88
-	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 123, unsafe.Pointer(&output[1]))
+	copyOut := opusMSFloatCopy(&output[1])
 	entropyInitGrowStack(12)
 	runtime.GC()
 	src := [6]float32{.25, -.25, .5, -.5, .75, -.75}
@@ -341,7 +355,7 @@ func TestMultistreamFloatBoundBindingPointers(t *testing.T) {
 func TestMultistreamShortBoundBindingPointers(t *testing.T) {
 	output := make([]int16, 11)
 	output[0], output[10] = 77, 88
-	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_short_legacy), 123, unsafe.Pointer(&output[1]))
+	copyOut := opusMSShortCopy(&output[1])
 	entropyInitGrowStack(12)
 	runtime.GC()
 	src := [6]float32{.25, -.25, .5, -.5, .75, -.75}
@@ -361,7 +375,7 @@ func TestMultistreamShortBoundBindingPointers(t *testing.T) {
 func TestMultistreamInt24BoundBindingPointers(t *testing.T) {
 	output := make([]int32, 11)
 	output[0], output[10] = 77, 88
-	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_int24_legacy), 123, unsafe.Pointer(&output[1]))
+	copyOut := opusMSInt24Copy(&output[1])
 	entropyInitGrowStack(12)
 	runtime.GC()
 	src := [6]float32{.25, -.25, .5, -.5, .75, -.75}
@@ -379,6 +393,7 @@ func TestMultistreamInt24BoundBindingPointers(t *testing.T) {
 }
 
 func TestMultistreamCopyBindingPointers(t *testing.T) {
+	userData := int32(123)
 	src := []float32{0.25, -0.25, 0.5, -0.5, 0.75, -0.75}
 	floats := make([]float32, 11)
 	shorts := make([]int16, 11)
@@ -386,12 +401,10 @@ func TestMultistreamCopyBindingPointers(t *testing.T) {
 	floats[0], floats[10] = 77, 88
 	shorts[0], shorts[10] = 77, 88
 	wide[0], wide[10] = 77, 88
-	cases := []struct {
-		callback uintptr
-		dst      unsafe.Pointer
-	}{{__ccgo_fp(opus_copy_channel_out_float_legacy), unsafe.Pointer(&floats[1])}, {__ccgo_fp(opus_copy_channel_out_short_legacy), unsafe.Pointer(&shorts[1])}, {__ccgo_fp(opus_copy_channel_out_int24_legacy), unsafe.Pointer(&wide[1])}}
-	for _, item := range cases {
-		copyOut := opusMSBindBoundCopy(item.callback, 123, item.dst) // Standard callbacks ignore legacy user-data.
+	cases := []OpusT___ccgo_fp__Xopus_multistream_decode_native_4{
+		opusMSFloatCopy(&floats[1]), opusMSShortCopy(&shorts[1]), opusMSInt24Copy(&wide[1]),
+	}
+	for _, copyOut := range cases {
 		entropyInitGrowStack(12)
 		runtime.GC()
 		copyOut(nil, 3, 0, &src[0], 2, 3)
@@ -407,17 +420,18 @@ func TestMultistreamCopyBindingPointers(t *testing.T) {
 		t.Fatal("copy binding guards")
 	}
 	called := false
-	callback := func(tls *libc.TLS, dst uintptr, ds, dc int32, input uintptr, ss, n int32, user uintptr) {
+	destination, user := &floats[1], &userData
+	callback := func(tls *libc.TLS, ds, dc int32, input *float32, ss, n int32) {
 		entropyInitGrowStack(12)
 		runtime.GC()
-		called = dst == uintptr(unsafe.Pointer(&floats[1])) && input == uintptr(unsafe.Pointer(&src[0])) && ds == 3 && dc == 1 && ss == 2 && n == 3 && user == 123
+		called = destination == &floats[1] && input == &src[0] && ds == 3 && dc == 1 && ss == 2 && n == 3 && user == &userData && *user == 123
 	}
-	copyOut := opusMSBindLegacyBoundCopy(callback, 123, unsafe.Pointer(&floats[1]))
+	copyOut := callback
 	callback = nil
 	runtime.GC()
 	copyOut(nil, 3, 1, &src[0], 2, 3)
 	if !called {
-		t.Fatal("custom legacy fallback arguments/owner")
+		t.Fatal("custom typed callback arguments/owner")
 	}
 }
 
@@ -428,12 +442,12 @@ func TestMultistreamAudioScratchLegacy(t *testing.T) {
 	}
 	output := make([]float32, 17)
 	output[0], output[16] = 77, 88
-	callback := opus_copy_channel_out_float_legacy
+	callback := opusMSFloatCopy(&output[1])
 	entropyInitGrowStack(12)
 	runtime.GC()
-	opusMSInvokeLegacy(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 0, uintptr(unsafe.Pointer(&audio[0])), 2, 5, 0)
-	opusMSInvokeLegacy(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 2, uintptr(unsafe.Pointer(&audio[1])), 2, 5, 0)
-	opusMSInvokeLegacy(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 1, 0, 0, 5, 0)
+	callback(nil, 3, 0, &audio[0], 2, 5)
+	callback(nil, 3, 2, &audio[1], 2, 5)
+	callback(nil, 3, 1, nil, 0, 5)
 	for i := 0; i < 5; i++ {
 		if output[1+3*i] != audio[2*i] || output[2+3*i] != 0 || output[3+3*i] != audio[2*i+1] {
 			t.Fatal("Go stereo/mono/muted scratch")
@@ -456,9 +470,9 @@ func TestMultistreamAudioScratchPointers(t *testing.T) {
 	if opusMSDecodeChild(nil, &storage.Decoder, &packet[0], 2, unsafe.SliceData(audio), 480, 0, 1, &offset, 0) != 480 {
 		t.Fatal("Go scratch native decode")
 	}
-	opus_copy_channel_out_float(nil, &out[1], 3, 0, &audio[0], 2, 480)
-	opus_copy_channel_out_float(nil, &out[1], 3, 2, &audio[1], 2, 480)
-	opus_copy_channel_out_float(nil, &out[1], 3, 1, nil, 0, 480)
+	opus_copy_channel_out_float(&out[1], 3, 0, &audio[0], 2, 480)
+	opus_copy_channel_out_float(&out[1], 3, 2, &audio[1], 2, 480)
+	opus_copy_channel_out_float(&out[1], 3, 1, nil, 0, 480)
 	if out[0] != 77 || out[1441] != 88 || offset != 2 {
 		t.Fatal("typed Go scratch consumers")
 	}
@@ -540,22 +554,21 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 	defer f.Close()
 	tls := libc.NewTLS()
 	defer tls.Close()
-	mapping := libc.Xmalloc(tls, 5)
-	defer libc.Xfree(tls, mapping)
-	copy(unsafe.Slice((*byte)(unsafe.Pointer(mapping)), 5), []byte{2, 0, 1, 2, 255})
-	dec, err := Opus_opus_multistream_decoder_create(tls, 48000, 5, 2, 1, mapping)
+	mapping := libc.XmallocPointer(tls, 5)
+	defer libc.XfreePointer(tls, mapping)
+	copy(unsafe.Slice((*byte)(mapping), 5), []byte{2, 0, 1, 2, 255})
+	dec, err := Opus_opus_multistream_decoder_create_typed(48000, 5, 2, 1, (*byte)(mapping))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer Opus_opus_multistream_decoder_destroy(tls, dec)
-	data := libc.Xmalloc(tls, 4000)
-	defer libc.Xfree(tls, data)
-	pcm := libc.Xmalloc(tls, 6400*5*4)
-	defer libc.Xfree(tls, pcm)
-	va := libc.Xmalloc(tls, uint64(unsafe.Sizeof(uintptr(0))))
-	defer libc.Xfree(tls, va)
-	rng := libc.Xmalloc(tls, 4)
-	defer libc.Xfree(tls, rng)
+	data := libc.XmallocPointer(tls, 4000)
+	defer libc.XfreePointer(tls, data)
+	pcm := libc.XmallocPointer(tls, 6400*5*4)
+	defer libc.XfreePointer(tls, pcm)
+	va := libc.XmallocPointer(tls, uint64(unsafe.Sizeof(uintptr(0))))
+	defer libc.XfreePointer(tls, va)
+	rng := libc.XmallocPointer(tls, 4)
+	defer libc.XfreePointer(tls, rng)
 	scanner := bufio.NewScanner(f)
 	for line := 1; scanner.Scan(); line++ {
 		var name, packet string
@@ -565,7 +578,7 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 		if n, err := fmt.Sscanf(scanner.Text(), "%s %d %d %d %d %d %d %d %s", &name, &length, &frame, &fec, &shortOut, &wantRet, &wantHash, &wantRange, &packet); err != nil || n != 9 {
 			t.Fatalf("line %d: %v", line, err)
 		}
-		input := uintptr(0)
+		var input *byte
 		if packet != "-" {
 			bytes, err := hex.DecodeString(packet)
 			if err != nil {
@@ -574,15 +587,18 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 			if len(bytes) != int(length) {
 				t.Fatal("fixture length mismatch")
 			}
-			copy(unsafe.Slice((*byte)(unsafe.Pointer(data)), 4000), bytes)
-			input = data
+			copy(unsafe.Slice((*byte)(data), 4000), bytes)
+			input = (*byte)(data)
 		}
-		libc.Xmemset(tls, pcm, 0xa5, 6400*5*4)
+		pcmBytes := unsafe.Slice((*byte)(pcm), 6400*5*4)
+		for i := range pcmBytes {
+			pcmBytes[i] = 0xa5
+		}
 		var ret int32
 		if shortOut != 0 {
-			ret = Opus_opus_multistream_decode(tls, dec, input, length, pcm, frame, fec)
+			ret = Opus_opus_multistream_decode_typed(tls, dec, input, length, (*int16)(pcm), frame, fec)
 		} else {
-			ret = Opus_opus_multistream_decode_float(tls, dec, input, length, pcm, frame, fec)
+			ret = Opus_opus_multistream_decode_float_typed(tls, dec, input, length, (*float32)(pcm), frame, fec)
 		}
 		if ret != wantRet {
 			t.Fatalf("%s line %d: return %d, want %d", name, line, ret, wantRet)
@@ -593,7 +609,7 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 			if shortOut != 0 {
 				width = 2
 			}
-			for _, b := range unsafe.Slice((*byte)(unsafe.Pointer(pcm)), int(ret)*5*width) {
+			for _, b := range unsafe.Slice((*byte)(pcm), int(ret)*5*width) {
 				hash ^= uint64(b)
 				hash *= 1099511628211
 			}
@@ -601,10 +617,11 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 		if hash != wantHash {
 			t.Fatalf("%s line %d: PCM hash %d, want %d", name, line, hash, wantHash)
 		}
-		if ret := Opus_opus_multistream_decoder_ctl(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(dec)), OPUS_GET_FINAL_RANGE_REQUEST, libc.NewVaCursor(unsafe.Pointer(libc.VaList(va, rng)))); ret != 0 {
+		*(*unsafe.Pointer)(va) = rng
+		if ret := Opus_opus_multistream_decoder_ctl(tls, dec, OPUS_GET_FINAL_RANGE_REQUEST, libc.NewVaCursor(va)); ret != 0 {
 			t.Fatalf("range CTL = %d", ret)
 		}
-		if got := *(*uint32)(unsafe.Pointer(rng)); got != wantRange {
+		if got := *(*uint32)(rng); got != wantRange {
 			t.Fatalf("%s: range %d, want %d", name, got, wantRange)
 		}
 	}

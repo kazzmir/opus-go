@@ -20,20 +20,20 @@ func TestPacketHeaderPointers(t *testing.T) {
 		for stereo := 0; stereo < 2; stereo++ {
 			for code := 0; code < 4; code++ {
 				toc := byte(config*8 + stereo*4 + code)
-				if got := Opus_opus_packet_get_bandwidth(nil, &toc); got != bandwidths[config] {
+				if got := Opus_opus_packet_get_bandwidth(&toc); got != bandwidths[config] {
 					t.Fatalf("TOC %#x bandwidth: %d", toc, got)
 				}
-				if got := Opus_opus_packet_get_nb_channels(nil, &toc); got != int32(stereo+1) {
+				if got := Opus_opus_packet_get_nb_channels(&toc); got != int32(stereo+1) {
 					t.Fatalf("TOC %#x channels: %d", toc, got)
 				}
 				for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
 					want := rate * durations[config] / 400
-					if got := Opus_opus_packet_get_samples_per_frame(nil, &toc, rate); got != want {
+					if got := Opus_opus_packet_get_samples_per_frame(&toc, rate); got != want {
 						t.Fatalf("TOC %#x rate %d: got %d samples, want %d", toc, rate, got, want)
 					}
 				}
 				wantFrames := [4]int32{1, 2, 2, -4}[code]
-				if got := Opus_opus_packet_get_nb_frames(nil, &toc, 1); got != wantFrames {
+				if got := Opus_opus_packet_get_nb_frames(&toc, 1); got != wantFrames {
 					t.Fatalf("TOC %#x one-byte frames: %d", toc, got)
 				}
 				for second := 0; second < 256; second++ {
@@ -42,7 +42,7 @@ func TestPacketHeaderPointers(t *testing.T) {
 					if code == 3 {
 						want = int32(second % 64)
 					}
-					if got := Opus_opus_packet_get_nb_frames(nil, &packet[0], 2); got != want {
+					if got := Opus_opus_packet_get_nb_frames(&packet[0], 2); got != want {
 						t.Fatalf("packet %x: got %d frames, want %d", packet, got, want)
 					}
 				}
@@ -50,7 +50,7 @@ func TestPacketHeaderPointers(t *testing.T) {
 		}
 	}
 	for _, length := range []int32{-1, 0} {
-		if got := Opus_opus_packet_get_nb_frames(nil, nil, length); got != -1 {
+		if got := Opus_opus_packet_get_nb_frames(nil, length); got != -1 {
 			t.Fatalf("length %d: got %d, want OPUS_BAD_ARG", length, got)
 		}
 	}

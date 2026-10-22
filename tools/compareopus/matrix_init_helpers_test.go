@@ -11,7 +11,7 @@ import (
 )
 
 func newTestMapping(rows, cols, gain int32, data []int16) *opuscc.OpusT_MappingMatrix {
-	size := opuscc.Opus_mapping_matrix_get_size(nil, rows, cols)
+	size := opuscc.Opus_mapping_matrix_get_size(rows, cols)
 	memory := make([]uint64, (size+7)/8)
 	m := (*opuscc.OpusT_MappingMatrix)(unsafe.Pointer(&memory[0]))
 	opuscc.Opus_mapping_matrix_init(nil, m, rows, cols, gain, unsafe.SliceData(data), int32(2*len(data)))
@@ -30,7 +30,7 @@ func TestMatrixInitAgainstC(t *testing.T) {
 			m := newTestMapping(rows, cols, gain, data)
 			want, meta := nativeMatrixInit(rows, cols, gain, data)
 			got := unsafe.Slice((*int16)(unsafe.Add(unsafe.Pointer(m), 16)), len(data))
-			if m.Frows != meta[0] || m.Fcols != meta[1] || m.Fgain != meta[2] || meta[3] != 16 || opuscc.Opus_mapping_matrix_get_size(nil, rows, cols) != meta[4] || !slices.Equal(got, want) {
+			if m.Frows != meta[0] || m.Fcols != meta[1] || m.Fgain != meta[2] || meta[3] != 16 || opuscc.Opus_mapping_matrix_get_size(rows, cols) != meta[4] || !slices.Equal(got, want) {
 				t.Fatal(shape, gain, meta)
 			}
 		}

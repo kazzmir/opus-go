@@ -19,7 +19,7 @@ func TestMSPacketValidationPointers(t *testing.T) {
 	} {
 		entropyInitGrowStack(12)
 		runtime.GC()
-		got := opus_multistream_packet_validate(nil, unsafe.SliceData(tc.packet), int32(len(tc.packet)), tc.streams, tc.rate)
+		got := opus_multistream_packet_validate(unsafe.SliceData(tc.packet), int32(len(tc.packet)), tc.streams, tc.rate)
 		if got != tc.want {
 			t.Fatal(tc, got)
 		}
@@ -48,7 +48,7 @@ func TestMultistreamPacketValidateCReference(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := opus_multistream_packet_validate(nil, unsafe.SliceData(bytes), int32(len(bytes)), streams, fs); got != want {
+		if got := opus_multistream_packet_validate(unsafe.SliceData(bytes), int32(len(bytes)), streams, fs); got != want {
 			t.Fatalf("line %d (%s): got %d, want %d", line, scanner.Text(), got, want)
 		}
 	}

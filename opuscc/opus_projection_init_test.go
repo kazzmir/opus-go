@@ -76,20 +76,21 @@ func TestProjectionDecoderInitCReference(t *testing.T) {
 			if size == 0 {
 				size = 4096
 			}
-			st := libc.Xmalloc(tls, uint64(size))
-			defer libc.Xfree(tls, st)
-			libc.Xmemset(tls, st, 0, uint64(size))
-			matrix := libc.Xmalloc(tls, 128)
-			defer libc.Xfree(tls, matrix)
+			storage := libc.XmallocPointer(tls, uint64(size))
+			defer libc.XfreePointer(tls, storage)
+			st := (*OpusT_OpusProjectionDecoder)(storage)
+			clear(unsafe.Slice((*byte)(storage), size))
+			matrix := libc.XmallocPointer(tls, 128)
+			defer libc.XfreePointer(tls, matrix)
 			values := []int16{0, 32767, -32768, -1, 12345, -23456, 1, -2}
 			count := ch * (streams + coupled)
-			bytes := unsafe.Slice((*byte)(unsafe.Pointer(matrix)), 128)
+			bytes := unsafe.Slice((*byte)(matrix), 128)
 			for i := int32(0); i < count; i++ {
 				v := uint16(values[i%8])
 				bytes[2*i] = byte(v)
 				bytes[2*i+1] = byte(v >> 8)
 			}
-			if ret := Opus_opus_projection_decoder_init(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), fs, ch, streams, coupled, (*byte)(unsafe.Pointer(matrix)), 2*count+delta); ret != wantRet {
+			if ret := Opus_opus_projection_decoder_init(tls, st, fs, ch, streams, coupled, (*byte)(matrix), 2*count+delta); ret != wantRet {
 				t.Fatalf("return %d, want %d", ret, wantRet)
 			}
 			if wantRet != 0 {
@@ -100,7 +101,7 @@ func TestProjectionDecoderInitCReference(t *testing.T) {
 			if _, err := fmt.Fscan(input, &matrixSize, &rows, &cols, &gain, &wantHash); err != nil {
 				t.Fatal(err)
 			}
-			d := (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st))
+			d := st
 			m := get_dec_demixing_matrix(tls, d)
 			if d.Fdemixing_matrix_size_in_bytes != matrixSize || m.Frows != rows || m.Fcols != cols || m.Fgain != gain {
 				t.Fatalf("matrix header mismatch: %+v, bytes %d", m, d.Fdemixing_matrix_size_in_bytes)

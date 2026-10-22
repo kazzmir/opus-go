@@ -22,14 +22,14 @@ func TestOpusDecoderInitCReference(t *testing.T) {
 				tls := libc.NewTLS()
 				defer tls.Close()
 				size := Opus_opus_decoder_get_size(tls, 2)
-				p := libc.Xmalloc(tls, uint64(size))
-				defer libc.Xfree(tls, p)
-				memory := unsafe.Slice((*byte)(unsafe.Pointer(p)), int(size))
+				p := libc.XmallocPointer(tls, uint64(size))
+				defer libc.XfreePointer(tls, p)
+				memory := unsafe.Slice((*byte)(p), int(size))
 				for i := range memory {
 					memory[i] = 0xa5
 				}
 				valid := tc.frame != 0 && (ch == 1 || ch == 2)
-				ret := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(p)), tc.fs, ch)
+				ret := Opus_opus_decoder_init_abi(tls, (*OpusT_OpusDecoder)(p), tc.fs, ch)
 				if !valid {
 					if ret != -1 {
 						t.Fatalf("return = %d, want -1", ret)
@@ -45,7 +45,7 @@ func TestOpusDecoderInitCReference(t *testing.T) {
 					if ret != 0 {
 						t.Fatalf("return = %d, want 0", ret)
 					}
-					d := (*OpusT_OpusDecoder)(unsafe.Pointer(p))
+					d := (*OpusT_OpusDecoder)(p)
 					got := []int32{d.Fsilk_dec_offset, d.Fcelt_dec_offset, d.Fchannels, d.Fstream_channels, d.FFs, d.FDecControl.FAPI_sampleRate, d.FDecControl.FnChannelsAPI, d.Fframe_size, d.Fdecode_gain, d.Fcomplexity, d.Fignore_extensions, d.Fbandwidth, d.Fmode, d.Fprev_mode, d.Fprev_redundancy, d.Flast_packet_duration, int32(d.FrangeFinal)}
 					// The C fixture uses an 8808-byte amd64 SILK decoder.
 					celtOffset := int32(104) + int32((unsafe.Sizeof(OpusT_silk_decoder{})+7)&^7)
@@ -56,7 +56,7 @@ func TestOpusDecoderInitCReference(t *testing.T) {
 						}
 					}
 					// The reference explicitly calls CELT_SET_SIGNALLING(0).
-					celt := (*OpusT_OpusCustomDecoder)(unsafe.Pointer(p + uintptr(d.Fcelt_dec_offset)))
+					celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(p, d.Fcelt_dec_offset))
 					if celt.Fsignalling != 0 {
 						t.Fatalf("signalling = %d", celt.Fsignalling)
 					}
@@ -64,7 +64,7 @@ func TestOpusDecoderInitCReference(t *testing.T) {
 						d.Fdecode_gain = 123
 						d.Fprev_mode = 1002
 						celt.Fsignalling = 1
-						ret = Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(p)), tc.fs, ch)
+						ret = Opus_opus_decoder_init_abi(tls, (*OpusT_OpusDecoder)(p), tc.fs, ch)
 					}
 				}
 			})

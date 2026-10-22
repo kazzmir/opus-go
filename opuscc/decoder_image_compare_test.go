@@ -175,7 +175,7 @@ func compareInitializedOpusImage(t *testing.T, channels int32) []byte {
 	data := make([]byte, Opus_opus_decoder_get_size(nil, channels)+16)
 	image := compareDecoderImageStorage(opusDecoderStorageType(channels), data)
 	state := image.owner.Field(0).FieldByName("Decoder").Addr().Interface().(*OpusT_OpusDecoder)
-	if r := Opus_opus_decoder_init(nil, state, 48000, channels); r != 0 {
+	if r := Opus_opus_decoder_init_abi(nil, state, 48000, channels); r != 0 {
 		t.Fatal("Opus image init", r)
 	}
 	celt := image.owner.Field(0).FieldByName("Celt").Addr().Interface().(*OpusT_OpusCustomDecoder)

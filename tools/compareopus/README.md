@@ -534,6 +534,712 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Common TLS argument cleanup: removed TLS from45 named common.go functions,
+updating every same-package and external opuscc caller. AST call-graph eligibility
+requires TLS either unused or ONLY forwarded as the first argument to another
+removable common.go function. Function-value references/effectful first arguments
+are not rewritten; no side-effecting context expression is silently discarded.
+No inserted nil TLS bridges, alternate opaque context argument or signature shims.
+Remaining functions still pass TLS into codec/libc/diagnostic operations (outside
+this bounded cleanup); not a claim that every remaining dependency is essential.
+
+Includes packet size/header/duration/parser helpers (public+native parser), mode
+and LBRR queries, fade, float channel copy, layout/channel lookup/validation,
+multistream packet validation, matrix-size calculation, extension skip/reset/
+frame-max helpers, ordinary single/projection factories, single/MS no-op destroy,
+and DRED size/init/factory/destroy/parse/process/decode/alloc/free/ctl stubs. DRED
+behavior/error ordering remains UNIMPLEMENTED where it was unimplemented, never
+incidentally enabled. Callback function TYPES keep their context contract; only
+eligible named function definitions/calls changed. Single/projection factories
+now have no ignored TLS parameter; all existing Go owner/collection semantics
+unchanged. This is dependency/API cleanup, not a new allocation owner or speedup.
+
+Build issue /tmp/opus-common-tls-compile.log: obsolete ctx loop variable after
+DRED factory TLS removal. Repeat creation/destruction twice with runtime TLS live
+and retain after-close creation, magic/loaded/arch checks and weak collection.
+No fabricated nil/closed TLS input contract for an API without that argument.
+compile-retry and all-package tagged compilation pass.
+
+Expanded scoped checkptr uncovered old TEST-only integer pointer plumbing:
+focused.log: TestOpusDecoderCtlCReference output/vararg integer conversion;
+focused-retry.log: TestMultistreamDecoderCtlCReference integer vararg/state cache;
+focused-retry2.log: TestMultistreamDecodeNativeCReference libc.VaList;
+focused-retry3.log: TestMultistreamDecoderInitFieldAccesses integer allocation.
+Migrated these and same-pattern decoder init fixture to XmallocPointer with SAME
+allocation sizes/alignment/free/TLS ownership, typed pointer stores and numeric
+scalar vararg words; MS child cache now [3]*OpusT_OpusDecoder, with
+uintptr used ONLY for unchanged numeric distance oracle. No fake GC-map repair
+for byte vararg buffers; actual output pointers remain Go-visible local roots.
+All original C transcripts, hashes, per-stream state, native fixtures, canaries,
+validation and replay expectations retained. No scope/oracle/tolerance weakening.
+focused-retry4 and focused-final pass with the SAME expanded regex, then COMPLETE
+inherited validation/native comparisons/386 checkptr/ARM ordinary+checkptr20 pass.
+
+Logs /tmp/opus-common-tls-{compile,compile-retry,all-compile,focused,focused-retry,focused-retry2,focused-retry3,focused-retry4,focused-final,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts unchanged11 uintptr/51 unsafe.Pointer in production opuscc. No global
+safety/native GC/opaque-image/performance/direct macOS claim. Older TLS signatures
+and compatibility descriptions below are superseded for the45 migrated functions.
+
+Public decoder init actual storage API: Opus_opus_decoder_init now accepts
+*OpusDecoderStorage, an exported concrete descriptor with actual canonical
+Decoder/Silk/Celt field pointers and Clear. NO unsafe.Pointer cast, prefix/owner
+reconstruction, address arithmetic or opaque pointer parameter in this function.
+Private view name aliases this real structure, not an integer/root-table handle.
+Descriptor fields must belong to complete canonical backing storage, not arbitrary
+independently allocated states. Nil descriptor returns bad argument. Rate/channel
+validation remains before state/Clear consumption; all valid initialized bytes,
+codec errors, typed pointer-store and initialization ordering unchanged.
+
+Normal Go factory and owned MS child initialization now call this public typed
+API. All normal Go-owned init/reinit fixtures provide actual views: existing
+ordinary/static/reflect-field descriptors plus direct FrameOwner/CoupledChild Go
+field references and typed prefix/tail clears. Oversized test tail storage retains
+its exact original active ABI extent and untouched suffix; no allocation/size/
+canary change. New public API tests verify no Clear/state change on invalid
+configuration, nil storage and exactly one Clear on reinit. Existing pointer-
+clear-order and both-channel/all-rate image/no-write/guard oracles retained.
+
+Raw caller-supplied ABI initialization is now EXPLICITLY NAMED
+Opus_opus_decoder_init_abi. It retains the unavoidable prefix view/exact byte clear
+and previous ABI/error semantics, not an owner-recovery shortcut in normal init.
+Raw malloc/byte-image/native comparison fixtures use that entry with their SAME
+allocators, extents, fills, alignment, reference data and expected bytes. No
+relocated cast masquerades as a new normal owner; this is a real signature/
+caller-contract migration. Raw/undersized/corrupt images gain no GC maps/lifetime
+safety. Missing-descriptor compatibility of private init still explicitly calls
+ABI initialization, not a pointer-erasure alternative to the normal factory.
+
+Full inherited validation passes, explicit native factory/init comparisons pass,
+scoped amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20 pass. No
+failures/golden/tolerance changes. Logs /tmp/opus-decoder-init-storage-api-{focused,focused-final,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts unchanged11 uintptr/51 unsafe.Pointer: actual typed API/consumer migration,
+not token reduction or global lifetime/native GC/performance/macOS claim. Previous
+bare-header public-init signature below is historical; ABI entry now owns that role.
+
+Decoder initialization typed views: opusDecoderInitWithStorage now has NO
+unsafe.Pointer/unsafe.Add usage; it takes actual provided SILK/CELT pointers,
+clears mode then SILK pointers, invokes typed Clear and runs unchanged scalar/
+codec setup. Missing views explicitly enter public caller-owned ABI initialization;
+missing Clear retains exact external-byte-clear compatibility. Normal Go factories
+provide actual scanned field descriptors and never take that raw-clear path.
+
+Public Opus_opus_decoder_init is the explicit external ABI boundary: invalid
+rate/channel returns before any buffer access; a SINGLE declared canonical prefix
+view exposes real header/padding/SILK/CELT fields, replacing TWO integer-offset
+unsafe.Add reconstructions. Dedicated opusDecoderClearABI retains unavoidable
+exact-size byte clearing (including ABI padding) at its original consumption point,
+after typed pointer stores. This is NOT recovery of a hidden Go allocation owner
+or a GC-map repair for caller-supplied byte images. Net ONE fewer pointer cast and
+TWO fewer address additions overall, not just moving the old unsafe expressions.
+Numeric offsets/error codes, rate/channel validation, codec initialization order,
+mode nil -> SILK zero -> Clear -> header stores and original view extents preserved
+for supported initialized buffers. No new nil-positive/undersized raw-buffer safety
+claim. No metadata/table/opaque integer substitute.
+
+Existing all-rate/both-channel native and static-vs-flat byte/init/no-write
+oracles retained. New tests check pointer clearing BEFORE Clear while header gain
+is still321, exactly one Clear, scalar reset and missing-descriptor compatibility.
+Full inherited validation/native factory/init comparisons pass; scoped amd64/386
+checkptr and tagged ARM ordinary/checkptr repeats20 pass. No failures or fixture/
+golden/tolerance changes. Logs /tmp/opus-decoder-init-typed-views-{focused,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts11 uintptr/51 unsafe.Pointer (was11/52). No global lifetime/native GC/
+opaque-image/performance/direct macOS claim.
+
+Multistream int16/int24 typed-only: removed Opus_opus_multistream_decode and
+Opus_opus_multistream_decode24 raw wrappers/uintptrescapes directives. Neither had
+remaining callers; all users already use their typed counterparts. No casts
+relocated, typed kernels/capture ownership and all existing codec/native/guard/
+range oracles unchanged. Full inherited validation, scoped amd64/386 checkptr and
+tagged ARM ordinary/checkptr repeats20 pass, no failures/tolerance changes.
+Logs /tmp/opus-ms-int16-int24-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts11 uintptr/52 unsafe.Pointer (was15/58): wrapper cleanup, not new ownership
+or global lifetime/performance claims. Separate encoder API unchanged.
+
+Multistream concrete closure ownership (supersedes opaque callback parameters
+below): OpusMSChannelCopy now takes ONLY TLS, destination stride/channel, *float32
+source and source stride/frame count. Generated callback typedef and internal
+bound-copy name alias that SAME concrete Go function type. Public native decode
+accepts this closure directly; PCM/user-data parameters REMOVED, not changed to
+*byte/any/erased pointer aliases. No unsafe.Pointer in these callback definitions,
+public native signature or their dispatch/capture helpers.
+
+Deleted obsolete opusMSBindBoundCopy/opusMSBindLegacyBoundCopy/opusMSInvokeLegacy
+and opaque format adapters. Real typed opusMSFloatCopy(*float32),
+opusMSShortCopy(*int16), opusMSInt24Copy(*int32) capture actual destination fields
+and call the original kernels. Ordinary typed decode paths use these same
+closures, with view/validation/sample rounding/store timing inside unchanged
+kernels. No opaque casts relocated into new adapters or dynamic type assertions.
+
+Migrated ALL callers, callback tables and scratch fixtures to actual closures.
+Custom callbacks capture typed destination and *int32 user cell with value123,
+retaining identity/value/source/stride/channel/frame checks through GC/stack
+growth and clearing original callback variable after value copy. Standard-format
+ignored-user arguments disappear with the obsolete API (no fake user pointers).
+Root tests capture []float32 destination and *msNativePayload (including its Go
+pointer/slice fields), copy through generated typedef, drop original callback,
+force GC/stack growth inside callbacks and verify captured-owner reachability.
+Public native test retains exact0,2,1,3 callback order, stride/muted source,
+complete destination values/guards, status and nil-callback early-error behavior.
+All existing whole-stream int16/int24/float sample/range/guard/native oracles remain.
+
+Full inherited validation, scoped amd64/386 checkptr (including formerly legacy
+scratch callback) and tagged ARM ordinary/checkptr repeats20 pass; no failures,
+fixture extent/golden/tolerance changes. Logs /tmp/opus-ms-closure-callback-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts15 uintptr/58 unsafe.Pointer (was15/74). Actual typed captures, not cosmetic
+aliasing. No global lifetime/native GC/opaque-image/performance/macOS claim.
+
+Multistream callback typedef pointers: OpusT___ccgo_fp__Xopus_multistream_decode_native_4
+now explicitly means func(TLS, unsafe.Pointer destination, stride/channel, *float32
+source, stride/frames, unsafe.Pointer user). NO uintptr in typedef or dependent
+bind/invoke/format callback signatures. Binder accepts a REAL Go function value,
+not __ccgo_fp integer. Removed standard function-word identity dispatch, erased
+function reconstruction, integer destination/source/user bridging and affected
+uintptrescapes directives. Standard callbacks delegate to unchanged typed PCM
+kernels; their opaque destination format is genuinely callback-specific. Historical
+Legacy helper names remain, but all are now pointer-backed, not legacy integer ABI.
+
+Migrated all binder/invoker fixtures end-to-end, including callback tables and
+custom callback. Numeric123 user metadata is an ACTUAL Go int32 cell holding123,
+not unsafe.Pointer(123); custom callback verifies both pointer identity and value.
+Same input samples, output extents, guards, exact arithmetic/muting/status and
+native transcript/codec oracles. Custom closure is still cleared at original
+caller after binding and exercised across GC/stack growth. New alias/binder root
+test drops callback/user variables, then forces GC and invokes retained closure,
+checking actual captured/pointer-containing payload owners and destination guards.
+Existing public native callback order/stride/muting tests unchanged.
+
+Full inherited validation passes; expanded scoped amd64/386 checkptr includes ALL
+multistream pointer fixtures AND formerly legacy scratch callback test, plus
+projection/storage regressions. Tagged ARM ordinary/checkptr repeats20 pass.
+No failures/scope reductions/golden/tolerance changes. Logs /tmp/opus-ms-callback-type-pointer-{focused,focused-final,full,full-final,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts15 uintptr/74 unsafe.Pointer (was36/72). Real callback/owner migration, not
+integer aliases or hidden reconstruction; genuine opaque pointer declarations
+can increase pointer token counts. No global lifetime/native GC/opaque-image/
+performance/direct macOS claim; unrelated callback families/encoder untouched.
+
+DRED scalar Go ownership: create_typed now returns an actual ordinary Go header,
+without RegisterGoAllocation/metadata/reflection or a substitute registry. TLS
+argument retained/ignored for compatibility; public create forwards unchanged.
+Valid nil/closed TLS now succeeds, removing obsolete simulated nil-TLS -7.
+Normal Go OOM behavior applies. Header remains EXACTLY12 scalar ABI bytes and
+retains16-byte alignment using declared Go cells: a16-byte fast cell, or actual
+fields in a20-byte-stride typed array covering all four-byte alignment residues.
+Only numeric alignment tests inspect addresses; no integer pointer reconstruction.
+
+Destroy_typed no longer calls XfreePointer or releases registrations. It STILL
+sets magic0xDE57801D, preserving existing diagnostics/observable invalidation,
+while retaining loaded/arch and nil behavior. Not incorrectly described as a
+complete no-op. Existing initialization magic0xD8EDDEC0/zero fields,12-byte guarded
+init fixture and destroy guards remain. Header pointers own their backing cells;
+no actual Go field graph is replaced by a raw byte image.
+
+Old DRED registry retention contract removed: new tests assert no registration,
+collection WITHOUT destructor while unrelated TLS remains alive, positive nil/
+nonnil/closed TLS construction, GC/stack-growth/alignment, repeated destruction
+and magic-only writes. Updated old nil-TLS allocation-failure assertion to the
+intentional Go allocation contract; disabled payload alloc remains nil/-5.
+No DRED model/processing implementation was enabled or disabled; all existing
+parse/process/decode/CTL stub and ignored-native-DRED argument oracles retained.
+
+Initial focused compile failed missing unsafe import; corrected. Next focused
+run hit old TestDREDFactoryPointers nil-TLS -7 expectation, updated only for the
+new specified ownership contract. Both logs retained. Complete expanded focused
+scope then passes; full inherited validation passes, scoped386 checkptr and
+tagged ARM ordinary/checkptr repeats20 pass. No weakened scope, codec golden,
+fixture extent or tolerance change. Logs /tmp/opus-dred-go-owner-{focused,focused-retry,focused-retry2,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts36 uintptr/72 unsafe.Pointer (was34/71): two numeric alignment inspections
+and two corresponding pointer conversions replace one destructor conversion;
+no new integer owners. No native GC/opaque-image repair, global lifetime,
+performance/direct macOS or enabled-DRED claims. Earlier DRED TLS-registration/
+reflective allocation notes superseded for normal creation.
+
+Multistream allocation ownership removal: destroy_typed is now a literal NO-OP
+accepting OpusMSDecoderState (normal Go owners or borrowed flat views), with NO
+XfreePointer, alias removal, field mutation or dereference. Removed production
+opusMSDecoderLegacyOwnedStorage/opusMSDecoderStorage standalone flat allocation
+helpers and the test legacyRegisteredMSTestDecoder registered-MS factory. Normal
+creation remains concrete Go objects/slices and never registers a root.
+
+C/ABI byte-layout oracles still require transport layouts: test-only
+flatMSComparisonStorage/flatMSTestDecoder construct actual scanned Go field images,
+UNREGISTERED and never explicitly freed. This is not a replacement legacy
+allocation/registration path in production, nor a claim that ABI formats were
+removed. Existing physical extents/alignment/strides/initialized byte checks and
+CTL C displacement transcript stay unchanged; fixture pointer itself owns fields.
+
+Former MS registry-retention tests now exercise the intended Go strong-owner
+contract and weak collection after dropping pointers; independent registry
+ownership is intentionally no longer a contract. Same original mapping/foreign
+mode/book/coefficient reachability across GC/stack growth preserved. Normal Go
+owner explicitly survives no-op destroy/TLS close and still decodes afterward;
+unreachable cyclic graphs collect without destructor (existing no-registration
+collection tests retained).
+
+Binding/address-fallback oracle now uses a BORROWED embedded MS view of an
+explicit flat projection fixture, not a registered standalone MS allocation.
+Original child/frame/CTL identities and live mutated geometry fallback checks
+retained. MS destroy MUST retain borrowed projection bindings; actual projection
+parent cleanup then releases them, with original child-binding absence assertions.
+Private opusReleaseMSCodecViews remains ONLY for projection parent bookkeeping,
+not multistream destruction. No allocation/free adapter was substituted.
+
+Full inherited validation passes; scoped amd64/386 checkptr and tagged ARM
+ordinary/checkptr repeats20 pass, including physical CTL/decode transcripts.
+No failures, codec golden or tolerance changes. Logs /tmp/opus-ms-no-allocation-destroy-{focused,focused-final,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts34 uintptr/71 unsafe.Pointer (was34/72), one destructor cast removed. Actual
+ownership contract change, no global lifetime/native GC/performance/macOS claim.
+Earlier standalone legacy MS registration/destruction descriptions are superseded.
+
+Multistream typed-only destruction: removed Opus_opus_multistream_decoder_destroy
+raw wrapper; all THREE callers now use typed cleanup. Registry-only weak-root
+GC trials retain no strong parent; recover the actual registered owner only
+AFTER those checks, then typed destroy and assert registration removed. Both
+former dispatch iterations retained as two typed cleanup trials; unchanged
+child-binding release/parent-retention checks. No numeric pointer reconstruction
+or replacement raw adapter. Normal Go ownership unchanged; typed destructor's
+explicit flat ABI cleanup behavior retained. Full inherited validation, scoped
+amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20 pass, no failures
+or oracle/tolerance changes. Logs /tmp/opus-ms-typed-destroy-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts34 uintptr/72 unsafe.Pointer (was35/72). Wrapper cleanup, no global safety/
+performance claim; encoder API untouched.
+
+Multistream float typed-only: removed unused Opus_opus_multistream_decode_float
+raw wrapper and uintptrescapes directive. All callers already use the typed
+version; no reconstruction adapter added. Existing float/kernel/C transcript/
+range/guard oracles unchanged. Full inherited validation, scoped amd64/386
+checkptr and tagged ARM ordinary/checkptr repeats20 pass, no failures/tolerance
+changes. Logs /tmp/opus-ms-float-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts35 uintptr/72 unsafe.Pointer (was37/75). Wrapper cleanup, not new ownership
+or global lifetime/performance claims. Separate encoder API untouched.
+
+Multistream native public pointers: Opus_opus_multistream_decode_native now takes
+OpusMSDecoderState, *byte packet, GC-visible unsafe.Pointer PCM/user payload,
+and actual Go OpusMSChannelCopy function (float32 source). PCM format/payload
+layout genuinely belong to the callback, so no invented concrete type. No
+uintptr parameters, erased function-word reconstruction, uintptrescapes directive
+or legacy binding/invoke call in this entry's dispatch path. Its bound closure
+retains real Go callback/destination/payload pointers and calls the same kernel.
+No address casts moved into a replacement adapter. Existing explicit legacy
+callback helpers/tests remain separate; not claimed globally eliminated/repaired.
+
+Both old public-entry callers now keep state/data/PCM typed and pass an actual
+float-output callback, same buffers/extents/sample counts/guards/nil-TLS/frame cap.
+New normal-owner custom callback test exercises captured Go owner and pointer-
+containing opaque payload across GC/stack growth INSIDE callbacks, exact channel
+order0,2,1,3, source stride, nil muted source, full destination values/guards and
+validation-before-nil-callback invocation. No forced integers disguised as pointers
+or new persistent opaque-root registry. All prior codec/native oracles unchanged.
+Full inherited amd64/386/ARM64-QEMU/native/GC-stress checks pass, scoped amd64/386
+checkptr and tagged ARM ordinary/checkptr repeats20 pass, no failures/tolerance
+changes. Logs /tmp/opus-ms-native-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts37 uintptr/75 unsafe.Pointer (was41/74): actual function/pointer ownership
+migration; four genuine opaque pointer declarations replace three reconstruction
+casts. No global lifetime/native GC/opaque-image/performance/macOS claim.
+
+Projection float typed-only: removed unused Opus_opus_projection_decode_float
+raw uintptr wrapper and its uintptrescapes directive. No callers needed migration;
+all float callers already use Opus_opus_projection_decode_float_typed. Existing
+real packet/PLC float-bit/guard/status/range oracles unchanged. Full inherited
+validation, scoped amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20
+pass without failures or oracle/tolerance changes. Logs /tmp/opus-projection-float-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts41 uintptr/74 unsafe.Pointer (was43/77). Wrapper removal, not a new ownership
+migration or global lifetime/performance claim. Separate encoder API untouched.
+
+Projection int24 public entry pointers: Opus_opus_projection_decode24 now takes
+OpusProjectionDecoderState, *byte packet and *int32 PCM; direct typed forwarding,
+no uintptr/reconstruction/uintptrescapes. Existing real packet/PLC projection test
+now exercises public int24 entry against legacy typed path with unchanged exact
+samples/guards/status/final-range checks. Full inherited validation, amd64/386
+scoped checkptr and tagged ARM ordinary/checkptr repeats20 pass, no failures or
+oracle/tolerance changes. Logs /tmp/opus-projection-int24-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts43 uintptr/77 unsafe.Pointer (was45/80). No global safety/performance claim.
+
+Projection int16 public entry pointers: Opus_opus_projection_decode now takes
+OpusProjectionDecoderState, *byte packet and *int16 PCM, forwarding directly to
+the existing typed kernel. No uintptr arguments, reconstruction casts or
+uintptrescapes directive. Real SILK-packet/PLC projection comparison now exercises
+this public entry for normal Go state against existing legacy typed decode,
+with unchanged exact int16 samples/guards/status/range checks. Float/int24 paths
+untouched. Full inherited validation, scoped amd64/386 checkptr and tagged ARM
+ordinary/checkptr repeats20 pass with no failures/oracle/tolerance changes.
+Logs /tmp/opus-projection-int16-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts45 uintptr/80 unsafe.Pointer (was47/83). No global lifetime/native GC/
+performance claim; legacy flat images still have their existing limitations.
+
+Projection typed-only destruction: removed unused-public-ABI wrapper
+Opus_opus_projection_decoder_destroy and migrated BOTH remaining test callers to
+Opus_opus_projection_decoder_destroy_typed. Registry-only weak-root GC checks still
+retain NO strong owner until after all GC trials; then retrieve the actual
+registered pointer, use typed cleanup and verify registration removed. No numeric
+pointer reconstruction/replacement wrapper. Both cleanup iterations remain (with
+and without prior interior-MS destruction); explicit external-free/TLS-close
+interop cases unchanged. Normal Go destroy remains no-op; legacy typed cleanup
+retains its original registered alias/base release behavior. Separate opusccenc
+API untouched. Full inherited validation and scoped amd64/386 checkptr plus tagged
+ARM ordinary/checkptr repeats20 pass, no failures/oracle/tolerance changes.
+Logs /tmp/opus-projection-typed-destroy-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts47 uintptr/83 unsafe.Pointer. No global lifetime/native GC/performance claim.
+
+Projection normal Go ownership: create_typed now returns *OpusProjectionDecoder,
+an ordinary object with a private scalar header, declared matrix header/padding/
+int16 coefficient array and *OpusMSDecoder. No reflection, RegisterGoAllocation,
+codec/matrix alias binding, replacement registry, Xmalloc or integer owner in
+normal creation. Matrix storage reserves the SPEC-BOUNDED 65008 rounded coefficient
+bytes (65004-byte limit), not an opaque byte image or dynamic reflect layout.
+This intentionally reserves the maximum coefficient capacity even for small
+matrices; no performance/memory-improvement claim. Existing matrix kernels use
+the verified actual +16 coefficient field. All arithmetic/rounding/callback store
+order is unchanged. Initial coefficient snapshot/sign conversion, size-before-
+init checks, signed calculations, identity mapping and normal error codes remain.
+
+TLS parameter is retained/ignored for compatibility; valid nil TLS now succeeds.
+Size0 still returns -7 BEFORE matrix-byte validation. Removed obsolete nil-TLS
+simulated allocation failure; Go allocation has ordinary Go OOM behavior. Normal
+destruction is a no-op. Typed decode/CTL/destroy accept explicit
+OpusProjectionDecoderState implemented by real Go owners and flat ABI states.
+Legacy raw decode/init/CTL/address fallback and explicit registered cleanup remain
+separate. Unused raw uintptr projection factory removed: a normal Go object must
+not be exported as an unrooted integer pretending to be a flat decoder.
+
+MS child objects retain their Go MS owner, whose real typed projection backlink
+retains matrix/coefficients and the complete parent/sibling graph. Unreachable
+cycles collect. Header/matrix/child pointers never require a side table. Normal
+objects are NOT contiguous projection images; mutated legacy-size addressing is
+supported only by the explicit flat ABI representation. Reflection remains in
+renamed opusProjectionDecoderLegacyOwnedStorage and legacy/image paths; registry/
+binding/changed-offset fixtures use explicit legacyRegisteredProjectionTestDecoder
+with original retention/alias/cleanup checks, not hidden normal registration.
+
+Native factory comparison serializes actual logical header/matrix/MS components;
+all original shapes/rates/deltas/TLS inputs, exact bytes/normalization and every
+native malloc-failure case remain. Native fail cases run separately (always -7
+before init), not fabricated Go allocation-failure coverage. New tests check
+no registration, collection without destroy with TLS alive, nil-TLS creation,
+coefficient-field identity, child-retains-parent/matrix after GC/stack growth,
+and real SILK packet then PLC through float/int16/int24 normal-vs-flat paths,
+full output/float bits/guards/status/final-range equality. No golden/tolerance change.
+
+Initial broader scoped checkptr exposed ORIGINAL TestProjectionDecoderInitCReference
+raw Xmemset integer reconstruction, not new allocation logic. Retained failure
+/tmp/opus-projection-static-go-checkptr-focused.log. Migrated that fixture to SAME
+XmallocPointer allocations/extents/alignment/fill and pointer clear/free plumbing;
+all header/hash/layout/return oracles and reference sizes unchanged. Full unchanged
+scope then passed; no scope exclusion or production/native GC repair claim.
+Full inherited amd64/386/ARM64-QEMU/native/GC-stress/codec validation passes; scoped
+amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20 pass. Logs
+/tmp/opus-projection-static-go-{focused,native-focused,checkptr-focused-retry,checkptr-focused-final,full,full-final,amd64-checkptr-final,386-checkptr,386-checkptr-final,arm-checkptr-repeat,arm-checkptr-repeat-final,arm-repeat,arm-repeat-final}.log.
+Counts48 uintptr/83 unsafe.Pointer (was51/83), largely unused raw factory removal;
+actual ownership migration is separate from tokens. No global lifetime,
+opaque-image/native GC repair, performance or direct macOS claim. Earlier projection
+factory/registration descriptions are historical and superseded for normal creation.
+
+Single-decoder registry removal (supersedes the TLS/registration contract below):
+Opus_opus_decoder_create_typed returns its actual scanned Go header directly,
+without RegisterGoAllocation, codec binding or another registry/side table.
+It initializes actual static Go views with nil TLS. TLS PARAMETER is retained
+only for source compatibility and ignored; nil TLS now succeeds for valid args.
+Invalid rate/channel still returns -1 before allocation. No recoverable simulated
+nil-TLS -7 allocation failure; Go allocation has normal Go OOM behavior.
+
+Opus_opus_decoder_destroy_typed is an explicit compatibility NO-OP: no Xfree,
+XfreePointer, registration removal or pointer dereference, including nil inputs.
+Externally registered legacy storage remains its registrar's responsibility.
+opus.Decoder.Close drops both single/MS Go pointers independently of runtime TLS
+and only frees its separate runtime buffers/context. Existing TLS for decoding
+is not claimed globally eliminated.
+
+New tests check no root/codec registration with nonnil TLS, collection WITHOUT
+a destructor while TLS stays live, valid nil-TLS creation and PLC silence/canaries
+after no-op destruction/unrelated TLS close. Existing header-only foreign-mode/
+book/coefficient GC test now exercises the actual public nil-TLS factory, not
+just its allocator. Fake codebooks are queried only. Explicit registry/binding
+oracles use test-only legacyRegisteredDecoderTestStorage (prior root/bind setup),
+not hidden normal-factory registration. Legacy registry test verifies no-op
+destroy does NOT free external ownership, then explicitly removes its own root;
+registry-only weak retention and binding/changed-offset checks are unchanged.
+
+Native create-image comparison keeps every original TLS/nil-TLS and invalid
+rate/channel input, compares successful Go allocations to C normal allocations,
+and retains every original native malloc-failure/error-order check SEPARATELY.
+No Go allocation-failure coverage is fabricated. Byte extents, normalization,
+codec references/hashes/tolerances unchanged. Full inherited amd64/386/ARM64-QEMU/
+native/GC-stress/codec checks pass, explicit single/MS native factory checks pass,
+scoped amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20 pass.
+No failed runs. Logs /tmp/opus-decoder-unregistered-{focused,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts51 uintptr/83 unsafe.Pointer (one destructor conversion removed). No native
+GC/opaque-image repair, global lifetime, performance or direct macOS claim.
+
+Single-decoder static Go storage: opusDecoderOwnedStorage now uses the shared
+ordinary mono/stereo structs via opusGoMonoStorage(nil)/opusGoStereoStorage(nil),
+not reflect.Type/reflect.Value or an indirect reflective allocator. The same
+real Opus/SILK/CELT fields and float32 tails retain exact per-channel ABI offsets,
+extents, pointer maps and16-byte child/header alignment. Shared standard-mode/
+channel/field/extent checks cover both single and multistream allocation.
+
+Opus_opus_decoder_create_typed's TLS parameter, nil-TLS -7, registry ownership,
+codec bindings, destroy contract, validation/error order and return type are
+UNCHANGED: this request removes reflection, not the existing registration API.
+No raw byte allocation, global root table, pointer-valued integer or replacement
+registry introduced. Reflection for DRED/custom/legacy/image paths is untouched.
+
+The original reflective single allocation is explicitly named
+opusDecoderLegacyOwnedStorage and used only as the independent legacy layout
+oracle in bound-init tests. Those tests now compare actual static Go storage
+against the prior layout for both channels/all original rates, with unchanged
+byte/status/invalid-rate no-write checks. Original reflected neighbor/extent
+fixture remains unchanged. Shared typed Clear zeroes prefix fields and tail
+array, not enclosing Go final padding or out-of-ABI parent pointer. New static
+single tests poison only scalar final padding, verify exact clear extent, and
+verify header-only reachability of actual Go CELT/SILK owners across stack growth/
+GC without TLS or a retained view descriptor. Fake book fixtures are queried,
+not used as valid DSP inputs. Factory registry-only weak-root checks remain.
+
+Full inherited amd64/386/ARM64-QEMU/native/GC-stress/codec checks pass; scoped amd64
+and386 checkptr and tagged ARM ordinary/checkptr repeats20 pass, including shared
+MS ownership/alignment regressions. Explicit native single/MS factory comparisons
+pass, keeping all original allocation-failure/error-order/image oracles. No
+fixture size, codec golden, tolerance or native comparison oracle changes/failures.
+Logs /tmp/opus-decoder-static-go-{focused,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts unchanged51 uintptr/84 unsafe.Pointer. No performance, global lifetime,
+native GC/opaque-image repair or direct macOS claim. The earlier note below that
+standalone reflection was untouched is now superseded for normal Opus creation.
+
+Multistream static Go objects (supersedes the contiguous-reflect normal factory
+below): opusMSDecoderOwnedStorage now returns an ordinary *OpusMSDecoder containing
+a private scalar header, concrete child-view slice and numeric logical offsets.
+Normal allocation/callees use NO reflect.Type/reflect.Value/StructOf/ArrayOf:
+mono/stereo children are declared Go structs with real Opus/SILK/CELT fields and
+float32 tail arrays, created with new. Tail extents implement the unchanged
+standard-mode formula (overlap120/bands21); constructor verifies canonical mode,
+field offsets and exact ABI extents against existing size functions. This is
+normal Opus storage, not a new dynamic-custom-mode allocator.
+
+Children retain parent through an actual typed Go pointer OUTSIDE their ABI body;
+Clear zeroes only the typed body, retaining that parent/sibling graph. Unreachable
+cycles collect normally. Child headers retain the 16-byte policy using actual Go
+fields: numeric alignment tests select a declared typed-array element if needed,
+never reconstruct a pointer from an integer. Potentially zero-length residue
+padding is FIRST to avoid Go's trailing-zero-sized-field padding; dedicated
+alignment-array residue tests exercise both channel layouts on all architectures.
+
+OpusMSDecoder is now a real Go owner, distinct from the flat OpusT_OpusMSDecoder.
+Typed decode/CTL accept the explicit OpusMSDecoderState interface implemented by
+these two concrete pointer types. Normal child lookup follows real Go child
+objects at logical coordinates; legacy lookup retains original bound/flat ABI
+addressing and live reloads. No side table, opaque any or replacement registration.
+The private normal header prevents accidental public conversion to a flat state.
+Normal objects are NOT contiguous MS ABI images; invalid mutated Go geometry has
+no invented address-recovery fallback. Legacy flat geometry/alias behavior remains.
+
+Multistream reflection remains only in explicit legacy/projection/image paths,
+including renamed opusMSDecoderLegacyOwnedStorage; standalone decoder/DRED
+reflection is untouched. Existing flat registry/geometry/clear
+fixtures explicitly use that representation, with original checks unchanged.
+Physical-displacement CTL C transcript uses explicit flat fixture (same original
+sizes/bytes/displacements/requests). Normal CTL parity, live zero-before-loop
+alias, static child field/byte/extent equality, alignment, typed clear/reinit,
+GC/stack growth, child-retains-parent/siblings, collection and wrapper tests pass.
+Normal multistream C decode transcript retains Go creation and exact audio/range
+oracles. Native factory comparison now serializes actual logical header/child ABI
+components, NOT bytes beyond the normal Go object's allocation. All original
+native cases, byte/normalization/tolerance and C allocator-failure oracles retained.
+
+Full inherited amd64/386/ARM64-QEMU/native/GC-stress/codec checks pass; scoped amd64
+and386 checkptr plus tagged ARM ordinary/checkptr repeats20 pass. No failed runs.
+Logs /tmp/opus-ms-static-go-{focused,checkptr-focused,checkptr-focused-final,native-focused,full,full-final,amd64-checkptr-final,386-checkptr,386-checkptr-final,arm-checkptr-repeat,arm-checkptr-repeat-final,arm-repeat,arm-repeat-final}.log.
+Counts51 uintptr/84 unsafe.Pointer (was47/78): four numeric alignment casts and
+six alignment/compare-transport pointer conversions, not new integer owners.
+No performance/global lifetime/native GC/opaque-image/macOS claim. Older normal
+factory/contiguous-composite observations below describe the superseded version.
+
+Multistream normal-Go ownership: create_typed now takes NO TLS and returns
+*OpusMSDecoder directly. No RegisterGoAllocation, metadata binding, child alias
+registration, side table or replacement registry in normal creation. Actual
+scanned Go composite storage/16-byte alignment/C child strides remain: returning
+its real header pointer roots the complete allocation, unlike new(header) with
+missing child storage. Initializer consumes actual Go field views with nil TLS;
+failed initialization simply drops Go storage. Same native mapping/rate/shape
+validation order, return codes and initialized bytes when allocation succeeds.
+Nil-TLS fake allocation failure is intentionally no longer an API contract:
+Go allocation has normal Go OOM behavior, not injectable C malloc failure -7.
+
+All normal callers updated. opus.NewMultistreamDecoder creates Go state before
+its SEPARATE runtime TLS context; Close drops ms pointer rather than freeing/
+unregistering Go state. Runtime TLS is still used by existing decode scratch/
+legacy paths; not claimed globally eliminated. Reference fixtures likewise drop
+explicit destruction, preserving original buffers/oracles. Existing registry
+bindings/destructors remain ONLY for legacy registered/projection interop. Their
+old registry-only weak-root/bound-view/cleanup tests now use an EXPLICIT test-only
+legacyRegisteredMSTestDecoder fixture with the prior registration/binding setup,
+not a hidden normal-factory registration or weakened registry test.
+
+New Go ownership tests exercise parent/child mode/codebook/coefficient reachability
+through actual fields across GC/stack growth, no metadata/registration, survival
+of unrelated TLS.Close, interior child retaining whole composite after parent
+header dropped, and collection with no destructor while unrelated TLS remains
+live. Fresh initialized PLC decodes without TLS and checks full silence/canaries;
+fake codebook-owner fixtures are queried only, never treated as valid DSP inputs.
+Public opus wrapper test checks unregistered state, decode, Close pointer/context
+drop and collection. Legacy projection binding/clear/geometry tests preserved.
+
+Native create-image comparisons keep ALL original shape/rate/mapping and exact
+byte/normalization oracles for successful Go allocation. Original native malloc-
+failure cases still run separately with SAME C error-order expectations; they
+are NOT relabeled as Go allocation-failure coverage or suppressed. No fixture
+size/reference/tolerance change. Full inherited amd64/386/ARM64-QEMU/native/GC
+stress/codec reference checks pass, explicit native factory comparison passes,
+scoped Go/legacy/projection owner tests amd64/386 and tagged ARM ordinary/checkptr
+repeats20 pass. Ordinary also repeats both multistream C transcripts. No failures.
+Logs /tmp/opus-ms-go-create-{focused,wrapper-focused,native-focused,full,full-final,386-checkptr,386-checkptr-final,arm-checkptr-repeat,arm-checkptr-repeat-final,arm-repeat,arm-repeat-final}.log.
+Counts remain47 uintptr/78 unsafe.Pointer: actual ownership/lifetime change, not
+token cleanup. No new native GC/opaque-image repair, global safety, performance
+or direct macOS claim. Previous TLS-required factory notes below are historical.
+
+Multistream typed-create cleanup: removed Opus_opus_multistream_decoder_create
+integer-returning wrapper; both remaining reference callers now use typed create
+and destroy with actual state/mapping pointers. External Go users must use typed
+factory. Decode fixture keeps state typed through existing typed int16/float
+entries and CTL, not a cast back to integer decoders. Mapping/data/PCM allocations
+use SAME allocator, alignment and exact payload extents via XmallocPointer/free;
+original full PCM 0xa5 byte fill and width-dependent hashes remain. No buffer
+size/packet/transcript/range/hash/tolerance or allocation-count change. CTL
+fixture keeps original raw vararg/output/child slots; only parent/mapping/factory
+plumbing changes. Parent pointer is converted to a number ONLY for the existing
+independent offset-distance oracle, never reconstructed. No opaque image/legacy
+vararg lifetime repair claimed. Original child-layout delta adjustment stays.
+
+Full inherited validation initially hit recurring native found-pointer-to-free-
+object with TestExtensionNextAgainstC active. Complete unchanged retry passed;
+failed log retained, no native fix. Both independent C-reference transcripts pass;
+scoped create/MS-storage/owner checks amd64/386 and tagged ARM ordinary/checkptr
+repeats20 pass. Ordinary also repeats both C fixtures; raw-vararg C fixtures are
+NOT newly claimed checkptr-safe. Logs
+/tmp/opus-ms-typed-create-{native-focused,native-focused-retry,focused,focused-retry,full,full-retry,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr50->47, unsafe.Pointer80->78. No relocated raw constructor,
+codec/ABI layout/model/performance/global lifetime/direct macOS claim. Other
+packages unchanged.
+
+All DRED signature cleanup: every Opus_opus_dred_* API and related
+Opus_opus_decoder_dred_decode{,24,_float} now has NO uintptr arguments/results.
+Decoder states use canonical concrete pointers, packet *byte, dred_end *int32,
+PCM *int16/*int32/*float32. Payload alloc/free/parse/process use unsafe.Pointer
+for genuinely opaque, unimplemented OpusDRED storage; no hidden integer alias,
+fabricated zero-size/model layout or relocated reconstruction. Allocation returns
+nil plus same -5 error. This changes exported Go signatures. Inspected upstream
+opus_decoder.c ENABLE_DRED-disabled branches and actual dred_decoder.h layout;
+we do NOT enable/disable DRED, assume that enabled layout, or claim ownership
+migration in no-op stubs. Size0, no-op free, parse/process/decode -5 and ignored
+argument/error/store order remain unchanged. Header init/factory behavior stays.
+
+Updated nil allocation oracle, added bounded Go pointer cases across GC/stack
+growth for nil/non-nil states, opaque byte roots, aliasing process inputs,
+ignored signed metadata/extreme offsets, packet/end/sample canaries and no state/
+output writes. These are current unimplemented-branch tests, not new enabled-C
+model/layout/restrict/invalid-pointer claims. Original fixtures/extents and native
+codec/reference/tolerance scopes unchanged. Full inherited checks, scoped DRED/
+header/storage amd64/386 and tagged ARM ordinary/checkptr repeats20 pass; no
+failures. Logs /tmp/opus-dred-all-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr68->50; unsafe.Pointer73->80 (seven legitimate opaque
+pointer type occurrences added, NOT unsafe token reduction). No blob allocation,
+model processing, native GC/opaque-image maps/global lifetime/performance/macOS
+claim. Other packages' generated APIs are unchanged.
+
+DRED typed-destroy cleanup: removed unused Opus_opus_dred_decoder_destroy raw
+wrapper/uintptrescapes directive entirely. All existing users already call typed
+destructor; no caller casts or adapter needed. Typed invalidation/free behavior,
+DRED header/factory/registry fixtures and codec/oracle/extents unchanged. Full
+inherited validation hit recurring native found-pointer-to-free-object TWICE,
+both with TestExtensionNextAgainstC active; complete unchanged third attempt
+passed. Both failed logs retained, no native repair claimed. Focused amd64/386
+DRED/storage scoped checks and tagged ARM ordinary/checkptr repeats20 pass.
+Logs /tmp/opus-dred-typed-destroy-{focused,focused-retry,focused-retry2,full,full-retry,full-retry2,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr69->68, unsafe.Pointer74->73. No global lifetime/GC-map,
+performance/direct macOS claims; unrelated encoder API unchanged.
+
+DRED create pointer migration: Opus_opus_dred_decoder_create now returns
+(*OpusT_OpusDREDDecoder,error), directly forwarding existing typed factory without
+integer-address result/conversion. Exported Go return type changes. Existing
+public factory fixture now exercises nil-TLS failure and successful concrete
+owner across GC/stack growth; same header fields/magic/layout, errors, registered
+allocation and typed destruction. No new adapter, allocation, oracle/extent or
+codec/model behavior change. Full inherited validation, scoped DRED/header/
+storage amd64/386 and tagged ARM ordinary/checkptr repeats20 pass; no failures.
+Logs /tmp/opus-dred-create-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr71->69, unsafe.Pointer75->74. No global/native lifetime,
+GC-map, performance or direct macOS claim.
+
+DRED init pointer migration: Opus_opus_dred_decoder_init now accepts actual
+*OpusT_OpusDREDDecoder, not uintptr; removed reconstruction/uintptrescapes directive.
+Exported Go parameter type changes, no replacement raw adapter. Existing guarded
+12-byte DRED header fixture now calls public entry across GC/stack growth; fields,
+magic, guard extents, alias/layout and invalidation oracle unchanged. Existing
+private initializer/factory behavior stays (no model/SIMD implementation enabled
+or disabled). Full inherited validation, scoped DRED/header/storage amd64/386,
+tagged ARM ordinary/checkptr repeats20 and diff checks pass; no failures. Logs
+/tmp/opus-dred-init-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr72->71, unsafe.Pointer76->75. No native GC/global lifetime,
+opaque-image GC maps, performance or direct macOS claims.
+
+Decoder typed-destroy cleanup: replaced final Opus_opus_decoder_destroy use
+with destroy_typed and removed unused raw-address wrapper. External Go users
+must use typed entry. Registry fixture STILL returns only numeric registration
+key plus weak references; no strong decoder owner is kept during its original
+GC trials. Only AFTER those registry-only checks does RegisteredGoAllocation
+recover the actual typed owner, without integer-to-pointer reconstruction, for
+cleanup. Added post-destroy registration-absent check BEFORE TLS.Close. No weaker
+registry oracle, raw-key dereference, new allocation or fixture extent change.
+Existing typed destructor/free/callback semantics and codec references unchanged.
+Full inherited validation initially hit recurring native found-pointer-to-free-
+object with TestExtensionNextAgainstC active. Complete unchanged retry passed;
+failed log retained, no native repair claimed. Scoped create/storage checks
+amd64/386 and tagged ARM ordinary/checkptr repeats20 pass. Logs
+/tmp/opus-decoder-typed-destroy-{focused,focused-retry,full,full-retry,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr73->72, unsafe.Pointer76 unchanged. Encoder's separate API
+unchanged; no global lifetime/GC-map/performance/direct macOS claim.
+
+Float typed-only cleanup: removed unused Opus_opus_decode_float raw wrapper
+and uintptrescapes directive entirely. All callers already use
+Opus_opus_decode_float_typed, including opus/decoder.go; no caller casts, adapter
+or test/oracle changes needed. Typed/private float DSP/error behavior unchanged.
+Full inherited validation, scoped float/native-reference amd64/386 and tagged
+ARM ordinary/checkptr repeats20 pass; no failures. Logs
+/tmp/opus-float-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr75->73, unsafe.Pointer79->76. No global/native lifetime,
+GC-map, performance or direct macOS claim.
+
+Int24 typed-only entry migration: replaced all remaining opuscc
+Opus_opus_decode24 calls with Opus_opus_decode24_typed and actual state/packet/
+PCM pointers. Removed unused raw wrapper/uintptrescapes directive, no substitute
+integer-address adapter. External Go callers must use typed entry. Nil/error
+ordering, mono/stereo real packet/PLC buffers/guards and mixed int16/int24 Go
+scratch/TLS cursor checks retain same physical fixtures and expected values;
+codec/reference/oracle/tolerance unchanged. Mixed scratch now uses BOTH typed
+decode APIs; raw TLS setup remains and is NOT claimed checkptr-safe or repaired.
+Full inherited checks and scoped integer pointer/no-pseudostack/native-reference
+amd64/386 plus tagged ARM ordinary/checkptr repeats20 pass. Ordinary includes
+mixed TLS scratch case. No failures. Logs
+/tmp/opus-int24-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr77->75, unsafe.Pointer82->79. Encoder separate raw API is
+unchanged; earlier remaining-raw-int24 notes below are superseded. No native GC,
+global lifetime, opaque-image GC maps, performance or direct macOS claims.
+
+Int16 typed-only entry migration: replaced every remaining opuscc
+Opus_opus_decode call with Opus_opus_decode_typed and actual decoder/packet/PCM
+pointers. Removed unused integer-address wrapper and its uintptrescapes directive;
+no replacement raw adapter or pointer-to-integer conversion. External users must
+use typed entry. Production opus/decoder.go already did so and is unchanged.
+Nil/zero-frame/FEC validation-order, mono/stereo decode/PLC guards and original
+Go-scratch cursor checks retain same physical fixtures and expected results.
+Mixed int16/int24 scratch test changes ONLY int16 call; raw int24 ABI and its
+existing ordinary coverage remain untouched. No codec, reference, allocation,
+rounding, assertion, tolerance or input-size change. Full inherited validation,
+scoped int16/integer-pointer/native-C-reference amd64/386 and tagged ARM
+ordinary/checkptr repeats20 pass. Ordinary includes mixed legacy scratch case;
+no previously unsafe raw int24/TLS-pointer case is relabeled checkptr-safe.
+No failures. Logs /tmp/opus-int16-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts: opuscc uintptr79->77, unsafe.Pointer85->82. Encoder's separate raw entry
+is unchanged; no global/native GC/opaque-image/lifetime/performance claims.
+
 Public native decode pointer migration: Opus_opus_decode_native has NO uintptr
 parameters/address reconstruction. Decoder is *OpusT_OpusDecoder, packet *byte,
 PCM *float32, offset output *int32; removed obsolete uintptrescapes directive.

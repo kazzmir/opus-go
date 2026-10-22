@@ -27,7 +27,7 @@ func TestExtensionLacingCursorPointers(t *testing.T) {
 		cursor, header := &packet[1], int32(777)
 		entropyInitGrowStack(12)
 		runtime.GC()
-		left := skip_extension_payload(nil, &cursor, length, &header, 129, 0)
+		left := skip_extension_payload(&cursor, length, &header, 129, 0)
 		if length < 257 {
 			if left != -1 || cursor != &packet[1] || header != 777 {
 				t.Fatal("lacing failure outputs/order", length)
@@ -47,7 +47,7 @@ func TestExtensionHeaderCursorPointers(t *testing.T) {
 		cursor, header := &packet[1], int32(777)
 		entropyInitGrowStack(12)
 		runtime.GC()
-		left := skip_extension(nil, &cursor, length, &header)
+		left := skip_extension(&cursor, length, &header)
 		switch {
 		case length < 0 || length == 1:
 			if left != -1 || cursor != &packet[1] || header != 777 {
@@ -65,7 +65,7 @@ func TestExtensionHeaderCursorPointers(t *testing.T) {
 	}
 	var empty *byte
 	header := int32(777)
-	if skip_extension(nil, &empty, 0, &header) != 0 || empty != nil || header != 0 {
+	if skip_extension(&empty, 0, &header) != 0 || empty != nil || header != 0 {
 		t.Fatal("nil empty header")
 	}
 	if packet != [5]byte{77, 7, 99, 101, 88} {
@@ -301,8 +301,8 @@ func TestExtensionFindPointers(t *testing.T) {
 		if Opus_opus_extension_iterator_find(nil, &st, &ext, 128) != 0 || ext != before {
 			t.Fatal("not found modified output")
 		}
-		Opus_opus_extension_iterator_reset(nil, &st)
-		Opus_opus_extension_iterator_set_frame_max(nil, &st, 0)
+		Opus_opus_extension_iterator_reset(&st)
+		Opus_opus_extension_iterator_set_frame_max(&st, 0)
 		if Opus_opus_extension_iterator_find(nil, &st, nil, 3) != 0 {
 			t.Fatal("frame limit")
 		}
@@ -536,22 +536,22 @@ func TestWritePayloadPointers(t *testing.T) {
 func TestSkipExtensionPointers(t *testing.T) {
 	p := (*byte)(nil)
 	h := int32(77)
-	if skip_extension(nil, &p, 0, &h) != 0 || h != 0 || p != nil {
+	if skip_extension(&p, 0, &h) != 0 || h != 0 || p != nil {
 		t.Fatal("empty")
 	}
 	h = 77
-	if skip_extension(nil, &p, -1, &h) != -1 || h != 77 {
+	if skip_extension(&p, -1, &h) != -1 || h != 77 {
 		t.Fatal("negative")
 	}
 	data := [6]byte{65, 2, 11, 12, 3, 99}
 	p = &data[0]
 	h = 77
-	if r := skip_extension(nil, &p, 6, &h); r != 2 || h != 2 || p != &data[4] {
+	if r := skip_extension(&p, 6, &h); r != 2 || h != 2 || p != &data[4] {
 		t.Fatal(r, h, p)
 	}
 	p = &data[0]
 	h = 77
-	if r := skip_extension(nil, &p, 1, &h); r != -1 || h != 77 || p != &data[0] {
+	if r := skip_extension(&p, 1, &h); r != -1 || h != 77 || p != &data[0] {
 		t.Fatal("error committed", r, h, p)
 	}
 }
@@ -560,12 +560,12 @@ func TestSkipPayloadPointers(t *testing.T) {
 	data := [8]byte{3, 1, 2, 3, 4, 5, 6, 7}
 	p := &data[0]
 	h := int32(77)
-	if r := skip_extension_payload(nil, &p, 8, &h, 65, 0); r != 4 || p != &data[4] || h != 1 {
+	if r := skip_extension_payload(&p, 8, &h, 65, 0); r != 4 || p != &data[4] || h != 1 {
 		t.Fatal(r, p, h)
 	}
 	before := p
 	h = 77
-	if r := skip_extension_payload(nil, &p, 1, &h, 65, 0); r != -1 || p != before || h != 77 {
+	if r := skip_extension_payload(&p, 1, &h, 65, 0); r != -1 || p != before || h != 77 {
 		t.Fatal("error committed output")
 	}
 	var owner *byte
@@ -575,7 +575,7 @@ func TestSkipPayloadPointers(t *testing.T) {
 		b[2] = 99
 		p := &b[0]
 		h := int32(0)
-		skip_extension_payload(nil, &p, 8, &h, 65, 0)
+		skip_extension_payload(&p, 8, &h, 65, 0)
 		owner = p
 	}()
 	entropyInitGrowStack(12)
