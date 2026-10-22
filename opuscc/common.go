@@ -4234,9 +4234,8 @@ func Opus_opus_projection_decoder_create_typed(_ *libc.TLS, Fs OpusT_opus_int32,
 	return projectionGoCreate(Fs, channels, streams, coupled, matrix, matrixBytes)
 }
 
-//go:uintptrescapes
-func Opus_opus_projection_decode(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
-	return opusProjectionDecodeShort(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*int16)(unsafe.Pointer(pcm)), frame, fec)
+func Opus_opus_projection_decode(tls *libc.TLS, st OpusProjectionDecoderState, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
+	return opusProjectionDecodeShort(tls, st, data, length, pcm, frame, fec)
 }
 
 func opusProjectionShortCopy(matrix *OpusT_MappingMatrix, pcm *int16) opusMSBoundChannelCopy {

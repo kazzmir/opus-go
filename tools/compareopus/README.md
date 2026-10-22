@@ -534,6 +534,18 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Projection int16 public entry pointers: Opus_opus_projection_decode now takes
+OpusProjectionDecoderState, *byte packet and *int16 PCM, forwarding directly to
+the existing typed kernel. No uintptr arguments, reconstruction casts or
+uintptrescapes directive. Real SILK-packet/PLC projection comparison now exercises
+this public entry for normal Go state against existing legacy typed decode,
+with unchanged exact int16 samples/guards/status/range checks. Float/int24 paths
+untouched. Full inherited validation, scoped amd64/386 checkptr and tagged ARM
+ordinary/checkptr repeats20 pass with no failures/oracle/tolerance changes.
+Logs /tmp/opus-projection-int16-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts45 uintptr/80 unsafe.Pointer (was47/83). No global lifetime/native GC/
+performance claim; legacy flat images still have their existing limitations.
+
 Projection typed-only destruction: removed unused-public-ABI wrapper
 Opus_opus_projection_decoder_destroy and migrated BOTH remaining test callers to
 Opus_opus_projection_decoder_destroy_typed. Registry-only weak-root GC checks still
