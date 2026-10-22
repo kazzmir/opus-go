@@ -27,7 +27,7 @@ func TestDecoderAllocationPointers(t *testing.T) {
 	st := (*OpusT_OpusDecoder)(p)
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if Opus_opus_decoder_init(nil, st, 48000, 2) != 0 || st.Fchannels != 2 || st.FFs != 48000 {
+	if Opus_opus_decoder_init_abi(nil, st, 48000, 2) != 0 || st.Fchannels != 2 || st.FFs != 48000 {
 		t.Fatal("typed allocated initialization")
 	}
 	libc.XfreePointer(tls, p)
@@ -616,7 +616,7 @@ func TestOpusDecoderCodecViewsStoragePointers(t *testing.T) {
 		if owned.Silk != (*OpusT_silk_decoder)(unsafe.Add(unsafe.Pointer(owned.Decoder), sf.Offset)) || owned.Celt != (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(owned.Decoder), cf.Offset)) {
 			t.Fatal("canonical codec view identities", channels)
 		}
-		if ret := Opus_opus_decoder_init(nil, owned.Decoder, 48000, channels); ret != 0 {
+		if ret := Opus_opus_decoder_init(nil, &owned, 48000, channels); ret != 0 {
 			t.Fatal(ret)
 		}
 		mode, books, coefs := decoderStorageForeignPointers(owned.Decoder)
@@ -638,7 +638,7 @@ func TestOpusDecoderCodecBoundStoragePointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		for _, rate := range []int32{48000, 24000, 16000, 12000, 8000, 44100} {
 			owned, legacy := opusDecoderOwnedStorage(channels), opusDecoderLegacyOwnedStorage(channels)
-			if Opus_opus_decoder_init(nil, owned.Decoder, 48000, channels) != 0 || Opus_opus_decoder_init(nil, legacy.Decoder, 48000, channels) != 0 {
+			if Opus_opus_decoder_init(nil, &owned, 48000, channels) != 0 || Opus_opus_decoder_init_abi(nil, legacy.Decoder, 48000, channels) != 0 {
 				t.Fatal("initial codec image")
 			}
 			decoderStorageForeignPointers(legacy.Decoder)
@@ -646,7 +646,7 @@ func TestOpusDecoderCodecBoundStoragePointers(t *testing.T) {
 			owned.Decoder.Fdecode_gain, legacy.Decoder.Fdecode_gain = 321, 321
 			n := Opus_opus_decoder_get_size(nil, channels)
 			before := slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(owned.Decoder)), n))
-			want := Opus_opus_decoder_init(nil, legacy.Decoder, rate, channels)
+			want := Opus_opus_decoder_init_abi(nil, legacy.Decoder, rate, channels)
 			entropyInitGrowStack(12)
 			runtime.GC()
 			got := opusDecoderInitWithStorage(nil, owned.Decoder, rate, channels, &owned)
@@ -672,7 +672,7 @@ func TestOpusDecoderTypedClearStoragePointers(t *testing.T) {
 		image := holder.FieldByName("Image")
 		owned := opusDecoderStorageViewsAt(image)
 		owned.Clear = opusDecoderStorageClearAt(image)
-		if Opus_opus_decoder_init(nil, owned.Decoder, 48000, channels) != 0 {
+		if Opus_opus_decoder_init(nil, &owned, 48000, channels) != 0 {
 			t.Fatal("clear initial state")
 		}
 		decoderStorageForeignPointers(owned.Decoder)
@@ -1168,11 +1168,12 @@ func TestOpusDecoderStoragePointers(t *testing.T) {
 		if sf.Type != reflect.TypeFor[OpusT_silk_decoder]() || cf.Type != reflect.TypeFor[OpusT_OpusCustomDecoder]() || tail.Type.Elem() != reflect.TypeFor[float32]() {
 			t.Fatal("noncanonical decoder storage")
 		}
-		st := opusDecoderStorage(channels)
+		owned := opusDecoderOwnedStorage(channels)
+		st := owned.Decoder
 		if uintptr(unsafe.Pointer(st))&15 != 0 {
 			t.Fatal("decoder allocation alignment")
 		}
-		if ret := Opus_opus_decoder_init(nil, st, 48000, channels); ret != 0 {
+		if ret := Opus_opus_decoder_init(nil, &owned, 48000, channels); ret != 0 {
 			t.Fatal(ret)
 		}
 		if uint64(st.Fsilk_dec_offset) != uint64(sf.Offset) || uint64(st.Fcelt_dec_offset) != uint64(cf.Offset) {
@@ -1191,7 +1192,7 @@ func TestOpusDecoderStoragePointers(t *testing.T) {
 				}
 			}
 		}
-		if ret := Opus_opus_decoder_init(nil, st, 24000, channels); ret != 0 {
+		if ret := Opus_opus_decoder_init(nil, &owned, 24000, channels); ret != 0 {
 			t.Fatal("typed owner re-init", ret)
 		}
 		runtime.KeepAlive(st)
@@ -1211,7 +1212,7 @@ func TestOpusDecoderInitPointers(t *testing.T) {
 			}
 			entropyInitGrowStack(12)
 			runtime.GC()
-			if Opus_opus_decoder_init(nil, st, rate, ch) != 0 {
+			if Opus_opus_decoder_init_abi(nil, st, rate, ch) != 0 {
 				t.Fatal("init")
 			}
 			celt := (*OpusT_OpusCustomDecoder)(unsafe.Add(unsafe.Pointer(st), st.Fcelt_dec_offset))
@@ -1221,7 +1222,7 @@ func TestOpusDecoderInitPointers(t *testing.T) {
 			st.Fframe_size = 77
 			celt.Frng = 88
 			runtime.GC()
-			if Opus_opus_decoder_init(nil, st, rate, ch) != 0 || celt.Frng != 0 || st.Fframe_size != rate/400 {
+			if Opus_opus_decoder_init_abi(nil, st, rate, ch) != 0 || celt.Frng != 0 || st.Fframe_size != rate/400 {
 				t.Fatal("reinit")
 			}
 			if backing[0] != 0x123456789abcdef0 {
@@ -1233,7 +1234,7 @@ func TestOpusDecoderInitPointers(t *testing.T) {
 				}
 			}
 			before := slices.Clone(image)
-			if Opus_opus_decoder_init(nil, st, 44100, ch) != OPUS_BAD_ARG || !slices.Equal(before, image) {
+			if Opus_opus_decoder_init_abi(nil, st, 44100, ch) != OPUS_BAD_ARG || !slices.Equal(before, image) {
 				t.Fatal("invalid rate changed state")
 			}
 		}

@@ -2156,7 +2156,17 @@ func Opus_opus_decoder_get_size(tls *libc.TLS, channels int32) int32 {
 	return opusAlignSize8(100) + silkSize + celtSize
 }
 
-func Opus_opus_decoder_init(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32) int32 {
+// Initialize actual typed fields; never recover an owner from its header.
+func Opus_opus_decoder_init(tls *libc.TLS, storage *OpusDecoderStorage, Fs OpusT_opus_int32, channels int32) int32 {
+	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 || storage == nil {
+		return OPUS_BAD_ARG
+	}
+	return opusDecoderInitWithStorage(tls, storage.Decoder, Fs, channels, storage)
+}
+
+// Opus_opus_decoder_init_abi is only for caller-supplied complete ABI buffers.
+// It does not discover Go owners or install a GC map on opaque caller bytes.
+func Opus_opus_decoder_init_abi(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_opus_int32, channels int32) int32 {
 	if Fs != 48000 && Fs != 24000 && Fs != 16000 && Fs != 12000 && Fs != 8000 || channels != 1 && channels != 2 {
 		return OPUS_BAD_ARG
 	}
@@ -2181,7 +2191,7 @@ func opusDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusDecoder, Fs OpusT_o
 		return OPUS_BAD_ARG
 	}
 	if owned == nil {
-		return Opus_opus_decoder_init(tls, st, Fs, channels)
+		return Opus_opus_decoder_init_abi(tls, st, Fs, channels)
 	}
 	var silkSize int32
 	ret := Opus_silk_Get_Decoder_Size(tls, &silkSize)
@@ -2231,7 +2241,7 @@ func Opus_opus_decoder_create_typed(_ *libc.TLS, Fs OpusT_opus_int32, channels i
 		return nil, opusErrorFromCode(-1)
 	}
 	owned := opusDecoderOwnedStorage(channels)
-	if ret := opusDecoderInitWithStorage(nil, owned.Decoder, Fs, channels, &owned); ret != OPUS_OK {
+	if ret := Opus_opus_decoder_init(nil, &owned, Fs, channels); ret != OPUS_OK {
 		return nil, opusErrorFromCode(ret)
 	}
 	return owned.Decoder, nil
@@ -3466,7 +3476,13 @@ func opusMSDecoderInitWithCodecs(tls *libc.TLS, st *OpusT_OpusMSDecoder, Fs Opus
 		} else {
 			child = (*OpusT_OpusDecoder)(unsafe.Add(unsafe.Pointer(st), offset))
 		}
-		if ret := opusDecoderInitWithStorage(tls, child, Fs, ch, owned); ret != OPUS_OK {
+		var ret int32
+		if owned != nil {
+			ret = Opus_opus_decoder_init(tls, owned, Fs, ch)
+		} else {
+			ret = Opus_opus_decoder_init_abi(tls, child, Fs, ch)
+		}
+		if ret != OPUS_OK {
 			return ret
 		}
 		// Do not materialize an unused end pointer on an exactly-sized allocation.

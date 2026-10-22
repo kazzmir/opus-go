@@ -23,6 +23,18 @@ type msCoupledTestChild struct {
 	Tail           [msCoupledTailWords]float32
 	Padding        [(8 - (unsafe.Sizeof(OpusT_OpusCustomDecoder{})+msCoupledTailWords*4)%8) % 8]byte
 }
+
+func (child *msCoupledTestChild) initViews() OpusDecoderStorage {
+	return OpusDecoderStorage{Decoder: &child.Decoder, Silk: &child.Silk, Celt: &child.Celt, Clear: func() {
+		child.Decoder = OpusT_OpusDecoder{}
+		clear(child.DecoderPadding[:])
+		child.Silk = OpusT_silk_decoder{}
+		clear(child.SilkPadding[:])
+		child.Celt = OpusT_OpusCustomDecoder{}
+		clear(child.Tail[:])
+	}}
+}
+
 type msTwoStreamTestOwner struct {
 	MS       OpusT_OpusMSDecoder
 	Padding  [(8 - unsafe.Sizeof(OpusT_OpusMSDecoder{})%8) % 8]byte
@@ -41,7 +53,8 @@ func newTwoStreamMSOwner(t *testing.T) *msTwoStreamTestOwner {
 	owner.MS.Flayout.Fnb_coupled_streams = 2
 	copy(owner.MS.Flayout.Fmapping[:], []byte{2, 0, 1, 2, 3, 255})
 	for i := range owner.Children {
-		if Opus_opus_decoder_init(nil, &owner.Children[i].Decoder, 48000, 2) != 0 {
+		views := owner.Children[i].initViews()
+		if Opus_opus_decoder_init(nil, &views, 48000, 2) != 0 {
 			t.Fatal("MS wrapper init")
 		}
 	}
@@ -186,7 +199,8 @@ func TestMultistreamWholePointers(t *testing.T) {
 		owner.MS.Flayout.Fnb_coupled_streams = 2
 		copy(owner.MS.Flayout.Fmapping[:], []byte{2, 0, 1, 2, 3, 255})
 		for i := range owner.Children {
-			if Opus_opus_decoder_init(nil, &owner.Children[i].Decoder, 48000, 2) != 0 {
+			views := owner.Children[i].initViews()
+			if Opus_opus_decoder_init(nil, &views, 48000, 2) != 0 {
 				t.Fatal("scanned child init")
 			}
 		}

@@ -196,12 +196,18 @@ func opusDREDDecoderStorage() *OpusT_OpusDREDDecoder {
 	panic("opus Go DRED alignment")
 }
 
-type opusDecoderStorageViews struct {
+// OpusDecoderStorage describes actual fields of complete canonical decoder
+// storage, not a bare header or independently allocated codec states. Field
+// pointers retain their Go backing owner. Clear must preserve bytes beyond the
+// requested channel layout's ABI extent.
+type OpusDecoderStorage struct {
 	Decoder *OpusT_OpusDecoder
 	Silk    *OpusT_silk_decoder
 	Celt    *OpusT_OpusCustomDecoder
 	Clear   func()
 }
+
+type opusDecoderStorageViews = OpusDecoderStorage
 
 func opusDecoderStorageViewsAt(owner reflect.Value) opusDecoderStorageViews {
 	return opusDecoderStorageViews{

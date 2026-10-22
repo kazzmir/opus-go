@@ -497,7 +497,7 @@ func TestOpusDecoderInitAgainstC(t *testing.T) {
 				}
 				clear(g[offset : offset+int(unsafe.Sizeof(uintptr(0)))])
 				c := slices.Clone(g)
-				code := opuscc.Opus_opus_decoder_init(nil, st, rate, channels)
+				code := opuscc.Opus_opus_decoder_init_abi(nil, st, rate, channels)
 				native := nativeOpusInitImage(c, rate, channels)
 				normalized := slices.Clone(g)
 				if code == 0 {
@@ -1014,7 +1014,7 @@ func TestOpusCtlAgainstC(t *testing.T) {
 						size := int(opuscc.Opus_opus_decoder_get_size(nil, ch))
 						g := make([]byte, size+16)
 						st := (*opuscc.OpusT_OpusDecoder)(unsafe.Pointer(&g[0]))
-						opuscc.Opus_opus_decoder_init(nil, st, 48000, ch)
+						opuscc.Opus_opus_decoder_init_abi(nil, st, 48000, ch)
 						st.Fprev_mode = prev
 						st.Fdecode_gain = -99
 						st.FDecControl.FprevPitchLag = 55

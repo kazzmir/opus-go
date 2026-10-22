@@ -16,10 +16,23 @@ type opusFrameOwnerTestStorage struct {
 	Celt           celtStateTestStorage
 }
 
+func (storage *opusFrameOwnerTestStorage) initViews(channels int32) OpusDecoderStorage {
+	return OpusDecoderStorage{Decoder: &storage.Decoder, Silk: &storage.Silk, Celt: &storage.Celt.State, Clear: func() {
+		storage.Decoder = OpusT_OpusDecoder{}
+		clear(storage.DecoderPadding[:])
+		storage.Silk = OpusT_silk_decoder{}
+		clear(storage.SilkPadding[:])
+		storage.Celt.State = OpusT_OpusCustomDecoder{}
+		words := (int(Opus_celt_decoder_get_size(nil, channels)) - int(unsafe.Sizeof(storage.Celt.State))) / 4
+		clear(storage.Celt.Tail[:words])
+	}}
+}
+
 func newOpusFrameOwnerDecoder(t *testing.T, C int32) *opusFrameOwnerTestStorage {
 	t.Helper()
 	storage := new(opusFrameOwnerTestStorage)
-	if Opus_opus_decoder_init(nil, &storage.Decoder, 48000, C) != 0 {
+	views := storage.initViews(C)
+	if Opus_opus_decoder_init(nil, &views, 48000, C) != 0 {
 		t.Fatal("frame init")
 	}
 	if storage.Decoder.Fsilk_dec_offset != int32(unsafe.Offsetof(storage.Silk)) || storage.Decoder.Fcelt_dec_offset != int32(unsafe.Offsetof(storage.Celt)) {
@@ -542,7 +555,7 @@ func TestOpusDecodeFrameFieldAccesses(t *testing.T) {
 	setupResamplerPseudostack(tls)
 
 	memory := libc.Xmalloc(tls, uint64(Opus_opus_decoder_get_size(tls, 1)))
-	if got := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), 24000, 1); got != OPUS_OK {
+	if got := Opus_opus_decoder_init_abi(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), 24000, 1); got != OPUS_OK {
 		t.Fatalf("decoder initialization: got %d", got)
 	}
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(memory))

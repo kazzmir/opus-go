@@ -534,6 +534,42 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Public decoder init actual storage API: Opus_opus_decoder_init now accepts
+*OpusDecoderStorage, an exported concrete descriptor with actual canonical
+Decoder/Silk/Celt field pointers and Clear. NO unsafe.Pointer cast, prefix/owner
+reconstruction, address arithmetic or opaque pointer parameter in this function.
+Private view name aliases this real structure, not an integer/root-table handle.
+Descriptor fields must belong to complete canonical backing storage, not arbitrary
+independently allocated states. Nil descriptor returns bad argument. Rate/channel
+validation remains before state/Clear consumption; all valid initialized bytes,
+codec errors, typed pointer-store and initialization ordering unchanged.
+
+Normal Go factory and owned MS child initialization now call this public typed
+API. All normal Go-owned init/reinit fixtures provide actual views: existing
+ordinary/static/reflect-field descriptors plus direct FrameOwner/CoupledChild Go
+field references and typed prefix/tail clears. Oversized test tail storage retains
+its exact original active ABI extent and untouched suffix; no allocation/size/
+canary change. New public API tests verify no Clear/state change on invalid
+configuration, nil storage and exactly one Clear on reinit. Existing pointer-
+clear-order and both-channel/all-rate image/no-write/guard oracles retained.
+
+Raw caller-supplied ABI initialization is now EXPLICITLY NAMED
+Opus_opus_decoder_init_abi. It retains the unavoidable prefix view/exact byte clear
+and previous ABI/error semantics, not an owner-recovery shortcut in normal init.
+Raw malloc/byte-image/native comparison fixtures use that entry with their SAME
+allocators, extents, fills, alignment, reference data and expected bytes. No
+relocated cast masquerades as a new normal owner; this is a real signature/
+caller-contract migration. Raw/undersized/corrupt images gain no GC maps/lifetime
+safety. Missing-descriptor compatibility of private init still explicitly calls
+ABI initialization, not a pointer-erasure alternative to the normal factory.
+
+Full inherited validation passes, explicit native factory/init comparisons pass,
+scoped amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20 pass. No
+failures/golden/tolerance changes. Logs /tmp/opus-decoder-init-storage-api-{focused,focused-final,full,native-focused,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts unchanged11 uintptr/51 unsafe.Pointer: actual typed API/consumer migration,
+not token reduction or global lifetime/native GC/performance/macOS claim. Previous
+bare-header public-init signature below is historical; ABI entry now owns that role.
+
 Decoder initialization typed views: opusDecoderInitWithStorage now has NO
 unsafe.Pointer/unsafe.Add usage; it takes actual provided SILK/CELT pointers,
 clears mode then SILK pointers, invokes typed Clear and runs unchanged scalar/

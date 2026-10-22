@@ -48,8 +48,9 @@ func TestOpusIntegerRatesPointers(t *testing.T) {
 	for _, rate := range []int32{8000, 12000, 16000, 24000, 48000} {
 		for _, C := range []int32{1, 2} {
 			left, right := newOpusFrameOwnerDecoder(t, C), newOpusFrameOwnerDecoder(t, C)
-			Opus_opus_decoder_init(nil, &left.Decoder, rate, C)
-			Opus_opus_decoder_init(nil, &right.Decoder, rate, C)
+			leftViews, rightViews := left.initViews(C), right.initViews(C)
+			Opus_opus_decoder_init(nil, &leftViews, rate, C)
+			Opus_opus_decoder_init(nil, &rightViews, rate, C)
 			N := rate * 60 / 1000
 			a, b := make([]int16, N*C+2), make([]int32, N*C+2)
 			a[0], a[len(a)-1], b[0], b[len(b)-1] = 77, 88, 77, 88
@@ -581,7 +582,7 @@ func TestOpusDecodeNativeLossFrame(t *testing.T) {
 	setupResamplerPseudostack(tls)
 
 	memory := libc.Xmalloc(tls, uint64(Opus_opus_decoder_get_size(tls, 1)))
-	if got := Opus_opus_decoder_init(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), 24000, 1); got != OPUS_OK {
+	if got := Opus_opus_decoder_init_abi(tls, (*OpusT_OpusDecoder)(unsafe.Pointer(memory)), 24000, 1); got != OPUS_OK {
 		t.Fatalf("decoder initialization: got %d", got)
 	}
 	decoder := (*OpusT_OpusDecoder)(unsafe.Pointer(memory))

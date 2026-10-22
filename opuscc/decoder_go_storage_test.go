@@ -90,6 +90,27 @@ func TestDecoderInitTypedViewClearOrderPointers(t *testing.T) {
 	}
 }
 
+func TestDecoderInitStorageAPIValidationPointers(t *testing.T) {
+	owned := opusDecoderOwnedStorage(2)
+	if Opus_opus_decoder_init(nil, &owned, 48000, 2) != OPUS_OK {
+		t.Fatal("typed init")
+	}
+	before := *owned.Decoder
+	clearBody, calls := owned.Clear, 0
+	owned.Clear = func() { calls++; clearBody() }
+	for _, args := range [][2]int32{{44100, 2}, {48000, 0}, {48000, 3}} {
+		if Opus_opus_decoder_init(nil, &owned, args[0], args[1]) != OPUS_BAD_ARG || calls != 0 || *owned.Decoder != before {
+			t.Fatal("typed validation before state/clear", args)
+		}
+	}
+	if Opus_opus_decoder_init(nil, nil, 48000, 2) != OPUS_BAD_ARG {
+		t.Fatal("missing typed storage")
+	}
+	if Opus_opus_decoder_init(nil, &owned, 24000, 2) != OPUS_OK || calls != 1 || owned.Decoder.FFs != 24000 {
+		t.Fatal("typed reinit")
+	}
+}
+
 func TestDecoderStaticGoOwnershipPointers(t *testing.T) {
 	for _, channels := range []int32{1, 2} {
 		st, mode, books, coefs := singleStaticGoOwner(t, channels)
