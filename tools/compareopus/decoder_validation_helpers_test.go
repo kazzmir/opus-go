@@ -454,17 +454,22 @@ func TestProjectionDecoderCreateAgainstC(t *testing.T) {
 					code := factoryErrorCode(err)
 					var image []byte
 					if st != nil {
-						image = slices.Clone(unsafe.Slice((*byte)(unsafe.Pointer(st)), int(opuscc.Opus_opus_projection_decoder_get_size(nil, channels, streams, coupled))))
-						msOffset := int((unsafe.Sizeof(*st)+7)&^uintptr(7)) + int(st.Fdemixing_matrix_size_in_bytes)
+						image = opuscc.CompareProjectionGoImage(st)
+						msOffset := 8 + int(st.Fdemixing_matrix_size_in_bytes)
 						normalizeMSModes(image[msOffset:], streams, coupled)
 					}
 					native := make([]byte, len(image))
-					want := nativeProjectionCreateImage(native, rate, channels, streams, coupled, matrix, count*2+delta, fail)
+					want := nativeProjectionCreateImage(native, rate, channels, streams, coupled, matrix, count*2+delta, false)
+					if fail {
+						wantFailure := int32(-7)
+						if got := nativeProjectionCreateImage(nil, rate, channels, streams, coupled, matrix, count*2+delta, true); got != wantFailure {
+							t.Fatal(shape, rate, delta, got, wantFailure, "native allocation failure order")
+						}
+					}
 					if code != want || !slices.Equal(image, native) {
 						t.Fatal(shape, rate, fail, delta, code, want, "factory image")
 					}
 					if tls != nil {
-						libc.XfreePointer(tls, unsafe.Pointer(st))
 						tls.Close()
 					}
 				}

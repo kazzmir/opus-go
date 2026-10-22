@@ -121,7 +121,8 @@ type opusProjectionStorageViews struct {
 	MultistreamOffset uint // actual reflection-field displacement
 }
 
-func opusProjectionDecoderOwnedStorage(channels, streams, coupled int32) opusProjectionStorageViews {
+// Explicit flat ABI/image storage; normal projection creation uses Go fields.
+func opusProjectionDecoderLegacyOwnedStorage(channels, streams, coupled int32) opusProjectionStorageViews {
 	owner := opusDecoderAlignedStorage(opusProjectionDecoderStorageType(channels, streams, coupled))
 	matrix := owner.FieldByName("Demixing")
 	msField, _ := owner.Type().FieldByName("Multistream")
@@ -138,7 +139,7 @@ func opusProjectionDecoderOwnedStorage(channels, streams, coupled int32) opusPro
 }
 
 func opusProjectionDecoderStorage(channels, streams, coupled int32) *OpusT_OpusProjectionDecoder {
-	return opusProjectionDecoderOwnedStorage(channels, streams, coupled).Decoder
+	return opusProjectionDecoderLegacyOwnedStorage(channels, streams, coupled).Decoder
 }
 
 type opusMSStorageViews struct {

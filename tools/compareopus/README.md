@@ -534,6 +534,59 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Projection normal Go ownership: create_typed now returns *OpusProjectionDecoder,
+an ordinary object with a private scalar header, declared matrix header/padding/
+int16 coefficient array and *OpusMSDecoder. No reflection, RegisterGoAllocation,
+codec/matrix alias binding, replacement registry, Xmalloc or integer owner in
+normal creation. Matrix storage reserves the SPEC-BOUNDED 65008 rounded coefficient
+bytes (65004-byte limit), not an opaque byte image or dynamic reflect layout.
+This intentionally reserves the maximum coefficient capacity even for small
+matrices; no performance/memory-improvement claim. Existing matrix kernels use
+the verified actual +16 coefficient field. All arithmetic/rounding/callback store
+order is unchanged. Initial coefficient snapshot/sign conversion, size-before-
+init checks, signed calculations, identity mapping and normal error codes remain.
+
+TLS parameter is retained/ignored for compatibility; valid nil TLS now succeeds.
+Size0 still returns -7 BEFORE matrix-byte validation. Removed obsolete nil-TLS
+simulated allocation failure; Go allocation has ordinary Go OOM behavior. Normal
+destruction is a no-op. Typed decode/CTL/destroy accept explicit
+OpusProjectionDecoderState implemented by real Go owners and flat ABI states.
+Legacy raw decode/init/CTL/address fallback and explicit registered cleanup remain
+separate. Unused raw uintptr projection factory removed: a normal Go object must
+not be exported as an unrooted integer pretending to be a flat decoder.
+
+MS child objects retain their Go MS owner, whose real typed projection backlink
+retains matrix/coefficients and the complete parent/sibling graph. Unreachable
+cycles collect. Header/matrix/child pointers never require a side table. Normal
+objects are NOT contiguous projection images; mutated legacy-size addressing is
+supported only by the explicit flat ABI representation. Reflection remains in
+renamed opusProjectionDecoderLegacyOwnedStorage and legacy/image paths; registry/
+binding/changed-offset fixtures use explicit legacyRegisteredProjectionTestDecoder
+with original retention/alias/cleanup checks, not hidden normal registration.
+
+Native factory comparison serializes actual logical header/matrix/MS components;
+all original shapes/rates/deltas/TLS inputs, exact bytes/normalization and every
+native malloc-failure case remain. Native fail cases run separately (always -7
+before init), not fabricated Go allocation-failure coverage. New tests check
+no registration, collection without destroy with TLS alive, nil-TLS creation,
+coefficient-field identity, child-retains-parent/matrix after GC/stack growth,
+and real SILK packet then PLC through float/int16/int24 normal-vs-flat paths,
+full output/float bits/guards/status/final-range equality. No golden/tolerance change.
+
+Initial broader scoped checkptr exposed ORIGINAL TestProjectionDecoderInitCReference
+raw Xmemset integer reconstruction, not new allocation logic. Retained failure
+/tmp/opus-projection-static-go-checkptr-focused.log. Migrated that fixture to SAME
+XmallocPointer allocations/extents/alignment/fill and pointer clear/free plumbing;
+all header/hash/layout/return oracles and reference sizes unchanged. Full unchanged
+scope then passed; no scope exclusion or production/native GC repair claim.
+Full inherited amd64/386/ARM64-QEMU/native/GC-stress/codec validation passes; scoped
+amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20 pass. Logs
+/tmp/opus-projection-static-go-{focused,native-focused,checkptr-focused-retry,checkptr-focused-final,full,full-final,amd64-checkptr-final,386-checkptr,386-checkptr-final,arm-checkptr-repeat,arm-checkptr-repeat-final,arm-repeat,arm-repeat-final}.log.
+Counts48 uintptr/83 unsafe.Pointer (was51/83), largely unused raw factory removal;
+actual ownership migration is separate from tokens. No global lifetime,
+opaque-image/native GC repair, performance or direct macOS claim. Earlier projection
+factory/registration descriptions are historical and superseded for normal creation.
+
 Single-decoder registry removal (supersedes the TLS/registration contract below):
 Opus_opus_decoder_create_typed returns its actual scanned Go header directly,
 without RegisterGoAllocation, codec binding or another registry/side table.

@@ -156,14 +156,14 @@ func TestMSDecoderCreatePointers(t *testing.T) {
 func TestProjectionDecoderDestroyPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	release := func() weak.Pointer[OpusT_OpusProjectionDecoder] {
+	release := func() weak.Pointer[OpusProjectionDecoder] {
 		matrix := [18]byte{}
 		st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], 18)
 		if err != nil {
 			t.Fatal(err)
 		}
 		w := weak.Make(st)
-		if unsafe.Pointer(get_dec_demixing_matrix(nil, st)) == unsafe.Pointer(st) || unsafe.Pointer(get_multistream_decoder(nil, st)) == unsafe.Pointer(st) {
+		if unsafe.Pointer(st.projectionMatrix(nil)) == unsafe.Pointer(st) || unsafe.Pointer(st.multistream) == unsafe.Pointer(st) {
 			t.Fatal("expected interiors")
 		}
 		entropyInitGrowStack(12)
@@ -195,9 +195,9 @@ func TestProjectionDecoderCreatePointers(t *testing.T) {
 			t.Fatal(st, err)
 		}
 		runtime.GC()
-		m := get_dec_demixing_matrix(nil, st)
+		m := st.projectionMatrix(nil)
 		data := unsafe.Slice(Opus_mapping_matrix_get_data(nil, m), 9)
-		if m.Frows != 3 || m.Fcols != 3 || data[1] != 32767 || data[2] != -32768 || get_multistream_decoder(nil, st).Flayout.Fmapping[2] != 2 {
+		if m.Frows != 3 || m.Fcols != 3 || data[1] != 32767 || data[2] != -32768 || st.multistream.Flayout.Fmapping[2] != 2 {
 			t.Fatal("created matrix/state")
 		}
 		Opus_opus_projection_decoder_destroy_typed(tls, st)
@@ -205,8 +205,12 @@ func TestProjectionDecoderCreatePointers(t *testing.T) {
 	}
 	for _, args := range [][4]int32{{48000, 3, 2, 17}, {44100, 3, 2, 18}, {48000, 256, 1, 0}} {
 		st, err := Opus_opus_projection_decoder_create_typed(nil, args[0], args[1], args[2], 0, nil, args[3])
-		if st != nil || err == nil || err.(*OpusError).Code != -7 {
-			t.Fatal("allocation precedes init arguments", args, st, err)
+		want := int32(-1)
+		if args[1] == 256 {
+			want = -7
+		}
+		if st != nil || err == nil || err.(*OpusError).Code != want {
+			t.Fatal("size precedes init arguments", args, st, err)
 		}
 	}
 	tls := libc.NewTLS()
@@ -337,7 +341,7 @@ func registeredMSDecoderStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_O
 //go:noinline
 func registeredProjectionStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_OpusCustomMode], [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2][2]weak.Pointer[[32]int16]) {
 	matrix := make([]byte, 18)
-	st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], int32(len(matrix)))
+	st, err := legacyRegisteredProjectionTestDecoder(tls, 48000, 3, 2, 1, &matrix[0], int32(len(matrix)))
 	if err != nil {
 		panic(err)
 	}
@@ -383,7 +387,7 @@ func TestOpusDecoderProjectionCodecBoundStoragePointers(t *testing.T) {
 		channels, streams, coupled := geometry[0], geometry[1], geometry[2]
 		for _, rate := range []int32{48000, 24000, 44100} {
 			for _, truncate := range []int32{0, 1} {
-				owned := opusProjectionDecoderOwnedStorage(channels, streams, coupled)
+				owned := opusProjectionDecoderLegacyOwnedStorage(channels, streams, coupled)
 				legacy := opusProjectionDecoderStorage(channels, streams, coupled)
 				matrix := make([]byte, channels*(streams+coupled)*2)
 				for i := range matrix {
@@ -413,7 +417,7 @@ func TestOpusDecoderProjectionCodecBoundStoragePointers(t *testing.T) {
 func TestOpusDecoderProjectionBoundStoragePointers(t *testing.T) {
 	for _, rate := range []int32{48000, 44100} {
 		for _, size := range []int32{18, 17} {
-			owned := opusProjectionDecoderOwnedStorage(3, 2, 1)
+			owned := opusProjectionDecoderLegacyOwnedStorage(3, 2, 1)
 			legacy := opusProjectionDecoderStorage(3, 2, 1)
 			if owned.Matrix != get_dec_demixing_matrix(nil, owned.Decoder) || owned.Coefficients != mappingMatrixData(owned.Matrix) || owned.Multistream.Decoder != (*OpusT_OpusMSDecoder)(unsafe.Add(unsafe.Pointer(owned.Decoder), 48)) {
 				t.Fatal("projection concrete view identity")
@@ -781,7 +785,7 @@ func TestOpusDecoderMSTypedClearStoragePointers(t *testing.T) {
 }
 
 func TestOpusDecoderProjectionTypedClearStoragePointers(t *testing.T) {
-	owned := opusProjectionDecoderOwnedStorage(3, 2, 1)
+	owned := opusProjectionDecoderLegacyOwnedStorage(3, 2, 1)
 	matrix := [18]byte{}
 	for i := range matrix {
 		matrix[i] = byte(i*37 + 19)
@@ -1021,7 +1025,7 @@ func TestOpusDecoderProjectionBoundCodecStoragePointers(t *testing.T) {
 	for method := 0; method < 4; method++ {
 		tls := libc.NewTLS()
 		matrix := [18]byte{}
-		st, err := Opus_opus_projection_decoder_create_typed(tls, 48000, 3, 2, 1, &matrix[0], 18)
+		st, err := legacyRegisteredProjectionTestDecoder(tls, 48000, 3, 2, 1, &matrix[0], 18)
 		if err != nil {
 			t.Fatal(err)
 		}

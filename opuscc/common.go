@@ -1033,8 +1033,9 @@ type OpusMSEncoder = struct {
 // OpusMSDecoder owns ordinary Go child objects, not a flat C allocation.
 type OpusMSDecoder struct {
 	opusMSGoHeader
-	codecs  []opusDecoderStorageViews
-	offsets []uint
+	codecs     []opusDecoderStorageViews
+	offsets    []uint
+	projection *OpusProjectionDecoder // child pointers retain their projection owner
 }
 
 func Opus_opus_pcm_soft_clip_impl(tls *libc.TLS, pcm *float32, N, C int32, declip_mem *float32, arch int32) {
@@ -4107,12 +4108,15 @@ var tapset_icdf5 = [3]uint8{
 	1: uint8(1),
 }
 
-type OpusT_OpusProjectionDecoder = struct {
+type OpusT_OpusProjectionDecoder struct {
 	Fdemixing_matrix_size_in_bytes OpusT_opus_int32
 }
 
-type OpusProjectionDecoder = struct {
-	Fdemixing_matrix_size_in_bytes OpusT_opus_int32
+type OpusProjectionDecoder struct {
+	opusProjectionGoHeader
+	padding     [4]byte
+	matrix      opusGoProjectionMatrix
+	multistream *OpusMSDecoder
 }
 
 func opus_projection_copy_channel_out_float(tls *libc.TLS, dst *float32, dstStride, dstChannel int32, src *OpusT_opus_res, srcStride, frames int32, matrix *OpusT_MappingMatrix) {
@@ -4224,42 +4228,10 @@ func opusProjectionDecoderInitWithStorage(tls *libc.TLS, st *OpusT_OpusProjectio
 	return Opus_opus_multistream_decoder_init(tls, get_multistream_decoder(tls, st), Fs, channels, streams, coupled, &mapping[0])
 }
 
-func Opus_opus_projection_decoder_create_typed(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes OpusT_opus_int32) (*OpusT_OpusProjectionDecoder, error) {
-	// Projection creation checks size/allocation before initialization arguments.
-	size := Opus_opus_projection_decoder_get_size(tls, channels, streams, coupled)
-	if size == 0 {
-		return nil, opusErrorFromCode(-7)
-	}
-	if tls == nil {
-		return nil, opusErrorFromCode(-7)
-	}
-	var st *OpusT_OpusProjectionDecoder
-	var owned *opusProjectionStorageViews
-	if channels >= 1 && channels <= 255 && streams >= 1 && coupled >= 0 && coupled <= streams && streams <= 255-coupled {
-		views := opusProjectionDecoderOwnedStorage(channels, streams, coupled)
-		owned = &views
-		st = libc.RegisterGoAllocation(tls, views.Decoder)
-	} else {
-		// Keep size/allocation-before-validation behavior for malformed layouts.
-		st = (*OpusT_OpusProjectionDecoder)(libc.XmallocPointer(tls, uint64(uint32(size))))
-	}
-	if st == nil {
-		return nil, opusErrorFromCode(-7)
-	}
-	if ret := opusProjectionDecoderInitWithStorage(tls, st, Fs, channels, streams, coupled, matrix, matrixBytes, owned); ret != OPUS_OK {
-		Opus_opus_projection_decoder_destroy_typed(tls, st)
-		return nil, opusErrorFromCode(ret)
-	}
-	if owned != nil {
-		opusBindProjectionCodecViews(tls, *owned)
-	}
-	return st, nil
-}
-
-// Legacy exported creation ABI for the remaining integer-address projection APIs.
-func Opus_opus_projection_decoder_create(tls *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix uintptr, matrixBytes OpusT_opus_int32) (uintptr, error) {
-	st, err := Opus_opus_projection_decoder_create_typed(tls, Fs, channels, streams, coupled, (*byte)(unsafe.Pointer(matrix)), matrixBytes)
-	return uintptr(unsafe.Pointer(st)), err
+// Go creation uses concrete coefficient/decoder owners, without reflection or
+// registration. TLS is retained only for source compatibility.
+func Opus_opus_projection_decoder_create_typed(_ *libc.TLS, Fs OpusT_opus_int32, channels, streams, coupled int32, matrix *byte, matrixBytes OpusT_opus_int32) (*OpusProjectionDecoder, error) {
+	return projectionGoCreate(Fs, channels, streams, coupled, matrix, matrixBytes)
 }
 
 //go:uintptrescapes
@@ -4273,13 +4245,13 @@ func opusProjectionShortCopy(matrix *OpusT_MappingMatrix, pcm *int16) opusMSBoun
 	}
 }
 
-func Opus_opus_projection_decode_typed(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
+func Opus_opus_projection_decode_typed(tls *libc.TLS, decoder OpusProjectionDecoderState, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
 	return opusProjectionDecodeShort(tls, decoder, data, length, pcm, frame, fec)
 }
 
-func opusProjectionDecodeShort(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
-	ms := get_multistream_decoder(tls, decoder)
-	matrix := get_dec_demixing_matrix(tls, decoder)
+func opusProjectionDecodeShort(tls *libc.TLS, decoder OpusProjectionDecoderState, data *byte, length int32, pcm *int16, frame, fec int32) int32 {
+	ms := decoder.projectionMS(tls)
+	matrix := decoder.projectionMatrix(tls)
 	return opusMSDecodeBound(tls, ms, data, length, opusProjectionShortCopy(matrix, pcm), frame, fec, OPTIONAL_CLIP)
 }
 
@@ -4294,13 +4266,13 @@ func opusProjectionInt24Copy(matrix *OpusT_MappingMatrix, pcm *int32) opusMSBoun
 	}
 }
 
-func Opus_opus_projection_decode24_typed(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
+func Opus_opus_projection_decode24_typed(tls *libc.TLS, decoder OpusProjectionDecoderState, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
 	return opusProjectionDecodeInt24(tls, decoder, data, length, pcm, frame, fec)
 }
 
-func opusProjectionDecodeInt24(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
-	ms := get_multistream_decoder(tls, decoder)
-	matrix := get_dec_demixing_matrix(tls, decoder)
+func opusProjectionDecodeInt24(tls *libc.TLS, decoder OpusProjectionDecoderState, data *byte, length int32, pcm *int32, frame, fec int32) int32 {
+	ms := decoder.projectionMS(tls)
+	matrix := decoder.projectionMatrix(tls)
 	return opusMSDecodeBound(tls, ms, data, length, opusProjectionInt24Copy(matrix, pcm), frame, fec, 0)
 }
 
@@ -4315,19 +4287,19 @@ func opusProjectionFloatCopy(matrix *OpusT_MappingMatrix, pcm *float32) opusMSBo
 	}
 }
 
-func Opus_opus_projection_decode_float_typed(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
+func Opus_opus_projection_decode_float_typed(tls *libc.TLS, decoder OpusProjectionDecoderState, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
 	return opusProjectionDecodeFloat(tls, decoder, data, length, pcm, frame, fec)
 }
 
-func opusProjectionDecodeFloat(tls *libc.TLS, decoder *OpusT_OpusProjectionDecoder, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
-	ms := get_multistream_decoder(tls, decoder)
-	matrix := get_dec_demixing_matrix(tls, decoder)
+func opusProjectionDecodeFloat(tls *libc.TLS, decoder OpusProjectionDecoderState, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
+	ms := decoder.projectionMS(tls)
+	matrix := decoder.projectionMatrix(tls)
 	return opusMSDecodeBound(tls, ms, data, length, opusProjectionFloatCopy(matrix, pcm), frame, fec, 0)
 }
 
-func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, request int32, va libc.VaCursor) int32 {
-	ms := get_multistream_decoder(tls, st)
-	return Opus_opus_projection_decoder_ctl_typed(tls, st, request, msCtlLegacyArgs(ms, request, func() libc.VaCursor { return va }))
+func Opus_opus_projection_decoder_ctl(tls *libc.TLS, st OpusProjectionDecoderState, request int32, va libc.VaCursor) int32 {
+	ms := st.projectionMS(tls)
+	return Opus_opus_projection_decoder_ctl_typed(tls, st, request, msCtlLegacyArgs(opusMSHeaderOf(ms), request, func() libc.VaCursor { return va }))
 }
 
 func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {
@@ -4338,10 +4310,11 @@ func Opus_opus_projection_decoder_destroy(tls *libc.TLS, st uintptr) {
 	libc.Xfree(tls, st)
 }
 
-func Opus_opus_projection_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusProjectionDecoder) {
-	// Remove registered child/MS aliases, then unregister only the base owner.
-	opusReleaseProjectionCodecViews(tls, st)
-	libc.XfreePointer(tls, unsafe.Pointer(st))
+func Opus_opus_projection_decoder_destroy_typed(tls *libc.TLS, st OpusProjectionDecoderState) {
+	// Normal Go owners need no destruction; flat legacy owners keep explicit cleanup.
+	if st != nil {
+		st.projectionDestroy(tls)
+	}
 }
 
 var trim_icdf6 = [11]uint8{

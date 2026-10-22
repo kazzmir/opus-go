@@ -16,8 +16,8 @@ type OpusDecoderCtlArgs struct {
 	Decoder **OpusT_OpusDecoder
 }
 
-func Opus_opus_projection_decoder_ctl_typed(tls *libc.TLS, st *OpusT_OpusProjectionDecoder, request int32, a OpusDecoderCtlArgs) int32 {
-	return Opus_opus_multistream_decoder_ctl_typed(tls, get_multistream_decoder(tls, st), request, a)
+func Opus_opus_projection_decoder_ctl_typed(tls *libc.TLS, st OpusProjectionDecoderState, request int32, a OpusDecoderCtlArgs) int32 {
+	return Opus_opus_multistream_decoder_ctl_typed(tls, st.projectionMS(tls), request, a)
 }
 
 // Open the cursor only for a consumed request. Raw entry points defer their
