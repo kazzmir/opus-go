@@ -3836,12 +3836,9 @@ func Opus_opus_multistream_decoder_ctl(tls *libc.TLS, st OpusMSDecoderState, req
 	return Opus_opus_multistream_decoder_ctl_va_list(tls, st, request, va)
 }
 
-func Opus_opus_multistream_decoder_destroy_typed(tls *libc.TLS, st *OpusT_OpusMSDecoder) {
-	// Compatibility cleanup for registered ABI/projection storage only.
-	// Go-created multistream decoders need no explicit destruction.
-	opusReleaseMSCodecViews(tls, st)
-	libc.XfreePointer(tls, unsafe.Pointer(st))
-}
+// Multistream owners are Go objects; embedded ABI views borrow their parent's
+// storage. Neither kind owns an allocation to free here.
+func Opus_opus_multistream_decoder_destroy_typed(_ *libc.TLS, _ OpusMSDecoderState) {}
 
 const OPUS_PROJECTION_GET_DEMIXING_MATRIX_GAIN_REQUEST = 6001
 const OPUS_PROJECTION_GET_DEMIXING_MATRIX_REQUEST = 6005

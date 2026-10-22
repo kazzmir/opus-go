@@ -25,7 +25,7 @@ func TestMultistreamDecoderCtlCReference(t *testing.T) {
 	copy(unsafe.Slice((*byte)(mapping), 4), []byte{0, 1, 2, 3})
 	// This transcript checks physical C child displacements, so retain a flat
 	// ABI fixture rather than treating the normal Go owner as contiguous bytes.
-	st, err := legacyRegisteredMSTestDecoder(tls, 48000, 4, 3, 1, (*byte)(mapping))
+	st, err := flatMSTestDecoder(tls, 48000, 4, 3, 1, (*byte)(mapping))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -36,7 +36,7 @@ func TestMSDecoderStaticGoStoragePointers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		flat := opusMSDecoderLegacyOwnedStorage(streams, coupled)
+		flat := flatMSComparisonStorage(streams, coupled)
 		if opusMSDecoderInitWithCodecs(nil, flat.Decoder, 48000, int32(len(mapping)), streams, coupled, &mapping[0], flat.Children, flat.Codecs) != 0 {
 			t.Fatal("legacy oracle init")
 		}

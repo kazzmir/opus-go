@@ -95,9 +95,9 @@ func TestDecoderCreatePointers(t *testing.T) {
 func TestMSDecoderDestroyPointers(t *testing.T) {
 	for trial := range 2 {
 		tls := libc.NewTLS()
-		release := func() weak.Pointer[OpusT_OpusMSDecoder] {
+		release := func() weak.Pointer[OpusMSDecoder] {
 			mapping := [3]byte{0, 1, 2}
-			st, err := legacyRegisteredMSTestDecoder(tls, 48000, 3, 2, 1, &mapping[0])
+			st, err := Opus_opus_multistream_decoder_create_typed(48000, 3, 2, 1, &mapping[0])
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -312,26 +312,19 @@ func registeredDecoderStorage(tls *libc.TLS, channels int32) (uintptr, weak.Poin
 }
 
 //go:noinline
-func registeredMSDecoderStorage(tls *libc.TLS) (uintptr, [2]weak.Pointer[OpusT_OpusCustomMode], [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2][2]weak.Pointer[[32]int16]) {
+func msDecoderStorageOwners(t *testing.T) (*OpusMSDecoder, [2]weak.Pointer[OpusT_OpusCustomMode], [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct], [2][2]weak.Pointer[[32]int16]) {
 	mapping := [4]byte{0, 1, 2, 255}
-	st, err := legacyRegisteredMSTestDecoder(tls, 48000, 4, 2, 1, &mapping[0])
+	st, err := Opus_opus_multistream_decoder_create_typed(48000, 4, 2, 1, &mapping[0])
 	if err != nil {
 		panic(err)
 	}
 	var modes [2]weak.Pointer[OpusT_OpusCustomMode]
 	var books [2][2]weak.Pointer[OpusT_silk_NLSF_CB_struct]
 	var coefs [2][2]weak.Pointer[[32]int16]
-	offset := uint(opusAlignSize8(int32(unsafe.Sizeof(*st))))
 	for i := range modes {
-		child := opusMSDecoderAt(st, offset)
-		modes[i], books[i], coefs[i] = decoderStorageForeignPointers(child)
-		channels := int32(1)
-		if i == 0 {
-			channels = 2
-		}
-		offset += uint(opusAlignSize8(Opus_opus_decoder_get_size(nil, channels)))
+		modes[i], books[i], coefs[i] = decoderStorageForeignPointers(st.codecs[i].Decoder)
 	}
-	return uintptr(unsafe.Pointer(st)), modes, books, coefs
+	return st, modes, books, coefs
 }
 
 //go:noinline
@@ -485,8 +478,8 @@ func TestOpusDecoderMSCodecBoundStoragePointers(t *testing.T) {
 	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 0}, {2, 2}, {3, 1}} {
 		streams, coupled := geometry[0], geometry[1]
 		for _, rate := range []int32{48000, 24000, 44100} {
-			owned := opusMSDecoderLegacyOwnedStorage(streams, coupled)
-			legacy := opusMSDecoderStorage(streams, coupled)
+			owned := flatMSComparisonStorage(streams, coupled)
+			legacy := flatMSComparisonStorage(streams, coupled).Decoder
 			mapping := make([]byte, streams+coupled)
 			for i := range mapping {
 				mapping[i] = byte(i)
@@ -522,8 +515,8 @@ func TestOpusDecoderMSBoundStoragePointers(t *testing.T) {
 	for _, geometry := range [][2]int32{{1, 0}, {1, 1}, {2, 1}, {3, 1}} {
 		streams, coupled := geometry[0], geometry[1]
 		for _, rate := range []int32{48000, 44100} {
-			owned := opusMSDecoderLegacyOwnedStorage(streams, coupled)
-			legacy := opusMSDecoderStorage(streams, coupled)
+			owned := flatMSComparisonStorage(streams, coupled)
+			legacy := flatMSComparisonStorage(streams, coupled).Decoder
 			mapping := make([]byte, streams+coupled)
 			for i := range mapping {
 				mapping[i] = byte(i)
@@ -558,7 +551,7 @@ func TestOpusDecoderMSStoragePointers(t *testing.T) {
 		if int32(layout.Size()) != Opus_opus_multistream_decoder_get_size(nil, streams, coupled) {
 			t.Fatal("multistream storage extent", geometry)
 		}
-		st := opusMSDecoderStorage(streams, coupled)
+		st := flatMSComparisonStorage(streams, coupled).Decoder
 		if uintptr(unsafe.Pointer(st))&15 != 0 {
 			t.Fatal("multistream storage alignment")
 		}
@@ -587,30 +580,30 @@ func TestOpusDecoderMSStoragePointers(t *testing.T) {
 		runtime.KeepAlive(st)
 	}
 	tls := libc.NewTLS()
-	address, modes, books, coefs := registeredMSDecoderStorage(tls)
+	st, modes, books, coefs := msDecoderStorageOwners(t)
+	if libc.RegisteredGoAllocation[OpusMSDecoder](tls, uintptr(unsafe.Pointer(st))) != nil {
+		t.Fatal("Go MS owner registered")
+	}
 	entropyInitGrowStack(12)
 	for trial := 0; trial < 3; trial++ {
 		runtime.GC()
 		for i := range modes {
 			if modes[i].Value() == nil {
-				t.Fatal("registry lost MS CELT owner", i)
+				t.Fatal("Go MS owner lost CELT storage", i)
 			}
 			for j := range books[i] {
 				if books[i][j].Value() == nil || coefs[i][j].Value() == nil {
-					t.Fatal("registry lost MS SILK owner", i, j)
+					t.Fatal("Go MS owner lost SILK storage", i, j)
 				}
 			}
 		}
 	}
-	// Recover the actual owner only AFTER registry-only GC checks.
-	st := libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, address)
-	if st == nil {
-		t.Fatal("registered MS owner missing")
-	}
 	Opus_opus_multistream_decoder_destroy_typed(tls, st)
-	if libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, address) != nil {
-		t.Fatal("typed MS cleanup retained registration")
+	runtime.GC()
+	if modes[0].Value() == nil || modes[1].Value() == nil {
+		t.Fatal("no-op destroy changed Go storage ownership")
 	}
+	runtime.KeepAlive(st)
 	tls.Close()
 }
 
@@ -744,7 +737,7 @@ func TestOpusDecoderSingleTypedClearStoragePointers(t *testing.T) {
 
 func TestOpusDecoderMSTypedClearStoragePointers(t *testing.T) {
 	for _, coupled := range []int32{0, 1} {
-		owned := opusMSDecoderLegacyOwnedStorage(3, coupled)
+		owned := flatMSComparisonStorage(3, coupled)
 		mapping := make([]byte, 3+coupled)
 		for i := range mapping {
 			mapping[i] = byte(i)
@@ -987,11 +980,14 @@ func TestOpusDecoderBoundCodecStoragePointers(t *testing.T) {
 func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
 	for range 2 {
 		tls := libc.NewTLS()
-		mapping := [3]byte{0, 1, 2}
-		st, err := legacyRegisteredMSTestDecoder(tls, 48000, 3, 2, 1, &mapping[0])
+		// Binding/address compatibility belongs to a borrowed projection view,
+		// not an independently allocated/registered multistream owner.
+		matrix := [18]byte{}
+		projection, err := legacyRegisteredProjectionTestDecoder(tls, 48000, 3, 2, 1, &matrix[0], 18)
 		if err != nil {
 			t.Fatal(err)
 		}
+		st := get_multistream_decoder(tls, projection)
 		binding, ok := libc.GoAllocationMetadata[OpusT_OpusMSDecoder, opusMSCodecBinding](tls, st)
 		if !ok || len(binding.Views.Codecs) != 2 {
 			t.Fatal("MS codec views")
@@ -1013,12 +1009,18 @@ func TestOpusDecoderMSBoundCodecStoragePointers(t *testing.T) {
 			t.Fatal("live MS geometry fallback")
 		}
 		st.Flayout.Fnb_coupled_streams = binding.Coupled
-		// A child alias can be independently unregistered without freeing parent.
+		// Child destruction must not release borrowed projection storage.
 		Opus_opus_decoder_destroy_typed(tls, binding.Views.Codecs[0].Decoder)
-		if libc.RegisteredGoAllocation[OpusT_OpusMSDecoder](tls, uintptr(unsafe.Pointer(st))) != st {
-			t.Fatal("child alias freed parent")
+		if libc.RegisteredGoAllocation[OpusT_OpusProjectionDecoder](tls, uintptr(unsafe.Pointer(projection))) != projection {
+			t.Fatal("child alias freed projection parent")
 		}
 		Opus_opus_multistream_decoder_destroy_typed(tls, st)
+		for _, codec := range binding.Views.Codecs {
+			if _, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, codec.Decoder); !ok {
+				t.Fatal("borrowed MS destroy released projection bindings")
+			}
+		}
+		Opus_opus_projection_decoder_destroy_typed(tls, projection)
 		for _, codec := range binding.Views.Codecs {
 			if _, ok := libc.GoAllocationMetadata[OpusT_OpusDecoder, opusCodecBinding](tls, codec.Decoder); ok {
 				t.Fatal("MS child binding leaked")

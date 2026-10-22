@@ -534,6 +534,43 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream allocation ownership removal: destroy_typed is now a literal NO-OP
+accepting OpusMSDecoderState (normal Go owners or borrowed flat views), with NO
+XfreePointer, alias removal, field mutation or dereference. Removed production
+opusMSDecoderLegacyOwnedStorage/opusMSDecoderStorage standalone flat allocation
+helpers and the test legacyRegisteredMSTestDecoder registered-MS factory. Normal
+creation remains concrete Go objects/slices and never registers a root.
+
+C/ABI byte-layout oracles still require transport layouts: test-only
+flatMSComparisonStorage/flatMSTestDecoder construct actual scanned Go field images,
+UNREGISTERED and never explicitly freed. This is not a replacement legacy
+allocation/registration path in production, nor a claim that ABI formats were
+removed. Existing physical extents/alignment/strides/initialized byte checks and
+CTL C displacement transcript stay unchanged; fixture pointer itself owns fields.
+
+Former MS registry-retention tests now exercise the intended Go strong-owner
+contract and weak collection after dropping pointers; independent registry
+ownership is intentionally no longer a contract. Same original mapping/foreign
+mode/book/coefficient reachability across GC/stack growth preserved. Normal Go
+owner explicitly survives no-op destroy/TLS close and still decodes afterward;
+unreachable cyclic graphs collect without destructor (existing no-registration
+collection tests retained).
+
+Binding/address-fallback oracle now uses a BORROWED embedded MS view of an
+explicit flat projection fixture, not a registered standalone MS allocation.
+Original child/frame/CTL identities and live mutated geometry fallback checks
+retained. MS destroy MUST retain borrowed projection bindings; actual projection
+parent cleanup then releases them, with original child-binding absence assertions.
+Private opusReleaseMSCodecViews remains ONLY for projection parent bookkeeping,
+not multistream destruction. No allocation/free adapter was substituted.
+
+Full inherited validation passes; scoped amd64/386 checkptr and tagged ARM
+ordinary/checkptr repeats20 pass, including physical CTL/decode transcripts.
+No failures, codec golden or tolerance changes. Logs /tmp/opus-ms-no-allocation-destroy-{focused,focused-final,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts34 uintptr/71 unsafe.Pointer (was34/72), one destructor cast removed. Actual
+ownership contract change, no global lifetime/native GC/performance/macOS claim.
+Earlier standalone legacy MS registration/destruction descriptions are superseded.
+
 Multistream typed-only destruction: removed Opus_opus_multistream_decoder_destroy
 raw wrapper; all THREE callers now use typed cleanup. Registry-only weak-root
 GC trials retain no strong parent; recover the actual registered owner only

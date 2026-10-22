@@ -9,20 +9,18 @@ import (
 	libc "github.com/kazzmir/opus-go/libcshim"
 )
 
-// Only registry/projection-interop fixtures use this explicit legacy setup.
-// Normal Go creation must never call it or register its state/child views.
-func legacyRegisteredMSTestDecoder(tls *libc.TLS, rate, channels, streams, coupled int32, mapping *byte) (*OpusT_OpusMSDecoder, error) {
-	owned := opusMSDecoderLegacyOwnedStorage(streams, coupled)
-	st := libc.RegisterGoAllocation(tls, owned.Decoder)
-	if st == nil {
-		return nil, opusErrorFromCode(-7)
-	}
-	if ret := opusMSDecoderInitWithCodecs(tls, st, rate, channels, streams, coupled, mapping, owned.Children, owned.Codecs); ret != OPUS_OK {
-		Opus_opus_multistream_decoder_destroy_typed(tls, st)
+// Only ABI comparison fixtures need a contiguous transport layout. These are
+// actual Go fields, never registered MS allocations and never explicitly freed.
+func flatMSComparisonStorage(streams, coupled int32) opusMSStorageViews {
+	return opusMSStorageViewsAt(opusDecoderAlignedStorage(opusMSDecoderStorageType(streams, coupled)))
+}
+
+func flatMSTestDecoder(tls *libc.TLS, rate, channels, streams, coupled int32, mapping *byte) (*OpusT_OpusMSDecoder, error) {
+	owned := flatMSComparisonStorage(streams, coupled)
+	if ret := opusMSDecoderInitWithCodecs(tls, owned.Decoder, rate, channels, streams, coupled, mapping, owned.Children, owned.Codecs); ret != OPUS_OK {
 		return nil, opusErrorFromCode(ret)
 	}
-	opusBindMSCodecViews(tls, owned)
-	return st, nil
+	return owned.Decoder, nil
 }
 
 //go:noinline
@@ -69,7 +67,8 @@ func TestMSDecoderGoOwnershipPointers(t *testing.T) {
 			}
 		}
 	}
-	// Closing an unrelated runtime TLS cannot destroy any part of Go storage.
+	// Destroy is a no-op, and closing runtime TLS cannot destroy Go storage.
+	Opus_opus_multistream_decoder_destroy_typed(tls, st)
 	tls.Close()
 	var child *OpusT_OpusDecoder
 	if Opus_opus_multistream_decoder_ctl_typed(nil, st, OPUS_MULTISTREAM_GET_DECODER_STATE_REQUEST, OpusDecoderCtlArgs{Value: 1, Decoder: &child}) != 0 {
@@ -93,6 +92,7 @@ func TestMSDecoderGoDecodePointers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	Opus_opus_multistream_decoder_destroy_typed(nil, st)
 	pcm := make([]float32, 362)
 	pcm[0], pcm[361] = 77, 88
 	entropyInitGrowStack(12)
