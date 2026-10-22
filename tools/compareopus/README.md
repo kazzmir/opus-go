@@ -534,6 +534,15 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Projection float typed-only: removed unused Opus_opus_projection_decode_float
+raw uintptr wrapper and its uintptrescapes directive. No callers needed migration;
+all float callers already use Opus_opus_projection_decode_float_typed. Existing
+real packet/PLC float-bit/guard/status/range oracles unchanged. Full inherited
+validation, scoped amd64/386 checkptr and tagged ARM ordinary/checkptr repeats20
+pass without failures or oracle/tolerance changes. Logs /tmp/opus-projection-float-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts41 uintptr/74 unsafe.Pointer (was43/77). Wrapper removal, not a new ownership
+migration or global lifetime/performance claim. Separate encoder API untouched.
+
 Projection int24 public entry pointers: Opus_opus_projection_decode24 now takes
 OpusProjectionDecoderState, *byte packet and *int32 PCM; direct typed forwarding,
 no uintptr/reconstruction/uintptrescapes. Existing real packet/PLC projection test

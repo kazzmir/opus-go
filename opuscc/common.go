@@ -4274,11 +4274,6 @@ func opusProjectionDecodeInt24(tls *libc.TLS, decoder OpusProjectionDecoderState
 	return opusMSDecodeBound(tls, ms, data, length, opusProjectionInt24Copy(matrix, pcm), frame, fec, 0)
 }
 
-//go:uintptrescapes
-func Opus_opus_projection_decode_float(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
-	return opusProjectionDecodeFloat(tls, (*OpusT_OpusProjectionDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*float32)(unsafe.Pointer(pcm)), frame, fec)
-}
-
 func opusProjectionFloatCopy(matrix *OpusT_MappingMatrix, pcm *float32) opusMSBoundChannelCopy {
 	return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
 		opus_projection_copy_channel_out_float(tls, pcm, ds, dc, src, ss, n, matrix)
