@@ -534,6 +534,37 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Encoder actual function values: removed the ACTIVE encoder __ccgo_fp too.
+NO exact __ccgo_fp function/call remains in repository Go sources. Three callback
+typedefs (copy_channel_in, copy_channel_out, downmix) now alias actual concrete Go
+function signatures, not uintptr. All single/MS/projection int16/int24/float
+wrapper paths pass actual named functions directly. Native encode/decode,
+surround/tonality analysis and resampling forward these same real function values.
+Nine indirect calls now call the Go callback directly, deleting interface-word
+extraction and unsafe struct{uintptr}->function reconstruction. No identity wrapper,
+new integer alias/token/registry or dispatch table substitutes. Existing generated
+parameter/typedef names containing __ccgo_fp_ are names for real Go functions,
+not remaining use of the removed helper.
+
+Public low-level callback SIGNATURES intentionally change from erased integer
+identities to real functions. PCM/state/user arguments elsewhere in these legacy
+encoder callbacks REMAIN uintptr; this does NOT migrate their owners or make
+encoder scratch/opaque images/GC maps/checkptr broadly safe. No hidden claim that
+encoder data pointers have been repaired. Callback environment/function ownership
+is now genuinely visible to Go GC; rest of legacy encoder separately scoped.
+
+New opusccenc/concrete_callbacks_test.go copies all three actual callback types,
+drops original values and verifies captured typed Go owner through stack growth
+and GC before/INSIDE each call, argument order/strides/channels/scalars and final
+state. Null pointer arguments only, no fake integer pointer sentinels. Scoped
+amd64/386 checkptr and ARM ordinary/checkptr repeats20 pass alongside expanded
+decoder storage/owner tests. Ordinary encoder/opus tests compile/pass. Complete
+inherited native/GC stress passes: exact decode SHA baseline and unchanged single
+encode8721 packets/938 unequal payloads/equal byte lengths/NRMSE0.0140996 at the
+SAME2% tolerance (not default1%); max4714/RMS89.1299, no golden/oracle changes.
+No failures or scope weakening. Logs /tmp/opus-encoder-no-fp-helper-{compile,focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No global lifetime/native GC/opaque-image/performance/direct macOS claim.
+
 Decoder dead function-word helper: deleted unused __ccgo_fp from
 opuscc/silk_stereo_decode_tables.go and its sole unsafe import. No decoder callers
 remain; no replacement identity adapter or relocated interface-layout cast. This
