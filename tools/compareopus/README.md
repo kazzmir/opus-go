@@ -534,6 +534,151 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Test-file organization only: consolidated112 small opuscc pointer-test files
+into21 subsystem files, reducing196 *_test.go files to105. Groups cover CELT
+entropy decode/encode/Laplace/CWRS/energy/filter/pitch/stereo/vector layout, PCM
+conversion, packet parsing/duration, projection decode/matrix IO, and SILK gain/
+LPC/NLSF/PLC/pulse coding/FIR-IIR resampling/stereo. See ../../opuscc/TESTS.md;
+source-section comments identify old filenames. Large FFT/codec/ownership/native
+reference suites remain separate; external-package interpolate test and tagged
+image comparison test retain package/build-tag boundaries.
+
+No production changes and NO test/helper bodies, declarations, fixture paths,
+assertions, names or build tags changed. Merged import lists only; all821 distinct
+non-import declaration hashes (with multiplicities across ALL test files) match
+exactly before/after. Sorted go test -list inventories identical. Test execution
+order may follow new filenames, but no shared-state workaround/skip was added.
+Original files were all tracked; unrelated untracked files untouched.
+
+Ordinary complete opuscc suite, full inherited/native/GC stress, ALL Pointers$
+tests under amd64/386 checkptr and ARM ordinary/checkptr repeats20 pass, no test
+failures or golden/tolerance/scope changes. Logs /tmp/opus-test-consolidation-{plan-final,declarations,focused,full,checkptr,386-checkptr,arm-checkptr-repeat,arm-repeat}.log; inventory diff /tmp/opus-test-consolidation-inventory.diff is empty.
+This supersedes historical test FILE locations below, not test names or behavior.
+No lifetime/global safety/native GC/opaque-image/performance/macOS claim.
+
+Encoder actual function values: removed the ACTIVE encoder __ccgo_fp too.
+NO exact __ccgo_fp function/call remains in repository Go sources. Three callback
+typedefs (copy_channel_in, copy_channel_out, downmix) now alias actual concrete Go
+function signatures, not uintptr. All single/MS/projection int16/int24/float
+wrapper paths pass actual named functions directly. Native encode/decode,
+surround/tonality analysis and resampling forward these same real function values.
+Nine indirect calls now call the Go callback directly, deleting interface-word
+extraction and unsafe struct{uintptr}->function reconstruction. No identity wrapper,
+new integer alias/token/registry or dispatch table substitutes. Existing generated
+parameter/typedef names containing __ccgo_fp_ are names for real Go functions,
+not remaining use of the removed helper.
+
+Public low-level callback SIGNATURES intentionally change from erased integer
+identities to real functions. PCM/state/user arguments elsewhere in these legacy
+encoder callbacks REMAIN uintptr; this does NOT migrate their owners or make
+encoder scratch/opaque images/GC maps/checkptr broadly safe. No hidden claim that
+encoder data pointers have been repaired. Callback environment/function ownership
+is now genuinely visible to Go GC; rest of legacy encoder separately scoped.
+
+New opusccenc/concrete_callbacks_test.go copies all three actual callback types,
+drops original values and verifies captured typed Go owner through stack growth
+and GC before/INSIDE each call, argument order/strides/channels/scalars and final
+state. Null pointer arguments only, no fake integer pointer sentinels. Scoped
+amd64/386 checkptr and ARM ordinary/checkptr repeats20 pass alongside expanded
+decoder storage/owner tests. Ordinary encoder/opus tests compile/pass. Complete
+inherited native/GC stress passes: exact decode SHA baseline and unchanged single
+encode8721 packets/938 unequal payloads/equal byte lengths/NRMSE0.0140996 at the
+SAME2% tolerance (not default1%); max4714/RMS89.1299, no golden/oracle changes.
+No failures or scope weakening. Logs /tmp/opus-encoder-no-fp-helper-{compile,focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No global lifetime/native GC/opaque-image/performance/direct macOS claim.
+
+Decoder dead function-word helper: deleted unused __ccgo_fp from
+opuscc/silk_stereo_decode_tables.go and its sole unsafe import. No decoder callers
+remain; no replacement identity adapter or relocated interface-layout cast. This
+is dead-code removal, not new ownership or a claim about the separately active
+encoder helper (migrated separately). Full inherited/native/GC stress, scoped
+amd64/386 checkptr and ARM ordinary/checkptr repeats20 pass, no failures/oracle/
+tolerance changes. Logs /tmp/opus-decoder-no-fp-helper-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No global safety/native GC/opaque-image/performance/direct macOS claim.
+
+Stereo fixed typed backing: opusGoStereoStorage now takes the Cell field of
+new(opusGoStereoAllocation), retaining actual header/SILK/CELT/tail fields, parent
+backlink and SAME typed clear. Removed BOTH uintptr/unsafe.Pointer probes,
+residue-stride wrapper, fallback array/loop/alignment panic. ms_go_storage.go now
+has NO uintptr/unsafe.Pointer/address-reconstruction expressions (unsafe.Sizeof/
+Offsetof remain compile-time geometry operations).
+
+Like mono, fixed backing is32768 bytes, with cell/body at offset0 and explicit
+trailing byte padding OUTSIDE codec ABI/Clear. This is a real MEMORY COST to keep
+the16-byte policy without probing addresses; supported Go allocators give this
+heap size page alignment rather than the scanned-small-object header displacement.
+//go:noinline prevents stack placement after inlining. Not a Go-language alignment
+guarantee/arbitrary-runtime promise or performance improvement. No opaque alias,
+new registry/reflection owner or relocated address cast. Previous stereo small+
+fallback array ownership strategy is superseded, normal owners stay scanned Go.
+
+Tests now verify actual stereo allocator alignment and fixed geometry instead of
+obsolete array residues, plus32 simultaneous independent stereo views across
+stack growth/GC and typed clear. Existing mono, both-channel static/native byte
+images, logical offsets, guards, parent/sibling/projection graph retention and
+collection checks unchanged. Full inherited/native/GC stress, scoped amd64/386
+checkptr and ARM ordinary/checkptr repeats20 pass. No failures or fixture/golden/
+tolerance changes. Logs /tmp/opus-stereo-fixed-cell-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Production opuscc counts5 uintptr/45 unsafe.Pointer (was7/47). No global safety/
+native GC/opaque-image GC-map/performance/direct macOS claim.
+
+Mono fixed typed backing: opusGoMonoStorage now takes the Cell field of
+new(opusGoMonoAllocation), sets its real Go parent backlink and returns actual
+Decoder/Silk/Celt fields plus the SAME typed body clear. NO uintptr/unsafe.Pointer
+or address probes/selection loop/panic in that function. Removed obsolete mono
+residue-stride wrapper; stereo allocator/selection policy remains unchanged.
+
+Backing object is explicitly32768 bytes, with canonical mono cell at offset0 and
+ordinary byte padding AFTER the complete cell/backlink. This MEMORY COST preserves
+the existing16-byte child policy without inspecting addresses: supported Go heap
+allocators give this size page-aligned storage rather than the8-byte displacement
+of a scanned small-object malloc header. //go:noinline keeps this allocation on
+the heap. Not a Go-language alignment declaration, arbitrary-runtime guarantee,
+performance improvement or claim that the padding is free. Prior small-cell plus
+fallback typed arrays are no longer allocated by the mono path. No smaller-cell
+or new SIMD alignment assumption hidden behind a helper/opaque integer alias.
+
+Actual codec ABI header/field offsets/tail extent, native images, logical child
+displacements, Clear extent/store ordering and parent/sibling/projection graph
+retention remain unchanged. Clear zeroes canonical prefix+tail only, preserving
+Owner and backing padding. Ordinary scanned fields/closures remain the GC owners;
+no registries/reflection/raw image owner reconstruction introduced.
+
+Alignment test now checks32KiB backing/offset0 and actual mono allocator alignment,
+while retaining original stereo array geometry/coverage. New test retains32
+simultaneous independent mono views through stack growth/GC, checks all alignment/
+stored values and typed clear. Existing all-channel/static/flat/native/guard/
+parent collection checks unchanged. Full inherited/native/GC stress, scoped
+amd64/386 checkptr and ARM ordinary/checkptr repeats20 pass. No failures or golden/
+tolerance/physical C fixture extent changes. Logs /tmp/opus-mono-fixed-cell-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Production opuscc counts7 uintptr/47 unsafe.Pointer (was9/49). No global safety/
+native GC/opaque-image GC-map/performance/direct macOS claim.
+
+DRED fixed Go cell: opusDREDDecoderStorage is now just a direct field pointer
+from new(opusDREDDecoderCell). Named cell contains the unchanged12-byte scalar
+header at offset0 and4 bytes ordinary padding: fixed16-byte object. Removed BOTH
+uintptr/unsafe.Pointer address probes, fallback20-byte-stride array/selection loop
+and alignment panic. decoder_storage.go no longer imports unsafe at all. Existing
+Go ownership stays ordinary allocation/interior pointer, not new TLS/registry/
+reflection ownership or relocated address reconstruction.
+
+Fixed16-byte allocation avoids sub-16-byte tiny packing. //go:noinline keeps it
+in the heap size class rather than an inlined caller's stack. Supported Go
+allocators'16-byte size class alignment is VERIFIED on supported targets, NOT a
+language-level16-byte alignment declaration or arbitrary toolchain guarantee.
+Returned ABI header size/get_size remain12; init/destroy magic, loaded/arch,
+validation, no-destructor collection, repeat destroy and processing stubs unchanged.
+DRED processing still UNIMPLEMENTED; no performance/global/native GC claim.
+
+New test checks cell size16/decoder offset0 and257 simultaneously live independent
+headers interleaved with1..15-byte allocations, stack growth/GC, all alignment and
+stored values. Original32-trial zero/init/alignment/GC, weak collection and factory/
+stub checks retained. Full inherited validation/native/GC stress, scoped amd64/386
+checkptr and ARM ordinary/checkptr repeats20 pass, no failures/golden/tolerance or
+fixture extent changes. Logs /tmp/opus-dred-fixed-cell-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Production opuscc counts9 uintptr/49 unsafe.Pointer (was11/51). Simplifies an
+already Go-owned allocator, not a new ownership/opaque-image GC-map repair.
+
 Common TLS argument cleanup: removed TLS from45 named common.go functions,
 updating every same-package and external opuscc caller. AST call-graph eligibility
 requires TLS either unused or ONLY forwarded as the first argument to another

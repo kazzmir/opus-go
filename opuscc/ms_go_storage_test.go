@@ -8,20 +8,53 @@ import (
 )
 
 func TestMSDecoderStaticGoAlignmentPointers(t *testing.T) {
-	if unsafe.Sizeof(opusGoMonoAligned{})%16 != unsafe.Alignof(opusGoMonoCell{}) || unsafe.Sizeof(opusGoStereoAligned{})%16 != unsafe.Alignof(opusGoStereoCell{}) {
-		t.Fatal("typed alignment arrays must visit every alignment residue")
+	if unsafe.Sizeof(opusGoMonoAllocation{}) != 32768 || unsafe.Offsetof(opusGoMonoAllocation{}.Cell) != 0 || unsafe.Offsetof(opusGoMonoCell{}.Body) != 0 {
+		t.Fatal("fixed mono allocation geometry")
 	}
-	mono := new([16 / unsafe.Alignof(opusGoMonoCell{})]opusGoMonoAligned)
-	stereo := new([16 / unsafe.Alignof(opusGoStereoCell{})]opusGoStereoAligned)
-	foundMono, foundStereo := false, false
-	for i := range mono {
-		foundMono = foundMono || uintptr(unsafe.Pointer(&mono[i].Cell.Body.Decoder))&15 == 0
+	if unsafe.Sizeof(opusGoStereoAllocation{}) != 32768 || unsafe.Offsetof(opusGoStereoAllocation{}.Cell) != 0 || unsafe.Offsetof(opusGoStereoCell{}.Body) != 0 {
+		t.Fatal("fixed stereo allocation geometry")
 	}
-	for i := range stereo {
-		foundStereo = foundStereo || uintptr(unsafe.Pointer(&stereo[i].Cell.Body.Decoder))&15 == 0
+	mono, stereo := opusGoMonoStorage(nil), opusGoStereoStorage(nil)
+	if uintptr(unsafe.Pointer(mono.Decoder))&15 != 0 || uintptr(unsafe.Pointer(stereo.Decoder))&15 != 0 {
+		t.Fatal("mono/stereo allocations must provide aligned child fields")
 	}
-	if !foundMono || !foundStereo {
-		t.Fatal("typed arrays must provide actual aligned child fields")
+}
+
+func TestMSDecoderMonoFixedAllocationPointers(t *testing.T) {
+	owners := make([]opusDecoderStorageViews, 32)
+	for i := range owners {
+		owners[i] = opusGoMonoStorage(nil)
+		owners[i].Decoder.Fdecode_gain = int32(i + 1)
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i, owner := range owners {
+		if uintptr(unsafe.Pointer(owner.Decoder))&15 != 0 || owner.Decoder.Fdecode_gain != int32(i+1) {
+			t.Fatal("mono alignment/independent lifetime", i)
+		}
+		owner.Clear()
+		if owner.Decoder.Fdecode_gain != 0 {
+			t.Fatal("mono typed clear")
+		}
+	}
+}
+
+func TestMSDecoderStereoFixedAllocationPointers(t *testing.T) {
+	owners := make([]opusDecoderStorageViews, 32)
+	for i := range owners {
+		owners[i] = opusGoStereoStorage(nil)
+		owners[i].Decoder.Fdecode_gain = int32(i + 1)
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i, owner := range owners {
+		if uintptr(unsafe.Pointer(owner.Decoder))&15 != 0 || owner.Decoder.Fdecode_gain != int32(i+1) {
+			t.Fatal("stereo alignment/independent lifetime", i)
+		}
+		owner.Clear()
+		if owner.Decoder.Fdecode_gain != 0 {
+			t.Fatal("stereo typed clear")
+		}
 	}
 }
 

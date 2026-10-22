@@ -898,6 +898,28 @@ func TestOpusDecoderPseudostackEmptyStoragePointers(t *testing.T) {
 	runtime.KeepAlive(state)
 }
 
+func TestOpusDecoderDREDCellGeometryPointers(t *testing.T) {
+	if unsafe.Sizeof(opusDREDDecoderCell{}) != 16 || unsafe.Offsetof(opusDREDDecoderCell{}.Decoder) != 0 {
+		t.Fatal("fixed DRED allocation cell geometry")
+	}
+	states := make([]*OpusT_OpusDREDDecoder, 257)
+	tiny := make([][]byte, len(states))
+	for i := range states {
+		// Interleave tiny allocations; a bare 12-byte header could be packed.
+		tiny[i] = make([]byte, 1+i%15)
+		states[i] = opusDREDDecoderStorage()
+		states[i].Floaded = int32(i)
+	}
+	entropyInitGrowStack(12)
+	runtime.GC()
+	for i, state := range states {
+		if uintptr(unsafe.Pointer(state))&15 != 0 || state.Floaded != int32(i) {
+			t.Fatal("DRED cell alignment/independent Go lifetime", i)
+		}
+	}
+	runtime.KeepAlive(tiny)
+}
+
 func TestOpusDecoderDREDStoragePointers(t *testing.T) {
 	for trial := 0; trial < 32; trial++ {
 		state := opusDREDDecoderStorage()

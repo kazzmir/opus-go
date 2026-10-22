@@ -2,11 +2,7 @@
 
 package opuscc
 
-import (
-	"unsafe"
-
-	libc "github.com/kazzmir/opus-go/libcshim"
-)
+import libc "github.com/kazzmir/opus-go/libcshim"
 
 func Opus_silk_stereo_decode_pred(tls *libc.TLS, psRangeDec *OpusT_ec_dec, pred_Q13 *[2]OpusT_opus_int32) {
 	var low_Q13, step_Q13 OpusT_opus_int32
@@ -47,11 +43,6 @@ func Opus_silk_stereo_decode_pred(tls *libc.TLS, psRangeDec *OpusT_ec_dec, pred_
 //	/* Decode mid-only flag */
 func Opus_silk_stereo_decode_mid_only(tls *libc.TLS, psRangeDec *OpusT_ec_dec, decode_only_mid *int32) {
 	*decode_only_mid = ec_dec_icdf(tls, psRangeDec, &Opus_silk_stereo_only_code_mid_iCDF[0], uint32(8))
-}
-
-func __ccgo_fp(f interface{}) uintptr {
-	type iface [2]uintptr
-	return (*iface)(unsafe.Pointer(&f))[1]
 }
 
 // C documentation
