@@ -534,6 +534,39 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream concrete closure ownership (supersedes opaque callback parameters
+below): OpusMSChannelCopy now takes ONLY TLS, destination stride/channel, *float32
+source and source stride/frame count. Generated callback typedef and internal
+bound-copy name alias that SAME concrete Go function type. Public native decode
+accepts this closure directly; PCM/user-data parameters REMOVED, not changed to
+*byte/any/erased pointer aliases. No unsafe.Pointer in these callback definitions,
+public native signature or their dispatch/capture helpers.
+
+Deleted obsolete opusMSBindBoundCopy/opusMSBindLegacyBoundCopy/opusMSInvokeLegacy
+and opaque format adapters. Real typed opusMSFloatCopy(*float32),
+opusMSShortCopy(*int16), opusMSInt24Copy(*int32) capture actual destination fields
+and call the original kernels. Ordinary typed decode paths use these same
+closures, with view/validation/sample rounding/store timing inside unchanged
+kernels. No opaque casts relocated into new adapters or dynamic type assertions.
+
+Migrated ALL callers, callback tables and scratch fixtures to actual closures.
+Custom callbacks capture typed destination and *int32 user cell with value123,
+retaining identity/value/source/stride/channel/frame checks through GC/stack
+growth and clearing original callback variable after value copy. Standard-format
+ignored-user arguments disappear with the obsolete API (no fake user pointers).
+Root tests capture []float32 destination and *msNativePayload (including its Go
+pointer/slice fields), copy through generated typedef, drop original callback,
+force GC/stack growth inside callbacks and verify captured-owner reachability.
+Public native test retains exact0,2,1,3 callback order, stride/muted source,
+complete destination values/guards, status and nil-callback early-error behavior.
+All existing whole-stream int16/int24/float sample/range/guard/native oracles remain.
+
+Full inherited validation, scoped amd64/386 checkptr (including formerly legacy
+scratch callback) and tagged ARM ordinary/checkptr repeats20 pass; no failures,
+fixture extent/golden/tolerance changes. Logs /tmp/opus-ms-closure-callback-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts15 uintptr/58 unsafe.Pointer (was15/74). Actual typed captures, not cosmetic
+aliasing. No global lifetime/native GC/opaque-image/performance/macOS claim.
+
 Multistream callback typedef pointers: OpusT___ccgo_fp__Xopus_multistream_decode_native_4
 now explicitly means func(TLS, unsafe.Pointer destination, stride/channel, *float32
 source, stride/frames, unsafe.Pointer user). NO uintptr in typedef or dependent
