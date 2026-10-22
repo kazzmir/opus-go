@@ -3508,40 +3508,21 @@ func opus_multistream_packet_validate(tls *libc.TLS, data *byte, length, streams
 	return samples
 }
 
-type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, uintptr, int32, int32, uintptr, int32, int32, uintptr)
+type OpusT___ccgo_fp__Xopus_multistream_decode_native_4 = func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32, unsafe.Pointer)
 
-func opusMSBindBoundCopy(callback, user uintptr, dst unsafe.Pointer) opusMSBoundChannelCopy {
-	if callback == __ccgo_fp(opus_copy_channel_out_float_legacy) {
-		pcm := (*float32)(dst)
-		return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
-			opus_copy_channel_out_float(tls, pcm, ds, dc, src, ss, n)
-		}
-	}
-	if callback == __ccgo_fp(opus_copy_channel_out_short_legacy) {
-		pcm := (*int16)(dst)
-		return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
-			opus_copy_channel_out_short(tls, pcm, ds, dc, src, ss, n)
-		}
-	}
-	if callback == __ccgo_fp(opus_copy_channel_out_int24_legacy) {
-		pcm := (*int32)(dst)
-		return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
-			opus_copy_channel_out_int24(tls, pcm, ds, dc, src, ss, n)
-		}
-	}
-	// Only genuinely custom callbacks retain the erased ABI and destination.
-	legacy := *(*OpusT___ccgo_fp__Xopus_multistream_decode_native_4)(unsafe.Pointer(&struct{ uintptr }{callback}))
-	return opusMSBindLegacyBoundCopy(legacy, user, dst)
+func opusMSBindBoundCopy(callback OpusT___ccgo_fp__Xopus_multistream_decode_native_4, user, dst unsafe.Pointer) opusMSBoundChannelCopy {
+	return opusMSBindLegacyBoundCopy(callback, user, dst)
 }
 
-func opusMSBindLegacyBoundCopy(legacy OpusT___ccgo_fp__Xopus_multistream_decode_native_4, user uintptr, dst unsafe.Pointer) opusMSBoundChannelCopy {
+// Historical helper name only: callback, destination and payload are Go roots,
+// not erased function words or integer addresses.
+func opusMSBindLegacyBoundCopy(callback OpusT___ccgo_fp__Xopus_multistream_decode_native_4, user, dst unsafe.Pointer) opusMSBoundChannelCopy {
 	return func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
-		opusMSInvokeLegacy(tls, legacy, uintptr(dst), ds, dc, uintptr(unsafe.Pointer(src)), ss, n, user)
+		opusMSInvokeLegacy(tls, callback, dst, ds, dc, src, ss, n, user)
 	}
 }
 
-//go:uintptrescapes
-func opusMSInvokeLegacy(tls *libc.TLS, callback OpusT___ccgo_fp__Xopus_multistream_decode_native_4, dst uintptr, ds, dc int32, src uintptr, ss, n int32, user uintptr) {
+func opusMSInvokeLegacy(tls *libc.TLS, callback OpusT___ccgo_fp__Xopus_multistream_decode_native_4, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, user unsafe.Pointer) {
 	callback(tls, dst, ds, dc, src, ss, n, user)
 }
 
@@ -3719,11 +3700,9 @@ func opus_copy_channel_out_float(tls *libc.TLS, dst *float32, dstStride, dstChan
 	}
 }
 
-// Adapter for the remaining uintptr-valued multistream callback ABI.
-//
-//go:uintptrescapes
-func opus_copy_channel_out_float_legacy(tls *libc.TLS, dst uintptr, dstStride, dstChannel int32, src uintptr, srcStride, frames int32, userData uintptr) {
-	opus_copy_channel_out_float(tls, (*float32)(unsafe.Pointer(dst)), dstStride, dstChannel, (*OpusT_opus_res)(unsafe.Pointer(src)), srcStride, frames)
+// Format-specific callbacks keep their opaque destination GC-visible.
+func opus_copy_channel_out_float_legacy(tls *libc.TLS, dst unsafe.Pointer, dstStride, dstChannel int32, src *float32, srcStride, frames int32, _ unsafe.Pointer) {
+	opus_copy_channel_out_float(tls, (*float32)(dst), dstStride, dstChannel, src, srcStride, frames)
 }
 
 func opus_copy_channel_out_short(tls *libc.TLS, dst *int16, dstStride, dstChannel int32, src *OpusT_opus_res, srcStride, frames int32) {
@@ -3752,9 +3731,8 @@ func opus_copy_channel_out_short(tls *libc.TLS, dst *int16, dstStride, dstChanne
 	}
 }
 
-//go:uintptrescapes
-func opus_copy_channel_out_short_legacy(tls *libc.TLS, dst uintptr, dstStride, dstChannel int32, src uintptr, srcStride, frames int32, userData uintptr) {
-	opus_copy_channel_out_short(tls, (*int16)(unsafe.Pointer(dst)), dstStride, dstChannel, (*OpusT_opus_res)(unsafe.Pointer(src)), srcStride, frames)
+func opus_copy_channel_out_short_legacy(tls *libc.TLS, dst unsafe.Pointer, dstStride, dstChannel int32, src *float32, srcStride, frames int32, _ unsafe.Pointer) {
+	opus_copy_channel_out_short(tls, (*int16)(dst), dstStride, dstChannel, src, srcStride, frames)
 }
 
 func opus_copy_channel_out_int24(tls *libc.TLS, dst *int32, dstStride, dstChannel int32, src *OpusT_opus_res, srcStride, frames int32) {
@@ -3775,9 +3753,8 @@ func opus_copy_channel_out_int24(tls *libc.TLS, dst *int32, dstStride, dstChanne
 	}
 }
 
-//go:uintptrescapes
-func opus_copy_channel_out_int24_legacy(tls *libc.TLS, dst uintptr, dstStride, dstChannel int32, src uintptr, srcStride, frames int32, userData uintptr) {
-	opus_copy_channel_out_int24(tls, (*int32)(unsafe.Pointer(dst)), dstStride, dstChannel, (*OpusT_opus_res)(unsafe.Pointer(src)), srcStride, frames)
+func opus_copy_channel_out_int24_legacy(tls *libc.TLS, dst unsafe.Pointer, dstStride, dstChannel int32, src *float32, srcStride, frames int32, _ unsafe.Pointer) {
+	opus_copy_channel_out_int24(tls, (*int32)(dst), dstStride, dstChannel, src, srcStride, frames)
 }
 
 //go:uintptrescapes

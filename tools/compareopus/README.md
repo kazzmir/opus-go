@@ -534,6 +534,35 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream callback typedef pointers: OpusT___ccgo_fp__Xopus_multistream_decode_native_4
+now explicitly means func(TLS, unsafe.Pointer destination, stride/channel, *float32
+source, stride/frames, unsafe.Pointer user). NO uintptr in typedef or dependent
+bind/invoke/format callback signatures. Binder accepts a REAL Go function value,
+not __ccgo_fp integer. Removed standard function-word identity dispatch, erased
+function reconstruction, integer destination/source/user bridging and affected
+uintptrescapes directives. Standard callbacks delegate to unchanged typed PCM
+kernels; their opaque destination format is genuinely callback-specific. Historical
+Legacy helper names remain, but all are now pointer-backed, not legacy integer ABI.
+
+Migrated all binder/invoker fixtures end-to-end, including callback tables and
+custom callback. Numeric123 user metadata is an ACTUAL Go int32 cell holding123,
+not unsafe.Pointer(123); custom callback verifies both pointer identity and value.
+Same input samples, output extents, guards, exact arithmetic/muting/status and
+native transcript/codec oracles. Custom closure is still cleared at original
+caller after binding and exercised across GC/stack growth. New alias/binder root
+test drops callback/user variables, then forces GC and invokes retained closure,
+checking actual captured/pointer-containing payload owners and destination guards.
+Existing public native callback order/stride/muting tests unchanged.
+
+Full inherited validation passes; expanded scoped amd64/386 checkptr includes ALL
+multistream pointer fixtures AND formerly legacy scratch callback test, plus
+projection/storage regressions. Tagged ARM ordinary/checkptr repeats20 pass.
+No failures/scope reductions/golden/tolerance changes. Logs /tmp/opus-ms-callback-type-pointer-{focused,focused-final,full,full-final,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts15 uintptr/74 unsafe.Pointer (was36/72). Real callback/owner migration, not
+integer aliases or hidden reconstruction; genuine opaque pointer declarations
+can increase pointer token counts. No global lifetime/native GC/opaque-image/
+performance/direct macOS claim; unrelated callback families/encoder untouched.
+
 DRED scalar Go ownership: create_typed now returns an actual ordinary Go header,
 without RegisterGoAllocation/metadata/reflection or a substitute registry. TLS
 argument retained/ignored for compatibility; public create forwards unchanged.

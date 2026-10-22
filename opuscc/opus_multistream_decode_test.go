@@ -199,11 +199,11 @@ func TestMultistreamWholePointers(t *testing.T) {
 		floats[0], floats[len(floats)-1] = 77, 88
 		switch format {
 		case 16:
-			copyOut = opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_short_legacy), 0, unsafe.Pointer(&short[1]))
+			copyOut = opusMSBindBoundCopy(opus_copy_channel_out_short_legacy, nil, unsafe.Pointer(&short[1]))
 		case 24:
-			copyOut = opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_int24_legacy), 0, unsafe.Pointer(&wide[1]))
+			copyOut = opusMSBindBoundCopy(opus_copy_channel_out_int24_legacy, nil, unsafe.Pointer(&wide[1]))
 		default:
-			copyOut = opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 0, unsafe.Pointer(&floats[1]))
+			copyOut = opusMSBindBoundCopy(opus_copy_channel_out_float_legacy, nil, unsafe.Pointer(&floats[1]))
 		}
 		silk := mustHex(t, "18007523c11e84d40a7ed0075134da9ffc0529ef9f410157b57c1f843e40")
 		combined := append([]byte{silk[0], byte(len(silk) - 1)}, silk[1:]...)
@@ -239,7 +239,7 @@ func TestMultistreamWholePointers(t *testing.T) {
 func TestMultistreamArgumentsPointers(t *testing.T) {
 	owner := newMultistreamOwner(t)
 	value := float32(77)
-	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 0, unsafe.Pointer(&value))
+	copyOut := opusMSBindBoundCopy(opus_copy_channel_out_float_legacy, nil, unsafe.Pointer(&value))
 	for _, item := range []struct {
 		packet              []byte
 		length, frame, want int32
@@ -321,9 +321,10 @@ func TestMultistreamSampleRatePointers(t *testing.T) {
 }
 
 func TestMultistreamFloatBoundBindingPointers(t *testing.T) {
+	userData := int32(123)
 	output := make([]float32, 11)
 	output[0], output[10] = 77, 88
-	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_float_legacy), 123, unsafe.Pointer(&output[1]))
+	copyOut := opusMSBindBoundCopy(opus_copy_channel_out_float_legacy, unsafe.Pointer(&userData), unsafe.Pointer(&output[1]))
 	entropyInitGrowStack(12)
 	runtime.GC()
 	src := [6]float32{.25, -.25, .5, -.5, .75, -.75}
@@ -341,9 +342,10 @@ func TestMultistreamFloatBoundBindingPointers(t *testing.T) {
 }
 
 func TestMultistreamShortBoundBindingPointers(t *testing.T) {
+	userData := int32(123)
 	output := make([]int16, 11)
 	output[0], output[10] = 77, 88
-	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_short_legacy), 123, unsafe.Pointer(&output[1]))
+	copyOut := opusMSBindBoundCopy(opus_copy_channel_out_short_legacy, unsafe.Pointer(&userData), unsafe.Pointer(&output[1]))
 	entropyInitGrowStack(12)
 	runtime.GC()
 	src := [6]float32{.25, -.25, .5, -.5, .75, -.75}
@@ -361,9 +363,10 @@ func TestMultistreamShortBoundBindingPointers(t *testing.T) {
 }
 
 func TestMultistreamInt24BoundBindingPointers(t *testing.T) {
+	userData := int32(123)
 	output := make([]int32, 11)
 	output[0], output[10] = 77, 88
-	copyOut := opusMSBindBoundCopy(__ccgo_fp(opus_copy_channel_out_int24_legacy), 123, unsafe.Pointer(&output[1]))
+	copyOut := opusMSBindBoundCopy(opus_copy_channel_out_int24_legacy, unsafe.Pointer(&userData), unsafe.Pointer(&output[1]))
 	entropyInitGrowStack(12)
 	runtime.GC()
 	src := [6]float32{.25, -.25, .5, -.5, .75, -.75}
@@ -381,6 +384,7 @@ func TestMultistreamInt24BoundBindingPointers(t *testing.T) {
 }
 
 func TestMultistreamCopyBindingPointers(t *testing.T) {
+	userData := int32(123)
 	src := []float32{0.25, -0.25, 0.5, -0.5, 0.75, -0.75}
 	floats := make([]float32, 11)
 	shorts := make([]int16, 11)
@@ -389,11 +393,11 @@ func TestMultistreamCopyBindingPointers(t *testing.T) {
 	shorts[0], shorts[10] = 77, 88
 	wide[0], wide[10] = 77, 88
 	cases := []struct {
-		callback uintptr
+		callback OpusT___ccgo_fp__Xopus_multistream_decode_native_4
 		dst      unsafe.Pointer
-	}{{__ccgo_fp(opus_copy_channel_out_float_legacy), unsafe.Pointer(&floats[1])}, {__ccgo_fp(opus_copy_channel_out_short_legacy), unsafe.Pointer(&shorts[1])}, {__ccgo_fp(opus_copy_channel_out_int24_legacy), unsafe.Pointer(&wide[1])}}
+	}{{opus_copy_channel_out_float_legacy, unsafe.Pointer(&floats[1])}, {opus_copy_channel_out_short_legacy, unsafe.Pointer(&shorts[1])}, {opus_copy_channel_out_int24_legacy, unsafe.Pointer(&wide[1])}}
 	for _, item := range cases {
-		copyOut := opusMSBindBoundCopy(item.callback, 123, item.dst) // Standard callbacks ignore legacy user-data.
+		copyOut := opusMSBindBoundCopy(item.callback, unsafe.Pointer(&userData), item.dst) // Standard callbacks ignore the actual Go user-data cell.
 		entropyInitGrowStack(12)
 		runtime.GC()
 		copyOut(nil, 3, 0, &src[0], 2, 3)
@@ -409,17 +413,17 @@ func TestMultistreamCopyBindingPointers(t *testing.T) {
 		t.Fatal("copy binding guards")
 	}
 	called := false
-	callback := func(tls *libc.TLS, dst uintptr, ds, dc int32, input uintptr, ss, n int32, user uintptr) {
+	callback := func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, input *float32, ss, n int32, user unsafe.Pointer) {
 		entropyInitGrowStack(12)
 		runtime.GC()
-		called = dst == uintptr(unsafe.Pointer(&floats[1])) && input == uintptr(unsafe.Pointer(&src[0])) && ds == 3 && dc == 1 && ss == 2 && n == 3 && user == 123
+		called = dst == unsafe.Pointer(&floats[1]) && input == &src[0] && ds == 3 && dc == 1 && ss == 2 && n == 3 && user == unsafe.Pointer(&userData) && *(*int32)(user) == 123
 	}
-	copyOut := opusMSBindLegacyBoundCopy(callback, 123, unsafe.Pointer(&floats[1]))
+	copyOut := opusMSBindLegacyBoundCopy(callback, unsafe.Pointer(&userData), unsafe.Pointer(&floats[1]))
 	callback = nil
 	runtime.GC()
 	copyOut(nil, 3, 1, &src[0], 2, 3)
 	if !called {
-		t.Fatal("custom legacy fallback arguments/owner")
+		t.Fatal("custom typed callback arguments/owner")
 	}
 }
 
@@ -433,9 +437,9 @@ func TestMultistreamAudioScratchLegacy(t *testing.T) {
 	callback := opus_copy_channel_out_float_legacy
 	entropyInitGrowStack(12)
 	runtime.GC()
-	opusMSInvokeLegacy(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 0, uintptr(unsafe.Pointer(&audio[0])), 2, 5, 0)
-	opusMSInvokeLegacy(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 2, uintptr(unsafe.Pointer(&audio[1])), 2, 5, 0)
-	opusMSInvokeLegacy(nil, callback, uintptr(unsafe.Pointer(&output[1])), 3, 1, 0, 0, 5, 0)
+	opusMSInvokeLegacy(nil, callback, unsafe.Pointer(&output[1]), 3, 0, &audio[0], 2, 5, nil)
+	opusMSInvokeLegacy(nil, callback, unsafe.Pointer(&output[1]), 3, 2, &audio[1], 2, 5, nil)
+	opusMSInvokeLegacy(nil, callback, unsafe.Pointer(&output[1]), 3, 1, nil, 0, 5, nil)
 	for i := 0; i < 5; i++ {
 		if output[1+3*i] != audio[2*i] || output[2+3*i] != 0 || output[3+3*i] != audio[2*i+1] {
 			t.Fatal("Go stereo/mono/muted scratch")

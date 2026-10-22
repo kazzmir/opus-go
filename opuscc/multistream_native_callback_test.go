@@ -41,6 +41,24 @@ func msNativeCallbackOwners(t *testing.T) (unsafe.Pointer, weak.Pointer[msNative
 	return unsafe.Pointer(payload), weak.Make(payload.Marker), callback, weak.Make(captured)
 }
 
+func TestMultistreamCallbackAliasRootsPointers(t *testing.T) {
+	user, marker, callback, captured := msNativeCallbackOwners(t)
+	pcm := []float32{77, 0, 88}
+	bound := opusMSBindBoundCopy(callback, user, unsafe.Pointer(&pcm[1]))
+	callback, user = nil, nil
+	entropyInitGrowStack(12)
+	runtime.GC()
+	if marker.Value() == nil || captured.Value() == nil {
+		t.Fatal("bound typed callback/payload roots")
+	}
+	src := [2]float32{.25, -.25}
+	bound(nil, 1, 0, &src[0], 2, 1)
+	if pcm[0] != 77 || pcm[1] != 1 || pcm[2] != 88 {
+		t.Fatal("bound destination/guards", pcm)
+	}
+	runtime.KeepAlive(bound)
+}
+
 func TestMultistreamNativeCallbackPointers(t *testing.T) {
 	mapping := [4]byte{0, 1, 0, 255}
 	st, err := Opus_opus_multistream_decoder_create_typed(48000, 4, 1, 1, &mapping[0])
