@@ -534,6 +534,15 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Decoder dead function-word helper: deleted unused __ccgo_fp from
+opuscc/silk_stereo_decode_tables.go and its sole unsafe import. No decoder callers
+remain; no replacement identity adapter or relocated interface-layout cast. This
+is dead-code removal, not new ownership or a claim about the separately active
+encoder helper (migrated separately). Full inherited/native/GC stress, scoped
+amd64/386 checkptr and ARM ordinary/checkptr repeats20 pass, no failures/oracle/
+tolerance changes. Logs /tmp/opus-decoder-no-fp-helper-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+No global safety/native GC/opaque-image/performance/direct macOS claim.
+
 Stereo fixed typed backing: opusGoStereoStorage now takes the Cell field of
 new(opusGoStereoAllocation), retaining actual header/SILK/CELT/tail fields, parent
 backlink and SAME typed clear. Removed BOTH uintptr/unsafe.Pointer probes,
