@@ -534,6 +534,31 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+DRED fixed Go cell: opusDREDDecoderStorage is now just a direct field pointer
+from new(opusDREDDecoderCell). Named cell contains the unchanged12-byte scalar
+header at offset0 and4 bytes ordinary padding: fixed16-byte object. Removed BOTH
+uintptr/unsafe.Pointer address probes, fallback20-byte-stride array/selection loop
+and alignment panic. decoder_storage.go no longer imports unsafe at all. Existing
+Go ownership stays ordinary allocation/interior pointer, not new TLS/registry/
+reflection ownership or relocated address reconstruction.
+
+Fixed16-byte allocation avoids sub-16-byte tiny packing. //go:noinline keeps it
+in the heap size class rather than an inlined caller's stack. Supported Go
+allocators'16-byte size class alignment is VERIFIED on supported targets, NOT a
+language-level16-byte alignment declaration or arbitrary toolchain guarantee.
+Returned ABI header size/get_size remain12; init/destroy magic, loaded/arch,
+validation, no-destructor collection, repeat destroy and processing stubs unchanged.
+DRED processing still UNIMPLEMENTED; no performance/global/native GC claim.
+
+New test checks cell size16/decoder offset0 and257 simultaneously live independent
+headers interleaved with1..15-byte allocations, stack growth/GC, all alignment and
+stored values. Original32-trial zero/init/alignment/GC, weak collection and factory/
+stub checks retained. Full inherited validation/native/GC stress, scoped amd64/386
+checkptr and ARM ordinary/checkptr repeats20 pass, no failures/golden/tolerance or
+fixture extent changes. Logs /tmp/opus-dred-fixed-cell-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Production opuscc counts9 uintptr/49 unsafe.Pointer (was11/51). Simplifies an
+already Go-owned allocator, not a new ownership/opaque-image GC-map repair.
+
 Common TLS argument cleanup: removed TLS from45 named common.go functions,
 updating every same-package and external opuscc caller. AST call-graph eligibility
 requires TLS either unused or ONLY forwarded as the first argument to another

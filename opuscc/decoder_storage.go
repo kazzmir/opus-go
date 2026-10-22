@@ -1,9 +1,6 @@
 package opuscc
 
-import (
-	"reflect"
-	"unsafe"
-)
+import "reflect"
 
 // These layouts describe actual Go allocations, including the runtime GC map.
 // Caller-supplied ABI byte buffers are not retroactively made pointer-scanned.
@@ -173,27 +170,20 @@ func opusMSStorageViewsAt(owner reflect.Value) opusMSStorageViews {
 	return views
 }
 
-// DRED has a concrete 12-byte scalar ABI header; normal Go cells retain the
-// 16-byte alignment policy without reflection, registration or opaque images.
+// Keep the 12-byte DRED ABI header at the start of a 16-byte allocation,
+// outside the Go tiny allocator's sub-16-byte packing. Supported Go allocators
+// align this size class to 16 bytes (verified by architecture tests); this is
+// not a language-level 16-byte alignment declaration.
+type opusDREDDecoderCell struct {
+	Decoder OpusT_OpusDREDDecoder
+	Padding [4]byte
+}
+
+// Keep allocation in the heap size class rather than an inlined caller's stack.
+//
+//go:noinline
 func opusDREDDecoderStorage() *OpusT_OpusDREDDecoder {
-	cell := new(struct {
-		Decoder OpusT_OpusDREDDecoder
-		Padding [4]byte
-	})
-	if uintptr(unsafe.Pointer(&cell.Decoder))&15 == 0 {
-		return &cell.Decoder
-	}
-	// A 20-byte stride visits every four-byte-aligned residue modulo16.
-	cells := new([4]struct {
-		Decoder OpusT_OpusDREDDecoder
-		Padding [8]byte
-	})
-	for i := range cells {
-		if uintptr(unsafe.Pointer(&cells[i].Decoder))&15 == 0 {
-			return &cells[i].Decoder
-		}
-	}
-	panic("opus Go DRED alignment")
+	return &new(opusDREDDecoderCell).Decoder
 }
 
 // OpusDecoderStorage describes actual fields of complete canonical decoder
