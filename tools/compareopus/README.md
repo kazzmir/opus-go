@@ -534,6 +534,30 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream native public pointers: Opus_opus_multistream_decode_native now takes
+OpusMSDecoderState, *byte packet, GC-visible unsafe.Pointer PCM/user payload,
+and actual Go OpusMSChannelCopy function (float32 source). PCM format/payload
+layout genuinely belong to the callback, so no invented concrete type. No
+uintptr parameters, erased function-word reconstruction, uintptrescapes directive
+or legacy binding/invoke call in this entry's dispatch path. Its bound closure
+retains real Go callback/destination/payload pointers and calls the same kernel.
+No address casts moved into a replacement adapter. Existing explicit legacy
+callback helpers/tests remain separate; not claimed globally eliminated/repaired.
+
+Both old public-entry callers now keep state/data/PCM typed and pass an actual
+float-output callback, same buffers/extents/sample counts/guards/nil-TLS/frame cap.
+New normal-owner custom callback test exercises captured Go owner and pointer-
+containing opaque payload across GC/stack growth INSIDE callbacks, exact channel
+order0,2,1,3, source stride, nil muted source, full destination values/guards and
+validation-before-nil-callback invocation. No forced integers disguised as pointers
+or new persistent opaque-root registry. All prior codec/native oracles unchanged.
+Full inherited amd64/386/ARM64-QEMU/native/GC-stress checks pass, scoped amd64/386
+checkptr and tagged ARM ordinary/checkptr repeats20 pass, no failures/tolerance
+changes. Logs /tmp/opus-ms-native-pointer-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts37 uintptr/75 unsafe.Pointer (was41/74): actual function/pointer ownership
+migration; four genuine opaque pointer declarations replace three reconstruction
+casts. No global lifetime/native GC/opaque-image/performance/macOS claim.
+
 Projection float typed-only: removed unused Opus_opus_projection_decode_float
 raw uintptr wrapper and its uintptrescapes directive. No callers needed migration;
 all float callers already use Opus_opus_projection_decode_float_typed. Existing

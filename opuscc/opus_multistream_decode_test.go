@@ -276,13 +276,15 @@ func TestMultistreamNoPseudostack(t *testing.T) {
 	packet := []byte{4}
 	pcm := make([]float32, 5760*4+2)
 	pcm[0], pcm[len(pcm)-1] = 77, 88
-	callback := __ccgo_fp(opus_copy_channel_out_float_legacy)
+	callback := func(tls *libc.TLS, dst unsafe.Pointer, ds, dc int32, src *float32, ss, n int32, _ unsafe.Pointer) {
+		opus_copy_channel_out_float(tls, (*float32)(dst), ds, dc, src, ss, n)
+	}
 	entropyInitGrowStack(12)
 	runtime.GC()
-	if Opus_opus_multistream_decode_native(nil, uintptr(unsafe.Pointer(&owner.MS)), uintptr(unsafe.Pointer(&packet[0])), 1, uintptr(unsafe.Pointer(&pcm[1])), callback, 10000, 0, 0, 0) != 480 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
+	if Opus_opus_multistream_decode_native(nil, &owner.MS, &packet[0], 1, unsafe.Pointer(&pcm[1]), callback, 10000, 0, 0, nil) != 480 || pcm[0] != 77 || pcm[len(pcm)-1] != 88 {
 		t.Fatal("nil TLS MS entry")
 	}
-	if Opus_opus_multistream_decode_native(nil, uintptr(unsafe.Pointer(&owner.MS)), 0, 0, uintptr(unsafe.Pointer(&pcm[1])), callback, 10000, 0, 0, 0) != 5760 {
+	if Opus_opus_multistream_decode_native(nil, &owner.MS, nil, 0, unsafe.Pointer(&pcm[1]), callback, 10000, 0, 0, nil) != 5760 {
 		t.Fatal("nil TLS MS capped PLC")
 	}
 }

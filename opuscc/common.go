@@ -3558,9 +3558,15 @@ func opusMSDecodeChild(tls *libc.TLS, decoder *OpusT_OpusDecoder, data *byte, le
 	return opusDecodeNative(tls, decoder, data, length, pcm, frame, fec, selfDelimited, packetOffset, softClip)
 }
 
-//go:uintptrescapes
-func Opus_opus_multistream_decode_native(tls *libc.TLS, st1, data uintptr, len1 int32, pcm uintptr, callback uintptr, frame_size, decode_fec, soft_clip int32, user_data uintptr) int32 {
-	return opusMSDecodeBound(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st1)), (*byte)(unsafe.Pointer(data)), len1, opusMSBindBoundCopy(callback, user_data, unsafe.Pointer(pcm)), frame_size, decode_fec, soft_clip)
+// OpusMSChannelCopy consumes a channel with a callback-defined PCM destination
+// and user payload. Both opaque pointers remain GC-visible; source PCM is float32.
+type OpusMSChannelCopy func(*libc.TLS, unsafe.Pointer, int32, int32, *float32, int32, int32, unsafe.Pointer)
+
+func Opus_opus_multistream_decode_native(tls *libc.TLS, st OpusMSDecoderState, data *byte, length int32, pcm unsafe.Pointer, callback OpusMSChannelCopy, frame, fec, softClip int32, userData unsafe.Pointer) int32 {
+	copyOut := func(tls *libc.TLS, ds, dc int32, src *float32, ss, n int32) {
+		callback(tls, pcm, ds, dc, src, ss, n, userData)
+	}
+	return opusMSDecodeBound(tls, st, data, length, copyOut, frame, fec, softClip)
 }
 
 func opusMSPacketAt(data *byte, offset uint, length int32) *byte {
