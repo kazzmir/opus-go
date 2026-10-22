@@ -3817,11 +3817,6 @@ func opusMSDecodeInt24(tls *libc.TLS, decoder OpusMSDecoderState, data *byte, le
 	return opusMSDecodeBound(tls, decoder, data, length, copyOut, frame, fec, 0)
 }
 
-//go:uintptrescapes
-func Opus_opus_multistream_decode_float(tls *libc.TLS, st, data uintptr, length int32, pcm uintptr, frame, fec int32) int32 {
-	return opusMSDecodeFloat(tls, (*OpusT_OpusMSDecoder)(unsafe.Pointer(st)), (*byte)(unsafe.Pointer(data)), length, (*float32)(unsafe.Pointer(pcm)), frame, fec)
-}
-
 func Opus_opus_multistream_decode_float_typed(tls *libc.TLS, decoder OpusMSDecoderState, data *byte, length int32, pcm *float32, frame, fec int32) int32 {
 	return opusMSDecodeFloat(tls, decoder, data, length, pcm, frame, fec)
 }

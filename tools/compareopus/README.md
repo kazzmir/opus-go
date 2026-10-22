@@ -534,6 +534,15 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+Multistream float typed-only: removed unused Opus_opus_multistream_decode_float
+raw wrapper and uintptrescapes directive. All callers already use the typed
+version; no reconstruction adapter added. Existing float/kernel/C transcript/
+range/guard oracles unchanged. Full inherited validation, scoped amd64/386
+checkptr and tagged ARM ordinary/checkptr repeats20 pass, no failures/tolerance
+changes. Logs /tmp/opus-ms-float-typed-only-{focused,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts35 uintptr/72 unsafe.Pointer (was37/75). Wrapper cleanup, not new ownership
+or global lifetime/performance claims. Separate encoder API untouched.
+
 Multistream native public pointers: Opus_opus_multistream_decode_native now takes
 OpusMSDecoderState, *byte packet, GC-visible unsafe.Pointer PCM/user payload,
 and actual Go OpusMSChannelCopy function (float32 source). PCM format/payload
