@@ -917,32 +917,55 @@ func TestOpusDecoderDREDStoragePointers(t *testing.T) {
 }
 
 //go:noinline
-func registeredDREDStorage(tls *libc.TLS) (uintptr, weak.Pointer[OpusT_OpusDREDDecoder]) {
+func droppedDREDStorage(t *testing.T, tls *libc.TLS) weak.Pointer[OpusT_OpusDREDDecoder] {
 	state, err := Opus_opus_dred_decoder_create_typed(tls)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
-	return uintptr(unsafe.Pointer(state)), weak.Make(state)
+	if libc.RegisteredGoAllocation[OpusT_OpusDREDDecoder](tls, uintptr(unsafe.Pointer(state))) != nil {
+		t.Fatal("Go DRED owner registered")
+	}
+	return weak.Make(state)
 }
 
-func TestOpusDecoderDREDRegisteredStoragePointers(t *testing.T) {
-	if state, err := Opus_opus_dred_decoder_create_typed(nil); state != nil || err == nil {
-		t.Fatal("nil TLS DRED allocation failure")
-	}
+func TestOpusDecoderDREDGoOwnershipPointers(t *testing.T) {
 	tls := libc.NewTLS()
 	defer tls.Close()
-	handle, owner := registeredDREDStorage(tls)
-	entropyInitGrowStack(12)
-	runtime.GC()
-	state := libc.RegisteredGoAllocation[OpusT_OpusDREDDecoder](tls, handle)
-	if state == nil || state != owner.Value() || state.Fmagic != 0xD8EDDEC0 || handle&15 != 0 {
-		t.Fatal("registered concrete DRED owner")
+	owner := droppedDREDStorage(t, tls)
+	for i := 0; i < 10; i++ {
+		runtime.GC()
 	}
-	Opus_opus_dred_decoder_destroy_typed(tls, state)
-	if libc.RegisteredGoAllocation[OpusT_OpusDREDDecoder](tls, handle) != nil {
-		t.Fatal("DRED registry cleanup")
+	if owner.Value() != nil {
+		t.Fatal("DRED owner retained without Go pointer/destructor")
 	}
+	for _, ctx := range []*libc.TLS{nil, tls} {
+		state, err := Opus_opus_dred_decoder_create_typed(ctx)
+		if err != nil || state == nil {
+			t.Fatal("Go DRED creation", err)
+		}
+		entropyInitGrowStack(12)
+		runtime.GC()
+		if state.Fmagic != 0xD8EDDEC0 || uintptr(unsafe.Pointer(state))&15 != 0 {
+			t.Fatal("initialized aligned Go DRED owner")
+		}
+		state.Floaded, state.Farch = 17, 23
+		Opus_opus_dred_decoder_destroy_typed(ctx, state)
+		runtime.GC()
+		if state.Fmagic != 0xDE57801D || state.Floaded != 17 || state.Farch != 23 {
+			t.Fatal("DRED destroy must only invalidate magic")
+		}
+		Opus_opus_dred_decoder_destroy_typed(ctx, state)
+		runtime.KeepAlive(state)
+	}
+	tls.Close()
+	state, err := Opus_opus_dred_decoder_create(tls)
+	if err != nil || state.Fmagic != 0xD8EDDEC0 {
+		t.Fatal("DRED storage independent of TLS lifetime")
+	}
+	Opus_opus_dred_decoder_destroy_typed(nil, state)
 	Opus_opus_dred_decoder_destroy_typed(tls, nil)
+	Opus_opus_dred_decoder_destroy_typed(nil, nil)
+	runtime.KeepAlive(tls)
 }
 
 func TestOpusDecoderBoundCodecStoragePointers(t *testing.T) {

@@ -13,8 +13,13 @@ func TestDREDFactoryPointers(t *testing.T) {
 		t.Fatal("disabled DRED allocation stub", handle, err)
 	}
 	Opus_opus_dred_decoder_destroy_typed(nil, nil)
-	if dec, err := Opus_opus_dred_decoder_create(nil); dec != nil || err == nil {
-		t.Fatal("DRED allocation failure", dec, err)
+	if dec, err := Opus_opus_dred_decoder_create(nil); dec == nil || err != nil || dec.Fmagic != 0xD8EDDEC0 {
+		t.Fatal("Go-owned DRED creation without TLS", dec, err)
+	} else {
+		Opus_opus_dred_decoder_destroy_typed(nil, dec)
+		if dec.Fmagic != 0xDE57801D {
+			t.Fatal("DRED invalidation")
+		}
 	}
 	tls := libc.NewTLS()
 	defer tls.Close()
@@ -52,8 +57,7 @@ func TestDREDInitPointers(t *testing.T) {
 	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xD8EDDEC0}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {
 		t.Fatal("disabled DRED fields/guards", owner)
 	}
-	// Go-only: nil TLS makes the allocator free a no-op, so invalidation can
-	// be inspected without reading an actually freed registered allocation.
+	// Destruction invalidates only the magic; Go-owned storage is never freed.
 	Opus_opus_dred_decoder_destroy_typed(nil, &owner.Decoder)
 	if owner.Decoder != (OpusT_OpusDREDDecoder{Fmagic: 0xDE57801D}) || owner.Before != 0x12345678 || owner.After != 0x87654321 {
 		t.Fatal("disabled DRED invalidation/guards", owner)

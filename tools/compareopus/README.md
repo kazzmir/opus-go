@@ -534,6 +534,42 @@ Earlier leaf-only checkptr limits and legacy concealment views above are now
 historical. Outer CELT decoding and opaque allocation pointer scanning still
 remain legacy; this is not global GC safety or direct macOS CI coverage.
 
+DRED scalar Go ownership: create_typed now returns an actual ordinary Go header,
+without RegisterGoAllocation/metadata/reflection or a substitute registry. TLS
+argument retained/ignored for compatibility; public create forwards unchanged.
+Valid nil/closed TLS now succeeds, removing obsolete simulated nil-TLS -7.
+Normal Go OOM behavior applies. Header remains EXACTLY12 scalar ABI bytes and
+retains16-byte alignment using declared Go cells: a16-byte fast cell, or actual
+fields in a20-byte-stride typed array covering all four-byte alignment residues.
+Only numeric alignment tests inspect addresses; no integer pointer reconstruction.
+
+Destroy_typed no longer calls XfreePointer or releases registrations. It STILL
+sets magic0xDE57801D, preserving existing diagnostics/observable invalidation,
+while retaining loaded/arch and nil behavior. Not incorrectly described as a
+complete no-op. Existing initialization magic0xD8EDDEC0/zero fields,12-byte guarded
+init fixture and destroy guards remain. Header pointers own their backing cells;
+no actual Go field graph is replaced by a raw byte image.
+
+Old DRED registry retention contract removed: new tests assert no registration,
+collection WITHOUT destructor while unrelated TLS remains alive, positive nil/
+nonnil/closed TLS construction, GC/stack-growth/alignment, repeated destruction
+and magic-only writes. Updated old nil-TLS allocation-failure assertion to the
+intentional Go allocation contract; disabled payload alloc remains nil/-5.
+No DRED model/processing implementation was enabled or disabled; all existing
+parse/process/decode/CTL stub and ignored-native-DRED argument oracles retained.
+
+Initial focused compile failed missing unsafe import; corrected. Next focused
+run hit old TestDREDFactoryPointers nil-TLS -7 expectation, updated only for the
+new specified ownership contract. Both logs retained. Complete expanded focused
+scope then passes; full inherited validation passes, scoped386 checkptr and
+tagged ARM ordinary/checkptr repeats20 pass. No weakened scope, codec golden,
+fixture extent or tolerance change. Logs /tmp/opus-dred-go-owner-{focused,focused-retry,focused-retry2,full,386-checkptr,arm-checkptr-repeat,arm-repeat}.log.
+Counts36 uintptr/72 unsafe.Pointer (was34/71): two numeric alignment inspections
+and two corresponding pointer conversions replace one destructor conversion;
+no new integer owners. No native GC/opaque-image repair, global lifetime,
+performance/direct macOS or enabled-DRED claims. Earlier DRED TLS-registration/
+reflective allocation notes superseded for normal creation.
+
 Multistream allocation ownership removal: destroy_typed is now a literal NO-OP
 accepting OpusMSDecoderState (normal Go owners or borrowed flat views), with NO
 XfreePointer, alias removal, field mutation or dereference. Removed production

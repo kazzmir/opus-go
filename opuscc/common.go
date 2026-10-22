@@ -3134,15 +3134,10 @@ func opusDREDDecoderInit(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) int32 {
 	return OPUS_OK
 }
 
-func Opus_opus_dred_decoder_create_typed(tls *libc.TLS) (*OpusT_OpusDREDDecoder, error) {
-	if tls == nil {
-		return nil, opusErrorFromCode(-int32(7))
-	}
-	dec := libc.RegisterGoAllocation(tls, opusDREDDecoderStorage())
-	if dec == nil {
-		return nil, opusErrorFromCode(-int32(7))
-	}
-	opusDREDDecoderInit(tls, dec)
+// TLS is retained only for compatibility; Go pointers own this scalar header.
+func Opus_opus_dred_decoder_create_typed(_ *libc.TLS) (*OpusT_OpusDREDDecoder, error) {
+	dec := opusDREDDecoderStorage()
+	opusDREDDecoderInit(nil, dec)
 	return dec, nil
 }
 
@@ -3150,11 +3145,11 @@ func Opus_opus_dred_decoder_create(tls *libc.TLS) (*OpusT_OpusDREDDecoder, error
 	return Opus_opus_dred_decoder_create_typed(tls)
 }
 
-func Opus_opus_dred_decoder_destroy_typed(tls *libc.TLS, dec *OpusT_OpusDREDDecoder) {
+// Preserve magic invalidation, but Go storage is never explicitly freed.
+func Opus_opus_dred_decoder_destroy_typed(_ *libc.TLS, dec *OpusT_OpusDREDDecoder) {
 	if dec != nil {
 		dec.Fmagic = uint32(0xDE57801D)
 	}
-	libc.XfreePointer(tls, unsafe.Pointer(dec))
 }
 
 // DRED CTL is unimplemented and consumes no arguments.
