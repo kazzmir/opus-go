@@ -19,7 +19,7 @@ func TestMultistreamPacketValidateCReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	tls := libc.NewTLS()
 	defer tls.Close()
 	data := libc.Xmalloc(tls, 64)

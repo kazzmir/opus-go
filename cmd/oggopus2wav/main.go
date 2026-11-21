@@ -42,7 +42,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	r, err := ogg.NewOpusReader(in)
 	if err != nil {
@@ -53,19 +53,19 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	defer dec.Close()
+	defer func() { _ = dec.Close() }()
 
 	outf, err := os.Create(*out)
 	if err != nil {
 		fatal(err)
 	}
-	defer outf.Close()
+	defer func() { _ = outf.Close() }()
 
 	ww, err := wav.NewWriter(outf, 48000, int(r.Head.Channels))
 	if err != nil {
 		fatal(err)
 	}
-	defer ww.Close()
+	defer func() { _ = ww.Close() }()
 
 	// Maximum Opus frame size at 48kHz is 120ms = 5760 samples/channel.
 	maxFrame := 5760

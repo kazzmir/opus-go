@@ -1,159 +1,159 @@
 package main
 
 import (
-    "os"
-    "fmt"
-    "time"
-    "runtime"
-    "log"
-    "io"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"runtime"
+	"time"
 
-    "github.com/vAudience/opus-go"
-    "github.com/ebitengine/oto/v3"
+	"github.com/ebitengine/oto/v3"
+	"github.com/vAudience/opus-go"
 )
 
 func play(filename string) error {
-    io.WriteString(os.Stdout, fmt.Sprintf("Playing file: %s\n", filename))
+	io.WriteString(os.Stdout, fmt.Sprintf("Playing file: %s\n", filename))
 
-    opusPlayer, err := opusgo.NewPlayerFromFile(filename, true)
-    if err != nil {
-        return err
-    }
+	opusPlayer, err := opusgo.NewPlayerFromFile(filename, true)
+	if err != nil {
+		return err
+	}
 
-    var options oto.NewContextOptions
-    options.SampleRate = 48000
-    options.ChannelCount = 2
-    options.Format = oto.FormatSignedInt16LE
+	var options oto.NewContextOptions
+	options.SampleRate = 48000
+	options.ChannelCount = 2
+	options.Format = oto.FormatSignedInt16LE
 
-    context, ready, err := oto.NewContext(&options)
-    if err != nil {
-        return err
-    }
+	context, ready, err := oto.NewContext(&options)
+	if err != nil {
+		return err
+	}
 
-    log.Printf("Waiting for audio context to be ready")
-    <-ready
+	log.Printf("Waiting for audio context to be ready")
+	<-ready
 
-    log.Printf("Playing")
+	log.Printf("Playing")
 
-    // log.Printf("Length: %v", opusPlayer.Length())
+	// log.Printf("Length: %v", opusPlayer.Length())
 
-    _, err = opusPlayer.Seek(100, io.SeekStart)
-    if err != nil {
-        log.Printf("Error seeking: %v", err)
-        return err
-    }
-    // err = opusPlayer.SeekTime(80379 * time.Millisecond)
+	_, err = opusPlayer.Seek(100, io.SeekStart)
+	if err != nil {
+		log.Printf("Error seeking: %v", err)
+		return err
+	}
+	// err = opusPlayer.SeekTime(80379 * time.Millisecond)
 
-    /*
-    n, err := opusPlayer.Seek(-2000000, io.SeekEnd)
-    if err != nil {
-        log.Printf("Error seeking: %v", err)
-    } else {
-        log.Printf("Seeked to byte position: %d", n)
-    }
-    */
+	/*
+	   n, err := opusPlayer.Seek(-2000000, io.SeekEnd)
+	   if err != nil {
+	       log.Printf("Error seeking: %v", err)
+	   } else {
+	       log.Printf("Seeked to byte position: %d", n)
+	   }
+	*/
 
-    log.Printf("Current position: %v", opusPlayer.CurrentSample())
-    log.Printf("Current time: %v", opusPlayer.CurrentTime())
+	log.Printf("Current position: %v", opusPlayer.CurrentSample())
+	log.Printf("Current time: %v", opusPlayer.CurrentTime())
 
-    otoPlayer := context.NewPlayer(opusPlayer)
-    otoPlayer.SetBufferSize(options.SampleRate * 2 * 2 / 4) // 250ms buffer
-    otoPlayer.Play()
+	otoPlayer := context.NewPlayer(opusPlayer)
+	otoPlayer.SetBufferSize(options.SampleRate * 2 * 2 / 4) // 250ms buffer
+	otoPlayer.Play()
 
-    if otoPlayer.Err() != nil {
-        return otoPlayer.Err()
-    }
+	if otoPlayer.Err() != nil {
+		return otoPlayer.Err()
+	}
 
-    for !opusPlayer.IsFinished() {
-        time.Sleep(100 * time.Millisecond)
-        runtime.KeepAlive(otoPlayer)
-    }
+	for !opusPlayer.IsFinished() {
+		time.Sleep(100 * time.Millisecond)
+		runtime.KeepAlive(otoPlayer)
+	}
 
-    // wait just a bit longer for the last audio packet to finish playing
-    time.Sleep(500 * time.Millisecond)
-    runtime.KeepAlive(otoPlayer)
+	// wait just a bit longer for the last audio packet to finish playing
+	time.Sleep(500 * time.Millisecond)
+	runtime.KeepAlive(otoPlayer)
 
-    return nil
+	return nil
 }
 
 func playF32(filename string) error {
-    io.WriteString(os.Stdout, fmt.Sprintf("Playing file: %s\n", filename))
+	io.WriteString(os.Stdout, fmt.Sprintf("Playing file: %s\n", filename))
 
-    opusPlayer, err := opusgo.NewPlayerF32FromFile(filename, true)
-    if err != nil {
-        return err
-    }
+	opusPlayer, err := opusgo.NewPlayerF32FromFile(filename, true)
+	if err != nil {
+		return err
+	}
 
-    var options oto.NewContextOptions
-    options.SampleRate = 48000
-    options.ChannelCount = 2
-    options.Format = oto.FormatFloat32LE 
+	var options oto.NewContextOptions
+	options.SampleRate = 48000
+	options.ChannelCount = 2
+	options.Format = oto.FormatFloat32LE
 
-    context, ready, err := oto.NewContext(&options)
-    if err != nil {
-        return err
-    }
+	context, ready, err := oto.NewContext(&options)
+	if err != nil {
+		return err
+	}
 
-    log.Printf("Waiting for audio context to be ready")
-    <-ready
+	log.Printf("Waiting for audio context to be ready")
+	<-ready
 
-    log.Printf("Playing")
+	log.Printf("Playing")
 
-    // log.Printf("Length: %v", opusPlayer.Length())
+	// log.Printf("Length: %v", opusPlayer.Length())
 
-    _, err = opusPlayer.Seek(100, io.SeekStart)
-    if err != nil {
-        log.Printf("Error seeking: %v", err)
-        return err
-    }
-    // err = opusPlayer.SeekTime(80379 * time.Millisecond)
+	_, err = opusPlayer.Seek(100, io.SeekStart)
+	if err != nil {
+		log.Printf("Error seeking: %v", err)
+		return err
+	}
+	// err = opusPlayer.SeekTime(80379 * time.Millisecond)
 
-    /*
-    n, err := opusPlayer.Seek(-2000000, io.SeekEnd)
-    if err != nil {
-        log.Printf("Error seeking: %v", err)
-    } else {
-        log.Printf("Seeked to byte position: %d", n)
-    }
-    */
+	/*
+	   n, err := opusPlayer.Seek(-2000000, io.SeekEnd)
+	   if err != nil {
+	       log.Printf("Error seeking: %v", err)
+	   } else {
+	       log.Printf("Seeked to byte position: %d", n)
+	   }
+	*/
 
-    log.Printf("Current position: %v", opusPlayer.CurrentSample())
-    log.Printf("Current time: %v", opusPlayer.CurrentTime())
+	log.Printf("Current position: %v", opusPlayer.CurrentSample())
+	log.Printf("Current time: %v", opusPlayer.CurrentTime())
 
-    otoPlayer := context.NewPlayer(opusPlayer)
-    otoPlayer.SetBufferSize(options.SampleRate * 4 * 2 / 4) // 250ms buffer
-    otoPlayer.Play()
+	otoPlayer := context.NewPlayer(opusPlayer)
+	otoPlayer.SetBufferSize(options.SampleRate * 4 * 2 / 4) // 250ms buffer
+	otoPlayer.Play()
 
-    if otoPlayer.Err() != nil {
-        return otoPlayer.Err()
-    }
+	if otoPlayer.Err() != nil {
+		return otoPlayer.Err()
+	}
 
-    for !opusPlayer.IsFinished() {
-        time.Sleep(100 * time.Millisecond)
-        runtime.KeepAlive(otoPlayer)
-    }
+	for !opusPlayer.IsFinished() {
+		time.Sleep(100 * time.Millisecond)
+		runtime.KeepAlive(otoPlayer)
+	}
 
-    // wait just a bit longer for the last audio packet to finish playing
-    time.Sleep(500 * time.Millisecond)
-    runtime.KeepAlive(otoPlayer)
+	// wait just a bit longer for the last audio packet to finish playing
+	time.Sleep(500 * time.Millisecond)
+	runtime.KeepAlive(otoPlayer)
 
-    return nil
+	return nil
 }
 
 func main() {
-    log.SetFlags(log.Ldate | log.Lshortfile | log.Lmicroseconds)
-    if len(os.Args) < 2 {
-        fmt.Println("Provide a .ogg or .opus file to play")
-        return
-    }
+	log.SetFlags(log.Ldate | log.Lshortfile | log.Lmicroseconds)
+	if len(os.Args) < 2 {
+		fmt.Println("Provide a .ogg or .opus file to play")
+		return
+	}
 
-    filename := os.Args[1]
+	filename := os.Args[1]
 
-    // err := play(filename)
-    err := playF32(filename)
-    if err != nil {
-        fmt.Printf("Error playing file: %v\n", err)
-    }
+	// err := play(filename)
+	err := playF32(filename)
+	if err != nil {
+		fmt.Printf("Error playing file: %v\n", err)
+	}
 
-    log.Println("Exiting")
+	log.Println("Exiting")
 }

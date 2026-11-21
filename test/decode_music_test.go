@@ -4,7 +4,7 @@ import (
 	"io"
 	"os"
 	"testing"
-    "time"
+	"time"
 
 	"github.com/vAudience/opus-go/ogg"
 	"github.com/vAudience/opus-go/opus"
@@ -15,7 +15,7 @@ func TestDecodeMusic64kbpsSampleCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open fixture: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	r, err := ogg.NewOpusReader(f)
 	if err != nil {
@@ -30,7 +30,7 @@ func TestDecodeMusic64kbpsSampleCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new decoder: %v", err)
 	}
-	defer dec.Close()
+	defer func() { _ = dec.Close() }()
 
 	// Max Opus frame size at 48kHz is 120ms = 5760 samples/channel.
 	pcm := make([]int16, 5760*int(r.Head.Channels))
@@ -54,7 +54,7 @@ func TestDecodeMusic64kbpsSampleCount(t *testing.T) {
 		out := pcm[:nPerCh*dec.Channels()]
 
 		if preSkipRemaining > 0 {
-			skip := min(len(out), preSkipRemaining * dec.Channels())
+			skip := min(len(out), preSkipRemaining*dec.Channels())
 			out = out[skip:]
 			preSkipRemaining -= skip / dec.Channels()
 		}
@@ -71,60 +71,60 @@ func TestDecodeMusic64kbpsSampleCount(t *testing.T) {
 	// Note: this is a count of int16 values (interleaved), not bytes.
 	// For ~90s at 48kHz stereo, that's ~90 * 48000 * 2 = 8.64M.
 	const expected = int64(8640000)
-    tolerance := int64(ogg.OpusSampleRateHz * dec.Channels()) // 1 second tolerance
+	tolerance := int64(ogg.OpusSampleRateHz * dec.Channels()) // 1 second tolerance
 	if totalInt16 < expected-tolerance || totalInt16 > expected+tolerance {
 		t.Fatalf("decoded int16 sample count out of range: got %d, want %d±%d", totalInt16, expected, tolerance)
 	}
 }
 
 func BenchmarkDecode(bench *testing.B) {
-    f, err := os.Open("music_64kbps.opus")
+	f, err := os.Open("music_64kbps.opus")
 	if err != nil {
 		bench.Fatalf("open fixture: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	r, err := ogg.NewOpusReader(f)
 	if err != nil {
 		bench.Fatalf("ogg opus reader: %v", err)
 	}
 
-    pcm := make([]int16, 10000)
+	pcm := make([]int16, 10000)
 
-    var packets []*ogg.OpusAudioPacket
-    // skip some initial packets
-    N := 2000
-    for range N {
-        packet, err := r.ReadAudioPacket()
-        if err != nil {
-            bench.Fatalf("read audio packet: %v", err)
-        }
-        packets = append(packets, packet)
-    }
+	var packets []*ogg.OpusAudioPacket
+	// skip some initial packets
+	N := 2000
+	for range N {
+		packet, err := r.ReadAudioPacket()
+		if err != nil {
+			bench.Fatalf("read audio packet: %v", err)
+		}
+		packets = append(packets, packet)
+	}
 
-    var decodeTime time.Duration
+	var decodeTime time.Duration
 
-    totalDecoded := 0
+	totalDecoded := 0
 
-    bench.ResetTimer()
-    for bench.Loop() {
+	bench.ResetTimer()
+	for bench.Loop() {
 
-        decodeStart := time.Now()
-        decoder, err := opus.NewDecoderFromHead(r.Head)
-        if err != nil {
-            bench.Fatalf("new decoder: %v", err)
-        }
-        decodeTime += time.Since(decodeStart)
+		decodeStart := time.Now()
+		decoder, err := opus.NewDecoderFromHead(r.Head)
+		if err != nil {
+			bench.Fatalf("new decoder: %v", err)
+		}
+		decodeTime += time.Since(decodeStart)
 
-        for _, packet := range packets {
-            pcm, _, err = decoder.DecodePacket(packet, pcm)
-            if err != nil {
-                bench.Fatalf("unable to decode: %v", err)
-            }
-            totalDecoded += 1
-        }
-    }
+		for _, packet := range packets {
+			pcm, _, err = decoder.DecodePacket(packet, pcm)
+			if err != nil {
+				bench.Fatalf("unable to decode: %v", err)
+			}
+			totalDecoded += 1
+		}
+	}
 
-    bench.ReportMetric(float64(totalDecoded) / float64((bench.Elapsed() - decodeTime).Milliseconds()), "packets/ms")
+	bench.ReportMetric(float64(totalDecoded)/float64((bench.Elapsed()-decodeTime).Milliseconds()), "packets/ms")
 
 }

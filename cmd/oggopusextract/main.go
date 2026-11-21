@@ -27,7 +27,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	r, err := ogg.NewOpusReader(in)
 	if err != nil {
@@ -42,11 +42,11 @@ func main() {
 		if err != nil {
 			fatal(err)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		w = f
 	}
 	bw := bufio.NewWriterSize(w, 128*1024)
-	defer bw.Flush()
+	defer func() { _ = bw.Flush() }()
 
 	for {
 		pkt, err := r.ReadAudioPacket()

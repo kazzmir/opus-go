@@ -22,7 +22,7 @@ func TestMultistreamDecodeNativeCReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	tls := libc.NewTLS()
 	defer tls.Close()
 	mapping := libc.Xmalloc(tls, 5)
