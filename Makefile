@@ -4,7 +4,7 @@
 #     `GOARCH=386 go test ./...`. The arm64 and macos runners cannot be reproduced on this host; the
 #     closest honest substitute is the cross-compile `go vet` steps below (type-check + build of every
 #     package for darwin/arm64 and linux/arm64, tests included). linux/amd64 and 386 tests run for real.
-#   - .github/workflows/security.yml: full-history gitleaks scan (scripts/ci-gitleaks.sh).
+# It also adds (new for this repo, no workflow existed): the full-history gitleaks scan (scripts/ci-gitleaks.sh).
 # Each step is its own $(MAKE) so the order is fail-fast even under `make -j`.
 
 .PHONY: ci-local gitleaks fmt-check mod-tidy-check govulncheck vet lint test test-386 vet-cross
@@ -35,7 +35,7 @@ govulncheck:
 	govulncheck ./...
 
 # This module is a C-to-Go transpilation that carries C pointers as uintptr by design, so vet's `unsafeptr`
-# analyzer flags thousands of intended sites (libcshim, opuscc, opusccenc); that discipline is held by the
+# analyzer flags thousands of intended sites (libcshim, opus, opuscc, opusccenc); that discipline is held by the
 # internal/unsafeaudit tests under `make test`. The transpiled packages (opuscc, opusccenc) additionally
 # trip `unreachable` and `assign` on generated control flow. Every other vet analyzer runs everywhere.
 VET_TRANSPILED := ./opuscc/... ./opusccenc/...
