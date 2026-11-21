@@ -17,7 +17,7 @@ func TestOpusDecoderCtlCReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	tls := libc.NewTLS()
 	defer tls.Close()
 	st, err := Opus_opus_decoder_create(tls, 48000, 2)

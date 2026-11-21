@@ -60,7 +60,7 @@ func Dir(dir string) ([]Finding, error) {
 }
 
 func auditFunc(fset *token.FileSet, fd *ast.FuncDecl) []Finding {
-	locals := map[*ast.Object]bool{}
+	locals := map[*ast.Object]bool{} //nolint:staticcheck // SA1019: ast.Object is the only resolver available without type-checking; the audit is syntactic by design
 	if fd.Type.Params != nil {
 		for _, p := range fd.Type.Params.List {
 			for _, id := range p.Names {

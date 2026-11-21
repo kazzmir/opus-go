@@ -36,7 +36,7 @@ func TestCeltFatalCReference(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer output.Close()
+			defer func() { _ = output.Close() }()
 			var caught interface{}
 			func() {
 				old := os.Stderr

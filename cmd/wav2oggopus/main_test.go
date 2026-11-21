@@ -59,7 +59,7 @@ func play(t *testing.T, data []byte) played {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dec.Close()
+	defer func() { _ = dec.Close() }()
 	ch := int(r.Head.Channels)
 	var pcm []int16
 	var last *ogg.OpusAudioPacket

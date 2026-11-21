@@ -1,0 +1,8 @@
+version: "2"
+linters:
+  settings:
+    govet:
+      # C-to-Go transpilation carrying C pointers as uintptr by design; held by internal/unsafeaudit tests.
+      # Same exclusion as `make vet` (see Makefile).
+      disable:
+        - unsafeptr

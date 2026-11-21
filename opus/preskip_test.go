@@ -17,7 +17,7 @@ func TestPreSkipIs48kHz(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		enc.Close()
+		_ = enc.Close()
 		// Fs/400 + Fs/250 in libopus: 6.5 ms.
 		if want := rate * 13 / 2000; lookahead != want {
 			t.Errorf("%d Hz: Lookahead %d, want %d", rate, lookahead, want)

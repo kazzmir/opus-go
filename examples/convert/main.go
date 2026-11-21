@@ -361,7 +361,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	defer inF.Close()
+	defer func() { _ = inF.Close() }()
 
 	// need a seekable version first to get the length
 	dec, err := mp3.NewDecoder(inF)
@@ -416,7 +416,7 @@ func main() {
 	if err != nil {
 		fatal(fmt.Errorf("unable to create opus encoder: %v", err))
 	}
-	defer enc.Close()
+	defer func() { _ = enc.Close() }()
 
 	if err := enc.SetBitrate(bitrate); err != nil {
 		fatal(err)

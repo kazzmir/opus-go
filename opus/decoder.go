@@ -248,18 +248,18 @@ func (d *Decoder) DecodeF32(packet []byte, pcm []float32, frameSize int, decodeF
 
 // convenience function to decode an Ogg OpusAudioPacket
 func (decoder *Decoder) DecodePacket(packet *ogg.OpusAudioPacket, pcm []int16) ([]int16, int, error) {
-    const maxMsPerFrame = 120
-    maxSize := ogg.OpusSampleRateHz * maxMsPerFrame / 1000
-    if len(pcm) < maxSize * decoder.channels {
-        pcm = make([]int16, maxSize * decoder.channels)
-    }
+	const maxMsPerFrame = 120
+	maxSize := ogg.OpusSampleRateHz * maxMsPerFrame / 1000
+	if len(pcm) < maxSize*decoder.channels {
+		pcm = make([]int16, maxSize*decoder.channels)
+	}
 
-    n, err := decoder.Decode(packet.Data, pcm, maxSize, false)
-    if err != nil {
-        return nil, 0, err
-    }
+	n, err := decoder.Decode(packet.Data, pcm, maxSize, false)
+	if err != nil {
+		return nil, 0, err
+	}
 
-    return pcm[:n*decoder.channels], n, nil
+	return pcm[:n*decoder.channels], n, nil
 }
 
 // convenience function to decode an Ogg OpusAudioPacket

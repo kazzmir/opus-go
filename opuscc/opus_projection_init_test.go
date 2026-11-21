@@ -17,7 +17,7 @@ func TestProjectionDecoderInitCReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	scanner := bufio.NewScanner(f)
 	for line := 1; scanner.Scan(); line++ {
 		t.Run(fmt.Sprint(line), func(t *testing.T) {

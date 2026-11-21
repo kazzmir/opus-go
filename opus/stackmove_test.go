@@ -29,7 +29,7 @@ func encodeSine(t *testing.T) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer enc.Close()
+	defer func() { _ = enc.Close() }()
 	var pcm [480]int16
 	var packet [4000]byte
 	var out []byte
@@ -87,7 +87,7 @@ func TestDecodeWithStackBuffers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer enc.Close()
+	defer func() { _ = enc.Close() }()
 	pcm := make([]int16, 960)
 	for i := range pcm {
 		pcm[i] = int16(16000 * math.Sin(2*math.Pi*440*float64(i)/48000))
@@ -105,7 +105,7 @@ func TestDecodeWithStackBuffers(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		defer dec.Close()
+		defer func() { _ = dec.Close() }()
 		if _, err := dec.Decode(packet, into, len(into), false); err != nil {
 			t.Error(err)
 		}

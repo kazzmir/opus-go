@@ -80,8 +80,7 @@ func (r *Reader) readHeader() error {
 	}
 
 	var (
-		haveFmt  bool
-		haveData bool
+		haveFmt bool
 	)
 
 	for {
@@ -124,7 +123,6 @@ func (r *Reader) readHeader() error {
 				return fmt.Errorf("%w: data before fmt", ErrUnsupportedWAV)
 			}
 			r.dataRemaining = sz
-			haveData = true
 			return nil
 
 		default:
@@ -137,10 +135,6 @@ func (r *Reader) readHeader() error {
 					return err
 				}
 			}
-		}
-
-		if haveData {
-			return nil
 		}
 	}
 }

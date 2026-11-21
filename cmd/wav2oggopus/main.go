@@ -66,7 +66,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	defer inF.Close()
+	defer func() { _ = inF.Close() }()
 
 	outF, err := os.Create(*outPath)
 	if err != nil {
@@ -134,7 +134,7 @@ func encode(in io.Reader, out io.Writer, opt options) error {
 	if err != nil {
 		return err
 	}
-	defer enc.Close()
+	defer func() { _ = enc.Close() }()
 
 	if opt.bitrate > 0 {
 		if err := enc.SetBitrate(opt.bitrate); err != nil {
@@ -278,9 +278,7 @@ func parseApplication(s string) (int, error) {
 	s = strings.ReplaceAll(s, "_", "-")
 	s = strings.ReplaceAll(s, " ", "-")
 	s = strings.ReplaceAll(s, "restricted-", "")
-	if strings.HasPrefix(s, "app-") {
-		s = strings.TrimPrefix(s, "app-")
-	}
+	s = strings.TrimPrefix(s, "app-")
 
 	switch s {
 	case "audio":

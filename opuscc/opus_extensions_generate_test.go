@@ -20,7 +20,7 @@ func TestPacketExtensionsGenerateCReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	scanner := bufio.NewScanner(f)
 	for line := 1; scanner.Scan(); line++ {
 		input := strings.NewReader(scanner.Text())

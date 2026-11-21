@@ -105,7 +105,7 @@ func TestOpusDecodeFrameCReferencePartA(t *testing.T) {
 	}
 
 	for i, step := range decodeFrameRefA {
-		if step.tag == "gain" {
+		if step.tag == "gain" { //nolint:staticcheck // QF1003: an if/else-if chain over a mixed body reads better than a tagged switch here
 			var slot [2]int32
 			if got := Opus_opus_decoder_ctl(tls, dec, OPUS_SET_GAIN_REQUEST, libc.VaList(uintptr(unsafe.Pointer(&slot[0])), int32(256))); got != OPUS_OK {
 				t.Fatalf("step %d (%s): OPUS_SET_GAIN: %d", i, step.tag, got)
